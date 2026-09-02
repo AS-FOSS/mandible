@@ -848,7 +848,7 @@ pub(crate) fn sweep_guard(
              tripwires (--allow-uncontained was passed). Evidence-before-argv gating (spec §6) \
              is still in effect — this does not loosen what argv a probe can be sent — but the \
              containment and detection layers this project's third safety layer adds are not \
-             present for this run. See spec.md §6/§8 and \
+             present for this run. See docs/design.md §6/§8 and \
              mandible_extract::exec::containment's doc comment."
         );
         return Ok(None);

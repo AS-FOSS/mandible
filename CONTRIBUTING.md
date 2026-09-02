@@ -114,7 +114,7 @@ So when a tool parses badly, the fix is one of these:
    verbatim and labelled as such, never given invented structure.
 
 One name-keyed exception is enough to start the erosion, because the next
-person to hit a hard tool will reasonably copy it. spec.md sections 1 and 3
+person to hit a hard tool will reasonably copy it. docs/design.md sections 1 and 3
 have the longer argument.
 
 ### Before a pull request
@@ -146,7 +146,7 @@ than a convention. The verbatim display path uses
 alignment intact because that pane exists to show exactly what arrived.
 
 Provenance is recorded on each node, flag, and positional separately, never as
-one badge for a whole tree. spec.md section 4.2 explains why a single badge
+one badge for a whole tree. docs/design.md section 4.2 explains why a single badge
 becomes misleading after results from several tiers are merged.
 
 ### Running other people's binaries
@@ -163,7 +163,7 @@ spawns a subprocess has to:
 6. Never pass an argument that could make the tool write a file.
 
 `InertArgv` is a closed enum, so adding a shape takes a deliberate edit and a
-spec amendment. That friction is the point. See spec.md section 6.
+spec amendment. That friction is the point. See docs/design.md section 6.
 
 ### Tests
 
@@ -186,9 +186,9 @@ you think you need `unsafe` anywhere else, raise it as a discussion first.
 Library crates carry `#![warn(missing_docs)]`. Use `thiserror` in libraries and
 `anyhow` only in the `mandible` binary.
 
-### spec.md
+### docs/design.md
 
-[`spec.md`](./spec.md) is the design reference. Most non-obvious decisions in
+[`docs/design.md`](./docs/design.md) is the design reference. Most non-obvious decisions in
 this codebase trace back to a measurement or a stated tradeoff recorded there,
 and Appendix A holds the measurements themselves.
 

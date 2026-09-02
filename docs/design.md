@@ -32,41 +32,108 @@ are collected in [Appendix A](#appendix-a--measured-baseline) and cited inline a
 15. [Packaging & distribution](#15-packaging--distribution)
 16. [Open risks & honest caveats](#16-open-risks--honest-caveats)
 17. [Investigated and deferred: local NL search](#17-investigated-and-deferred-local-nl-search)
+- [How to read this document](#how-to-read-this-document)
+- [Glossary](#glossary)
 - [Appendix A — Measured baseline](#appendix-a--measured-baseline)
 - [Appendix B — What changed in revision 2](#appendix-b--what-changed-in-revision-2)
 
 ---
 
+## How to read this document
+
+Sections 1 to 17 all take the same four-part shape, in this order. A section
+that has nothing to say under a heading omits it rather than padding it.
+
+- **Decides.** One sentence naming what this section is the authority on.
+- **Rules.** The binding statements. If it is not here, it is not a rule.
+- **Why.** The reasoning, and the measurement behind it where one exists.
+- **Implemented in.** The paths that carry the rules out.
+
+The two appendices keep their own shape. Appendix A is a table of
+measurements and Appendix B is a historical record, and neither states a rule.
+
+Section numbers are stable. They are cited from source comments, from
+`AGENTS.md`, and from the man page, so a section is never renumbered and
+never reordered. A section that dies keeps its number and says so.
+
+## Glossary
+
+The words below mean one specific thing here, and they are used in no other
+sense anywhere in this repository.
+
+- **Node.** One invocable command: `git`, or `git commit`. Nodes form a tree.
+- **Entity.** One thing a node documents: a flag, a positional, a modifier,
+  an environment variable, or a subcommand.
+- **Spelling.** One written form of an entity, such as `-v` or `--verbose`.
+  Several spellings can name one entity.
+- **Tier.** One extraction strategy, tried in order. Tier A′ identifies the
+  framework, Tier B parses `--help`, and later tiers degrade from there.
+- **Framework.** The library that generated a tool's help text, such as clap,
+  cobra or argparse. Parsing is keyed on the framework, never on the tool.
+- **Shape.** A recurring visual form of help text, catalogued in
+  `docs/shapes.md` with a stable `S-NNN` id.
+- **Probe.** One contained execution of a tool to read its help output, under
+  the argv allowlist in §6.
+- **Verbatim.** The honest fallback: the tool's own text rendered untouched
+  because no structure could be recovered.
+- **Fabrication.** Structure reported that the tool's own text does not
+  contain. The failure this project treats as most serious.
+- **Provenance.** Which tier and which source produced a field.
+- **Confidence.** A per-node score derived from how cleanly the parse ran.
+- **Fixture.** Frozen bytes plus a contract under `corpus/`, replayed on every
+  run.
+- **xfail.** A fixture recording a defect that is reproduced and not yet
+  fixed. It carries no snapshot.
+- **Sweep.** A run of the extraction pipeline over every executable on `PATH`.
+- **Oracle.** An instrument that judges a parse against the tool's own text,
+  such as the existence check that catches fabrication.
+- **Ratchet.** The list of size-lint exemptions in `scripts/ratchet.txt`,
+  which may only shrink.
+- **[M-n].** A citation to a measurement in Appendix A.
+
+---
+
 ## 1. Product definition & non-goals
 
-**mandible is a reference browser, not a command builder.** The user's journey is:
-*"I know roughly what I want; show me the flag and its exact spelling, then let me
-copy it."* Everything in this spec is subordinate to that.
+**Decides.** What mandible is, and what it will never become.
 
-**The invariant that defines the project:**
+**Rules.**
 
-> The mandible repository will never contain per-tool logic. No `if tool == "docker"`,
-> no vendored per-tool patch file, no tool-name-keyed special case in any tier.
-> Tool-specific knowledge lives in exactly two places: (a) third-party structured
-> catalogs we consume wholesale as *data*, and (b) user-local override files that
-> are never checked into this repo.
+1. mandible is a reference browser, not a command builder.
+2. The user already knows roughly what they want. mandible shows the exact
+   flag and its spelling, and lets the user copy it.
+3. The mandible repository never contains per-tool logic. No
+   `if tool == "docker"`, no vendored per-tool patch file, no tool-name-keyed
+   special case in any tier.
+4. Tool-specific knowledge lives in exactly two places: third-party
+   structured catalogs consumed wholesale as data, and user-local override
+   files that are never checked into this repository.
+5. A change that would violate rule 3 is fixed by improving a general
+   parser, adding a general extraction tier, or accepting the gap and
+   showing it honestly in the UI.
+6. mandible never executes the tool being documented.
+7. mandible is not a shell completion engine.
+8. mandible does not synthesize commands from natural language. See §17.
+9. mandible does not promise perfect fidelity.
 
-If a change would violate that invariant, the correct fix is to improve a general
-parser, add a general extraction tier, or accept the gap and show it honestly in
-the UI. This is the whole reason the tiered design exists; a single exception
-starts the erosion.
+**Why.** Everything in this document is subordinate to the user's journey in
+rule 2. The no-per-tool-logic invariant is the whole reason the tiered
+design exists; a single exception starts the erosion. Carapace and similar
+tools already cover shell completion, so mandible does not duplicate that
+work. The extraction pipeline is best-effort by construction, so the UI's
+job is to make the confidence level legible, not to hide it.
 
-**Non-goals** (stated so they don't quietly creep in):
-
-- Executing the tool being documented. mandible never runs a user's command for them.
-- Being a shell completion engine. Carapace and friends already do that.
-- Natural-language command synthesis. See §17 for why this is deferred, not planned.
-- Perfect fidelity. The pipeline is best-effort by construction; the UI's job is to
-  make the confidence level legible, not to hide it.
+**Implemented in.** `mandible-extract/src/tier.rs`,
+`mandible-extract/src/overrides/mod.rs`.
 
 ---
 
 ## 2. Vision & UX flow
+
+**Decides.** The screen layout, the keybindings, and how a selection leaves
+the TUI and lands on the user's shell prompt.
+
+**Rules.**
 
 ```
 $ mandible git
@@ -101,10 +168,8 @@ opens a full-screen TUI:
 **Layout.** Vertical: search bar (3 rows) / body (fill) / status bar (1 row).
 Body horizontal: tree pane / detail pane. The tree pane is
 `Constraint::Min(24)` and the detail pane fills the remainder, never a
-percentage split: at 80 columns a 35% tree pane leaves too few usable cells
-for a name plus a summary after borders and depth indentation [M-7]. Below
-60 columns total, drop summaries from tree rows; below 50, stack the panes
-and toggle the detail pane with `Tab`.
+percentage split. Below 60 columns total, drop summaries from tree rows;
+below 50, stack the panes and toggle the detail pane with `Tab`.
 
 **Design principles.**
 
@@ -113,20 +178,17 @@ and toggle the detail pane with `Tab`.
   summaries, default foreground for names. No color as decoration.
 - **Consistent indentation.** Each tree depth is exactly 2 cells; expanding
   changes only the chevron glyph (`▸`/`▾`), never the row's horizontal
-  layout, which matters for mouse hit-testing (§9) and for not making the
-  eye re-track.
+  layout.
 - **Breadcrumbs in the detail pane header**, always showing the full path
   (`git › rebase`), so context survives scrolling.
 - **Provenance is legible, not decorative.** The footer names the
   contributing sources and whether structure and prose each came from a
-  trusted source, and it must be accurate (§4.2) or it is worse than
-  nothing.
+  trusted source.
 - **Rounded borders** (`BorderType::Rounded`), consistent 1-cell padding, no
   nested boxes.
 
-**Flags are not tree rows.** `git` alone carries 2,999 flags [M-1]; putting
-them in the tree makes the tree useless. Flags live in the detail pane and
-stay independently searchable and addressable (§4.3, §10): the tree is for
+**Flags are not tree rows.** Flags live in the detail pane and stay
+independently searchable and addressable (§4.3, §10): the tree is for
 structure, search is for flags.
 
 **Interaction model.**
@@ -146,57 +208,30 @@ structure, search is for flags.
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
-`y` is not a nice-to-have: looking up a flag in order to type it is the
-terminal step of the core journey, and a reference tool that cannot hand
-you the string makes you retype it.
-
-`t` is the escape hatch for the one failure mode the rest of this
-document's honesty machinery cannot signal: a grammar that misreads a
-layout and produces a plausible tree is indistinguishable from one that
-read it correctly, until a human reads the tool's real output beside ours
-[M-10]. Rather than reserve that check for the coverage harness, `t` puts
-it one key away for every user, on every node. It re-probes rather than
-retaining raw text, since retention costs megabytes across a warmed tree
-and would show what the tool said at startup rather than now, the same
-staleness argument that removed the cache (§11). §6 rule 0 applies
-unchanged here: `pkill --help` is shown, since that shape is measured
-harmless, but an interactive request does not widen what may be run —
+`t` re-probes the node rather than retaining its raw text. §6 rule 0
+applies unchanged in this mode: `pkill --help` is shown, but
 `pkill something --help` stays refused exactly as in the extraction
 pipeline.
 
-**Handing the command over: `--print-selection`.** The journey `y` serves
-ends at the prompt, and the clipboard is one paste short of it. `mandible
+**Handing the command over: `--print-selection`.** `mandible
 --print-selection <tool>` browses identically, except that `Enter`
 accepts: it prints the selected node's full command path, plus the
 selected flag's spelling when search landed on one, to stdout and exits.
-`→`/`l` still expand, so nothing becomes unreachable; `q`/`Ctrl-C` still
-quit, printing nothing, which leaves a shell binding's line untouched.
-Without the flag, `Enter` is one of the three expand keys, unchanged.
+`→`/`l` still expand. `q`/`Ctrl-C` still quit, printing nothing. Without
+the flag, `Enter` is one of the three expand keys, unchanged.
 
 **Accepting is bound to the focus, not to the key.** `Enter` accepts only
 from browse focus, the tree or the detail pane. While the search box has
-focus it does exactly what it does without the flag: commits the query,
-moves focus to the tree, keeps the filter — a key that is a search box's
-only commit key cannot be reassigned, since that would leave `Esc` as the
-sole way out of the box. The flag journey therefore ends one `Enter` later
-than the tree selection it made: the first closes the search, the second
-accepts what search landed on.
+focus, `Enter` commits the query, moves focus to the tree, and keeps the
+filter.
 
-A TUI cannot type into the shell that launched it, so the shell reads the
-line back through a command substitution and puts it on its own prompt.
-That requires stdout to carry the composed line and nothing else, a
-property of the whole program rather than the renderer: the UI draws on
-stderr in this mode, and everything else that touches the terminal — the
-OSC-52 clipboard fallback, and the color-support check — is asked of that
-same stream (`mandible-tui`'s `terminal::Sink`). A stray escape sequence on
-stdout here is not cosmetic; it is a corrupted command on someone's
-prompt.
+Stdout carries the composed line and nothing else. The UI draws on stderr
+in this mode, and the OSC-52 clipboard fallback and the color-support
+check use that same stream (`mandible-tui`'s `terminal::Sink`).
 
-The spelling composed is the long one where the tool documents one, else
+The spelling composed is the long form where the tool documents one, else
 the short letter, always the affirmative form (`--color`, never the
-un-runnable `--[no-]color`). No value placeholder is appended: the line is
-handed over to be edited, and a literal `FILE` in it is worse than a flag
-left unfinished.
+un-runnable `--[no-]color`). No value placeholder is appended.
 
 `mandible --shell-init bash|zsh` prints the binding that closes the loop:
 for bash a `bind -x` function assigning `READLINE_LINE`/`READLINE_POINT`,
@@ -205,17 +240,66 @@ readline's own extension prefix, unbound in either shell by default. It
 reads the first word already on the line as the tool to open, and replaces
 the line with what comes back.
 
+**Why.** `y` is not a nice-to-have. Looking up a flag in order to type it
+is the terminal step of the core journey, and a reference tool that cannot
+hand you the string makes you retype it.
+
+`t` is the escape hatch for the one failure mode the rest of this
+document's honesty machinery cannot signal: a grammar that misreads a
+layout and produces a plausible tree is indistinguishable from one that
+read it correctly, until a human reads the tool's real output beside ours
+[M-10]. Rather than reserve that check for the coverage harness, `t` puts
+it one key away for every user, on every node. It re-probes rather than
+retains raw text because retention costs megabytes across a warmed tree
+and would show what the tool said at startup rather than now, the same
+staleness argument that removed the cache (§11).
+
+The journey `y` serves ends at the prompt, and the clipboard is one paste
+short of it. `--print-selection` closes that gap.
+
+A key that is a search box's only commit key cannot be reassigned, since
+that would leave `Esc` as the sole way out of the box. The flag journey
+therefore ends one `Enter` later than the tree selection it made: the
+first closes the search, the second accepts what search landed on.
+
+A TUI cannot type into the shell that launched it, so the shell reads the
+line back through a command substitution and puts it on its own prompt.
+That requires stdout to carry the composed line and nothing else, a
+property of the whole program rather than the renderer. A stray escape
+sequence on stdout here is not cosmetic; it is a corrupted command on
+someone's prompt.
+
+`git` alone carries 2,999 flags [M-1]; putting them in the tree makes the
+tree useless.
+
+The tree pane holds `Constraint::Min(24)` rather than a percentage split
+because at 80 columns a 35% tree pane leaves too few usable cells for a
+name plus a summary after borders and depth indentation [M-7].
+
+The line is handed over to be edited, and a literal `FILE` in it is worse
+than a flag left unfinished.
+
+**Implemented in.** `mandible-tui/src/event.rs`,
+`mandible-tui/src/layout.rs`, `mandible-tui/src/clipboard.rs`,
+`mandible-tui/src/terminal.rs`, `mandible/src/app_runner.rs`,
+`mandible/src/shell_init.rs`.
+
 ---
 ---
 
 ## 3. The core challenge: universal CLI introspection
 
-**There is no universal, machine-readable standard through which CLI tools expose
-their own structure.** Unlike OpenAPI for HTTP APIs, nothing equivalent ships with
-most binaries. This is a fact about the ecosystem, not a gap to architect around;
-any design that pretends otherwise degrades into per-tool patches.
+**Decides.** Why no single source can supply a tool's structure, and what
+follows from that.
 
-What exists is a fragmented set of partial mechanisms. Their **measured** coverage:
+**Rules.**
+
+There is no universal, machine-readable standard through which CLI tools
+expose their own structure. Unlike OpenAPI for HTTP APIs, nothing
+equivalent ships with most binaries.
+
+What exists is a fragmented set of partial mechanisms. Their measured
+coverage:
 
 | Mechanism | Reality on a real machine |
 |---|---|
@@ -226,18 +310,29 @@ What exists is a fragmented set of partial mechanisms. Their **measured** covera
 | **man pages** (`mdoc(7)` semantic, `man(7)` prose) | Prose-rich, structure-poor, and **absent on many systems**: this test container has 31 `man1` pages and none for `git` or `curl` [M-5]. `libmandoc` is not a shipped library on Linux [M-6]. |
 | **`--help`** | Universal, and the only thing every tool has everywhere. Also the messiest: output may go to **stderr** and the exit code may be **non-zero** [M-8]. |
 
-The honest design goal is therefore **a tiered pipeline that merges the best
-available source per field, and degrades visibly rather than silently.**
+The design goal is a tiered pipeline that merges the best available source
+per field, and degrades visibly rather than silently.
 
-The key architectural consequence, and the thing that makes "no monkeypatching"
-real: *the universal parser is not any one technique — it is the fact that every
-technique normalizes into one schema.* The TUI, the search index, and the cache
-never know which tier produced a field. That is what lets a Tier 6 be added next
-year without touching the UI.
+Every tier normalizes into one schema. The TUI, the search index, and the
+cache never know which tier produced a field.
+
+**Why.** The absence of a standard is a fact about the ecosystem, not a gap
+to architect around. Any design that pretends otherwise degrades into
+per-tool patches. Normalizing every tier into one schema is what makes "no
+monkeypatching" real, and it is what lets a later tier be added without
+touching the UI.
+
+**Implemented in.** `mandible-core/src/node.rs`,
+`mandible-core/src/entity.rs`, `mandible-core/src/merge.rs`.
 
 ---
 
 ## 4. The intermediate representation
+
+**Decides.** The schema every extraction tier must produce: the node and
+entity shapes, text sanitization, provenance, addressing, and merge.
+
+**Rules.**
 
 ```rust
 /// mandible-core: the shared schema every extraction tier must produce.
@@ -411,11 +506,8 @@ impl Text {
 }
 ```
 
-This is an IR invariant, not a widget concern. A single `\n` inside a
-`ratatui` `Span` shifts cells and eats a pane border, and a prior
-implementation's two widget-level fixes both had to be reverted, since the
-IR has three consumers (tree, detail pane, clipboard) and a widget-level fix
-can only patch one. Widgets are permitted to assume `Text` is clean.
+This is an IR invariant, not a widget concern. Widgets are permitted to
+assume `Text` is clean.
 
 **Within the prose tier, reflowing is the rule and structure is the
 exception.** A description is hard-wrapped to whatever width its author
@@ -450,34 +542,21 @@ pane collapses all of it to one line at render time. The `\n`-free
 invariant a widget relies on is unchanged, since every newline in a `Text`
 is one `sanitize` put there deliberately.
 
-**Sanitization has two tiers, chosen by whose layout the text is.** Prose is
-mandible's to set, so its source line breaks are noise and
-`Text::sanitize` unwraps them. A synopsis and a raw `--help` dump are the
-author's own layout — the spacing of a usage line, the columns an options
-table is padded into — and collapsing them destroys information the reader
-came for. The second tier, `Text::sanitize_preserving_layout`, strips
-ANSI/OSC/DCS escapes, stray carriage returns, and other C0 controls (a raw
-escape or a lying `\r` could still scramble the reader's terminal) and
-expands tabs to spaces at 8-column stops, since `ratatui` gives a bare `\t`
-zero display width. It does not collapse whitespace, trim, or unwrap
+**Sanitization has two tiers, chosen by whose layout the text is.** The
+second tier, `Text::sanitize_preserving_layout`, strips ANSI/OSC/DCS
+escapes, stray carriage returns, and other C0 controls, and expands tabs to
+spaces at 8-column stops. It does not collapse whitespace, trim, or unwrap
 paragraphs, and is truncated to the same bound as `sanitize`.
 
 Three paths take the layout tier, and no others: the raw pane (key `t`),
-whose whole job is showing the tool's own bytes; `CommandNode::usage`,
-whose synopses §9.3 already treats as content whose layout is not
-mandible's; and `CommandNode::unparsed`, the verbatim fallback §7 Tier B
-step 3 degrades to. The third follows from the first: that fallback exists
-to show the author's document because mandible could not read it, so it is
-the raw pane under a different label, and text mandible has admitted it
-does not understand is the last text it may silently reformat. Each of the
-three is handed one already-line-split string at a time. Everything else
-that feeds the IR, descriptions above all, goes through `Text::sanitize`,
-including a `Choice`'s own `description` — there is no second, laxer path
-for text arriving nested one level deeper. The rule that decides between
-the two tiers is ownership of the layout, never the field: mandible sets
-prose, the author sets everything shown as drawn. Verified apart by
-diffing the raw pane against independently captured `--help` output for two
-real tools, byte-identical.
+`CommandNode::usage`, and `CommandNode::unparsed`, the verbatim fallback §7
+Tier B step 3 degrades to. Each of the three is handed one already-line-split
+string at a time. Everything else that feeds the IR, descriptions above
+all, goes through `Text::sanitize`, including a `Choice`'s own
+`description` — there is no second, laxer path for text arriving nested
+one level deeper. The rule that decides between the two tiers is ownership
+of the layout, never the field: mandible sets prose, the author sets
+everything shown as drawn.
 
 **A usage form keeps the indentation its author gave it, and the pane
 reproduces the alignment that indentation was drawn for.** A tool lines its
@@ -496,8 +575,7 @@ node.
 
 mandible probes tools by absolute resolved path, so a tool that echoes its
 own `argv[0]` prints `Usage: /usr/bin/du` in the pane against `Usage: du` in
-a shell that found it via `PATH` — correct in both cases, since it reflects
-what the tool actually received.
+a shell that found it via `PATH`.
 
 The raw pane displays stdout and stderr both, labelled, even though §7
 Tier B's parser reads only one of the two per its own rule (see that
@@ -524,13 +602,8 @@ pub enum Source {
 }
 ```
 
-Revision 1 attached one `Provenance` to a node while merging fields
-independently. After a three-tier merge the node's badge named whichever
-tier landed first, while the flag descriptions underneath could come from a
-different tier entirely — the badge lied, and since a badge exists
-specifically as a trust signal, an inaccurate one is worse than none.
-Provenance therefore lives on `CommandNode` and each `Entity`
-individually, and the detail pane's footer summarizes:
+Provenance lives on `CommandNode` and each `Entity` individually, and the
+detail pane's footer summarizes:
 `carapace + help-text · structure ✓ · prose ✓`.
 
 ### 4.3 Addressing: `NodeRef`
@@ -555,10 +628,7 @@ parent's name.
 
 ### 4.4 Merge: two axes of authority
 
-Revision 1 merged with "first tier in priority order wins," correct only if
-priority equals fidelity. It does not: the tier with the best structure is
-frequently not the tier with the best prose [M-1, M-2]. Each source
-therefore declares two authority levels, and merge resolves per field
+Each source declares two authority levels, and merge resolves per field
 against the relevant one:
 
 ```rust
@@ -593,10 +663,66 @@ Merge rules:
 - Subcommands merge recursively by name.
 - `children_filled` is the logical OR of contributors.
 
+**Why.** Every public `CommandNode` field is `#[non_exhaustive]`, which
+blocks cross-crate struct literals. The entity migration rewrote those same
+61 call sites anyway, so `#[non_exhaustive]` landed in the same pass.
+
+A single `\n` inside a `ratatui` `Span` shifts cells and eats a pane
+border. A prior implementation's two widget-level fixes both had to be
+reverted, since the IR has three consumers (tree, detail pane, clipboard)
+and a widget-level fix can only patch one. This is why sanitization is an
+IR invariant rather than a widget concern.
+
+Within the prose tier, a re-wrap of already-short lines against a source's
+own hard-wrapped breaks comes out ragged, which is why those breaks are
+treated as noise and joined. The example-invocation recognizer requires
+command-shaped text after an `Example:`/`e.g.` label, rather than any
+sentence, because without that test every prose sentence after such a
+label would qualify. The parser hands descriptions over with source breaks
+intact, rather than pre-joining them, because the decision belongs to the
+one place that can make it: text that still has the breaks.
+
+Prose is mandible's to set, so its source line breaks are noise and
+`Text::sanitize` unwraps them. A synopsis and a raw `--help` dump are the
+author's own layout, and collapsing them destroys information the reader
+came for. `Text::sanitize_preserving_layout` still strips escapes and
+stray carriage returns, since a raw escape or a lying `\r` could still
+scramble the reader's terminal, and it still expands tabs, since `ratatui`
+gives a bare `\t` zero display width. The layout tier's three paths follow
+the same principle: the raw pane's whole job is showing the tool's own
+bytes, `CommandNode::usage`'s synopses are content §9.3 already treats as
+not mandible's to lay out, and `CommandNode::unparsed` exists to show the
+author's document because mandible could not read it, so it is the raw
+pane under a different label — text mandible has admitted it does not
+understand is the last text it may silently reformat. This split was
+verified by diffing the raw pane against independently captured `--help`
+output for two real tools, byte-identical.
+
+An earlier revision attached one `Provenance` to a node while merging
+fields independently. After a three-tier merge the node's badge named
+whichever tier landed first, while the flag descriptions underneath could
+come from a different tier entirely. The badge lied, and since a badge
+exists specifically as a trust signal, an inaccurate one is worse than
+none.
+
+An earlier revision merged with "first tier in priority order wins,"
+correct only if priority equals fidelity. It does not: the tier with the
+best structure is frequently not the tier with the best prose [M-1] and [M-2].
+
+**Implemented in.** `mandible-core/src/node.rs`,
+`mandible-core/src/entity.rs`, `mandible-core/src/text.rs`,
+`mandible-core/src/provenance.rs`, `mandible-core/src/noderef.rs`,
+`mandible-core/src/merge.rs`.
+
 ---
 ---
 
 ## 5. The extraction model: authority, laziness, cost
+
+**Decides.** How extraction is scoped, sequenced and paced, and how a
+partial failure and a filesystem-discovered child are handled.
+
+**Rules.**
 
 ### 5.1 The cost problem, measured
 
@@ -605,12 +731,11 @@ takes 255 nodes, 232 subprocess spawns, 10.5 s; `gh` takes 196 nodes, 182
 spawns, 11.6 s; both depth-capped at 3, roughly 40–65 ms per spawn [M-3].
 That is with one probe per node. A correct cobra implementation needs two,
 subcommands then flags [M-2], so uncapped depth and full recursion cost far
-more. This is the single largest UX risk in the project.
+more.
 
 ### 5.2 The trait: one node at a time
 
-A whole-tree `extract()` forecloses the only real fix, so the trait is
-node-scoped:
+The trait is node-scoped:
 
 ```rust
 pub trait ExtractionTier: Send + Sync {
@@ -643,34 +768,15 @@ The runner:
 3. On expand, a node not yet filled is queued at the front of that same
    mechanism; nodes still in flight render as `⋯ loading` rows.
 
-**Warming covers the whole tree, not one level ahead.** Warming only one
-depth past what the user had expanded kept the spawn count minimal but cost
-more than it saved: an unexpanded node is invisible to search, since the
-index can only hold what has been extracted, and a node that renders empty
-with nothing explaining that it needs a keypress reads as a bug rather than
-laziness. Filling everything in the background is the same total work
-spread over idle time, and it is what makes a search over the whole tree
-honest. This is not a return to §5.1's eager extraction: nothing blocks
-startup or a keystroke, the pool is bounded, and what changed is not how
-much gets extracted but what the user waits for, which is nothing.
+**Warming covers the whole tree, not one level ahead.**
 
-**Background fills never expand the node they fill.** Expansion is user
-intent; auto-expanding on arrival, once every node is warmed, would unfold
-the entire tree and bury the user in rows they never asked for.
+**Background fills never expand the node they fill.**
 
-**Pool sizing is one worker per core, clamped to `[2, 8]`.** An earlier
-design oversubscribed on the theory that a warming job spawns a child and
-blocks on it, costing no CPU of its own. That held for a typical small C
-tool and was measured false where warming is heaviest: a `docker`
-invocation burns 70–100 ms of real CPU per spawn (Go runtime startup plus a
-daemon round trip), so many concurrent probes on a 4-core machine pegged
-every core for the duration of the warm, reported by a real user as the
-tool maximizing their CPU for minutes. One probe per core keeps the machine
-responsive; the cost is a slower background warm, paid in time nobody is
-waiting on, since the expand path still jumps the queue.
+**Pool sizing is one worker per core, clamped to `[2, 8]`.** The cost is a
+slower background warm, paid in time nobody is waiting on, since the
+expand path still jumps the queue.
 
-Non-incremental sources (carapace) return their full subtree at step 1;
-they cost nothing, so there is no reason to defer them.
+Non-incremental sources (carapace) return their full subtree at step 1.
 
 ### 5.3 Partial failure is normal
 
@@ -768,13 +874,52 @@ parent dispatches to it (§9.2). Showing the row is right, since the command
 is usually real and otherwise unreachable from the tool the user opened;
 showing it unmarked would be the same move as inventing structure.
 
+**Why.** Recursive probing is the single largest UX risk in the project
+[M-3]. A whole-tree `extract()` forecloses the only real fix, which is why
+the trait is scoped to one node at a time.
+
+Warming only one depth past what the user had expanded kept the spawn
+count minimal but cost more than it saved: an unexpanded node is invisible
+to search, since the index can only hold what has been extracted, and a
+node that renders empty with nothing explaining that it needs a keypress
+reads as a bug rather than laziness. Filling everything in the background
+is the same total work spread over idle time, and it is what makes a
+search over the whole tree honest. This is not a return to §5.1's eager
+extraction: nothing blocks startup or a keystroke, the pool is bounded,
+and what changed is not how much gets extracted but what the user waits
+for, which is nothing.
+
+Expansion is user intent. Auto-expanding on arrival, once every node is
+warmed, would unfold the entire tree and bury the user in rows they never
+asked for, which is why a background fill never expands the node it
+fills.
+
+An earlier pool-sizing design oversubscribed on the theory that a warming
+job spawns a child and blocks on it, costing no CPU of its own. That held
+for a typical small C tool and was measured false where warming is
+heaviest: a `docker` invocation burns 70–100 ms of real CPU per spawn (Go
+runtime startup plus a daemon round trip), so many concurrent probes on a
+4-core machine pegged every core for the duration of the warm, reported by
+a real user as the tool maximizing their CPU for minutes. One probe per
+core keeps the machine responsive.
+
+Non-incremental sources cost nothing to return in full, so there is no
+reason to defer them.
+
+**Implemented in.** `mandible-extract/src/runner.rs`,
+`mandible-extract/src/tier.rs`, `mandible/src/discovery.rs`,
+`mandible/src/app_runner.rs`, `mandible/src/doctor.rs`,
+`mandible/src/report.rs`.
+
 ---
 ---
 
 ## 6. Execution safety policy
 
-mandible runs other people's binaries. This is the part of the design that
-can damage a user's machine, and it gets its own section and its own tests.
+**Decides.** What argv shapes, environment and process handling every tier
+is permitted when it runs another program.
+
+**Rules.**
 
 All ten rules below are enforced at the `exec::run_inert` chokepoint, the
 single place every tier spawns a process through, so no tier can bypass one
@@ -782,31 +927,11 @@ by another route. A test runs the full pipeline against a shim binary that
 logs its own argv and environment, and fails on any invocation outside the
 allowlist below.
 
-**Rules, binding on every tier:**
-
 0. **Programs that signal processes or change machine state are invoked
    only as `<tool> --help`.** `kill`, `pkill`, `killall`, `killall5`,
    `skill`, `xkill`, `fuser`, `halt`, `poweroff`, `reboot`, `shutdown`,
    `telinit`, `init` may run with exactly that one argv. Every other shape
    is refused before anything is spawned.
-
-   This began as a total ban after `mandible pkill` froze a machine badly
-   enough to need a reset. The mechanism was rule 2a's empty argument, not
-   argument permutation as first assumed — measured directly: `pkill
-   --help`, `pkill victim --help`, `killall victim --help` all killed
-   nothing on this box. What the ban was actually protecting against, never
-   written down until it was measured: `-h` is not a help flag on these
-   tools. `halt -h`, `poweroff -h`, `reboot -h`, `shutdown -h` each attempt
-   the real operation, and mandible falls back to `-h` whenever `--help`
-   fails. [M-17] and [M-18] have the full measurement. `--help` itself is
-   safe and yields real flag lists for all thirteen, so the rule keeps what
-   is measured harmless and refuses what is measured dangerous.
-
-   This is a safety rule about what may be *executed*, closed and short,
-   and is deliberately not the per-tool knowledge §1 forbids: §1 governs
-   extraction, where a per-tool list would grow without bound. Every entry
-   here shares one fact about the program itself — it signals processes or
-   changes machine state — independent of its output format.
 
    A second, narrower gate closes the general form of the same hazard for
    every tool, not just these thirteen: Tier B's `<word> --help`/`-h`
@@ -835,18 +960,11 @@ allowlist below.
    and `-- <partial>` are subcommand invocations only in the framework that
    defines them; fired at an arbitrary binary they are ordinary positionals,
    and rule 1's prohibition applies in substance even though the argv is
-   non-empty. `wall __complete` broadcast that word to every logged-in
-   terminal on a reporter's machine, because `wall` treats an unrecognized
-   first positional as the message to send; `completion zsh`/`bash` sent
-   speculatively left hundreds of daemons running (rule 4). Neither was a
-   bad shape; both were a right shape sent to the wrong program. So a
-   protocol word requires prior evidence that the tool speaks the protocol,
-   read from the tool itself, never from its name: Tier E gates
-   `__complete` on the `spf13/cobra` marker in the compiled binary, Tier C
-   gates `completion <shell>` on that same marker or the tool's own
-   `--help` naming the command (§7). A per-tool list of who may be probed
-   would be §1's forbidden knowledge wearing a safety label; this evidence
-   requirement replaces the need for one.
+   non-empty. A protocol word requires prior evidence that the tool speaks
+   the protocol, read from the tool itself, never from its name: Tier E
+   gates `__complete` on the `spf13/cobra` marker in the compiled binary,
+   Tier C gates `completion <shell>` on that same marker or the tool's own
+   `--help` naming the command (§7).
 
 2. **Only inert argv shapes.** A tier may invoke a tool only as:
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`,
@@ -1000,6 +1118,38 @@ name it was discovered under, rule 8's redirect and rule 4's reap are the
 same probe machinery. Discovery itself spawns nothing; it is a directory
 read.
 
+**Why.** mandible runs other people's binaries. This is the part of the
+design that can damage a user's machine, and it gets its own section and
+its own tests.
+
+Rule 0 began as a total ban after `mandible pkill` froze a machine badly
+enough to need a reset. The mechanism was rule 2a's empty argument, not
+argument permutation as first assumed — measured directly: `pkill --help`,
+`pkill victim --help`, `killall victim --help` all killed nothing on this
+box. What the ban was actually protecting against, never written down
+until it was measured: `-h` is not a help flag on these tools. `halt -h`,
+`poweroff -h`, `reboot -h`, `shutdown -h` each attempt the real operation,
+and mandible falls back to `-h` whenever `--help` fails [M-17] and [M-18].
+`--help` itself is safe and yields real flag lists for all thirteen, so
+the rule keeps what is measured harmless and refuses what is measured
+dangerous.
+
+Rule 0 is a safety rule about what may be executed, closed and short, and
+is deliberately not the per-tool knowledge §1 forbids: §1 governs
+extraction, where a per-tool list would grow without bound. Every entry in
+rule 0 shares one fact about the program itself, that it signals processes
+or changes machine state, independent of its output format.
+
+Rule 1a exists because `wall __complete` broadcast that word to every
+logged-in terminal on a reporter's machine, since `wall` treats an
+unrecognized first positional as the message to send, and `completion
+zsh`/`bash` sent speculatively left hundreds of daemons running (rule 4).
+Neither was a bad shape; both were a right shape sent to the wrong
+program. A per-tool list of who may be probed would be §1's forbidden
+knowledge wearing a safety label, so rule 1a requires evidence instead.
+
+**Implemented in.** `mandible-extract/src/exec/`.
+
 ---
 ---
 
@@ -1007,421 +1157,484 @@ read.
 
 Tiers are listed in the order they are attempted, which is a cost ordering,
 cheapest first. Conflict resolution is by `Authority` (§4.4), never by
-attempt order; conflating the two was revision 1's central error.
+attempt order. Conflating the two was revision 1's central error.
 
 ### Tier A — REMOVED (was: vendored spec catalog)
 
-Revision 2 ranked a vendored 739-tool carapace-spec snapshot first. Revision 3
-deletes it, along with the vendoring script, the 11 MB payload, and the
-third-party data attribution it carried.
+**Decides.** Why this tier no longer exists, and that its number stays
+retired rather than reused.
 
-A per-tool catalog is per-tool knowledge, the thing §1 forbids, merely
-relocated from code into data belonging to someone else. It also could not
-stay current: a snapshot is a point-in-time copy, and the tool on a user's
-machine is not. [M-12] has the coverage numbers it bought against what it
-cost. The replacement is parsing by the framework that generated the help
-text, below, never a return to a per-tool catalog.
+**Rules.**
+
+1. No per-tool catalog returns, here or anywhere else in the pipeline.
+   Parsing is by framework (Tier A′, Tier B), never by tool.
+
+**Why.** Revision 2 ranked a vendored 739-tool carapace-spec snapshot first.
+Revision 3 deleted it, along with the vendoring script, the 11 MB payload,
+and the third-party data attribution it carried. A per-tool catalog is
+per-tool knowledge, the thing §1 forbids, merely relocated from code into
+data belonging to someone else. It also could not stay current: a snapshot
+is a point-in-time copy, and the tool on a user's machine is not. [M-12] has
+the coverage numbers it bought against what it cost.
 
 ### Tier A′ — framework identification
 
-Help text is not written by hand, it is generated, and only a small closed
-set of generators exists. Per-tool knowledge is unbounded and forbidden;
-per-framework knowledge is bounded at 18 entries (`mandible-extract/src/
-help_text/profile.rs`) and is the correct unit of parsing. A grammar fix for
-argparse improves every Python CLI ever written; a catalog entry improved
-exactly one tool until it went stale.
+**Decides.** How mandible identifies which framework generated a tool's
+help text, before any parsing happens.
 
-Identification proceeds in this order, most reliable first:
+**Rules.**
 
-1. **From the artifact.** For a compiled binary, scan embedded strings — a Go
-   binary linking `spf13/cobra` says so directly in its own bytes,
-   independent of which headings that cobra version's `--help` happens to
-   render this week [M-13]. For a script, read the shebang plus the import
-   line. This is ground truth, not inference.
-2. **From the help-text signature.** Distinctive marker strings: argparse's
-   `show this help message and exit`, click's `Show this message and exit.`,
-   cobra's `Available Commands:`, GNU argp's `Mandatory arguments to long
-   options`. Weaker, and must never be the only method: it missed `docker`
-   entirely, because docker prints `Common Commands:` rather than cobra's
-   own default [M-13]. That gap is why step 1 leads.
-3. **Unidentified** — fall through to the generic layout parser, Tier B.
+1. Per-framework knowledge is bounded at 18 entries in
+   `mandible-extract/src/help_text/profile.rs`. No per-tool entry is ever
+   added.
+2. Identification proceeds in this order, most reliable first:
+   1. From the artifact. For a compiled binary, scan embedded strings. For
+      a script, read the shebang plus the import line. This is ground
+      truth, not inference.
+   2. From the help-text signature: distinctive marker strings such as
+      argparse's `show this help message and exit`, click's `Show this
+      message and exit.`, cobra's `Available Commands:`, and GNU argp's
+      `Mandatory arguments to long options`. Weaker, and must never be the
+      only method.
+   3. Unidentified: fall through to the generic layout parser, Tier B.
+3. Widening a fingerprint is worth doing only alongside a grammar that
+   earns it, never to move the detection number on its own.
+4. Detection rate is not a target; coverage is. `--doctor` reports the
+   detected framework.
 
-The implementation deliberately trades recall for precision: narrow,
-high-confidence markers identify a minority of a real machine's tools rather
-than the majority a looser fingerprint could reach [M-12]. A wrong framework
-silently applies the wrong grammar with no way to signal it did; an
-unidentified tool falls back to the general engine and is honestly marked
-low-confidence. Widening a fingerprint is worth doing only alongside a
-grammar that earns it, never to move the detection number on its own — a
-metric improved by the thing it exists to detect is the same failure §13.1
-warns about, one tier up.
-
-Detection rate is therefore not a target; coverage is. `--doctor` reports
-the detected framework, which turns "mandible is wrong about tool X" into
-"the argparse grammar mishandles Y" — a general, fixable bug report instead
+**Why.** Help text is generated by a small closed set of generators, so a
+grammar fix for argparse improves every Python CLI ever written, while a
+catalog entry improved exactly one tool until it went stale. Step 1 is
+ground truth: a Go binary linking `spf13/cobra` says so directly in its own
+bytes, independent of which headings that cobra version's `--help` happens
+to render [M-13]. Step 2 is weaker: it missed `docker` entirely, because
+docker prints `Common Commands:` rather than cobra's own default [M-13].
+That gap is why step 1 leads. Narrow, high-confidence markers identify a
+minority of a real machine's tools rather than the majority a looser
+fingerprint could reach [M-12]. A wrong framework silently applies the
+wrong grammar with no way to signal it did; an unidentified tool falls back
+to the general engine and is honestly marked low-confidence. A metric
+improved by the thing it exists to detect is the same failure §13.1 warns
+about, one tier up. `--doctor` turns "mandible is wrong about tool X" into
+"the argparse grammar mishandles Y", a general, fixable bug report instead
 of a per-tool complaint.
+
+**Implemented in.** `mandible-extract/src/help_text/profile.rs`
 
 ### Tier B — `--help` parsing, per framework
 
-The primary tier. `--help` is the only source every tool has, everywhere,
-and it is always current because it comes from the installed binary.
+**Decides.** How `--help` output, the one source every tool has, is parsed
+into structured entities.
 
-**One shared engine, not eighteen grammars.** A single `winnow`-based layout
-parser (`mandible-extract/src/help_text/sections/`) reads section headings,
-column-aligned tables, usage synopses, and continuation folding by shape
-alone. A `FrameworkProfile` (`help_text/profile.rs`) is consulted by that one
-engine and is deliberately narrow: which extra heading vocabulary a
-framework's own templates use for a command block, whether the framework has
-a subcommand concept at all, and which heading introduces a positional-
-argument block. A profile carries no grammar of its own — no value-spec
-syntax, no continuation-folding rule — because the shared low-level grammar
-already handles `--opt=VALUE` / `--opt VALUE` / `--opt <value>` /
-`--opt[=VALUE]` and indent-relative continuation folding uniformly across
-every framework tested. Two profile fields are gates rather than vocabulary,
-`argparse_subparser_quirk` and `comma_separated_command_list`. Each admits one
-framework to a dedicated scan for a shape the shared engine cannot express at
-all, argparse's `{choice,choice}` pseudo-entry and busybox's comma-separated
-applet run. A gate is still not a grammar, and it never loosens a rule the
-other frameworks rely on. Adding a framework is one `match` arm in `profile()`
-plus one fingerprint in Tier A′, nothing more. If a framework is ever found
-whose shape the shared engine genuinely cannot express, the fix is to widen
-the engine, which improves every framework at once, never to add a
-per-framework knob only one arm sets.
+**Rules.**
 
-**Degradation is staged, and never fabricates:**
+1. One shared engine parses every framework. A single `winnow`-based layout
+   parser (`mandible-extract/src/help_text/sections/`) reads section
+   headings, column-aligned tables, usage synopses, and continuation
+   folding by shape alone.
+2. A `FrameworkProfile` (`mandible-extract/src/help_text/profile.rs`)
+   supplies only vocabulary: extra heading words a framework's own
+   templates use for a command block, whether the framework has a
+   subcommand concept, and which heading introduces a positional-argument
+   block. It carries no grammar of its own; the shared engine already
+   handles `--opt=VALUE` / `--opt VALUE` / `--opt <value>` / `--opt[=VALUE]`
+   and indent-relative continuation folding uniformly across every
+   framework tested.
+3. Two profile fields are gates rather than vocabulary,
+   `argparse_subparser_quirk` and `comma_separated_command_list`. Each
+   admits one framework to a dedicated scan for a shape the shared engine
+   cannot express at all: argparse's `{choice,choice}` pseudo-entry and
+   busybox's comma-separated applet run. A gate is still not a grammar, and
+   it never loosens a rule the other frameworks rely on.
+4. Adding a framework is one `match` arm in `profile()` plus one
+   fingerprint in Tier A′, nothing more. If a framework's shape genuinely
+   cannot be expressed by the shared engine, the fix widens the engine,
+   which improves every framework at once, never adds a per-framework knob
+   only one arm sets.
+5. Degradation is staged, and never fabricates:
+   1. Framework identified: the shared engine with that framework's
+      profile, high confidence.
+   2. Unidentified: the same engine with the generic heading vocabulary
+      only, marked low-confidence.
+   3. The parse yields nothing structurally plausible: render the raw help
+      text verbatim, labelled `unparsed`, framework shown as unknown.
+6. A command block requires a recognized heading. Layout alone is never
+   sufficient evidence that a block of text names subcommands.
+   `Commands:`/`Subcommands:`/`Available Commands:`/`SUBCOMMANDS`, a
+   git-style group heading, and headings mentioning "operation(s)" all
+   qualify; a bare word list under no heading does not.
+7. A candidate name must match `^[a-z][a-z0-9_.-]*$` with no whitespace,
+   and every emitted name must occur literally in the tool's own raw text
+   (the existence oracle, §13.1).
+8. Two evidence classes short of a heading are tracked separately.
+   `invocation_attested` marks a row that repeats the tool's own name, or a
+   table whose row shape is unambiguous even without a heading.
+   `heading_attested` marks an explicit heading. The distinction governs
+   which nodes are eligible for further probing (§6 rule 0).
+9. A block yielding names that fail the shape test, or a node with no
+   flags, no children, and no summary, drops confidence and marks the tool
+   `suspicious` in the coverage scoreboard (§13.1) rather than inflating
+   it.
+10. An indented list nested under a flag is that flag's `choices`, never
+    subcommands. A per-value description, when the source documents one,
+    stays on the value it describes rather than being dropped.
+11. Each stream, stdout and stderr, is judged independently by a help-shape
+    check, never by "stdout if non-empty":
 
-1. Framework identified → the shared engine with that framework's profile,
-   high confidence.
-2. Unidentified → the same engine with the generic heading vocabulary only,
-   marked low-confidence.
-3. The parse yields nothing structurally plausible → render the raw help
-   text verbatim, labelled `unparsed`, framework shown as unknown.
+    | stdout empty? | stderr empty? | picks |
+    |---|---|---|
+    | yes | yes | stdout (nothing to pick) |
+    | yes | no | stderr, the only stream available |
+    | no | yes | stdout, the only stream available |
+    | no | no, stdout help-shaped | stdout, regardless of stderr |
+    | no | no, stdout not help-shaped, stderr help-shaped | stderr |
+    | no | no, neither help-shaped | stdout, the default |
 
-Step 3 is a feature, not a failure: a tool that conforms to no convention is
-displaying its help the way its author intended, and showing that text
-untouched is honest. It is also strictly better than the alternative already
-shipped and fixed once: inventing 39 phantom subcommands for `tar` out of
-wrapped description lines [M-10]. Never fabricate structure; degrade to
-verbatim.
+12. Ties break toward stdout. The two streams are never concatenated for
+    the parser. The raw pane (key `t`) always shows both streams, labelled,
+    independent of which one the parser chose (§4.1).
+13. Section headings are preserved as `Flag::group`. A heading is
+    recognized by relative indentation, since real headings sit at no
+    fixed column. A usage stanza can be labelled by its own preceding
+    description sentence rather than by its own head line (S-012).
+14. A confidence score is attached, derived from how much of the output
+    the grammar actually consumed, and surfaced in the UI.
+15. Recursion is lazy, per node, under §5.2: `<tool> <sub> --help` runs
+    only when that node is expanded.
+16. Modifiers (a letter glued to an operation letter, `ar rv`), the argfile
+    sigil (`@<file>`), and environment variables documented under an
+    explicit heading are recognized by shape and become their own
+    `EntityKind` (§4.5), rendered in their own panel section (§9.3). None
+    is inferred from prose that merely mentions the word: an ALL_CAPS word
+    in a usage placeholder is not an environment variable, and a heading
+    that only mentions "operation" without one-word invocation verbs
+    beneath it is not a modifier table.
+17. Every recognizer above is admitted only after being checked against the
+    full frozen `PATH` capture set, never assumed from one tool alone
+    (§13.1e).
 
-**A command block requires a recognized heading.** Layout alone is never
-sufficient evidence that a block of text names subcommands.
-`Commands:`/`Subcommands:`/`Available Commands:`/`SUBCOMMANDS`, a git-style
-group heading, and headings mentioning "operation(s)" all qualify; a bare
-word list under no heading does not. A candidate name must match
-`^[a-z][a-z0-9_.-]*$` with no whitespace, and every emitted name is checked
-to occur literally in the tool's own raw text (the existence oracle, §13.1).
-Two evidence classes short of a heading are structurally distinguished and
-tracked separately, `invocation_attested` versus `heading_attested`: a row
-that repeats the tool's own name, or a table whose row shape is unambiguous
-even without a heading, is real but weaker evidence than an explicit
-heading, and the difference governs which nodes are eligible for further
-probing (§6 rule 0). A block yielding names that fail the shape test, or a
-node with no flags, no children, and no summary, drops confidence and marks
-the tool `suspicious` in the coverage scoreboard (§13.1) rather than
-inflating it. See `docs/shapes.md` S-013 (never invent subcommands from
-wrapped description lines), S-016 (headingless invocation table naming the
-tool), S-017 (headed command table with a non-standard separator), S-018
-(heading sharing a line with its first row), S-019 (pseudo-heading rewind
-inside a sticky chain), S-022 (an "operations" heading), S-092 (a settings
-table misread as subcommands), and S-094 (a non-command "help topics"
-heading that breaks a sticky chain).
+Shapes cited in this tier: S-011 (hanging-indent prose misread as a
+heading), S-012 (usage stanza labelled by its own description sentence),
+S-013 (never invent subcommands from wrapped description lines), S-014
+(bare-word choices block), S-015 (described choice values in a scope-flag
+sub-table), S-016 (headingless invocation table naming the tool), S-017
+(headed command table with a non-standard separator), S-018 (heading
+sharing a line with its first row), S-019 (pseudo-heading rewind inside a
+sticky chain), S-020 (modifier table), S-021 (argfile row), S-022 (an
+"operations" heading), S-023 (environment section), S-029 and S-091 (banner
+text fabricating a flag when streams are merged), S-092 (a settings table
+misread as subcommands), S-094 (a non-command "help topics" heading that
+breaks a sticky chain).
 
-**An indented list nested under a flag is that flag's `choices`, never
-subcommands.** A per-value description, when the source documents one, is
-kept on the value it describes rather than dropped. See S-014 (bare-word
-choices block), S-015 (described choice values in a scope-flag sub-table).
-
-**Read stdout and stderr, and do not require exit 0.** `openssl --help`
-writes 0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255 with
-output only on stderr [M-8]. Each stream is judged independently by a
-help-shape check, never by "stdout if non-empty":
-
-| stdout empty? | stderr empty? | picks |
-|---|---|---|
-| yes | yes | stdout (nothing to pick) |
-| yes | no | stderr, the only stream available |
-| no | yes | stdout, the only stream available |
-| no | no, stdout help-shaped | stdout, regardless of stderr |
-| no | no, stdout not help-shaped, stderr help-shaped | stderr |
-| no | no, neither help-shaped | stdout, the default |
-
-Ties break toward stdout. The two streams are never concatenated for the
-parser: merging a diagnostic preamble into the document is how banner text
-becomes a fabricated flag (S-091, S-029). This is the parsing path only; the
-raw pane (key `t`) always shows both streams, labelled, independent of which
-one the parser chose, so a reviewer can see what was correctly discarded
-(§4.1).
-
-**Section headings are preserved as `Flag::group`.** A heading is recognized
-by relative indentation, since real headings sit at no fixed column. Running
-prose whose hard wrap places an indented line beneath an ordinary sentence
-is the one systematic false positive, handled by three binding rules
-depending on whether the sentence ends on the promoted line, is marked with
-a continuation backslash, or continues onto the indented line: see S-011
-(hanging-indent prose misread as a heading). A usage stanza can also be
-labelled by its own preceding description sentence rather than by its own
-head line: see S-012.
-
-**A confidence score is attached**, derived from how much of the output the
-grammar actually consumed, and surfaced in the UI. Being honest about a best
-guess is better UX than presenting heuristic output with man-page
-confidence.
-
-**Recursion.** Revision 1 parsed only the root; subcommand flags need a
-probe per node. Recursion is lazy, per-node, under §5.2: `<tool> <sub>
---help` runs only when that node is expanded.
-
-**Entities beyond flags and subcommands** — modifiers (a letter glued to an
-operation letter, `ar rv`), the argfile sigil (`@<file>`), and environment
-variables documented under an explicit heading — are recognized by shape and
-become their own `EntityKind` (§4.5), rendered in their own panel section
-(§9.3). None is inferred from prose that merely mentions the word: an
-ALL_CAPS word in a usage placeholder is not an environment variable, and a
-heading that only mentions "operation" without one-word invocation verbs
-beneath it is not a modifier table. See S-020 (modifier table), S-021
-(argfile row), S-023 (environment section).
-
-Every recognizer above is admitted only after being checked against the
-full frozen `PATH` capture set, never assumed from one tool alone; a recorded
-miss is preferred to a recognizer that invents a section (§13.1e). The
-atlas (`docs/shapes.md`) is the record of what was found and what fired on
-it; this section states the rule each recognizer enforces, not its
+**Why.** `--help` is the only source every tool has, everywhere, and it is
+always current because it comes from the installed binary. A grammar fix in
+the shared engine improves every framework at once. Rendering unparsed text
+verbatim (rule 5.3) is honest, not a failure: a tool that conforms to no
+convention is displaying its help the way its author intended. The
+alternative was shipped once and fixed: it invented 39 phantom subcommands
+for `tar` out of wrapped description lines [M-10]. `openssl --help` writes
+0 bytes to stdout and 2,908 to stderr; `ip --help` exits 255 with output
+only on stderr, so exit code and non-emptiness cannot decide which stream
+to parse [M-8]. Merging a diagnostic preamble into the document is how
+banner text becomes a fabricated flag (S-091, S-029), so the two streams
+are judged separately and never concatenated. Revision 1 parsed only the
+root; subcommand flags need a probe per node, which is why recursion
+exists. The atlas (`docs/shapes.md`) records what was found and what fired
+on it. This section states the rule each recognizer enforces, not its
 history.
+
+**Implemented in.** `mandible-extract/src/help_text/sections/`,
+`mandible-extract/src/help_text/profile.rs`
 
 ### Tier D — man page enrichment
 
-Two sub-cases of very different quality. `mdoc(7)` pages use semantic macros
-(`.Fl` for a flag, `.Ar` for an argument), so the AST genuinely distinguishes
-a flag from prose. `man(7)` pages are typeset prose with weak semantic
-tagging: section boundaries extract reliably, but individual flag/
-description pairs need the same heuristics as Tier B.
+**Decides.** Whether and how man pages fill gaps `--help` parsing leaves.
 
-Never regex the rendered output of `man <tool>`, and never parse `mandoc -T
-tree` — the OpenBSD manual documents that format as unstable and says not to
-write parsers against it; there is no `-T json`.
+**Rules.**
 
-**Implementation is a pure-Rust subset parser, never `libmandoc` FFI.**
+1. Two sub-cases apply. `mdoc(7)` pages use semantic macros (`.Fl` for a
+   flag, `.Ar` for an argument), so the AST genuinely distinguishes a flag
+   from prose. `man(7)` pages are typeset prose with weak semantic tagging:
+   section boundaries extract reliably, but individual flag/description
+   pairs need the same heuristics as Tier B.
+2. Never regex the rendered output of `man <tool>`, and never parse
+   `mandoc -T tree`.
+3. Implementation is a pure-Rust subset parser, never `libmandoc` FFI. The
+   parser targets man(7) `.TP`/`.IP` + `.B`, with `.It Fl` for mdoc.
+4. It gates on the tag line beginning with a flag, never on an `OPTIONS`
+   section heading, since several real tools document options under
+   `DESCRIPTION` instead [M-14].
+5. Multi-page discovery, for the tools this tier does help, walks
+   `<tool>-<sub>.N` siblings via `MANPATH` and `man -k`.
+6. Trigger: zero-confidence fallback only, off by default. This tier fires
+   only where the help-text tiers produced nothing usable. It never
+   enriches a parse that already succeeded, and shipping it at all is
+   opt-in. §16 records the ruling and why.
+7. Where it does fire, per-field provenance labels the prose `man`, so a
+   reader can see a description came from a page rather than from the
+   binary.
+
+**Why.** The OpenBSD manual documents `mandoc -T tree`'s format as unstable
+and says not to write parsers against it, and there is no `-T json`.
 `libmandoc` is not a shipped library on Linux [M-6], so using it would mean
 vendoring and building mandoc's C source, and `#![forbid(unsafe_code)]`
-rules out the FFI regardless. The parser targets man(7) `.TP`/`.IP` + `.B`,
-with `.It Fl` for mdoc — most relevant pages are man, not mdoc [M-14]. It
-gates on the tag line beginning with a flag, never on an `OPTIONS` section
-heading, since several real tools document options under `DESCRIPTION`
-instead [M-14].
-
-**Man pages are generated too, the same insight as Tier A′ one tier down.**
+rules out the FFI regardless. Most relevant pages are man, not mdoc [M-14].
+Man pages are generated too, the same insight as Tier A′ one tier down:
 help2man, asciidoc/docbook-to-man, mdoc, and hand-written roff partition
 this space the way clap/cobra/argparse partition help text. The first step
-is a generator survey with a go/no-go per generator, not a parser: git's own
-184 `git-*.1` pages are asciidoc-generated and contain zero `.TP` macros, so
-a `.TP`-targeting parser recovers nothing from git regardless of how well it
-is built [M-16]. git's flags are reachable far more cheaply through `-h`
-(§7 Tier B, [M-16]).
+is a generator survey with a go/no-go per generator, not a parser. git's
+own 184 `git-*.1` pages are asciidoc-generated and contain zero `.TP`
+macros, so a `.TP`-targeting parser recovers nothing from git regardless of
+how well it is built [M-16]. git's flags are reachable far more cheaply
+through `-h` (§7 Tier B, [M-16]).
 
-Multi-page discovery, for the tools this tier does help, walks
-`<tool>-<sub>.N` siblings via `MANPATH` and `man -k`.
-
-**Trigger: zero-confidence fallback only, off by default.** This tier fires
-only where the help-text tiers produced nothing usable; it never enriches a
-parse that already succeeded, and shipping it at all is opt-in. §16 records
-the ruling and why. Where it does fire, per-field provenance labels the
-prose `man`, so a reader can see a description came from a page rather than
-from the binary.
+**Implemented in.** `mandible-extract/src/manpage/mod.rs`
 
 ### Tier C — completion script structural parsing
 
-For a tool that supports `<tool> completion bash|zsh|fish` (clap, cobra,
-click, oclif, and many hand-rolled CLIs): generate the script, then parse it
-with a real shell grammar, never regex. Parsing never executes the script,
-which is the safety property that matters when processing untrusted output.
+**Decides.** Whether shell completion scripts can be parsed for structure,
+and when that is safe to attempt.
 
-**Crate: `brush-parser`.** Revision 1 selected `conch-parser`, unmaintained
-and rejected by a future Rust version at build time [M-9]. `yash-syntax` is
-avoided as GPLv3, which would oblige the whole binary under GPL if statically
-linked.
+**Rules.**
 
-**zsh before bash.** zsh's `_arguments` blocks carry a spelling and a
-description in one structure; bash completion functions carry only
-spellings and typically compute candidates at runtime. Static parsing
-recovers far less from bash. Walk `complete -F`/`compgen -W` registrations
-and `case "$prev" in` branches as typed AST nodes.
+1. For a tool that supports `<tool> completion bash|zsh|fish` (clap, cobra,
+   click, oclif, and many hand-rolled CLIs): generate the script, then
+   parse it with a real shell grammar, never regex.
+2. Parsing never executes the script.
+3. Crate: `brush-parser`.
+4. zsh is parsed before bash. zsh's `_arguments` blocks carry a spelling
+   and a description in one structure. Walk `complete -F`/`compgen -W`
+   registrations and `case "$prev" in` branches as typed AST nodes.
+5. Gated on prior evidence that the subcommand exists, never sent
+   speculatively. `CompletionScriptTier` constructs the `completion
+   <shell>` argv only when Tier A′'s artifact scan already found the
+   `spf13/cobra` marker, or when the tool's own root `--help` names
+   `completion`/`completions` as the first token of a command-table row.
 
-**Gated on prior evidence that the subcommand exists, never sent
-speculatively.** `completion <shell>` is a framework protocol's own words,
-and sending them to a program that does not speak the protocol is a bare
-invocation under §6 rule 1a. `CompletionScriptTier` constructs that argv
-only when Tier A′'s artifact scan already found the `spf13/cobra` marker (a
-cobra binary registers `completion` itself, whether or not the author
-mentions it, and it may be hidden), or when the tool's own root `--help`
-names `completion`/`completions` as the first token of a line — the shape
-of a command-table row, which adds no new probe since `--help` is already
-sent to every tool. [M-23] has the cost this gate removed and the honest
-limit that remains: a tool with a real, hidden `completion` subcommand that
-is not cobra loses this tier.
+**Why.** `completion <shell>` is a framework protocol's own words, and
+sending it to a program that does not speak the protocol is a bare
+invocation under §6 rule 1a. Revision 1 selected `conch-parser`; it is
+unmaintained and a future Rust version rejects it at build time [M-9].
+`yash-syntax` is avoided as GPLv3, which would oblige the whole binary
+under GPL if statically linked. Bash completion functions carry only
+spellings and typically compute candidates at runtime, so static parsing
+recovers far less from bash than from zsh. A cobra binary registers
+`completion` itself, whether or not the author mentions it, and it may be
+hidden, so the artifact scan is one valid gate on its own. Naming
+`completion`/`completions` in `--help` adds no new probe, since `--help` is
+already sent to every tool. [M-23] has the cost this gate removed and the
+honest limit that remains: a tool with a real, hidden `completion`
+subcommand that is not cobra loses this tier.
+
+**Implemented in.** `mandible-extract/src/completion_script/mod.rs`
 
 ### Tier E — native, self-describing binaries
 
-Highest structural authority, lowest cost-efficiency. Attempted last because
-it is the only tier that spawns a process per node, but it wins structural
-conflicts (§4.4) because it reflects the version actually installed.
+**Decides.** How mandible reads structure directly from a cobra binary's
+own completion machinery, and why no other framework gets this tier.
 
-**Gated on prior evidence, never speculative.** This tier only constructs a
-`__complete` argv for a tool whose own compiled bytes already identify it as
-cobra, via Tier A′. Probing every tool on `PATH` to find out who would
-answer was the previous design: probing `wall` that way broadcast the
-literal text `__complete` to every logged-in terminal on the reporter's
-machine, because `wall` treats an unrecognized first positional as the
-message to send — the same shape as `pkill -- ""` under §6 rule 2a, an argv
-that is inert for nearly every tool and an action for one family. [M-23] has
-the fleet-wide measurement showing the gate costs nothing extraction can
-see.
+**Rules.**
 
-- **cobra `__complete`** requires two probes per node: flags need
-  `__complete <path> "-"` [M-2], not only the empty-word probe revision 1
-  documented. The trailing `:N` directive line is parsed and discarded;
-  candidate lines are `value\tdescription`, a `=` suffix marking a
-  value-taking flag. `__complete <path> ""` does not return subcommands
-  only: cobra appends the command's own `ValidArgsFunction` output, which is
-  application code reading live state, so a leaf's response is entirely
-  argument data [M-2]. A candidate list becomes subcommands only when every
-  candidate in it carries a non-empty description, since that is the only
-  distinction cobra's own wire format offers between a subcommand row and a
-  `ValidArgsFunction` row [M-2a]. A depth cap (default 6) and a visited set
-  keyed by the candidate list's hash stop a tool that echoes root
-  completions for unrecognized paths from recursing forever. The `Alias for
-  "..."` convention, and a child whose candidate set equals a sibling's, are
-  detected and recorded in `CommandNode::aliases` instead of being
-  recursed into, which would otherwise duplicate a whole subtree.
-- **clap `CompleteEnv`** (`COMPLETE=<shell> <tool> -- <partial>`) was probed
-  once and removed. It could not be spelled safely: an empty partial sent
-  `--` as the tool's first positional, which `pkill -- ""` demonstrated
-  terminating every process in a PID namespace (§6 rule 2a). Spelled `<tool>
-  --` instead it is harmless but wrong, since `--` is a no-op for most tools
-  and their ordinary output then gets misread as candidates. And it never
-  reliably worked: unlike cobra's self-identifying `:N` trailer, detection
-  was only ever a shape heuristic, and on a full sweep it matched ten tools,
-  none of them clap [M-4]. Re-adding it needs confirmation of the protocol
-  before trusting a response, and a spelling that never passes an empty
-  first positional.
-- **argcomplete** (Python): the `_ARGCOMPLETE` env-var convention. Same
-  shape, lowest priority in this tier.
+1. Gated on prior evidence, never speculative. This tier only constructs a
+   `__complete` argv for a tool whose own compiled bytes already identify
+   it as cobra, via Tier A′.
+2. cobra `__complete` requires two probes per node: flags need
+   `__complete <path> "-"` [M-2], not only the empty-word probe.
+3. The trailing `:N` directive line is parsed and discarded; candidate
+   lines are `value\tdescription`, a `=` suffix marking a value-taking
+   flag.
+4. `__complete <path> ""` does not return subcommands only: cobra appends
+   the command's own `ValidArgsFunction` output, which is application code
+   reading live state, so a leaf's response is entirely argument data
+   [M-2].
+5. A candidate list becomes subcommands only when every candidate in it
+   carries a non-empty description, since that is the only distinction
+   cobra's own wire format offers between a subcommand row and a
+   `ValidArgsFunction` row [M-2a].
+6. A depth cap (default 6) and a visited set keyed by the candidate list's
+   hash stop a tool that echoes root completions for unrecognized paths
+   from recursing forever.
+7. The `Alias for "..."` convention, and a child whose candidate set equals
+   a sibling's, are detected and recorded in `CommandNode::aliases`
+   instead of being recursed into, which would otherwise duplicate a whole
+   subtree.
+8. clap `CompleteEnv` (`COMPLETE=<shell> <tool> -- <partial>`) was probed
+   once and removed. Re-adding it needs confirmation of the protocol
+   before trusting a response, and a spelling that never passes an empty
+   first positional.
+9. argcomplete (Python) uses the `_ARGCOMPLETE` env-var convention. Same
+   shape, lowest priority in this tier.
+
+**Why.** Tier E is attempted last: it is the only tier that spawns a
+process per node, but it wins structural conflicts (§4.4) because it
+reflects the version actually installed. Probing every tool on `PATH` to
+find out who would answer was the previous design. Probing `wall` that way
+broadcast the literal text `__complete` to every logged-in terminal on the
+reporter's machine, because `wall` treats an unrecognized first positional
+as the message to send. That is the same shape as `pkill -- ""` under §6
+rule 2a: an argv that is inert for nearly every tool and an action for one
+family. [M-23] has the fleet-wide measurement showing the gate costs
+nothing extraction can see. clap's `CompleteEnv` could not be spelled
+safely: an empty partial sent `--` as the tool's first positional, which
+`pkill -- ""` demonstrated terminating every process in a PID namespace (§6
+rule 2a). Spelled `<tool> --` instead it is harmless but wrong, since `--`
+is a no-op for most tools and their ordinary output then gets misread as
+candidates. Unlike cobra's self-identifying `:N` trailer, detection was
+only ever a shape heuristic, and on a full sweep it matched ten tools, none
+of them clap [M-4].
+
+**Implemented in.** `mandible-extract/src/native/mod.rs`
 
 ### Tier F — user override
 
-`~/.config/mandible/overrides/<tool>.toml`, merged with `Authority { 255,
-255 }`. This exists so the rare bad case has a clean exit; the pipeline
-never depends on one existing.
+**Decides.** Where a user fixes a tool mandible gets wrong, without that
+fix ever entering this repository.
 
-**Policy, binding:** overrides are user-local and never vendored into this
-repository. This rule is what actually enforces the §1 invariant — without
-it, the first hard tool gets an override committed to git and the per-tool
-patch pile begins.
+**Rules.**
+
+1. `~/.config/mandible/overrides/<tool>.toml`, merged with `Authority {
+   255, 255 }`.
+2. Overrides are user-local and never vendored into this repository.
+
+**Why.** This exists so the rare bad case has a clean exit. The pipeline
+never depends on one existing. This rule is what actually enforces the §1
+invariant: without it, the first hard tool gets an override committed to
+git and the per-tool patch pile begins.
+
+**Implemented in.** `mandible-extract/src/overrides/mod.rs`
 
 ---
 
 ## 8. Crate & workspace architecture
 
+**Decides.** Which crate owns which stage of the pipeline, and which single
+module may spawn a process.
+
+**Rules.**
+
+1. The workspace is laid out as follows:
+
 ```
 mandible/                          (workspace root)
 ├── mandible-core/                 # IR, Text sanitization, Provenance, Authority, merge, NodeRef
 ├── mandible-extract/              # the tiered pipeline + runner
-│   ├── known_specs/             # Tier A: carapace snapshot + index
+│   ├── framework/               # Tier A′: which framework generated the text
 │   ├── help_text/               # Tier B: winnow grammar
 │   ├── completion_script/       # Tier C: brush-parser AST walking
 │   ├── manpage/                 # Tier D: pure-Rust roff subset [feature = "manpage"]
 │   ├── native/                  # Tier E: cobra `__complete` probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
-├── mandible-cache/                # on-disk cache, keying, invalidation
 ├── mandible-search/               # nucleo index over commands AND flags
 ├── mandible-tui/                  # ratatui UI: tree, detail, search, overlay
 ├── mandible/                      # the `mandible` binary
-└── xtask/                       # coverage harness, spec vendoring, packaging
+└── xtask/                       # the measuring instruments (docs/instruments.md)
 ```
 
-**`mandible-extract/src/exec/` is the only module permitted to use
-`std::process`.** A `#![deny]`-style test greps the workspace for `Command::new`
-outside that module and fails the build otherwise. Centralizing this is what makes
-§6 auditable rather than aspirational.
+2. `mandible-extract/src/exec/` is the only module permitted to use
+   `std::process`. A `#![deny]`-style test greps the workspace for
+   `Command::new` outside that module and fails the build otherwise.
+3. Per-tier modules sit behind feature flags. Default features:
+   `help-text`, `completion-script`, `native`. Optional: `manpage`.
 
-Per-tier modules sit behind feature flags so Tier D — which only makes sense
-where man pages exist, and which is off by default in any case (§7 Tier D) —
-is not a hard requirement for a Windows user who wants Tiers A/B/C/E. Note the
-original reason for gating it, a C toolchain for `libmandoc`, no longer
-applies: §7 Tier D is a pure-Rust subset parser.
+**Why.** Centralizing `std::process` in one module is what makes §6
+auditable rather than aspirational. Gating Tier D behind a feature means it
+is not a hard requirement for a Windows user who wants Tiers A/B/C/E, since
+it only makes sense where man pages exist and is off by default in any case
+(§7 Tier D). The original reason for gating it, a C toolchain for
+`libmandoc`, no longer applies, since §7 Tier D is a pure-Rust subset
+parser; the flag stays for users who still want to opt it out.
 
-**Default features:** `known-specs`, `help-text`, `completion-script`, `native`.
-**Optional:** `manpage` (C toolchain), `withfig`.
+**Implemented in.** `mandible-extract/src/exec/`.
 
 ---
 
 ## 9. TUI design
 
-`ratatui` with the `crossterm` backend. Mouse support comes free, so
-click-to-expand is a real affordance, not a keyboard-only one.
+**Decides.** The rendering framework, the layering rule between sanitized
+text and widgets, and the general rendering rules that apply across every
+pane.
 
-**Widgets are permitted to assume text is clean.** All sanitization happens
-at the IR boundary (§4.1); this is a hard layering rule. Untrusted text
-containing newlines, tabs, ANSI, or backspace-overstrike reaching a `Span`
-caused border corruption while scrolling in a prior implementation, and two
-widget-level fixes failed and were reverted, because a widget-level fix can
-only ever patch one of several consumers. The tree row builder still
-truncates to the pane's inner width using display width (`unicode-width`),
-not byte or `char` count, since CJK and emoji are double-width and a
-`char`-count truncation overflows the border by one cell per wide
-character.
+**Rules.**
 
-**Rendering rules.**
+1. `ratatui` with the `crossterm` backend. Mouse support comes free, so
+   click-to-expand is a real affordance, not a keyboard-only one.
+2. Widgets are permitted to assume text is clean. All sanitization happens
+   at the IR boundary (§4.1); this is a hard layering rule.
+3. The tree row builder truncates to the pane's inner width using display
+   width (`unicode-width`), not byte or `char` count.
+4. Tree rows are built at fixed column offsets:
+   `[indent 2·depth][chevron 1][space][name][space][summary dim]`.
+5. The flattened row list is cached and invalidated on expand/collapse,
+   search change, or lazy fill, never rebuilt per keypress.
+6. The detail pane groups flags by `Flag::group`, with inherited flags in a
+   final dimmed "Inherited" group, and hidden/deprecated flags suppressed
+   unless toggled with `.`.
+7. Scroll state is per-pane; the wheel scrolls the pane under the cursor.
+8. The parsed view and the raw view each keep their own scroll position,
+   vertical and horizontal. `t` restores the exact position the view being
+   entered was last left at. Movement in one never moves the other, and
+   nothing is mapped or scaled between them. An unscrolled node opens at
+   top-left; a remembered position clamps to the extent the view has when
+   restored; changing the selected node clears both views' memory.
+9. Preformatted content scrolls horizontally instead of wrapping; prose
+   does not. The raw `--help` view (`t`) and a node's USAGE synopsis lines
+   are the tool author's own layout. `h`/`l`/`←`/`→` scroll that content
+   when the detail pane has focus, clamped to the widest line, with a
+   marker in the border when more content sits off that edge. The summary,
+   description, and flag list keep wrapping to pane width as everywhere
+   else. Governed by `[ui] horizontal_scroll` in
+   `~/.config/mandible/config.toml`, default `true`.
+10. `horizontal_scroll = false` wraps every view; it never clips. A
+    preformatted line wider than the pane continues onto the next row
+    instead of ending at the border, in the raw view and the `unparsed`
+    fallback included, without being reflowed: a fitting line arrives byte
+    for byte, a row keeps its internal spacing, the cut prefers a
+    whitespace boundary and falls back to a character boundary only when a
+    token has none, and a continuation row carries the line's own leading
+    indent.
+11. Empty and degraded states are designed, not incidental. A node whose
+    children are still being extracted shows a subtle spinner row; a tool
+    where only Tier B fired shows the confidence in the footer; a tool no
+    tier resolved shows the per-tier status list with a suggestion to try
+    `--doctor`.
 
-- Tree rows are built at fixed column offsets:
-  `[indent 2·depth][chevron 1][space][name][space][summary dim]`. Fixed
-  offsets make mouse hit-testing arithmetic: the chevron is hit when
-  `col == 2·depth`.
-- The flattened row list is cached and invalidated on expand/collapse,
-  search change, or lazy fill, never rebuilt per keypress.
-- The detail pane groups flags by `Flag::group`, with inherited flags in a
-  final dimmed "Inherited" group, and hidden/deprecated flags suppressed
-  unless toggled with `.`.
-- Scroll state is per-pane; the wheel scrolls the pane under the cursor.
-- **The parsed view and the raw view each keep their own scroll position**,
-  vertical and horizontal. `t` restores the exact position the view being
-  entered was last left at; movement in one never moves the other, and
-  nothing is mapped or scaled between them, since mandible's own layout and
-  the tool's own raw text place the same flag at unrelated coordinates. An
-  unscrolled node opens at top-left; a remembered position clamps to the
-  extent the view has when restored; changing the selected node clears both
-  views' memory.
-- **Preformatted content scrolls horizontally instead of wrapping; prose
-  does not.** The raw `--help` view (`t`) and a node's USAGE synopsis lines
-  are the tool author's own layout, and wrapping them reflows spacing that
-  was part of their meaning. `h`/`l`/`←`/`→` scroll that content when the
-  detail pane has focus, clamped to the widest line, with a marker in the
-  border when more content sits off that edge. The summary, description,
-  and flag list keep wrapping to pane width as everywhere else. Governed by
-  `[ui] horizontal_scroll` in `~/.config/mandible/config.toml`, default
-  `true`.
-- **`horizontal_scroll = false` wraps every view; it never clips.** A
-  preformatted line wider than the pane continues onto the next row instead
-  of ending at the border, in the raw view and the `unparsed` fallback
-  included, without being reflowed: a fitting line arrives byte for byte, a
-  row keeps its internal spacing, the cut prefers a whitespace boundary and
-  falls back to a character boundary only when a token has none, and a
-  continuation row carries the line's own leading indent.
+**Why.** Untrusted text containing newlines, tabs, ANSI, or
+backspace-overstrike reaching a `Span` caused border corruption while
+scrolling in a prior implementation, and two widget-level fixes failed and
+were reverted, because a widget-level fix can only ever patch one of
+several consumers. Fixed column offsets make mouse hit-testing arithmetic:
+the chevron is hit when `col == 2·depth`. CJK and emoji are double-width,
+so a `char`-count truncation overflows the border by one cell per wide
+character. Mandible's own layout and the tool's own raw text place the
+same flag at unrelated coordinates, which is why the parsed and raw views
+never share scroll state. Wrapping preformatted content reflows spacing
+that was part of its meaning, since the raw view and USAGE lines are the
+tool author's own layout.
 
-**Empty and degraded states are designed, not incidental:** a node whose
-children are still being extracted shows a subtle spinner row; a tool where
-only Tier B fired shows the confidence in the footer; a tool no tier
-resolved shows the per-tier status list with a suggestion to try
-`--doctor`.
+**Implemented in.** `mandible-tui/src/render/mod.rs`,
+`mandible-tui/src/sanitize.rs`, `mandible-tui/src/tree.rs`.
 
 ### 9.1 Tree rows: one node, one row
 
-**No wrapping in the tree pane, ever.** Row index ↔ node stays a bijection,
-which keeps selection, scrolling, mouse hit-testing, and filtering
-arithmetic rather than bookkeeping. Truncation costs nothing here, since the
-detail pane shows the full text on selection and a tree summary only has to
-disambiguate `push` from `http-push`.
+**Decides.** How one tree row is laid out and truncated.
+
+**Rules.**
+
+1. No wrapping in the tree pane, ever. Row index and node stay a
+   bijection.
+2. Summaries align to a computed column, `min(longest indent+name over the
+   whole flattened row set, 40% of pane width)`, computed over all rows
+   rather than the viewport. Stable until expand or collapse.
+3. Truncate at a word boundary with `…`.
+4. The name column never yields to the summary. A long name truncates the
+   summary to nothing before truncating itself.
+5. Width ladder: full layout above 60 columns; names only below it (drop
+   summaries rather than showing a few useless characters); stacked panes
+   below 50.
+6. An `unverified` marker (§5.4) takes the summary's column ahead of the
+   summary, and the width ladder does not drop it. A plain word, not a
+   glyph, so it survives a terminal with no color and no Unicode (§9.2).
 
 ```
 ╭ git ───────────────────────────────────────────╮
@@ -1433,54 +1646,68 @@ disambiguate `push` from `http-push`.
 ╰────────────────────────────────────────────────╯
 ```
 
-- **Summaries align to a computed column**, `min(longest indent+name over
-  the whole flattened row set, 40% of pane width)`, computed over all rows
-  rather than the viewport, since a viewport-derived column jumps as you
-  scroll. Stable until expand or collapse.
-- **Truncate at a word boundary with `…`**, a real signal that the detail
-  pane has more, since a mid-word cut just looks broken.
-- **The name column never yields to the summary.** A long name truncates
-  the summary to nothing before truncating itself: navigation without a
-  summary is possible, without a name it is not.
-- Width ladder: full layout above 60 columns; names only below it (drop
-  summaries rather than showing a few useless characters); stacked panes
-  below 50.
-- **An `unverified` marker (§5.4) takes the summary's column ahead of the
-  summary**, and the width ladder does not drop it, since a summary is a
-  convenience and this is the row's claim about whether the command exists
-  at all. A plain word, not a glyph, so it survives a terminal with no
-  color and no Unicode (§9.2).
+**Why.** A row index that stays a bijection with its node keeps selection,
+scrolling, mouse hit-testing, and filtering arithmetic rather than
+bookkeeping. Truncation costs nothing in the tree pane, since the detail
+pane shows the full text on selection and a tree summary only has to
+disambiguate `push` from `http-push`. A viewport-derived summary column
+jumps as you scroll, which is why the column is computed over the whole
+flattened row set instead. A mid-word cut looks broken, so truncation
+lands on a word boundary. Navigation without a summary is possible;
+without a name it is not, which is why the name column never yields. An
+`unverified` marker is the row's claim about whether the command exists at
+all, not a convenience like the summary, so the width ladder never drops
+it.
+
+**Implemented in.** `mandible-tui/src/render/tree_pane.rs`,
+`mandible-tui/src/tree.rs`.
 
 ### 9.1a Flag rows: one table, one column
 
-The detail pane's flag list is a two-column table: spelling, description. A
-value placeholder belongs to the spelling it follows, measured with it one
-space behind (`--env list`), never given its own aligned column, since such
-a column has to be as wide as the section's widest placeholder and every
-row pays that width whether or not it takes a value. Spelling and
-placeholder are told apart by style (§9.2), not position.
+**Decides.** How a flag's spelling and description align inside the detail
+pane's flag list.
 
-- **The description column is one number for the whole list**, not a target
-  some rows are allowed to miss. A column most rows share and some don't is
-  noise that looks like alignment.
-- **A row too wide for the column starts its own first description line one
-  space past its head**, and returns to the column on every later line. It
-  never pushes the column right for itself, and the spelling is never
-  truncated to force alignment (§9.1: names win).
-- **An outlier row is excluded from the measurement, not clamped to it.**
-  A row wider than 45% of the pane, spelling and placeholder together, does
-  not get a vote; excluding it lets it run past the column while every
-  other row stays aligned.
-- **A pane too narrow for the column brings the column down, never the
-  layout.** The column is clamped until the description has 28 columns to
-  wrap in — measured, not picked: at 20 columns a real six-word flag
-  description breaks across six lines, one mid-word; at 28 it reads as
-  prose. A layout that changed shape at some threshold width would make one
-  list read as two different products either side of it.
+**Rules.**
+
+1. The detail pane's flag list is a two-column table: spelling,
+   description. A value placeholder belongs to the spelling it follows,
+   measured with it one space behind (`--env list`), never given its own
+   aligned column.
+2. The description column is one number for the whole list, not a target
+   some rows are allowed to miss.
+3. A row too wide for the column starts its own first description line one
+   space past its head, and returns to the column on every later line. It
+   never pushes the column right for itself, and the spelling is never
+   truncated to force alignment (§9.1: names win).
+4. An outlier row is excluded from the measurement, not clamped to it. A
+   row wider than 45% of the pane, spelling and placeholder together, does
+   not get a vote; excluding it lets it run past the column while every
+   other row stays aligned.
+5. A pane too narrow for the column brings the column down, never the
+   layout. The column is clamped until the description has 28 columns to
+   wrap in.
+
+**Why.** A placeholder column has to be as wide as the section's widest
+placeholder, and every row would pay that width whether or not it takes a
+value, so the placeholder rides behind its own spelling instead. Spelling
+and placeholder are told apart by style (§9.2), not position. A column
+most rows share and some don't is noise that looks like alignment, which
+is why the description column is one number, not a target. The 28-column
+wrap floor is measured, not picked: at 20 columns a real six-word flag
+description breaks across six lines, one mid-word; at 28 it reads as
+prose. A layout that changed shape at some threshold width would make one
+list read as two different products either side of it.
+
+**Implemented in.** `mandible-tui/src/render/detail_pane.rs`.
 
 ### 9.2 The styling contract
 
-One accent, spent only on information. Everything else is neutral.
+**Decides.** The color and glyph budget for the whole UI, and what may be
+drawn given a terminal that cannot be trusted to support any of it.
+
+**Rules.**
+
+1. One accent, spent only on information. Everything else is neutral:
 
 | Element | Style |
 |---|---|
@@ -1491,7 +1718,7 @@ One accent, spent only on information. Everything else is neutral.
 | Breadcrumb | Ancestors muted, leaf bold |
 | Section heading (`DESCRIPTION`, `FLAGS`) | Its own rule's shade exactly, never bolder (§9.3) |
 | Group divider | One step below the section heading, label and rule alike (§9.3) |
-| **Flag spelling** | **Accent** — the payload the user came for |
+| **Flag spelling** | **Accent**, the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
 | Flag description | Default foreground |
 | Inherited flag group | Entire group muted |
@@ -1500,33 +1727,21 @@ One accent, spent only on information. Everything else is neutral.
 | Provenance footer | Muted |
 | Low confidence, and an `unverified` node (§5.4) | Warning color, the one sanctioned exception to single-accent |
 
-Four implementation rules that matter more than the palette:
-
-- **ANSI indexed colors, not RGB.** Indexed colors resolve through the
-  user's own terminal theme, so mandible looks native in Solarized,
-  Gruvbox, or a light terminal with no detection logic; hardcoded RGB looks
-  wrong in half of them. The accent stays configurable.
-- **Prefer `DarkGray` over `Modifier::DIM` for muted text.** Several
-  terminals ignore `DIM` outright or render it nearly invisible, a
-  portability trap that only manifests on someone else's machine.
-- **Respect `NO_COLOR` and `TERM=dumb`**, degrading to bold/reverse/
-  underline only. There is no truecolor tier and no RGB anywhere: named
-  ANSI colors work at every depth that has color at all. Depth is consulted
-  in exactly one place, the detail pane's two rule shades (§9.3), which need
-  two steps below the terminal's default foreground; those read the
-  xterm-256 gray ramp where available and fall back to `DarkGray` where not.
-  Depth is read from `COLORTERM`/`TERM`, never queried, since a query needs
-  the tty in raw mode before the TUI has set it up and hangs on a terminal
-  that does not answer; an unrecognized terminal takes the fallback rather
-  than a guess.
-- **Highlight search matches.** `nucleo` returns match indices for free;
-  underlining matched characters is the difference between "the list
-  changed" and "here is why this matched."
-
+2. ANSI indexed colors, not RGB. The accent stays configurable.
+3. `DarkGray` is used for muted text, never `Modifier::DIM`.
+4. `NO_COLOR` and `TERM=dumb` are respected, degrading to bold/reverse/
+   underline only. There is no truecolor tier and no RGB anywhere: named
+   ANSI colors work at every depth that has color at all. Depth is
+   consulted in exactly one place, the detail pane's two rule shades
+   (§9.3), which need two steps below the terminal's default foreground:
+   those read the xterm-256 gray ramp where available and fall back to
+   `DarkGray` where not. Depth is read from `COLORTERM`/`TERM`, never
+   queried.
+5. Search matches are highlighted: `nucleo` returns match indices for
+   free, and matched characters are underlined.
 #### What may be drawn, and what may not
 
-The rule: a glyph may only be used if there is something legible to fall
-back to. This is about how each technique fails, not aesthetics.
+6. A glyph may only be used if there is something legible to fall back to:
 
 | Technique | Fails on | Failure mode |
 |---|---|---|
@@ -1537,235 +1752,253 @@ back to. This is about how each technique fails, not aesthetics.
 | Sixel / Kitty graphics | most terminals, most tmux, many SSH sessions | raw bytes on screen |
 | Nerd Font icons | any machine without the patched font | `□`, meaning nothing |
 
-Two properties decide it: **detectability** — `NO_COLOR`, `TERM`, and the
-locale can be inspected; a terminal can never be asked what font it is
-using, which rules Nerd Fonts out permanently — and **how it degrades**:
-losing color loses emphasis and the text remains, losing the font loses the
-meaning and leaves a box.
+7. Two glyph sets are chosen at startup from `LC_ALL`/`LC_CTYPE`/`LANG`,
+   with `MANDIBLE_ASCII=1` as an override for a terminal that claims UTF-8
+   and renders it badly anyway. A test renders a full frame over
+   ASCII-only content and asserts no cell contains a non-ASCII symbol;
+   content from the tool itself is exempt.
+8. Markup handling is staged: prose is flattened to plain text today
+   (`Text::sanitize_markdown`).
 
+**Why.** Indexed colors resolve through the user's own terminal theme, so
+mandible looks native in Solarized, Gruvbox, or a light terminal with no
+detection logic; hardcoded RGB looks wrong in half of them. Several
+terminals ignore `Modifier::DIM` outright or render it nearly invisible, a
+portability trap that only manifests on someone else's machine. A
+`COLORTERM`/`TERM` query needs the tty in raw mode before the TUI has set
+it up and hangs on a terminal that does not answer, so depth is read, not
+queried; an unrecognized terminal takes the fallback rather than a guess.
+Underlining matched characters is the difference between "the list
+changed" and "here is why this matched." Two properties decide what may be
+drawn: detectability (`NO_COLOR`, `TERM`, and the locale can be inspected;
+a terminal can never be asked what font it is using, which rules Nerd
+Fonts out permanently) and how it degrades (losing color loses emphasis
+and the text remains, losing the font loses the meaning and leaves a box).
 This matters more here than for most TUIs because of where mandible gets
 used: SSH'd into an unfamiliar machine, or inside a minimal container with
 `LANG` unset, trying to work out a CLI you do not know. Polish that
-evaporates exactly where the tool is most needed is not polish.
+evaporates exactly where the tool is most needed is not polish. The
+better end state for markup keeps parsed spans in the IR so inline code
+and link labels can be styled rather than stripped, once the plain-text
+path is stable.
 
-Implemented in `mandible-tui/src/glyphs.rs`: two glyph sets chosen at
-startup from `LC_ALL`/`LC_CTYPE`/`LANG`, with `MANDIBLE_ASCII=1` as an
-override for a terminal that claims UTF-8 and renders it badly anyway.
-Enforced by a test that renders a full frame over ASCII-only content and
-asserts no cell contains a non-ASCII symbol; content from the tool itself is
-exempt, since reproducing a tool's own text exactly matters more than this.
-
-Markup handling is staged: prose is flattened to plain text today
-(`Text::sanitize_markdown`). The better end state keeps parsed spans in the
-IR so inline code and link labels can be styled rather than stripped, once
-the plain-text path is stable.
+**Implemented in.** `mandible-tui/src/style.rs`, `mandible-tui/src/glyphs.rs`.
 
 ### 9.3 The detail pane is sections, not tabs
 
-The right pane is one scrollable document of sections, rendered in this
-order and only when non-empty:
+**Decides.** The order, spacing, and column rules for the detail pane's
+sections.
 
-1. `DESCRIPTION`
-2. `USAGE`
-3. `POSITIONALS`
-4. `FLAGS`
-5. `MODIFIERS`
-6. `ENVIRONMENT`
+**Rules.**
 
-Rules:
+1. The right pane is one scrollable document of sections, rendered in this
+   order and only when non-empty: `DESCRIPTION`, `USAGE`, `POSITIONALS`,
+   `FLAGS`, `MODIFIERS`, `ENVIRONMENT`.
+2. Empty sections do not render, and list-section headers carry a count:
+   `FLAGS (41)`, `MODIFIERS (17)`.
+3. Spellings collapse to one row: `-h, -?, -help, --help` is a single
+   entry (§4.5).
+4. Two spelling columns, set by the row's own shape. A short (one dash,
+   one character) starts at the content area's true left edge; every long
+   starts one short-prefix in, at the width of `-X, `. A row with only
+   long spellings is preindented to that same place. A dashless spelling
+   (a positional, a modifier letter, a variable name), and any row with
+   more than two spellings, sits at the short column.
+5. A repeatable positional renders `name...`. Only POSITIONALS uses it
+   this way: a flag says the same thing by being accepted again
+   (`-v -v -v`), never by an ellipsis on its spelling.
+6. The value placeholder is part of the spelling, one space behind and
+   measured with it (§9.1a), never its own aligned column.
+7. A flag's `choices` render as their own `values:` line under the
+   description, indented two columns past the shared description column,
+   never folded into the description text or the spelling column. A
+   choice's own per-value description, when the tool documents one,
+   renders one further indent past `values:`, one `name  description` row
+   per choice, in the same style; a flag whose choices all lack one keeps
+   the single-line `values: a, b, c` summary, and the two forms may mix
+   within one flag's list. A tool's own scope-flag columns (ffmpeg's
+   `ED.VAS.....`) stay verbatim inside the description; mandible parses no
+   meaning out of them.
+8. Capped shared column, per section. Every list section computes its own
+   column, fitted to roughly the p90 row width, measured from the pane's
+   left edge through the placeholder's end. Every description line in the
+   section, first line and continuation alike, begins at that column.
+   Never a per-row column, never a global uncapped one. A wrapped entry is
+   one logical row for selection and scroll math.
+9. A head that reaches the column pushes its own first line, and only
+   that, never truncated and never moving the column for the section. A
+   head too wide for the pane wraps within the head area, each line at
+   its own spelling's column, description beginning on the line beneath
+   at the shared column.
+10. A narrow pane moves the column, not the layout (§9.1a): clamped down
+    until the description has its 28 columns, never below two past the
+    long column. A 90-column terminal's 41-column detail pane clamps the
+    column to 13, still holding a short-and-long pair.
+11. POSITIONALS is inset by two columns; the flag-shaped sections are not.
+12. The vertical gaps are the container hierarchy: two blank rows above a
+    section header, one above a ruled group divider, none below either,
+    none above the first header on the page. Each count is exact, not a
+    minimum, and belongs to the block that opens, never to the one that
+    closes.
+13. ENVIRONMENT is display-only: documented vars under an explicit heading
+    only, no probing, no inferred cross-references (§4.5).
+14. Group dividers are label-first, like the headers above them. A `group`
+    renders once as its label at column 0 followed by a rule to the
+    pane's edge, mixed case; rows beneath sit at the section's normal
+    margin. Section headers are CAPS with a count, group dividers
+    mixed-case without one.
+    - A label drops the terminator its source gave it (a heading's colon,
+      or the full stop of a label that is a whole sentence).
+    - Three neutral steps, brightest first: pane borders, section header,
+      group divider. Borders keep the terminal's own default foreground;
+      the header's rule is a clear step below, the divider's a clear step
+      below that.
+    - The two rule shades come from the xterm-256 gray ramp, indices 246
+      and 240. Without the extended palette both levels collapse to
+      `DarkGray`, and §9.2's shape rule (CAPS-plus-count versus
+      mixed-case) carries the distinction between the two inner levels on
+      its own.
+    - A label is drawn in exactly its own rule's style at both levels,
+      same color, never bold.
+    - A divider that opens its section drops its rule and its blank row,
+      rendering its label alone at column 0 directly beneath the header.
+      A divider later in the same section keeps both.
+15. Descriptions always wrap. Sections are mandible's own layout, so
+    nothing in them is ever clipped or horizontally scrolled; `[ui]
+    horizontal_scroll` governs only content whose layout is not ours (the
+    raw view, verbatim USAGE synopsis lines, the `unparsed` fallback,
+    which reaches the pane by the same path as the raw view). A
+    description's preserved line breaks (§4.1) wrap too, each logical
+    line wrapped on its own at its own indent.
 
-- **Empty sections do not render**, and list-section headers carry a count:
-  `FLAGS (41)`, `MODIFIERS (17)`.
-- **Spellings collapse to one row**: `-h, -?, -help, --help` is a single
-  entry (§4.5).
-- **Two spelling columns, set by the row's own shape.** A short (one dash,
-  one character) starts at the content area's true left edge; every long
-  starts one short-prefix in, at the width of `-X, `. A row with only long
-  spellings is preindented to that same place, so longs run down one column
-  whether or not a short precedes them. A dashless spelling (a positional,
-  a modifier letter, a variable name), and any row with more than two
-  spellings, sits at the short column.
-- **A repeatable positional renders `name...`**, the POSIX synopsis
-  ellipsis that says "one or more", the same signal `repeatable` was parsed
-  from. Only POSITIONALS uses it this way: a flag says the same thing by
-  being accepted again (`-v -v -v`), never by an ellipsis on its spelling.
-- **The value placeholder is part of the spelling**, one space behind and
-  measured with it (§9.1a), never its own aligned column.
-- **A flag's `choices` render as their own `values:` line under the
-  description**, indented two columns past the shared description column,
-  never folded into the description text or the spelling column. A
-  choice's own per-value description, when the tool documents one, renders
-  one further indent past `values:`, one `name  description` row per
-  choice, in the same style; a flag whose choices all lack one keeps the
-  single-line `values: a, b, c` summary, and the two forms may mix within
-  one flag's list. A tool's own scope-flag columns (ffmpeg's `ED.VAS.....`)
-  stay verbatim inside the description; mandible parses no meaning out of
-  them.
-- **Capped shared column, per section.** Every list section computes its
-  own column, fitted to roughly the p90 row width (the majority, not the
-  outliers), measured from the pane's left edge through the placeholder's
-  end. Every description line in the section, first line and continuation
-  alike, begins at that column. Never a per-row column, never a global
-  uncapped one. A wrapped entry is one logical row for selection and scroll
-  math.
-- **A head that reaches the column pushes its own first line, and only
-  that**, never truncated and never moving the column for the section. A
-  head too wide for the pane wraps within the head area, each line at its
-  own spelling's column, description beginning on the line beneath at the
-  shared column.
-- **A narrow pane moves the column, not the layout** (§9.1a): clamped down
-  until the description has its 28 columns, never below two past the long
-  column. A 90-column terminal's 41-column detail pane clamps the column to
-  13, still holding a short-and-long pair.
-- **POSITIONALS is inset by two columns; the flag-shaped sections are
-  not.** A positional's bare name carries no dashes to set it off from the
-  pane's border; FLAGS, MODIFIERS, and ENVIRONMENT keep the edge, since
-  their short and long columns are already structure the eye follows down
-  the section.
-- **The vertical gaps are the container hierarchy**: two blank rows above a
-  section header, one above a ruled group divider, none below either, none
-  above the first header on the page. A section is a chapter and a group a
-  paragraph within it, so the wider gap marks the wider boundary. Each
-  count is exact, not a minimum, and belongs to the block that opens, never
-  to the one that closes, so a boundary never varies with how much content
-  the block above it held.
-- **ENVIRONMENT is display-only**: documented vars under an explicit
-  heading only, no probing, no inferred cross-references (§4.5).
-- **Group dividers are label-first, like the headers above them.** A
-  `group` renders once as its label at column 0 followed by a rule to the
-  pane's edge, mixed case; rows beneath sit at the section's normal margin.
-  Section headers are CAPS with a count, group dividers mixed-case without
-  one, a shape distinction that survives a terminal that ignores dimming
-  (§9.2).
-  - A label drops the terminator its source gave it (a heading's colon, or
-    the full stop of a label that is a whole sentence), so the label runs
-    straight into the rule beside it.
-  - **Three neutral steps, brightest first: pane borders, section header,
-    group divider.** Borders keep the terminal's own default foreground;
-    the header's rule is a clear step below, the divider's a clear step
-    below that.
-  - The two rule shades come from the xterm-256 gray ramp, indices 246 and
-    240, since the sixteen named colors cannot express this: `Gray` is
-    ANSI 7, the default foreground in most themes, and below it there is
-    only `DarkGray`, one step for two levels. Without the extended palette
-    both levels collapse to `DarkGray`; the step below the borders
-    survives, and §9.2's shape rule (CAPS-plus-count versus mixed-case)
-    carries the distinction between the two inner levels on its own.
-  - A label is drawn in exactly its own rule's style at both levels, same
-    color, never bold, since a label in a different shade or weight from
-    the line running out of it reads as two unrelated marks sharing a row.
-  - A divider that opens its section drops its rule and its blank row,
-    rendering its label alone at column 0 directly beneath the header,
-    since a second rule immediately beneath the header's own would read as
-    one doubled line. A divider later in the same section keeps both, since
-    it genuinely ends one run of rows and starts another.
-- **Descriptions always wrap.** Sections are mandible's own layout, so
-  nothing in them is ever clipped or horizontally scrolled; `[ui]
-  horizontal_scroll` governs only content whose layout is not ours (the raw
-  view, verbatim USAGE synopsis lines, the `unparsed` fallback, which
-  reaches the pane by the same path as the raw view). A description's
-  preserved line breaks (§4.1) wrap too, each logical line wrapped on its
-  own at its own indent.
+**Why.** A label in a different shade or weight from the line running out
+of it reads as two unrelated marks sharing a row, which is why a group
+label is drawn in exactly its own rule's style. A second rule immediately
+beneath the header's own would read as one doubled line, which is why an
+opening divider drops its rule and blank row while a later one keeps both.
+A section is a chapter and a group a paragraph within it, so the wider gap
+before a section header marks the wider boundary. `Gray` is ANSI 7, the
+default foreground in most themes, and below it there is only `DarkGray`,
+one step for two levels; the sixteen named colors cannot express the two
+inner shades this section needs, which is why the xterm-256 gray ramp is
+read where available.
+
+**Implemented in.** `mandible-tui/src/render/detail_pane.rs`.
 
 ---
 ---
 
 ## 10. Search
 
-**`nucleo`** — the matcher behind Helix. Faster than `fuzzy-matcher`/`skim`,
-correct on Unicode graphemes, and designed to match on a background thread pool
-so typing never blocks.
+**Decides.** How every documented entity, not only commands, becomes
+findable, and how a match is shown in context.
 
-**Index entries are `NodeRef`s, and every entity gets its own entry.**
-Revision 1 folded flag names into the parent command's haystack, so searching
-`--squash` selected `git rebase` rather than the flag. Since finding what a
-tool documents is the product's core job (§1), and a tool documents more than
-flags — `ar`'s modifier letters, `bpftrace`'s environment variables, a
-command's positionals — every entity of every kind is its own index entry,
-addressed by `NodeRef::Flag`, whose `key: FlagKey` now covers both shapes an
-entity's name can take: `Long`/`Short` for a flag's dashed spelling, and
-`Name` for a dashless entity's bare `primary_name()` (a positional's
-placeholder, a modifier's letter, an environment variable's name — §4.5's
-three dashless `EntityKind`s). Each entry's haystack is every documented
-spelling's bare name, `value_name`, and description — the same shape for
-every kind, dashless spellings indexed with no dash prefix. Selecting a
-result selects the parent command and scrolls the detail pane to that
-entity's own row, in whichever of FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT
-section documents it (§9.3), exactly as a flag result always has.
+**Rules.**
 
-**Two match modes, name-only by default.** Matching one combined haystack
-(name + summary + description + entity value) is correct and looks
-arbitrary: searching `branch` in `git` returns `switch` via "Switch
-branches", and since only name matches are underlined, nothing on screen
-explains why that row is there. `/` opens the box in name mode; pressing
-`/` again toggles wide mode, the combined haystack, shown in the search
-bar's title. Name mode is the default because its results explain
-themselves. Name mode filters the index's own result set: a command
-matches by a literal, case-insensitive substring of its own name; every
-entity matches, with no per-kind branch, by a case-insensitive prefix of a
-`-`/`_`-separated word of any of its spellings, the whole name counting as
-its own first word, so `NODE_D` matches `NODE_DEBUG` from the start and
-`debug` matches it from after the `_`. A looser subsequence test was tried
-first and made the mode feel broken — searching `run` in `docker` surfaced
-`--no-trunc`'s parent command, since `--no-trunc` contains r…u…n in
-order — and the word-prefix rule refuses that case while still admitting
-`no`, `trunc`, a bare modifier letter, or either half of an underscored env
-var name. Wide mode's ranking is unaffected, and stays the fuzzy index,
-where `gco` still finds `checkout`.
+1. `nucleo`, the matcher behind Helix, backs the index.
+2. Index entries are `NodeRef`s, and every entity gets its own entry:
+   addressed by `NodeRef::Flag`, whose `key: FlagKey` covers both shapes an
+   entity's name can take, `Long`/`Short` for a flag's dashed spelling and
+   `Name` for a dashless entity's bare `primary_name()` (a positional's
+   placeholder, a modifier's letter, an environment variable's name, §4.5's
+   three dashless `EntityKind`s). Each entry's haystack is every documented
+   spelling's bare name, `value_name`, and description, the same shape for
+   every kind, dashless spellings indexed with no dash prefix.
+3. Selecting a result selects the parent command and scrolls the detail
+   pane to that entity's own row, in whichever of
+   FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT section documents it (§9.3),
+   exactly as a flag result always has.
+4. Two match modes, name-only by default. `/` opens the box in name mode;
+   pressing `/` again toggles wide mode, the combined haystack (name +
+   summary + description + entity value), shown in the search bar's
+   title.
+5. Name mode filters the index's own result set: a command matches by a
+   literal, case-insensitive substring of its own name; every entity
+   matches, with no per-kind branch, by a case-insensitive prefix of a
+   `-`/`_`-separated word of any of its spellings, the whole name counting
+   as its own first word. `NODE_D` matches `NODE_DEBUG` from the start and
+   `debug` matches it from after the `_`.
+6. Wide mode's ranking stays the fuzzy index, where `gco` still finds
+   `checkout`.
+7. Filtering preserves hierarchy: matching a node force-expands its
+   ancestor chain and the tree renders normally with non-matching siblings
+   hidden.
+8. `Nucleo::tick` is driven from the event loop's poll timeout, never from
+   a blocking spin inside the keystroke handler.
+9. Ranking boosts exact prefix matches on names above description matches,
+   so typing `reb` puts `rebase` above every command whose description
+   contains "rebase".
 
-**Filtering preserves hierarchy.** A flat result list rendered with
-`depth = path.len() - 1` produces indentation pointing at ancestors that aren't
-on screen. Instead, matching a node force-expands its ancestor chain and the tree
-renders normally with non-matching siblings hidden. This is also what makes the
-spec's intent — pin the filter, then navigate the narrowed tree — actually
-achievable; with a flat list, expand/collapse keys mutate state nothing reads.
+**Why.** `nucleo` is faster than `fuzzy-matcher`/`skim`, correct on Unicode
+graphemes, and designed to match on a background thread pool so typing
+never blocks. Revision 1 folded flag names into the parent command's
+haystack, so searching `--squash` selected `git rebase` rather than the
+flag; since finding what a tool documents is the product's core job (§1),
+and a tool documents more than flags (`ar`'s modifier letters,
+`bpftrace`'s environment variables, a command's positionals), every entity
+now gets its own entry. Matching one combined haystack by default is
+correct and looks arbitrary: searching `branch` in `git` returns `switch`
+via "Switch branches", and since only name matches are underlined, nothing
+on screen explains why that row is there. Name mode is the default because
+its results explain themselves. A looser subsequence test was tried first
+and made the mode feel broken: searching `run` in `docker` surfaced
+`--no-trunc`'s parent command, since `--no-trunc` contains r-u-n in order.
+The word-prefix rule refuses that case while still admitting `no`,
+`trunc`, a bare modifier letter, or either half of an underscored env var
+name. A flat result list rendered with `depth = path.len() - 1` produces
+indentation pointing at ancestors that aren't on screen, which is why
+matching force-expands the ancestor chain instead; with a flat list,
+expand/collapse keys would mutate state nothing reads. A 50 ms synchronous
+deadline per keystroke on the UI thread defeats the reason nucleo was
+chosen, hence driving `tick` from the poll timeout.
 
-**Threading.** Drive `Nucleo::tick` from the event loop's poll timeout, not from a
-blocking spin inside the keystroke handler. A 50 ms synchronous deadline per
-keystroke on the UI thread defeats the reason nucleo was chosen.
-
-**Ranking.** Boost exact prefix matches on names above description matches, so
-typing `reb` puts `rebase` above every command whose description contains
-"rebase".
+**Implemented in.** `mandible-search/src/lib.rs`.
 
 ---
 
 ## 11. No cache
 
-**There is no on-disk extraction cache.** Revision 2 specified one, keyed on
-binary identity plus a build-time source fingerprint. Revision 3 removes it.
+**Decides.** Whether extraction results persist on disk between runs.
 
-**Why it cannot be made correct.** A cache key can only observe the things it
-hashes. Help output routinely changes while every hashed input stays identical:
+**Rules.**
 
-- `docker` gains subcommands when a plugin is installed — the docker binary is
-  untouched.
+1. There is no on-disk extraction cache. Revision 2 specified one, keyed on
+   binary identity plus a build-time source fingerprint. Revision 3
+   removes it.
+2. If a cache is ever reintroduced, the only acceptable design is
+   revalidate-rather-than-guess: store a hash of the tool's root help
+   output, and re-probe that single command on open (one subprocess,
+   ~40 ms) to decide whether the cached tree is still valid. Guessing from
+   file metadata is not acceptable.
+
+**Why.** A cache key can only observe the things it hashes, and help
+output routinely changes while every hashed input stays identical:
+
+- `docker` gains subcommands when a plugin is installed. The docker binary
+  is untouched.
 - `git` gains subcommands from any `git-*` on `PATH`, and from aliases in
   `~/.gitconfig`.
 - `kubectl` behaves the same way with its plugins.
 
-No fingerprint over the binary catches any of these. A cache that is *usually*
-fresh is a cache that will be confidently wrong at some point, and this project
-already shipped one staleness bug whose only symptom was a correct fix appearing
-not to work.
+No fingerprint over the binary catches any of these. A cache that is
+usually fresh is a cache that will be confidently wrong at some point, and
+this project already shipped one staleness bug whose only symptom was a
+correct fix appearing not to work. Removing it is affordable because lazy
+node-at-a-time extraction (§5.2) means a launch only ever extracts the
+root: 179 ms for `git`, 221 ms for `docker`, against the 10.5 s that eager
+whole-tree extraction cost [M-3]. That is well inside the budget for a TUI
+a human then reads for seconds.
 
-**Why removing it is affordable.** Lazy node-at-a-time extraction (§5.2) means a
-launch only ever extracts the root: 179 ms for `git`, 221 ms for `docker`,
-against the 10.5 s that eager whole-tree extraction cost [M-3]. That is well
-inside the budget for a TUI a human then reads for seconds.
-
-**If it is ever reintroduced**, the only acceptable design is
-revalidate-rather-than-guess: store a hash of the tool's root help output, and
-re-probe that single command on open (one subprocess, ~40 ms) to decide whether
-the cached tree is still valid. Guessing from file metadata is not acceptable.
+**Implemented in.** `mandible-extract/src/runner.rs`.
 
 ---
 
 ## 12. Implementation roadmap
 
-Reordered from revision 1 by measured payoff. Tier A is 740 tools and 48k
-descriptions for zero subprocesses [M-1]; it is the fastest path to a product
-that is actually useful, and it still exercises the merge against Tier B.
+**Decides.** The phase order the build followed, and each phase's exit
+criteria.
+
+**Rules.**
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
@@ -1774,10 +2007,15 @@ that is actually useful, and it still exercises the merge against Tier B.
 | **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mandible curl`, `mandible tar`, `mandible openssl`, `mandible ip` all produce useful trees; coverage harness reports its first scoreboard |
 | **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
 | **4 — Tier E + C** | cobra two-probe protocol with depth cap/visited set/alias detection; clap `CompleteEnv`; zsh `_arguments` then bash | A cobra tool absent from the catalog renders correctly; a `completion`-only tool renders correctly |
-| **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). **Not** `git` — its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
+| **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). Not `git`, its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
 | **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mandible itself, shell completions | `cargo install mandible` works; `.deb` and `.rpm` install cleanly |
 
-Deliberately **not** on the roadmap: local NL search (§17).
+Deliberately not on the roadmap: local NL search (§17).
+
+**Why.** Phases are reordered from revision 1 by measured payoff. Tier A
+is 740 tools and 48k descriptions for zero subprocesses [M-1], so it was
+the fastest path to a product that is actually useful, and it still
+exercised the merge against Tier B.
 
 ---
 
@@ -1785,464 +2023,529 @@ Deliberately **not** on the roadmap: local NL search (§17).
 
 ### 13.1 The coverage harness
 
-`cargo xtask coverage` runs extraction across every executable on `PATH` and
-emits a scoreboard: tool, tier(s), nodes, flags, `%flags_text`, ms, status.
-The scoreboard is checked into the repo and diffed on every parser change.
+**Decides.** How "no per-tool adjustment" is measured fleet-wide, rather
+than judged tool by tool.
 
-This is what makes "no per-tool adjustment" measurable rather than
-aspirational. Without a fleet-wide scoreboard, a grammar change is judged
-only against the tool someone happens to be looking at, and a fix to one
-tool can silently regress another.
+**Rules.**
 
-The regression gate: the `%flags_text` aggregate and the `no-tier` count may
-never worsen. `%flags_text` is `described / describable`, not
-`described / total` — a flag whose only source structurally cannot supply a
-description (`Source::HelpTextSynopsis`) is excluded from the denominator
-rather than counted as a miss. See Appendix B for the rename from
-`pct_described`, and [M-15] for the measurement that forced it.
+1. `cargo xtask coverage` runs extraction across every executable on
+   `PATH` and emits a scoreboard: tool, tier(s), nodes, flags,
+   `%flags_text`, ms, status. The scoreboard is checked into the repo and
+   diffed on every parser change.
+2. The regression gate: the `%flags_text` aggregate and the `no-tier`
+   count may never worsen. `%flags_text` is `described / describable`,
+   not `described / total`. A flag whose only source structurally cannot
+   supply a description (`Source::HelpTextSynopsis`) is excluded from the
+   denominator rather than counted as a miss. See Appendix B for the
+   rename from `pct_described`, and [M-15] for the measurement that
+   forced it.
+3. A structure-sanity column counts nodes whose name fails
+   `^[a-z][a-z0-9_.-]*$`, and nodes with no flags, no children, and no
+   summary. A tool with a nonzero count is marked `suspicious`, gated the
+   same as `no-tier`. See [M-10] for the defect this column exists to
+   catch.
+4. Two detectors re-examine text the pipeline already captured, adding no
+   new probes:
+   - Misattribution (`xtask/src/misattribution.rs`) flags a flag
+     description that also contains another flag's literal spelling,
+     attested at a column-aligned position elsewhere in the raw text, a
+     multi-column options table read as a single column.
+   - Existence (`xtask/src/existence.rs`) checks that every
+     help-text-sourced subcommand name and flag spelling occurs literally
+     in the tool's own captured text, guarding against invented nodes.
+5. Both detectors report a scoreboard column and a footer field; neither
+   is gated. A brand-new detector with no fleet baseline must not fail a
+   build the first time it runs.
+6. Every scoreboard carries a literal `accuracy: unmeasured` line. The
+   audit (§13.1c) is the only instrument that measures correctness.
 
-A **structure-sanity** column catches fabrication that a text-attachment
-ratio cannot see on its own: it counts nodes whose name fails
-`^[a-z][a-z0-9_.-]*$`, and nodes with no flags, no children, and no summary.
-A tool with a nonzero count is marked `suspicious`, gated the same as
-`no-tier`. See [M-10] for the defect this column exists to catch.
+**Why.** Without a fleet-wide scoreboard, a grammar change is judged only
+against the tool someone happens to be looking at, and a fix to one tool
+can silently regress another. A reader can never mistake presence-of-text
+for correctness, which is why `accuracy: unmeasured` is stated on every
+run rather than implied by silence. A coverage metric that can be
+satisfied by the failure mode it exists to detect is worse than no
+metric, because it converts a silent bug into a confidently reported
+success. §13.1b states this as five rules; [M-21] records the incidents
+that produced them.
 
-Two detectors re-examine text the pipeline already captured, adding no new
-probes:
-
-- **Misattribution** (`xtask/src/misattribution.rs`) flags a flag
-  description that also contains another flag's literal spelling, attested
-  at a column-aligned position elsewhere in the raw text — a multi-column
-  options table read as a single column.
-- **Existence** (`xtask/src/existence.rs`) checks that every help-text-sourced
-  subcommand name and flag spelling occurs literally in the tool's own
-  captured text, guarding against invented nodes.
-
-Both report a scoreboard column and a footer field, and neither is gated:
-a brand-new detector with no fleet baseline must not fail a build the first
-time it runs. Every scoreboard also carries a literal `accuracy: unmeasured`
-line, so a reader can never mistake presence-of-text for correctness. The
-audit (§13.1c) is the only instrument that measures correctness.
-
-A coverage metric that can be satisfied by the failure mode it exists to
-detect is worse than no metric, because it converts a silent bug into a
-confidently reported success. §13.1b states this as five rules; [M-21]
-records the incidents that produced them.
+**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/misattribution.rs`,
+`xtask/src/existence.rs`.
 
 ### 13.1a The framework-support workflow
 
-A CI workflow reports, per run, which frameworks mandible supports and how
-well, rendered into the run summary. Two jobs:
+**Decides.** What CI reports about framework support, per run.
 
-1. **Framework matrix.** Install one representative tool per supported
-   framework and assert that mandible identifies the framework and extracts
-   a non-trivial tree.
-2. **PATH sweep.** Run the coverage harness over the runner's own `PATH`,
-   at zero installation cost.
+**Rules.**
 
-The summary table carries, per framework: tools detected, flags extracted,
-`%flags_text`, and pass/fail. The gate fails on regressions in `no-tier`,
-`suspicious`, or framework-detection failures.
+1. A CI workflow reports, per run, which frameworks mandible supports and
+   how well, rendered into the run summary. Two jobs:
+   1. Framework matrix: install one representative tool per supported
+      framework and assert that mandible identifies the framework and
+      extracts a non-trivial tree.
+   2. PATH sweep: run the coverage harness over the runner's own `PATH`,
+      at zero installation cost.
+2. The summary table carries, per framework: tools detected, flags
+   extracted, `%flags_text`, and pass/fail.
+3. The gate fails on regressions in `no-tier`, `suspicious`, or
+   framework-detection failures.
+
+**Implemented in.** `.github/workflows/frameworks.yml`,
+`.github/workflows/path-sweep.yml`.
 
 ### 13.1b Metric design rules
 
-A metric that is not monotone under added true information will eventually
-punish a real improvement. `pct_flags_with_text` learned this the hard way
-when a usage-synopsis grammar recovered thousands of real flags and the
-ratio *fell*, because every recovered flag counted as undescribed against a
+**Decides.** The rules a gated metric must satisfy to stay trustworthy as
+the pipeline changes under it.
+
+**Rules.**
+
+1. A gated metric must be monotone under added true information. An
+   improvement that adds correct data and loses nothing must never
+   worsen a gated number.
+2. A denominator is conditioned on what the source could have provided. A
+   flag whose only source cannot supply a description is excluded from
+   `%flags_text`'s denominator, not counted as a miss. Its spelling still
+   counts in the raw, ungated flag total.
+3. A status derived under resource pressure states a fact about the
+   machine, not the parser. A wall-clock-derived signal must not silently
+   flip a correctness gate. Where a timing assertion is not itself the
+   safety property under test, it is demoted to a non-blocking warning
+   with a wide margin; where it is (`exec::spawn`'s process-group-kill
+   test), it stays blocking.
+4. A name is part of a metric's design, not decoration. A name a reader
+   could mistake for a stronger claim than the metric makes is a defect.
+   `pct_described` was renamed `pct_flags_with_text` for this reason
+   alone; the computation did not change.
+   `xtask::coverage::parse_aggregate_footer` still reads a scoreboard's
+   old `pct_described=` key for backward compatibility and never writes
+   one; see Appendix B for both renames.
+5. A mass status promotion must carry its own spot-audit stratum, drawn
+   at random, never asserted from the aggregate that produced it. Any
+   change promoting more than a handful of tools to `ok` must include a
+   spot-audit of 5 to 10 randomly drawn promoted tools, recorded in the
+   audit manifest as its own stratum. `xtask audit spot-audit --event
+   <name> --promoted <tool,...> --sample <n> --draw-seed <seed>` draws
+   reproducibly, via the same per-stratum seed mix the frozen queue uses,
+   and tags each drawn tool with its own `spot-audit:<event>` row,
+   distinct from the ordinary strata and from `forced-inclusion`. A
+   promoted tool already present in the manifest is tagged into the new
+   stratum without its prior verdict, note, or amendment history being
+   touched; only `xtask audit amend` may change a verdict.
+
+**Why.** `pct_flags_with_text` learned rule 1 the hard way when a
+usage-synopsis grammar recovered thousands of real flags and the ratio
+fell, because every recovered flag counted as undescribed against a
 source that could never have described it ([M-15]). [M-21] records this
 incident alongside four more of the same shape: an inflated ratio from
 fabricated nodes ([M-10]), a conflated status from an unrelated property
 ([M-16]), a false regression from timing under load, and a name
-(`%described`) that read as an accuracy claim it never earned.
+(`%described`) that read as an accuracy claim it never earned. A clean
+corpus and a clean sweep-diff prove nothing regressed; neither looks at a
+single promoted tool with a human eye, which is why rule 5 requires a
+spot-audit.
 
-Five rules follow, each keyed to one of those incidents:
-
-1. **A gated metric must be monotone under added true information.** An
-   improvement that adds correct data and loses nothing must never worsen a
-   gated number.
-2. **A denominator is conditioned on what the source could have provided.**
-   A flag whose only source cannot supply a description is excluded from
-   `%flags_text`'s denominator, not counted as a miss. Its spelling still
-   counts in the raw, ungated flag total.
-3. **A status derived under resource pressure states a fact about the
-   machine, not the parser.** A wall-clock-derived signal must not silently
-   flip a correctness gate. Where a timing assertion is not itself the
-   safety property under test, it is demoted to a non-blocking warning with
-   a wide margin; where it is (`exec::spawn`'s process-group-kill test), it
-   stays blocking.
-4. **A name is part of a metric's design, not decoration.** A name a reader
-   could mistake for a stronger claim than the metric makes is a defect.
-   `pct_described` was renamed `pct_flags_with_text` for this reason alone;
-   the computation did not change. `xtask::coverage::parse_aggregate_footer`
-   still reads a scoreboard's old `pct_described=` key for backward
-   compatibility and never writes one; see Appendix B for both renames.
-5. **A mass status promotion must carry its own spot-audit stratum, drawn
-   at random, never asserted from the aggregate that produced it.** A clean
-   corpus and a clean sweep-diff prove nothing regressed; neither looks at a
-   single promoted tool with a human eye. Any change promoting more than a
-   handful of tools to `ok` must include a spot-audit of 5 to 10 randomly
-   drawn promoted tools, recorded in the audit manifest as its own stratum.
-   `xtask audit spot-audit --event <name> --promoted <tool,...> --sample <n>
-   --draw-seed <seed>` draws reproducibly, via the same per-stratum seed mix
-   the frozen queue uses, and tags each drawn tool with its own
-   `spot-audit:<event>` row, distinct from the ordinary strata and from
-   `forced-inclusion`. A promoted tool already present in the manifest is
-   tagged into the new stratum without its prior verdict, note, or amendment
-   history being touched; only `xtask audit amend` may change a verdict.
+**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/audit.rs`.
 
 ### 13.1c The audit instrument: comparing against truth
 
-Misattribution and existence each compare the parser's output against
-itself. `xtask audit` and `mandible --review` are the first instruments to
-compare output against independently established truth: a human reads a
-tool's own raw `--help` text beside the parsed tree and judges it.
+**Decides.** How a parsed tree is checked against truth rather than
+against itself.
 
-Subcommands (`xtask audit <subcommand>`): `sample` draws and persists a
-sample; `review` is the interactive terminal loop; `emit`/`ingest` are its
-non-interactive twin, since CI has no tty (AGENTS.md §3.6) — `emit` writes
-every pending pair to a file, `ingest` reads a verdicts file back; `report`
-renders accuracy; `fixtures` turns a reviewed tool into a staged
-`corpus/`-shaped fixture, a `correct` verdict becoming a real
-`expected.snap` and a `wrong`/`incomplete` verdict becoming `[xfail]` with
-the reviewer's note as `reason`. `mandible --review <SEED>` (§5.3) reviews
-the same manifest inside the real TUI.
+**Rules.**
 
-The draw is stratified, deterministic, and force-includable, via a frozen
-queue (§13.1d): `xtask audit freeze` classifies every tool once and
-shuffle-stratifies the result into an ordered queue, and `xtask audit
-sample` advances that queue's cursor. A tool can additionally be
-force-included, but only with a recorded reason
-(`audit/force-include.txt`); force-included entries are tallied under their
-own `forced-inclusion` stratum, never blended into the random draw.
+1. `xtask audit` and `mandible --review` are the first instruments to
+   compare output against independently established truth: a human reads
+   a tool's own raw `--help` text beside the parsed tree and judges it.
+   Misattribution and existence (§13.1) each compare the parser's output
+   against itself instead.
+2. Subcommands (`xtask audit <subcommand>`): `sample` draws and persists a
+   sample; `review` is the interactive terminal loop; `emit`/`ingest` are
+   its non-interactive twin, since CI has no tty (AGENTS.md §3.6):
+   `emit` writes every pending pair to a file, `ingest` reads a verdicts
+   file back; `report` renders accuracy; `fixtures` turns a reviewed tool
+   into a staged `corpus/`-shaped fixture, a `correct` verdict becoming a
+   real `expected.snap` and a `wrong`/`incomplete` verdict becoming
+   `[xfail]` with the reviewer's note as `reason`. `mandible --review
+   <SEED>` (§5.3) reviews the same manifest inside the real TUI.
+3. The draw is stratified, deterministic, and force-includable, via a
+   frozen queue (§13.1d): `xtask audit freeze` classifies every tool once
+   and shuffle-stratifies the result into an ordered queue, and `xtask
+   audit sample` advances that queue's cursor. A tool can additionally be
+   force-included, but only with a recorded reason
+   (`audit/force-include.txt`); force-included entries are tallied under
+   their own `forced-inclusion` stratum, never blended into the random
+   draw.
+4. Verdicts are `correct`, `incomplete`, `wrong`, or `skip`. A `wrong` or
+   `incomplete` verdict must carry a note, enforced identically in the
+   TUI and in `ingest`. `correct` and `skip` do not require one. `skip`
+   is recorded, occupying its slot and appearing in `audit report`,
+   excluded only from the accuracy ratio. Which of `wrong` and
+   `incomplete` a tool received is never load-bearing anywhere
+   downstream: `accuracy_over` collapses both into one judged-defect
+   bucket, the note requirement is identical for both, and a
+   defect-family label is derived from the note and the fixture, never
+   from which word was chosen.
+5. Three pre-tagged known-defect classes are computed at sample time and
+   shown to the reviewer before they record a verdict, so confirming is
+   free and overriding is one token:
+   - K1: a single-dash long option mis-parsed as a short flag plus a
+     value (`-fdump-scos` stored as `-f` with value `dump-scos`). The
+     same `short.is_some() && long.is_none() && value_name.is_some()`
+     shape is also produced by a collapsed short-flag bundle and by a
+     repeated flag letter (`-vv`); a detector for one fires on the other
+     two unless it inspects what the value text actually is. All three
+     now have a separate, calibrated detector and a shipped repair,
+     ratchet-gated at zero. [M-21] has the fleet numbers.
+   - K2: the existence detector's own tokenizer gap, not a parser defect.
+     Closed: characterized on a full sweep and repaired down to a small,
+     genuine residual. [M-21] has the numbers.
+   - K3: a subcommand stub whose help was never fetched, because the
+     attestation gate refused to probe a name with no recognized
+     `--help` heading, or because the single-pass extraction never
+     reached it.
+6. Display-only findings are excluded from the accuracy denominator,
+   never from the record. A `wrong`/`incomplete` verdict sometimes lands
+   on a rendering defect (`mandible --review`'s own TUI mis-rendering a
+   correct extraction) rather than a parse defect. `skip` cannot record
+   this, since the defect was judged and real. The `display-only`
+   [`mandible_core::audit::DEFECT_FAMILIES`] label marks it, and
+   [`Entry::is_display_only`] excludes it from every accuracy view while
+   the verdict, note, and fixture stay exactly as recorded; `audit
+   report` prints excluded findings in their own section plus an
+   `out-of-scope` column. `display-only` must be an entry's only family:
+   a genuine parse-shape family riding alongside it blocks the exclusion
+   rather than granting it.
+7. `audit report` states accuracy per stratum with a Wilson 95%
+   confidence interval, never a bare percentage, and also reports
+   accuracy with each known class (K1/K2/K3) excluded.
+8. Scope: the audit measures flag accuracy and command/subcommand
+   accuracy only. A node's own prose description and usage-section
+   formatting are out of scope. A flag's description attached to the
+   wrong flag is in scope, since that is flag data misattribution; the
+   node's own prose description is not.
+9. `audit/<seed>.toml` is tracked, since an accuracy claim must carry its
+   evidence in git rather than depend on one contributor's machine.
+   `audit/<seed>/fixtures/` is not: it is staging output, reviewed and
+   deliberately promoted into `corpus/`.
 
-Verdicts are `correct`, `incomplete`, `wrong`, or `skip`. A `wrong` or
-`incomplete` verdict must carry a note — for those two verdicts the note is
-the finding — enforced identically in the TUI and in `ingest`. `correct` and
-`skip` do not require one. `skip` is recorded, occupying its slot and
-appearing in `audit report`, excluded only from the accuracy ratio. Which of
-`wrong` and `incomplete` a tool received is never load-bearing anywhere
-downstream: `accuracy_over` collapses both into one judged-defect bucket,
-the note requirement is identical for both, and a defect-family label is
-derived from the note and the fixture, never from which word was chosen.
-
-Three pre-tagged known-defect classes are computed at sample time and shown
-to the reviewer before they record a verdict, so confirming is free and
-overriding is one token:
-
-- **K1**: a single-dash long option mis-parsed as a short flag plus a value
-  (`-fdump-scos` stored as `-f` with value `dump-scos`). The same
-  `short.is_some() && long.is_none() && value_name.is_some()` shape is also
-  produced by a collapsed short-flag bundle and by a repeated flag letter
-  (`-vv`); a detector for one fires on the other two unless it inspects what
-  the value text actually is. All three now have a separate, calibrated
-  detector and a shipped repair, ratchet-gated at zero. [M-21] has the
-  fleet numbers.
-- **K2**: the existence detector's own tokenizer gap, not a parser defect.
-  Closed: characterized on a full sweep and repaired down to a small,
-  genuine residual. [M-21] has the numbers.
-- **K3**: a subcommand stub whose help was never fetched, because the
-  attestation gate refused to probe a name with no recognized `--help`
-  heading, or because the single-pass extraction never reached it.
-
-**Display-only findings are excluded from the accuracy denominator, never
-from the record.** A `wrong`/`incomplete` verdict sometimes lands on a
-rendering defect (`mandible --review`'s own TUI mis-rendering a correct
-extraction) rather than a parse defect. `skip` cannot record this, since the
-defect was judged and real. The `display-only`
-[`mandible_core::audit::DEFECT_FAMILIES`] label marks it, and
-[`Entry::is_display_only`] excludes it from every accuracy view while the
-verdict, note, and fixture stay exactly as recorded; `audit report` prints
-excluded findings in their own section plus an `out-of-scope` column, so the
-number cannot go quietly missing. `display-only` must be an entry's only
-family: a genuine parse-shape family riding alongside it blocks the
-exclusion rather than granting it.
-
-`audit report` states accuracy per stratum with a Wilson 95% confidence
-interval, never a bare percentage, and also reports accuracy with each known
-class (K1/K2/K3) excluded, so a reader can see how much of a raw number is
-attributable to an already-scheduled cause.
-
-**Scope**: the audit measures flag accuracy and command/subcommand accuracy
-only. A node's own prose description and usage-section formatting are out of
-scope. A flag's description attached to the wrong flag is in scope, since
-that is flag data misattribution; the node's own prose description is not.
-
-`audit/<seed>.toml` is tracked, since an accuracy claim must carry its
-evidence in git rather than depend on one contributor's machine.
-`audit/<seed>/fixtures/` is not: it is staging output, reviewed and
-deliberately promoted into `corpus/`.
-
-The audit has not finished running. This section documents the instrument,
-not a result: no accuracy number is stated here. The result belongs in
+**Why.** A defect-family label derived from the note rather than the
+chosen verdict word keeps K1/K2/K3 and every other family comparable
+regardless of which of `wrong`/`incomplete` a reviewer picked. The audit
+has not finished running. This section documents the instrument, not a
+result: no accuracy number is stated here. The result belongs in
 Appendix A as [M-20], once the audit completes.
+
+**Implemented in.** `xtask/src/audit.rs`, `mandible-core/src/audit.rs`.
 
 ### 13.1d The frozen sampling queue
 
-Before this design, `xtask audit sample` reclassified the whole `PATH`
-population on every draw, and because the strata were recomputed from
-whatever the parser happened to be on the day, two draws taken apart in time
-were stratifying against two different definitions of "ok" and were not
-directly comparable.
+**Decides.** How successive audit draws stay comparable over time.
 
-The fix: freeze the tool list once, walk a cursor through it. `xtask audit
-freeze` sweeps `PATH` (or a pinned `--tools` list) exactly once, classifies
-every tool, shuffle-stratifies the result with a recorded seed, and writes
-the ordered queue to `audit/queue.toml`. `xtask audit sample` only ever
-advances that queue's cursor and merges the slice into a verdict file — no
-re-probing, no reclassification, at draw time. The queue is ordered once and
-a cursor advances through it; a draw never depends on which tools any
-verdict file has already recorded, which is what keeps successive draws
-comparable.
+**Rules.**
 
-Three properties the design guarantees:
-
-1. `queue.toml` records a freeze date and a population hash, so staleness can
-   be detected (`xtask audit freeze --check`, a directory listing, no
+1. `xtask audit freeze` sweeps `PATH` (or a pinned `--tools` list) exactly
+   once, classifies every tool, shuffle-stratifies the result with a
+   recorded seed, and writes the ordered queue to `audit/queue.toml`.
+2. `xtask audit sample` only ever advances that queue's cursor and merges
+   the slice into a verdict file, no re-probing, no reclassification, at
+   draw time.
+3. `queue.toml` records a freeze date and a population hash, so staleness
+   can be detected (`xtask audit freeze --check`, a directory listing, no
    probing) without rewriting anything.
-2. Each stratum is independently shuffled, then merged by a fractional rank
-   within its own stratum, so any prefix of the frozen queue is itself a
-   proportionally stratified sample, not just the queue as a whole.
-3. `xtask audit freeze` persists every `(argv, output)` pair each tool's
+4. Each stratum is independently shuffled, then merged by a fractional
+   rank within its own stratum, so any prefix of the frozen queue is
+   itself a proportionally stratified sample, not just the queue as a
+   whole.
+5. `xtask audit freeze` persists every `(argv, output)` pair each tool's
    extraction pass recorded under `audit/queue-captures/`. `xtask audit
    reclassify` replays those bytes through the current parser via
    `mandible_extract::exec::Transcript`, with no `PATH` sweep and zero
-   subprocess spawns, recomputing every tool's stratum in parallel. [M-21]
-   has the measured cost.
+   subprocess spawns, recomputing every tool's stratum in parallel.
+   [M-21] has the measured cost.
+6. `audit/queue.toml` is tracked; `audit/queue-captures/` is not, it is
+   bulk, machine-generated content, regenerable locally by re-running
+   `xtask audit freeze`.
+7. `--tools` lives on `freeze`, since `sample` no longer touches `PATH`
+   at all; `sample --seed` names which verdict file a slice merges into,
+   not a draw seed.
+8. Reclassification updates a tool's reported stratum, never its position
+   in the queue.
+9. `freeze` issues exactly the probes the old live sweep issued, all
+   through `run_inert` (§6); `reclassify` spawns nothing.
 
-`audit/queue.toml` is tracked; `audit/queue-captures/` is not — it is bulk,
-machine-generated content, regenerable locally by re-running `xtask audit
-freeze`. `--tools` lives on `freeze`, since `sample` no longer touches
-`PATH` at all; `sample --seed` names which verdict file a slice merges into,
-not a draw seed.
+**Why.** Before this design, `xtask audit sample` reclassified the whole
+`PATH` population on every draw, and because the strata were recomputed
+from whatever the parser happened to be on the day, two draws taken apart
+in time were stratifying against two different definitions of "ok" and
+were not directly comparable. The queue is ordered once and a cursor
+advances through it; a draw never depends on which tools any verdict file
+has already recorded, which is what keeps successive draws comparable.
+Honest caveats: a frozen population drifts from a machine's real
+installed tools over time, and `freeze --check` detects drift without
+fixing it. A long-unfrozen queue's interleaving reflects its freeze-time
+composition, not its current one, a real but much smaller drift than the
+staleness this design replaces. Reclassification still reads a tool's
+on-disk binary for framework fingerprinting, so it depends on the binary
+resolving on `PATH` at the same path, even though it spawns nothing.
 
-Honest caveats: a frozen population drifts from a machine's real installed
-tools over time, and `freeze --check` detects drift without fixing it.
-Reclassification updates a tool's reported stratum, never its position in
-the queue, so a long-unfrozen queue's interleaving reflects its
-freeze-time composition, not its current one — a real but much smaller
-drift than the staleness this design replaces. Reclassification still reads
-a tool's on-disk binary for framework fingerprinting, so it depends on the
-binary resolving on `PATH` at the same path, even though it spawns nothing.
-
-No new execution-safety surface: `freeze` issues exactly the probes the old
-live sweep issued, all through `run_inert` (§6); `reclassify` spawns
-nothing.
+**Implemented in.** `xtask/src/audit.rs`, `xtask/src/queue.rs`.
 
 ### 13.1e Family detectors and the calibration precondition
 
-A **family detector** generalizes one human audit finding across the fleet:
-the audit reads one tool at a time and is slow; a detector asks whether the
-same shape occurs on every `PATH` tool, in seconds. `xtask detector`
-(`xtask/src/detector.rs`) is the harness they register in.
+**Decides.** When a detector's fleet-wide count is trustworthy enough to
+quote, and what a family label means.
 
-A family detector is not a correctness instrument. The audit remains the
-only instrument that touches truth; a detector's claim is narrower — this
-same shape occurs here too — and that narrowness is exactly where the
-danger is: a detector produces a confident fleet-wide count and nothing
-inside that count knows whether the detector fires on the defect it names.
+**Rules.**
 
-> A detector's fleet-wide number is not quotable until it has passed
-> calibration against the human labels: it must fire on the known-bad tools
-> and stay silent on the known-good ones. A detector that has not passed
-> this check is measuring itself.
+1. A family detector generalizes one human audit finding across the
+   fleet: the audit reads one tool at a time and is slow; a detector asks
+   whether the same shape occurs on every `PATH` tool, in seconds.
+   `xtask detector` (`xtask/src/detector.rs`) is the harness they
+   register in.
+2. A detector's fleet-wide number is not quotable until it has passed
+   calibration against the human labels: it must fire on the known-bad
+   tools and stay silent on the known-good ones. A detector that has not
+   passed this check is measuring itself.
+3. `mandible_core::audit::Entry` carries `families`, labels from the
+   closed `DEFECT_FAMILIES` set, alongside `families_derived`, an
+   `Option<bool>` recording that the labels are a machine reading of the
+   reviewer's note and fixture evidence, never the reviewer's own
+   classification. A label with no recorded provenance is refused, as is
+   a label on a `correct` or `skip` verdict.
+4. A family name that turns out to cover more than one shape must be
+   split, never detected. Per-family membership and disposition are
+   documented in `xtask/src/detector.rs`, not here.
+5. The confusion matrix has five cells, not four: fires-on-bad, misses,
+   silence-on-good, false alarms, and fires on a tool judged defective of
+   a different family, neither a hit nor a false alarm, since the human
+   already said this parse is wrong. Every cell names its tools.
+6. Not-evaluable is counted, never dropped: a labelled tool with no
+   fixture is listed by name. A detector may legitimately generalize no
+   family the labelled set contains (`Detector::family` returns `None`);
+   forcing it onto the nearest family would manufacture a matrix nobody
+   verified.
+7. The moment a family's fix lands, its detector's recall on the labelled
+   set drops to zero, because those fixtures now parse correctly and the
+   labelled set has nothing left to confirm against. What carries the
+   weight afterward is the detector's own hand-built tests
+   (`Detector::self_checks`, which construct the defective shape
+   directly) and `sweep-diff` against a fresh full sweep.
+8. `REPAIRED` is a third calibration verdict, reached only when
+   calibration has inverted and the detector's self-checks still hold,
+   covering both directions: at least one case the detector must fire on
+   and at least one it must stay silent on. An empty self-check list is
+   refused rather than passing vacuously. `REPAIRED` is a stated claim,
+   never a suppression: recall still reads 0%, every missed tool stays
+   named, and the self-check block prints on every run, including runs
+   that do not reach `REPAIRED`.
+9. A ratchet gate asserts the detector alongside the count. Once a family
+   is repaired, its fleet count is gated at a literal zero
+   (`coverage --check`, `detector::ratchet_at_zero`), never against the
+   checked-in scoreboard, which a reintroducing commit could otherwise
+   edit to raise its own baseline. The gate requires the same self-check
+   evidence `REPAIRED` does and refuses a zero without it.
+10. A declared scope exclusion carries a structural predicate, not prose.
+    `Scope::known_exclusions` is a closed `Ground` enum, each variant
+    carrying a witness token from the tool's own help text plus the
+    constant it falls below; the arithmetic is computed from the witness
+    and has to agree. Prose survives only as a `note` printed beside the
+    generated sentence, never instead of it.
+11. Calibration can find a mislabel, and finding one is the mechanism
+    working. A false alarm is never waived: it is either a detector bug
+    or a label bug, and which one is argued in the commit that resolves
+    it, using `xtask audit amend` to correct the label with its reason
+    recorded.
 
-`mandible_core::audit::Entry` carries `families` — labels from the closed
-`DEFECT_FAMILIES` set — alongside `families_derived`, an `Option<bool>`
-recording that the labels are a machine reading of the reviewer's note and
-fixture evidence, never the reviewer's own classification. A label with no
-recorded provenance is refused, as is a label on a `correct` or `skip`
-verdict.
+**Why.** A detector produces a confident fleet-wide count and nothing
+inside that count knows whether the detector fires on the defect it
+names, which is exactly where the danger sits. A detector built over a
+symptom name rather than a shared shape fires on whatever the author
+happened to encode and misses the rest, naming a population no one can
+check, the same failure the calibration precondition exists to prevent,
+arriving through the label instead of the detector. Two names in this
+project's own defect backlog dissolved this way once examined: each
+covered several unrelated defects sharing only a symptom, and no detector
+was built for either. A third, `block-extent`, turned out to be exactly
+one rule shared by two of its three candidate tools, and a detector was
+built for those two. A matrix computed over part of the labelled set and
+reported as complete is a worse claim than an incomplete one stated as
+such, which is why not-evaluable tools stay named rather than dropped.
 
-**A family name that turns out to cover more than one shape must be split,
-never detected.** A detector built over a symptom name rather than a shared
-shape fires on whatever the author happened to encode and misses the rest,
-naming a population no one can check — the same failure the calibration
-precondition exists to prevent, arriving through the label instead of the
-detector. Two names in this project's own defect backlog dissolved this way
-once examined: each covered several unrelated defects sharing only a
-symptom, and no detector was built for either. A third, `block-extent`,
-turned out to be exactly one rule shared by two of its three candidate
-tools, and a detector was built for those two. Per-family membership and
-disposition are documented in `xtask/src/detector.rs`, not here.
-
-**The confusion matrix has five cells, not four.** Beyond fires-on-bad,
-misses, silence-on-good, and false alarms, there is *fires on a tool judged
-defective of a different family* — neither a hit nor a false alarm, since
-the human already said this parse is wrong. Every cell names its tools.
-**Not-evaluable is counted, never dropped:** a labelled tool with no fixture
-is listed by name; a matrix computed over part of the labelled set and
-reported as complete is a worse claim than an incomplete one stated as such.
-A detector may legitimately generalize no family the labelled set contains
-(`Detector::family` returns `None`); forcing it onto the nearest family
-would manufacture a matrix nobody verified.
-
-**A fixed family inverts its own calibration.** The moment a family's fix
-lands, its detector's recall on the labelled set drops to zero, because
-those fixtures now parse correctly and the labelled set has nothing left to
-confirm against. The precondition is a claim about labels recorded against a
-particular parser, and it expires for a family on the commit that fixes it.
-What carries the weight afterward is the detector's own hand-built tests
-(`Detector::self_checks`, which construct the defective shape directly) and
-`sweep-diff` against a fresh full sweep.
-
-**`REPAIRED` is a third calibration verdict, reached only when calibration
-has inverted and the detector's self-checks still hold**, covering both
-directions: at least one case the detector must fire on and at least one it
-must stay silent on. An empty self-check list is refused rather than passing
-vacuously. `REPAIRED` is a stated claim, never a suppression: recall still
-reads 0%, every missed tool stays named, and the self-check block prints on
-every run, including runs that do not reach `REPAIRED`.
-
-**A ratchet gate asserts the detector alongside the count.** Once a family
-is repaired, its fleet count is gated at a literal zero (`coverage --check`,
-`detector::ratchet_at_zero`), never against the checked-in scoreboard, which
-a reintroducing commit could otherwise edit to raise its own baseline. The
-gate requires the same self-check evidence `REPAIRED` does and refuses a
-zero without it, so a gate asserting `count == 0` cannot be satisfied by
-deleting the detector.
-
-**A declared scope exclusion carries a structural predicate, not prose.**
-`Scope::known_exclusions` is a closed `Ground` enum, each variant carrying a
-witness token from the tool's own help text plus the constant it falls
-below; the arithmetic is computed from the witness and has to agree. Prose
-survives only as a `note` printed beside the generated sentence, never
-instead of it.
-
-**Calibration can find a mislabel, and finding one is the mechanism
-working.** A false alarm is never waived: it is either a detector bug or a
-label bug, and which one is argued in the commit that resolves it, using
-`xtask audit amend` to correct the label with its reason recorded.
+**Implemented in.** `xtask/src/detector.rs`, `mandible-core/src/audit.rs`.
 
 ### 13.1f Residue ranking: a discovery instrument, deliberately not a metric
 
-`cargo run -p xtask -- residue` (`xtask/src/residue.rs`) is existence's
-complement: existence asks whether everything in the tree is attested by the
-text and catches invention; residue asks what in the text the tree never
-accounted for, and catches omission. It classifies each physical line of a
-captured `--help` document by shape (a flag row, or an indented
-`name<gutter>description` row) and reports the rows no spelling or name in
-the parsed tree accounts for. It replays frozen fixture bytes and spawns
-nothing.
+**Decides.** How omission, rather than invention, is discovered, and why
+its output is never a gate.
 
-It is not, and must never become, a gate or a quotable number: a wrong
-residue candidate costs review time and cannot produce a wrong parse,
-because nothing downstream reads it. The moment a residue count is treated
-as a measurement, that asymmetry is gone. Nothing in `coverage --check`
-consults it, it appears in no ratchet and no `corpus` contract, and a test
-fails the build if `coverage.rs`, `corpus.rs`, or `status.rs` ever calls
-into it. Its output is a reading queue for a human, who turns a confirmed
-finding into a deterministic, calibrated, ratchet-gated rule the ordinary
-way. [M-22] has what it found the one time it was run over the full audited
-set, including a real four-flag gap in a fixture that had been green,
+**Rules.**
+
+1. `cargo run -p xtask -- residue` (`xtask/src/residue.rs`) is existence's
+   complement: existence asks whether everything in the tree is attested
+   by the text and catches invention; residue asks what in the text the
+   tree never accounted for, and catches omission.
+2. It classifies each physical line of a captured `--help` document by
+   shape (a flag row, or an indented `name<gutter>description` row) and
+   reports the rows no spelling or name in the parsed tree accounts for.
+   It replays frozen fixture bytes and spawns nothing.
+3. It is not, and must never become, a gate or a quotable number. Nothing
+   in `coverage --check` consults it, it appears in no ratchet and no
+   `corpus` contract, and a test fails the build if `coverage.rs`,
+   `corpus.rs`, or `status.rs` ever calls into it.
+4. Its output is a reading queue for a human, who turns a confirmed
+   finding into a deterministic, calibrated, ratchet-gated rule the
+   ordinary way.
+
+**Why.** A wrong residue candidate costs review time and cannot produce a
+wrong parse, because nothing downstream reads it. The moment a residue
+count is treated as a measurement, that asymmetry is gone. [M-22] has
+what it found the one time it was run over the full audited set,
+including a real four-flag gap in a fixture that had been green,
 blessed, and contract-gated throughout.
+
+**Implemented in.** `xtask/src/residue.rs`.
 
 ### 13.2 Fixed corpus
 
-A fixture (`corpus/<tool>/<version>/`) freezes both halves of one extraction
-pass: the raw bytes a real probe produced, byte-exact
-(`.gitattributes` marks everything under `corpus/` `-text`, so Git's own
-line-ending normalization can never quietly alter a capture), and the
-`CommandNode` tree the real pipeline produces from those bytes today,
-replayed with zero subprocesses through the same `Transcript` seam §13.1c
-and §13.1d use. Snapshotting only the tree is not enough: an IR-only
-snapshot can only assert "the tree once looked like this," with nothing to
-re-derive from after a tool version bump or a grammar rewrite. A fixture is
-filed by tool and version only, never by tier. `corpus/README.md` has the
-full layout and the `meta.toml` contract: a descriptive half
-(`expected.snap`, rewritten wholesale by `--bless`) and a normative half
-(`[contract]`, weakened only by an explicit, reviewed edit).
+**Decides.** What a corpus fixture freezes, and what its normative
+contract may assert.
 
-`[contract]` can state a negative as well as a positive: `must_not_contain_flags`
-asserts that a spelling (a matched long name, short flag, or bare word) is
-absent from the root, guarding against invention the same way
-`must_contain_flags` guards against omission. A tree with no root satisfies
-it vacuously and is not reported, so a missing tree cannot pass by accident
-in the one gate whose authority depends on never doing that.
+**Rules.**
 
-`verdict_scope` records which dimensions of the tree a human actually
-looked at before blessing it, some subset of `"flags"`, `"subcommands"`,
-`"descriptions"`, `"usage"`. Absent means no scope was claimed, never every
-scope: a bless freezes every field whether or not a human read it, so
-treating silence as "everything verified" would let the same overclaim that
-cost this project a fixture (`lsof`) survive by omission.
+1. A fixture (`corpus/<tool>/<version>/`) freezes both halves of one
+   extraction pass: the raw bytes a real probe produced, byte-exact
+   (`.gitattributes` marks everything under `corpus/` `-text`, so Git's
+   own line-ending normalization can never quietly alter a capture), and
+   the `CommandNode` tree the real pipeline produces from those bytes
+   today, replayed with zero subprocesses through the same `Transcript`
+   seam §13.1c and §13.1d use.
+2. A fixture is filed by tool and version only, never by tier.
+   `corpus/README.md` has the full layout and the `meta.toml` contract: a
+   descriptive half (`expected.snap`, rewritten wholesale by `--bless`)
+   and a normative half (`[contract]`, weakened only by an explicit,
+   reviewed edit).
+3. `[contract]` can state a negative as well as a positive:
+   `must_not_contain_flags` asserts that a spelling (a matched long name,
+   short flag, or bare word) is absent from the root, guarding against
+   invention the same way `must_contain_flags` guards against omission. A
+   tree with no root satisfies it vacuously and is not reported, so a
+   missing tree cannot pass by accident in the one gate whose authority
+   depends on never doing that.
+4. `verdict_scope` records which dimensions of the tree a human actually
+   looked at before blessing it, some subset of `"flags"`,
+   `"subcommands"`, `"descriptions"`, `"usage"`. Absent means no scope
+   was claimed, never every scope.
+5. Strict xfail: an `[xfail]` fixture whose snapshot and every
+   `[contract]` field now pass fails the run rather than passing quietly.
+   Both directions are checked on every run, not only "did it get
+   fixed": a fixture claiming to be broken while every check passes is
+   as much a bug as an unmarked regression, and a promoted fixture's
+   contract is strengthened, not merely unmarked, when the fix's own
+   evidence supports a stronger claim.
 
-Strict xfail: an `[xfail]` fixture whose snapshot and every `[contract]`
-field now pass fails the run rather than passing quietly. A fixture marked
-broken that stops being broken means the bug looks fixed while the label
-still says otherwise, and the run demands the label be removed. Both
-directions are checked on every run, not only "did it get fixed": a fixture
-claiming to be broken while every check passes is as much a bug as an
-unmarked regression, and a promoted fixture's contract is strengthened, not
-merely unmarked, when the fix's own evidence supports a stronger claim.
+**Why.** Snapshotting only the tree is not enough: an IR-only snapshot
+can only assert "the tree once looked like this," with nothing to
+re-derive from after a tool version bump or a grammar rewrite. A bless
+freezes every field whether or not a human read it, so treating silence
+as "everything verified" would let the same overclaim that cost this
+project a fixture (`lsof`) survive by omission. A fixture marked broken
+that stops being broken means the bug looks fixed while the label still
+says otherwise, and the run demands the label be removed. Current scale
+and provenance are in [M-22].
 
-Current scale and provenance are in [M-22].
+**Implemented in.** `xtask/src/corpus.rs`, `corpus/README.md`.
 
 ### 13.3 Required test classes
 
-- **Real-argv tests.** Every tier needs at least one test that exercises the
-  actual argv construction, not just the parser behind it. A prior cobra
-  implementation omitted the literal `__complete` from its argv and was
-  silently dead in the real pipeline, because its unit tests injected a mock
-  probe that bypassed argv construction entirely.
-- **Execution-policy tests** (§6): a shim binary logs argv/env; any
-  invocation outside the allowlist fails the suite.
-- **Sanitization tests**: ANSI, C0, backspace-overstrike, tabs, embedded
-  newlines, CJK/emoji width, and a 10 MB pathological string.
-- **Render tests** against `ratatui::backend::TestBackend`, asserting that
-  border cells stay intact for adversarial description text at several
-  widths and scroll offsets.
-- **Fuzzing** the Tier B grammar (`cargo-fuzz`), since it consumes untrusted
-  text.
-- **Merge property tests**: merge is associative over authority; a `None`
-  never displaces a `Some`; alias pairing is idempotent.
+**Decides.** Which test classes every tier and every rendering change
+must carry.
 
-The workspace runs under `cargo nextest run --workspace` in CI, never
-`cargo test --workspace` piped into a text-processing tool, because
-human-format test output must never be parsed by anyone for any reason: a
-`grep -c FAILED` against `cargo test`'s output once false-positived on test
-data that happened to contain the literal word "FAIL." `cargo nextest run`
-reports a real exit code and can emit `--message-format libtest-json` when a
-structured result is needed. Nextest cannot run doctests, so CI runs a
-separate `cargo test --doc --workspace` step to cover them.
+**Rules.**
+
+1. Real-argv tests: every tier needs at least one test that exercises the
+   actual argv construction, not just the parser behind it.
+2. Execution-policy tests (§6): a shim binary logs argv/env; any
+   invocation outside the allowlist fails the suite.
+3. Sanitization tests: ANSI, C0, backspace-overstrike, tabs, embedded
+   newlines, CJK/emoji width, and a 10 MB pathological string.
+4. Render tests against `ratatui::backend::TestBackend`, asserting that
+   border cells stay intact for adversarial description text at several
+   widths and scroll offsets.
+5. Fuzzing the Tier B grammar (`cargo-fuzz`), since it consumes untrusted
+   text.
+6. Merge property tests: merge is associative over authority; a `None`
+   never displaces a `Some`; alias pairing is idempotent.
+7. The workspace runs under `cargo nextest run --workspace` in CI, never
+   `cargo test --workspace` piped into a text-processing tool. Nextest
+   cannot run doctests, so CI runs a separate `cargo test --doc
+   --workspace` step to cover them.
+
+**Why.** A prior cobra implementation omitted the literal `__complete`
+from its argv and was silently dead in the real pipeline, because its
+unit tests injected a mock probe that bypassed argv construction
+entirely, which is why every tier needs a real-argv test. Human-format
+test output must never be parsed by anyone for any reason: a `grep -c
+FAILED` against `cargo test`'s output once false-positived on test data
+that happened to contain the literal word "FAIL." `cargo nextest run`
+reports a real exit code and can emit `--message-format libtest-json`
+when a structured result is needed.
+
+**Implemented in.** `mandible-tui/tests/`, `mandible-extract/tests/`,
+`mandible-core/src/merge.rs`.
 
 ### 13.4 The detect-to-fix loop, end to end
 
-§13.1–§13.2 introduce five instruments at five points. They compose, in this
-order:
+**Decides.** How the five testing instruments in §13.1 to §13.2 compose
+into one loop from a defect found to a regression prevented.
 
-1. **Corpus fixtures** (§13.2) — per-document. Frozen bytes plus the tree
-   they should produce; `cargo xtask corpus` catches a regression on one
-   tool someone already looked at, with zero subprocesses.
-2. **Sweep-diff** (`xtask sweep-diff`) — fleet-wide: a semantic diff between
+**Rules.**
+
+1. Corpus fixtures (§13.2), per-document: frozen bytes plus the tree they
+   should produce; `cargo xtask corpus` catches a regression on one tool
+   someone already looked at, with zero subprocesses.
+2. Sweep-diff (`xtask sweep-diff`), fleet-wide: a semantic diff between
    two full-`PATH` scoreboards, gains and losses always reported as two
-   separate totals, never netted, since summing them hides exactly the
-   losses that motivated building it. It answers whether a fix broke
-   anything else, and is non-blocking by design: it always exits 0, and
-   there is no flag to wire it to a nonzero exit by accident.
-3. **Oracles** — existence and misattribution (§13.1) — fleet-wide
-   self-consistency checks. Neither compares against a tool's real behavior;
-   both re-examine text the pipeline already captured.
-4. **Audit** (§13.1c) — sampled, and the only instrument in this list that
+   separate totals, never netted. It answers whether a fix broke anything
+   else, and is non-blocking by design: it always exits 0, and there is
+   no flag to wire it to a nonzero exit by accident.
+3. Oracles, existence and misattribution (§13.1), fleet-wide
+   self-consistency checks. Neither compares against a tool's real
+   behavior; both re-examine text the pipeline already captured.
+4. Audit (§13.1c), sampled, and the only instrument in this list that
    touches truth: a human reads a tool's own raw `--help` text beside the
    parsed tree.
-5. **Family detectors and calibration** (§13.1e) — generalize one human
-   finding across the fleet, quotable only once calibrated against the
-   audit's own labelled verdicts.
+5. Family detectors and calibration (§13.1e) generalize one human finding
+   across the fleet, quotable only once calibrated against the audit's
+   own labelled verdicts.
+6. The loop: an audit finding gets a family label, derived from the
+   reviewer's note and the fixture. A detector generalizes that label's
+   shape across the fleet. The detector is calibrated against the
+   labelled verdicts. Only once calibrated does its fleet-wide count
+   become quotable. The count motivates a grammar fix. The fix flips the
+   family's `[xfail]` fixtures to passing, which strict xfail reads as a
+   demand to promote them. Sweep-diff proves the fix broke nothing else.
+   The detector's fleet count is ratchet-gated at zero going forward, so
+   a future regression in that family is visible the moment the count
+   leaves zero.
 
-The loop: an audit finding gets a family label, derived from the reviewer's
-note and the fixture. A detector generalizes that label's shape across the
-fleet. The detector is calibrated against the labelled verdicts. Only once
-calibrated does its fleet-wide count become quotable. The count motivates a
-grammar fix. The fix flips the family's `[xfail]` fixtures to passing, which
-strict xfail reads as a demand to promote them. Sweep-diff proves the fix
-broke nothing else. The detector's fleet count is ratchet-gated at zero
-going forward, so a future regression in that family is visible the moment
-the count leaves zero. [M-21] has a worked example, start to finish.
+**Why.** Summing gains and losses hides exactly the losses that
+motivated building sweep-diff in the first place, which is why the two
+totals are always reported separately. [M-21] has a worked example,
+start to finish.
+
+**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/audit.rs`,
+`xtask/src/detector.rs`, `xtask/src/corpus.rs`.
 
 ---
 
 ## 14. Dependency table
+
+**Decides.** This section is the authority on every third-party crate and
+data source mandible depends on, and the license or measurement behind each
+choice.
+
+**Rules.**
 
 | Purpose | Crate | License | Notes |
 |---|---|---|---|
@@ -2254,32 +2557,37 @@ the count leaves zero. [M-21] has a worked example, start to finish.
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |
 | Man page AST | *(none — hand-written)* | — | **No `bindgen`/vendored mandoc.** Revision 2 specified `libmandoc` via FFI; superseded, because it is not a system library on Linux [M-6] and `#![forbid(unsafe_code)]` rules out the FFI regardless. §7 Tier D is a pure-Rust subset parser over `.TP`/`.IP` + `.B` and `.It Fl` [M-14]. |
 | Parallelism | `rayon` | MIT/Apache-2.0 | Bounded pool for background subtree warming |
-| Paths | `directories` | MIT/Apache-2.0 | XDG cache/config resolution |
-| Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | IR, cache, carapace specs |
-| Compression | `flate2` | MIT/Apache-2.0 | Cache entries |
+| Paths | `directories` | MIT/Apache-2.0 | Resolves the per-OS config directory for user overrides |
+| Serialization | `serde`, `serde_json`, `serde_yaml` | MIT/Apache-2.0 | The IR, and the corpus snapshots `xtask corpus --bless` writes |
 | Errors | `thiserror` (libs), `anyhow` (binary) | MIT/Apache-2.0 | |
 | Logging | `tracing` + `tracing-subscriber` | MIT | Behind `MANDIBLE_LOG`; never writes to the TUI's terminal |
 | Clipboard | `arboard` | MIT/Apache-2.0 | For `y`; degrade to OSC-52 when unavailable |
 | Testing | `insta`, `proptest`, `cargo-fuzz` | MIT/Apache-2.0 | Snapshots, properties, grammar fuzzing |
 
-**Build-time (not shipped):** Python 3 + PyYAML, used by the catalog vendoring
-script. Revision 1's table omitted this even though the vendoring step already
-depended on it.
+**Data dependencies: none.** Revision 3 removed the only third-party data
+this repository ever vendored, and nothing has replaced it. Should vendoring
+ever be reproposed, the obligation is to verify the current license text at
+vendor time, record the source commit, and carry an entry in `NOTICE`. The
+reasoning for the removal is in §7 under "Tier A — REMOVED" and in `NOTICE`
+under "Formerly vendored".
 
-**Data dependencies** (revision 1 omitted these entirely while scrutinizing crate
-licenses — this is the more likely real exposure):
+**Why.** Each crate row's Notes column carries the reason for that crate over
+an alternative, cited to a measurement where one exists. Vendored data would
+carry the larger legal exposure of the two, since its license terms are set by
+a third party mandible does not control. That is why the table names the
+obligation even while there is no data to apply it to.
 
-| Data | Source | Obligation |
-|---|---|---|
-| carapace specs | `carapace-sh/carapace-bin` | Verify current license text at vendor time; record source commit and date; carry in `NOTICE` |
-| withfig specs (optional) | `withfig/autocomplete` | MIT; carry in `NOTICE` |
+**Implemented in.** `Cargo.toml`; `NOTICE`.
 
 ---
 
 ## 15. Packaging & distribution
 
-The project should be shippable as an open-source repo, via `cargo install`, and
-through `apt`/`dnf`, without rework. That constrains layout from day one.
+**Decides.** This section is the authority on how mandible is laid out,
+built, and installed as an open-source repo, a `cargo install`, and a distro
+package, with no rework between the three.
+
+**Rules.**
 
 **Repository layout.**
 
@@ -2290,53 +2598,69 @@ NOTICE             Third-party data attribution (§14) — required, not optiona
 README.md          What it is, install, a screenshot, the honest coverage story
 CONTRIBUTING.md    Including the §1 invariant, stated prominently
 CHANGELOG.md       Keep-a-changelog format
-spec.md            This document
+docs/design.md     This document
+docs/instruments.md What each xtask instrument measures, and how to retire it
 .github/workflows/ ci.yml (fmt, clippy -D warnings, test, coverage-harness diff),
-                   release.yml (tagged cross-platform binaries)
-xtask/             coverage harness, vendoring, packaging
-packaging/         debian/, rpm/, shell/ (the --shell-init snippets),
-                   mandible.1 (man page for mandible itself)
+                   release.yml (tagged cross-platform binaries),
+                   shape.yml (size, comment shape, narrative prose)
+xtask/             the measuring instruments (docs/instruments.md)
+packaging/         copr/, homebrew/, mandible.1 (man page for mandible itself)
+mandible/shell/    the --shell-init snippets, mandible.bash and mandible.zsh
 ```
 
-**Cargo metadata.** Every crate carries `description`, `license`, `repository`,
-`readme`, `keywords`, `categories`, and `rust-version` (MSRV, tested in CI).
-Internal crates that are not independently useful are published anyway — a
-workspace cannot be `cargo install`ed otherwise — so their descriptions must make
-the relationship clear.
+Every crate carries `description`, `license`, `repository`, `readme`,
+`keywords`, `categories`, and `rust-version` (MSRV, tested in CI). Internal
+crates that are not independently useful are published anyway, since a
+workspace cannot be `cargo install`ed otherwise, so their descriptions must
+state the relationship to the rest of the workspace.
 
-**Distro packaging constraints, which shape earlier decisions:**
+**Distro packaging constraints:**
 
-- Vendored data must be reproducible from a script with a recorded source commit;
-  distro maintainers will ask where the 11 MB came from.
-- Default features must build with no network and no C toolchain. That is why
-  Tier D is opt-in.
+- Vendored data must be reproducible from a script with a recorded source
+  commit, so a distro maintainer can trace where the shipped bytes came from.
+- Default features must build with no network and no C toolchain. Tier D is
+  opt-in for this reason.
 - Ship completions for mandible itself and `packaging/mandible.1`, installed
-  to the standard paths per shell (zsh's path differs by distro: Debian
-  carries `vendor-completions`, Fedora `site-functions`). Every channel
+  to the standard paths per shell. zsh's path differs by distro: Debian
+  carries `vendor-completions`, Fedora `site-functions`. Every channel
   generates them from the built binary's own `--completions <shell>`, so
-  there is one generator and no packaging path that can install a file the
-  shell will not find.
-- Every argument that names a tool (the `TOOL` positional, `--doctor`'s
-  value, `--report`'s value) completes to the command names on `$PATH`,
+  there is one generator and no packaging path can install a file the shell
+  will not find.
+- Every argument that names a tool, the `TOOL` positional, `--doctor`'s
+  value, and `--report`'s value, completes to the command names on `$PATH`,
   never to filenames, since each one is a program mandible is about to run
   `--help` on. `SUBCOMMAND` words after `TOOL` are names inside one tool's
   tree and are not completed this way.
-- The shell integration (§2's `--print-selection` binding) ships the same
-  way and installs to no path at all: `mandible --shell-init <shell>`
-  prints it, from a snippet compiled into the binary
-  (`mandible/shell/`, inside the crate root so the published package
-  carries it), and the user opts in with `eval "$(mandible --shell-init
-  bash)"` in their rc file. The one-generator rule applies for the same
-  reason it does to completions, but the install half does not: no shell
-  auto-loads a key binding the way it auto-loads completions, and a
-  package binding `Ctrl-X m` for every user of a machine would be taking a
-  key nobody asked it to.
+- The shell integration for §2's `--print-selection` binding ships the same
+  way and installs to no path at all. `mandible --shell-init <shell>` prints
+  it, from a snippet compiled into the binary (`mandible/shell/`, inside the
+  crate root so the published package carries it), and the user opts in with
+  `eval "$(mandible --shell-init bash)"` in their rc file. The one-generator
+  rule applies for the same reason it does to completions, but the install
+  half does not, since no shell auto-loads a key binding the way it
+  auto-loads completions.
 - `cargo-deb` and `cargo-generate-rpm` metadata live in `mandible/Cargo.toml`.
 - Respect `$XDG_CACHE_HOME`/`$XDG_CONFIG_HOME`; never write outside them.
+
+**Why.** A workspace with unpublishable internal crates cannot be `cargo
+install`ed, which is why every crate publishes with metadata even when
+nobody depends on it directly. A package installing `Ctrl-X m` for every
+user of a shared machine would take a key nobody asked it to give up, which
+is why the shell-init snippet is opt-in only and never auto-installed the
+way completions are.
+
+**Implemented in.** `packaging/mandible.1`; `.github/workflows/ci.yml`;
+`.github/workflows/release.yml`; `mandible/shell/mandible.bash`;
+`mandible/shell/mandible.zsh`; `mandible/Cargo.toml`; `mandible/src/cli.rs`;
+`mandible/src/shell_init.rs`; `mandible-core/src/config.rs`.
 
 ---
 
 ## 16. Open risks & honest caveats
+
+**Decides.** This section is the authority on known open risks and on
+maintainer rulings that resolved a design tension, recorded here so neither
+is re-litigated.
 
 ### Maintainer decisions, recorded so they are not re-litigated
 
@@ -2430,45 +2754,55 @@ where the shim test's own comment carries the reasoning, the row can go too.
 
 ## 17. Investigated and deferred: local NL search
 
-A local tool-calling model (e.g. `cactus-compute/needle`, ~26–30M params, MIT
-weights with an MIT ONNX export) was investigated for queries that share no
-vocabulary with the target — *"squash my last 3 commits"* will never fuzzy-match
-`rebase --interactive`. **The conclusion is to defer it, and the reasoning is
-recorded here so it isn't re-litigated.**
+**Decides.** This section is the authority on why mandible does not depend
+on a local NL tool-calling model for search, recorded so the question is not
+re-litigated.
 
-**The license finding is worth keeping regardless.** The model weights and the
-ONNX export are MIT, but the **Cactus inference engine is a custom, non-OSI
-license**: free use is granted only to individuals for personal/educational/
-non-commercial use, organizations under *both* $2M funding and $2M revenue,
-educational institutions, and 501(c)(3) nonprofits — with the grant terminating
-automatically if a qualifying org crosses either threshold. If mandible depended on
-that engine, any downstream user past those thresholds would need a commercial
-license from Cactus Compute merely for using mandible. **Do not take that
-dependency.** If the model is ever revisited, load the MIT ONNX export via `ort`
-or `tract` (both MIT/Apache-2.0), or reimplement the small architecture in
-`candle`. Avoid the prebuilt `needle-cq4.zip` — it is a proprietary quantization
-format tied to Cactus's kernels.
+**Rules.**
 
-**Why deferred:**
+- Do not take a dependency on the Cactus inference engine.
+- If the model is ever revisited, load the MIT ONNX export via `ort` or
+  `tract` (both MIT/Apache-2.0), or reimplement the small architecture in
+  `candle`.
+- Avoid the prebuilt `needle-cq4.zip`. It is a proprietary quantization
+  format tied to Cactus's kernels.
 
-- **The "the CommandNode tree is almost exactly Needle's tool registry" claim does
-  not survive the data.** `git` alone is 279 nodes and 2,999 flags [M-1]. A 26M
-  model with an 8k BPE vocab cannot take that as a registry. You would need
-  retrieval to pre-narrow candidates first — at which point retrieval is doing the
-  work and the model is re-ranking, a materially different design.
-- **It needs a fine-tune to work on CLI phrasing.** Needle was trained on general
-  function-calling data (`get_weather(location)`), not on the terse jargon of
-  `git`/`ffmpeg`/`tar`. That is a data-generation project, not an integration.
-- **The cheap version probably captures most of the value.** The reason
-  "squash my last 3 commits" fails today is that matching runs over *names*.
-  Descriptions are already indexed for 2,979 git flags [M-1]; a BM25/tf-idf pass
-  over description and example text should be tried first, and the residual
-  failure set is what would justify a model.
-- **It inverts the product's identity** — a fast, local, instant reference becomes
-  a 61 MB ML dependency.
+**Why.** A local tool-calling model (`cactus-compute/needle`, ~26–30M
+params, MIT weights with an MIT ONNX export) was investigated for queries
+that share no vocabulary with the target: *"squash my last 3 commits"* will
+never fuzzy-match `rebase --interactive`. Four reasons argue against taking
+it now.
 
-Vendor-published figures in this section (parameter count, distillation source,
-throughput) are **unverified vendor claims**, not measurements.
+- The claim that the CommandNode tree is almost exactly Needle's tool
+  registry does not survive the data. `git` alone is 279 nodes and 2,999
+  flags [M-1]. A 26M model with an 8k BPE vocab cannot take that as a
+  registry. Retrieval would need to pre-narrow candidates first, and at that
+  point retrieval does the work while the model only re-ranks, a materially
+  different design.
+- It needs a fine-tune to work on CLI phrasing. Needle was trained on
+  general function-calling data (`get_weather(location)`), not the terse
+  jargon of `git`/`ffmpeg`/`tar`. That is a data-generation project, not an
+  integration.
+- A cheaper approach probably captures most of the value. "squash my last 3
+  commits" fails today because matching runs over names, not descriptions.
+  Descriptions are already indexed for 2,979 git flags [M-1]. A BM25/tf-idf
+  pass over description and example text should be tried first, and the
+  residual failure set is what would justify a model.
+- It inverts the product's identity: a fast, local, instant reference
+  becomes a 61 MB ML dependency.
+
+The model weights and the ONNX export are MIT. The Cactus inference engine
+carries a custom, non-OSI license instead: free use is granted only to
+individuals for personal, educational, or non-commercial use, to
+organizations under both $2M funding and $2M revenue, to educational
+institutions, and to 501(c)(3) nonprofits, with the grant terminating
+automatically once a qualifying organization crosses either threshold. A
+downstream user past those thresholds would need a commercial license from
+Cactus Compute merely for using mandible, if mandible depended on that
+engine.
+
+Vendor-published figures in this section, parameter count, distillation
+source, and throughput, are unverified vendor claims, not measurements.
 
 ---
 
@@ -2771,7 +3105,7 @@ any of these as current.
   pointed at, regardless of which tool or argv triggers it. **Spawning the
   probe as the leader of a new session** (`pre_exec` + `setsid()`, this
   crate's one audited `unsafe`) **makes the same call fail with `ENXIO`.**
-  This is `tests/exec_policy.rs`'s `dev_tty_hazard::
+  This is `mandible-extract/tests/exec_policy.rs`'s `dev_tty_hazard::
   probe_cannot_reopen_the_controlling_terminal` test, verified to fail
   against the pre-fix code and pass against the fix — the AGENTS.md §2
   discipline of a fixture that has actually been made to fail once, not
@@ -3034,8 +3368,8 @@ any of these as current.
 
 | Area | Revision 1 | Revision 2 | Why |
 |---|---|---|---|
-| Tier priority | One `priority: u8`; first tier wins | Two-axis `Authority` (structural/prose); attempt order is cost, conflict order is authority | The best-structure tier is usually not the best-prose tier [M-1, M-2] |
-| Tier ordering | Tier 0 (native) first | Tier A (catalog) first | Catalog is 740 tools / 48k descriptions for zero spawns; clap `CompleteEnv` is nearly absent [M-1, M-4] |
+| Tier priority | One `priority: u8`; first tier wins | Two-axis `Authority` (structural/prose); attempt order is cost, conflict order is authority | The best-structure tier is usually not the best-prose tier [M-1] and [M-2] |
+| Tier ordering | Tier 0 (native) first | Tier A (catalog) first | Catalog is 740 tools / 48k descriptions for zero spawns; clap `CompleteEnv` is nearly absent [M-1] and [M-4] |
 | Extraction trait | `extract() -> whole tree` | `extract_node(path)` + laziness | Eager extraction is 10–25 s for docker/gh [M-3] |
 | Cost model | Absent | §5.1, with measurements | Largest UX risk in the project |
 | Execution safety | Implicit; probe ran bare binaries | §6, binding rules + enforcement test; `exec/` is the only module allowed to spawn | Running an arbitrary binary bare is not a cheap operation |

@@ -64,13 +64,13 @@ clap's
 There is no on-disk cache and no third-party catalog: every invocation
 re-runs extraction against the tool actually installed, so the result can
 never be stale (see
-.I spec.md
+.I docs/design.md
 section 11 for why a cache could not be made correct here). See
 .B mandible \-\-doctor
 .I TOOL
 for exactly which tiers and which detected framework contributed to a
 given tool's tree, and the project's own
-.I spec.md
+.I docs/design.md
 for the full design.
 .SH OPTIONS
 .TP
@@ -232,7 +232,7 @@ override files on Linux, when
 is unset. See
 .B FILES
 below for the resolved default, which differs on macOS. mandible keeps no
-on-disk cache (spec.md section 11) and writes nothing else.
+on-disk cache (docs/design.md section 11) and writes nothing else.
 .SH FILES
 .TP
 .I $XDG_CONFIG_HOME/mandible/overrides/<tool>.toml
@@ -251,6 +251,6 @@ not a tty and the TUI could not open, or an argument error.
 .SH SEE ALSO
 Full design documentation, including the extraction-tier model and
 framework-detection rules, ships in the project repository as
-.IR spec.md .
+.IR docs/design.md .
 .SH AUTHORS
 Sadig Akhund and contributors.

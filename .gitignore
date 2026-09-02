@@ -10,10 +10,10 @@ tmp/
 
 # Working notes and running TODO state for whoever (human or agent) is
 # mid-project — now `tmp/HANDOVER.md`, covered by `tmp/` above. Deliberately
-# untracked: spec.md is the design authority and AGENTS.md the operational
+# untracked: docs/design.md is the design authority and AGENTS.md the operational
 # one, and a third committed document that describes plans would drift out
 # of agreement with both. Anything in here that turns out to be durable
-# belongs in spec.md instead. The root path stays listed so an older working
+# belongs in docs/design.md instead. The root path stays listed so an older working
 # copy (or an agent following a stale instruction) can't accidentally commit
 # one that predates the move.
 HANDOVER.md
@@ -31,16 +31,16 @@ HANDOVER.md
 # still has one at the root.
 coverage-scoreboard.txt
 
-# `xtask audit` (spec.md Appendix A's provenance discipline: a measurement
+# `xtask audit` (docs/design.md Appendix A's provenance discipline: a measurement
 # whose evidence lives untracked on one contributor's laptop is a claim
 # without evidence, exactly what Appendix A exists to rule out). Tracked:
 # the sample manifest + per-tool verdicts (`audit/<seed>.toml` — one file
 # serves both roles, since a verdict is recorded directly onto its sample
 # entry) and the rendered report (`audit/<seed>-report.txt`, `xtask audit
 # report`'s output). This is *data*, not a third committed prose doc
-# competing with spec.md/AGENTS.md — no conclusion is ever stated here, only
+# competing with docs/design.md/AGENTS.md — no conclusion is ever stated here, only
 # the sample and the verdicts a conclusion would cite. The conclusion itself
-# goes to spec.md Appendix A as [M-20], once the audit has actually run.
+# goes to docs/design.md Appendix A as [M-20], once the audit has actually run.
 #
 # NOT tracked, and explicitly ignored below: `audit/<seed>/fixtures/`,
 # `xtask audit fixtures`' staging output. `corpus/README.md`'s own workflow

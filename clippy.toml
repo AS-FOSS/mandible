@@ -6,6 +6,6 @@
 # and are counted in `scripts/ratchet.txt`, which may only shrink.
 #
 # The numbers are a starting ceiling, not a law of nature. Raising either one
-# is a decision that belongs in spec.md section 16.
+# is a decision that belongs in docs/design.md section 16.
 too-many-lines-threshold = 150
 cognitive-complexity-threshold = 30
