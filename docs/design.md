@@ -2025,460 +2025,519 @@ exercised the merge against Tier B.
 
 ### 13.1 The coverage harness
 
-`cargo xtask coverage` runs extraction across every executable on `PATH` and
-emits a scoreboard: tool, tier(s), nodes, flags, `%flags_text`, ms, status.
-The scoreboard is checked into the repo and diffed on every parser change.
+**Decides.** How "no per-tool adjustment" is measured fleet-wide, rather
+than judged tool by tool.
 
-This is what makes "no per-tool adjustment" measurable rather than
-aspirational. Without a fleet-wide scoreboard, a grammar change is judged
-only against the tool someone happens to be looking at, and a fix to one
-tool can silently regress another.
+**Rules.**
 
-The regression gate: the `%flags_text` aggregate and the `no-tier` count may
-never worsen. `%flags_text` is `described / describable`, not
-`described / total` — a flag whose only source structurally cannot supply a
-description (`Source::HelpTextSynopsis`) is excluded from the denominator
-rather than counted as a miss. See Appendix B for the rename from
-`pct_described`, and [M-15] for the measurement that forced it.
+1. `cargo xtask coverage` runs extraction across every executable on
+   `PATH` and emits a scoreboard: tool, tier(s), nodes, flags,
+   `%flags_text`, ms, status. The scoreboard is checked into the repo and
+   diffed on every parser change.
+2. The regression gate: the `%flags_text` aggregate and the `no-tier`
+   count may never worsen. `%flags_text` is `described / describable`,
+   not `described / total`. A flag whose only source structurally cannot
+   supply a description (`Source::HelpTextSynopsis`) is excluded from the
+   denominator rather than counted as a miss. See Appendix B for the
+   rename from `pct_described`, and [M-15] for the measurement that
+   forced it.
+3. A structure-sanity column counts nodes whose name fails
+   `^[a-z][a-z0-9_.-]*$`, and nodes with no flags, no children, and no
+   summary. A tool with a nonzero count is marked `suspicious`, gated the
+   same as `no-tier`. See [M-10] for the defect this column exists to
+   catch.
+4. Two detectors re-examine text the pipeline already captured, adding no
+   new probes:
+   - Misattribution (`xtask/src/misattribution.rs`) flags a flag
+     description that also contains another flag's literal spelling,
+     attested at a column-aligned position elsewhere in the raw text, a
+     multi-column options table read as a single column.
+   - Existence (`xtask/src/existence.rs`) checks that every
+     help-text-sourced subcommand name and flag spelling occurs literally
+     in the tool's own captured text, guarding against invented nodes.
+5. Both detectors report a scoreboard column and a footer field; neither
+   is gated. A brand-new detector with no fleet baseline must not fail a
+   build the first time it runs.
+6. Every scoreboard carries a literal `accuracy: unmeasured` line. The
+   audit (§13.1c) is the only instrument that measures correctness.
 
-A **structure-sanity** column catches fabrication that a text-attachment
-ratio cannot see on its own: it counts nodes whose name fails
-`^[a-z][a-z0-9_.-]*$`, and nodes with no flags, no children, and no summary.
-A tool with a nonzero count is marked `suspicious`, gated the same as
-`no-tier`. See [M-10] for the defect this column exists to catch.
+**Why.** Without a fleet-wide scoreboard, a grammar change is judged only
+against the tool someone happens to be looking at, and a fix to one tool
+can silently regress another. A reader can never mistake presence-of-text
+for correctness, which is why `accuracy: unmeasured` is stated on every
+run rather than implied by silence. A coverage metric that can be
+satisfied by the failure mode it exists to detect is worse than no
+metric, because it converts a silent bug into a confidently reported
+success. §13.1b states this as five rules; [M-21] records the incidents
+that produced them.
 
-Two detectors re-examine text the pipeline already captured, adding no new
-probes:
-
-- **Misattribution** (`xtask/src/misattribution.rs`) flags a flag
-  description that also contains another flag's literal spelling, attested
-  at a column-aligned position elsewhere in the raw text — a multi-column
-  options table read as a single column.
-- **Existence** (`xtask/src/existence.rs`) checks that every help-text-sourced
-  subcommand name and flag spelling occurs literally in the tool's own
-  captured text, guarding against invented nodes.
-
-Both report a scoreboard column and a footer field, and neither is gated:
-a brand-new detector with no fleet baseline must not fail a build the first
-time it runs. Every scoreboard also carries a literal `accuracy: unmeasured`
-line, so a reader can never mistake presence-of-text for correctness. The
-audit (§13.1c) is the only instrument that measures correctness.
-
-A coverage metric that can be satisfied by the failure mode it exists to
-detect is worse than no metric, because it converts a silent bug into a
-confidently reported success. §13.1b states this as five rules; [M-21]
-records the incidents that produced them.
+**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/misattribution.rs`,
+`xtask/src/existence.rs`.
 
 ### 13.1a The framework-support workflow
 
-A CI workflow reports, per run, which frameworks mandible supports and how
-well, rendered into the run summary. Two jobs:
+**Decides.** What CI reports about framework support, per run.
 
-1. **Framework matrix.** Install one representative tool per supported
-   framework and assert that mandible identifies the framework and extracts
-   a non-trivial tree.
-2. **PATH sweep.** Run the coverage harness over the runner's own `PATH`,
-   at zero installation cost.
+**Rules.**
 
-The summary table carries, per framework: tools detected, flags extracted,
-`%flags_text`, and pass/fail. The gate fails on regressions in `no-tier`,
-`suspicious`, or framework-detection failures.
+1. A CI workflow reports, per run, which frameworks mandible supports and
+   how well, rendered into the run summary. Two jobs:
+   1. Framework matrix: install one representative tool per supported
+      framework and assert that mandible identifies the framework and
+      extracts a non-trivial tree.
+   2. PATH sweep: run the coverage harness over the runner's own `PATH`,
+      at zero installation cost.
+2. The summary table carries, per framework: tools detected, flags
+   extracted, `%flags_text`, and pass/fail.
+3. The gate fails on regressions in `no-tier`, `suspicious`, or
+   framework-detection failures.
+
+**Implemented in.** `.github/workflows/frameworks.yml`,
+`.github/workflows/path-sweep.yml`.
 
 ### 13.1b Metric design rules
 
-A metric that is not monotone under added true information will eventually
-punish a real improvement. `pct_flags_with_text` learned this the hard way
-when a usage-synopsis grammar recovered thousands of real flags and the
-ratio *fell*, because every recovered flag counted as undescribed against a
+**Decides.** The rules a gated metric must satisfy to stay trustworthy as
+the pipeline changes under it.
+
+**Rules.**
+
+1. A gated metric must be monotone under added true information. An
+   improvement that adds correct data and loses nothing must never
+   worsen a gated number.
+2. A denominator is conditioned on what the source could have provided. A
+   flag whose only source cannot supply a description is excluded from
+   `%flags_text`'s denominator, not counted as a miss. Its spelling still
+   counts in the raw, ungated flag total.
+3. A status derived under resource pressure states a fact about the
+   machine, not the parser. A wall-clock-derived signal must not silently
+   flip a correctness gate. Where a timing assertion is not itself the
+   safety property under test, it is demoted to a non-blocking warning
+   with a wide margin; where it is (`exec::spawn`'s process-group-kill
+   test), it stays blocking.
+4. A name is part of a metric's design, not decoration. A name a reader
+   could mistake for a stronger claim than the metric makes is a defect.
+   `pct_described` was renamed `pct_flags_with_text` for this reason
+   alone; the computation did not change.
+   `xtask::coverage::parse_aggregate_footer` still reads a scoreboard's
+   old `pct_described=` key for backward compatibility and never writes
+   one; see Appendix B for both renames.
+5. A mass status promotion must carry its own spot-audit stratum, drawn
+   at random, never asserted from the aggregate that produced it. Any
+   change promoting more than a handful of tools to `ok` must include a
+   spot-audit of 5 to 10 randomly drawn promoted tools, recorded in the
+   audit manifest as its own stratum. `xtask audit spot-audit --event
+   <name> --promoted <tool,...> --sample <n> --draw-seed <seed>` draws
+   reproducibly, via the same per-stratum seed mix the frozen queue uses,
+   and tags each drawn tool with its own `spot-audit:<event>` row,
+   distinct from the ordinary strata and from `forced-inclusion`. A
+   promoted tool already present in the manifest is tagged into the new
+   stratum without its prior verdict, note, or amendment history being
+   touched; only `xtask audit amend` may change a verdict.
+
+**Why.** `pct_flags_with_text` learned rule 1 the hard way when a
+usage-synopsis grammar recovered thousands of real flags and the ratio
+fell, because every recovered flag counted as undescribed against a
 source that could never have described it ([M-15]). [M-21] records this
 incident alongside four more of the same shape: an inflated ratio from
 fabricated nodes ([M-10]), a conflated status from an unrelated property
 ([M-16]), a false regression from timing under load, and a name
-(`%described`) that read as an accuracy claim it never earned.
+(`%described`) that read as an accuracy claim it never earned. A clean
+corpus and a clean sweep-diff prove nothing regressed; neither looks at a
+single promoted tool with a human eye, which is why rule 5 requires a
+spot-audit.
 
-Five rules follow, each keyed to one of those incidents:
-
-1. **A gated metric must be monotone under added true information.** An
-   improvement that adds correct data and loses nothing must never worsen a
-   gated number.
-2. **A denominator is conditioned on what the source could have provided.**
-   A flag whose only source cannot supply a description is excluded from
-   `%flags_text`'s denominator, not counted as a miss. Its spelling still
-   counts in the raw, ungated flag total.
-3. **A status derived under resource pressure states a fact about the
-   machine, not the parser.** A wall-clock-derived signal must not silently
-   flip a correctness gate. Where a timing assertion is not itself the
-   safety property under test, it is demoted to a non-blocking warning with
-   a wide margin; where it is (`exec::spawn`'s process-group-kill test), it
-   stays blocking.
-4. **A name is part of a metric's design, not decoration.** A name a reader
-   could mistake for a stronger claim than the metric makes is a defect.
-   `pct_described` was renamed `pct_flags_with_text` for this reason alone;
-   the computation did not change. `xtask::coverage::parse_aggregate_footer`
-   still reads a scoreboard's old `pct_described=` key for backward
-   compatibility and never writes one; see Appendix B for both renames.
-5. **A mass status promotion must carry its own spot-audit stratum, drawn
-   at random, never asserted from the aggregate that produced it.** A clean
-   corpus and a clean sweep-diff prove nothing regressed; neither looks at a
-   single promoted tool with a human eye. Any change promoting more than a
-   handful of tools to `ok` must include a spot-audit of 5 to 10 randomly
-   drawn promoted tools, recorded in the audit manifest as its own stratum.
-   `xtask audit spot-audit --event <name> --promoted <tool,...> --sample <n>
-   --draw-seed <seed>` draws reproducibly, via the same per-stratum seed mix
-   the frozen queue uses, and tags each drawn tool with its own
-   `spot-audit:<event>` row, distinct from the ordinary strata and from
-   `forced-inclusion`. A promoted tool already present in the manifest is
-   tagged into the new stratum without its prior verdict, note, or amendment
-   history being touched; only `xtask audit amend` may change a verdict.
+**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/audit.rs`.
 
 ### 13.1c The audit instrument: comparing against truth
 
-Misattribution and existence each compare the parser's output against
-itself. `xtask audit` and `mandible --review` are the first instruments to
-compare output against independently established truth: a human reads a
-tool's own raw `--help` text beside the parsed tree and judges it.
+**Decides.** How a parsed tree is checked against truth rather than
+against itself.
 
-Subcommands (`xtask audit <subcommand>`): `sample` draws and persists a
-sample; `review` is the interactive terminal loop; `emit`/`ingest` are its
-non-interactive twin, since CI has no tty (AGENTS.md §3.6) — `emit` writes
-every pending pair to a file, `ingest` reads a verdicts file back; `report`
-renders accuracy; `fixtures` turns a reviewed tool into a staged
-`corpus/`-shaped fixture, a `correct` verdict becoming a real
-`expected.snap` and a `wrong`/`incomplete` verdict becoming `[xfail]` with
-the reviewer's note as `reason`. `mandible --review <SEED>` (§5.3) reviews
-the same manifest inside the real TUI.
+**Rules.**
 
-The draw is stratified, deterministic, and force-includable, via a frozen
-queue (§13.1d): `xtask audit freeze` classifies every tool once and
-shuffle-stratifies the result into an ordered queue, and `xtask audit
-sample` advances that queue's cursor. A tool can additionally be
-force-included, but only with a recorded reason
-(`audit/force-include.txt`); force-included entries are tallied under their
-own `forced-inclusion` stratum, never blended into the random draw.
+1. `xtask audit` and `mandible --review` are the first instruments to
+   compare output against independently established truth: a human reads
+   a tool's own raw `--help` text beside the parsed tree and judges it.
+   Misattribution and existence (§13.1) each compare the parser's output
+   against itself instead.
+2. Subcommands (`xtask audit <subcommand>`): `sample` draws and persists a
+   sample; `review` is the interactive terminal loop; `emit`/`ingest` are
+   its non-interactive twin, since CI has no tty (AGENTS.md §3.6):
+   `emit` writes every pending pair to a file, `ingest` reads a verdicts
+   file back; `report` renders accuracy; `fixtures` turns a reviewed tool
+   into a staged `corpus/`-shaped fixture, a `correct` verdict becoming a
+   real `expected.snap` and a `wrong`/`incomplete` verdict becoming
+   `[xfail]` with the reviewer's note as `reason`. `mandible --review
+   <SEED>` (§5.3) reviews the same manifest inside the real TUI.
+3. The draw is stratified, deterministic, and force-includable, via a
+   frozen queue (§13.1d): `xtask audit freeze` classifies every tool once
+   and shuffle-stratifies the result into an ordered queue, and `xtask
+   audit sample` advances that queue's cursor. A tool can additionally be
+   force-included, but only with a recorded reason
+   (`audit/force-include.txt`); force-included entries are tallied under
+   their own `forced-inclusion` stratum, never blended into the random
+   draw.
+4. Verdicts are `correct`, `incomplete`, `wrong`, or `skip`. A `wrong` or
+   `incomplete` verdict must carry a note, enforced identically in the
+   TUI and in `ingest`. `correct` and `skip` do not require one. `skip`
+   is recorded, occupying its slot and appearing in `audit report`,
+   excluded only from the accuracy ratio. Which of `wrong` and
+   `incomplete` a tool received is never load-bearing anywhere
+   downstream: `accuracy_over` collapses both into one judged-defect
+   bucket, the note requirement is identical for both, and a
+   defect-family label is derived from the note and the fixture, never
+   from which word was chosen.
+5. Three pre-tagged known-defect classes are computed at sample time and
+   shown to the reviewer before they record a verdict, so confirming is
+   free and overriding is one token:
+   - K1: a single-dash long option mis-parsed as a short flag plus a
+     value (`-fdump-scos` stored as `-f` with value `dump-scos`). The
+     same `short.is_some() && long.is_none() && value_name.is_some()`
+     shape is also produced by a collapsed short-flag bundle and by a
+     repeated flag letter (`-vv`); a detector for one fires on the other
+     two unless it inspects what the value text actually is. All three
+     now have a separate, calibrated detector and a shipped repair,
+     ratchet-gated at zero. [M-21] has the fleet numbers.
+   - K2: the existence detector's own tokenizer gap, not a parser defect.
+     Closed: characterized on a full sweep and repaired down to a small,
+     genuine residual. [M-21] has the numbers.
+   - K3: a subcommand stub whose help was never fetched, because the
+     attestation gate refused to probe a name with no recognized
+     `--help` heading, or because the single-pass extraction never
+     reached it.
+6. Display-only findings are excluded from the accuracy denominator,
+   never from the record. A `wrong`/`incomplete` verdict sometimes lands
+   on a rendering defect (`mandible --review`'s own TUI mis-rendering a
+   correct extraction) rather than a parse defect. `skip` cannot record
+   this, since the defect was judged and real. The `display-only`
+   [`mandible_core::audit::DEFECT_FAMILIES`] label marks it, and
+   [`Entry::is_display_only`] excludes it from every accuracy view while
+   the verdict, note, and fixture stay exactly as recorded; `audit
+   report` prints excluded findings in their own section plus an
+   `out-of-scope` column. `display-only` must be an entry's only family:
+   a genuine parse-shape family riding alongside it blocks the exclusion
+   rather than granting it.
+7. `audit report` states accuracy per stratum with a Wilson 95%
+   confidence interval, never a bare percentage, and also reports
+   accuracy with each known class (K1/K2/K3) excluded.
+8. Scope: the audit measures flag accuracy and command/subcommand
+   accuracy only. A node's own prose description and usage-section
+   formatting are out of scope. A flag's description attached to the
+   wrong flag is in scope, since that is flag data misattribution; the
+   node's own prose description is not.
+9. `audit/<seed>.toml` is tracked, since an accuracy claim must carry its
+   evidence in git rather than depend on one contributor's machine.
+   `audit/<seed>/fixtures/` is not: it is staging output, reviewed and
+   deliberately promoted into `corpus/`.
 
-Verdicts are `correct`, `incomplete`, `wrong`, or `skip`. A `wrong` or
-`incomplete` verdict must carry a note — for those two verdicts the note is
-the finding — enforced identically in the TUI and in `ingest`. `correct` and
-`skip` do not require one. `skip` is recorded, occupying its slot and
-appearing in `audit report`, excluded only from the accuracy ratio. Which of
-`wrong` and `incomplete` a tool received is never load-bearing anywhere
-downstream: `accuracy_over` collapses both into one judged-defect bucket,
-the note requirement is identical for both, and a defect-family label is
-derived from the note and the fixture, never from which word was chosen.
-
-Three pre-tagged known-defect classes are computed at sample time and shown
-to the reviewer before they record a verdict, so confirming is free and
-overriding is one token:
-
-- **K1**: a single-dash long option mis-parsed as a short flag plus a value
-  (`-fdump-scos` stored as `-f` with value `dump-scos`). The same
-  `short.is_some() && long.is_none() && value_name.is_some()` shape is also
-  produced by a collapsed short-flag bundle and by a repeated flag letter
-  (`-vv`); a detector for one fires on the other two unless it inspects what
-  the value text actually is. All three now have a separate, calibrated
-  detector and a shipped repair, ratchet-gated at zero. [M-21] has the
-  fleet numbers.
-- **K2**: the existence detector's own tokenizer gap, not a parser defect.
-  Closed: characterized on a full sweep and repaired down to a small,
-  genuine residual. [M-21] has the numbers.
-- **K3**: a subcommand stub whose help was never fetched, because the
-  attestation gate refused to probe a name with no recognized `--help`
-  heading, or because the single-pass extraction never reached it.
-
-**Display-only findings are excluded from the accuracy denominator, never
-from the record.** A `wrong`/`incomplete` verdict sometimes lands on a
-rendering defect (`mandible --review`'s own TUI mis-rendering a correct
-extraction) rather than a parse defect. `skip` cannot record this, since the
-defect was judged and real. The `display-only`
-[`mandible_core::audit::DEFECT_FAMILIES`] label marks it, and
-[`Entry::is_display_only`] excludes it from every accuracy view while the
-verdict, note, and fixture stay exactly as recorded; `audit report` prints
-excluded findings in their own section plus an `out-of-scope` column, so the
-number cannot go quietly missing. `display-only` must be an entry's only
-family: a genuine parse-shape family riding alongside it blocks the
-exclusion rather than granting it.
-
-`audit report` states accuracy per stratum with a Wilson 95% confidence
-interval, never a bare percentage, and also reports accuracy with each known
-class (K1/K2/K3) excluded, so a reader can see how much of a raw number is
-attributable to an already-scheduled cause.
-
-**Scope**: the audit measures flag accuracy and command/subcommand accuracy
-only. A node's own prose description and usage-section formatting are out of
-scope. A flag's description attached to the wrong flag is in scope, since
-that is flag data misattribution; the node's own prose description is not.
-
-`audit/<seed>.toml` is tracked, since an accuracy claim must carry its
-evidence in git rather than depend on one contributor's machine.
-`audit/<seed>/fixtures/` is not: it is staging output, reviewed and
-deliberately promoted into `corpus/`.
-
-The audit has not finished running. This section documents the instrument,
-not a result: no accuracy number is stated here. The result belongs in
+**Why.** A defect-family label derived from the note rather than the
+chosen verdict word keeps K1/K2/K3 and every other family comparable
+regardless of which of `wrong`/`incomplete` a reviewer picked. The audit
+has not finished running. This section documents the instrument, not a
+result: no accuracy number is stated here. The result belongs in
 Appendix A as [M-20], once the audit completes.
+
+**Implemented in.** `xtask/src/audit.rs`, `mandible-core/src/audit.rs`.
 
 ### 13.1d The frozen sampling queue
 
-Before this design, `xtask audit sample` reclassified the whole `PATH`
-population on every draw, and because the strata were recomputed from
-whatever the parser happened to be on the day, two draws taken apart in time
-were stratifying against two different definitions of "ok" and were not
-directly comparable.
+**Decides.** How successive audit draws stay comparable over time.
 
-The fix: freeze the tool list once, walk a cursor through it. `xtask audit
-freeze` sweeps `PATH` (or a pinned `--tools` list) exactly once, classifies
-every tool, shuffle-stratifies the result with a recorded seed, and writes
-the ordered queue to `audit/queue.toml`. `xtask audit sample` only ever
-advances that queue's cursor and merges the slice into a verdict file — no
-re-probing, no reclassification, at draw time. The queue is ordered once and
-a cursor advances through it; a draw never depends on which tools any
-verdict file has already recorded, which is what keeps successive draws
-comparable.
+**Rules.**
 
-Three properties the design guarantees:
-
-1. `queue.toml` records a freeze date and a population hash, so staleness can
-   be detected (`xtask audit freeze --check`, a directory listing, no
+1. `xtask audit freeze` sweeps `PATH` (or a pinned `--tools` list) exactly
+   once, classifies every tool, shuffle-stratifies the result with a
+   recorded seed, and writes the ordered queue to `audit/queue.toml`.
+2. `xtask audit sample` only ever advances that queue's cursor and merges
+   the slice into a verdict file, no re-probing, no reclassification, at
+   draw time.
+3. `queue.toml` records a freeze date and a population hash, so staleness
+   can be detected (`xtask audit freeze --check`, a directory listing, no
    probing) without rewriting anything.
-2. Each stratum is independently shuffled, then merged by a fractional rank
-   within its own stratum, so any prefix of the frozen queue is itself a
-   proportionally stratified sample, not just the queue as a whole.
-3. `xtask audit freeze` persists every `(argv, output)` pair each tool's
+4. Each stratum is independently shuffled, then merged by a fractional
+   rank within its own stratum, so any prefix of the frozen queue is
+   itself a proportionally stratified sample, not just the queue as a
+   whole.
+5. `xtask audit freeze` persists every `(argv, output)` pair each tool's
    extraction pass recorded under `audit/queue-captures/`. `xtask audit
    reclassify` replays those bytes through the current parser via
    `mandible_extract::exec::Transcript`, with no `PATH` sweep and zero
-   subprocess spawns, recomputing every tool's stratum in parallel. [M-21]
-   has the measured cost.
+   subprocess spawns, recomputing every tool's stratum in parallel.
+   [M-21] has the measured cost.
+6. `audit/queue.toml` is tracked; `audit/queue-captures/` is not, it is
+   bulk, machine-generated content, regenerable locally by re-running
+   `xtask audit freeze`.
+7. `--tools` lives on `freeze`, since `sample` no longer touches `PATH`
+   at all; `sample --seed` names which verdict file a slice merges into,
+   not a draw seed.
+8. Reclassification updates a tool's reported stratum, never its position
+   in the queue.
+9. `freeze` issues exactly the probes the old live sweep issued, all
+   through `run_inert` (§6); `reclassify` spawns nothing.
 
-`audit/queue.toml` is tracked; `audit/queue-captures/` is not — it is bulk,
-machine-generated content, regenerable locally by re-running `xtask audit
-freeze`. `--tools` lives on `freeze`, since `sample` no longer touches
-`PATH` at all; `sample --seed` names which verdict file a slice merges into,
-not a draw seed.
+**Why.** Before this design, `xtask audit sample` reclassified the whole
+`PATH` population on every draw, and because the strata were recomputed
+from whatever the parser happened to be on the day, two draws taken apart
+in time were stratifying against two different definitions of "ok" and
+were not directly comparable. The queue is ordered once and a cursor
+advances through it; a draw never depends on which tools any verdict file
+has already recorded, which is what keeps successive draws comparable.
+Honest caveats: a frozen population drifts from a machine's real
+installed tools over time, and `freeze --check` detects drift without
+fixing it. A long-unfrozen queue's interleaving reflects its freeze-time
+composition, not its current one, a real but much smaller drift than the
+staleness this design replaces. Reclassification still reads a tool's
+on-disk binary for framework fingerprinting, so it depends on the binary
+resolving on `PATH` at the same path, even though it spawns nothing.
 
-Honest caveats: a frozen population drifts from a machine's real installed
-tools over time, and `freeze --check` detects drift without fixing it.
-Reclassification updates a tool's reported stratum, never its position in
-the queue, so a long-unfrozen queue's interleaving reflects its
-freeze-time composition, not its current one — a real but much smaller
-drift than the staleness this design replaces. Reclassification still reads
-a tool's on-disk binary for framework fingerprinting, so it depends on the
-binary resolving on `PATH` at the same path, even though it spawns nothing.
-
-No new execution-safety surface: `freeze` issues exactly the probes the old
-live sweep issued, all through `run_inert` (§6); `reclassify` spawns
-nothing.
+**Implemented in.** `xtask/src/audit.rs`, `xtask/src/queue.rs`.
 
 ### 13.1e Family detectors and the calibration precondition
 
-A **family detector** generalizes one human audit finding across the fleet:
-the audit reads one tool at a time and is slow; a detector asks whether the
-same shape occurs on every `PATH` tool, in seconds. `xtask detector`
-(`xtask/src/detector.rs`) is the harness they register in.
+**Decides.** When a detector's fleet-wide count is trustworthy enough to
+quote, and what a family label means.
 
-A family detector is not a correctness instrument. The audit remains the
-only instrument that touches truth; a detector's claim is narrower — this
-same shape occurs here too — and that narrowness is exactly where the
-danger is: a detector produces a confident fleet-wide count and nothing
-inside that count knows whether the detector fires on the defect it names.
+**Rules.**
 
-> A detector's fleet-wide number is not quotable until it has passed
-> calibration against the human labels: it must fire on the known-bad tools
-> and stay silent on the known-good ones. A detector that has not passed
-> this check is measuring itself.
+1. A family detector generalizes one human audit finding across the
+   fleet: the audit reads one tool at a time and is slow; a detector asks
+   whether the same shape occurs on every `PATH` tool, in seconds.
+   `xtask detector` (`xtask/src/detector.rs`) is the harness they
+   register in.
+2. A detector's fleet-wide number is not quotable until it has passed
+   calibration against the human labels: it must fire on the known-bad
+   tools and stay silent on the known-good ones. A detector that has not
+   passed this check is measuring itself.
+3. `mandible_core::audit::Entry` carries `families`, labels from the
+   closed `DEFECT_FAMILIES` set, alongside `families_derived`, an
+   `Option<bool>` recording that the labels are a machine reading of the
+   reviewer's note and fixture evidence, never the reviewer's own
+   classification. A label with no recorded provenance is refused, as is
+   a label on a `correct` or `skip` verdict.
+4. A family name that turns out to cover more than one shape must be
+   split, never detected. Per-family membership and disposition are
+   documented in `xtask/src/detector.rs`, not here.
+5. The confusion matrix has five cells, not four: fires-on-bad, misses,
+   silence-on-good, false alarms, and fires on a tool judged defective of
+   a different family, neither a hit nor a false alarm, since the human
+   already said this parse is wrong. Every cell names its tools.
+6. Not-evaluable is counted, never dropped: a labelled tool with no
+   fixture is listed by name. A detector may legitimately generalize no
+   family the labelled set contains (`Detector::family` returns `None`);
+   forcing it onto the nearest family would manufacture a matrix nobody
+   verified.
+7. The moment a family's fix lands, its detector's recall on the labelled
+   set drops to zero, because those fixtures now parse correctly and the
+   labelled set has nothing left to confirm against. What carries the
+   weight afterward is the detector's own hand-built tests
+   (`Detector::self_checks`, which construct the defective shape
+   directly) and `sweep-diff` against a fresh full sweep.
+8. `REPAIRED` is a third calibration verdict, reached only when
+   calibration has inverted and the detector's self-checks still hold,
+   covering both directions: at least one case the detector must fire on
+   and at least one it must stay silent on. An empty self-check list is
+   refused rather than passing vacuously. `REPAIRED` is a stated claim,
+   never a suppression: recall still reads 0%, every missed tool stays
+   named, and the self-check block prints on every run, including runs
+   that do not reach `REPAIRED`.
+9. A ratchet gate asserts the detector alongside the count. Once a family
+   is repaired, its fleet count is gated at a literal zero
+   (`coverage --check`, `detector::ratchet_at_zero`), never against the
+   checked-in scoreboard, which a reintroducing commit could otherwise
+   edit to raise its own baseline. The gate requires the same self-check
+   evidence `REPAIRED` does and refuses a zero without it.
+10. A declared scope exclusion carries a structural predicate, not prose.
+    `Scope::known_exclusions` is a closed `Ground` enum, each variant
+    carrying a witness token from the tool's own help text plus the
+    constant it falls below; the arithmetic is computed from the witness
+    and has to agree. Prose survives only as a `note` printed beside the
+    generated sentence, never instead of it.
+11. Calibration can find a mislabel, and finding one is the mechanism
+    working. A false alarm is never waived: it is either a detector bug
+    or a label bug, and which one is argued in the commit that resolves
+    it, using `xtask audit amend` to correct the label with its reason
+    recorded.
 
-`mandible_core::audit::Entry` carries `families` — labels from the closed
-`DEFECT_FAMILIES` set — alongside `families_derived`, an `Option<bool>`
-recording that the labels are a machine reading of the reviewer's note and
-fixture evidence, never the reviewer's own classification. A label with no
-recorded provenance is refused, as is a label on a `correct` or `skip`
-verdict.
+**Why.** A detector produces a confident fleet-wide count and nothing
+inside that count knows whether the detector fires on the defect it
+names, which is exactly where the danger sits. A detector built over a
+symptom name rather than a shared shape fires on whatever the author
+happened to encode and misses the rest, naming a population no one can
+check, the same failure the calibration precondition exists to prevent,
+arriving through the label instead of the detector. Two names in this
+project's own defect backlog dissolved this way once examined: each
+covered several unrelated defects sharing only a symptom, and no detector
+was built for either. A third, `block-extent`, turned out to be exactly
+one rule shared by two of its three candidate tools, and a detector was
+built for those two. A matrix computed over part of the labelled set and
+reported as complete is a worse claim than an incomplete one stated as
+such, which is why not-evaluable tools stay named rather than dropped.
 
-**A family name that turns out to cover more than one shape must be split,
-never detected.** A detector built over a symptom name rather than a shared
-shape fires on whatever the author happened to encode and misses the rest,
-naming a population no one can check — the same failure the calibration
-precondition exists to prevent, arriving through the label instead of the
-detector. Two names in this project's own defect backlog dissolved this way
-once examined: each covered several unrelated defects sharing only a
-symptom, and no detector was built for either. A third, `block-extent`,
-turned out to be exactly one rule shared by two of its three candidate
-tools, and a detector was built for those two. Per-family membership and
-disposition are documented in `xtask/src/detector.rs`, not here.
-
-**The confusion matrix has five cells, not four.** Beyond fires-on-bad,
-misses, silence-on-good, and false alarms, there is *fires on a tool judged
-defective of a different family* — neither a hit nor a false alarm, since
-the human already said this parse is wrong. Every cell names its tools.
-**Not-evaluable is counted, never dropped:** a labelled tool with no fixture
-is listed by name; a matrix computed over part of the labelled set and
-reported as complete is a worse claim than an incomplete one stated as such.
-A detector may legitimately generalize no family the labelled set contains
-(`Detector::family` returns `None`); forcing it onto the nearest family
-would manufacture a matrix nobody verified.
-
-**A fixed family inverts its own calibration.** The moment a family's fix
-lands, its detector's recall on the labelled set drops to zero, because
-those fixtures now parse correctly and the labelled set has nothing left to
-confirm against. The precondition is a claim about labels recorded against a
-particular parser, and it expires for a family on the commit that fixes it.
-What carries the weight afterward is the detector's own hand-built tests
-(`Detector::self_checks`, which construct the defective shape directly) and
-`sweep-diff` against a fresh full sweep.
-
-**`REPAIRED` is a third calibration verdict, reached only when calibration
-has inverted and the detector's self-checks still hold**, covering both
-directions: at least one case the detector must fire on and at least one it
-must stay silent on. An empty self-check list is refused rather than passing
-vacuously. `REPAIRED` is a stated claim, never a suppression: recall still
-reads 0%, every missed tool stays named, and the self-check block prints on
-every run, including runs that do not reach `REPAIRED`.
-
-**A ratchet gate asserts the detector alongside the count.** Once a family
-is repaired, its fleet count is gated at a literal zero (`coverage --check`,
-`detector::ratchet_at_zero`), never against the checked-in scoreboard, which
-a reintroducing commit could otherwise edit to raise its own baseline. The
-gate requires the same self-check evidence `REPAIRED` does and refuses a
-zero without it, so a gate asserting `count == 0` cannot be satisfied by
-deleting the detector.
-
-**A declared scope exclusion carries a structural predicate, not prose.**
-`Scope::known_exclusions` is a closed `Ground` enum, each variant carrying a
-witness token from the tool's own help text plus the constant it falls
-below; the arithmetic is computed from the witness and has to agree. Prose
-survives only as a `note` printed beside the generated sentence, never
-instead of it.
-
-**Calibration can find a mislabel, and finding one is the mechanism
-working.** A false alarm is never waived: it is either a detector bug or a
-label bug, and which one is argued in the commit that resolves it, using
-`xtask audit amend` to correct the label with its reason recorded.
+**Implemented in.** `xtask/src/detector.rs`, `mandible-core/src/audit.rs`.
 
 ### 13.1f Residue ranking: a discovery instrument, deliberately not a metric
 
-`cargo run -p xtask -- residue` (`xtask/src/residue.rs`) is existence's
-complement: existence asks whether everything in the tree is attested by the
-text and catches invention; residue asks what in the text the tree never
-accounted for, and catches omission. It classifies each physical line of a
-captured `--help` document by shape (a flag row, or an indented
-`name<gutter>description` row) and reports the rows no spelling or name in
-the parsed tree accounts for. It replays frozen fixture bytes and spawns
-nothing.
+**Decides.** How omission, rather than invention, is discovered, and why
+its output is never a gate.
 
-It is not, and must never become, a gate or a quotable number: a wrong
-residue candidate costs review time and cannot produce a wrong parse,
-because nothing downstream reads it. The moment a residue count is treated
-as a measurement, that asymmetry is gone. Nothing in `coverage --check`
-consults it, it appears in no ratchet and no `corpus` contract, and a test
-fails the build if `coverage.rs`, `corpus.rs`, or `status.rs` ever calls
-into it. Its output is a reading queue for a human, who turns a confirmed
-finding into a deterministic, calibrated, ratchet-gated rule the ordinary
-way. [M-22] has what it found the one time it was run over the full audited
-set, including a real four-flag gap in a fixture that had been green,
+**Rules.**
+
+1. `cargo run -p xtask -- residue` (`xtask/src/residue.rs`) is existence's
+   complement: existence asks whether everything in the tree is attested
+   by the text and catches invention; residue asks what in the text the
+   tree never accounted for, and catches omission.
+2. It classifies each physical line of a captured `--help` document by
+   shape (a flag row, or an indented `name<gutter>description` row) and
+   reports the rows no spelling or name in the parsed tree accounts for.
+   It replays frozen fixture bytes and spawns nothing.
+3. It is not, and must never become, a gate or a quotable number. Nothing
+   in `coverage --check` consults it, it appears in no ratchet and no
+   `corpus` contract, and a test fails the build if `coverage.rs`,
+   `corpus.rs`, or `status.rs` ever calls into it.
+4. Its output is a reading queue for a human, who turns a confirmed
+   finding into a deterministic, calibrated, ratchet-gated rule the
+   ordinary way.
+
+**Why.** A wrong residue candidate costs review time and cannot produce a
+wrong parse, because nothing downstream reads it. The moment a residue
+count is treated as a measurement, that asymmetry is gone. [M-22] has
+what it found the one time it was run over the full audited set,
+including a real four-flag gap in a fixture that had been green,
 blessed, and contract-gated throughout.
+
+**Implemented in.** `xtask/src/residue.rs`.
 
 ### 13.2 Fixed corpus
 
-A fixture (`corpus/<tool>/<version>/`) freezes both halves of one extraction
-pass: the raw bytes a real probe produced, byte-exact
-(`.gitattributes` marks everything under `corpus/` `-text`, so Git's own
-line-ending normalization can never quietly alter a capture), and the
-`CommandNode` tree the real pipeline produces from those bytes today,
-replayed with zero subprocesses through the same `Transcript` seam §13.1c
-and §13.1d use. Snapshotting only the tree is not enough: an IR-only
-snapshot can only assert "the tree once looked like this," with nothing to
-re-derive from after a tool version bump or a grammar rewrite. A fixture is
-filed by tool and version only, never by tier. `corpus/README.md` has the
-full layout and the `meta.toml` contract: a descriptive half
-(`expected.snap`, rewritten wholesale by `--bless`) and a normative half
-(`[contract]`, weakened only by an explicit, reviewed edit).
+**Decides.** What a corpus fixture freezes, and what its normative
+contract may assert.
 
-`[contract]` can state a negative as well as a positive: `must_not_contain_flags`
-asserts that a spelling (a matched long name, short flag, or bare word) is
-absent from the root, guarding against invention the same way
-`must_contain_flags` guards against omission. A tree with no root satisfies
-it vacuously and is not reported, so a missing tree cannot pass by accident
-in the one gate whose authority depends on never doing that.
+**Rules.**
 
-`verdict_scope` records which dimensions of the tree a human actually
-looked at before blessing it, some subset of `"flags"`, `"subcommands"`,
-`"descriptions"`, `"usage"`. Absent means no scope was claimed, never every
-scope: a bless freezes every field whether or not a human read it, so
-treating silence as "everything verified" would let the same overclaim that
-cost this project a fixture (`lsof`) survive by omission.
+1. A fixture (`corpus/<tool>/<version>/`) freezes both halves of one
+   extraction pass: the raw bytes a real probe produced, byte-exact
+   (`.gitattributes` marks everything under `corpus/` `-text`, so Git's
+   own line-ending normalization can never quietly alter a capture), and
+   the `CommandNode` tree the real pipeline produces from those bytes
+   today, replayed with zero subprocesses through the same `Transcript`
+   seam §13.1c and §13.1d use.
+2. A fixture is filed by tool and version only, never by tier.
+   `corpus/README.md` has the full layout and the `meta.toml` contract: a
+   descriptive half (`expected.snap`, rewritten wholesale by `--bless`)
+   and a normative half (`[contract]`, weakened only by an explicit,
+   reviewed edit).
+3. `[contract]` can state a negative as well as a positive:
+   `must_not_contain_flags` asserts that a spelling (a matched long name,
+   short flag, or bare word) is absent from the root, guarding against
+   invention the same way `must_contain_flags` guards against omission. A
+   tree with no root satisfies it vacuously and is not reported, so a
+   missing tree cannot pass by accident in the one gate whose authority
+   depends on never doing that.
+4. `verdict_scope` records which dimensions of the tree a human actually
+   looked at before blessing it, some subset of `"flags"`,
+   `"subcommands"`, `"descriptions"`, `"usage"`. Absent means no scope
+   was claimed, never every scope.
+5. Strict xfail: an `[xfail]` fixture whose snapshot and every
+   `[contract]` field now pass fails the run rather than passing quietly.
+   Both directions are checked on every run, not only "did it get
+   fixed": a fixture claiming to be broken while every check passes is
+   as much a bug as an unmarked regression, and a promoted fixture's
+   contract is strengthened, not merely unmarked, when the fix's own
+   evidence supports a stronger claim.
 
-Strict xfail: an `[xfail]` fixture whose snapshot and every `[contract]`
-field now pass fails the run rather than passing quietly. A fixture marked
-broken that stops being broken means the bug looks fixed while the label
-still says otherwise, and the run demands the label be removed. Both
-directions are checked on every run, not only "did it get fixed": a fixture
-claiming to be broken while every check passes is as much a bug as an
-unmarked regression, and a promoted fixture's contract is strengthened, not
-merely unmarked, when the fix's own evidence supports a stronger claim.
+**Why.** Snapshotting only the tree is not enough: an IR-only snapshot
+can only assert "the tree once looked like this," with nothing to
+re-derive from after a tool version bump or a grammar rewrite. A bless
+freezes every field whether or not a human read it, so treating silence
+as "everything verified" would let the same overclaim that cost this
+project a fixture (`lsof`) survive by omission. A fixture marked broken
+that stops being broken means the bug looks fixed while the label still
+says otherwise, and the run demands the label be removed. Current scale
+and provenance are in [M-22].
 
-Current scale and provenance are in [M-22].
+**Implemented in.** `xtask/src/corpus.rs`, `corpus/README.md`.
 
 ### 13.3 Required test classes
 
-- **Real-argv tests.** Every tier needs at least one test that exercises the
-  actual argv construction, not just the parser behind it. A prior cobra
-  implementation omitted the literal `__complete` from its argv and was
-  silently dead in the real pipeline, because its unit tests injected a mock
-  probe that bypassed argv construction entirely.
-- **Execution-policy tests** (§6): a shim binary logs argv/env; any
-  invocation outside the allowlist fails the suite.
-- **Sanitization tests**: ANSI, C0, backspace-overstrike, tabs, embedded
-  newlines, CJK/emoji width, and a 10 MB pathological string.
-- **Render tests** against `ratatui::backend::TestBackend`, asserting that
-  border cells stay intact for adversarial description text at several
-  widths and scroll offsets.
-- **Fuzzing** the Tier B grammar (`cargo-fuzz`), since it consumes untrusted
-  text.
-- **Merge property tests**: merge is associative over authority; a `None`
-  never displaces a `Some`; alias pairing is idempotent.
+**Decides.** Which test classes every tier and every rendering change
+must carry.
 
-The workspace runs under `cargo nextest run --workspace` in CI, never
-`cargo test --workspace` piped into a text-processing tool, because
-human-format test output must never be parsed by anyone for any reason: a
-`grep -c FAILED` against `cargo test`'s output once false-positived on test
-data that happened to contain the literal word "FAIL." `cargo nextest run`
-reports a real exit code and can emit `--message-format libtest-json` when a
-structured result is needed. Nextest cannot run doctests, so CI runs a
-separate `cargo test --doc --workspace` step to cover them.
+**Rules.**
+
+1. Real-argv tests: every tier needs at least one test that exercises the
+   actual argv construction, not just the parser behind it.
+2. Execution-policy tests (§6): a shim binary logs argv/env; any
+   invocation outside the allowlist fails the suite.
+3. Sanitization tests: ANSI, C0, backspace-overstrike, tabs, embedded
+   newlines, CJK/emoji width, and a 10 MB pathological string.
+4. Render tests against `ratatui::backend::TestBackend`, asserting that
+   border cells stay intact for adversarial description text at several
+   widths and scroll offsets.
+5. Fuzzing the Tier B grammar (`cargo-fuzz`), since it consumes untrusted
+   text.
+6. Merge property tests: merge is associative over authority; a `None`
+   never displaces a `Some`; alias pairing is idempotent.
+7. The workspace runs under `cargo nextest run --workspace` in CI, never
+   `cargo test --workspace` piped into a text-processing tool. Nextest
+   cannot run doctests, so CI runs a separate `cargo test --doc
+   --workspace` step to cover them.
+
+**Why.** A prior cobra implementation omitted the literal `__complete`
+from its argv and was silently dead in the real pipeline, because its
+unit tests injected a mock probe that bypassed argv construction
+entirely, which is why every tier needs a real-argv test. Human-format
+test output must never be parsed by anyone for any reason: a `grep -c
+FAILED` against `cargo test`'s output once false-positived on test data
+that happened to contain the literal word "FAIL." `cargo nextest run`
+reports a real exit code and can emit `--message-format libtest-json`
+when a structured result is needed.
+
+**Implemented in.** `mandible-tui/tests/`, `mandible-extract/tests/`,
+`mandible-core/src/merge.rs`.
 
 ### 13.4 The detect-to-fix loop, end to end
 
-§13.1–§13.2 introduce five instruments at five points. They compose, in this
-order:
+**Decides.** How the five testing instruments in §13.1 to §13.2 compose
+into one loop from a defect found to a regression prevented.
 
-1. **Corpus fixtures** (§13.2) — per-document. Frozen bytes plus the tree
-   they should produce; `cargo xtask corpus` catches a regression on one
-   tool someone already looked at, with zero subprocesses.
-2. **Sweep-diff** (`xtask sweep-diff`) — fleet-wide: a semantic diff between
+**Rules.**
+
+1. Corpus fixtures (§13.2), per-document: frozen bytes plus the tree they
+   should produce; `cargo xtask corpus` catches a regression on one tool
+   someone already looked at, with zero subprocesses.
+2. Sweep-diff (`xtask sweep-diff`), fleet-wide: a semantic diff between
    two full-`PATH` scoreboards, gains and losses always reported as two
-   separate totals, never netted, since summing them hides exactly the
-   losses that motivated building it. It answers whether a fix broke
-   anything else, and is non-blocking by design: it always exits 0, and
-   there is no flag to wire it to a nonzero exit by accident.
-3. **Oracles** — existence and misattribution (§13.1) — fleet-wide
-   self-consistency checks. Neither compares against a tool's real behavior;
-   both re-examine text the pipeline already captured.
-4. **Audit** (§13.1c) — sampled, and the only instrument in this list that
+   separate totals, never netted. It answers whether a fix broke anything
+   else, and is non-blocking by design: it always exits 0, and there is
+   no flag to wire it to a nonzero exit by accident.
+3. Oracles, existence and misattribution (§13.1), fleet-wide
+   self-consistency checks. Neither compares against a tool's real
+   behavior; both re-examine text the pipeline already captured.
+4. Audit (§13.1c), sampled, and the only instrument in this list that
    touches truth: a human reads a tool's own raw `--help` text beside the
    parsed tree.
-5. **Family detectors and calibration** (§13.1e) — generalize one human
-   finding across the fleet, quotable only once calibrated against the
-   audit's own labelled verdicts.
+5. Family detectors and calibration (§13.1e) generalize one human finding
+   across the fleet, quotable only once calibrated against the audit's
+   own labelled verdicts.
+6. The loop: an audit finding gets a family label, derived from the
+   reviewer's note and the fixture. A detector generalizes that label's
+   shape across the fleet. The detector is calibrated against the
+   labelled verdicts. Only once calibrated does its fleet-wide count
+   become quotable. The count motivates a grammar fix. The fix flips the
+   family's `[xfail]` fixtures to passing, which strict xfail reads as a
+   demand to promote them. Sweep-diff proves the fix broke nothing else.
+   The detector's fleet count is ratchet-gated at zero going forward, so
+   a future regression in that family is visible the moment the count
+   leaves zero.
 
-The loop: an audit finding gets a family label, derived from the reviewer's
-note and the fixture. A detector generalizes that label's shape across the
-fleet. The detector is calibrated against the labelled verdicts. Only once
-calibrated does its fleet-wide count become quotable. The count motivates a
-grammar fix. The fix flips the family's `[xfail]` fixtures to passing, which
-strict xfail reads as a demand to promote them. Sweep-diff proves the fix
-broke nothing else. The detector's fleet count is ratchet-gated at zero
-going forward, so a future regression in that family is visible the moment
-the count leaves zero. [M-21] has a worked example, start to finish.
+**Why.** Summing gains and losses hides exactly the losses that
+motivated building sweep-diff in the first place, which is why the two
+totals are always reported separately. [M-21] has a worked example,
+start to finish.
+
+**Implemented in.** `xtask/src/coverage.rs`, `xtask/src/audit.rs`,
+`xtask/src/detector.rs`, `xtask/src/corpus.rs`.
 
 ---
 
