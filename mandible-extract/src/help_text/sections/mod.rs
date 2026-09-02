@@ -391,7 +391,7 @@ fn scan_usage_section(
                     let is_head = |lines: &[&str], j: usize| {
                         j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
                     };
-                    if !is_head(&lines, j) {
+                    if !is_head(lines, j) {
                         if let Some(next) = lines.get(j) {
                             let t = next.trim_start();
                             if !t.is_empty() && is_prose_sentence(t) {
@@ -399,7 +399,7 @@ fn scan_usage_section(
                             }
                         }
                     }
-                    if is_head(&lines, j) {
+                    if is_head(lines, j) {
                         let trimmed = lines[j].trim().to_string();
                         usage_lines.push(trimmed.clone());
                         usage_entries.push(trimmed);
@@ -642,6 +642,386 @@ fn extract_description(
 /// The mutable state the body scan threads through every branch.
 /// Bundled so a branch can be lifted into its own function without a
 /// ten-argument signature.
+/// The command-table tail: a recognized heading, a sticky chain, or the
+/// bare-word fallback, whichever the block turns out to be.
+/// See docs/shapes.md S-017 and S-053.
+fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyScan) -> usize {
+    let raw = inp.raw;
+    let lines = inp.lines;
+    let profile = inp.profile;
+    let heading = &h.heading;
+    let heading_indent = h.heading_indent;
+    // A framework-declared non-command heading both refuses this
+    // block and breaks the engine's sticky same-indent chain, so
+    // nothing after it inherits a `st.command_mode` this heading
+    // positively contradicts.
+    let is_declared_non_command = profile.is_some_and(|p| {
+        heading_matches_markers(&heading.to_lowercase(), p.non_command_heading_markers)
+    });
+    let recognized = is_recognized_command_heading(heading, profile);
+    // Issue #3: ` - ` is accepted as an entry separator alongside the
+    // usual column gap, but only when this block is already headed
+    // for `emit_subcommands`. Scoping the decision to before the scan
+    // is what keeps a bare ` - ` in ordinary prose from manufacturing
+    // commands, the same failure class as apt-get's own description
+    // paragraph, just via the column-gap rule instead.
+    let allow_dash_separator = (recognized || st.command_mode) && !is_declared_non_command;
+
+    // A headed command table whose rows use ` = ` as a separator, or
+    // no separator at all — wpa_cli's `=`-separated rows,
+    // fail2ban-client's wrapped continuations. See S-019.
+    //
+    // Gated on `recognized` alone, deliberately narrower than
+    // `allow_dash_separator`, which also accepts a `st.command_mode`
+    // chain: fail2ban-client's `Command:` block nests rows whose
+    // descriptions wrap across further lines, and the engine's own
+    // pseudo-heading rewind re-examines each such row once
+    // `st.command_mode` is stuck on, satisfying every safeguard with
+    // ordinary English words. `recognized` — true only when this
+    // exact heading's own text names a command — is false for every
+    // such pseudo-heading, so requiring it directly closes this off.
+    if recognized && !is_declared_non_command {
+        if let Some((end, entries)) = scan_bare_command_table(lines, i) {
+            i = end;
+            st.command_mode = true;
+            st.in_ignorable_section = false;
+            let raw_tokens = command_table_token_index(raw);
+            let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
+
+    // Busybox's applet list is a single flat, comma-separated run
+    // under one heading, structurally distinct from every other
+    // framework's per-line bare-word block, so it gets first refusal
+    // here. Gated on the profile flag and this heading already being
+    // recognized or continuing a `st.command_mode` chain. See S-093.
+    if profile.is_some_and(|p| p.comma_separated_command_list)
+        && (recognized || st.command_mode)
+        && !is_declared_non_command
+    {
+        let (end, entries) = scan_comma_separated_commands(lines, i);
+        i = end;
+        st.command_mode = true;
+        st.in_ignorable_section = false;
+        let (seen, clean) = emit_subcommands(heading, entries, st.result);
+        st.total_entries += seen;
+        st.clean_entries += clean;
+        return i;
+    }
+
+    let (end, entries) = scan_bare_block(lines, i, heading_indent, allow_dash_separator);
+    i = end;
+    if is_ignorable_heading(heading) {
+        return i;
+    }
+
+    if is_declared_non_command {
+        st.command_mode = false;
+        let (seen, clean) = emit_choices(heading, entries, st.result);
+        st.total_entries += seen;
+        st.clean_entries += clean;
+        return i;
+    }
+
+    if recognized || st.command_mode {
+        st.command_mode = true;
+        // Only `recognized` (this exact heading's own text says
+        // "commands") is strong enough to clear the flag here — the
+        // `st.command_mode` sticky-chain half of this condition is not:
+        // it can still be true from an *inherited* chain rather than
+        // this heading's own evidence, which is exactly the kind of
+        // indirect signal `st.in_ignorable_section` must not trust (see
+        // its own doc comment on why the generic bare-block fallback
+        // is deliberately excluded from clearing it).
+        if recognized {
+            st.in_ignorable_section = false;
+        }
+        let (seen, clean) = emit_subcommands(heading, entries, st.result);
+        st.total_entries += seen;
+        st.clean_entries += clean;
+    } else {
+        st.command_mode = false;
+        let (seen, clean) = emit_choices(heading, entries, st.result);
+        st.total_entries += seen;
+        st.clean_entries += clean;
+    }
+    i
+}
+
+/// The read-only inputs every body-scan branch needs.
+struct BodyInput<'a> {
+    raw: &'a str,
+    lines: &'a [&'a str],
+    usage_lines: &'a [String],
+    profile: Option<&'a FrameworkProfile>,
+    bnf_row_lines: &'a std::collections::HashSet<usize>,
+}
+
+/// A heading with content indented beneath it. Each recognized section
+/// shape gets first refusal in turn, and the bare-word block is the
+/// fallback. See docs/shapes.md S-013, S-019 and S-020.
+fn emit_heading_block(
+    inp: &BodyInput,
+    tool_name: Option<&str>,
+    h: &Heading,
+    mut i: usize,
+    st: &mut BodyScan,
+) -> usize {
+    let raw = inp.raw;
+    let lines = inp.lines;
+    let usage_lines = inp.usage_lines;
+    let profile = inp.profile;
+    let bnf_row_lines = inp.bnf_row_lines;
+    let line = h.line;
+    let heading = &h.heading;
+    let heading_indent = h.heading_indent;
+    let heading_idx = h.heading_idx;
+
+    // Reaching here means genuinely more-indented content follows this
+    // heading — LVM's own stanza shape, a head line naming a
+    // mode-selecting flag followed by that mode's rows. Recovering
+    // the flag is independent of what the content turns out to be, so
+    // this runs once per heading rather than folded into any later
+    // branch.
+    //
+    // Gated on `!st.in_ignorable_section`: bpftrace's own `EXAMPLES:`
+    // block writes each example in the identical shape to a real
+    // stanza head, and without this guard it fabricated `-e`/`-l`
+    // rows that displaced the real, described ones. See S-071.
+    //
+    // A stanza with its own description sentence above its head line
+    // labels its group with that sentence instead ([`stanza_description_above`]).
+    // The head line is not lost: it becomes a usage form
+    // (`st.result.usage`, spec §4.5). Pushed here because this is the
+    // one place that knows the head line is about to stop being the
+    // group label; `extract_positionals` has already run, so nothing
+    // is mined out of the added line. See S-012.
+    //
+    // Capped, not deduplicated: `i` only ever advances, so no
+    // physical line becomes `heading` twice; two identical entries
+    // mean the tool printed the stanza twice. A scan of `usage` per
+    // heading would be the quadratic shape `MAX_RECOVERED_ENTRIES`
+    // exists for (instmodsh's repeated banner, S-072).
+    let stanza_label = if st.in_ignorable_section {
+        None
+    } else {
+        stanza_description_above(lines, heading_idx, tool_name).map(str::to_string)
+    };
+    if stanza_label.is_some() && st.result.usage.len() < MAX_RECOVERED_ENTRIES {
+        st.result.usage.push(heading.clone());
+    }
+    if !st.in_ignorable_section {
+        if let Some(mut flag) = recover_stanza_head_flag(heading, tool_name) {
+            if let Some(label) = stanza_label.clone() {
+                flag.group = Some(label);
+            }
+            if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
+                st.result.flags.push(flag);
+            }
+        }
+    }
+
+    // A headed command table whose first row sits on the heading's
+    // own physical line (apt-ftparchive's `Commands: packages
+    // binarypath [overridefile [pathprefix]]`), with remaining rows
+    // column-aligned beneath it. Without this it vanishes whole into
+    // the `heading` string and never reaches any scanner as data. See
+    // S-018.
+    //
+    // Gated on `is_recognized_command_heading(label, ...)` for this
+    // heading directly, never a `st.command_mode` chain, since a sticky
+    // chain can reach an unrelated wrapped-prose block.
+    if let Some((label, inline_row)) = split_heading_inline_row(line.trim()) {
+        if !is_ignorable_heading(heading)
+            && is_recognized_command_heading(label, profile)
+            && !profile.is_some_and(|p| {
+                heading_matches_markers(&label.to_lowercase(), p.non_command_heading_markers)
+            })
+        {
+            if let Some(first_name) = leading_command_name(inline_row) {
+                if let Some((end, mut entries)) = scan_bare_command_table(lines, i) {
+                    entries.insert(0, (first_name, None));
+                    i = end;
+                    st.command_mode = true;
+                    st.in_ignorable_section = false;
+                    let raw_tokens = command_table_token_index(raw);
+                    let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, st.result);
+                    st.total_entries += seen;
+                    st.clean_entries += clean;
+                    return i;
+                }
+            }
+        }
+    }
+
+    // A modifier table (ar's ` command specific modifiers:`/
+    // ` generic modifiers:`, llvm-ar's `MODIFIERS:`) gets first
+    // refusal here: a `[a]` row is not `looks_like_flag_start`, and
+    // under a heading containing "command" it went to
+    // `emit_subcommands`, where every row failed the name-shape test.
+    // See S-020.
+    //
+    // Falls through rather than `continue`ing when the block still
+    // has content past the run: ar's ` generic modifiers:` is seven
+    // bracket rows, then `@<file>`, then four real flags that must
+    // keep the group they already carry.
+    if let Some((end, rows)) = scan_modifier_table(lines, i) {
+        i = end;
+        if !is_ignorable_heading(heading) {
+            // Positively-recognized structure clears the examples flag
+            // and contradicts a command-mode sticky chain (ar's own
+            // heading contains "command").
+            st.in_ignorable_section = false;
+            st.command_mode = false;
+            let (seen, clean) =
+                emit_modifiers(meaningful_flag_group(heading.clone()), rows, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+        }
+        if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+            return i;
+        }
+    }
+
+    // The argfile sigil row (spec §4.5) sometimes sits directly where
+    // a modifier table's rows just ended — ar's `@<file>` row after
+    // its modifier table — and `flags_block_start` below never sees
+    // it there. Captured here instead, mirroring the modifier
+    // branch's "falls through" shape. See S-021.
+    if !is_ignorable_heading(heading) && i < lines.len() {
+        if let Some(value_name) = argfile_row_value_name(lines[i].trim_start()) {
+            let entry = argfile_flag_entry(lines[i], value_name);
+            emit_argfile_flag(meaningful_flag_group(heading.clone()), entry, st.result);
+            st.total_entries += 1;
+            st.clean_entries += 1;
+            i += 1;
+            if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+                return i;
+            }
+        }
+    }
+
+    // An environment section (bpftrace's `ENVIRONMENT:`, node's
+    // `Environment variables:`, mksquashfs's `Environment:`) — spec
+    // §4.5's "strict-sections-only" rule made structural: unlike the
+    // modifier table above, gated on the heading itself first, never
+    // row shape alone, since a bare identifier plus a column gap is
+    // indistinguishable from mysqlslap's own flush-left settings
+    // table otherwise. See S-023.
+    //
+    // Falls through rather than `continue`ing, mirroring the modifier
+    // branch, so a block running on past its rows into ordinary flags
+    // does not lose those flags' group.
+    if is_environment_heading(heading) && !is_ignorable_heading(heading) {
+        if let Some((end, rows)) = scan_env_var_table(lines, i) {
+            i = end;
+            st.in_ignorable_section = false;
+            st.command_mode = false;
+            let (seen, clean) =
+                emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+                return i;
+            }
+        }
+    }
+
+    // Peek the first content lines to decide flags vs. bare-word. Not
+    // just the *first*: some tools document a positional at the top of
+    // their options table, and keying the whole decision off row one
+    // threw the rest of the block away. See `flags_block_start`.
+    if let Some(flags_start) = flags_block_start(lines, i) {
+        // `flags_start` — never `heading_idx` — is the evidence: see
+        // `split_shared_heading_rows`'s doc comment for why the BNF
+        // fact is keyed on the row rather than the heading beside it.
+        let heading_is_bnf = bnf_row_lines.contains(&flags_start);
+        let (end, entries, packed, argfile_entry) =
+            scan_flags_block(lines, flags_start, heading_is_bnf);
+        i = end;
+        if is_ignorable_heading(heading) {
+            st.command_mode = false;
+            return i;
+        }
+        // A real, non-ignorable flags block — structurally strong
+        // evidence we are not (or no longer) inside an examples-shaped
+        // section. See `st.in_ignorable_section`'s own doc comment.
+        st.in_ignorable_section = false;
+        // A stanza's own description sentence outranks its head line
+        // as the group's label, and only there — every other block
+        // still takes `meaningful_flag_group`'s answer unchanged. See
+        // S-012.
+        let group = stanza_label
+            .clone()
+            .or_else(|| meaningful_flag_group(heading.clone()));
+        if packed {
+            let seen = entries.len();
+            emit_packed_flags(
+                group.clone(),
+                entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
+                st.result,
+            );
+            st.total_entries += seen;
+            st.clean_entries += seen;
+        } else {
+            let (seen, clean) = emit_flags(group.clone(), entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+        }
+        if let Some(entry) = argfile_entry {
+            st.total_entries += 1;
+            st.clean_entries += 1;
+            emit_argfile_flag(group, entry, st.result);
+        }
+        st.command_mode = false;
+        return i;
+    }
+
+    // Argparse's subparser blocks get first refusal here, gated on
+    // the profile explicitly opting in. Deliberately not also gated
+    // on the heading reading "positional arguments": it was, and that
+    // made `add_subparsers(title=...)`'s ordinary heading style
+    // collapse the entire command tree — smokecli's fixture rendered
+    // one node. The structural evidence the scan demands (a `{...}`
+    // pseudo-entry with deeper lines beneath it) is strictly stronger
+    // than the heading text was; a plain positional's `{...}` metavar
+    // has nothing beneath it and is still never promoted. See S-073.
+    if profile.is_some_and(|p| p.argparse_subparser_quirk) {
+        if let Some((end, entries)) = scan_argparse_subparsers(lines, i, heading_indent) {
+            i = end;
+            st.command_mode = false;
+            st.in_ignorable_section = false;
+            let (seen, clean) = emit_subcommands(heading, entries, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
+
+    // A framework-declared positional-operand heading. Sits directly
+    // below the subparser scan since for argparse the two read the
+    // same heading, and the subparser scan's `{...}`-with-entries
+    // evidence is stronger than heading text alone. Also breaks the
+    // sticky `st.command_mode` chain. See S-078.
+    if profile.is_some_and(|p| {
+        heading_matches_markers(&heading.to_lowercase(), p.positional_heading_markers)
+    }) {
+        let (end, entries) = scan_bare_block(lines, i, heading_indent, false);
+        i = end;
+        st.command_mode = false;
+        st.in_ignorable_section = false;
+        let (block_seen, block_clean) = emit_declared_positionals(entries, usage_lines, st.result);
+        st.total_entries += block_seen;
+        st.clean_entries += block_clean;
+        return i;
+    }
+
+    emit_command_table(inp, h, i, st)
+}
+
 /// One candidate heading line and where it sits.
 struct Heading<'a> {
     line: &'a str,
@@ -660,7 +1040,6 @@ fn emit_flush_heading(
     mut i: usize,
     st: &mut BodyScan,
 ) -> usize {
-    let line = h.line;
     let heading = &h.heading;
     let heading_indent = h.heading_indent;
     let heading_idx = h.heading_idx;
@@ -672,10 +1051,10 @@ fn emit_flush_heading(
     // table below requires. See S-023.
     if i < lines.len()
         && leading_whitespace(lines[i]) == heading_indent
-        && is_environment_heading(&heading)
-        && !is_ignorable_heading(&heading)
+        && is_environment_heading(heading)
+        && !is_ignorable_heading(heading)
     {
-        if let Some((end, rows)) = scan_env_var_table(&lines, i) {
+        if let Some((end, rows)) = scan_env_var_table(lines, i) {
             i = end;
             st.in_ignorable_section = false;
             st.command_mode = false;
@@ -711,14 +1090,14 @@ fn emit_flush_heading(
             }
             i += 1;
         }
-        if !is_ignorable_heading(&heading) {
+        if !is_ignorable_heading(heading) {
             st.in_ignorable_section = false;
-            let recognized = is_recognized_command_heading(&heading, profile);
+            let recognized = is_recognized_command_heading(heading, profile);
             if recognized {
                 st.command_mode = true;
             }
             let (seen, clean) = process_word_grid(
-                &heading,
+                heading,
                 &lines[grid_start..i],
                 recognized || st.command_mode,
                 st.result,
@@ -752,14 +1131,14 @@ fn emit_flush_heading(
     if i < lines.len()
         && leading_whitespace(lines[i]) == heading_indent
         && !heading_is_itself_a_row
-        && !is_ignorable_heading(&heading)
-        && is_recognized_command_heading(&heading, profile)
+        && !is_ignorable_heading(heading)
+        && is_recognized_command_heading(heading, profile)
     {
-        if let Some((end, entries)) = scan_same_indent_entry_table(&lines, i, heading_indent) {
+        if let Some((end, entries)) = scan_same_indent_entry_table(lines, i, heading_indent) {
             i = end;
             st.command_mode = true;
             st.in_ignorable_section = false;
-            let (seen, clean) = emit_subcommands(&heading, entries, st.result);
+            let (seen, clean) = emit_subcommands(heading, entries, st.result);
             st.total_entries += seen;
             st.clean_entries += clean;
             return i;
@@ -770,13 +1149,12 @@ fn emit_flush_heading(
     // introduction to a command list (git's own leading blurb,
     // whose group headings say nothing about "commands"
     // themselves), remember that. See S-070.
-    if command_mode_seed(&heading, profile) {
+    if command_mode_seed(heading, profile) {
         st.command_mode = true;
     }
     // Rewind to just past the original line and continue scanning
     // it as its own candidate.
     i = heading_idx + 1;
-    return i;
     i
 }
 
@@ -790,15 +1168,15 @@ struct BodyScan<'a> {
 }
 
 fn scan_entries(
-    raw: &str,
-    lines: &[&str],
-    usage_lines: &[String],
+    inp: &BodyInput,
+    tool_name: Option<&str>,
     mut i: usize,
     result: &mut ParsedHelp,
-    profile: Option<&FrameworkProfile>,
-    tool_name: Option<&str>,
-    bnf_row_lines: &std::collections::HashSet<usize>,
 ) -> (usize, usize) {
+    let raw = inp.raw;
+    let lines = inp.lines;
+    let profile = inp.profile;
+    let bnf_row_lines = inp.bnf_row_lines;
     // A run of command-group headings is recognized either by its own
     // wording or by being contiguous with an earlier signal — git's own
     // group headings never say "command" themselves, but the leading
@@ -856,7 +1234,7 @@ fn scan_entries(
             continue;
         }
         if let Some((marker_indent, prior_ignorable)) = st.obscured_ignorable_indent {
-            if obscured_fence_reopens(&lines, i, marker_indent) {
+            if obscured_fence_reopens(lines, i, marker_indent) {
                 st.obscured_ignorable_indent = None;
                 st.in_ignorable_section = prior_ignorable;
             } else {
@@ -873,7 +1251,7 @@ fn scan_entries(
             // revisited as a heading — dcb and vdpa's `OPTIONS` row.
             // See S-042, noted as `bnf_row_lines`.
             let heading_is_bnf = bnf_row_lines.contains(&i);
-            let (end, entries, packed, argfile_entry) = scan_flags_block(&lines, i, heading_is_bnf);
+            let (end, entries, packed, argfile_entry) = scan_flags_block(lines, i, heading_is_bnf);
             i = end;
             if packed {
                 let seen = entries.len();
@@ -906,7 +1284,7 @@ fn scan_entries(
         if let Some(tool_name) = tool_name {
             if starts_with_tool_name(line.trim_start(), tool_name) {
                 if let Some((end, nodes, seen, clean)) =
-                    scan_headingless_invocation_table(&lines, i, tool_name, raw)
+                    scan_headingless_invocation_table(lines, i, tool_name, raw)
                 {
                     i = end;
                     st.total_entries += seen;
@@ -948,7 +1326,7 @@ fn scan_entries(
         // A hard-wrapped prose sentence, whose second physical line the
         // indentation-alone heading rule would otherwise hand to the
         // flags scanner. Fenced whole.
-        if let Some(end) = wrapped_prose_region_end(&lines, heading_idx) {
+        if let Some(end) = wrapped_prose_region_end(lines, heading_idx) {
             i = end;
             continue;
         }
@@ -966,345 +1344,13 @@ fn scan_entries(
             i = emit_flush_heading(lines, profile, &h, i, &mut st);
             continue;
         }
-
-        // Reaching here means genuinely more-indented content follows this
-        // heading — LVM's own stanza shape, a head line naming a
-        // mode-selecting flag followed by that mode's rows. Recovering
-        // the flag is independent of what the content turns out to be, so
-        // this runs once per heading rather than folded into any later
-        // branch.
-        //
-        // Gated on `!st.in_ignorable_section`: bpftrace's own `EXAMPLES:`
-        // block writes each example in the identical shape to a real
-        // stanza head, and without this guard it fabricated `-e`/`-l`
-        // rows that displaced the real, described ones. See S-071.
-        //
-        // A stanza with its own description sentence above its head line
-        // labels its group with that sentence instead ([`stanza_description_above`]).
-        // The head line is not lost: it becomes a usage form
-        // (`st.result.usage`, spec §4.5). Pushed here because this is the
-        // one place that knows the head line is about to stop being the
-        // group label; `extract_positionals` has already run, so nothing
-        // is mined out of the added line. See S-012.
-        //
-        // Capped, not deduplicated: `i` only ever advances, so no
-        // physical line becomes `heading` twice; two identical entries
-        // mean the tool printed the stanza twice. A scan of `usage` per
-        // heading would be the quadratic shape `MAX_RECOVERED_ENTRIES`
-        // exists for (instmodsh's repeated banner, S-072).
-        let stanza_label = if st.in_ignorable_section {
-            None
-        } else {
-            stanza_description_above(&lines, heading_idx, tool_name).map(str::to_string)
+        let h = Heading {
+            line,
+            heading,
+            heading_indent,
+            heading_idx,
         };
-        if stanza_label.is_some() && st.result.usage.len() < MAX_RECOVERED_ENTRIES {
-            st.result.usage.push(heading.clone());
-        }
-        if !st.in_ignorable_section {
-            if let Some(mut flag) = recover_stanza_head_flag(&heading, tool_name) {
-                if let Some(label) = stanza_label.clone() {
-                    flag.group = Some(label);
-                }
-                if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
-                    st.result.flags.push(flag);
-                }
-            }
-        }
-
-        // A headed command table whose first row sits on the heading's
-        // own physical line (apt-ftparchive's `Commands: packages
-        // binarypath [overridefile [pathprefix]]`), with remaining rows
-        // column-aligned beneath it. Without this it vanishes whole into
-        // the `heading` string and never reaches any scanner as data. See
-        // S-018.
-        //
-        // Gated on `is_recognized_command_heading(label, ...)` for this
-        // heading directly, never a `st.command_mode` chain, since a sticky
-        // chain can reach an unrelated wrapped-prose block.
-        if let Some((label, inline_row)) = split_heading_inline_row(line.trim()) {
-            if !is_ignorable_heading(&heading)
-                && is_recognized_command_heading(label, profile)
-                && !profile.is_some_and(|p| {
-                    heading_matches_markers(&label.to_lowercase(), p.non_command_heading_markers)
-                })
-            {
-                if let Some(first_name) = leading_command_name(inline_row) {
-                    if let Some((end, mut entries)) = scan_bare_command_table(&lines, i) {
-                        entries.insert(0, (first_name, None));
-                        i = end;
-                        st.command_mode = true;
-                        st.in_ignorable_section = false;
-                        let raw_tokens = command_table_token_index(raw);
-                        let (seen, clean) =
-                            emit_headed_command_table(entries, &raw_tokens, st.result);
-                        st.total_entries += seen;
-                        st.clean_entries += clean;
-                        continue;
-                    }
-                }
-            }
-        }
-
-        // A modifier table (ar's ` command specific modifiers:`/
-        // ` generic modifiers:`, llvm-ar's `MODIFIERS:`) gets first
-        // refusal here: a `[a]` row is not `looks_like_flag_start`, and
-        // under a heading containing "command" it went to
-        // `emit_subcommands`, where every row failed the name-shape test.
-        // See S-020.
-        //
-        // Falls through rather than `continue`ing when the block still
-        // has content past the run: ar's ` generic modifiers:` is seven
-        // bracket rows, then `@<file>`, then four real flags that must
-        // keep the group they already carry.
-        if let Some((end, rows)) = scan_modifier_table(&lines, i) {
-            i = end;
-            if !is_ignorable_heading(&heading) {
-                // Positively-recognized structure clears the examples flag
-                // and contradicts a command-mode sticky chain (ar's own
-                // heading contains "command").
-                st.in_ignorable_section = false;
-                st.command_mode = false;
-                let (seen, clean) =
-                    emit_modifiers(meaningful_flag_group(heading.clone()), rows, st.result);
-                st.total_entries += seen;
-                st.clean_entries += clean;
-            }
-            if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
-                continue;
-            }
-        }
-
-        // The argfile sigil row (spec §4.5) sometimes sits directly where
-        // a modifier table's rows just ended — ar's `@<file>` row after
-        // its modifier table — and `flags_block_start` below never sees
-        // it there. Captured here instead, mirroring the modifier
-        // branch's "falls through" shape. See S-021.
-        if !is_ignorable_heading(&heading) && i < lines.len() {
-            if let Some(value_name) = argfile_row_value_name(lines[i].trim_start()) {
-                let entry = argfile_flag_entry(lines[i], value_name);
-                emit_argfile_flag(meaningful_flag_group(heading.clone()), entry, st.result);
-                st.total_entries += 1;
-                st.clean_entries += 1;
-                i += 1;
-                if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
-                    continue;
-                }
-            }
-        }
-
-        // An environment section (bpftrace's `ENVIRONMENT:`, node's
-        // `Environment variables:`, mksquashfs's `Environment:`) — spec
-        // §4.5's "strict-sections-only" rule made structural: unlike the
-        // modifier table above, gated on the heading itself first, never
-        // row shape alone, since a bare identifier plus a column gap is
-        // indistinguishable from mysqlslap's own flush-left settings
-        // table otherwise. See S-023.
-        //
-        // Falls through rather than `continue`ing, mirroring the modifier
-        // branch, so a block running on past its rows into ordinary flags
-        // does not lose those flags' group.
-        if is_environment_heading(&heading) && !is_ignorable_heading(&heading) {
-            if let Some((end, rows)) = scan_env_var_table(&lines, i) {
-                i = end;
-                st.in_ignorable_section = false;
-                st.command_mode = false;
-                let (seen, clean) =
-                    emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
-                st.total_entries += seen;
-                st.clean_entries += clean;
-                if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
-                    continue;
-                }
-            }
-        }
-
-        // Peek the first content lines to decide flags vs. bare-word. Not
-        // just the *first*: some tools document a positional at the top of
-        // their options table, and keying the whole decision off row one
-        // threw the rest of the block away. See `flags_block_start`.
-        if let Some(flags_start) = flags_block_start(&lines, i) {
-            // `flags_start` — never `heading_idx` — is the evidence: see
-            // `split_shared_heading_rows`'s doc comment for why the BNF
-            // fact is keyed on the row rather than the heading beside it.
-            let heading_is_bnf = bnf_row_lines.contains(&flags_start);
-            let (end, entries, packed, argfile_entry) =
-                scan_flags_block(&lines, flags_start, heading_is_bnf);
-            i = end;
-            if is_ignorable_heading(&heading) {
-                st.command_mode = false;
-                continue;
-            }
-            // A real, non-ignorable flags block — structurally strong
-            // evidence we are not (or no longer) inside an examples-shaped
-            // section. See `st.in_ignorable_section`'s own doc comment.
-            st.in_ignorable_section = false;
-            // A stanza's own description sentence outranks its head line
-            // as the group's label, and only there — every other block
-            // still takes `meaningful_flag_group`'s answer unchanged. See
-            // S-012.
-            let group = stanza_label
-                .clone()
-                .or_else(|| meaningful_flag_group(heading));
-            if packed {
-                let seen = entries.len();
-                emit_packed_flags(
-                    group.clone(),
-                    entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
-                    st.result,
-                );
-                st.total_entries += seen;
-                st.clean_entries += seen;
-            } else {
-                let (seen, clean) = emit_flags(group.clone(), entries, st.result);
-                st.total_entries += seen;
-                st.clean_entries += clean;
-            }
-            if let Some(entry) = argfile_entry {
-                st.total_entries += 1;
-                st.clean_entries += 1;
-                emit_argfile_flag(group, entry, st.result);
-            }
-            st.command_mode = false;
-            continue;
-        }
-
-        // Argparse's subparser blocks get first refusal here, gated on
-        // the profile explicitly opting in. Deliberately not also gated
-        // on the heading reading "positional arguments": it was, and that
-        // made `add_subparsers(title=...)`'s ordinary heading style
-        // collapse the entire command tree — smokecli's fixture rendered
-        // one node. The structural evidence the scan demands (a `{...}`
-        // pseudo-entry with deeper lines beneath it) is strictly stronger
-        // than the heading text was; a plain positional's `{...}` metavar
-        // has nothing beneath it and is still never promoted. See S-073.
-        if profile.is_some_and(|p| p.argparse_subparser_quirk) {
-            if let Some((end, entries)) = scan_argparse_subparsers(&lines, i, heading_indent) {
-                i = end;
-                st.command_mode = false;
-                st.in_ignorable_section = false;
-                let (seen, clean) = emit_subcommands(&heading, entries, st.result);
-                st.total_entries += seen;
-                st.clean_entries += clean;
-                continue;
-            }
-        }
-
-        // A framework-declared positional-operand heading. Sits directly
-        // below the subparser scan since for argparse the two read the
-        // same heading, and the subparser scan's `{...}`-with-entries
-        // evidence is stronger than heading text alone. Also breaks the
-        // sticky `st.command_mode` chain. See S-078.
-        if profile.is_some_and(|p| {
-            heading_matches_markers(&heading.to_lowercase(), p.positional_heading_markers)
-        }) {
-            let (end, entries) = scan_bare_block(&lines, i, heading_indent, false);
-            i = end;
-            st.command_mode = false;
-            st.in_ignorable_section = false;
-            let (block_seen, block_clean) =
-                emit_declared_positionals(entries, &usage_lines, st.result);
-            st.total_entries += block_seen;
-            st.clean_entries += block_clean;
-            continue;
-        }
-
-        // A framework-declared non-command heading both refuses this
-        // block and breaks the engine's sticky same-indent chain, so
-        // nothing after it inherits a `st.command_mode` this heading
-        // positively contradicts.
-        let is_declared_non_command = profile.is_some_and(|p| {
-            heading_matches_markers(&heading.to_lowercase(), p.non_command_heading_markers)
-        });
-        let recognized = is_recognized_command_heading(&heading, profile);
-        // Issue #3: ` - ` is accepted as an entry separator alongside the
-        // usual column gap, but only when this block is already headed
-        // for `emit_subcommands`. Scoping the decision to before the scan
-        // is what keeps a bare ` - ` in ordinary prose from manufacturing
-        // commands, the same failure class as apt-get's own description
-        // paragraph, just via the column-gap rule instead.
-        let allow_dash_separator = (recognized || st.command_mode) && !is_declared_non_command;
-
-        // A headed command table whose rows use ` = ` as a separator, or
-        // no separator at all — wpa_cli's `=`-separated rows,
-        // fail2ban-client's wrapped continuations. See S-019.
-        //
-        // Gated on `recognized` alone, deliberately narrower than
-        // `allow_dash_separator`, which also accepts a `st.command_mode`
-        // chain: fail2ban-client's `Command:` block nests rows whose
-        // descriptions wrap across further lines, and the engine's own
-        // pseudo-heading rewind re-examines each such row once
-        // `st.command_mode` is stuck on, satisfying every safeguard with
-        // ordinary English words. `recognized` — true only when this
-        // exact heading's own text names a command — is false for every
-        // such pseudo-heading, so requiring it directly closes this off.
-        if recognized && !is_declared_non_command {
-            if let Some((end, entries)) = scan_bare_command_table(&lines, i) {
-                i = end;
-                st.command_mode = true;
-                st.in_ignorable_section = false;
-                let raw_tokens = command_table_token_index(raw);
-                let (seen, clean) = emit_headed_command_table(entries, &raw_tokens, st.result);
-                st.total_entries += seen;
-                st.clean_entries += clean;
-                continue;
-            }
-        }
-
-        // Busybox's applet list is a single flat, comma-separated run
-        // under one heading, structurally distinct from every other
-        // framework's per-line bare-word block, so it gets first refusal
-        // here. Gated on the profile flag and this heading already being
-        // recognized or continuing a `st.command_mode` chain. See S-093.
-        if profile.is_some_and(|p| p.comma_separated_command_list)
-            && (recognized || st.command_mode)
-            && !is_declared_non_command
-        {
-            let (end, entries) = scan_comma_separated_commands(&lines, i);
-            i = end;
-            st.command_mode = true;
-            st.in_ignorable_section = false;
-            let (seen, clean) = emit_subcommands(&heading, entries, st.result);
-            st.total_entries += seen;
-            st.clean_entries += clean;
-            continue;
-        }
-
-        let (end, entries) = scan_bare_block(&lines, i, heading_indent, allow_dash_separator);
-        i = end;
-        if is_ignorable_heading(&heading) {
-            continue;
-        }
-
-        if is_declared_non_command {
-            st.command_mode = false;
-            let (seen, clean) = emit_choices(&heading, entries, st.result);
-            st.total_entries += seen;
-            st.clean_entries += clean;
-            continue;
-        }
-
-        if recognized || st.command_mode {
-            st.command_mode = true;
-            // Only `recognized` (this exact heading's own text says
-            // "commands") is strong enough to clear the flag here — the
-            // `st.command_mode` sticky-chain half of this condition is not:
-            // it can still be true from an *inherited* chain rather than
-            // this heading's own evidence, which is exactly the kind of
-            // indirect signal `st.in_ignorable_section` must not trust (see
-            // its own doc comment on why the generic bare-block fallback
-            // is deliberately excluded from clearing it).
-            if recognized {
-                st.in_ignorable_section = false;
-            }
-            let (seen, clean) = emit_subcommands(&heading, entries, st.result);
-            st.total_entries += seen;
-            st.clean_entries += clean;
-        } else {
-            st.command_mode = false;
-            let (seen, clean) = emit_choices(&heading, entries, st.result);
-            st.total_entries += seen;
-            st.clean_entries += clean;
-        }
+        i = emit_heading_block(inp, tool_name, &h, i, &mut st);
     }
     (st.total_entries, st.clean_entries)
 }
@@ -1419,16 +1465,14 @@ fn parse_body(
         result.description = Some(description);
     }
 
-    let (total_entries, clean_entries) = scan_entries(
+    let inp = BodyInput {
         raw,
-        &lines,
-        &usage_lines,
-        i,
-        &mut result,
+        lines: &lines,
+        usage_lines: &usage_lines,
         profile,
-        tool_name,
         bnf_row_lines,
-    );
+    };
+    let (total_entries, clean_entries) = scan_entries(&inp, tool_name, i, &mut result);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
