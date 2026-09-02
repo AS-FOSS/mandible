@@ -1,116 +1,41 @@
-//! The frozen sampling queue (spec §16's "intended fix", now built):
-//! `xtask audit freeze` sweeps `PATH` once, classifies every tool, and
-//! shuffle-stratifies the result into an ordered queue; `xtask audit
-//! sample` then just advances a cursor through that frozen queue and takes
-//! the next slice; `xtask audit reclassify` recomputes every entry's
-//! stratum against the *current* parser from the bytes `freeze` captured,
+//! The frozen sampling queue (spec §16): `xtask audit freeze` sweeps
+//! `PATH` once, classifies every tool, and shuffle-stratifies the result
+//! into an ordered queue; `xtask audit sample` advances a cursor through
+//! that frozen queue; `xtask audit reclassify` recomputes every entry's
+//! stratum against the current parser from the bytes `freeze` captured,
 //! with zero `PATH` re-sweep.
 //!
-//! # Why this exists
+//! Replaces a draw that reclassified the whole `PATH` population on every
+//! single sample (~20 minutes each), and — because strata were recomputed
+//! from whatever the parser happened to be that day — made two draws
+//! weeks apart not directly comparable. The queue is ordered once at
+//! freeze time; a cursor advances through it, never a set-difference
+//! against what's already been reviewed.
 //!
-//! The draw this module replaces (`xtask::audit`'s old `cmd_sample`, before
-//! this batch) reclassified the whole `PATH` population — probing every one
-//! of ~2,300 tools — on **every single draw**, costing roughly twenty
-//! minutes each time (spec §16). Worse, because the strata were recomputed
-//! from whatever the parser happened to be that day, two draws taken weeks
-//! apart were stratifying against two different definitions of "ok", making
-//! them not directly comparable and turning any fix to
-//! `mandible-extract`'s grammar into a silent redefinition of what an
-//! `audit sample` run was even measuring.
+//! Three parts: a freeze date + population hash in the manifest
+//! ([`QueueMeta::freeze_date`], [`QueueMeta::population_hash`],
+//! [`population_hash`]) so staleness is detectable
+//! (`xtask audit freeze --check`) without re-probing; shuffle-stratifying
+//! at freeze time ([`shuffle_stratify`]) so any prefix of the frozen order
+//! is itself a valid stratified sample; and freezing the captured raw
+//! help text alongside the tool list (`<dir>/queue-captures/`,
+//! [`load_captures_for_tool`]/[`write_captures_for_tool`]) so
+//! reclassifying ([`cmd_reclassify`]) spawns zero subprocesses.
 //!
-//! The fix, as decided (spec §16, and reaffirmed by external review with
-//! three additions this module implements): snapshot the tool list **once**,
-//! at freeze time, and have every subsequent draw walk a **cursor** through
-//! that frozen, pre-shuffled queue. This module is explicitly **not**
-//! implemented by cross-comparing already-reviewed tools against the
-//! current tool list at draw time — no set-difference against "what's been
-//! done". The queue is ordered once, and a cursor advances through it; nothing
-//! about a draw depends on which tools any verdict file has already recorded.
+//! `<dir>/queue.toml` is tracked (the sample manifest, small, evidence for
+//! how the queue was built). `<dir>/queue-captures/` is not tracked
+//! (gitignored, machine-generated bulk, regenerable by re-running `xtask
+//! audit freeze`).
 //!
-//! # The three review additions
-//!
-//! 1. **Freeze date + population hash in the manifest**
-//!    ([`QueueMeta::freeze_date`], [`QueueMeta::population_hash`],
-//!    [`population_hash`]), so a queue can be identified and staleness
-//!    detected (`xtask audit freeze --check`, [`cmd_freeze`]) without
-//!    re-probing anything — just a `PATH` directory listing, the same cheap
-//!    scan [`crate::coverage::unique_executables_on_path`] already does for
-//!    every other instrument in this crate.
-//! 2. **Shuffle-stratify at freeze time** ([`shuffle_stratify`]), so any
-//!    prefix of the frozen order is *itself* a valid, proportionally
-//!    stratified sample of the full population — not just the queue as a
-//!    whole. See that function's own doc comment for the interleaving
-//!    method and [`shuffle_stratify`]'s tests for the validity check.
-//! 3. **Freeze the captured raw help text alongside the tool list**
-//!    ([`cmd_freeze`] writing `<dir>/queue-captures/`,
-//!    [`load_captures_for_tool`]/[`write_captures_for_tool`]). This is the
-//!    improvement that actually matters: reclassifying from cached bytes
-//!    ([`cmd_reclassify`]) needs no `PATH` sweep and spawns zero
-//!    subprocesses at all — the honest, measured comparison (this batch's
-//!    own 500-tool benchmark on a 4-core machine) is a parallel reclassify
-//!    in roughly half the wall-clock of the live-probing freeze it replaced
-//!    (~65s vs. ~123s), not a "seconds regardless of scale" promise: what's
-//!    left after removing every subprocess is real CPU-bound parsing (plus
-//!    the native/cobra artifact tier's own binary-byte scan of each tool's
-//!    on-disk executable), which scales with available cores. See
-//!    [`cmd_reclassify`]'s own doc comment for the full measurement and the
-//!    caveats freezing a population honestly still carries.
-//!
-//! # Storage: what's tracked, what's generated
-//!
-//! `<dir>/queue.toml` (default `audit/queue.toml`) is **tracked**, following
-//! the existing convention `audit/*.toml`/`audit/force-include.txt` already
-//! set: it is the sample manifest, small (one line per tool: name + a short
-//! stratum label), and is *evidence* for a claim about how the queue was
-//! built — the same "a measurement's evidence lives in git, not on one
-//! contributor's laptop" reasoning spec.md Appendix A already applies to
-//! `audit/<seed>.toml`.
-//!
-//! `<dir>/queue-captures/` is **not tracked** (gitignored, same convention
-//! as `audit/*/fixtures/`): it is real bulk — every captured tool's raw
-//! `--help` bytes, on the order of several thousand small files — and,
-//! critically, it is **machine-generated content**, which the fixture
-//! promotion workflow (`corpus/README.md`) already treats as something that
-//! must never land in a tracked human-verdict file. `queue.toml` records
-//! *what a tool's stratum was*, a fact a human can audit by reading one
-//! line; `queue-captures/` records the actual bytes a probe returned, which
-//! is regenerable by re-running `xtask audit freeze` and does not need a
-//! permanent home in git the way a promoted `corpus/` fixture (reviewed,
-//! deliberately kept) does. A queue built once and worth reusing across
-//! machines is expected to have its captures regenerated locally, not
-//! shipped in the repo.
-//!
-//! # Honest caveats
-//!
-//! - **A frozen population drifts from the machine's real installed tools
-//!   over time.** `xtask audit freeze --check` detects this cheaply (no
-//!   probing) by comparing [`population_hash`] against what's on `PATH`
-//!   *now*, but detecting drift is not fixing it — a stale queue still
-//!   reflects the tool set at freeze time until re-frozen.
-//! - **Reclassification updates a tool's reported *stratum*, never its
-//!   *position* in the queue.** The shuffle-stratified order was computed
-//!   once, from the strata as they stood at freeze time; recomputing strata
-//!   from cached bytes later (`--update`) can legitimately change what
-//!   stratum a tool is *reported* under without re-shuffling where it sits
-//!   in the cursor order. A queue reclassified long after freezing may
-//!   therefore no longer interleave in exact proportion to its *current*
-//!   stratum composition, only to its composition at freeze time — a
-//!   drift that is real but much smaller than the staleness this module
-//!   replaces (a frozen order at least still visits the *same* tools in the
-//!   *same* sequence, so successive draws stay comparable).
-//! - **Reclassification still depends on the tool binary resolving on
-//!   `PATH` at the same path.** The native/cobra framework-detection tier
-//!   (`mandible_extract::framework::artifact`) reads a binary's own bytes
-//!   directly off disk, not from the frozen capture, to fingerprint it — a
-//!   tool uninstalled since freeze time will report a degraded stratum for
-//!   a reason unrelated to any parser change. This is a file read, not a
-//!   process spawn, so it never reintroduces the *subprocess* cost this
-//!   module exists to remove — but it is measurably not free either: it is
-//!   plausibly a real share of [`cmd_reclassify`]'s own CPU-bound cost (see
-//!   that function's doc comment), since scanning a large on-disk binary for
-//!   byte markers, once per tool, is real work. Either way, a
-//!   `cmd_reclassify` report is only purely "what changed in the parser"
-//!   when the machine's installed tools are also unchanged since freeze.
+//! Honest caveats: a frozen population drifts from the machine's real
+//! installed tools over time (`--check` detects, doesn't fix, drift);
+//! reclassification updates a tool's reported stratum, never its position
+//! in the cursor order, so a long-stale queue no longer interleaves in
+//! exact proportion to its current composition; and reclassification
+//! still depends on the tool binary resolving at the same `PATH` — the
+//! native/cobra framework tier reads the binary's own bytes off disk, not
+//! the frozen capture, so an uninstalled tool reports a degraded stratum
+//! unrelated to any parser change.
 
 use crate::audit::{
     classify_all_with_recordings, classify_one, entry_from_classified, sanitize_filename,
@@ -261,24 +186,18 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
 }
 
 /// Build the frozen queue's order from `(tool, stratum)` pairs: within each
-/// stratum, a seeded deterministic shuffle (see [`crate::rng::seeded_shuffle`]);
-/// across strata, a **proportional interleave** rather than a concatenation.
+/// stratum, a seeded deterministic shuffle
+/// ([`crate::rng::seeded_shuffle`]); across strata, a proportional
+/// interleave rather than a concatenation.
 ///
-/// Concatenating shuffled strata (stratum A in full, then stratum B) would
-/// make the queue's own *total* order proportionally stratified, but any
-/// prefix shorter than all of stratum A would be 100% stratum A — exactly
-/// what review addition 2 (this module's own doc comment) rules out. The
-/// fix: within each stratum, give the shuffled item at position `i` (of
-/// `n`) a fractional rank `(i + 0.5) / n` — its position within its own
-/// stratum, normalized to `(0, 1)` — then merge every stratum's items by
-/// sorting on that fraction (ties broken by a deterministic hash of
-/// `seed`+`stratum`+`tool`, since two strata of equal size can otherwise
-/// land on the exact same fraction). Because every stratum's fractional
-/// ranks are spread evenly across `(0, 1)`, cutting the merged order at any
-/// fractional threshold `x` yields, from each stratum, very close to the
-/// `x` fraction of its own items — which is exactly "any prefix is itself a
-/// valid proportionally stratified sample". See this function's own tests
-/// for the measured tolerance.
+/// Concatenating shuffled strata would make the queue's total order
+/// proportionally stratified, but any prefix shorter than the first
+/// stratum would be 100% that stratum. Fix: give the shuffled item at
+/// position `i` of `n` in its stratum a fractional rank `(i + 0.5) / n`,
+/// then merge every stratum's items by sorting on that fraction (ties
+/// broken by a deterministic hash of `seed`+`stratum`+`tool`). Cutting the
+/// merged order at any fractional threshold then yields close to that
+/// fraction of each stratum's own items.
 pub fn shuffle_stratify(pairs: &[(String, String)], seed: u64) -> Vec<QueueEntry> {
     let mut by_stratum: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for (tool, stratum) in pairs {
@@ -428,15 +347,12 @@ fn load_captures_for_tool(
 }
 
 /// `xtask audit freeze`: sweep `PATH` (or `tools`, for a pinned,
-/// reproducible population — the same role `--tools` played on the old,
-/// removed live-sweep `cmd_sample`, moved here since freezing is now the
-/// only place a `PATH` sweep happens at all), classify every tool, capture
-/// its raw bytes, and write the shuffle-stratified queue plus its captures.
+/// reproducible population), classify every tool, capture its raw bytes,
+/// and write the shuffle-stratified queue plus its captures.
 ///
 /// `check: true` skips all of that (no probing, no writing) and instead
-/// just enumerates the current population, hashes it
-/// ([`population_hash`]), and reports whether it still matches the existing
-/// queue's — the cheap staleness check review addition 1 asked for. Mirrors
+/// enumerates the current population, hashes it ([`population_hash`]),
+/// and reports whether it still matches the existing queue's — mirrors
 /// `xtask coverage --check`'s "report, don't rewrite" shape.
 pub fn cmd_freeze(
     seed: u64,
@@ -552,25 +468,19 @@ pub fn draw_at_cursor(
     (queue.entries[start..end].to_vec(), end)
 }
 
-/// `xtask audit sample`: draw the next `sample_size` tools off `<dir>/queue.toml`'s
-/// cursor, classify just those (cheap — `sample_size` is small, unlike the
-/// full population `freeze` already paid for), merge them into
+/// `xtask audit sample`: draw the next `sample_size` tools off
+/// `<dir>/queue.toml`'s cursor, classify just those, merge them into
 /// `<dir>/<seed>.toml`, and persist the queue's advanced cursor.
 ///
-/// `seed` here names the verdict file only (`<dir>/<seed>.toml`); it plays
-/// no role in the draw itself — the draw's only randomness was spent once,
-/// at freeze time. Calling `sample` again (same or different `seed`)
-/// advances the *shared* queue cursor and therefore always draws a fresh,
-/// never-before-drawn slice — this replaces the old live-sweep
-/// `cmd_sample`'s "re-running with the same seed/size is a safe no-op"
-/// idempotence with a deliberately different guarantee: an already-recorded
-/// verdict is still never disturbed, but re-running now *advances*, exactly
-/// the "next K off the cursor" semantics this module exists to give.
+/// `seed` names the verdict file only; it plays no role in the draw — the
+/// draw's only randomness was spent once, at freeze time. Calling `sample`
+/// again (same or different `seed`) advances the shared queue cursor and
+/// draws a fresh, never-before-drawn slice; an already-recorded verdict is
+/// never disturbed.
 ///
-/// `force_include` entries (`(tool, reason)`) are still classified live and
-/// independently of the queue, exactly as before — force-inclusion exists
-/// precisely for tools that must not depend on where the cursor happens to
-/// be.
+/// `force_include` entries are classified live and independently of the
+/// queue: force-inclusion exists for tools that must not depend on where
+/// the cursor happens to be.
 pub fn cmd_sample(
     seed: u64,
     sample_size: usize,
@@ -674,21 +584,14 @@ pub fn cmd_sample(
     Ok(drawn.len())
 }
 
-/// Reclassify one entry from its cached captures, with **zero subprocess
-/// spawns**: [`Transcript`] replays exactly the `(argv, output)` pairs
+/// Reclassify one entry from its cached captures, with zero subprocess
+/// spawns: [`Transcript`] replays exactly the `(argv, output)` pairs
 /// [`write_captures_for_tool`] persisted, through the real tiered pipeline
-/// (`default_tiers_with_probe`), so this is a genuine re-run of the actual
-/// parser — not a re-derived approximation of one — bounded only by CPU
-/// time. `None` when the tool's captures are missing (a tool the population
-/// no longer has, or one frozen before this queue existed); [`cmd_reclassify`]
-/// leaves that entry's stratum untouched but still counts it as "missing"
-/// in the printed report rather than silently skipping it. Pure and
-/// side-effect-free so [`cmd_reclassify`] can run it over every entry in
-/// parallel via `rayon`, which is what makes the "seconds, not minutes"
-/// claim (this module's own doc comment) hold at fleet scale: a serial loop
-/// over ~2,300 tools' worth of real parsing is itself minutes, even with
-/// zero probes — see this function's own doc comment history for the
-/// measurement that caught it.
+/// — a genuine re-run of the actual parser, bounded only by CPU time.
+/// `None` when the tool's captures are missing; [`cmd_reclassify`] leaves
+/// that entry's stratum untouched but counts it as missing rather than
+/// silently skipping it. Pure and side-effect-free so [`cmd_reclassify`]
+/// can run it over every entry in parallel via `rayon`.
 fn reclassify_one(cdir: &Path, tool: &str) -> Option<String> {
     let recordings = load_captures_for_tool(cdir, tool).ok()?;
     let transcript: Arc<dyn mandible_extract::exec::Probe> = Arc::new(Transcript::new(recordings));
@@ -698,38 +601,24 @@ fn reclassify_one(cdir: &Path, tool: &str) -> Option<String> {
 }
 
 /// `xtask audit reclassify`: recompute every queue entry's stratum against
-/// the **current** parser, from the bytes `xtask audit freeze` already
-/// captured — no `PATH` sweep, no subprocess spawned at all. Each tool's
-/// cached `(argv, output)` pairs are replayed through the real extraction
-/// pipeline via [`Transcript`] (`mandible_extract::exec`), the same replay
-/// seam the corpus regression runner uses, so this exercises the *actual*
-/// tiers and merge logic, not a re-derived approximation of them.
+/// the current parser, from the bytes `xtask audit freeze` already
+/// captured — no `PATH` sweep, no subprocess spawned. Each tool's cached
+/// `(argv, output)` pairs are replayed through the real extraction
+/// pipeline via [`Transcript`], the same replay seam the corpus regression
+/// runner uses.
 ///
-/// Runs [`reclassify_one`] over every entry **in parallel** via `rayon`
-/// (`par_iter`), the same reasoning [`classify_all_with_recordings`] already
-/// applies to a live sweep: with zero subprocess spawns this is a purely
-/// CPU-bound loop, and a real measurement at fleet scale (a real 500-tool
-/// `PATH` slice on this batch's 4-core evaluation machine) showed a naive
-/// serial version taking *longer* than the parallel live-probing freeze it
-/// replaced (135s serial versus freeze's own ~123s on the same population).
-/// Parallelizing recovered roughly half that (~65s) — a real, measured
-/// improvement, but the honest number: this is CPU-bound replay-and-parse
-/// work (including the native/cobra artifact tier's own binary-byte scan of
-/// each tool's on-disk executable, not just help-text parsing), so it is
-/// **not** a blanket "seconds regardless of population size" claim, it
-/// scales with available CPU cores and the real cost of parsing at fleet
-/// scale, not with a probe count times a timeout. What is unconditionally
-/// true regardless of core count: zero `PATH` sweep, zero subprocess
-/// spawns, and a wall-clock roughly half a live re-probe's on this
-/// machine — see this module's own doc comment for the full, hedged claim.
+/// Runs [`reclassify_one`] over every entry in parallel via `rayon`: with
+/// zero subprocess spawns this is a purely CPU-bound loop (including the
+/// native/cobra artifact tier's own binary-byte scan of each tool's
+/// on-disk executable), so wall-clock scales with available cores, not
+/// with a probe count times a timeout.
 ///
-/// Prints per-tool transitions (old stratum -> new) and the new per-stratum
-/// counts, plus the wall-clock cost.
+/// Prints per-tool transitions (old stratum -> new) and the new
+/// per-stratum counts, plus the wall-clock cost.
 ///
 /// `update: true` writes the recomputed strata back into `<dir>/queue.toml`
-/// in place — see this module's own doc comment for what that does and
-/// does not change (the *order* of the queue never moves; only each
-/// entry's own `stratum` field does).
+/// in place — the queue's order never moves, only each entry's `stratum`
+/// field does.
 pub fn cmd_reclassify(dir: &Path, update: bool) -> anyhow::Result<()> {
     let qpath = queue_path(dir);
     let mut queue = load_queue(&qpath)?;
