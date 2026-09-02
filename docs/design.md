@@ -1960,32 +1960,38 @@ chosen, hence driving `tick` from the poll timeout.
 
 ## 11. No cache
 
-**There is no on-disk extraction cache.** Revision 2 specified one, keyed on
-binary identity plus a build-time source fingerprint. Revision 3 removes it.
+**Decides.** Whether extraction results persist on disk between runs.
 
-**Why it cannot be made correct.** A cache key can only observe the things it
-hashes. Help output routinely changes while every hashed input stays identical:
+**Rules.**
 
-- `docker` gains subcommands when a plugin is installed — the docker binary is
-  untouched.
+1. There is no on-disk extraction cache. Revision 2 specified one, keyed on
+   binary identity plus a build-time source fingerprint. Revision 3
+   removes it.
+2. If a cache is ever reintroduced, the only acceptable design is
+   revalidate-rather-than-guess: store a hash of the tool's root help
+   output, and re-probe that single command on open (one subprocess,
+   ~40 ms) to decide whether the cached tree is still valid. Guessing from
+   file metadata is not acceptable.
+
+**Why.** A cache key can only observe the things it hashes, and help
+output routinely changes while every hashed input stays identical:
+
+- `docker` gains subcommands when a plugin is installed. The docker binary
+  is untouched.
 - `git` gains subcommands from any `git-*` on `PATH`, and from aliases in
   `~/.gitconfig`.
 - `kubectl` behaves the same way with its plugins.
 
-No fingerprint over the binary catches any of these. A cache that is *usually*
-fresh is a cache that will be confidently wrong at some point, and this project
-already shipped one staleness bug whose only symptom was a correct fix appearing
-not to work.
+No fingerprint over the binary catches any of these. A cache that is
+usually fresh is a cache that will be confidently wrong at some point, and
+this project already shipped one staleness bug whose only symptom was a
+correct fix appearing not to work. Removing it is affordable because lazy
+node-at-a-time extraction (§5.2) means a launch only ever extracts the
+root: 179 ms for `git`, 221 ms for `docker`, against the 10.5 s that eager
+whole-tree extraction cost [M-3]. That is well inside the budget for a TUI
+a human then reads for seconds.
 
-**Why removing it is affordable.** Lazy node-at-a-time extraction (§5.2) means a
-launch only ever extracts the root: 179 ms for `git`, 221 ms for `docker`,
-against the 10.5 s that eager whole-tree extraction cost [M-3]. That is well
-inside the budget for a TUI a human then reads for seconds.
-
-**If it is ever reintroduced**, the only acceptable design is
-revalidate-rather-than-guess: store a hash of the tool's root help output, and
-re-probe that single command on open (one subprocess, ~40 ms) to decide whether
-the cached tree is still valid. Guessing from file metadata is not acceptable.
+**Implemented in.** `mandible-extract/src/runner.rs`.
 
 ---
 
