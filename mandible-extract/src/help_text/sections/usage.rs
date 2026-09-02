@@ -288,7 +288,7 @@ pub(super) fn primary_synopsis_lines(
 /// S-101 and both call sites, [`extract_positionals`] and
 /// [`recover_primary_tail_operand`].
 fn token_marks_repetition(token: &str) -> bool {
-    let trimmed = token.trim_end_matches(|c| c == ']' || c == ')');
+    let trimmed = token.trim_end_matches([']', ')']);
     trimmed.len() - trimmed.trim_end_matches('.').len() >= 2
 }
 
