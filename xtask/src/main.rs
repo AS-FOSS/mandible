@@ -19,6 +19,7 @@ mod dropped_alias;
 mod existence;
 mod misattribution;
 mod queue;
+mod ragged_command_table;
 mod repeated_char;
 mod residue;
 mod rng;
@@ -26,6 +27,7 @@ mod single_dash_long;
 mod status;
 mod tail_operand;
 mod transition;
+mod wrapped_command_continuation;
 mod wrapped_prose;
 
 use clap::{Parser, Subcommand};
@@ -1222,6 +1224,23 @@ fn run_coverage(
         if !single_dash_ratchet.holds() {
             regressed = true;
         }
+
+        // pnpm's own two families (atlas S-103, S-104), not yet fleet-
+        // precise: see `detector::report_family_not_gated`.
+        detector::report_family_not_gated(
+            "ragged-command-table",
+            fresh.ragged_command_tools,
+            fresh.ragged_command_flags,
+            previous.ragged_command_tools,
+            previous.ragged_command_flags,
+        )?;
+        detector::report_family_not_gated(
+            "wrapped-command-continuation-as-subcommand",
+            fresh.wrapped_command_tools,
+            fresh.wrapped_command_flags,
+            previous.wrapped_command_tools,
+            previous.wrapped_command_flags,
+        )?;
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

@@ -635,6 +635,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(MisattributionOracle),
         Box::new(WrappedProseRowBoundary),
         Box::new(UnparsedTailOperand),
+        Box::new(RaggedCommandTable),
+        Box::new(WrappedCommandContinuation),
     ]
 }
 

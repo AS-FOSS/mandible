@@ -93,6 +93,24 @@ fn tail_operand_sample_section_markdown(rows: &[Row]) -> String {
     )
 }
 
+/// Markdown twin of [`ragged_command_sample_lines_text`].
+fn ragged_command_sample_section_markdown(rows: &[Row]) -> String {
+    sample_section_markdown(
+        rows.iter().flat_map(|r| r.ragged_command_samples.iter()),
+        "\n**Ragged-command-table findings** (sample — see \
+         `xtask/src/ragged_command_table.rs`):\n\n| sample |\n|---|\n",
+    )
+}
+
+/// Markdown twin of [`wrapped_command_sample_lines_text`].
+fn wrapped_command_sample_section_markdown(rows: &[Row]) -> String {
+    sample_section_markdown(
+        rows.iter().flat_map(|r| r.wrapped_command_samples.iter()),
+        "\n**Wrapped-command-continuation-as-subcommand findings** (sample — see \
+         `xtask/src/wrapped_command_continuation.rs`):\n\n| sample |\n|---|\n",
+    )
+}
+
 /// The shared body of the two markdown sections above.
 fn sample_section_markdown<'a>(samples: impl Iterator<Item = &'a String>, heading: &str) -> String {
     let samples: Vec<&String> = samples.take(SPLIT_SAMPLE_LIMIT).collect();
@@ -262,6 +280,18 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.tail_operand_tools, aggregate.tail_operand_flags,
     ));
     out.push_str(&format!(
+        "**Ragged-command-table findings:** {} tool(s) whose ragged-indent command-table row \
+         never reached the tree (atlas S-104, `unparsed-subcommand` shape E), {} command(s) \
+         fleet-wide — see `xtask/src/ragged_command_table.rs`.\n\n",
+        aggregate.ragged_command_tools, aggregate.ragged_command_flags,
+    ));
+    out.push_str(&format!(
+        "**Wrapped-command-continuation-as-subcommand findings:** {} tool(s) with a fabricated \
+         subcommand from a bare continuation line (atlas S-103), {} command(s) fleet-wide — see \
+         `xtask/src/wrapped_command_continuation.rs`.\n\n",
+        aggregate.wrapped_command_tools, aggregate.wrapped_command_flags,
+    ));
+    out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
         aggregate.total,
@@ -282,6 +312,8 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&repeated_char_sample_section_markdown(rows));
     out.push_str(&wrapped_prose_sample_section_markdown(rows));
     out.push_str(&tail_operand_sample_section_markdown(rows));
+    out.push_str(&ragged_command_sample_section_markdown(rows));
+    out.push_str(&wrapped_command_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could

@@ -195,6 +195,22 @@ pub(super) struct Row {
     /// A few of this row's own findings, pre-formatted, mirroring
     /// [`Self::wrapped_prose_samples`].
     pub(super) tail_operand_samples: Vec<String>,
+    /// [`crate::ragged_command_table`]'s own measurement: count of this
+    /// tool's ragged-indent command-table rows whose primary name never
+    /// reached the tree (atlas S-104). Ratchet-gated at zero once the
+    /// generic-layout fix lands. See `mandible-core/src/audit.rs`'s
+    /// `unparsed-subcommand` comment.
+    pub(super) ragged_command_count: usize,
+    /// A few of this row's own findings, pre-formatted, mirroring
+    /// [`Self::tail_operand_samples`].
+    pub(super) ragged_command_samples: Vec<String>,
+    /// [`crate::wrapped_command_continuation`]'s own measurement: count of
+    /// this tool's fabricated subcommands from a bare continuation line
+    /// (atlas S-103). Ratchet-gated at zero once the fix lands.
+    pub(super) wrapped_command_count: usize,
+    /// A few of this row's own findings, pre-formatted, mirroring
+    /// [`Self::ragged_command_samples`].
+    pub(super) wrapped_command_samples: Vec<String>,
     pub(super) status: &'static str,
     /// This tool's field-level fingerprint (WS2 part 2,
     /// [`crate::transition`]'s per-tool diff): enough for `sweep-diff` to
@@ -340,6 +356,8 @@ pub(super) fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&repeated_char_sample_lines_text(rows));
     out.push_str(&wrapped_prose_sample_lines_text(rows));
     out.push_str(&tail_operand_sample_lines_text(rows));
+    out.push_str(&ragged_command_sample_lines_text(rows));
+    out.push_str(&wrapped_command_sample_lines_text(rows));
     out.push_str(&fingerprint_lines(rows));
     out
 }
@@ -552,6 +570,24 @@ fn tail_operand_sample_lines_text(rows: &[Row]) -> String {
     sample_lines_text(
         rows.iter().flat_map(|r| r.tail_operand_samples.iter()),
         "# unparsed-tail-operand findings (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for [`crate::ragged_command_table`].
+fn ragged_command_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.ragged_command_samples.iter()),
+        "# ragged-command-table findings (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for
+/// [`crate::wrapped_command_continuation`].
+fn wrapped_command_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.wrapped_command_samples.iter()),
+        "# wrapped-command-continuation-as-subcommand findings (sample — judge the false-positive \
+         rate yourself):\n",
     )
 }
 
