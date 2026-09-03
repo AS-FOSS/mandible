@@ -10,8 +10,11 @@
 //! after every key.
 //!
 //! The fixture is deliberately asymmetric — a long flag list against a
-//! longer raw text, a wide synopsis against wider raw lines — so no
-//! assertion can pass because the two views happen to agree.
+//! longer raw text — so no vertical assertion can pass because the two
+//! views happen to agree. The parsed view has no horizontal extent of its
+//! own any more (spec §9 rule 9: USAGE soft-wraps instead of
+//! scrolling), so the horizontal axis is exercised through the raw view
+//! only, against the parsed view's fixed zero.
 
 use mandible_core::{CommandNode, Entity, EntityKind, Provenance, Source, Spelling, Text};
 use mandible_tui::app::{App, RawHelp};
@@ -49,9 +52,11 @@ fn detail_rows(app: &App) -> Vec<String> {
     rows
 }
 
-/// A node with far more flags than fit the pane, and a synopsis far wider
-/// than it — the parsed view needs both extents to be nonzero before it
-/// can have a position worth remembering.
+/// A node with far more flags than fit the pane, so the parsed view has a
+/// vertical position worth remembering. The synopsis is wider than the
+/// pane too, kept only to exercise USAGE's own soft-wrap (spec §9 rule 9)
+/// elsewhere; it no longer gives the parsed view anything horizontal to
+/// scroll.
 fn parsed_node() -> CommandNode {
     let mut node = CommandNode::new(TOOL, Provenance::single(Source::HelpText));
     node.description = Some(Text::sanitize("Search for PATTERNS in each FILE."));
@@ -161,17 +166,22 @@ fn each_view_returns_to_its_own_line() {
     );
 }
 
-/// The horizontal offset is remembered per view on the same terms: the
-/// parsed view's synopsis column and the raw view's column are separate
-/// numbers, each restored exactly.
+/// The horizontal offset is remembered per view on the same terms: the raw
+/// view's column is its own number, restored exactly. The parsed view has
+/// no horizontal extent left to scroll (spec §9 rule 9): USAGE
+/// soft-wraps now, and nothing else in the parsed view ever supported
+/// horizontal scroll, so scrolling it right is a no-op that must not leak
+/// into the raw view's own column.
 #[test]
 fn each_view_returns_to_its_own_column() {
     let mut app = app_with_raw(60);
 
     scroll_right(&mut app, 3);
-    let parsed_column = app.clamped_detail_hscroll();
-    let parsed_screen = detail_rows(&app);
-    assert!(parsed_column > 0, "the synopsis is wider than the pane");
+    assert_eq!(
+        app.clamped_detail_hscroll(),
+        0,
+        "the parsed view has nothing left to scroll horizontally"
+    );
 
     app.toggle_raw_mode();
     assert_eq!(
@@ -182,21 +192,13 @@ fn each_view_returns_to_its_own_column() {
     scroll_right(&mut app, 7);
     let raw_column = app.clamped_detail_hscroll();
     let raw_screen = detail_rows(&app);
-    assert_ne!(
-        raw_column, parsed_column,
-        "the two columns must differ here"
-    );
+    assert!(raw_column > 0, "the raw text is wider than the pane");
 
     app.toggle_raw_mode();
     assert_eq!(
         app.clamped_detail_hscroll(),
-        parsed_column,
-        "the parsed view must return to its own column"
-    );
-    assert_eq!(
-        detail_rows(&app),
-        parsed_screen,
-        "the parsed view came back at a different column"
+        0,
+        "the raw view's column must not leak into the parsed view"
     );
 
     app.toggle_raw_mode();
@@ -213,7 +215,11 @@ fn each_view_returns_to_its_own_column() {
 }
 
 /// Movement in one view never moves the other's stored position, however
-/// far it goes — including past the other view's whole extent.
+/// far it goes — including past the other view's whole extent. The parsed
+/// view's own `scroll_right` is a no-op (spec §9 rule 9: USAGE
+/// soft-wraps now, so the parsed view has no horizontal extent), which is
+/// itself part of what this test pins: it must stay at zero rather than
+/// picking up the raw view's travel.
 #[test]
 fn scrolling_one_view_leaves_the_others_position_alone() {
     let mut app = app_with_raw(120);
@@ -221,6 +227,7 @@ fn scrolling_one_view_leaves_the_others_position_alone() {
     scroll_down(&mut app, 4);
     scroll_right(&mut app, 2);
     let parsed_place = (app.clamped_detail_scroll(), app.clamped_detail_hscroll());
+    assert_eq!(parsed_place.1, 0, "precondition: nothing to scroll to");
     let parsed_screen = detail_rows(&app);
 
     app.toggle_raw_mode();
@@ -257,23 +264,20 @@ fn a_first_visit_to_a_view_starts_at_the_top_left() {
     app.toggle_raw_mode();
     assert_ne!(parsed_top, raw_top);
 
-    // Take the parsed view far from its top on both axes; the raw view has
+    // Take the parsed view far from its top on its one remaining axis; the
+    // parsed view has no horizontal extent to scroll any more (spec §9
+    // rule 9: USAGE soft-wraps now), so only the vertical
+    // position is worth carrying across the toggle here. The raw view has
     // never been scrolled for this node.
     let mut app = app_with_raw(60);
     scroll_down(&mut app, 14);
-    scroll_right(&mut app, 5);
-    assert!(app.clamped_detail_scroll() > 0 && app.clamped_detail_hscroll() > 0);
+    assert!(app.clamped_detail_scroll() > 0);
 
     app.toggle_raw_mode();
     assert_eq!(
         app.clamped_detail_scroll(),
         0,
         "an unvisited view must not be seeded from the other view's line"
-    );
-    assert_eq!(
-        app.clamped_detail_hscroll(),
-        0,
-        "an unvisited view must not be seeded from the other view's column"
     );
     assert_eq!(
         detail_rows(&app),

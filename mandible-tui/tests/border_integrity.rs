@@ -427,17 +427,19 @@ fn ascii_glyph_set_renders_a_pure_ascii_frame() {
     }
 }
 
-/// A node whose USAGE synopsis is wider than the pane: the horizontal-scroll
-/// overflow affordance (spec §9: preformatted detail-pane content scrolls
-/// rather than wraps) must show a right-pointing marker while
-/// unscrolled, switch to a left-pointing one once fully scrolled right, and
-/// — the point of testing it here rather than only in `detail_pane`'s own
-/// unit tests — never disturb any of the border cells `assert_border_intact`
-/// checks strictly (left/right/bottom edges, all four corners).
+/// A node whose only content is a degraded `unparsed` fallback wider than
+/// the pane: the horizontal-scroll overflow affordance (spec §9: the raw
+/// `--help` view and the `unparsed` fallback scroll rather than wrap; USAGE
+/// soft-wraps instead, so it can no longer exercise this affordance) must
+/// show a right-pointing marker while unscrolled, switch to a
+/// left-pointing one once fully scrolled right, and — the point of testing
+/// it here rather than only in `detail_pane`'s own unit tests — never
+/// disturb any of the border cells `assert_border_intact` checks strictly
+/// (left/right/bottom edges, all four corners).
 #[test]
 fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border() {
-    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
-    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+    let mut root = CommandNode::new("wide", Provenance::with_confidence(Source::HelpText, 0.0));
+    root.unparsed = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
 
     let mut app = App::new("wide".to_string(), root);
     app.focus = mandible_tui::Focus::Detail;
@@ -499,11 +501,13 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
 /// once scrolled, a `<` in its first — while a short line beside it stays
 /// untouched. The contrast between marked and unmarked neighbors is the
 /// point: the pane-border affordance says "somewhere there's more", the
-/// per-line marker says "this line".
+/// per-line marker says "this line". Exercised through `unparsed`, not
+/// USAGE: USAGE soft-wraps unconditionally now and never carries a clip
+/// marker any more.
 #[test]
 fn hscroll_clip_markers_mark_only_the_clipped_lines() {
-    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
-    root.usage = vec![
+    let mut root = CommandNode::new("wide", Provenance::with_confidence(Source::HelpText, 0.0));
+    root.unparsed = vec![
         Text::sanitize("wide -a"),
         Text::sanitize(&format!("wide {}", "x".repeat(200))),
     ];
@@ -568,13 +572,15 @@ fn hscroll_clip_markers_mark_only_the_clipped_lines() {
 /// deliberate choice documented on `draw_hscroll_affordance` itself: even
 /// though `h`/`l`/`←`/`→` only reach the detail pane's scroll while it is
 /// focused, a marker that disappeared with the tree focused would let a
-/// USAGE line clip silently until the reader happened to `Tab` over, which
-/// is the worse failure. Pinned here so a future change to that decision is
-/// a deliberate edit to this test, not a silent regression.
+/// preformatted line clip silently until the reader happened to `Tab` over,
+/// which is the worse failure. Pinned here so a future change to that
+/// decision is a deliberate edit to this test, not a silent regression.
+/// Exercised through `unparsed`, not USAGE: USAGE soft-wraps
+/// unconditionally now and can no longer overflow the pane.
 #[test]
 fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
-    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
-    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+    let mut root = CommandNode::new("wide", Provenance::with_confidence(Source::HelpText, 0.0));
+    root.unparsed = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
 
     let mut app = App::new("wide".to_string(), root);
     app.focus = mandible_tui::Focus::Tree;
@@ -604,10 +610,12 @@ fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
 /// The ASCII glyph set's affordance markers (`<`/`>`) are what actually
 /// reach the screen under `MANDIBLE_ASCII=1` — the Unicode arrows above are
 /// exactly the kind of glyph this project refuses to rely on everywhere.
+/// Exercised through `unparsed`; see the note on the focus test above for
+/// why USAGE no longer serves this purpose.
 #[test]
 fn detail_pane_hscroll_affordance_uses_the_ascii_glyphs() {
-    let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));
-    root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+    let mut root = CommandNode::new("wide", Provenance::with_confidence(Source::HelpText, 0.0));
+    root.unparsed = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
 
     let mut app = App::new("wide".to_string(), root);
     app.focus = mandible_tui::Focus::Detail;
@@ -643,8 +651,9 @@ fn detail_pane_hscroll_affordance_uses_the_ascii_glyphs() {
 
 /// The config toggle off must reproduce today's rendering exactly: no
 /// affordance marker anywhere on the detail pane's border, even for a node
-/// whose USAGE is far wider than the pane — because with the toggle off
-/// that content wraps instead of overflowing, so there is nothing to mark.
+/// whose USAGE is far wider than the pane — USAGE soft-wraps
+/// unconditionally (spec §9 rule 9), so there is nothing to mark in either
+/// toggle state.
 #[test]
 fn detail_pane_hscroll_affordance_absent_when_the_config_toggle_is_off() {
     let mut root = CommandNode::new("wide", Provenance::single(Source::HelpText));

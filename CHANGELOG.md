@@ -16,6 +16,7 @@ once it reaches a published 0.1.0 release.
 
 - `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
 - A usage-line operand written with the repetition dots glued to its name (`[file...]`, `file...`) now reaches the tree repeatable, matching the same operand written with a space before the dots (docs/shapes.md S-101).
+- The detail pane's USAGE section soft-wraps at the pane width instead of forcing horizontal scroll (`mandible sg_luns`, `mandible tar`); the raw `--help` view still scrolls.
 
 ## [0.6.1] - 2026-09-01
 
