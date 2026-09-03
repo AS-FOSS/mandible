@@ -3261,9 +3261,18 @@ any of these as current.
 
   The full workspace test suite (584 tests, two more than the 582 this
   investigation started from) and all 6 corpus fixtures stayed green
-  throughout — the guard is keyed on exact byte equality to the root, so
-  it never fires for a genuinely distinct subcommand's genuinely distinct
+  throughout — that guard was keyed on exact equality with the root, so
+  it never fired for a genuinely distinct subcommand's genuinely distinct
   help text, corpus fixtures included.
+
+  The guard compares a command path's selected help with its strict path
+  ancestors for the same resolved binary in the current root generation.
+  A match degrades that node to verbatim with an empty, known-complete
+  child list. Siblings, unrelated paths, other resolved binaries, and
+  merely similar documents never match. The history keeps a hash and a
+  length for each path, so an exact repetition is a hash match. It holds
+  at most 4,096 documents and at most 4,096 resolved binary histories. A
+  full history records nothing and the node parses normally.
 
 - **[M-21] Metric-design incidents and the defect-family detector fixes**
   (2026-08 batch, seed-2 audit of 94 tools). Five incidents produced §13.1b's

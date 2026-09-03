@@ -1,0 +1,71 @@
+# Two defects live here, and only one of them is the fan-out this fixture was
+# captured for.
+#
+# 1. The fan-out (issue #114, docs/shapes.md S-079). `pnpm audit --help` and
+#    `pnpm audit signatures --help` return the same 2,251 bytes, and the
+#    document lists a real `signatures` command. Read literally, that gives
+#    `audit signatures signatures ...` without end. Both argv below therefore
+#    point at one capture file: the bytes are identical, and a second copy
+#    would only be a file to keep in sync. No `[contract]` field states the
+#    claim that matters here, which is that the `audit signatures` node has no
+#    subcommands and is complete. The contract can assert a subcommand's flags
+#    by path and a subcommand floor at the root, and neither says a named node
+#    is an empty, known-complete leaf. That claim is pinned by the unit test
+#    `mandible-extract/src/help_text/mod.rs::tests::
+#    a_descendant_probe_identical_to_its_non_root_ancestor_does_not_fan_out`.
+#
+# 2. The root parse, which is wrong independently of the fan-out. pnpm groups
+#    its 18 root commands under four prose headings and writes the aliased ones
+#    with a leading short column (`i, install`, `ln, link`, `rm, remove`,
+#    `up, update`, `ls, list`, `c, config`). The parser reports 8 subcommands:
+#    add, audit, create, dlx, exec, package, run, tree-structure. Every aliased
+#    row is dropped, and so are the unaliased rows under them: unlink,
+#    outdated, why, init, publish, stage. Worse, `package` and `tree-structure`
+#    are inventions, both read off wrapped description lines. `tree-structure`
+#    is the last word of the `ls, list` description, alone on its own
+#    continuation line; `package` opens a continuation line under `why`. The
+#    tool documents neither as a command.
+#
+#    `min_subcommands` below states the omission half. There is no field for
+#    the invention half at this level: `must_not_contain_flags` is the one
+#    negative claim a contract can make and it is scoped to root flags, so it
+#    cannot say `package` and `tree-structure` are not commands. Those two
+#    names are named here instead.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pnpm"
+version = "11.22.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["pnpm", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["pnpm", "audit", "--help"]
+stdout = "audit-help.txt"
+
+# The same bytes as the entry above, which is the defect.
+[[capture]]
+argv = ["pnpm", "audit", "signatures", "--help"]
+stdout = "audit-help.txt"
+
+[contract]
+# pnpm's help is hand-rolled, so Tier A' fingerprints nothing.
+expected_framework = "generic"
+
+# The tool documents 18 root commands. The parser reports 8, two of which it
+# invented. This floor is the omission half of the root defect.
+min_subcommands = 18
+
+# The one root flag pnpm lists under `Options:`.
+must_contain_flags = ["--recursive"]
+
+[xfail]
+broken = true
+reason = "the root command table is misread: the six aliased rows and the six rows under them are dropped, and `package` and `tree-structure` are invented from wrapped description lines"
+issue = "https://github.com/AS-FOSS/mandible/issues/114"

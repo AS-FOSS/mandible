@@ -55,6 +55,8 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- `mandible pnpm` no longer repeats the `audit signatures` help until the node cap: help identical to any ancestor command path now stops the fan-out (issue #114).
+
 - `mandible ar`'s descriptions no longer start with a stray `- ` on some rows and not others: `ar` writes ` - ` as the column separator on every row of its tables, and the parser stripped it only on rows whose name overran the column (`--target=BFDNAME - specify …`) while leaving it on aligned rows (`--thin       - make a thin archive`, `@<file>      - read options from <file>`), so one table rendered two ways; a lone `-` token opening the description side is now stripped whichever way the column was found, in every tool with that table style.
 
 - `mandible ffplay`'s `-? topic` row keeps the space between spelling and value again: the argfile sigil's glued rendering (`@<file>`) keyed on "first character is not alphanumeric", which also matches the dashed short `-?` — harmless while `-?` carried no value, wrong the moment the value recovery above gave it one — and the sigil test now requires a dashless spelling (`Dashes::None`), which no short or long flag has and the argfile `@` does.
