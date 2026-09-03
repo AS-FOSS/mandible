@@ -1644,13 +1644,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: aarch64-linux-gnu-dwp [options] [file...]
       usage: bc [options] [file ...]
 - tools: aarch64-linux-gnu-dwp, dwp, demandoc, lsattr, lsinitramfs
-- handling: An operand written with the repetition dots attached to its name loses the
-  marker. The operand reaches the tree named `file` and not repeatable. The
-  same operand written with a space before the dots comes out repeatable,
-  which is what the second line above does. Open defect, recorded by
-  `corpus/aarch64-linux-gnu-dwp/2.42`.
-- fleet: no detector. Five tools checked by hand and all five lose the marker,
-  2026-09-03. The two control tools written with a space keep it.
+- handling: A shared predicate marks an operand repeatable when it ends in two or
+  more dots after trimming a trailing `]` or `)`. It backs both the main
+  positional loop and the tail-operand recovery path. The operand reaches the
+  tree named `file` and repeatable, matching `corpus/aarch64-linux-gnu-dwp/2.42`.
+- fleet: 11 tools gained the marker in a direct before/after diff over captured bytes,
+  2026-09-03. Zero tools changed any other way and zero of 38 checked controls moved.
 
 ### S-102: one spelling documented on two rows, folded before display
 

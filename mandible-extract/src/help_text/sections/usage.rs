@@ -281,6 +281,17 @@ pub(super) fn primary_synopsis_lines(
         .collect()
 }
 
+/// A trailing run of two or more dots marks a synopsis token repeatable:
+/// `[FILE...]` and `FILE...` both count, since the marker sits inside a
+/// closing bracket exactly as often as outside one. A lone trailing dot is
+/// ordinary sentence punctuation, never a marker, so the minimum is two. See
+/// S-101 and both call sites, [`extract_positionals`] and
+/// [`recover_primary_tail_operand`].
+fn token_marks_repetition(token: &str) -> bool {
+    let trimmed = token.trim_end_matches([']', ')']);
+    trimmed.len() - trimmed.trim_end_matches('.').len() >= 2
+}
+
 /// `usage_lines`: every physical line of the recovered usage block, in
 /// source order. `primary_lines`: [`primary_synopsis_lines`]'s pick of
 /// which of them (by index) make up the tool's primary invocation form —
@@ -335,11 +346,11 @@ pub(super) fn extract_positionals(
                 // yield `name`, not `name>=<value` from stripping only the
                 // token's very last `>`.
                 match stripped.find('>') {
-                    Some(end) => (stripped[..end].to_string(), token.ends_with("...")),
+                    Some(end) => (stripped[..end].to_string(), token_marks_repetition(token)),
                     None => continue,
                 }
             } else if cleaned.chars().all(|c| c.is_uppercase() || c == '_') && cleaned.len() > 1 {
-                (cleaned.to_string(), token.ends_with("..."))
+                (cleaned.to_string(), token_marks_repetition(token))
             } else {
                 continue;
             };
@@ -488,8 +499,13 @@ fn recover_primary_tail_operand(
     }
     let last = groups.last()?;
     let stripped = last.trim_matches(|c| c == '[' || c == ']');
-    let word = stripped.split_whitespace().next()?;
-    let word = word.trim_end_matches('.');
+    let raw_word = stripped.split_whitespace().next()?;
+    // A dots-glued word (`file...`) marks repetition itself, same as the
+    // separate trailing ellipsis-only group handled above. See S-101.
+    if token_marks_repetition(raw_word) {
+        repeatable = true;
+    }
+    let word = raw_word.trim_end_matches('.');
     if word.is_empty() || word.starts_with('-') || is_option_list_placeholder(word) {
         return None;
     }
@@ -2586,5 +2602,83 @@ mod tests {
     fn a_wrapped_multi_line_primary_entry_gains_no_tail_positional() {
         let parsed = parse("Usage: widget [-a] [-b] \\\n              tail\n");
         assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    // --- S-101: the glued repetition marker ---
+
+    /// `token_marks_repetition` itself, the shared predicate used at both
+    /// call sites ([`extract_positionals`] and
+    /// [`recover_primary_tail_operand`]).
+    #[test]
+    fn token_marks_repetition_predicate() {
+        // Glued dots behind a closing bracket: dwp's own shape.
+        assert!(token_marks_repetition("[file...]"));
+        assert!(token_marks_repetition("[FILE...]"));
+        // Glued dots with no bracket at all: lsinitramfs's own shape.
+        assert!(token_marks_repetition("initramfs-file..."));
+        // Spaced dots (a separate token, existing behaviour elsewhere) do
+        // not themselves end in a dot run once isolated.
+        assert!(!token_marks_repetition("file"));
+        // A single trailing dot is ordinary sentence punctuation, never a
+        // marker.
+        assert!(!token_marks_repetition("file."));
+        assert!(!token_marks_repetition("[file.]"));
+        // No trailing dots at all.
+        assert!(!token_marks_repetition("[file]"));
+    }
+
+    /// dwp's own bytes (atlas S-101, `corpus/aarch64-linux-gnu-dwp/2.42`):
+    /// the repetition dots are glued to the operand name, inside the
+    /// closing bracket, and must still mark it repeatable.
+    #[test]
+    fn glued_dots_after_a_bracket_mark_repetition() {
+        let parsed = parse("Usage: aarch64-linux-gnu-dwp [options] [file...]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{names:?}");
+        assert!(parsed.positionals[0].repeatable);
+    }
+
+    /// lsinitramfs's own bytes: glued dots with no bracket at all.
+    #[test]
+    fn glued_dots_with_no_bracket_mark_repetition() {
+        let parsed = parse("Usage: lsinitramfs [-l] initramfs-file...\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["initramfs-file"], "{names:?}");
+        assert!(parsed.positionals[0].repeatable);
+    }
+
+    /// A single trailing dot on the tail operand must never be read as the
+    /// repetition marker: it is ordinary sentence punctuation.
+    #[test]
+    fn a_single_trailing_dot_does_not_mark_repetition() {
+        let parsed = parse("Usage: widget [-a] file.\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{names:?}");
+        assert!(!parsed.positionals[0].repeatable);
+    }
+
+    /// `[OPTION...]` is an option-list placeholder, not an operand, glued
+    /// dots or not: it must never become a positional at all.
+    #[test]
+    fn an_option_list_placeholder_with_glued_dots_is_never_a_positional() {
+        let parsed = parse("Usage: widget [OPTION...] FILE\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["FILE"], "{names:?}");
     }
 }

@@ -1,0 +1,60 @@
+name: aarch64-linux-gnu-dwp
+usage:
+- 'Usage: aarch64-linux-gnu-dwp [options] [file...]'
+positionals:
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: Print this help message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --exec
+  value_name: EXE
+  value_kind: Required
+  description: Get list of dwo files from EXE (defaults output to EXE.dwp)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: FILE
+  value_kind: Required
+  description: Set output dwp file name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verify-only
+  description: Verify output file against exec file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Print version number
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -9,6 +9,7 @@ usage:
 - 'Usage:  pastebinit [OPTION...] [FILE...]'
 positionals:
 - name: FILE
+  variadic: true
   provenance:
     sources:
     - help-text
