@@ -1246,6 +1246,21 @@ fn scan_entries(
         // current line already looks like a flag entry, so it is scanned
         // in place. See S-052.
         if looks_like_flag_start(line.trim_start()) {
+            // Not a new row at all: a hard-wrapped prose sentence landed on
+            // a dash-led word at its paragraph's own indent (zgrep's
+            // excluded-options list, resolvconf's unsupported-options
+            // list). The whole paragraph is recovered into the
+            // description instead of being mined as fabricated flags. See
+            // docs/shapes.md S-027.
+            if is_wrapped_prose_continuation(lines, i) {
+                let (end, text) = wrapped_prose_paragraph(lines, i);
+                st.result.description = Some(match st.result.description.take() {
+                    Some(d) => format!("{d} {text}"),
+                    None => text,
+                });
+                i = end;
+                continue;
+            }
             // The row may still be one `split_shared_heading_rows`
             // recovered from a `:=` production the engine never
             // revisited as a heading — dcb and vdpa's `OPTIONS` row.

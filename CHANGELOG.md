@@ -12,6 +12,10 @@ once it reaches a published 0.1.0 release.
 
 - `cargo xtask audit contribute` walks a contributor through auditing mandible against their own installed tools — login, a random 20-tool draw excluding anything already audited, review, and a verdict file ready to submit (CONTRIBUTING.md §2).
 
+### Fixed
+
+- `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
+
 ## [0.6.1] - 2026-09-01
 
 ### Fixed

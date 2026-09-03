@@ -252,6 +252,101 @@ pub(super) fn wrapped_prose_region_end(lines: &[&str], head: usize) -> Option<us
     (end > head + 1).then_some(end)
 }
 
+/// True when `line`'s [`find_multi_space_gap`] is real column alignment,
+/// not two spaces after a full stop — ordinary sentence spacing some help
+/// text still uses (coreutils `nice`'s `... current niceness.  Niceness
+/// values range from`). A gap immediately after `.`/`!`/`?` is sentence
+/// spacing; anything else (jinfo's gap after `>`, nvim's gap after `>`) is
+/// a genuine column.
+fn has_description_column(line: &str) -> bool {
+    let Some(col) = find_multi_space_gap(line) else {
+        return false;
+    };
+    !line
+        .get(..col)
+        .and_then(|s| s.trim_end().chars().next_back())
+        .is_some_and(|c| matches!(c, '.' | '!' | '?'))
+}
+
+/// True when `lines[idx]` is a dash-led line continuing the prose above it,
+/// not a new flag row (atlas S-027). Gates: prev non-blank, not
+/// sentence-final, not bracketed usage/synopsis grammar (memhog's `memhog
+/// [-fFILE] [-rNUM] [-H] size[kmg] ...` reads 7 "words" by count alone),
+/// prose (cascades) and past [`MIN_PROSE_SENTENCE_WORDS`] when not itself
+/// dash-led (tar's `*This* tar defaults to:`), prev has no
+/// [`has_description_column`] (jinfo's, nvim's real rows), cur has no
+/// [`find_multi_space_gap`], same indent as prev, and cur does not already
+/// self-describe — [`super::flag_rows::entry_row_carries_own_description`]
+/// (e2scrub's colon-separated `-n: Show ...`).
+pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool {
+    if idx == 0 {
+        return false;
+    }
+    let cur = lines[idx];
+    let prev = lines[idx - 1];
+    // Cheap, non-recursive gates first: most candidates fail one of these
+    // (a real option row's own description column, most of all), so the
+    // recursive cascade below only ever runs on a line that already cleared
+    // every gate that doesn't need it. See AGENTS.md §3.11.
+    if prev.trim().is_empty() {
+        return false;
+    }
+    if prev.trim_end().ends_with(['.', '!', '?']) {
+        return false;
+    }
+    if prev.contains(['[', ']']) {
+        return false;
+    }
+    if has_description_column(prev) {
+        return false;
+    }
+    if find_multi_space_gap(cur).is_some() {
+        return false;
+    }
+    if leading_whitespace(cur) != leading_whitespace(prev) {
+        return false;
+    }
+    if super::flag_rows::entry_row_carries_own_description(cur) {
+        return false;
+    }
+    if prev.trim_start().starts_with('-') {
+        return is_wrapped_prose_continuation(lines, idx - 1);
+    }
+    prev.split_whitespace().count() >= MIN_PROSE_SENTENCE_WORDS
+}
+
+/// The full prose paragraph a rescued wrapped-prose continuation at
+/// `flag_line_idx` belongs to (S-027): back to the blank line above it (or
+/// the document start), forward through every line
+/// [`is_wrapped_prose_continuation`] still accepts, up to the next blank
+/// line. Returns the index just past the paragraph and its text, physical
+/// lines trimmed and joined by single spaces — so the sentence the
+/// fabricated flags were mined from still reaches the description instead
+/// of vanishing with them (AGENTS.md §3.9).
+pub(super) fn wrapped_prose_paragraph(lines: &[&str], flag_line_idx: usize) -> (usize, String) {
+    let mut start = flag_line_idx;
+    while start > 0 && !lines[start - 1].trim().is_empty() {
+        start -= 1;
+    }
+    let mut end = flag_line_idx + 1;
+    while end < lines.len() {
+        let line = lines[end];
+        if line.trim().is_empty() {
+            break;
+        }
+        if looks_like_flag_start(line.trim_start()) && !is_wrapped_prose_continuation(lines, end) {
+            break;
+        }
+        end += 1;
+    }
+    let text = lines[start..end]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    (end, text)
+}
+
 /// True when `heading` may open the obscured-marker whole-region fence
 /// (`obscured_ignorable_indent`). [`is_ignorable_heading`] alone is too
 /// loose for a whole-region trigger: a mid-document `Report bugs to

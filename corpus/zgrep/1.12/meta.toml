@@ -19,14 +19,10 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 
-# zgrep has neither flag. Both are fabricated because the sentence listing
-# unsupported grep options wraps mid-list onto a line starting with a
-# dash-led word, and that wrap is read as a new flag row.
+# zgrep has neither flag. Both were fabricated because the sentence listing
+# unsupported grep options wrapped mid-list onto a line starting with a
+# dash-led word, read as a new flag row until docs/shapes.md S-027 fixed it.
 must_not_contain_flags = ["--exclude", "--null-data"]
-
-[xfail]
-broken = true
-reason = "the sentence listing unsupported grep options wraps onto a line starting with '--null-data (-z), and --recursive (-r).', a dash-led word, and that wrap is read as the start of a new row instead of a continuation of the previous line, fabricating --exclude and --null-data as real zgrep flags. The C3 whitespace-continuation rules do not reach this shape."
 
 # Maintainer, checking this build by hand: "positionals part is fine, but
 # the same bad parse we encountered earlier where all flags are on the same
