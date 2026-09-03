@@ -38,6 +38,14 @@ must_contain_flags = ["+", "--", "--help"]
 # fname". Machine classification: second optional value dropped (atlas
 # S-097). Fixed: `-V` now carries the value name `N fname`.
 #
+# Maintainer, later, re-reading this build's screen: "is this parse
+# correct: original = '-V[N][fname]', got parsed into '-V[N fname]'?"
+# Ruling (docs/design.md §16, 2026-09-04): a glued optional-group value
+# keeps its source spelling. Folding the two glued groups `[N]` and
+# `[fname]` into one space-joined name `N fname` loses the bracket
+# structure while keeping the words, so `-V` must carry the value name
+# `[N][fname]`, not `N fname`.
+#
 # Maintainer: "'-r (with file name)' got parsed into '-r (with'". Machine
 # classification: parenthetical qualifier read as value (atlas S-098).
 # Fixed: the second `-r` now carries the value name `file name`.
@@ -49,7 +57,7 @@ must_contain_flags = ["+", "--", "--help"]
 #
 # The `+` entry is the second half of the plus-prefixed row above.
 [contract.must_value_name]
-"-V" = "fname"
+"-V" = "[N][fname]"
 "-r" = "file name"
 "-q" = "errorfile"
 "+" = "lnum"
@@ -107,3 +115,23 @@ reason = "two defects remain. A `+`-led option row (`+`, `+<lnum>`) still reache
 # Not reproducible on this build: the seed-4 note "shows '--' as a
 # positional arg". The tree's only positional is `file`. Recorded here
 # rather than dropped, and unexplained.
+
+# Two more defects, from the maintainer's later reading of this build's
+# screen. No `[contract]` field can assert a usage form today, so both live
+# as prose here.
+#
+# Maintainer: "regarding usage line, why is every line getting appended
+# with the tool's name?"
+# Machine classification: the raw block is `Usage: vim [arguments]
+# [file ..]` then `   or: vim [arguments] -`. The renderer prefixes the
+# resolved binary name `vim.basic` to each form. The strip of the help
+# text's own program word fails because the binary is `vim.basic` and the
+# help text says `vim`, so the strip never matches and the prefix is added
+# on top of the un-stripped original.
+#
+# Maintainer: "there is an indentation mismatch where first row 'edit
+# specified...' is a bit closer to the left, while other three are
+# aligned."
+# Machine classification: the `or:` continuation marker on rows 2 to 4 is
+# never stripped. The four extra characters of `or: ` are what make those
+# rows sit further right than row 1.

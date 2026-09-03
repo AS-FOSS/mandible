@@ -2714,6 +2714,14 @@ more, and the parser joins each into one line before mandible ever draws
 it. The raw `--help` view and the `unparsed` fallback keep their existing
 horizontal scroll; only USAGE moved.
 
+**A glued optional-group value keeps its source spelling (2026-09-04).**
+Shown `mandible vim.basic`, the maintainer asked "is this parse correct:
+original = '-V[N][fname]', got parsed into '-V[N fname]'?". It is not. A
+value spec written as two or more glued optional groups renders as its own
+source spelling, so `-V[N][fname]` renders `[N][fname]`. Folding the groups
+into one space-joined name keeps the words and loses the bracket structure.
+The fixture is `corpus/vim.basic/audit-seed4`.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until
@@ -2777,6 +2785,17 @@ where the shim test's own comment carries the reasoning, the row can go too.
    piece for classic Unix prose, and it is also the one most likely to need
    per-distro path fiddling — which brushes against the §1 invariant. Keep it
    general (`MANPATH` + `man -k`) or don't ship it.
+
+### Recommendations awaiting the maintainer's word
+
+**Short spellings before long ones, recommended and not yet decided
+(2026-09-04).** Shown `mandible sg_luns`, the maintainer asked "why long
+flags displayed first then short ones? was not it supposed to be other way
+around, also how tf order has changed?". `sg_luns` writes its rows
+`--decode|-d`, long first, and mandible keeps the source order of
+spellings. The recommendation is that the renderer show short spellings
+before long ones while the IR keeps the source order. Nothing has been
+decided, and any change here is display-side only.
 
 ---
 
