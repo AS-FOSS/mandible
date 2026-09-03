@@ -38,14 +38,28 @@ fn is_claimed_plus_token(token: &str) -> bool {
     rest.is_empty() || rest.starts_with('<')
 }
 
-/// Whether the tree carries any entity spelled with this exact token,
-/// under either plausible representation an entity might hold a
-/// `+`-led spelling in (a literal name, or a rendered form).
+/// Whether the tree carries this `+`-led token under any of the shapes a
+/// correct parse may hold it in: a literal spelling equal to the whole
+/// token (`"+<lnum>"`), or — the shape the generic parser actually
+/// produces, matching `Entity::argfile_sigil`'s own convention for a bare
+/// sigil plus a value — an entity spelled bare `+` whose `value_name`
+/// carries the bracketed placeholder. A bare `+` token itself only needs
+/// the first half: any entity spelled `+` at all, value or not.
 fn tree_has_spelling(root: &CommandNode, token: &str) -> bool {
+    let placeholder = token.strip_prefix('+').filter(|p| !p.is_empty());
     root.flags().any(|e| {
-        e.spellings
+        let spelled_this = e
+            .spellings
             .iter()
-            .any(|s| s.name == token || s.render() == token)
+            .any(|s| s.name == token || s.render() == token);
+        if spelled_this {
+            return true;
+        }
+        let spelled_plus = e.spellings.iter().any(|s| s.name == "+");
+        match placeholder {
+            None => spelled_plus,
+            Some(p) => spelled_plus && e.value_name.as_deref().is_some_and(|v| v.contains(p)),
+        }
     })
 }
 

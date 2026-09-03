@@ -15,6 +15,7 @@ once it reaches a published 0.1.0 release.
 ### Fixed
 
 - `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
+- A bare `+`-led option row (`+`, `+<lnum>`) and the bare end-of-options marker `--` now reach the tree instead of vanishing, in any tool's option table or usage line (`mandible vim.basic`, `mandible nvim`, `mandible awk`, `mandible cargo-fmt`, and 40+ others on a full-`PATH` sweep, docs/shapes.md S-095, S-096).
 - A usage-line operand written with the repetition dots glued to its name (`[file...]`, `file...`) now reaches the tree repeatable, matching the same operand written with a space before the dots (docs/shapes.md S-101).
 
 ## [0.6.1] - 2026-09-01

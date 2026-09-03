@@ -163,6 +163,28 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 rest = tail;
                 continue;
             }
+            // Only at the very start of an alias run, or right after a
+            // real separator was consumed — never glued straight onto a
+            // longer token's own unconsumed tail with nothing between
+            // them. Defense in depth alongside `try_bare_sigil`'s own
+            // whitelist: the same class of bug (an unrelated token's
+            // failed-parse leftover misread as a fresh alias) is exactly
+            // what fabricated a bogus `+` alias on `as`'s real
+            // `--gstabs+` in an earlier version of this function. See
+            // docs/shapes.md S-096.
+            let sigil_position_ok = spec.spellings.is_empty() || rest != before;
+            if sigil_position_ok {
+                if let Some((spelling, tail)) = try_bare_sigil(rest) {
+                    if already_collected(&spec, &spelling) {
+                        break;
+                    }
+                    saw_explicit_anywhere |= explicit;
+                    last_was_long_like = false;
+                    spec.spellings.push(spelling);
+                    rest = tail;
+                    continue;
+                }
+            }
             break;
         }
 
@@ -518,6 +540,43 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
     ))
 }
 
+/// A bare `+` sigil (vim.basic's `+`, `+<lnum>`; nvim's `+`, `+<cmd>`), or
+/// the bare end-of-options marker `--`. Neither has a real name character
+/// right after its own sigil for [`try_short`]/[`try_long`] to read —
+/// `+`'s existing branch always required one, and `--` alone fails
+/// [`try_long`]'s `long_name` (1+ chars). This matches the sigil alone
+/// and leaves everything after it — a comma-joined alias, an angled
+/// placeholder — for the rest of this grammar to read exactly as
+/// [`try_short`] leaves `-V`'s `[N][fname]` tail. Deliberately narrow: a
+/// `+` followed immediately by a real letter (lsof's `+d`) is a
+/// different, already-unclaimed shape and must not be read as this one.
+/// See docs/shapes.md S-095, S-096.
+fn try_bare_sigil(input: &str) -> Option<(Spelling, &str)> {
+    // `--` glued straight onto more name-shaped text is always some
+    // other, unhandled long-option convention — `objdump`'s
+    // `--[section-]headers` optional-bracket-prefix name, whose real
+    // long name `try_long` cannot read — never a second alias. Only a
+    // real terminator (nothing left, or whitespace/an alias separator,
+    // `cargo fmt`'s synopsis fragment `-- <rustfmt_options>...`) may
+    // follow the bare marker. See docs/shapes.md S-096.
+    //
+    // Deliberately `--` only, not `+`: a bare `+` line has no reliable
+    // structural signal that it sits in an option table rather than
+    // ordinary prose — `git-lfs --help`'s AsciiDoc list-continuation
+    // marker (a lone `+` between numbered steps) and `date --help`'s
+    // `%`-conversion-modifier table (`+  pad with zeros, and put '+'
+    // before future years...`) both matched the row shape and were
+    // fabricated into flags in an earlier version of this function,
+    // caught in review before landing. `+`/`+<placeholder>` stays an
+    // open, uncovered defect (atlas S-095) rather than risk a repeat
+    // of that fabrication fleet-wide.
+    let rest = input.strip_prefix("--")?;
+    if rest.is_empty() || rest.starts_with([' ', '\t', ',', '|']) {
+        return Some((Spelling::bare("--"), rest));
+    }
+    None
+}
+
 /// Strips a leading `[no-]`/`[no]` prefix, if present. Recognized
 /// structurally (content exactly `no`/`no-`), never by tool name. See
 /// docs/shapes.md S-077.
@@ -612,6 +671,12 @@ pub fn looks_like_flag_start(input: &str) -> bool {
     if trimmed.starts_with('-') {
         return !is_dash_underline_token(first_token(trimmed));
     }
+    // Deliberately no `+` arm: a bare `+`-led line has no reliable signal
+    // telling an option row (vim.basic's `+`, `+<lnum>`) apart from
+    // ordinary structure that merely starts with the character
+    // (git-lfs's AsciiDoc list-continuation marker, date's
+    // `%`-conversion-modifier table row). See `try_bare_sigil`'s own doc
+    // comment.
     parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
 }
 
@@ -1900,5 +1965,66 @@ mod tests {
     fn a_bare_double_dash_still_looks_like_a_flag_start() {
         assert!(looks_like_flag_start("--"));
         assert!(looks_like_flag_start("-- end of options"));
+    }
+
+    // --- S-096: the bare `--` sigil. No `+` arm: see `try_bare_sigil`'s
+    // own doc comment for the two fabrications (git-lfs, date) that
+    // stopped a `+` arm from landing. ------------------------------------
+
+    #[test]
+    fn a_plus_led_row_never_looks_like_a_flag_start() {
+        // Deliberately not recognized at all: git-lfs's bare `+` is an
+        // AsciiDoc list-continuation marker in prose, and date's is a row
+        // of a `%`-conversion-modifier table, not an option.
+        assert!(!looks_like_flag_start("+"));
+        assert!(!looks_like_flag_start("+<lnum>\t\tStart at line <lnum>"));
+        assert!(!looks_like_flag_start("+  pad with zeros"));
+    }
+
+    #[test]
+    fn parse_flag_spec_never_reads_a_bare_plus_as_a_spelling() {
+        let spec = parse_flag_spec("+");
+        assert!(spec.spellings.is_empty());
+        let spec = parse_flag_spec("+<lnum>");
+        assert!(spec.spellings.is_empty());
+    }
+
+    #[test]
+    fn a_bare_double_dash_row_parses_as_a_flag_spelled_double_dash() {
+        let spec = parse_flag_spec("--");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "--");
+        assert!(matches!(spec.spellings[0].dashes, Dashes::None));
+        assert!(spec.fully_consumed);
+    }
+
+    #[test]
+    fn a_long_name_that_legitimately_ends_in_plus_is_not_split() {
+        // binutils `as`'s real `--gstabs+`: the trailing `+` is part of
+        // the option's own name, not a second alias glued onto it.
+        let spec = parse_flag_spec("--gstabs+");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "gstabs");
+        assert!(matches!(spec.spellings[0].dashes, Dashes::Double));
+    }
+
+    #[test]
+    fn objdumps_bracketed_prefix_long_name_does_not_fabricate_a_dashdash_alias() {
+        // `-h, --[section-]headers`: `try_long` cannot read the
+        // `[section-]` optional-prefix convention, but the orphaned `--`
+        // left over from that failed attempt must never become a second,
+        // spurious alias of `-h`.
+        let spec = parse_flag_spec("-h, --[section-]headers");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "h");
+    }
+
+    #[test]
+    fn a_dashdash_synopsis_fragment_with_a_trailing_value_still_parses() {
+        // cargo fmt's usage line: `[-- <rustfmt_options>...]`.
+        let spec = parse_flag_spec("-- <rustfmt_options>...");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "--");
+        assert_eq!(spec.value_name.as_deref(), Some("<rustfmt_options>"));
     }
 }

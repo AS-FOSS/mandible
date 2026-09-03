@@ -64,13 +64,41 @@ must_contain_flags = ["+", "--", "--help"]
 
 [xfail]
 broken = true
-reason = "six defects in one document. A `+`-prefixed option is not recognized at all, so the `+` and `+<lnum>` rows reach nothing. The end-of-options marker `--` is dropped the same way. `-V[N][fname]` keeps only the first bracketed value and loses `fname`. `-r (with file name)` reads the parenthetical qualifier as a value and truncates it to `(with`, so `file name)` is rendered nowhere. `-h  or  --help` is read as one flag `-h` whose description begins `or --help`, so the `--help` spelling never becomes an alias. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions, and `-q` without its operand."
+reason = "five defects remain. A `+`-led option row (`+`, `+<lnum>`) still reaches nothing — a fix was attempted and reverted: it fabricated flags on git-lfs (an AsciiDoc list-continuation marker in prose) and date (a row of a `%`-conversion-modifier table), because a bare `+` line carries no structural signal telling an option row apart from either. `-V[N][fname]` keeps only the first bracketed value and loses `fname`. `-r (with file name)` reads the parenthetical qualifier as a value and truncates it to `(with`, so `file name)` is rendered nowhere. `-h  or  --help` is read as one flag `-h` whose description begins `or --help`, so the `--help` spelling never becomes an alias. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions, and `-q` without its operand. Fixed: the end-of-options marker `--`, a generic-parser repair (`mandible-extract/src/help_text/grammar.rs`'s `try_bare_sigil`), 2026-09-03."
 
 # Fleet count: the unparsed-tail-operand detector fires on 150 tools
 # (150 flags) across a full-PATH sweep of 2318 tools, 2026-09-03, down from
 # 194 before the tail-operand repair. Calibrated and passing: 3 of 3
-# labelled members detected, 0 false alarms on seed 4. The six defects
-# recorded above have no detector and no fleet count yet.
+# labelled members detected, 0 false alarms on seed 4.
+#
+# end-of-options-marker: FIXED and REPAIRED, 2026-09-03
+# (`xtask/src/end_of_options_marker.rs`; pre-fix fleet count 26 tools/26
+# findings; post-fix full-PATH sweep 0/0, ratchet-gated at zero).
+#
+# The other six labelled families, after amending this entry's own
+# `families` field to add the six the maintainer's review here evidences
+# (`families_derived = true`, argued per quote in
+# `audit/submissions/sadigaxund/4.toml`) and recalibrating against seed 4:
+#   plus-prefixed-option: CALIBRATED (PASSES, 0 false alarms), fleet 13
+#     tools/23 findings, clears the 5-tool bar. NOT FIXED this round — see
+#     reason above; a fix needs positive evidence a `+` row sits in a real
+#     option table, which no version tried so far provides safely.
+#   usage-only-value-name: CALIBRATED (PASSES), fleet 76 tools/255
+#     findings (`-q`'s missing operand only, not `-t`'s missing
+#     description). Clears the bar. Not fixed this round.
+#   second-optional-value-dropped: CALIBRATED (PASSES), fleet 13
+#     tools/13 findings. Clears the bar. Not fixed this round.
+#   parenthetical-qualifier-as-value: CALIBRATED (PASSES), fleet 9
+#     tools/9 findings. Clears the bar. Not fixed this round.
+#   or-joined-alias: CALIBRATED (PASSES), fleet 30 tools/134 findings.
+#     Clears the bar. Not fixed this round.
+#   single-space-description-column: NOT calibratable against seed 4 —
+#     jinfo, its only motivating tool, has no audit verdict in any seed.
+#     Fleet 9 tools/27 findings, clears the bar on the count alone. Not
+#     fixed this round.
+# "Not fixed this round" is a session scope limit, not a finding that any
+# of these five is unfixable or below the bar — all five clear it and are
+# calibrated.
 
 # Not reproducible on this build: the seed-4 note "shows '--' as a
 # positional arg". The tree's only positional is `file`. Recorded here

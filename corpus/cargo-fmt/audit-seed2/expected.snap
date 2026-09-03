@@ -67,6 +67,13 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --
+  value_name: <rustfmt_options>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

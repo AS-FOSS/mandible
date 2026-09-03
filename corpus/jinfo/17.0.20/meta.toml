@@ -97,3 +97,11 @@ expected_framework = "generic"
 [xfail]
 broken = true
 reason = "the -? | -h | --help | -help group's real description is dropped and replaced with a fabricated value name 'to' read off the same line; the three -flag rows (different value forms of one option) carry no field distinguishing them from unrelated same-spelling flags"
+
+# single-space-description-column (`xtask/src/single_space_description_column.rs`):
+# fleet 9 tools/27 findings on a full-PATH sweep, 2026-09-03, clears the
+# 5-tool bar. NOT calibratable: jinfo is this family's only motivating
+# tool and carries no audit verdict in any seed (it was never sampled),
+# so calibration against the labelled set is 0/0 either way — spec
+# §13.1e rule 2 forbids quoting an uncalibrated fleet count as trusted.
+# Not fixed this round regardless of the count, per that rule.

@@ -657,6 +657,17 @@ fn flag_present(node: &CommandNode, spec: &str) -> bool {
 /// to (for `must_keep_separate`) rather than only whether any entity
 /// matches.
 fn entity_matches_flag_spec(entity: &Entity, spec: &str) -> bool {
+    // The bare end-of-options marker: `spec.strip_prefix("--")` below
+    // would read `"--"` as a long spelling with an empty name, which no
+    // real entity can ever have — checked first so a contract can state
+    // `"--"` and mean the literal marker, matching how `"+"` already
+    // falls through to the literal-name branch a few lines down.
+    if spec == "--" {
+        return entity
+            .spellings
+            .iter()
+            .any(|s| matches!(s.dashes, Dashes::None) && s.name == "--");
+    }
     if let Some(long) = spec.strip_prefix("--") {
         // Long-*like*, matching `Entity::long`'s own shape rule exactly
         // (never narrowed to `Dashes::Double` alone): two dashes, or one

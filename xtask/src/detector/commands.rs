@@ -264,3 +264,34 @@ pub fn cmd_self_check(detector: Option<&str>) -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// One vim-family detector's fleet count, ratcheted at zero between two
+/// `Aggregate`s — the shared body [`crate::main`]'s `coverage --check`
+/// calls per repaired family, so each new one costs one call here rather
+/// than a repeated block growing that file past its size ceiling. Prints
+/// the same change line and ratchet report `ratchet_at_zero`'s other
+/// callers do; returns whether the gate holds.
+pub fn check_vim_family_ratchet(
+    name: &'static str,
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let count = |aggregate: &crate::coverage::Aggregate| {
+        aggregate
+            .vim_family
+            .iter()
+            .find(|(n, ..)| *n == name)
+            .map_or((0, 0), |(_, tools, flags)| (*tools, *flags))
+    };
+    let (prev_tools, prev_flags) = count(previous);
+    let (fresh_tools, fresh_flags) = count(fresh);
+    if fresh_tools != prev_tools || fresh_flags != prev_flags {
+        println!(
+            "{name} findings changed from {prev_tools} tool(s)/{prev_flags} flag(s) to \
+             {fresh_tools} tool(s)/{fresh_flags} flag(s)",
+        );
+    }
+    let ratchet = ratchet_at_zero(find(name)?.as_ref(), fresh_tools, fresh_flags);
+    println!("\n{}", ratchet.report());
+    Ok(ratchet.holds())
+}

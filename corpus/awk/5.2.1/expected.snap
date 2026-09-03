@@ -234,6 +234,16 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

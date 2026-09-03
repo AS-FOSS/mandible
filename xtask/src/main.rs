@@ -1231,6 +1231,17 @@ fn run_coverage(
             regressed = true;
         }
 
+        // `end-of-options-marker` (`crate::end_of_options_marker`), the
+        // first of the seven vim-family detectors to genuinely reach zero:
+        // fixed by `mandible-extract/src/help_text/grammar.rs`'s
+        // `try_bare_sigil`, atlas S-096. Ratcheted the same way as the
+        // three families above, gated against a literal `0` rather than
+        // the checked-in scoreboard, and requiring the self-checks
+        // (`ratchet_at_zero`'s own evidence) to still hold.
+        if !detector::check_vim_family_ratchet("end-of-options-marker", &previous, &fresh)? {
+            regressed = true;
+        }
+
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }

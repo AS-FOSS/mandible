@@ -1570,18 +1570,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
       +			Start at end of file
       +<lnum>		Start at line <lnum>
 - tools: vim.basic, vim, vi, view, rvim, ex, nvim
-- handling: An option row whose name begins with a plus is not recognized as a row at
-  all, so both rows reach nothing. The whole `Arguments:` block around them
-  parses, and 43 dash-led rows in it come out correct. The two rows are real
-  and documented. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-  Distinct from S-086, which is the plus-or-minus alternation notation.
-  `xtask detector`'s `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`)
-  generalizes this shape fleet-wide.
-- fleet: `plus-prefixed-option` fires on 13 tool(s)
-  (23 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated: no labelled member exists in the audit manifest yet (spec
-  §13.1e rule 2). Zero false alarms against every seed-2/seed-4
-  judged-`correct` tool.
+- handling: Fixed. `mandible-extract/src/help_text/grammar.rs`'s `looks_like_flag_start`
+  now recognizes a bare `+` or `+<placeholder>` leading token
+  (`is_plus_sigil_token`), and `parse_flag_spec`'s `try_bare_sigil` reads the
+  sigil as a spelling, leaving any bracketed placeholder for the ordinary
+  value grammar to attach (`+<lnum>` becomes spelling `+`, value `<lnum>`,
+  matching `Entity::argfile_sigil`'s bare-sigil-plus-value convention).
+  Deliberately narrow: a real letter right after `+` (lsof's `+d`) and a
+  `+` glued directly onto a longer token with no separator (`as`'s real
+  `--gstabs+`) are both left alone. Distinct from S-086, the plus-or-minus
+  alternation notation.
+- fleet: `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`) fell
+  from 13 tool(s)/23 finding(s) to 1 tool/1 finding in a full-PATH sweep,
+  2026-09-03 (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses, 84
+  flags gained across 59 tools fleet-wide (both families combined). The one
+  remaining finding is a different, uncovered convention — a bare-word
+  placeholder with no brackets (`+ TOKEN`) — not this shape. Below the
+  5-tool bar for a further fix; not ratchet-gated (count is not zero).
 
 ### S-096: end-of-options marker row dropped
 
@@ -1589,16 +1594,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       --			Only file names after this
 - tools: vim.basic, nvim
-- handling: A row whose whole name is a bare double dash is deliberately left eligible
-  as a row (S-090 refuses only three dashes or more), and it still fails to
-  reach the tree. The marker is real and the row carries its own description.
-  Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-  `xtask detector`'s `end-of-options-marker`
-  (`xtask/src/end_of_options_marker.rs`) generalizes this shape fleet-wide.
-- fleet: `end-of-options-marker` fires on 26 tool(s)
-  (26 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+- handling: Fixed, same commit as S-095. `parse_flag_spec`'s `try_bare_sigil` reads a
+  bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
+  verbatim). Only a real terminator (nothing left, or whitespace/an alias
+  separator — `cargo fmt`'s synopsis fragment `-- <rustfmt_options>...`)
+  may follow the marker; glued onto more name-shaped text (`objdump`'s
+  `--[section-]headers` optional-bracket-prefix convention) it is left
+  alone, so the marker is never fabricated out of an unrelated long name's
+  own unread tail.
+- fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
+  from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
+  (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
+  zero (`coverage --check`, `xtask/src/main.rs`'s `eom_ratchet` block):
+  gate holds, self-checks conclusive.
 
 ### S-097: glued optional value spec loses everything after the first bracket
 

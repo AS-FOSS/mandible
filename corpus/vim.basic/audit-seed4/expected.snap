@@ -13,6 +13,13 @@ positionals:
     - help-text
 flags:
 - spellings:
+  - --
+  group: 'Arguments:'
+  description: Only file names after this
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - -v
   group: 'Arguments:'
   description: Vi mode (like "vi")
