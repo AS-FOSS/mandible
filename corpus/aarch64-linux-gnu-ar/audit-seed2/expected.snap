@@ -57,6 +57,8 @@ flags:
     - help-text
 - spellings:
   - -M
+  value_name: <mri-script
+  value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis

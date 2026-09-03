@@ -1671,20 +1671,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
          or: vim [arguments] -t tag          edit file where tag is defined
          or: vim [arguments] -q [errorfile]  edit file with first error
-- tools: vim.basic, nvim
-- handling: An alternative synopsis line names a flag and describes it on the same line.
-  The flag reaches the tree from the synopsis with no description, and `-q`
-  arrives with no value placeholder either. The text is present and aligned in
-  a description column. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
-  `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
-  generalizes the value-name half of this shape fleet-wide; it does not
-  claim the missing-description half, a different, still-open concern on
-  the same rows.
-- fleet: `usage-only-value-name` fires on 76 tool(s)
-  (255 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+- tools: vim.basic, nvim, dhcpcd, gettext, rpcinfo, ntfssecaudit, ar
+- handling: Half fixed. `extract_usage_flags` in
+  `mandible-extract/src/help_text/sections/usage.rs` attaches a following
+  single-member bracket group to a bare flag token, so `-q [errorfile]`
+  reaches the tree with the optional value `errorfile`. The group must name
+  something, meaning it carries a letter or a digit, which leaves
+  `lvextend`'s `-L|--size [+]Size[m|UNIT]` alone, and the end-of-options
+  marker never takes a value, which leaves `fsck`'s
+  `-- [fs-options]` alone. The missing-description half of this shape is
+  still open: a synopsis line that describes its own alternative gives the
+  flag no description.
+- fleet: `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
+  fell from 76 tool(s)/255 finding(s) to 66/244 in a full-PATH sweep of
+  2264 tools, 2026-09-03. The same sweep-diff shows zero losses and zero
+  flag gains, with a recovered value name on 19 tools.
 
 ### S-101: repetition dots glued to an operand name
 
