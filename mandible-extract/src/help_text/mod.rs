@@ -76,12 +76,13 @@ pub use grammar::looks_like_bracket_flag_row;
 pub use sections::is_option_list_placeholder;
 
 use crate::errors::ExtractError;
-use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe, MAX_OUTPUT_BYTES};
+use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{Authority, CommandNode, Confession, Provenance, Source, Text};
 use std::collections::HashMap;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -98,17 +99,10 @@ const EXTRACT_TIMEOUT: Duration = Duration::from_secs(10);
 /// and scroll.
 const MAX_UNPARSED_LINES: usize = 4096;
 
-/// Maximum selected-help payload retained solely for ancestor comparison.
-/// One live probe already has this combined stdout/stderr ceiling; keeping
-/// no more than the same amount across the session prevents the auxiliary
-/// history from multiplying that per-probe allowance by the warmer's node
-/// budget. Parsed [`CommandNode`] data is not counted here.
-const MAX_RETAINED_HELP_BYTES: usize = MAX_OUTPUT_BYTES;
-
 /// Maximum number of selected documents — and, independently, resolved
 /// binary histories — held by one tier. Mirrors the background warmer's
 /// 4,096-node safety ceiling without coupling the extractor crate to the
-/// application crate. Bytes usually reach their tighter bound first.
+/// application crate.
 const MAX_RETAINED_HELP_DOCUMENTS: usize = 4096;
 
 /// Tier B: parses `<tool> [<path>...] --help` (falling back to `-h`) via a
@@ -136,13 +130,12 @@ pub struct HelpTextTier {
     selected_text: Mutex<SelectedTextHistory>,
 }
 
-/// All selected-help history owned by one tier. Payload accounting is
+/// All selected-help history owned by one tier. Document accounting is
 /// global so many convention-discovered binaries cannot each claim a full
-/// byte allowance; generations and path maps remain per resolved binary.
+/// document allowance; generations and path maps remain per resolved binary.
 struct SelectedTextHistory {
     by_tool: HashMap<PathBuf, ToolHelpHistory>,
     retained_documents: usize,
-    retained_bytes: usize,
     limits: HelpHistoryLimits,
 }
 
@@ -152,15 +145,34 @@ struct SelectedTextHistory {
 #[derive(Default)]
 struct ToolHelpHistory {
     generation: u64,
-    by_path: HashMap<Vec<String>, Arc<str>>,
-    retained_bytes: usize,
+    by_path: HashMap<Vec<String>, HelpFingerprint>,
+}
+
+/// A selected document's identity for ancestor comparison: a hash of its
+/// bytes plus its length, not the text itself. Two documents match only
+/// when both fields are equal, so the history never has to retain the raw
+/// help text just to compare it later.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct HelpFingerprint {
+    hash: u64,
+    len: usize,
+}
+
+impl HelpFingerprint {
+    fn of(raw: &str) -> Self {
+        let mut hasher = DefaultHasher::new();
+        raw.as_bytes().hash(&mut hasher);
+        Self {
+            hash: hasher.finish(),
+            len: raw.len(),
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
 struct HelpHistoryLimits {
     binaries: usize,
     documents: usize,
-    bytes: usize,
 }
 
 impl Default for SelectedTextHistory {
@@ -168,11 +180,9 @@ impl Default for SelectedTextHistory {
         Self {
             by_tool: HashMap::new(),
             retained_documents: 0,
-            retained_bytes: 0,
             limits: HelpHistoryLimits {
                 binaries: MAX_RETAINED_HELP_DOCUMENTS,
                 documents: MAX_RETAINED_HELP_DOCUMENTS,
-                bytes: MAX_RETAINED_HELP_BYTES,
             },
         }
     }
@@ -182,13 +192,11 @@ impl Default for SelectedTextHistory {
 enum HelpProbeGeneration {
     Tracked(u64),
     Untracked,
-    CapacityExhausted,
 }
 
 enum SelectedTextDecision {
     Continue,
     RepeatedAncestor,
-    CapacityExhausted,
 }
 
 impl Default for HelpTextTier {
@@ -219,27 +227,24 @@ impl HelpTextTier {
         if words.is_empty() {
             if !cache.by_tool.contains_key(tool_path) {
                 if cache.by_tool.len() >= cache.limits.binaries {
-                    return HelpProbeGeneration::CapacityExhausted;
+                    return HelpProbeGeneration::Untracked;
                 }
                 cache
                     .by_tool
                     .insert(tool_path.to_path_buf(), ToolHelpHistory::default());
             }
 
-            let (cleared_documents, cleared_bytes, generation) = {
+            let (cleared_documents, generation) = {
                 let history = cache
                     .by_tool
                     .get_mut(tool_path)
                     .expect("the binary history was found or inserted above");
                 let cleared_documents = history.by_path.len();
-                let cleared_bytes = history.retained_bytes;
                 history.generation = history.generation.wrapping_add(1);
                 history.by_path.clear();
-                history.retained_bytes = 0;
-                (cleared_documents, cleared_bytes, history.generation)
+                (cleared_documents, history.generation)
             };
             cache.retained_documents = cache.retained_documents.saturating_sub(cleared_documents);
-            cache.retained_bytes = cache.retained_bytes.saturating_sub(cleared_bytes);
             HelpProbeGeneration::Tracked(generation)
         } else {
             cache
@@ -251,17 +256,16 @@ impl HelpTextTier {
     }
 
     /// Record one selected document if its probe still belongs to the
-    /// current generation, reporting when it is byte-for-byte identical to
-    /// a strict path ancestor for the same resolved binary.
+    /// current generation, reporting when its fingerprint (spec M-19) is
+    /// equal to a strict path ancestor's for the same resolved binary.
     ///
     /// The full path is deliberately excluded from the comparison: a
     /// repeated probe of one node is not evidence of recursion. Unrelated
     /// and sibling paths are excluded by construction, and a root probe's
     /// generation reset prevents stale descendants from crossing refresh.
-    /// A repeated ancestor is never inserted again. Distinct documents are
-    /// admitted only while both the entry and byte budgets have room; on
-    /// exhaustion the caller degrades the current node to a complete
-    /// verbatim leaf, preserving bounded and deterministic behavior.
+    /// A repeated ancestor is never inserted again. When the document cap
+    /// is already full, nothing is recorded and the node still parses
+    /// normally; a full history never forces verbatim degradation.
     fn record_selected_text(
         &self,
         tool_path: &Path,
@@ -272,9 +276,6 @@ impl HelpTextTier {
         let generation = match generation {
             HelpProbeGeneration::Tracked(generation) => generation,
             HelpProbeGeneration::Untracked => return SelectedTextDecision::Continue,
-            HelpProbeGeneration::CapacityExhausted => {
-                return SelectedTextDecision::CapacityExhausted;
-            }
         };
         let Ok(mut cache) = self.selected_text.lock() else {
             return SelectedTextDecision::Continue;
@@ -289,22 +290,18 @@ impl HelpTextTier {
         // A same-generation re-probe replaces this path. Remove its old
         // value before either matching or admission so a changed result can
         // never remain eligible as stale ancestor text.
-        let removed_bytes = {
+        let removed = {
             let history = cache
                 .by_tool
                 .get_mut(tool_path)
                 .expect("the generation check found this binary history");
-            let removed_bytes = history.by_path.remove(words).map(|document| document.len());
-            if let Some(removed_bytes) = removed_bytes {
-                history.retained_bytes = history.retained_bytes.saturating_sub(removed_bytes);
-            }
-            removed_bytes
+            history.by_path.remove(words)
         };
-        if let Some(removed_bytes) = removed_bytes {
+        if removed.is_some() {
             cache.retained_documents = cache.retained_documents.saturating_sub(1);
-            cache.retained_bytes = cache.retained_bytes.saturating_sub(removed_bytes);
         }
 
+        let fingerprint = HelpFingerprint::of(raw);
         let history = cache
             .by_tool
             .get(tool_path)
@@ -313,26 +310,22 @@ impl HelpTextTier {
             history
                 .by_path
                 .get(&words[..prefix_len])
-                .is_some_and(|ancestor| ancestor.as_ref() == raw)
+                .is_some_and(|ancestor| *ancestor == fingerprint)
         });
         if repeats_ancestor {
             return SelectedTextDecision::RepeatedAncestor;
         }
 
-        if cache.retained_documents >= cache.limits.documents
-            || raw.len() > cache.limits.bytes.saturating_sub(cache.retained_bytes)
-        {
-            return SelectedTextDecision::CapacityExhausted;
+        if cache.retained_documents >= cache.limits.documents {
+            return SelectedTextDecision::Continue;
         }
 
         let history = cache
             .by_tool
             .get_mut(tool_path)
             .expect("the generation check found this binary history");
-        history.by_path.insert(words.to_vec(), Arc::from(raw));
-        history.retained_bytes += raw.len();
+        history.by_path.insert(words.to_vec(), fingerprint);
         cache.retained_documents += 1;
-        cache.retained_bytes += raw.len();
         SelectedTextDecision::Continue
     }
 }
@@ -367,15 +360,14 @@ impl ExtractionTier for HelpTextTier {
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
         // Self-similar fan-out (spec M-19, docs/shapes.md S-079): a node
-        // whose selected help is identical to any strict ancestor for the
-        // same resolved binary and extraction generation degrades to
-        // verbatim with no children. Exact equality is the authority;
-        // neither tool/command names nor unrelated paths participate.
+        // whose selected help fingerprints as identical to any strict
+        // ancestor for the same resolved binary and extraction generation
+        // degrades to verbatim with no children. The history keeps a hash
+        // and a length rather than the text, so an exact-ancestor match is
+        // a hash match; neither tool/command names nor unrelated paths
+        // participate.
         let history_decision = self.record_selected_text(tool_path, &words, generation, &raw);
-        if matches!(
-            history_decision,
-            SelectedTextDecision::RepeatedAncestor | SelectedTextDecision::CapacityExhausted
-        ) {
+        if matches!(history_decision, SelectedTextDecision::RepeatedAncestor) {
             let detected_framework = framework::identify_from_artifact(tool)
                 .or_else(|| framework::identify_from_help_text(&raw))
                 .map(|f| f.name().to_string());
@@ -1771,14 +1763,23 @@ mod tests {
             .lock()
             .expect("the selected-help history lock is healthy");
         assert_eq!(cache.retained_documents, 2);
-        assert_eq!(cache.retained_bytes, root_raw.len() + audit_raw.len());
+        let pnpm_history = &cache
+            .by_tool
+            .get(Path::new("/replayed/pnpm"))
+            .expect("pnpm has one current history")
+            .by_path;
         assert_eq!(
-            cache
-                .by_tool
-                .get(Path::new("/replayed/pnpm"))
-                .expect("pnpm has one current history")
-                .by_path
-                .len(),
+            pnpm_history.get(&Vec::<String>::new()).copied(),
+            Some(HelpFingerprint::of(root_raw)),
+            "the root fingerprint must match a fresh hash of the root text"
+        );
+        assert_eq!(
+            pnpm_history.get(&vec!["audit".to_string()]).copied(),
+            Some(HelpFingerprint::of(audit_raw)),
+            "the audit fingerprint must match a fresh hash of the audit text"
+        );
+        assert_eq!(
+            pnpm_history.len(),
             2,
             "the repeated signatures leaf must not retain a duplicate"
         );
@@ -2071,26 +2072,35 @@ mod tests {
         );
     }
 
-    /// If retaining another distinct document would exceed the bounded
-    /// history payload, extraction fails closed at that node: raw help is
-    /// kept on the node, but no untracked children are allowed to fan out.
+    /// A full document history records nothing more and never degrades a
+    /// node to verbatim: with a cap of one document, the third distinct
+    /// document still parses its own children normally.
     #[test]
-    fn exhausted_help_history_budget_degrades_to_a_complete_verbatim_leaf() {
+    fn a_full_help_history_still_parses_the_next_document() {
         let root_raw = "Usage: widget COMMAND\n\nCommands:\n  child   A real child\n";
         let child_raw =
             "Usage: widget child COMMAND\n\nCommands:\n  nested   A real nested command\n";
+        let nested_raw =
+            "Usage: widget child nested COMMAND\n\nCommands:\n  leaf   A real leaf command\n";
         let transcript = crate::exec::Transcript::new([
             (vec!["--help".to_string()], exec_output(root_raw)),
             (
                 vec!["child".to_string(), "--help".to_string()],
                 exec_output(child_raw),
             ),
+            (
+                vec![
+                    "child".to_string(),
+                    "nested".to_string(),
+                    "--help".to_string(),
+                ],
+                exec_output(nested_raw),
+            ),
         ]);
         let selected_text = SelectedTextHistory {
             limits: HelpHistoryLimits {
                 binaries: 2,
-                documents: 2,
-                bytes: root_raw.len(),
+                documents: 1,
             },
             ..SelectedTextHistory::default()
         };
@@ -2105,27 +2115,35 @@ mod tests {
         };
 
         tier.extract_node(&tool, &["widget".to_string()], ATTESTED)
-            .expect("the root fills the configured byte budget exactly");
-        let child = tier
+            .expect("the root fills the configured document cap exactly");
+        tier.extract_node(
+            &tool,
+            &["widget".to_string(), "child".to_string()],
+            ATTESTED,
+        )
+        .expect("a full history is not an error");
+        let nested = tier
             .extract_node(
                 &tool,
-                &["widget".to_string(), "child".to_string()],
+                &[
+                    "widget".to_string(),
+                    "child".to_string(),
+                    "nested".to_string(),
+                ],
                 ATTESTED,
             )
-            .expect("budget exhaustion is a safe degradation, not an error");
-        assert!(child.children_filled);
-        assert!(child.subcommands.is_empty());
-        assert_eq!(
-            child.unparsed.iter().map(Text::as_str).collect::<Vec<_>>(),
-            child_raw.lines().collect::<Vec<_>>()
+            .expect("a full history is not an error");
+        assert!(
+            !nested.subcommands.is_empty(),
+            "the third document must still parse normally, not degrade to verbatim"
         );
+        assert!(nested.unparsed.is_empty());
 
         let cache = tier
             .selected_text
             .lock()
             .expect("the selected-help history lock is healthy");
         assert_eq!(cache.retained_documents, 1);
-        assert_eq!(cache.retained_bytes, root_raw.len());
     }
 
     /// Re-extracting a binary's root starts a new extraction generation.
