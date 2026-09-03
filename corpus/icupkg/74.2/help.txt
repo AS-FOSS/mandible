@@ -1,0 +1,105 @@
+Usage: icupkg [-h|-?|--help ] [-tl|-tb|-te] [-c] [-C comment]
+	[-a list] [-r list] [-x list] [-l [-o outputListFileName]]
+	[-s path] [-d path] [-w] [-m mode]
+	[--ignore-deps]
+	[--auto_toc_prefix] [--auto_toc_prefix_with_type] [--toc_prefix]
+	infilename [outfilename]
+
+Read the input ICU .dat package file, modify it according to the options,
+swap it to the desired platform properties (charset & endianness),
+and optionally write the resulting ICU .dat package to the output file.
+Items are removed, then added, then extracted and listed.
+An ICU .dat package is written if items are removed or added,
+or if the input and output filenames differ,
+or if the --writepkg (-w) option is set.
+
+If the input filename is "new" then an empty package is created.
+If the output filename is missing, then it is automatically generated
+from the input filename: If the input filename ends with an l, b, or e
+matching its platform properties, then the output filename will
+contain the letter from the -t (--type) option.
+
+This tool can also be used to just swap a single ICU data file, replacing the
+former icuswap tool. For this mode, provide the infilename (and optional
+outfilename) for a non-package ICU data file.
+Allowed options include -t, -w, -s and -d.
+The filenames can be absolute, or relative to the source/dest dir paths.
+Other options are not allowed in this mode.
+
+Options:
+	(Only the last occurrence of an option is used.)
+
+	-h or -? or --help    print this message and exit
+
+	-tl or --type l   output for little-endian/ASCII charset family
+	-tb or --type b   output for big-endian/ASCII charset family
+	-te or --type e   output for big-endian/EBCDIC charset family
+	                  The output type defaults to the input type.
+
+	-c or --copyright include the ICU copyright notice
+	-C comment or --comment comment   include a comment string
+
+	-a list or --add list      add items to the package
+	-r list or --remove list   remove items from the package
+	-x list or --extract list  extract items from the package
+	The list can be a single item's filename,
+	or a .txt filename with a list of item filenames,
+	or an ICU .dat package filename.
+
+	-w or --writepkg  write the output package even if no items are removed
+	                  or added (e.g., for only swapping the data)
+
+	-m mode or --matchmode mode  set the matching mode for item names with
+	                             wildcards
+	        noslash: the '*' wildcard does not match the '/' tree separator
+
+	--ignore-deps     Do not fail if not all resource dependencies are met. Use this
+	                  option if the missing resources come from another source.
+	In the .dat package, the Table of Contents (ToC) contains an entry
+	for each item of the form prefix/tree/itemname .
+	The prefix normally matches the package basename, and icupkg checks that,
+	but this is not necessary when ICU need not find and load the package by filename.
+	ICU package names end with the platform type letter, and thus differ
+	between platform types. This is not required for user data packages.
+
+	--auto_toc_prefix            automatic ToC entries prefix
+	                             Uses the prefix of the first entry of the
+	                             input package, rather than its basename.
+	                             Requires a non-empty input package.
+	--auto_toc_prefix_with_type  auto_toc_prefix + adjust platform type
+	                             Same as auto_toc_prefix but also checks that
+	                             the prefix ends with the input platform
+	                             type letter, and modifies it to the output
+	                             platform type letter.
+	                At most one of the auto_toc_prefix options
+	                can be used at a time.
+	--toc_prefix prefix          ToC prefix to be used in the output package
+	                             Overrides the package basename
+	                             and --auto_toc_prefix.
+	                             Cannot be combined with --auto_toc_prefix_with_type.
+
+	List file syntax: Items are listed on one or more lines and separated
+	by whitespace (space+tab).
+	Comments begin with # and are ignored. Empty lines are ignored.
+	Lines where the first non-whitespace character is one of "%&'()*+,-./:;<=>?_
+	are also ignored, to reserve for future syntax.
+	Items for removal or extraction may contain a single '*' wildcard
+	character. The '*' matches zero or more characters.
+	If --matchmode noslash (-m noslash) is set, then the '*'
+	does not match '/'.
+
+	Items must be listed relative to the package, and the --sourcedir or
+	the --destdir path will be prepended.
+	The paths are only prepended to item filenames while adding or
+	extracting items, not to ICU .dat package or list filenames.
+	
+	Paths may contain '/' instead of the platform's
+	file separator character, and are converted as appropriate.
+
+	-s path or --sourcedir path  directory for the --add items
+	-d path or --destdir path    directory for the --extract items
+
+	-l or --list                 list the package items
+	                             (after modifying the package)
+	                             to stdout or to output list file
+	-o path or --outlist path    path/filename for the --list output

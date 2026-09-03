@@ -1,0 +1,97 @@
+# Four defects, quoted from the maintainer's own reading of this build's
+# screen, each beside the machine classification of what is actually wrong.
+#
+# Maintainer: "'--auto_toc_prefix' into '--auto _toc_prefix'. and similar
+# issues. and since many tools with similar auto prefix, which led to many
+# flags overriding each other."
+# Machine classification (a): the long-option grammar stops at `_`, so
+# `--auto_toc_prefix` and `--auto_toc_prefix_with_type` both become `--auto`
+# with values `_toc_prefix` and `_toc_prefix_with_type`, and the second
+# overwrites the first through the same-spelling merge key
+# (`mandible_core::merge::merge_entities` buckets by `(kind, spelling)`, the
+# same collision `corpus/jinfo/17.0.20/meta.toml`'s fourth defect records).
+# VERIFIED FACT (`cargo run -p xtask -- corpus --show icupkg/74.2`): the
+# extracted tree, which never runs that merge, holds both mangled rows as
+# two separate entities, both spelled `--auto`, one with value_name
+# `_toc_prefix` and one with `_toc_prefix_with_type` — the "overriding" the
+# maintainer saw happens at TUI merge time, one layer past what a fixture
+# replay can see, exactly as jinfo's own note explains.
+#
+# Maintainer: "why was not this mistakenly parsed --auto did not get
+# choices?"
+# Machine classification (b): choices attach only to enumerations, so two
+# mangled flags spelled `--auto` are not read as one flag with two choice
+# values. Fixing the underscore split removes the question, since it removes
+# the collision that raises it.
+#
+# Maintainer: "'-s' and '--sourcedir' should have been synonyms. thats also
+# wrong. similarly '-d'."
+# Machine classification (c): `-s path or --sourcedir path  directory for
+# the --add items` is the or-joined alias shape with a value on both
+# spellings, which the round-3 or-joined fix does not cover. VERIFIED FACT:
+# the extracted tree carries `-s` and `-d` as two lone-spelling entities;
+# `--sourcedir` and `--destdir` do not appear anywhere in the tree.
+#
+# Maintainer: "this tool has confusing combination of description and
+# flags ... can't we handle at least primitive parts? ... should we data
+# mine further and detect all flags in description or that's not the
+# intention?"
+# Machine classification (d): flags come from option-table rows only, and
+# prose is never mined for flag-shaped words. That is deliberate: prose
+# mining is how earlier fabrications happened (`corpus/README.md`'s
+# `mariadb-check`/lsof cautionary notes). Not a defect to fix.
+#
+# Schema gap, honestly stated rather than worked around: the brief for this
+# fixture asked for a `must_keep_separate` entry naming
+# `["--auto_toc_prefix", "--auto_toc_prefix_with_type"]`, to assert the two
+# real flags never fuse. `check_contract`'s `must_keep_separate`
+# (`xtask/src/corpus/contract.rs`'s `resolve_flag_entity`) resolves each
+# spelling in a group to an entity index via a plain `.find()` over the
+# tree's flags by spelling string. Neither `--auto_toc_prefix` nor
+# `--auto_toc_prefix_with_type` occurs as an entity spelling in this tree —
+# both mangled rows are spelled `--auto` instead (see classification (a)
+# above) — so `resolve_flag_entity` returns `None` for both lookups, no
+# entity index is ever collected for either, and the group is reported as
+# zero collapses regardless of the real defect. Writing the entry would
+# assert something the checker cannot mean: not "these two flags stay
+# separate", but a claim that passes vacuously no matter what the tree
+# contains, the same gap `corpus/jinfo/17.0.20/meta.toml` documents for its
+# own `-flag` rows. The entry is dropped rather than written to mean
+# something else.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "icupkg"
+version = "74.2"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); icu-devtools 74.2-1ubuntu3.1"
+
+[[capture]]
+argv = ["icupkg", "--help"]
+stdout = "help.txt"
+
+[contract]
+# `mandible --doctor icupkg` reports framework: unidentified, so Tier A'
+# found no fingerprint and the generic layout engine handled it.
+expected_framework = "generic"
+
+must_contain_flags = ["--auto_toc_prefix", "--auto_toc_prefix_with_type", "--toc_prefix", "--sourcedir", "--destdir", "-s", "-d"]
+must_not_contain_flags = ["--auto"]
+
+[contract.must_value_name]
+"-s" = "path"
+"--sourcedir" = "path"
+"-d" = "path"
+"--destdir" = "path"
+
+[contract.must_describe]
+"-s" = "directory for the --add items"
+"--sourcedir" = "directory for the --add items"
+"-d" = "directory for the --extract items"
+"--destdir" = "directory for the --extract items"
+
+[xfail]
+broken = true
+reason = "the long-option grammar stops at the first underscore, so --auto_toc_prefix and --auto_toc_prefix_with_type both become --auto with distinct value names, and --sourcedir/--destdir are never recognized as synonyms of -s/-d despite the or-joined alias shape documenting them as one option each"
