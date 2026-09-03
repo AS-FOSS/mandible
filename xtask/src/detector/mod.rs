@@ -693,6 +693,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(PositionalDescriptionBlock),
         Box::new(GenericOptionPlaceholderFlag),
         Box::new(DescriptionSubcommandsList),
+        Box::new(RaggedCommandTable),
+        Box::new(WrappedCommandContinuation),
     ]
 }
 

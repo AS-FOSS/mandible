@@ -181,6 +181,19 @@ pub struct Aggregate {
     /// fleet-wide)`, in registration order. **Not gated** — the calibration
     /// precondition (spec §13.1e) has not passed yet for any of the seven.
     pub vim_family: Vec<(&'static str, usize, usize)>,
+    /// Tools with at least one [`crate::ragged_command_table`] finding — a
+    /// run of ragged-indent command-table rows (`unparsed-subcommand`
+    /// shape E, atlas S-104) whose primary name never reaches the tree.
+    pub ragged_command_tools: usize,
+    /// Real commands lost to that shape, fleet-wide — one per finding.
+    pub ragged_command_flags: usize,
+    /// Tools with at least one [`crate::wrapped_command_continuation`]
+    /// finding — a command's description wrapping onto a bare
+    /// continuation line read as a fresh subcommand (atlas S-103).
+    pub wrapped_command_tools: usize,
+    /// Fabricated subcommands from that shape, fleet-wide — one per
+    /// finding.
+    pub wrapped_command_flags: usize,
 }
 
 /// Compute aggregate stats over `rows`.
@@ -256,6 +269,10 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let tail_operand_tools = rows.iter().filter(|r| r.tail_operand_count > 0).count();
     let tail_operand_flags: usize = rows.iter().map(|r| r.tail_operand_count).sum();
     let vim_family = compute_vim_family(rows);
+    let ragged_command_tools = rows.iter().filter(|r| r.ragged_command_count > 0).count();
+    let ragged_command_flags: usize = rows.iter().map(|r| r.ragged_command_count).sum();
+    let wrapped_command_tools = rows.iter().filter(|r| r.wrapped_command_count > 0).count();
+    let wrapped_command_flags: usize = rows.iter().map(|r| r.wrapped_command_count).sum();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -296,6 +313,10 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
         tail_operand_tools,
         tail_operand_flags,
         vim_family,
+        ragged_command_tools,
+        ragged_command_flags,
+        wrapped_command_tools,
+        wrapped_command_flags,
     }
 }
 
@@ -358,7 +379,7 @@ pub(super) fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} ragged_command_tools={} ragged_command_flags={} wrapped_command_tools={} wrapped_command_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -383,6 +404,10 @@ pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.tail_operand_tools,
         aggregate.tail_operand_flags,
         encode_vim_family(&aggregate.vim_family),
+        aggregate.ragged_command_tools,
+        aggregate.ragged_command_flags,
+        aggregate.wrapped_command_tools,
+        aggregate.wrapped_command_flags,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -539,6 +564,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // written before the seven vim-family detectors existed carries no such
     // key.
     let mut vim_family: Vec<(&'static str, usize, usize)> = Vec::new();
+    let mut ragged_command_tools = 0usize;
+    let mut ragged_command_flags = 0usize;
+    let mut wrapped_command_tools = 0usize;
+    let mut wrapped_command_flags = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -581,6 +610,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "tail_operand_tools" => tail_operand_tools = value.parse::<usize>().ok()?,
             "tail_operand_flags" => tail_operand_flags = value.parse::<usize>().ok()?,
             "vim_family" => vim_family = decode_vim_family(value),
+            "ragged_command_tools" => ragged_command_tools = value.parse::<usize>().ok()?,
+            "ragged_command_flags" => ragged_command_flags = value.parse::<usize>().ok()?,
+            "wrapped_command_tools" => wrapped_command_tools = value.parse::<usize>().ok()?,
+            "wrapped_command_flags" => wrapped_command_flags = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -619,6 +652,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         tail_operand_tools,
         tail_operand_flags,
         vim_family,
+        ragged_command_tools,
+        ragged_command_flags,
+        wrapped_command_tools,
+        wrapped_command_flags,
     })
 }
 

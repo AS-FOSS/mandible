@@ -24,6 +24,7 @@ mod or_joined_alias;
 mod parenthetical_qualifier_as_value;
 mod plus_prefixed_option;
 mod queue;
+mod ragged_command_table;
 mod repeated_char;
 mod residue;
 mod rng;
@@ -34,6 +35,7 @@ mod status;
 mod tail_operand;
 mod transition;
 mod usage_only_value_name;
+mod wrapped_command_continuation;
 mod wrapped_prose;
 
 use clap::{Parser, Subcommand};
@@ -1264,6 +1266,54 @@ fn run_coverage(
 
         regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
+
+        // pnpm's two families (atlas S-103, S-104), fixed in
+        // `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted
+        // at zero the same way as `single-dash-long` above: the fix moves
+        // two tools fleet-wide, below the five-tool bar in AGENTS.md §3.1,
+        // recorded as a maintainer exception in `docs/design.md` §16.
+        if fresh.ragged_command_tools != previous.ragged_command_tools
+            || fresh.ragged_command_flags != previous.ragged_command_flags
+        {
+            println!(
+                "ragged-command-table findings changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
+                previous.ragged_command_tools,
+                previous.ragged_command_flags,
+                fresh.ragged_command_tools,
+                fresh.ragged_command_flags,
+            );
+        }
+        let ragged_command_ratchet = detector::ratchet_at_zero(
+            detector::find("ragged-command-table")?.as_ref(),
+            fresh.ragged_command_tools,
+            fresh.ragged_command_flags,
+        );
+        println!("\n{}", ragged_command_ratchet.report());
+        if !ragged_command_ratchet.holds() {
+            regressed = true;
+        }
+
+        if fresh.wrapped_command_tools != previous.wrapped_command_tools
+            || fresh.wrapped_command_flags != previous.wrapped_command_flags
+        {
+            println!(
+                "wrapped-command-continuation-as-subcommand findings changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
+                previous.wrapped_command_tools,
+                previous.wrapped_command_flags,
+                fresh.wrapped_command_tools,
+                fresh.wrapped_command_flags,
+            );
+        }
+        let wrapped_command_ratchet = detector::ratchet_at_zero(
+            detector::find("wrapped-command-continuation-as-subcommand")?.as_ref(),
+            fresh.wrapped_command_tools,
+            fresh.wrapped_command_flags,
+        );
+        println!("\n{}", wrapped_command_ratchet.report());
+        if !wrapped_command_ratchet.holds() {
+            regressed = true;
+        }
+
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }
