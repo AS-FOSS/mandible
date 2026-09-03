@@ -1242,6 +1242,18 @@ fn run_coverage(
             regressed = true;
         }
 
+        // `parenthetical-qualifier-as-value`
+        // (`crate::parenthetical_qualifier_as_value`), repaired by
+        // `emit.rs`'s `repair_parenthetical_value`, atlas S-098. Gated at
+        // a literal zero the same way as the marker above.
+        if !detector::check_vim_family_ratchet(
+            "parenthetical-qualifier-as-value",
+            &previous,
+            &fresh,
+        )? {
+            regressed = true;
+        }
+
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }

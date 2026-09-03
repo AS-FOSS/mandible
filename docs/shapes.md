@@ -1630,19 +1630,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -r			List swap files and exit
       -r (with file name)	Recover crashed session
-- tools: vim.basic
-- handling: A tool documents one spelling twice and qualifies the second row in
-  parentheses. The qualifier is read as a value placeholder and cut at the
-  first space, so the flag carries the value `(with` and the words `file
-  name)` are rendered nowhere. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
-  `parenthetical-qualifier-as-value`
-  (`xtask/src/parenthetical_qualifier_as_value.rs`) generalizes this shape
-  fleet-wide.
-- fleet: `parenthetical-qualifier-as-value` fires on 9 tool(s)
-  (9 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+- tools: vim.basic, aa-status, dpkg-buildflags, grub-mkimage, javadoc, rsync
+- handling: Fixed. `mandible-extract/src/help_text/sections/emit.rs`'s
+  `repair_parenthetical_value` fires only on the defect's own signature, a
+  value name that starts with `(`. A one-word parenthetical is a value
+  placeholder and keeps naming the value without its parens
+  (`dpkg-buildflags --export (sh|make|cmdline|configure)`). A parenthetical
+  opening with the connector `with` names its value in the words after it
+  (`-r (with file name)` gives `file name`). Any other phrase is prose, so
+  the value is dropped and the whole `(...)` text moves to the front of the
+  description rather than being cut at the first space.
+- fleet: `parenthetical-qualifier-as-value`
+  (`xtask/src/parenthetical_qualifier_as_value.rs`) fell from 9 tool(s)/9
+  finding(s) to 0/0 in a full-PATH sweep of 2264 tools, 2026-09-03.
+  Ratchet-gated at zero by `coverage --check`. The same sweep-diff shows
+  zero losses and zero flag gains, with a repaired value name on 17 tools.
 
 ### S-099: alias pair joined by the word "or"
 
