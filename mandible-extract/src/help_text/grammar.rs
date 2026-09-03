@@ -540,36 +540,16 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
     ))
 }
 
-/// A bare `+` sigil (vim.basic's `+`, `+<lnum>`; nvim's `+`, `+<cmd>`), or
-/// the bare end-of-options marker `--`. Neither has a real name character
-/// right after its own sigil for [`try_short`]/[`try_long`] to read —
-/// `+`'s existing branch always required one, and `--` alone fails
-/// [`try_long`]'s `long_name` (1+ chars). This matches the sigil alone
-/// and leaves everything after it — a comma-joined alias, an angled
-/// placeholder — for the rest of this grammar to read exactly as
-/// [`try_short`] leaves `-V`'s `[N][fname]` tail. Deliberately narrow: a
-/// `+` followed immediately by a real letter (lsof's `+d`) is a
-/// different, already-unclaimed shape and must not be read as this one.
-/// See docs/shapes.md S-095, S-096.
+/// The bare end-of-options marker `--` (atlas S-096): matches the marker
+/// alone, leaving whatever follows (an alias, `cargo fmt`'s synopsis
+/// `-- <rustfmt_options>...`) for the rest of this grammar. Glued onto
+/// more name-shaped text (`objdump`'s `--[section-]headers`) it is left
+/// alone, never fabricated into a second alias — `try_long` cannot read
+/// either shape. No `+` arm: a bare `+` line has no signal telling an
+/// option row apart from prose, and fabricated flags on `git-lfs`/`date`
+/// in an earlier version of this function, caught in review, before it
+/// was narrowed to `--` only.
 fn try_bare_sigil(input: &str) -> Option<(Spelling, &str)> {
-    // `--` glued straight onto more name-shaped text is always some
-    // other, unhandled long-option convention — `objdump`'s
-    // `--[section-]headers` optional-bracket-prefix name, whose real
-    // long name `try_long` cannot read — never a second alias. Only a
-    // real terminator (nothing left, or whitespace/an alias separator,
-    // `cargo fmt`'s synopsis fragment `-- <rustfmt_options>...`) may
-    // follow the bare marker. See docs/shapes.md S-096.
-    //
-    // Deliberately `--` only, not `+`: a bare `+` line has no reliable
-    // structural signal that it sits in an option table rather than
-    // ordinary prose — `git-lfs --help`'s AsciiDoc list-continuation
-    // marker (a lone `+` between numbered steps) and `date --help`'s
-    // `%`-conversion-modifier table (`+  pad with zeros, and put '+'
-    // before future years...`) both matched the row shape and were
-    // fabricated into flags in an earlier version of this function,
-    // caught in review before landing. `+`/`+<placeholder>` stays an
-    // open, uncovered defect (atlas S-095) rather than risk a repeat
-    // of that fabrication fleet-wide.
     let rest = input.strip_prefix("--")?;
     if rest.is_empty() || rest.starts_with([' ', '\t', ',', '|']) {
         return Some((Spelling::bare("--"), rest));

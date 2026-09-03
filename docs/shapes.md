@@ -1570,23 +1570,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
       +			Start at end of file
       +<lnum>		Start at line <lnum>
 - tools: vim.basic, vim, vi, view, rvim, ex, nvim
-- handling: Fixed. `mandible-extract/src/help_text/grammar.rs`'s `looks_like_flag_start`
-  now recognizes a bare `+` or `+<placeholder>` leading token
-  (`is_plus_sigil_token`), and `parse_flag_spec`'s `try_bare_sigil` reads the
-  sigil as a spelling, leaving any bracketed placeholder for the ordinary
-  value grammar to attach (`+<lnum>` becomes spelling `+`, value `<lnum>`,
-  matching `Entity::argfile_sigil`'s bare-sigil-plus-value convention).
-  Deliberately narrow: a real letter right after `+` (lsof's `+d`) and a
-  `+` glued directly onto a longer token with no separator (`as`'s real
-  `--gstabs+`) are both left alone. Distinct from S-086, the plus-or-minus
-  alternation notation.
-- fleet: `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`) fell
-  from 13 tool(s)/23 finding(s) to 1 tool/1 finding in a full-PATH sweep,
-  2026-09-03 (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses, 84
-  flags gained across 59 tools fleet-wide (both families combined). The one
-  remaining finding is a different, uncovered convention — a bare-word
-  placeholder with no brackets (`+ TOKEN`) — not this shape. Below the
-  5-tool bar for a further fix; not ratchet-gated (count is not zero).
+- handling: Refused. A parser fix was written and reverted before it landed: reading a
+  bare `+` line as an option row fabricated a flag on `git-lfs`, whose
+  AsciiDoc list-continuation marker is a lone `+` between numbered steps in
+  prose, and on `date`, whose `%`-conversion-modifier table has a row
+  `+  pad with zeros`. A bare `+` line carries no signal separating an
+  option row from either. The detector was narrowed instead
+  (`has_flag_shaped_neighbor`), so a candidate is counted only beside a
+  flag-shaped row; both false positives are `Silent` self-checks built from
+  their own bytes. Distinct from S-086, the plus-or-minus alternation.
+- fleet: `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`) fires
+  on 10 tool(s)/20 finding(s) in a full-PATH sweep of 2264 tools,
+  2026-09-03, down from 13/23 before the neighbor gate. Calibrated and
+  passing against seed 4. Clears the five-tool bar and stays unfixed, so
+  the shape is a live defect with no repair.
 
 ### S-096: end-of-options marker row dropped
 
@@ -1594,7 +1591,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       --			Only file names after this
 - tools: vim.basic, nvim
-- handling: Fixed, same commit as S-095. `parse_flag_spec`'s `try_bare_sigil` reads a
+- handling: Fixed. `parse_flag_spec`'s `try_bare_sigil` reads a
   bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
   verbatim). Only a real terminator (nothing left, or whitespace/an alias
   separator — `cargo fmt`'s synopsis fragment `-- <rustfmt_options>...`)
