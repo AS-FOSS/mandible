@@ -2675,6 +2675,11 @@ residual is that each degraded node keeps its own copy of that text instead of
 sharing one, which is a memory cost rather than a correctness one, and does not
 justify a special case either.
 
+**Error codes are not an entity kind (2026-09-03).** Asked "within 'nice' I
+noticed another IR type candidates which is error codes. should we even bother
+with that?", the maintainer decided error codes stay in section text and never
+become their own entity kind.
+
 **Enrichment by authority merge is off by default (2026-08-11).** Shown a
 mockup of `git restore` with man prose merged into its 16 already-parsed
 flags, the maintainer judged it "nice to have, but kind of defeats the
