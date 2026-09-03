@@ -1,0 +1,114 @@
+name: llvm-size
+description: 'OVERVIEW: LLVM object size dumper'
+usage:
+- 'USAGE: /usr/bin/llvm-size-18 [options] <input object files>'
+flags:
+- spellings:
+  - -A
+  description: Alias for --format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  description: Alias for --format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --common
+  description: Print common symbols in the ELF file. When using Berkeley format, this is added to bss
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: Alias for --radix=10
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --format
+  value_name: <value>
+  value_kind: Required
+  description: Specify output format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: Display this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  description: Alias for --help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: Alias for --format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  description: Alias for --radix=8
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --radix
+  value_name: <value>
+  value_kind: Required
+  description: Print size in radix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --totals
+  description: Print totals of all objects - Berkeley format only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  description: Alias for --totals
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Display the version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  description: Alias for --radix=16
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --arch
+  value_name: <value>
+  value_kind: Required
+  group: 'OPTIONS (Mach-O specific):'
+  description: architecture(s) from a Mach-O file to dump
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  group: 'OPTIONS (Mach-O specific):'
+  description: When format is darwin, use long format to include addresses and offsets
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

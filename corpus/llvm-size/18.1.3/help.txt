@@ -1,0 +1,25 @@
+OVERVIEW: LLVM object size dumper
+
+USAGE: /usr/bin/llvm-size-18 [options] <input object files>
+
+OPTIONS:
+  -A               Alias for --format
+  -B               Alias for --format
+  --common         Print common symbols in the ELF file. When using Berkeley format, this is added to bss
+  -d               Alias for --radix=10
+  --format=<value> Specify output format
+  --help           Display this help
+  -h               Alias for --help
+  -m               Alias for --format
+  -o               Alias for --radix=8
+  --radix=<value>  Print size in radix
+  --totals         Print totals of all objects - Berkeley format only
+  -t               Alias for --totals
+  --version        Display the version
+  -x               Alias for --radix=16
+
+OPTIONS (Mach-O specific):
+  --arch=<value> architecture(s) from a Mach-O file to dump
+  -l             When format is darwin, use long format to include addresses and offsets
+
+Pass @FILE as argument to read options from FILE.

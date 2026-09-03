@@ -1,0 +1,19 @@
+# From issue 102 item 1. `-A`/`-X` are two independent legacy shims for a
+# third flag, both described "alias of -a", and `-o`/`-x` both "does
+# nothing". Neither pair is an alias of the other.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sysctl"
+version = "4.0.4"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["sysctl", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_keep_separate = [["-A", "-X"], ["-o", "-x"]]

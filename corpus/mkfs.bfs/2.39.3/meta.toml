@@ -1,0 +1,18 @@
+# From issue 102 item 1. `-c` and `-l` are adjacent rows both described
+# "this option is silently ignored".
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "mkfs.bfs"
+version = "2.39.3"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["mkfs.bfs", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_keep_separate = [["-c", "-l"]]

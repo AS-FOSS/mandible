@@ -1,0 +1,21 @@
+# From issue 102 item 2. The backup-control block's enclosing sentence
+# literally names `--backup`, which is the case #99 already proves, so this
+# fixture is the control for automake's unproven morphological variant.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cp"
+version = "9.4"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["cp", "--help"]
+stdout = "help.txt"
+
+[contract]
+
+[contract.must_attach_choices]
+"--backup" = ["none", "numbered", "existing", "simple"]

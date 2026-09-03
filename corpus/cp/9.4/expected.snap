@@ -1,0 +1,289 @@
+name: cp
+description: Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.
+usage:
+- 'Usage: /usr/bin/cp [OPTION]... [-T] SOURCE DEST'
+- '  or:  /usr/bin/cp [OPTION]... SOURCE... DIRECTORY'
+- '  or:  /usr/bin/cp [OPTION]... -t DIRECTORY SOURCE...'
+positionals:
+- name: SOURCE
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: DEST
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: DIRECTORY
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -a
+  - --archive
+  description: same as -dR --preserve=all
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --attributes-only
+  description: don't copy the file data, just the attributes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --backup
+  value_name: CONTROL
+  value_kind: Optional
+  choices:
+  - name: none
+    description: never make backups (even if --backup is given)
+  - name: off
+    description: never make backups (even if --backup is given)
+  - name: numbered
+    description: make numbered backups
+  - name: t
+    description: make numbered backups
+  - name: existing
+    description: numbered if numbered backups exist, simple otherwise
+  - name: nil
+    description: numbered if numbered backups exist, simple otherwise
+  - name: simple
+    description: always make simple backups
+  - name: never
+    description: always make simple backups
+  description: make a backup of each existing destination file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  description: like --backup but does not accept an argument
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --copy-contents
+  description: copy contents of special files when recursive
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: same as --no-dereference --preserve=links
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debug
+  description: explain how a file is copied. Implies -v
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force
+  description: if an existing destination file cannot be opened, remove it and try again (this option is ignored when the -n option is also used)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --interactive
+  description: prompt before overwrite (overrides a previous -n option)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  description: follow command-line symbolic links in SOURCE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --link
+  description: hard link files instead of copying
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --dereference
+  description: always follow symbolic links in SOURCE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-clobber
+  description: do not overwrite an existing file and do not fail (overrides a -u or previous -i option). See also --update; equivalent to --update=none.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --no-dereference
+  description: never follow symbolic links in SOURCE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  description: same as --preserve=mode,ownership,timestamps
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --preserve
+  value_name: ATTR_LIST
+  value_kind: Optional
+  description: preserve the specified attributes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-preserve
+  value_name: ATTR_LIST
+  value_kind: Required
+  description: don't preserve the specified attributes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --parents
+  description: use full source file name under DIRECTORY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - -r
+  - --recursive
+  description: copy directories recursively
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reflink
+  value_name: WHEN
+  value_kind: Optional
+  description: control clone/CoW copies. See below
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --remove-destination
+  description: remove each existing destination file before attempting to open it (contrast with --force)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sparse
+  value_name: WHEN
+  value_kind: Required
+  description: control creation of sparse files. See below
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-trailing-slashes
+  description: remove any trailing slashes from each SOURCE argument
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --symbolic-link
+  description: make symbolic links instead of copying
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --suffix
+  value_name: SUFFIX
+  value_kind: Required
+  description: override the usual backup suffix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --target-directory
+  value_name: DIRECTORY
+  value_kind: Required
+  description: copy all SOURCE arguments into DIRECTORY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --no-target-directory
+  description: treat DEST as a normal file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --update
+  value_name: UPDATE
+  value_kind: Optional
+  description: control which existing files are updated; UPDATE={all,none,older(default)}. See below
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  description: equivalent to --update[=older]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: explain what is being done
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --one-file-system
+  description: stay on this file system
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  description: set SELinux security context of destination file to default type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --context
+  value_name: CTX
+  value_kind: Optional
+  description: like -Z, or if CTX is specified then set the SELinux or SMACK security context to CTX
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

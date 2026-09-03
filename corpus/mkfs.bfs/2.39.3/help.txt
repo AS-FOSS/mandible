@@ -1,0 +1,16 @@
+Usage: mkfs.bfs [options] device [block-count]
+
+Make an SCO bfs filesystem.
+
+Options:
+ -N, --inodes=NUM    specify desired number of inodes
+ -V, --vname=NAME    specify volume name
+ -F, --fname=NAME    specify file system name
+ -v, --verbose       explain what is being done
+ -c                  this option is silently ignored
+ -l                  this option is silently ignored
+ --lock[=<mode>]     use exclusive device lock (yes, no or nonblock)
+ -h, --help          display this help
+ -V, --version       display version
+
+For more details see mkfs.bfs(8).

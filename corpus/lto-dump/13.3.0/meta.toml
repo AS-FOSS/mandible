@@ -1,0 +1,22 @@
+# From issue 102 item 1. `-C` and `-CC` are adjacent rows both described
+# "[disabled]", a description repeated 505 times in this one document.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lto-dump"
+version = "13.3.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["lto-dump", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_keep_separate = [["-C", "-CC"]]
+
+[xfail]
+broken = true
+reason = "-C and -CC collapse onto one entity. Unlike the other issue 102 item 1 tools, this pair is not fused by description equality: -CC is single-dash-long shaped, so the single-dash-long repair reads -CC as a longer spelling of -C. A fix needs that repair to refuse a candidate whose own row exists separately in the same option table."

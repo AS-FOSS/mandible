@@ -1,0 +1,29 @@
+# From issue 102 item 3 (list rows naming independent options). One row
+# carries ten independent long options separated by commas, and the row's
+# own grammar reads as an alias list. The same document's
+# `-Bstatic, -dn, -non_shared, -static` row IS a genuine alias run, so a
+# fix must separate the first without splitting the second.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ld"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["ld", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_keep_separate = [
+    ["--warn-constructors", "--error-execstack"],
+    ["--warn-execstack", "--no-warn-execstack"],
+    ["--error-rwx-segments", "--warn-rwx-segments"],
+]
+
+[xfail]
+broken = true
+reason = "a row of ten independent long options separated by commas reads as one multi-spelling entity, because the row's own grammar says alias list while the tool means 'any of these'. No shape-level evidence distinguishes it from a genuine alias row such as this same document's -Bstatic, -dn, -non_shared, -static. A fix needs evidence outside the row."

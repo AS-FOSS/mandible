@@ -1,0 +1,44 @@
+name: zgrep
+description: Look for instances of PATTERN in the input FILEs, using their uncompressed contents if they are compressed.
+usage:
+- 'Usage: /usr/bin/zgrep [OPTION]... [-e] PATTERN [FILE]...'
+positionals:
+- name: PATTERN
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --exclude
+  - --exclude-from
+  - --exclude-dir
+  - --include
+  - --null
+  value_name: (-Z),
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --null-data
+  value_name: (-z),
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
