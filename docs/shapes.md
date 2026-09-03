@@ -1754,3 +1754,100 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `ip`'s packed alternation synopsis (a judged defect of a different
   family, not a blocking false alarm, but a real detector bug) and was
   narrowed before this count.
+
+### S-106: long option name split at an underscore
+
+- id: S-106
+- looks like: |
+      --auto_toc_prefix            automatic ToC entries prefix
+      -e, --extended_fields
+- tools: icupkg, sg_luns, compactsnoop-bpfcc
+- handling: Open defect. The raw text documents one long spelling containing `_`, and the
+  grammar reads the prefix before the underscore as the flag name and the rest
+  as a value: `--auto_toc_prefix` becomes `--auto` valued `_toc_prefix`,
+  `--extended_fields` becomes `--extended` valued `_fields`. `xtask
+  detector`'s `underscore-in-long-option`
+  (`xtask/src/detector/underscore_in_long_option.rs`) generalizes this shape
+  fleet-wide.
+- fleet: 38 tools, 58 findings, 2026-09-04
+
+### S-107: usage continuation's own "or:" marker left in the form
+
+- id: S-107
+- looks like: |
+      Usage: vim [arguments] [file ..]       edit specified file(s)
+         or: vim [arguments] -               read text from stdin
+- tools: vim.basic, nvim, cp, du
+- handling: Open defect. A tool lines up alternative usage forms behind a repeated `or:`
+  marker instead of `Usage:`. The marker is never stripped, so it reaches
+  `CommandNode::usage` as if it were part of the synopsis. `xtask
+  detector`'s `usage-alternative-or-prefix`
+  (`xtask/src/detector/usage_alternative_or_prefix.rs`) generalizes this shape
+  fleet-wide.
+- fleet: 55 tools, 94 findings, 2026-09-04
+
+### S-108: usage form's leading word spells the tool differently
+
+- id: S-108
+- looks like: |
+      Usage: /usr/bin/cp [OPTION]... [-T] SOURCE DEST
+      Usage: vim [arguments] [file ..]       edit specified file(s)
+- tools: cp, vim.basic
+- handling: Open defect. A usage form's own leading word is the tool under a different
+  spelling — the resolved absolute path (`/usr/bin/cp` against node `cp`) or
+  the dotted stem (`vim` against node `vim.basic`) — so the renderer's own
+  leading-run name check misses it and prefixes the node name in front of
+  the form. `xtask detector`'s `usage-program-word-mismatch`
+  (`xtask/src/detector/usage_program_word_mismatch.rs`) generalizes this shape
+  fleet-wide, reimplementing the renderer's own leading-run rule rather
+  than importing it.
+- fleet: 447 tools, 526 findings, 2026-09-04
+
+### S-109: usage line ends in a run of several operands
+
+- id: S-109
+- looks like: |
+      Usage: /usr/bin/ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV]
+             [--plugin <name>] [member-name] [count] archive-file file...
+- tools: ar
+- handling: Open defect. The usage line's own trailing run of two or more operands,
+  bracketed or bare, documents more operands than the tree's positional
+  list carries. Distinct from `unparsed-tail-operand`, which covers a
+  single trailing operand only. `xtask detector`'s
+  `multi-operand-usage-tail` (`xtask/src/detector/multi_operand_usage_tail.rs`)
+  generalizes this shape fleet-wide.
+- fleet: 50 tools, 126 findings, 2026-09-04
+
+### S-110: "or"-joined alias where both spellings carry a value
+
+- id: S-110
+- looks like: |
+      -s path or --sourcedir path  directory for the --add items
+      -c or --copyright include the ICU copyright notice
+- tools: icupkg
+- handling: Open defect. `or-joined-alias` (S-099) handles the value-free form only: its
+  own row parser requires the bare word `or` as the second token, which a
+  value word between the short flag and `or` shifts past. `-s`'s row keeps
+  the short spelling with its own value and drops `--sourcedir` entirely;
+  `-c`'s row (no value on either side) instead corrupts the short
+  spelling's own value to the literal word `or`. `xtask detector`'s
+  `or-joined-alias-with-values`
+  (`xtask/src/detector/or_joined_alias_with_values.rs`) generalizes this shape
+  fleet-wide.
+- fleet: 5 tools, 13 findings, 2026-09-04
+
+### S-111: glued optional groups reformatted, not kept as the source spelling
+
+- id: S-111
+- looks like: |
+      -V[N][fname]		Be verbose [level N] [log messages to fname]
+      -V[N][file]           Verbose [level][file]
+- tools: vim.basic, nvim
+- handling: Open defect. A flag's value spec is two or more glued optional groups,
+  `[N][fname]`. `second-optional-value-dropped` (S-097) recovers both
+  values, but folds them into one space-joined name, `N fname`, rather
+  than keeping the source's own bracket spelling. `xtask detector`'s
+  `glued-optional-group-spelling`
+  (`xtask/src/detector/glued_optional_group_spelling.rs`) generalizes this shape
+  fleet-wide.
+- fleet: 10 tools, 10 findings, 2026-09-04

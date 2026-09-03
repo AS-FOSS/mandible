@@ -578,6 +578,42 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   description begins with the literal word `or`, so the second spelling never \
                   becomes an alias",
     },
+    // Six round-4 detectors, added after the seven above. Atlas ids S-106
+    // through S-111.
+    DefectFamily {
+        name: "underscore-in-long-option",
+        meaning: "a long option whose name contains `_` (`--auto_toc_prefix`) is read as the \
+                  prefix before the underscore plus the rest as a value name, so the full name \
+                  documented in the raw text never becomes a real long spelling",
+    },
+    DefectFamily {
+        name: "usage-alternative-or-prefix",
+        meaning: "a usage continuation line's own `or:`/`or ` marker reaches the tree still \
+                  inside the usage form, rendered as if it were part of the synopsis",
+    },
+    DefectFamily {
+        name: "usage-program-word-mismatch",
+        meaning: "a usage form's own leading program word is the tool under a different \
+                  spelling (a path or a dotted stem), so the renderer's name check misses it \
+                  and prefixes the node name in front of the form",
+    },
+    DefectFamily {
+        name: "multi-operand-usage-tail",
+        meaning: "a usage line ends in a run of two or more operands, bracketed or bare, and \
+                  the tree's positional list carries fewer of them than the line documents",
+    },
+    DefectFamily {
+        name: "or-joined-alias-with-values",
+        meaning: "an `or`-joined alias row where both spellings document a value keeps only \
+                  the short spelling, either dropping the long spelling entirely or corrupting \
+                  the short spelling's own value to the literal word `or`",
+    },
+    DefectFamily {
+        name: "glued-optional-group-spelling",
+        meaning: "a flag's value spec is two or more glued optional groups (`-V[N][fname]`) \
+                  reaching the tree folded into one space-joined name instead of the source's \
+                  own bracket spelling",
+    },
     // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. This is the vaguest label
     // in the manifest — its own `meaning` below is a list of five unrelated
     // layouts, which is the tell — and reading the six labelled tools'

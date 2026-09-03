@@ -206,3 +206,184 @@ impl Detector for OrJoinedAlias {
         crate::or_joined_alias::self_checks()
     }
 }
+
+// Six round-4 detectors, added after the seven above. Atlas ids S-106
+// through S-111, in the order the shapes were reviewed:
+// underscore-in-long-option, usage-alternative-or-prefix,
+// usage-program-word-mismatch, multi-operand-usage-tail,
+// or-joined-alias-with-values, glued-optional-group-spelling.
+
+pub(crate) struct UnderscoreInLongOption;
+
+impl Detector for UnderscoreInLongOption {
+    fn name(&self) -> &'static str {
+        "underscore-in-long-option"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("underscore-in-long-option")
+    }
+    fn describes(&self) -> &'static str {
+        "the raw text documents a `--name_with_underscore` long option token, and no entity \
+         anywhere carries that full long name"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::underscore_in_long_option::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} never became a long spelling, from the line {:?}",
+                    f.token, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::underscore_in_long_option::self_checks()
+    }
+}
+
+pub(crate) struct UsageAlternativeOrPrefix;
+
+impl Detector for UsageAlternativeOrPrefix {
+    fn name(&self) -> &'static str {
+        "usage-alternative-or-prefix"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("usage-alternative-or-prefix")
+    }
+    fn describes(&self) -> &'static str {
+        "a usage form in the tree begins with the continuation marker `or:`/`or ` still inside \
+         it, instead of being stripped before the form reached the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::usage_alternative_or_prefix::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("usage form still carries its `or` marker: {:?}", f.line))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::usage_alternative_or_prefix::self_checks()
+    }
+}
+
+pub(crate) struct UsageProgramWordMismatch;
+
+impl Detector for UsageProgramWordMismatch {
+    fn name(&self) -> &'static str {
+        "usage-program-word-mismatch"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("usage-program-word-mismatch")
+    }
+    fn describes(&self) -> &'static str {
+        "a usage form's leading bare-word run names the tool under a different spelling (a path \
+         or a dotted stem) with no word equal to the node's own name"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::usage_program_word_mismatch::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} never matched the node's own name, from the form {:?}",
+                    f.token, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::usage_program_word_mismatch::self_checks()
+    }
+}
+
+pub(crate) struct MultiOperandUsageTail;
+
+impl Detector for MultiOperandUsageTail {
+    fn name(&self) -> &'static str {
+        "multi-operand-usage-tail"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("multi-operand-usage-tail")
+    }
+    fn describes(&self) -> &'static str {
+        "the usage line's own trailing run of two or more operands, bracketed or bare, names \
+         more operands than the tree's positional list carries"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::multi_operand_usage_tail::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} never became a positional, from the usage line {:?}",
+                    f.operand, f.usage_line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::multi_operand_usage_tail::self_checks()
+    }
+}
+
+pub(crate) struct OrJoinedAliasWithValues;
+
+impl Detector for OrJoinedAliasWithValues {
+    fn name(&self) -> &'static str {
+        "or-joined-alias-with-values"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("or-joined-alias-with-values")
+    }
+    fn describes(&self) -> &'static str {
+        "an `or`-joined alias row where both spellings document a value: the long spelling is \
+         missing from the tree, or the short spelling's value name is the fabricated literal `or`"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::or_joined_alias_with_values::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} beside {:?} never became one entity, from the line {:?}",
+                    f.short, f.long, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::or_joined_alias_with_values::self_checks()
+    }
+}
+
+pub(crate) struct GluedOptionalGroupSpelling;
+
+impl Detector for GluedOptionalGroupSpelling {
+    fn name(&self) -> &'static str {
+        "glued-optional-group-spelling"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("glued-optional-group-spelling")
+    }
+    fn describes(&self) -> &'static str {
+        "a flag documented as two or more glued optional groups (`-X[A][B]`) reaches the tree \
+         with a value name that is not the source's own bracket spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::glued_optional_group_spelling::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} carries {:?} instead of the source spelling {:?}, from the line {:?}",
+                    f.flag, f.value_name, f.source_spelling, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::glued_optional_group_spelling::self_checks()
+    }
+}
