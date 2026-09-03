@@ -1282,26 +1282,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
       no verbatim excerpt in source
 - tools: systemctl, llvm-ar, pnpm
 - handling: Some tools permute --help to the front of their own argument processing
-  regardless of what precedes it, so a subcommand probe comes back
-  byte-identical to help already returned for an ancestor command path.
-  Reading that as the current node's own children turns a harmless command
-  list into an unbounded recursive re-probe. The first implementation compared
-  only with the cached root and stopped root echoes (`systemctl`, `llvm-ar`),
-  but pnpm's root differs while `audit signatures --help` repeats `audit
-  --help`. Whenever selected help exactly matches any strict path ancestor for
-  the same resolved binary and current root generation, the node degrades to
-  verbatim with an empty, known-complete child list instead of cascading
-  further. Siblings, unrelated paths, different binaries and merely similar
-  documents remain independent; equality is byte-for-byte after the normal
-  stdout/stderr and long/short-help selection, never normalized similarity.
-  The auxiliary history is capped across all binaries at 4,096 documents and
-  8 MiB of selected-text payload. Exact ancestor repetitions are not inserted
-  twice; on admission exhaustion the current node takes the same bounded,
-  complete-verbatim path instead of reopening recursive discovery. A root
-  probe frees and advances only its resolved binary's history.
+  regardless of what precedes it, so a probe comes back identical to help already
+  returned for an ancestor command path. Reading that as the node's own children
+  turns a harmless command list into an unbounded recursive re-probe. Whenever
+  selected help repeats a strict path ancestor for the same resolved binary and
+  current root generation, that node degrades to verbatim with an empty,
+  known-complete child list instead of cascading further. Siblings, unrelated
+  paths, other binaries and merely similar documents stay independent. The
+  history keeps a hash and a length for each path, holds at most 4,096 documents,
+  and records nothing once full, in which case the node parses normally.
 - fleet: one live incident starved the UI thread for over 45 seconds on a 4-core
-  machine; pnpm 11.22.0's non-root repetition reproduced on Windows 11 on
-  2026-09-02, not otherwise fleet-measured
+  machine; pnpm 11.22.0 repeats its `audit` help below the root, reproduced
+  2026-09-03, not otherwise fleet-measured
 
 ### S-080: truncation confession (tool names its own missing content)
 
