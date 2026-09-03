@@ -407,13 +407,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Diffed against the PR's base sha below, so history back to it
+          # Diffed against the merge base below, so history back to it
           # has to be present — same reasoning as `corpus`'s `--baseline-dir`
           # population step just above.
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # The merge base, not `pull_request.base.sha`: that sha is frozen
+      # when the pull request is opened, so every audit file main gains
+      # afterwards is diffed as if the contributor had added it (#118).
       - run: >-
           ./scripts/check_submissions.sh
-          ${{ github.event.pull_request.base.sha }}
+          "$(git merge-base "origin/${{ github.event.pull_request.base.ref }}" HEAD)"
           ${{ github.event.pull_request.user.login }}
