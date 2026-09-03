@@ -633,6 +633,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(RepeatedCharFlag),
         Box::new(ExistenceOracle),
         Box::new(MisattributionOracle),
+        Box::new(WrappedProseRowBoundary),
+        Box::new(UnparsedTailOperand),
     ]
 }
 

@@ -347,3 +347,101 @@ impl Detector for RepeatedCharFlag {
         crate::repeated_char::self_checks()
     }
 }
+
+/// `wrapped-prose-row-boundary` (`crate::wrapped_prose`, atlas S-027): a
+/// description written as running prose wraps onto a physical line that
+/// begins with a dash-led word, and the grammar reads that continuation as
+/// the start of a new flag row.
+///
+/// Not calibratable against the seed-2/seed-4 labelled sets today — its two
+/// ground-truth fixtures (`zgrep`, `resolvconf`) sit in the audit queue,
+/// unreviewed — so `family()` still returns `Some`, and `detector
+/// calibrate` against either seed reports 0/0 while still checking no fire
+/// on a `correct`-judged tool. The fleet-wide claim rests on the hand-built
+/// self-checks (`crate::wrapped_prose::self_checks`) alone.
+pub(crate) struct WrappedProseRowBoundary;
+
+impl Detector for WrappedProseRowBoundary {
+    fn name(&self) -> &'static str {
+        "wrapped-prose-row-boundary"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("wrapped-prose-row-boundary")
+    }
+    fn describes(&self) -> &'static str {
+        "a physical line beginning with a dash-led word, at the same indent as an unfinished \
+         sentence above it and with no aligned description column of its own, whose own leading \
+         spelling reached the tree as a flag"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::wrapped_prose::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} fabricated from the line {:?}", f.flag, f.line))
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "a continuation line's OWN leading spelling only — a second dash-led spelling \
+                    the same row-merge pulls from mid-line (resolvconf's real `--enable-updates`, \
+                    read off the middle of the `-I` line) is out of reach; see this detector's \
+                    own module doc comment",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::wrapped_prose::self_checks()
+    }
+}
+
+/// A second `unparsed-positional` detector, narrower than
+/// [`crate::detector::UnparsedArgparsePositional`] and reaching a disjoint
+/// shape: a usage line's own trailing operand token (bracketed or bare,
+/// atlas S-041), rather than argparse's `positional arguments:` heading.
+///
+/// Calibratable against `audit-seed4` (`--seed 4 --fixture-version
+/// audit-seed4`), where all three of its ground-truth tools
+/// (`bashbug`, `lessecho`, `vim.basic`) are labelled — `vim.basic` also
+/// carries the label under seed 2 (`audit-seed2`, `k1 = true`), so a
+/// default-seed run exercises it too, alongside every seed-2 `correct`
+/// verdict as a false-alarm check.
+pub(crate) struct UnparsedTailOperand;
+
+impl Detector for UnparsedTailOperand {
+    fn name(&self) -> &'static str {
+        "unparsed-tail-operand"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("unparsed-positional")
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own last token group is not flag-shaped once its brackets are stripped \
+         (a real operand name, not a placeholder), and the root has no positionals at all"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::tail_operand::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} never became a positional, from the usage line {:?}",
+                    f.operand, f.usage_line
+                )
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "lowercase-led operand names in the usage line's own trailing token group, \
+                    where every earlier group is itself a flag or a flag-list placeholder \
+                    (`arguments`, `options`) only; an ALL-CAPS metavariable tail (`FILE`, \
+                    `PATTERN`) and a usage line naming multiple bare operands \
+                    (`infont intable outfont`) are both deliberately out of reach — see this \
+                    detector's own module doc comment",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::tail_operand::self_checks()
+    }
+}

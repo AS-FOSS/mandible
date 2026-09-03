@@ -513,6 +513,22 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
         meaning: "a positional operand in the usage line (`<destination>`, `pid`) is never \
                   extracted — the IR has nowhere to put it",
     },
+    // Added for atlas S-027 (`corpus/zgrep/1.12/`, `corpus/resolvconf/255.4/`,
+    // both `[xfail]`). Checked against `wrong-stream` and `unmodeled-help-
+    // shape` first and neither fits: `wrong-stream` is about reading the
+    // wrong *stream* entirely, and this defect reads the right stream and
+    // misreads one physical line within it; `unmodeled-help-shape` is
+    // explicitly a catch-all for five unrelated layouts the grammar has no
+    // model for at all (see that family's own comment), while this shape
+    // has one precise, checkable rule (`xtask::wrapped_prose`) rather than
+    // being a symptom standing in for several dispositions.
+    DefectFamily {
+        name: "wrapped-prose-row-boundary",
+        meaning: "a description written as ordinary running prose (no option table, no \
+                  indentation) wraps onto a physical line that happens to begin with a dash-led \
+                  word, and the grammar reads that continuation as the start of a new flag row, \
+                  fabricating a flag out of prose rather than out of any real option list",
+    },
     // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. This is the vaguest label
     // in the manifest — its own `meaning` below is a list of five unrelated
     // layouts, which is the tell — and reading the six labelled tools'

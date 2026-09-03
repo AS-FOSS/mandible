@@ -24,7 +24,9 @@ mod residue;
 mod rng;
 mod single_dash_long;
 mod status;
+mod tail_operand;
 mod transition;
+mod wrapped_prose;
 
 use clap::{Parser, Subcommand};
 use coverage::ScoreFormat;

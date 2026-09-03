@@ -178,6 +178,23 @@ pub(super) struct Row {
     /// A few of this row's own misreads, pre-formatted, capped per row
     /// ([`SPLIT_SAMPLES_PER_ROW`]).
     pub(super) repeated_char_samples: Vec<String>,
+    /// [`crate::wrapped_prose`]'s own measurement: count of this tool's
+    /// physical lines whose own leading spelling was fabricated into a flag
+    /// because a description wrapped mid-sentence onto a dash-led
+    /// continuation line (atlas S-027). **Not gated**, same reasoning as
+    /// every brand-new detector count above: no fleet-wide baseline exists
+    /// yet (spec §13.1b).
+    pub(super) wrapped_prose_count: usize,
+    /// A few of this row's own fabrications, pre-formatted, mirroring
+    /// [`Self::repeated_char_samples`].
+    pub(super) wrapped_prose_samples: Vec<String>,
+    /// [`crate::tail_operand`]'s own measurement: count of this tool's
+    /// usage-line trailing operand tokens that never became a positional
+    /// (atlas S-041). **Not gated**, same reasoning as above.
+    pub(super) tail_operand_count: usize,
+    /// A few of this row's own findings, pre-formatted, mirroring
+    /// [`Self::wrapped_prose_samples`].
+    pub(super) tail_operand_samples: Vec<String>,
     pub(super) status: &'static str,
     /// This tool's field-level fingerprint (WS2 part 2,
     /// [`crate::transition`]'s per-tool diff): enough for `sweep-diff` to
@@ -321,6 +338,8 @@ pub(super) fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&alternation_sample_lines_text(rows));
     out.push_str(&single_dash_sample_lines_text(rows));
     out.push_str(&repeated_char_sample_lines_text(rows));
+    out.push_str(&wrapped_prose_sample_lines_text(rows));
+    out.push_str(&tail_operand_sample_lines_text(rows));
     out.push_str(&fingerprint_lines(rows));
     out
 }
@@ -516,6 +535,23 @@ fn repeated_char_sample_lines_text(rows: &[Row]) -> String {
     sample_lines_text(
         rows.iter().flat_map(|r| r.repeated_char_samples.iter()),
         "# repeated-char-flag misreads (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for [`crate::wrapped_prose`].
+fn wrapped_prose_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.wrapped_prose_samples.iter()),
+        "# wrapped-prose-row-boundary fabrications (sample — judge the false-positive rate \
+         yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for [`crate::tail_operand`].
+fn tail_operand_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.tail_operand_samples.iter()),
+        "# unparsed-tail-operand findings (sample — judge the false-positive rate yourself):\n",
     )
 }
 

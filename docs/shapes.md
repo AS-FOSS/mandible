@@ -492,7 +492,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   case. dpkg's own cross-reference sentence is contained by the
   wrapped-prose-region remedy (S-011); zgrep, resolvconf and jpackage remain
   open.
-- fleet: not measured, 2026-08-31
+- fleet: detector fires on 21 tools, 26 flags, over a 2318-tool sweep,
+  2026-09-02. Not quotable as calibrated: no tool carrying this family has
+  a human audit verdict, so recall is unevaluable and only the false-alarm
+  half was checked, 0 of 30 labelled-correct fixtures.
 
 ### S-028: smaller unshipped defects
 
@@ -716,7 +719,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not extracted as a positional; the tree currently carries no positionals at
   all for these tools even though the operand is real and documented. Open
   defect.
-- fleet: not measured
+- fleet: detector fires on 194 tools, 194 flags, over a 2318-tool sweep,
+  2026-09-02. Calibrated and passing: 3 of 3 labelled members detected,
+  0 false alarms on seed 4.
 
 ### S-042: BNF production heading sharing its own row (iproute2 family)
 

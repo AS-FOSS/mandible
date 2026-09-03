@@ -11,6 +11,9 @@ use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
 use crate::repeated_char;
 use crate::single_dash_long;
+use crate::tail_operand;
+use crate::wrapped_prose;
+use mandible_core::CommandNode;
 use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
 use std::sync::Arc;
 use std::time::Instant;
@@ -42,6 +45,11 @@ const ALTERNATION_SAMPLES_PER_ROW: usize = 3;
 /// mirrors [`BUNDLE_SAMPLES_PER_ROW`]. Shared by both families; read from
 /// the same capture pass.
 const SPLIT_SAMPLES_PER_ROW: usize = 3;
+
+/// Cap on how many of one tool's own [`crate::wrapped_prose`] fabrications
+/// or [`crate::tail_operand`] findings feed their fleet-wide sample
+/// sections — mirrors [`SPLIT_SAMPLES_PER_ROW`].
+const FAMILY_DETECTOR_SAMPLES_PER_ROW: usize = 3;
 
 pub(super) fn score_one(tool: &str) -> Row {
     let start = Instant::now();
@@ -172,36 +180,16 @@ pub(super) fn score_one(tool: &str) -> Row {
     };
     // The two remaining families of the three that share the `short &&
     // !long && value_name` fingerprint, read off the same capture on the
-    // same pass and costing the same zero additional subprocess spawns.
-    let (single_dash_split_count, single_dash_samples) =
-        match (probe.root_help_text(), result.root.as_ref()) {
-            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
-                let report = single_dash_long::detect(&raw, root);
-                let samples = report
-                    .splits
-                    .iter()
-                    .take(SPLIT_SAMPLES_PER_ROW)
-                    .map(format_single_dash_sample)
-                    .collect();
-                (report.split_count(), samples)
-            }
-            _ => (0, Vec::new()),
-        };
-    let (repeated_char_misread_count, repeated_char_samples) =
-        match (probe.root_help_text(), result.root.as_ref()) {
-            (Some(raw), Some(root)) if !raw.trim().is_empty() => {
-                let report = repeated_char::detect(&raw, root);
-                let samples = report
-                    .misreads
-                    .iter()
-                    .take(SPLIT_SAMPLES_PER_ROW)
-                    .map(format_repeated_char_sample)
-                    .collect();
-                (report.misread_count(), samples)
-            }
-            _ => (0, Vec::new()),
-        };
-
+    // same pass and costing the same zero additional subprocess spawns —
+    // see `split_family_counts`.
+    let (
+        single_dash_split_count,
+        single_dash_samples,
+        repeated_char_misread_count,
+        repeated_char_samples,
+    ) = split_family_counts(probe.root_help_text(), result.root.as_ref());
+    let (wrapped_prose_count, wrapped_prose_samples, tail_operand_count, tail_operand_samples) =
+        family_detector_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -229,6 +217,10 @@ pub(super) fn score_one(tool: &str) -> Row {
         single_dash_samples,
         repeated_char_misread_count,
         repeated_char_samples,
+        wrapped_prose_count,
+        wrapped_prose_samples,
+        tail_operand_count,
+        tail_operand_samples,
         status: status.label,
         fingerprint: build_fingerprint(result.root.as_ref()),
     }
@@ -296,6 +288,90 @@ fn format_repeated_char_sample(misread: &repeated_char::Misread) -> String {
     format!(
         "{}: {:?} read as {} carrying its own letter as a value",
         misread.path, misread.token, misread.spelling,
+    )
+}
+
+/// One wrapped-prose-row-boundary fabrication, rendered as a single audit-
+/// section line.
+fn format_wrapped_prose_sample(finding: &wrapped_prose::Finding) -> String {
+    format!(
+        "{:?} fabricated from the line {:?}",
+        finding.flag, finding.line
+    )
+}
+
+/// One unparsed-tail-operand finding, rendered as a single audit-section
+/// line.
+fn format_tail_operand_sample(finding: &tail_operand::Finding) -> String {
+    format!(
+        "{:?} never became a positional, from {:?}",
+        finding.operand, finding.usage_line
+    )
+}
+
+/// [`wrapped_prose::detect`] and [`tail_operand::detect`], run over one
+/// tool's already-captured text and tree — split out of [`score_one`]
+/// purely to keep that function under clippy's line-count lint.
+/// [`single_dash_long::detect`] and [`repeated_char::detect`], the other
+/// two families sharing the `short && !long && value_name` fingerprint —
+/// split out of [`score_one`] for the same line-count reason as
+/// [`family_detector_counts`].
+fn split_family_counts(
+    raw: Option<String>,
+    root: Option<&CommandNode>,
+) -> (usize, Vec<String>, usize, Vec<String>) {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return (0, Vec::new(), 0, Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return (0, Vec::new(), 0, Vec::new());
+    }
+    let sd = single_dash_long::detect(&raw, root);
+    let sd_samples = sd
+        .splits
+        .iter()
+        .take(SPLIT_SAMPLES_PER_ROW)
+        .map(format_single_dash_sample)
+        .collect();
+    let rc = repeated_char::detect(&raw, root);
+    let rc_samples = rc
+        .misreads
+        .iter()
+        .take(SPLIT_SAMPLES_PER_ROW)
+        .map(format_repeated_char_sample)
+        .collect();
+    (sd.split_count(), sd_samples, rc.misread_count(), rc_samples)
+}
+
+fn family_detector_counts(
+    raw: Option<String>,
+    root: Option<&CommandNode>,
+) -> (usize, Vec<String>, usize, Vec<String>) {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return (0, Vec::new(), 0, Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return (0, Vec::new(), 0, Vec::new());
+    }
+    let wp = wrapped_prose::detect(&raw, root);
+    let wp_samples = wp
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_wrapped_prose_sample)
+        .collect();
+    let to = tail_operand::detect(&raw, root);
+    let to_samples = to
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_tail_operand_sample)
+        .collect();
+    (
+        wp.finding_count(),
+        wp_samples,
+        to.finding_count(),
+        to_samples,
     )
 }
 
