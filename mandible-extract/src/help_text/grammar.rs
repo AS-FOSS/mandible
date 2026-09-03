@@ -94,7 +94,16 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             if rest.is_empty() {
                 break;
             }
-            let explicit = saw_explicit_separator(before, rest);
+            // The bare word `or` joining two spellings (`-h  or  --help`)
+            // is an explicit alias separator alongside `,`/`|`. Word-bounded
+            // and gated on a real spelling following it (`alias_follows`),
+            // so a value or a description merely spelled "or" is never
+            // consumed. See docs/shapes.md S-099.
+            let or_alias = strip_or_alias_separator(rest);
+            let explicit = or_alias.is_some() || saw_explicit_separator(before, rest);
+            if let Some(after_or) = or_alias {
+                rest = after_or;
+            }
 
             // Rule (i): a row's separator style is fixed by its first
             // separator. Once an explicit `,`/`|` has appeared in this
@@ -163,6 +172,28 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 rest = tail;
                 continue;
             }
+            // Only at the very start of an alias run, or right after a
+            // real separator was consumed — never glued straight onto a
+            // longer token's own unconsumed tail with nothing between
+            // them. Defense in depth alongside `try_bare_sigil`'s own
+            // whitelist: the same class of bug (an unrelated token's
+            // failed-parse leftover misread as a fresh alias) is exactly
+            // what fabricated a bogus `+` alias on `as`'s real
+            // `--gstabs+` in an earlier version of this function. See
+            // docs/shapes.md S-096.
+            let sigil_position_ok = spec.spellings.is_empty() || rest != before;
+            if sigil_position_ok {
+                if let Some((spelling, tail)) = try_bare_sigil(rest) {
+                    if already_collected(&spec, &spelling) {
+                        break;
+                    }
+                    saw_explicit_anywhere |= explicit;
+                    last_was_long_like = false;
+                    spec.spellings.push(spelling);
+                    rest = tail;
+                    continue;
+                }
+            }
             break;
         }
 
@@ -228,6 +259,43 @@ fn alias_follows(after_separator: &str) -> bool {
         return false;
     };
     tail.is_empty() || tail.starts_with([' ', '\t', '=', '[', ',', '|'])
+}
+
+/// `rest` with a leading `or`-joined-alias separator removed, when `rest`
+/// opens with the bare word `or` followed by whitespace and then a real
+/// spelling ([`alias_follows`]) — `-h  or  --help`. Word-bounded (`or` must
+/// be followed by whitespace, never glued to the next token) so a value
+/// spec or a description spelled "or" is never mistaken for this. See
+/// docs/shapes.md S-099.
+fn strip_or_alias_separator(rest: &str) -> Option<&str> {
+    let after = rest.strip_prefix("or")?;
+    if !after.starts_with(|c: char| c.is_ascii_whitespace()) {
+        return None;
+    }
+    let after = after.trim_start_matches(' ');
+    if !alias_follows(after) {
+        return None;
+    }
+    or_alias_ends_the_spec(after).then_some(after)
+}
+
+/// True when the spelling opening `after` is the last thing in the spec
+/// fragment, or is followed by a real column boundary, or by another `or`
+/// in a chain (`icupkg`'s `-h or -? or --help`). `pod2man`'s prose
+/// sentence `--lquote or --rquote overrides --quotes.` and `java`'s
+/// `-m or --module <module>/<mainclass> are passed as the arguments`
+/// both continue after a single space, so neither is a row joining two
+/// spellings. See docs/shapes.md S-099.
+fn or_alias_ends_the_spec(after: &str) -> bool {
+    let token_len = after.find([' ', '\t', ',', '|']).unwrap_or(after.len());
+    let tail = &after[token_len..];
+    if tail.is_empty() || tail.starts_with(['\t', ',', '|', '=', '[']) || tail.starts_with("  ") {
+        return true;
+    }
+    let chained = tail.trim_start_matches(' ');
+    chained
+        .strip_prefix("or")
+        .is_some_and(|t| t.starts_with([' ', '\t']))
 }
 
 /// True when `before_separator` ends in a finished value placeholder — a
@@ -518,6 +586,23 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
     ))
 }
 
+/// The bare end-of-options marker `--` (atlas S-096): matches the marker
+/// alone, leaving whatever follows (an alias, `cargo fmt`'s synopsis
+/// `-- <rustfmt_options>...`) for the rest of this grammar. Glued onto
+/// more name-shaped text (`objdump`'s `--[section-]headers`) it is left
+/// alone, never fabricated into a second alias — `try_long` cannot read
+/// either shape. No `+` arm: a bare `+` line has no signal telling an
+/// option row apart from prose, and fabricated flags on `git-lfs`/`date`
+/// in an earlier version of this function, caught in review, before it
+/// was narrowed to `--` only.
+fn try_bare_sigil(input: &str) -> Option<(Spelling, &str)> {
+    let rest = input.strip_prefix("--")?;
+    if rest.is_empty() || rest.starts_with([' ', '\t', ',', '|']) {
+        return Some((Spelling::bare("--"), rest));
+    }
+    None
+}
+
 /// Strips a leading `[no-]`/`[no]` prefix, if present. Recognized
 /// structurally (content exactly `no`/`no-`), never by tool name. See
 /// docs/shapes.md S-077.
@@ -547,15 +632,49 @@ fn value_inside_brackets<'s>(input: &mut &'s str) -> Res<&'s str> {
 /// A value spec following the flag token(s): `=VALUE`, ` VALUE`,
 /// `[=VALUE]`, `[VALUE]`, `<value>`, or a bare uppercase-ish word. Returns
 /// `(value_name, kind, rest)`.
+/// True when a bracketed group names something a reader can use: it
+/// carries a letter or a digit and no unclosed `[`. `xxd`'s `-s [+][-]seek`
+/// and `gold`'s `--debug [all,files,script,task][,...]` fail the first
+/// test, `fzf-tmux`'s `-p [WIDTH[%][,HEIGHT[%]]]` the second, and folding
+/// any of them would build a value name out of punctuation. See
+/// docs/shapes.md S-097.
+fn foldable_value(value: &str) -> bool {
+    !value.contains('[') && value.chars().any(|c| c.is_ascii_alphanumeric())
+}
+
 fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     let mut s = input;
 
-    // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`.
+    // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`, possibly
+    // followed by one or more further bracketed optional values glued
+    // directly on with no separator (`-V[N][fname]`, vim's own row; see
+    // docs/shapes.md S-097). `Entity::value_name` is a single field, so
+    // every glued bracket's content is folded into one value name,
+    // space-joined in document order. Adjacency (no whitespace between
+    // the closing `]` and the next `[`) is the only signal used, which is
+    // structural, not per-tool, and never fires across the whitespace
+    // that separates a spec fragment from a description column.
     if open_bracket(&mut s).is_ok() {
         let _has_eq = equals_sign(&mut s).is_ok();
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
-        return Some((name.to_string(), ValueKind::Optional, s));
+        let mut combined = name.to_string();
+        while foldable_value(&combined) {
+            let mut probe = s;
+            if open_bracket(&mut probe).is_err() {
+                break;
+            }
+            let Ok(next_name) = value_inside_brackets(&mut probe) else {
+                break;
+            };
+            if close_bracket(&mut probe).is_err() || !foldable_value(next_name) {
+                break;
+            }
+            combined.push(' ');
+            combined.push_str(next_name);
+            s = probe;
+        }
+        return Some((combined, ValueKind::Optional, s));
     }
 
     // `=VALUE`
@@ -612,6 +731,12 @@ pub fn looks_like_flag_start(input: &str) -> bool {
     if trimmed.starts_with('-') {
         return !is_dash_underline_token(first_token(trimmed));
     }
+    // Deliberately no `+` arm: a bare `+`-led line has no reliable signal
+    // telling an option row (vim.basic's `+`, `+<lnum>`) apart from
+    // ordinary structure that merely starts with the character
+    // (git-lfs's AsciiDoc list-continuation marker, date's
+    // `%`-conversion-modifier table row). See `try_bare_sigil`'s own doc
+    // comment.
     parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
 }
 
@@ -1087,6 +1212,49 @@ mod tests {
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
 
+    /// vim's `-V[N][fname]` (docs/shapes.md S-097, corpus/vim.basic's
+    /// `audit-seed4` fixture): two bracketed optional values glued
+    /// directly together. Both must survive in the one value name.
+    #[test]
+    fn parses_two_glued_optional_bracketed_values() {
+        let spec = parse_flag_spec("-V[N][fname]");
+        assert_eq!(spec.short(), Some('V'));
+        assert_eq!(spec.value_name.as_deref(), Some("N fname"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+        assert!(spec.fully_consumed);
+    }
+
+    /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names
+    /// a value, so nothing is folded and the flag keeps what it had. See
+    /// docs/shapes.md S-097.
+    #[test]
+    fn does_not_fold_bracket_groups_that_name_no_value() {
+        let spec = parse_flag_spec("-s [+][-]seek");
+        assert_eq!(spec.value_name.as_deref(), Some("+"));
+    }
+
+    /// `fzf-tmux`'s own `-p [WIDTH[%][,HEIGHT[%]]]` row, byte-exact. The
+    /// first group is already an unclosed bracket, so folding a second one
+    /// onto it would compound a misread. See docs/shapes.md S-097.
+    #[test]
+    fn does_not_fold_onto_an_unclosed_bracket() {
+        let spec = parse_flag_spec("-p [WIDTH[%][,HEIGHT[%]]]");
+        assert_eq!(spec.value_name.as_deref(), Some("WIDTH[%"));
+    }
+
+    /// A single bracketed optional value followed, after whitespace, by
+    /// text that is not glued on must not be folded in — the shape S-097
+    /// recovers is adjacency with no separator, never "starts with `[`
+    /// somewhere later in the fragment".
+    #[test]
+    fn does_not_glue_a_bracket_separated_by_whitespace() {
+        let spec = parse_flag_spec("-p[N] [not glued]");
+        assert_eq!(spec.short(), Some('p'));
+        assert_eq!(spec.value_name.as_deref(), Some("N"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+        assert!(!spec.fully_consumed);
+    }
+
     #[test]
     fn parses_multiple_long_aliases_keeping_first() {
         let spec = parse_flag_spec("-A, --catenate, --concatenate");
@@ -1252,6 +1420,54 @@ mod tests {
             !spec.fully_consumed,
             "the trailing --other is unconsumed, not an alias"
         );
+    }
+
+    // --- the `or`-joined alias, S-099 ------------------------------------
+
+    /// vim.basic's real spec text, byte-exact, once the layout parser has
+    /// admitted both spellings into it (see `spelling.rs`'s
+    /// `extend_gap_past_or_joined_alias`).
+    #[test]
+    fn an_or_separator_joins_two_spellings_like_a_comma() {
+        let spec = parse_flag_spec("-h  or  --help");
+        assert_eq!(spec.short(), Some('h'));
+        assert_eq!(spec.long(), Some("help"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// `icupkg`'s own chained row, byte-exact: three spellings joined by
+    /// two `or` separators, description behind a real column gap.
+    #[test]
+    fn an_or_chain_joins_three_spellings() {
+        let spec = parse_flag_spec("-h or -? or --help");
+        assert_eq!(spec.short(), Some('h'));
+        assert_eq!(spec.long(), Some("help"));
+    }
+
+    /// `pod2man`'s prose sentence, byte-exact. The word after `or` is a
+    /// real spelling, and the sentence continues after one space, so this
+    /// is prose about two options and not a row joining them.
+    #[test]
+    fn a_sentence_continuing_after_the_second_spelling_is_not_an_alias_join() {
+        assert_eq!(
+            strip_or_alias_separator("or --rquote overrides --quotes."),
+            None
+        );
+        let spec = parse_flag_spec("--lquote or --rquote overrides --quotes.");
+        assert_eq!(spec.long(), Some("lquote"));
+        assert_ne!(spec.spellings.len(), 2, "--rquote must not become an alias");
+    }
+
+    /// A value or description that merely spells the word "or" is never
+    /// mistaken for the separator — `alias_follows` demands a real
+    /// spelling immediately after it.
+    #[test]
+    fn a_bare_or_with_no_spelling_after_it_is_not_a_separator() {
+        assert_eq!(strip_or_alias_separator("or html"), None);
+        assert_eq!(strip_or_alias_separator("original"), None);
+        let spec = parse_flag_spec("--format or html");
+        assert_eq!(spec.long(), Some("format"));
+        assert_eq!(spec.value_name.as_deref(), Some("or"));
     }
 
     /// lsof's real plus-or-minus convention, byte-exact. See
@@ -1900,5 +2116,66 @@ mod tests {
     fn a_bare_double_dash_still_looks_like_a_flag_start() {
         assert!(looks_like_flag_start("--"));
         assert!(looks_like_flag_start("-- end of options"));
+    }
+
+    // --- S-096: the bare `--` sigil. No `+` arm: see `try_bare_sigil`'s
+    // own doc comment for the two fabrications (git-lfs, date) that
+    // stopped a `+` arm from landing. ------------------------------------
+
+    #[test]
+    fn a_plus_led_row_never_looks_like_a_flag_start() {
+        // Deliberately not recognized at all: git-lfs's bare `+` is an
+        // AsciiDoc list-continuation marker in prose, and date's is a row
+        // of a `%`-conversion-modifier table, not an option.
+        assert!(!looks_like_flag_start("+"));
+        assert!(!looks_like_flag_start("+<lnum>\t\tStart at line <lnum>"));
+        assert!(!looks_like_flag_start("+  pad with zeros"));
+    }
+
+    #[test]
+    fn parse_flag_spec_never_reads_a_bare_plus_as_a_spelling() {
+        let spec = parse_flag_spec("+");
+        assert!(spec.spellings.is_empty());
+        let spec = parse_flag_spec("+<lnum>");
+        assert!(spec.spellings.is_empty());
+    }
+
+    #[test]
+    fn a_bare_double_dash_row_parses_as_a_flag_spelled_double_dash() {
+        let spec = parse_flag_spec("--");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "--");
+        assert!(matches!(spec.spellings[0].dashes, Dashes::None));
+        assert!(spec.fully_consumed);
+    }
+
+    #[test]
+    fn a_long_name_that_legitimately_ends_in_plus_is_not_split() {
+        // binutils `as`'s real `--gstabs+`: the trailing `+` is part of
+        // the option's own name, not a second alias glued onto it.
+        let spec = parse_flag_spec("--gstabs+");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "gstabs");
+        assert!(matches!(spec.spellings[0].dashes, Dashes::Double));
+    }
+
+    #[test]
+    fn objdumps_bracketed_prefix_long_name_does_not_fabricate_a_dashdash_alias() {
+        // `-h, --[section-]headers`: `try_long` cannot read the
+        // `[section-]` optional-prefix convention, but the orphaned `--`
+        // left over from that failed attempt must never become a second,
+        // spurious alias of `-h`.
+        let spec = parse_flag_spec("-h, --[section-]headers");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "h");
+    }
+
+    #[test]
+    fn a_dashdash_synopsis_fragment_with_a_trailing_value_still_parses() {
+        // cargo fmt's usage line: `[-- <rustfmt_options>...]`.
+        let spec = parse_flag_spec("-- <rustfmt_options>...");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "--");
+        assert_eq!(spec.value_name.as_deref(), Some("<rustfmt_options>"));
     }
 }

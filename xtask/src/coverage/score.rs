@@ -377,7 +377,7 @@ fn family_detector_counts(
     )
 }
 
-/// The seven vim-family detectors (atlas S-105..S-111), read off the same
+/// The seven vim-family detectors (atlas S-095 to S-100 and S-105), read off the same
 /// already-captured raw text and tree. One function rather than seven
 /// named locals: every family shares the exact same (name, finding count,
 /// capped samples) shape, and `Row::vim_family`/`Aggregate::vim_family`

@@ -30,6 +30,9 @@
 # underscore); nvim's own usage block spells it `[errorfile]`, one word, no
 # underscore. Recorded here beside the maintainer's exact words: the raw
 # spelling is `errorfile`, and that is what `must_value_name` below asserts.
+#
+# `-V[N][file]` in the Options block is the same shape as vim.basic's
+# `-V[N][fname]` (atlas S-097). Fixed: the value name is now `N file`.
 
 [bless]
 provenance = "agent"
@@ -55,7 +58,8 @@ must_contain_flags = ["--", "+", "-c"]
 
 [contract.must_value_name]
 "-q" = "errorfile"
+"-V" = "file"
 
 [xfail]
 broken = true
-reason = "the end-of-options marker '--', the plus-prefixed option '+' (and its '+<cmd>' / '-c' aliased row), and -q's usage-only value name 'errorfile' are all dropped"
+reason = "The plus-prefixed option row is still dropped. -q's usage-only value name 'errorfile' is fixed: usage.rs's extract_usage_flags attaches the bracket group beside a bare flag token, generic across the fleet, family usage-only-value-name, fleet 76 tools/255 findings down to 66/244. The end-of-options marker '--' is fixed: grammar.rs's try_bare_sigil now reads the bare marker, generic across the fleet, 2026-09-03, REPAIRED (ratchet-gated at zero). The plus-prefixed option '+' (and its '+<cmd>' / '-c' aliased row) is still dropped: a fix was attempted and reverted for fabricating flags on git-lfs and date, where a bare '+' line carries no option-table evidence to tell it apart from prose or an unrelated table (family plus-prefixed-option, calibrated PASSES, fleet 10 tools/20 findings, clears the bar, not fixed this round for that reason)."

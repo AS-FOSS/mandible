@@ -16,7 +16,7 @@ pub(super) fn emit_flags(
             break;
         }
         seen += 1;
-        let spec = parse_flag_spec(&spec_text);
+        let mut spec = parse_flag_spec(&spec_text);
         if spec.fully_consumed {
             clean += 1;
         }
@@ -25,12 +25,26 @@ pub(super) fn emit_flags(
             // emit a garbage entry.
             continue;
         }
+        let mut description = desc_text;
+        if let Some(broken) = spec.value_name.clone() {
+            if let Some(repair) = repair_parenthetical_value(&spec_text, &broken) {
+                spec.value_name = repair.value_name;
+                spec.value_kind = repair.value_kind;
+                if let Some(qualifier) = repair.qualifier_text {
+                    description = if description.trim().is_empty() {
+                        qualifier
+                    } else {
+                        format!("{qualifier} {description}")
+                    };
+                }
+            }
+        }
         let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
         flag.spellings = spec.spellings;
         flag.value_name = spec.value_name;
         flag.value_kind = spec.value_kind;
         flag.group = group.clone();
-        flag.description = non_empty_text(&desc_text);
+        flag.description = non_empty_text(&description);
         // Sub-rows nested directly under this flag's own row (llvm-ar's
         // bare `=value` shape and ffmpeg/ffplay's described AVOption shape,
         // see `choices_sub_row_value`/`choice_description_sub_row`) share
@@ -545,6 +559,62 @@ pub(super) fn emit_declared_positionals(
     (seen, clean)
 }
 
+/// What [`parse_flag_spec`] should have produced for a row whose value
+/// spec was really a parenthetical qualifier (`-r (with file name)`), and
+/// where the leftover text belongs.
+struct ParentheticalRepair {
+    value_name: Option<String>,
+    value_kind: ValueKind,
+    /// The original `(...)` text, to fold into the description when the
+    /// parenthetical is prose rather than a value. `None` when the value
+    /// name already carries everything the parenthetical said.
+    qualifier_text: Option<String>,
+}
+
+/// Repairs the defect where a parenthetical right after a flag's spelling
+/// is read as the value and truncated to its opening word (`(with` from
+/// `-r (with file name)`). Fires only on that exact signature — a value
+/// name starting with `(` — so an ordinary bracket/angle value is
+/// untouched. A single-word parenthetical is a genuine value placeholder,
+/// kept as the value minus its parens. A parenthetical opening with the
+/// connector `with` names its value in the words after it, matching
+/// `corpus/vim.basic/audit-seed4`'s own contract. Anything else is prose,
+/// not a value, and goes to the description whole. See docs/shapes.md
+/// S-098.
+fn repair_parenthetical_value(spec_text: &str, broken_value: &str) -> Option<ParentheticalRepair> {
+    if !broken_value.starts_with('(') {
+        return None;
+    }
+    let open = spec_text.find('(')?;
+    let close = open + spec_text[open..].find(')')?;
+    let inner = spec_text[open + 1..close].trim();
+    let full = spec_text[open..=close].to_string();
+    let mut words = inner.split_whitespace();
+    let first = words.next()?;
+    if words.clone().next().is_none() {
+        return Some(ParentheticalRepair {
+            value_name: Some(first.to_string()),
+            value_kind: ValueKind::Required,
+            qualifier_text: None,
+        });
+    }
+    if first.eq_ignore_ascii_case("with") {
+        let rest: Vec<&str> = words.collect();
+        if !rest.is_empty() {
+            return Some(ParentheticalRepair {
+                value_name: Some(rest.join(" ")),
+                value_kind: ValueKind::Required,
+                qualifier_text: None,
+            });
+        }
+    }
+    Some(ParentheticalRepair {
+        value_name: None,
+        value_kind: ValueKind::None,
+        qualifier_text: Some(full),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1027,5 +1097,91 @@ mod tests {
             "no heading governs this input at all, so this can only have come from \
              scan_flags_block's own continuation handling: {got:?}"
         );
+    }
+
+    /// vim.basic's own row, byte-exact
+    /// (`corpus/vim.basic/audit-seed4/help.txt`). Two entities share the
+    /// spelling `-r`; the second's parenthetical qualifier used to be
+    /// truncated to the value `(with`. See docs/shapes.md S-098.
+    #[test]
+    fn vim_r_parenthetical_qualifier_names_the_value_after_with() {
+        let raw = "Options:\n   -r\t\t\tList swap files and exit\n   \
+                   -r (with file name)\tRecover crashed session\n";
+        let parsed = parse(raw);
+        let rs: Vec<_> = parsed
+            .flags
+            .iter()
+            .filter(|f| f.short() == Some('r'))
+            .collect();
+        assert_eq!(rs.len(), 2, "two distinct -r entities: {rs:?}");
+        let plain = rs
+            .iter()
+            .find(|f| f.value_name.is_none())
+            .expect("the bare -r stays valueless");
+        assert_eq!(
+            plain.description.as_ref().map(|t| t.as_str()),
+            Some("List swap files and exit")
+        );
+        let qualified = rs
+            .iter()
+            .find(|f| f.value_name.is_some())
+            .expect("the qualified -r carries a value");
+        assert_eq!(qualified.value_name.as_deref(), Some("file name"));
+        assert_eq!(
+            qualified.description.as_ref().map(|t| t.as_str()),
+            Some("Recover crashed session")
+        );
+    }
+
+    /// A single-word parenthetical is a genuine value placeholder, not a
+    /// qualifying phrase, and must keep naming the value (minus its
+    /// parens) rather than falling silent. See docs/shapes.md S-098.
+    #[test]
+    fn a_single_word_parenthetical_value_still_names_the_value() {
+        let raw = "Options:\n  -f (file)\tRead from file\n";
+        let parsed = parse(raw);
+        let f = parsed
+            .flags
+            .iter()
+            .find(|e| e.short() == Some('f'))
+            .expect("-f recovered");
+        assert_eq!(f.value_name.as_deref(), Some("file"));
+        assert_eq!(
+            f.description.as_ref().map(|t| t.as_str()),
+            Some("Read from file")
+        );
+    }
+
+    /// A multi-word parenthetical that names no value at all (no `with`)
+    /// must not fabricate one. The whole qualifier folds into the
+    /// description instead of vanishing. See docs/shapes.md S-098.
+    #[test]
+    fn a_non_with_parenthetical_phrase_never_becomes_a_fabricated_value() {
+        let raw = "Options:\n  -x (deprecated alias)\tDo the thing\n";
+        let parsed = parse(raw);
+        let x = parsed
+            .flags
+            .iter()
+            .find(|e| e.short() == Some('x'))
+            .expect("-x recovered");
+        assert_eq!(x.value_name, None, "no fabricated value");
+        assert_eq!(
+            x.description.as_ref().map(|t| t.as_str()),
+            Some("(deprecated alias) Do the thing")
+        );
+    }
+
+    /// A bracketed optional value must never be read by this repair —
+    /// only a paren-led value name is this defect's signature.
+    #[test]
+    fn a_bracketed_optional_value_is_never_touched_by_the_repair() {
+        let raw = "Options:\n  -p [N]\tOpen N tab pages\n";
+        let parsed = parse(raw);
+        let p = parsed
+            .flags
+            .iter()
+            .find(|e| e.short() == Some('p'))
+            .expect("-p recovered");
+        assert_eq!(p.value_name.as_deref(), Some("N"));
     }
 }

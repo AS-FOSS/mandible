@@ -289,7 +289,7 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.tail_operand_tools, aggregate.tail_operand_flags,
     ));
     if !aggregate.vim_family.is_empty() {
-        out.push_str("\n**Vim-family detectors** (atlas S-105..S-111, not calibrated yet):\n\n");
+        out.push_str("\n**Vim-family detectors** (atlas S-095 to S-100 and S-105):\n\n");
         for (name, tools, flags) in &aggregate.vim_family {
             out.push_str(&format!(
                 "- {name}: {tools} tool(s), {flags} finding(s) fleet-wide\n"

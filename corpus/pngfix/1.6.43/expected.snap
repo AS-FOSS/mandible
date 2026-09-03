@@ -4,7 +4,7 @@ usage:
 flags:
 - spellings:
   - --optimize
-  value_name: '(-o):'
+  value_name: -o
   value_kind: Required
   description: Find the smallest deflate window size for the compressed data.
   provenance:
@@ -20,7 +20,7 @@ flags:
     - help-text
 - spellings:
   - --quiet
-  value_name: '(-q):'
+  value_name: -q
   value_kind: Required
   description: Do not output the summaries except for files that cannot be read. With two --quiets these are not output either.
   provenance:
@@ -28,7 +28,7 @@ flags:
     - help-text
 - spellings:
   - --errors
-  value_name: '(-e):'
+  value_name: -e
   value_kind: Required
   description: Output errors from libpng and the program (except too-far-back).
   provenance:
@@ -36,7 +36,7 @@ flags:
     - help-text
 - spellings:
   - --warnings
-  value_name: '(-w):'
+  value_name: -w
   value_kind: Required
   description: Output warnings from libpng.
   provenance:

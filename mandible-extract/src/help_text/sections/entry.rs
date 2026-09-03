@@ -187,6 +187,36 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     find_sentence_start_gap(line)
 }
 
+/// Push the naive column gap past a second spelling the word `or`
+/// introduces (`-h  or  --help`), so the alias is not read as
+/// description. Never moves the gap earlier, and only when the word after
+/// `or` is a whole spelling standing alone.
+/// See docs/shapes.md S-099 and `corpus/vim.basic/audit-seed4/help.txt`.
+pub(super) fn extend_gap_past_or_joined_alias(line: &str, naive_gap: usize) -> usize {
+    let Some(after) = line.get(naive_gap..) else {
+        return naive_gap;
+    };
+    let after_trimmed = after.trim_start();
+    let leading_ws = after.len() - after_trimmed.len();
+    let Some(or_stripped) = after_trimmed.strip_prefix("or") else {
+        return naive_gap;
+    };
+    if !or_stripped.starts_with(|c: char| c.is_ascii_whitespace()) {
+        return naive_gap;
+    }
+    let second = or_stripped.trim_start();
+    let mid_ws = or_stripped.len() - second.len();
+    let tok2 = first_word(second);
+    if tok2.is_empty() || !tok2.starts_with('-') || !is_flag_shaped(tok2) {
+        return naive_gap;
+    }
+    let tail = &second[tok2.len()..];
+    if !tail.is_empty() && !tail.starts_with('\t') && !tail.starts_with("  ") {
+        return naive_gap;
+    }
+    naive_gap + leading_ws + "or".len() + mid_ws + tok2.len()
+}
+
 /// Second fallback for a flag row with no aligned column at all: the
 /// description starts one space after the spec, recognizable because it
 /// starts an English sentence rather than naming a value.

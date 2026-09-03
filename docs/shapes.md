@@ -1570,18 +1570,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
       +			Start at end of file
       +<lnum>		Start at line <lnum>
 - tools: vim.basic, vim, vi, view, rvim, ex, nvim
-- handling: An option row whose name begins with a plus is not recognized as a row at
-  all, so both rows reach nothing. The whole `Arguments:` block around them
-  parses, and 43 dash-led rows in it come out correct. The two rows are real
-  and documented. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-  Distinct from S-086, which is the plus-or-minus alternation notation.
-  `xtask detector`'s `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`)
-  generalizes this shape fleet-wide.
-- fleet: `plus-prefixed-option` fires on 13 tool(s)
-  (23 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated: no labelled member exists in the audit manifest yet (spec
-  §13.1e rule 2). Zero false alarms against every seed-2/seed-4
-  judged-`correct` tool.
+- handling: Refused. A parser fix was written and reverted before it landed: reading a
+  bare `+` line as an option row fabricated a flag on `git-lfs`, whose
+  AsciiDoc list-continuation marker is a lone `+` between numbered steps in
+  prose, and on `date`, whose `%`-conversion-modifier table has a row
+  `+  pad with zeros`. A bare `+` line carries no signal separating an
+  option row from either. The detector was narrowed instead
+  (`has_flag_shaped_neighbor`), so a candidate is counted only beside a
+  flag-shaped row; both false positives are `Silent` self-checks built from
+  their own bytes. Distinct from S-086, the plus-or-minus alternation.
+- fleet: `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`) fires
+  on 10 tool(s)/20 finding(s) in a full-PATH sweep of 2264 tools,
+  2026-09-03, down from 13/23 before the neighbor gate. Calibrated and
+  passing against seed 4. Clears the five-tool bar and stays unfixed, so
+  the shape is a live defect with no repair.
 
 ### S-096: end-of-options marker row dropped
 
@@ -1589,35 +1591,40 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       --			Only file names after this
 - tools: vim.basic, nvim
-- handling: A row whose whole name is a bare double dash is deliberately left eligible
-  as a row (S-090 refuses only three dashes or more), and it still fails to
-  reach the tree. The marker is real and the row carries its own description.
-  Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-  `xtask detector`'s `end-of-options-marker`
-  (`xtask/src/end_of_options_marker.rs`) generalizes this shape fleet-wide.
-- fleet: `end-of-options-marker` fires on 26 tool(s)
-  (26 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+- handling: Fixed. `parse_flag_spec`'s `try_bare_sigil` reads a
+  bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
+  verbatim). Only a real terminator (nothing left, or whitespace/an alias
+  separator — `cargo fmt`'s synopsis fragment `-- <rustfmt_options>...`)
+  may follow the marker; glued onto more name-shaped text (`objdump`'s
+  `--[section-]headers` optional-bracket-prefix convention) it is left
+  alone, so the marker is never fabricated out of an unrelated long name's
+  own unread tail.
+- fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
+  from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
+  (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
+  zero (`coverage --check`, `xtask/src/main.rs`'s `eom_ratchet` block):
+  gate holds, self-checks conclusive.
 
 ### S-097: glued optional value spec loses everything after the first bracket
 
 - id: S-097
 - looks like: |
       -V[N][fname]		Be verbose [level N] [log messages to fname]
-- tools: vim.basic, nvim
-- handling: A value spec written as two bracket groups glued to the flag keeps only the
-  first. The flag reaches the tree spelled `-V` with the optional value `N`,
-  and `fname` is rendered nowhere. The row's description still names it, so
-  the loss is in the value alone. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
-  `second-optional-value-dropped`
-  (`xtask/src/second_optional_value_dropped.rs`) generalizes this shape
-  fleet-wide.
-- fleet: `second-optional-value-dropped` fires on 13
-  tool(s) (13 finding(s)) in a full-PATH sweep,
-  2026-09-03. Not calibrated, same reasoning as S-095. Zero false alarms
-  against every seed-2/seed-4 judged-`correct` tool.
+- tools: vim.basic, nvim, vim, vi, view, rvim, rview, vim.tiny, vimdiff, ex
+- handling: Fixed. `try_value` in `mandible-extract/src/help_text/grammar.rs` folds every
+  bracketed group glued directly onto the first into one value name,
+  space-joined in document order, because `Entity::value_name` is a single
+  field. `-V[N][fname]` becomes the value `N fname`. A group is folded only
+  when it carries a letter or a digit and no unclosed bracket, so `xxd`'s
+  `-s [+][-]seek` and `fzf-tmux`'s `-p [WIDTH[%][,HEIGHT[%]]]` are left
+  exactly as they were rather than gaining a value name made of
+  punctuation.
+- fleet: `second-optional-value-dropped`
+  (`xtask/src/second_optional_value_dropped.rs`) fell from 13 tool(s)/13
+  finding(s) to 3/3 in a full-PATH sweep of 2264 tools, 2026-09-03. The
+  same sweep-diff shows zero losses and zero flag gains, with a repaired
+  value name on 10 tools. The three that remain carry the shape behind a
+  bracket the fold refuses, so this is not ratchet-gated at zero.
 
 ### S-098: parenthetical qualifier read as a value and truncated
 
@@ -1625,36 +1632,45 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -r			List swap files and exit
       -r (with file name)	Recover crashed session
-- tools: vim.basic
-- handling: A tool documents one spelling twice and qualifies the second row in
-  parentheses. The qualifier is read as a value placeholder and cut at the
-  first space, so the flag carries the value `(with` and the words `file
-  name)` are rendered nowhere. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
-  `parenthetical-qualifier-as-value`
-  (`xtask/src/parenthetical_qualifier_as_value.rs`) generalizes this shape
-  fleet-wide.
-- fleet: `parenthetical-qualifier-as-value` fires on 9 tool(s)
-  (9 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+- tools: vim.basic, aa-status, dpkg-buildflags, grub-mkimage, javadoc, rsync
+- handling: Fixed. `mandible-extract/src/help_text/sections/emit.rs`'s
+  `repair_parenthetical_value` fires only on the defect's own signature, a
+  value name that starts with `(`. A one-word parenthetical is a value
+  placeholder and keeps naming the value without its parens
+  (`dpkg-buildflags --export (sh|make|cmdline|configure)`). A parenthetical
+  opening with the connector `with` names its value in the words after it
+  (`-r (with file name)` gives `file name`). Any other phrase is prose, so
+  the value is dropped and the whole `(...)` text moves to the front of the
+  description rather than being cut at the first space.
+- fleet: `parenthetical-qualifier-as-value`
+  (`xtask/src/parenthetical_qualifier_as_value.rs`) fell from 9 tool(s)/9
+  finding(s) to 0/0 in a full-PATH sweep of 2264 tools, 2026-09-03.
+  Ratchet-gated at zero by `coverage --check`. The same sweep-diff shows
+  zero losses and zero flag gains, with a repaired value name on 17 tools.
 
 ### S-099: alias pair joined by the word "or"
 
 - id: S-099
 - looks like: |
       -h  or  --help	Print Help (this message) and exit
-- tools: vim.basic
-- handling: A row that joins two spellings with the word `or` instead of a comma yields
-  one flag `-h` whose description begins `or --help`. The `--help` spelling
-  never becomes an alias, and the description carries text that is not
-  description. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-  `xtask detector`'s `or-joined-alias` (`xtask/src/or_joined_alias.rs`)
-  generalizes this shape fleet-wide.
-- fleet: `or-joined-alias` fires on 30 tool(s)
-  (134 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+      -h or -? or --help    print this message and exit
+- tools: vim.basic, nvim, icupkg, genrb, pkgdata, sg_map, getpcaps, mariadb-find-rows
+- handling: Fixed. `strip_or_alias_separator` in
+  `mandible-extract/src/help_text/grammar.rs` reads the bare word `or` as an
+  alias separator beside `,` and `|`, and `extend_gap_past_or_joined_alias`
+  in `sections/entry.rs` pushes the description-column boundary past the
+  second spelling so it is not read as description. Both demand positive
+  evidence: the word after `or` must be a whole spelling, and it must end
+  the spec fragment, meet a real column boundary, or be followed by another
+  `or` in a chain. `pod2man`'s sentence `--lquote or --rquote overrides
+  --quotes.` and `java`'s `-m or --module <module>/<mainclass> are passed`
+  continue after one space, so neither becomes an alias row.
+- fleet: `or-joined-alias` (`xtask/src/or_joined_alias.rs`) fell from 30
+  tool(s)/134 finding(s) to 9/15 in a full-PATH sweep of 2264 tools,
+  2026-09-03. The same sweep-diff shows a repaired alias list on 26 tools
+  and one flag-count loss, `icupkg` 21 to 20, where a duplicate `--help`
+  carrying no description and no value was absorbed into the `-h, -?,
+  --help` group that carries both.
 
 ### S-100: usage alternative reaches the tree without its own description
 
@@ -1662,20 +1678,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
          or: vim [arguments] -t tag          edit file where tag is defined
          or: vim [arguments] -q [errorfile]  edit file with first error
-- tools: vim.basic, nvim
-- handling: An alternative synopsis line names a flag and describes it on the same line.
-  The flag reaches the tree from the synopsis with no description, and `-q`
-  arrives with no value placeholder either. The text is present and aligned in
-  a description column. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
-  `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
-  generalizes the value-name half of this shape fleet-wide; it does not
-  claim the missing-description half, a different, still-open concern on
-  the same rows.
-- fleet: `usage-only-value-name` fires on 76 tool(s)
-  (255 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+- tools: vim.basic, nvim, dhcpcd, gettext, rpcinfo, ntfssecaudit, ar
+- handling: Half fixed. `extract_usage_flags` in
+  `mandible-extract/src/help_text/sections/usage.rs` attaches a following
+  single-member bracket group to a bare flag token, so `-q [errorfile]`
+  reaches the tree with the optional value `errorfile`. The group must name
+  something, meaning it carries a letter or a digit, which leaves
+  `lvextend`'s `-L|--size [+]Size[m|UNIT]` alone, and the end-of-options
+  marker never takes a value, which leaves `fsck`'s
+  `-- [fs-options]` alone. The missing-description half of this shape is
+  still open: a synopsis line that describes its own alternative gives the
+  flag no description.
+- fleet: `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
+  fell from 76 tool(s)/255 finding(s) to 66/244 in a full-PATH sweep of
+  2264 tools measuring this change alone, 2026-09-03. That sweep-diff shows
+  zero losses and zero flag gains, with a recovered value name on 19 tools.
+  The count reads 75/311 with the S-099 alias join also applied, because a
+  joined alias row reaches the synopsis as one flag and surfaces more rows
+  of this shape than it repairs.
 
 ### S-101: repetition dots glued to an operand name
 

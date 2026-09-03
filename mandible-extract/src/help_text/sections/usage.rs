@@ -583,6 +583,15 @@ fn recover_primary_tail_operand(
 /// reconciled by [`parse_with_profile`] via
 /// [`flag_spelling_already_present`], which drops the duplicate rather
 /// than merging it. See S-088.
+/// True when a bracket group's sole member reads as a value placeholder:
+/// it carries a letter or a digit. `lvextend`'s `-L|--size [+]Size[m|UNIT]`
+/// opens with a group holding only `+`, which names nothing, and a flag
+/// spelled `-L, --size +` says less than one with no value at all. See
+/// docs/shapes.md S-100.
+fn names_a_value(member: &str) -> bool {
+    !member.starts_with('-') && member.chars().any(|c| c.is_ascii_alphanumeric())
+}
+
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     let mut out: Vec<Entity> = Vec::new();
     // Running depth of an open parenthesized alternation group (LVM's
@@ -694,6 +703,32 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                             }
                             seg_idx += 1;
                             continue;
+                        }
+                        // An optional value some synopsis writes as its own
+                        // bracket group right after a bare flag
+                        // (`vim [arguments] -q [errorfile]`, nvim's own
+                        // `-q [errorfile]`): the group parses as a
+                        // [`UsageSegment::Group`], not a `Bare` token, so
+                        // the branch above never sees it. Attaching is
+                        // refused unless the group is exactly one non-flag
+                        // member — an alternation or another flag is never
+                        // guessed as a value. `parse_flag_spec` reads the
+                        // rebuilt `tok [member]` fragment the same way it
+                        // reads any other bracketed optional value, so the
+                        // result is `ValueKind::Optional`. See S-100.
+                        if parse_bundled_shorts(tok).is_none() && tok != "--" {
+                            if let Some(UsageSegment::Group(members)) = segments.get(seg_idx) {
+                                if let [member] = members.as_slice() {
+                                    if names_a_value(member) {
+                                        push_usage_flag(
+                                            &mut out,
+                                            parse_flag_spec(&format!("{tok} [{member}]")),
+                                        );
+                                        seg_idx += 1;
+                                        continue;
+                                    }
+                                }
+                            }
                         }
                         push_usage_token(&mut out, tok);
                     }
@@ -2110,6 +2145,69 @@ mod tests {
             .find(|f| f.short() == Some('s'))
             .expect("-s recovered");
         assert_eq!(s.value_name.as_deref(), Some("ca_key"));
+    }
+
+    /// vim.basic's and nvim's own `-q [errorfile]` alternative synopsis
+    /// lines, byte-exact from `corpus/vim.basic/audit-seed4/help.txt` and
+    /// `corpus/nvim/0.9.5/help.txt`. See S-100.
+    #[test]
+    fn a_bare_flag_followed_by_a_bracket_group_recovers_its_optional_value() {
+        let vim = parse(
+            "Usage: vim [arguments] [file ..]       edit specified file(s)\n\
+                \x20  or: vim [arguments] -               read text from stdin\n\
+                \x20  or: vim [arguments] -t tag          edit file where tag is defined\n\
+                \x20  or: vim [arguments] -q [errorfile]  edit file with first error\n",
+        );
+        let q = vim
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('q'))
+            .expect("-q recovered");
+        assert_eq!(q.value_name.as_deref(), Some("errorfile"));
+        assert_eq!(q.value_kind, mandible_core::ValueKind::Optional);
+        assert!(q.description.is_none(), "a usage line describes nothing");
+
+        let nvim = parse(
+            "Usage:\n  \
+             nvim [options] [file ...]      Edit file(s)\n  \
+             nvim [options] -t <tag>        Edit file where tag is defined\n  \
+             nvim [options] -q [errorfile]  Edit file with first error\n",
+        );
+        let q = nvim
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('q'))
+            .expect("-q recovered");
+        assert_eq!(q.value_name.as_deref(), Some("errorfile"));
+        assert_eq!(q.value_kind, mandible_core::ValueKind::Optional);
+    }
+
+    /// A bracket group with more than one member is an alternation, not a
+    /// value — never guessed. See S-100.
+    #[test]
+    fn a_bare_flag_followed_by_a_multi_member_bracket_group_stays_boolean() {
+        let raw = "Usage: prog -q [-a|-b]\n";
+        let parsed = parse(raw);
+        let q = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('q'))
+            .expect("-q recovered");
+        assert_eq!(q.value_name, None, "-q must stay boolean");
+    }
+
+    /// A bracket group whose sole member is itself flag-shaped is never
+    /// read as a value. See S-100.
+    #[test]
+    fn a_bare_flag_followed_by_a_bracketed_flag_stays_boolean() {
+        let raw = "Usage: prog -q [-x]\n";
+        let parsed = parse(raw);
+        let q = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('q'))
+            .expect("-q recovered");
+        assert_eq!(q.value_name, None, "-q must stay boolean");
     }
 
     /// iptables' own `-h (print this help information)` parenthetical
