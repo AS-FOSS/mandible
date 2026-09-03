@@ -1,0 +1,61 @@
+# Two more defects, quoted from the maintainer's own reading of this build's
+# screen. Same families as corpus/vim.basic/audit-seed4.
+#
+# Maintainer: "still has some unparsed flags or line"
+#     -- Only file names after this
+#     + Start at end of file
+#     --cmd <cmd> Execute <cmd> before any config
+#     +<cmd>, -c <cmd> Execute <cmd> after config and first file
+# Machine classification, row by row against the captured `Options:` block:
+#   - `--` (end-of-options marker): dropped entirely. No entity in the tree
+#     is spelled `--`.
+#   - `+` (plus-prefixed option): dropped entirely. No entity in the tree is
+#     spelled `+`.
+#   - `--cmd <cmd>`: parses correctly today (spelling `--cmd`, value name
+#     `<cmd>`, description "Execute <cmd> before any config"). Quoted by the
+#     maintainer as part of the four-line block under review, but not itself
+#     a defect — not asserted broken below, since only spellings the parser
+#     really drops belong in `must_contain_flags`.
+#   - `+<cmd>, -c <cmd>`: both aliases of this row are lost. `+<cmd>` falls
+#     under the same plus-prefixed-option family as the bare `+` row above;
+#     `-c` is dropped independently — no entity in the tree is spelled `-c`.
+# So three spellings are really missing: `--`, `+`, `-c`.
+#
+# Maintainer: "i think '-q' flag migth be missing its placeholder, which
+# only came up in usage, or whatever that '[error_file]' is."
+# Machine classification: usage-only value name not carried to the flag row.
+# `nvim [options] -q [errorfile]` in the Usage block documents `-q`'s
+# placeholder; the `-q` entity in the tree carries no value name at all.
+# The maintainer wrote the placeholder as "[error_file]" (with an
+# underscore); nvim's own usage block spells it `[errorfile]`, one word, no
+# underscore. Recorded here beside the maintainer's exact words: the raw
+# spelling is `errorfile`, and that is what `must_value_name` below asserts.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nvim"
+version = "0.9.5"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["nvim", "--help"]
+stdout = "help.txt"
+
+[contract]
+# `mandible --doctor nvim` reports framework: unidentified, so Tier A'
+# found no fingerprint and the generic layout engine handled it.
+expected_framework = "generic"
+
+# The three spellings really dropped, checked against the tree's own flag
+# list (no entity anywhere is spelled `--`, `+`, or `-c`).
+must_contain_flags = ["--", "+", "-c"]
+
+[contract.must_value_name]
+"-q" = "errorfile"
+
+[xfail]
+broken = true
+reason = "the end-of-options marker '--', the plus-prefixed option '+' (and its '+<cmd>' / '-c' aliased row), and -q's usage-only value name 'errorfile' are all dropped"

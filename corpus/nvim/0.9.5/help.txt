@@ -1,0 +1,44 @@
+Usage:
+  nvim [options] [file ...]      Edit file(s)
+  nvim [options] -t <tag>        Edit file where tag is defined
+  nvim [options] -q [errorfile]  Edit file with first error
+
+Options:
+  --                    Only file names after this
+  +                     Start at end of file
+  --cmd <cmd>           Execute <cmd> before any config
+  +<cmd>, -c <cmd>      Execute <cmd> after config and first file
+  -l <script> [args...] Execute Lua <script> (with optional args)
+
+  -b                    Binary mode
+  -d                    Diff mode
+  -e, -E                Ex mode
+  -es, -Es              Silent (batch) mode
+  -h, --help            Print this help message
+  -i <shada>            Use this shada file
+  -m                    Modifications (writing files) not allowed
+  -M                    Modifications in text not allowed
+  -n                    No swap file, use memory only
+  -o[N]                 Open N windows (default: one per file)
+  -O[N]                 Open N vertical windows (default: one per file)
+  -p[N]                 Open N tab pages (default: one per file)
+  -r, -L                List swap files
+  -r <file>             Recover edit state for this file
+  -R                    Read-only mode
+  -S <session>          Source <session> after loading the first file
+  -s <scriptin>         Read Normal mode commands from <scriptin>
+  -u <config>           Use this config file
+  -v, --version         Print version information
+  -V[N][file]           Verbose [level][file]
+
+  --api-info            Write msgpack-encoded API metadata to stdout
+  --clean               "Factory defaults" (skip user config and plugins, shada)
+  --embed               Use stdin/stdout as a msgpack-rpc channel
+  --headless            Don't start a user interface
+  --listen <address>    Serve RPC API from this address
+  --noplugin            Don't load plugins
+  --remote[-subcommand] Execute commands remotely on a server
+  --server <address>    Specify RPC server to send commands to
+  --startuptime <file>  Write startup timing messages to <file>
+
+See ":help startup-options" for all options.
