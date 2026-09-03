@@ -175,6 +175,12 @@ pub struct Aggregate {
     pub tail_operand_tools: usize,
     /// Real operands lost to that shape, fleet-wide — one per finding.
     pub tail_operand_flags: usize,
+    /// The seven vim-family detectors (atlas S-105..S-111,
+    /// `xtask/src/plus_prefixed_option.rs` and its six siblings):
+    /// `(family name, tools with at least one finding, findings
+    /// fleet-wide)`, in registration order. **Not gated** — the calibration
+    /// precondition (spec §13.1e) has not passed yet for any of the seven.
+    pub vim_family: Vec<(&'static str, usize, usize)>,
 }
 
 /// Compute aggregate stats over `rows`.
@@ -249,6 +255,7 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let wrapped_prose_flags: usize = rows.iter().map(|r| r.wrapped_prose_count).sum();
     let tail_operand_tools = rows.iter().filter(|r| r.tail_operand_count > 0).count();
     let tail_operand_flags: usize = rows.iter().map(|r| r.tail_operand_count).sum();
+    let vim_family = compute_vim_family(rows);
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -288,7 +295,42 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
         wrapped_prose_flags,
         tail_operand_tools,
         tail_operand_flags,
+        vim_family,
     }
+}
+
+/// The seven vim-family detectors, aggregated in the same order
+/// [`super::score::vim_family_counts`] returns them: for each family, how
+/// many tools carried at least one finding, and how many findings
+/// fleet-wide.
+fn compute_vim_family(rows: &[Row]) -> Vec<(&'static str, usize, usize)> {
+    let Some(first) = rows.iter().find(|r| !r.vim_family.is_empty()) else {
+        return Vec::new();
+    };
+    first
+        .vim_family
+        .iter()
+        .map(|(name, _, _)| {
+            let tools = rows
+                .iter()
+                .filter(|r| {
+                    r.vim_family
+                        .iter()
+                        .any(|(n, count, _)| n == name && *count > 0)
+                })
+                .count();
+            let flags: usize = rows
+                .iter()
+                .filter_map(|r| {
+                    r.vim_family
+                        .iter()
+                        .find(|(n, ..)| n == name)
+                        .map(|(_, c, _)| *c)
+                })
+                .sum();
+            (*name, tools, flags)
+        })
+        .collect()
 }
 
 /// Strip a row's `"<name> (<method>)"` framework label back down to just
@@ -316,7 +358,7 @@ pub(super) fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -340,11 +382,63 @@ pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.wrapped_prose_flags,
         aggregate.tail_operand_tools,
         aggregate.tail_operand_flags,
+        encode_vim_family(&aggregate.vim_family),
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
         aggregate.total_flags,
     )
+}
+
+/// The seven `(name, tools, flags)` triples packed into one whitespace-free
+/// `aggregate_footer_line` field: `"name:tools:flags,name:tools:flags,..."`,
+/// `"-"` when empty (a footer written before these detectors existed).
+fn encode_vim_family(entries: &[(&'static str, usize, usize)]) -> String {
+    if entries.is_empty() {
+        return "-".to_string();
+    }
+    entries
+        .iter()
+        .map(|(name, tools, flags)| format!("{name}:{tools}:{flags}"))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// The inverse of [`encode_vim_family`]. Malformed entries are skipped
+/// rather than failing the whole parse — a forward-compatible footer field
+/// should degrade, not break `--check`.
+fn decode_vim_family(field: &str) -> Vec<(&'static str, usize, usize)> {
+    if field == "-" || field.is_empty() {
+        return Vec::new();
+    }
+    field
+        .split(',')
+        .filter_map(|entry| {
+            let mut parts = entry.split(':');
+            let name = family_static_name(parts.next()?)?;
+            let tools = parts.next()?.parse::<usize>().ok()?;
+            let flags = parts.next()?.parse::<usize>().ok()?;
+            Some((name, tools, flags))
+        })
+        .collect()
+}
+
+/// The closed set of vim-family names, resolved to their `'static`
+/// spelling — mirrors `xtask/src/detector/commands.rs`'s `family_static`,
+/// scoped to just these seven so a footer field never manufactures an
+/// unregistered family name.
+fn family_static_name(word: &str) -> Option<&'static str> {
+    [
+        "plus-prefixed-option",
+        "end-of-options-marker",
+        "single-space-description-column",
+        "usage-only-value-name",
+        "second-optional-value-dropped",
+        "parenthetical-qualifier-as-value",
+        "or-joined-alias",
+    ]
+    .into_iter()
+    .find(|&n| n == word)
 }
 
 /// Human-readable (not re-parsed) framework-detection summary: total
@@ -434,6 +528,10 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     let mut wrapped_prose_flags = 0usize;
     let mut tail_operand_tools = 0usize;
     let mut tail_operand_flags = 0usize;
+    // Same reasoning again, brand new field (this task): a scoreboard
+    // written before the seven vim-family detectors existed carries no such
+    // key.
+    let mut vim_family: Vec<(&'static str, usize, usize)> = Vec::new();
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -475,6 +573,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "wrapped_prose_flags" => wrapped_prose_flags = value.parse::<usize>().ok()?,
             "tail_operand_tools" => tail_operand_tools = value.parse::<usize>().ok()?,
             "tail_operand_flags" => tail_operand_flags = value.parse::<usize>().ok()?,
+            "vim_family" => vim_family = decode_vim_family(value),
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -512,6 +611,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         wrapped_prose_flags,
         tail_operand_tools,
         tail_operand_flags,
+        vim_family,
     })
 }
 

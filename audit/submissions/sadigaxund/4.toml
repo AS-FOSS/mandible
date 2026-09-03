@@ -489,7 +489,23 @@ tool = "vim.basic"
 stratum = "ok"
 verdict = "incomplete"
 note = "i believe it shows '--' as positional arg"
-families = ["unparsed-positional"]
+# families_derived: a machine reading of corpus/vim.basic/audit-seed4/meta.toml,
+# where the maintainer's own quoted words (not this seed's note, a separate
+# review event) evidence six more families on the same tool, argued per
+# quote in the commit that added these six labels:
+#   "a flag with just '+' and '+<num>'" is not parsed -> plus-prefixed-option
+#   "'--' ... its not parsed" -> end-of-options-marker
+#   "'-V[N][fname]' got parsed into just '-V [N]' which lost fname" ->
+#     second-optional-value-dropped
+#   "'-r (with file name)' got parsed into '-r (with'" ->
+#     parenthetical-qualifier-as-value
+#   "even worse for '-q' where it did not even get a placeholder" ->
+#     usage-only-value-name
+# A sixth is evidenced by the fixture's own captured bytes rather than a
+# maintainer quote: help.txt's row "-h  or  --help\tPrint Help ..." reads
+# as one flag -h whose description begins "or --help", so --help never
+# becomes an alias -> or-joined-alias
+families = ["unparsed-positional", "plus-prefixed-option", "end-of-options-marker", "second-optional-value-dropped", "parenthetical-qualifier-as-value", "usage-only-value-name", "or-joined-alias"]
 families_derived = true
 
 [[entry]]

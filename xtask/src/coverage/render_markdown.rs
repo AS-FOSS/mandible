@@ -93,6 +93,33 @@ fn tail_operand_sample_section_markdown(rows: &[Row]) -> String {
     )
 }
 
+/// Markdown twin of [`vim_family_sample_lines_text`]: one section per
+/// vim-family detector, in registration order.
+fn vim_family_sample_section_markdown(rows: &[Row]) -> String {
+    let Some(names): Option<Vec<&'static str>> = rows
+        .iter()
+        .find(|r| !r.vim_family.is_empty())
+        .map(|r| r.vim_family.iter().map(|(n, ..)| *n).collect())
+    else {
+        return String::new();
+    };
+    let mut out = String::new();
+    for name in names {
+        let heading = format!("\n**{name} findings** (sample):\n\n| sample |\n|---|\n");
+        out.push_str(&sample_section_markdown(
+            rows.iter().flat_map(|r| {
+                r.vim_family
+                    .iter()
+                    .find(|(n, ..)| *n == name)
+                    .into_iter()
+                    .flat_map(|(_, _, s)| s.iter())
+            }),
+            &heading,
+        ));
+    }
+    out
+}
+
 /// The shared body of the two markdown sections above.
 fn sample_section_markdown<'a>(samples: impl Iterator<Item = &'a String>, heading: &str) -> String {
     let samples: Vec<&String> = samples.take(SPLIT_SAMPLE_LIMIT).collect();
@@ -261,6 +288,15 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
          `xtask/src/tail_operand.rs`.\n\n",
         aggregate.tail_operand_tools, aggregate.tail_operand_flags,
     ));
+    if !aggregate.vim_family.is_empty() {
+        out.push_str("\n**Vim-family detectors** (atlas S-105..S-111, not calibrated yet):\n\n");
+        for (name, tools, flags) in &aggregate.vim_family {
+            out.push_str(&format!(
+                "- {name}: {tools} tool(s), {flags} finding(s) fleet-wide\n"
+            ));
+        }
+        out.push('\n');
+    }
     out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
@@ -282,6 +318,7 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&repeated_char_sample_section_markdown(rows));
     out.push_str(&wrapped_prose_sample_section_markdown(rows));
     out.push_str(&tail_operand_sample_section_markdown(rows));
+    out.push_str(&vim_family_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
