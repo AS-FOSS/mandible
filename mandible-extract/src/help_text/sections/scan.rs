@@ -1338,6 +1338,218 @@ Usage: mytool [OPTIONS]\n\nEnvironment overrides:\n  -e, --env-file FILE   load 
     }
 }
 
+/// Fewest characters allowed on the left side of a comma before it stops
+/// reading as a short alias: pnpm's own aliased root commands are all 1 or
+/// 2 letters (`i`, `ln`, `rm`, `up`, `ls`, `c`). Kept small deliberately —
+/// a wider bound risks reading an unrelated two-word row as an alias pair.
+/// See docs/shapes.md S-104.
+const MAX_RAGGED_ALIAS_CHARS: usize = 3;
+
+/// A short-alias prefix on a ragged command row's own name field (`"i,
+/// install"`, `"ln, link"`): pnpm's own convention for its 6 aliased root
+/// commands. Returns `(primary, Some(alias))` when the text splits on one
+/// comma into two [`is_command_name_shaped`] tokens, the left one at most
+/// [`MAX_RAGGED_ALIAS_CHARS`] characters and strictly shorter than the
+/// right — otherwise `(name, None)` unchanged, which also covers the
+/// ordinary unaliased case (`"add"`, `"init"`). See docs/shapes.md S-104.
+fn split_ragged_alias_prefix(name: &str) -> (&str, Option<&str>) {
+    let Some((left, right)) = name.split_once(',') else {
+        return (name, None);
+    };
+    let (left, right) = (left.trim(), right.trim());
+    if is_command_name_shaped(left)
+        && is_command_name_shaped(right)
+        && left.chars().count() <= MAX_RAGGED_ALIAS_CHARS
+        && left.chars().count() < right.chars().count()
+    {
+        (right, Some(left))
+    } else {
+        (name, None)
+    }
+}
+
+/// One ragged-indent command-table row: a bare or short-alias-prefixed
+/// name, its own description-column gap, and a gap-free description (no
+/// further [`find_multi_space_gap`] — refuses `less --help`'s packed
+/// key-binding rows). Folds its own deeper-indented, gap-free
+/// continuations. Called only under `st.command_mode`, and only ever
+/// accepted in a run of [`MIN_RAGGED_RUN`]+ via [`scan_ragged_command_run`].
+/// See docs/shapes.md S-103, S-104; corpus/pnpm/11.22.0.
+fn try_ragged_command_row(
+    lines: &[&str],
+    start: usize,
+    group: Option<&str>,
+) -> Option<(usize, CommandNode)> {
+    let line = *lines.get(start)?;
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() || looks_like_flag_start(trimmed) {
+        return None;
+    }
+    let gap = find_description_gap(line)?;
+    let (name_field, desc) = split_at_column(line, Some(gap));
+    let name_field = name_field.trim();
+    if name_field.is_empty() {
+        return None;
+    }
+    let desc = desc.trim().to_string();
+    if desc.is_empty() || find_multi_space_gap(&desc).is_some() {
+        return None;
+    }
+    let (primary, alias) = split_ragged_alias_prefix(name_field);
+    if !is_command_name_shaped(primary) {
+        return None;
+    }
+
+    let row_indent = leading_whitespace(line);
+    let mut end = start + 1;
+    let mut full_desc = desc;
+    while end < lines.len() {
+        let cont = lines[end];
+        if cont.trim().is_empty() {
+            break;
+        }
+        if leading_whitespace(cont) <= row_indent {
+            break;
+        }
+        if find_description_gap(cont).is_some() || looks_like_flag_start(cont.trim_start()) {
+            break;
+        }
+        full_desc.push(' ');
+        full_desc.push_str(cont.trim());
+        end += 1;
+    }
+
+    let mut node = CommandNode::new(primary, Provenance::single(Source::HelpText));
+    if let Some(alias) = alias {
+        node.aliases.push(alias.to_string());
+    }
+    node.summary = non_empty_text(&full_desc);
+    node.group = group.map(str::to_string);
+    node.children_filled = false;
+    node.heading_attested = true;
+    Some((end, node))
+}
+
+/// Shortest run of [`try_ragged_command_row`] matches, in strict physical
+/// adjacency, admitted as a real command table rather than noise — see
+/// that function's own doc comment, gate 3.
+const MIN_RAGGED_RUN: usize = 2;
+
+/// Every [`try_ragged_command_row`] match starting at `lines[start]`,
+/// requiring immediate adjacency (each row starts exactly where the
+/// previous one's own span, continuations included, ended — no blank line
+/// and no non-matching line between them) and at least [`MIN_RAGGED_RUN`]
+/// of them. `None` on a lone match or no match at all; the caller then
+/// falls through to the ordinary heading/block scanners exactly as if
+/// this function did not exist. See docs/shapes.md S-103, S-104.
+pub(super) fn scan_ragged_command_run(
+    lines: &[&str],
+    start: usize,
+    group: Option<&str>,
+) -> Option<(usize, Vec<CommandNode>)> {
+    let mut nodes = Vec::new();
+    let mut i = start;
+    while let Some((end, node)) = try_ragged_command_row(lines, i, group) {
+        nodes.push(node);
+        i = end;
+    }
+    // `timedatectl`'s `Commands:` block mixes bare-name rows this grammar
+    // reads (`status`, `show`) with rows carrying a trailing operand
+    // (`set-time TIME`) it does not — and does not claim to (that operand
+    // is no part of any command name). A run that stops mid-block, on a
+    // non-blank line it simply does not recognize, must decline whole
+    // rather than return a partial result and abandon everything after
+    // it: the caller has no other path back to those rows once this one
+    // returns. Accepted only when the run reaches a real boundary —
+    // end of input or a blank line — the same signal `bare_block_end`
+    // reads a block's own end from.
+    let reached_boundary = i >= lines.len() || lines[i].trim().is_empty();
+    (nodes.len() >= MIN_RAGGED_RUN && reached_boundary).then_some((i, nodes))
+}
+
+#[cfg(test)]
+mod ragged_command_row_tests {
+    use super::*;
+
+    #[test]
+    fn an_alias_prefixed_row_yields_its_primary_name_and_alias() {
+        let lines = ["   i, install              Install all dependencies for a project"];
+        let (end, node) = try_ragged_command_row(&lines, 0, None).unwrap();
+        assert_eq!(end, 1);
+        assert_eq!(node.name, "install");
+        assert_eq!(node.aliases, vec!["i".to_string()]);
+        assert_eq!(
+            node.summary.as_ref().unwrap().as_str(),
+            "Install all dependencies for a project"
+        );
+    }
+
+    #[test]
+    fn an_unaliased_row_folds_its_own_continuation() {
+        let lines = [
+            "      unlink               Unlinks a package. Like yarn unlink but pnpm",
+            "                           re-installs the dependency after removing the",
+            "                           external link",
+        ];
+        let (end, node) = try_ragged_command_row(&lines, 0, None).unwrap();
+        assert_eq!(end, 3);
+        assert_eq!(node.name, "unlink");
+        assert!(node.aliases.is_empty());
+        assert_eq!(
+            node.summary.as_ref().unwrap().as_str(),
+            "Unlinks a package. Like yarn unlink but pnpm re-installs the dependency after \
+             removing the external link"
+        );
+    }
+
+    /// The `less` false positive this detector must never fire on: a
+    /// key-binding row whose own first 2+-space gap lands right after a
+    /// single letter, exactly the way a real row's name field would, but
+    /// whose "description" is itself another aligned column.
+    #[test]
+    fn a_packed_multi_column_reference_row_is_refused() {
+        let lines = ["  e  ^E  j  ^N  CR  *  Forward  one line   (or _N lines)."];
+        assert!(try_ragged_command_row(&lines, 0, None).is_none());
+    }
+
+    #[test]
+    fn a_row_with_no_description_gap_is_refused() {
+        let lines = ["  bareword"];
+        assert!(try_ragged_command_row(&lines, 0, None).is_none());
+    }
+
+    #[test]
+    fn a_flag_row_is_never_read_as_a_command_row() {
+        let lines = ["  -x, --example         An ordinary flag, not a command"];
+        assert!(try_ragged_command_row(&lines, 0, None).is_none());
+    }
+
+    /// pnpm's own ragged run: a shallower aliased row beside two deeper
+    /// unaliased ones, admitted together because the run has 3 members.
+    #[test]
+    fn a_run_of_ragged_rows_is_admitted_together() {
+        let lines = [
+            "   i, install              Install all dependencies for a project",
+            "  ln, link                 Connect the local project to another one",
+            "      unlink               Unlinks a package.",
+        ];
+        let (end, nodes) = scan_ragged_command_run(&lines, 0, Some("Manage:")).unwrap();
+        assert_eq!(end, 3);
+        let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, vec!["install", "link", "unlink"]);
+        assert!(nodes.iter().all(|n| n.group.as_deref() == Some("Manage:")));
+    }
+
+    /// `less`'s lone `v` row: it passes every single-row gate on its own,
+    /// but the row before it (`s _f_i_l_e`) is not a match, so the run
+    /// never reaches [`MIN_RAGGED_RUN`] and nothing is emitted.
+    #[test]
+    fn a_lone_matching_row_is_not_a_run() {
+        let lines = ["  v                    Edit the current file with $VISUAL or $EDITOR."];
+        assert!(scan_ragged_command_run(&lines, 0, None).is_none());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
