@@ -1,14 +1,12 @@
 //! The `wrapped-command-continuation-as-subcommand` detector (atlas
-//! S-103): a command's description wraps onto a physical line with no
-//! column of its own, and the grammar reads that continuation's own
-//! leading word as a fresh subcommand.
+//! S-103): a command's description wraps onto a line with no column of
+//! its own, read as a fresh subcommand from the continuation's own
+//! leading word.
 //!
-//! A sibling of `xtask::wrapped_prose` (`wrapped-prose-row-boundary`,
-//! S-027), not the same shape: that one requires the continuation's own
-//! leading spelling to start with `-` and reads it as a flag; this one
-//! requires no dash at all — subcommand names never carry one — and reads
-//! it as a subcommand instead. See the family's own doc comment in
-//! `mandible-core/src/audit.rs`.
+//! A sibling of `wrapped-prose-row-boundary` (S-027), not the same shape:
+//! that one requires a dash-led leading spelling and reads it as a flag;
+//! this one requires none and reads a subcommand. See
+//! `mandible-core/src/audit.rs`'s family comment.
 //!
 //! Fixture: `corpus/pnpm/11.22.0/`.
 
@@ -62,24 +60,15 @@ fn tree_names<'a>(node: &'a CommandNode, out: &mut Vec<&'a str>) {
     }
 }
 
-/// True when `lines[idx]` is itself a continuation of an unfinished row's
-/// description: bare (no gap, so it cannot be a fresh row's own name
-/// field) and, walking back through zero or more further gap-less,
-/// non-blank, non-sentence-final lines, eventually reaching a line that
-/// does carry its own description-column gap (a real row) at a shallower
-/// indent than `lines[idx]` itself. That anchor row is pnpm's own `why`/
-/// `ls, list`; the walk-back is what lets this reach a continuation's own
-/// continuation (`tree-structure`, one line further than `package`).
-///
-/// A generalization of `mandible-extract`'s
-/// `is_wrapped_prose_continuation`, not the same rule: that function
-/// requires the immediately preceding line to itself lack a description
-/// column (it never anchors on the real row directly, only on one of its
-/// own later continuations), because a flag table's row and its
-/// continuation share one indent. A ragged command table's continuation
-/// sits one indent level *deeper* than the row that owns it, so the
-/// anchor here is found by indent comparison instead. See this module's
-/// own doc comment for why the two rules differ.
+/// True when `lines[idx]` continues an unfinished row's description: bare
+/// (no gap of its own), walking back through gap-less, non-blank, non-
+/// sentence-final lines to an anchor row that does carry a gap, at a
+/// shallower indent. Generalizes `mandible-extract`'s
+/// `is_wrapped_prose_continuation`: that function anchors on the
+/// immediately preceding line at equal indent (a flag row and its
+/// continuation share one); this shape's continuation sits one indent
+/// level deeper than the row that owns it, so indent comparison finds
+/// the anchor instead. See this module's own doc comment.
 fn is_bare_continuation(lines: &[&str], idx: usize) -> bool {
     let cur = lines[idx];
     if cur.split_whitespace().count() != 1 || has_wide_gap(cur) {
