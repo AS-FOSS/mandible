@@ -1610,19 +1610,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-097
 - looks like: |
       -V[N][fname]		Be verbose [level N] [log messages to fname]
-- tools: vim.basic, nvim
-- handling: A value spec written as two bracket groups glued to the flag keeps only the
-  first. The flag reaches the tree spelled `-V` with the optional value `N`,
-  and `fname` is rendered nowhere. The row's description still names it, so
-  the loss is in the value alone. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
-  `second-optional-value-dropped`
-  (`xtask/src/second_optional_value_dropped.rs`) generalizes this shape
-  fleet-wide.
-- fleet: `second-optional-value-dropped` fires on 13
-  tool(s) (13 finding(s)) in a full-PATH sweep,
-  2026-09-03. Not calibrated, same reasoning as S-095. Zero false alarms
-  against every seed-2/seed-4 judged-`correct` tool.
+- tools: vim.basic, nvim, vim, vi, view, rvim, rview, vim.tiny, vimdiff, ex
+- handling: Fixed. `try_value` in `mandible-extract/src/help_text/grammar.rs` folds every
+  bracketed group glued directly onto the first into one value name,
+  space-joined in document order, because `Entity::value_name` is a single
+  field. `-V[N][fname]` becomes the value `N fname`. A group is folded only
+  when it carries a letter or a digit and no unclosed bracket, so `xxd`'s
+  `-s [+][-]seek` and `fzf-tmux`'s `-p [WIDTH[%][,HEIGHT[%]]]` are left
+  exactly as they were rather than gaining a value name made of
+  punctuation.
+- fleet: `second-optional-value-dropped`
+  (`xtask/src/second_optional_value_dropped.rs`) fell from 13 tool(s)/13
+  finding(s) to 3/3 in a full-PATH sweep of 2264 tools, 2026-09-03. The
+  same sweep-diff shows zero losses and zero flag gains, with a repaired
+  value name on 10 tools. The three that remain carry the shape behind a
+  bracket the fold refuses, so this is not ratchet-gated at zero.
 
 ### S-098: parenthetical qualifier read as a value and truncated
 

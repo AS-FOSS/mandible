@@ -586,15 +586,49 @@ fn value_inside_brackets<'s>(input: &mut &'s str) -> Res<&'s str> {
 /// A value spec following the flag token(s): `=VALUE`, ` VALUE`,
 /// `[=VALUE]`, `[VALUE]`, `<value>`, or a bare uppercase-ish word. Returns
 /// `(value_name, kind, rest)`.
+/// True when a bracketed group names something a reader can use: it
+/// carries a letter or a digit and no unclosed `[`. `xxd`'s `-s [+][-]seek`
+/// and `gold`'s `--debug [all,files,script,task][,...]` fail the first
+/// test, `fzf-tmux`'s `-p [WIDTH[%][,HEIGHT[%]]]` the second, and folding
+/// any of them would build a value name out of punctuation. See
+/// docs/shapes.md S-097.
+fn foldable_value(value: &str) -> bool {
+    !value.contains('[') && value.chars().any(|c| c.is_ascii_alphanumeric())
+}
+
 fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     let mut s = input;
 
-    // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`.
+    // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`, possibly
+    // followed by one or more further bracketed optional values glued
+    // directly on with no separator (`-V[N][fname]`, vim's own row; see
+    // docs/shapes.md S-106). `Entity::value_name` is a single field, so
+    // every glued bracket's content is folded into one value name,
+    // space-joined in document order. Adjacency (no whitespace between
+    // the closing `]` and the next `[`) is the only signal used, which is
+    // structural, not per-tool, and never fires across the whitespace
+    // that separates a spec fragment from a description column.
     if open_bracket(&mut s).is_ok() {
         let _has_eq = equals_sign(&mut s).is_ok();
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
-        return Some((name.to_string(), ValueKind::Optional, s));
+        let mut combined = name.to_string();
+        while foldable_value(&combined) {
+            let mut probe = s;
+            if open_bracket(&mut probe).is_err() {
+                break;
+            }
+            let Ok(next_name) = value_inside_brackets(&mut probe) else {
+                break;
+            };
+            if close_bracket(&mut probe).is_err() || !foldable_value(next_name) {
+                break;
+            }
+            combined.push(' ');
+            combined.push_str(next_name);
+            s = probe;
+        }
+        return Some((combined, ValueKind::Optional, s));
     }
 
     // `=VALUE`
@@ -1130,6 +1164,49 @@ mod tests {
         assert_eq!(spec.long(), Some("occurrence"));
         assert_eq!(spec.value_name.as_deref(), Some("NUMBER"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
+    }
+
+    /// vim's `-V[N][fname]` (docs/shapes.md S-106, corpus/vim.basic's
+    /// `audit-seed4` fixture): two bracketed optional values glued
+    /// directly together. Both must survive in the one value name.
+    #[test]
+    fn parses_two_glued_optional_bracketed_values() {
+        let spec = parse_flag_spec("-V[N][fname]");
+        assert_eq!(spec.short(), Some('V'));
+        assert_eq!(spec.value_name.as_deref(), Some("N fname"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+        assert!(spec.fully_consumed);
+    }
+
+    /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names
+    /// a value, so nothing is folded and the flag keeps what it had. See
+    /// docs/shapes.md S-097.
+    #[test]
+    fn does_not_fold_bracket_groups_that_name_no_value() {
+        let spec = parse_flag_spec("-s [+][-]seek");
+        assert_eq!(spec.value_name.as_deref(), Some("+"));
+    }
+
+    /// `fzf-tmux`'s own `-p [WIDTH[%][,HEIGHT[%]]]` row, byte-exact. The
+    /// first group is already an unclosed bracket, so folding a second one
+    /// onto it would compound a misread. See docs/shapes.md S-097.
+    #[test]
+    fn does_not_fold_onto_an_unclosed_bracket() {
+        let spec = parse_flag_spec("-p [WIDTH[%][,HEIGHT[%]]]");
+        assert_eq!(spec.value_name.as_deref(), Some("WIDTH[%"));
+    }
+
+    /// A single bracketed optional value followed, after whitespace, by
+    /// text that is not glued on must not be folded in — the shape S-106
+    /// recovers is adjacency with no separator, never "starts with `[`
+    /// somewhere later in the fragment".
+    #[test]
+    fn does_not_glue_a_bracket_separated_by_whitespace() {
+        let spec = parse_flag_spec("-p[N] [not glued]");
+        assert_eq!(spec.short(), Some('p'));
+        assert_eq!(spec.value_name.as_deref(), Some("N"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+        assert!(!spec.fully_consumed);
     }
 
     #[test]
