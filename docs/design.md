@@ -561,21 +561,31 @@ everything shown as drawn.
 **A usage form keeps the indentation its author gave it, and the pane
 reproduces the alignment that indentation was drawn for.** A tool lines its
 alternative invocation forms up against the `Usage:` label it printed in
-front of the first one. Since `USAGE` is already the section heading, the
-pane drops that label — which moves the first form left by however many
-columns the label occupied, while later forms stay where the author put
-them. So every form shifts left by the first form's own content column
-(its indentation plus the label), landing the first form at the block
-indent with the rest kept at their positions relative to it, the alignment
-the tool actually drew. A form indented less than that shift clamps at the
-block indent rather than going negative, since once the label it was drawn
-against is gone it cannot be aligned as drawn. `CommandNode::usage` stores
-the author's own indentation; the compensation is the pane's, computed per
-node.
+front of the first one, and each continuation against its own `or:`/`or`
+marker. Since `USAGE` is already the section heading, the pane drops both
+kinds of label — which moves each form left by however many columns its
+own label occupied, so every form shifts left by the first form's own
+content column (its indentation plus the label), landing the first form at
+the block indent with the rest kept at their positions relative to it, the
+alignment the tool actually drew. A form indented less than that shift
+clamps at the block indent rather than going negative, since once the
+label it was drawn against is gone it cannot be aligned as drawn.
+`CommandNode::usage` stores the author's own indentation; the compensation
+is the pane's, computed per node.
+
+A form's own program word counts as naming the node when it equals the
+node's name, its basename after a final `/` does (`cp`'s own
+`/usr/bin/cp`), or that basename equals the node name's prefix before the
+node name's first `.` (`vim.basic`'s own `vim`). The pane replaces that
+word with the node's name rather than leaving it and prepending the name
+in front, which would print the tool's own name twice.
 
 mandible probes tools by absolute resolved path, so a tool that echoes its
-own `argv[0]` prints `Usage: /usr/bin/du` in the pane against `Usage: du` in
-a shell that found it via `PATH`.
+own `argv[0]` writes `Usage: /usr/bin/du` where a shell that found it via
+`PATH` would see `Usage: du`. The rule above replaces that leading word
+with the node's name, so the USAGE section reads `du`. A path the tool
+prints anywhere else in the line is its own text and is left alone, and
+the raw pane shows every line as captured.
 
 The raw pane displays stdout and stderr both, labelled, even though §7
 Tier B's parser reads only one of the two per its own rule (see that
