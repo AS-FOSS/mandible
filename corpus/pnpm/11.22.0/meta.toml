@@ -65,6 +65,19 @@ min_subcommands = 18
 # The one root flag pnpm lists under `Options:`.
 must_contain_flags = ["--recursive"]
 
+# Fleet counts for this shape, measured on a full-PATH sweep of 2,264 tools.
+# A candidate fix lives on the branch `r3/pnpm-command-table` and is not
+# merged, because it does not clear the admission bar. Sweep-diff against the
+# pre-fix sweep reports zero flag losses, zero flag gains and one field-level
+# gain, so the fix demonstrably helps two tools: pnpm itself, and
+# fail2ban-client, which recovers five real subcommands. The bar is five
+# tools. The two detectors written for this shape report 145 tools
+# (ragged-command-table) and 1 tool (wrapped-command-continuation-as-
+# subcommand), and neither count is quotable: both are dominated by the
+# detectors' own false positives, which is why both are reported and not
+# gated. Neither detector has a labelled member in the audit manifest, so
+# neither has passed calibration either.
+
 [xfail]
 broken = true
 reason = "the root command table is misread: the six aliased rows and the six rows under them are dropped, and `package` and `tree-structure` are invented from wrapped description lines"
