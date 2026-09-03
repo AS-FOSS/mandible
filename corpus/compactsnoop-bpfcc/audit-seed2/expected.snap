@@ -43,9 +43,7 @@ flags:
     - help-text
 - spellings:
   - -e
-  - --extended
-  value_name: _fields
-  value_kind: Required
+  - --extended_fields
   description: show system memory state
   provenance:
     sources:

@@ -466,7 +466,24 @@ fn long_dashes<'s>(input: &mut &'s str) -> Res<&'s str> {
 }
 
 fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
-    take_while(1.., |c: char| c.is_alphanumeric() || c == '-').parse_next(input)
+    // The first character keeps the original class (alphanumeric or `-`):
+    // a real long option never starts with `_`. `less --help`'s
+    // `--_<name>` row is backspace-overstrike underlining (`_\b<...`), not
+    // a spelling glued onto `--`; letting `_` open the name here would
+    // read that artifact as flag `--_`. See `a_leading_underscore_after_
+    // dashdash_is_never_a_spelling` below.
+    //
+    // `_` does join `-` in the *tail*: a real long option name may
+    // contain it (icupkg's `--auto_toc_prefix_with_type`, sg_luns's
+    // `--lu_cong`, bpfcc's `--extended_fields`); `sections/spelling.rs`
+    // already accepts it in its own name grammar and this was the odd one
+    // out. See docs/shapes.md S-106.
+    (
+        take_while(1..=1, |c: char| c.is_alphanumeric() || c == '-'),
+        take_while(0.., |c: char| c.is_alphanumeric() || c == '-' || c == '_'),
+    )
+        .take()
+        .parse_next(input)
 }
 
 /// `-x`, or `-xy...[rest]` where an abbreviation-continuation bracket
@@ -1054,8 +1071,10 @@ pub(super) fn split_alternatives(content: &str) -> Vec<&str> {
 pub(super) fn is_bare_flag_spelling(token: &str) -> bool {
     if let Some(name) = token.strip_prefix("--") {
         let mut cs = name.chars();
+        // `_` joins `-` for the same reason `long_name` does: a real
+        // long option name may contain it (S-106).
         return cs.next().is_some_and(|c| c.is_ascii_alphabetic())
-            && cs.all(|c| c.is_ascii_alphanumeric() || c == '-');
+            && cs.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
     }
     if let Some(name) = token.strip_prefix('-') {
         let mut cs = name.chars();
@@ -2168,6 +2187,45 @@ mod tests {
         let spec = parse_flag_spec("-h, --[section-]headers");
         assert_eq!(spec.spellings.len(), 1);
         assert_eq!(spec.spellings[0].name, "h");
+    }
+
+    #[test]
+    fn a_glued_underscore_suffix_joins_the_long_name_not_the_value() {
+        // corpus/compactsnoop-bpfcc/audit-seed2/help.txt: "  -e,
+        // --extended_fields\n                        show system memory
+        // state". `--extended` used to end at `_`, leaving a fabricated
+        // value named `_fields` on a flag the tool never gives one. See
+        // docs/shapes.md S-106.
+        let spec = parse_flag_spec("-e, --extended_fields");
+        assert_eq!(spec.spellings.len(), 2);
+        assert_eq!(spec.spellings[1].name, "extended_fields");
+        assert!(spec.value_name.is_none());
+    }
+
+    #[test]
+    fn an_explicit_equals_value_that_begins_with_underscore_stays_a_value() {
+        // The shape the underscore widening must not eat: `--foo=_bar`
+        // separates name from value with a real `=`, so `_bar` is a
+        // value spec, never folded into the flag's own name.
+        let spec = parse_flag_spec("--foo=_bar");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "foo");
+        assert_eq!(spec.value_name.as_deref(), Some("_bar"));
+    }
+
+    #[test]
+    fn a_leading_underscore_after_dashdash_is_never_a_spelling() {
+        // `less --help`'s real `--_<name>` row, byte-exact with the
+        // backspace-overstrike underlining it renders with: raw bytes are
+        // `--_\x08<_\x08n_\x08a_\x08m_\x08e_\x08>` (an underscore then a
+        // backspace ahead of each underlined character). The leading `_`
+        // is overstrike, not a spelling: `less` has no option named `--_`.
+        // A real long option name never starts with `_`, only its tail
+        // may carry one, so `try_long` must refuse this row outright
+        // rather than reading a fabricated `--_` flag with a garbled
+        // value. See docs/shapes.md S-106.
+        let spec = parse_flag_spec("--_\u{8}<_\u{8}n_\u{8}a_\u{8}m_\u{8}e_\u{8}>");
+        assert!(spec.spellings.is_empty());
     }
 
     #[test]
