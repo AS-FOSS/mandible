@@ -35,6 +35,7 @@ use std::path::Path;
 
 mod calibration;
 mod commands;
+mod detectors_families;
 mod detectors_flags;
 mod detectors_misc;
 mod detectors_structural;
@@ -42,6 +43,7 @@ mod render;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
+pub(crate) use detectors_families::*;
 pub(crate) use detectors_flags::*;
 pub(crate) use detectors_misc::*;
 pub(crate) use detectors_structural::*;
@@ -635,6 +637,13 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(MisattributionOracle),
         Box::new(WrappedProseRowBoundary),
         Box::new(UnparsedTailOperand),
+        Box::new(PlusPrefixedOption),
+        Box::new(EndOfOptionsMarker),
+        Box::new(SingleSpaceDescriptionColumn),
+        Box::new(UsageOnlyValueName),
+        Box::new(SecondOptionalValueDropped),
+        Box::new(ParentheticalQualifierAsValue),
+        Box::new(OrJoinedAlias),
     ]
 }
 

@@ -202,6 +202,7 @@ fn row(tool: &str, flags: usize, pct_flags_with_text: Option<f64>, status: &'sta
         wrapped_prose_samples: Vec::new(),
         tail_operand_count: 0,
         tail_operand_samples: Vec::new(),
+        vim_family: Vec::new(),
         status,
         fingerprint: fingerprint::ToolFingerprint::default(),
     }

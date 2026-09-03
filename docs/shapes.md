@@ -1569,38 +1569,55 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       +			Start at end of file
       +<lnum>		Start at line <lnum>
-- tools: vim.basic, vim, vi, view, rvim, ex
+- tools: vim.basic, vim, vi, view, rvim, ex, nvim
 - handling: An option row whose name begins with a plus is not recognized as a row at
   all, so both rows reach nothing. The whole `Arguments:` block around them
   parses, and 43 dash-led rows in it come out correct. The two rows are real
   and documented. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
   Distinct from S-086, which is the plus-or-minus alternation notation.
-- fleet: not measured
+  `xtask detector`'s `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`)
+  generalizes this shape fleet-wide.
+- fleet: `plus-prefixed-option` fires on 13 tool(s)
+  (23 finding(s)) in a full-PATH sweep, 2026-09-03. Not
+  calibrated: no labelled member exists in the audit manifest yet (spec
+  §13.1e rule 2). Zero false alarms against every seed-2/seed-4
+  judged-`correct` tool.
 
 ### S-096: end-of-options marker row dropped
 
 - id: S-096
 - looks like: |
       --			Only file names after this
-- tools: vim.basic
+- tools: vim.basic, nvim
 - handling: A row whose whole name is a bare double dash is deliberately left eligible
   as a row (S-090 refuses only three dashes or more), and it still fails to
   reach the tree. The marker is real and the row carries its own description.
   Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-- fleet: not measured
+  `xtask detector`'s `end-of-options-marker`
+  (`xtask/src/end_of_options_marker.rs`) generalizes this shape fleet-wide.
+- fleet: `end-of-options-marker` fires on 26 tool(s)
+  (26 finding(s)) in a full-PATH sweep, 2026-09-03. Not
+  calibrated, same reasoning as S-095. Zero false alarms against every
+  seed-2/seed-4 judged-`correct` tool.
 
 ### S-097: glued optional value spec loses everything after the first bracket
 
 - id: S-097
 - looks like: |
       -V[N][fname]		Be verbose [level N] [log messages to fname]
-- tools: vim.basic
+- tools: vim.basic, nvim
 - handling: A value spec written as two bracket groups glued to the flag keeps only the
   first. The flag reaches the tree spelled `-V` with the optional value `N`,
   and `fname` is rendered nowhere. The row's description still names it, so
   the loss is in the value alone. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`.
-- fleet: not measured
+  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
+  `second-optional-value-dropped`
+  (`xtask/src/second_optional_value_dropped.rs`) generalizes this shape
+  fleet-wide.
+- fleet: `second-optional-value-dropped` fires on 13
+  tool(s) (13 finding(s)) in a full-PATH sweep,
+  2026-09-03. Not calibrated, same reasoning as S-095. Zero false alarms
+  against every seed-2/seed-4 judged-`correct` tool.
 
 ### S-098: parenthetical qualifier read as a value and truncated
 
@@ -1613,8 +1630,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   parentheses. The qualifier is read as a value placeholder and cut at the
   first space, so the flag carries the value `(with` and the words `file
   name)` are rendered nowhere. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`.
-- fleet: not measured
+  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
+  `parenthetical-qualifier-as-value`
+  (`xtask/src/parenthetical_qualifier_as_value.rs`) generalizes this shape
+  fleet-wide.
+- fleet: `parenthetical-qualifier-as-value` fires on 9 tool(s)
+  (9 finding(s)) in a full-PATH sweep, 2026-09-03. Not
+  calibrated, same reasoning as S-095. Zero false alarms against every
+  seed-2/seed-4 judged-`correct` tool.
 
 ### S-099: alias pair joined by the word "or"
 
@@ -1626,7 +1649,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   one flag `-h` whose description begins `or --help`. The `--help` spelling
   never becomes an alias, and the description carries text that is not
   description. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-- fleet: not measured
+  `xtask detector`'s `or-joined-alias` (`xtask/src/or_joined_alias.rs`)
+  generalizes this shape fleet-wide.
+- fleet: `or-joined-alias` fires on 30 tool(s)
+  (134 finding(s)) in a full-PATH sweep, 2026-09-03. Not
+  calibrated, same reasoning as S-095. Zero false alarms against every
+  seed-2/seed-4 judged-`correct` tool.
 
 ### S-100: usage alternative reaches the tree without its own description
 
@@ -1634,13 +1662,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
          or: vim [arguments] -t tag          edit file where tag is defined
          or: vim [arguments] -q [errorfile]  edit file with first error
-- tools: vim.basic
+- tools: vim.basic, nvim
 - handling: An alternative synopsis line names a flag and describes it on the same line.
   The flag reaches the tree from the synopsis with no description, and `-q`
   arrives with no value placeholder either. The text is present and aligned in
   a description column. Open defect, recorded by
-  `corpus/vim.basic/audit-seed4`.
-- fleet: not measured
+  `corpus/vim.basic/audit-seed4`. `xtask detector`'s
+  `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
+  generalizes the value-name half of this shape fleet-wide; it does not
+  claim the missing-description half, a different, still-open concern on
+  the same rows.
+- fleet: `usage-only-value-name` fires on 76 tool(s)
+  (255 finding(s)) in a full-PATH sweep, 2026-09-03. Not
+  calibrated, same reasoning as S-095. Zero false alarms against every
+  seed-2/seed-4 judged-`correct` tool.
 
 ### S-101: repetition dots glued to an operand name
 
@@ -1675,3 +1710,27 @@ entry's `tools` field and nothing else. It does not get a new entry.
   count and the rendered count: ffplay 1136 to 465, gcc 43 to 37, curl 258
   to 253, as 61 to 59, vim.basic 45 to 43, tar 159 to 157, du 29 to 28,
   expand 5 to 4.
+
+### S-105: one-space description column on a pipe-joined alias row
+
+- id: S-105
+- looks like: |
+      -? | -h | --help | -help to print this help message
+- tools: jinfo
+- handling: A row that joins several spellings with ` | ` documents its description
+  after only one space, not the two-space or tab gap the layout splitter's
+  column boundary requires. No entity in the group ever carries the
+  description; the leading word of what should be the description
+  (`to`) is instead read off the same line as a value name. Open defect,
+  recorded by `corpus/jinfo/17.0.20`. `xtask detector`'s
+  `single-space-description-column`
+  (`xtask/src/single_space_description_column.rs`) generalizes this shape
+  fleet-wide.
+- fleet: `single-space-description-column` fires on 9
+  tool(s) (27 finding(s)) in a full-PATH sweep,
+  2026-09-03. Not calibrated: no labelled member exists in the audit
+  manifest yet (spec §13.1e rule 2). Zero false alarms against every
+  seed-2/seed-4 judged-`correct` tool; an earlier version misfired on
+  `ip`'s packed alternation synopsis (a judged defect of a different
+  family, not a blocking false alarm, but a real detector bug) and was
+  narrowed before this count.

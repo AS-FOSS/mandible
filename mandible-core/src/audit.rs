@@ -529,6 +529,55 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   word, and the grammar reads that continuation as the start of a new flag row, \
                   fabricating a flag out of prose rather than out of any real option list",
     },
+    // Seven families below come from the maintainer's own reading of
+    // `corpus/vim.basic/audit-seed4/meta.toml`, `corpus/nvim/0.9.5/meta.toml`
+    // and `corpus/jinfo/17.0.20/meta.toml`. Each is one shape, checked
+    // against every other family in this file first; none overlaps an
+    // existing name. Atlas ids: S-095, S-096, S-097, S-098, S-099, S-100
+    // (six already existed as narrative-only entries from an earlier read
+    // of `corpus/vim.basic/audit-seed4/`) and S-105 (jinfo's shape, new).
+    DefectFamily {
+        name: "plus-prefixed-option",
+        meaning: "a `+`-led option row (`+`, `+<lnum>`, `+<cmd>`) reaches no entity at all — \
+                  `is_flag_shaped` requires a character right after the sigil and does not \
+                  accept `<`, so the row is never read as flag-shaped",
+    },
+    DefectFamily {
+        name: "end-of-options-marker",
+        meaning: "a bare `--` row in an options block is dropped whole, for the same reason as \
+                  `plus-prefixed-option`: `is_flag_shaped` requires a character after the \
+                  leading sigil",
+    },
+    DefectFamily {
+        name: "single-space-description-column",
+        meaning: "a `\" | \"`-joined alias row followed by its description with only one \
+                  space, not the two-space/tab gap the layout splitter requires, so the \
+                  description is never found and its leading word is read as a value name \
+                  instead",
+    },
+    DefectFamily {
+        name: "usage-only-value-name",
+        meaning: "the usage block states a flag's value name (or the description an alternative \
+                  usage form documents) that the flag's own row in the options block never \
+                  carries",
+    },
+    DefectFamily {
+        name: "second-optional-value-dropped",
+        meaning: "a flag spec with two adjacent bracketed optional values (`-V[N][fname]`) \
+                  keeps only the first and loses the second entirely",
+    },
+    DefectFamily {
+        name: "parenthetical-qualifier-as-value",
+        meaning: "a bare short flag followed by a parenthetical qualifier (`-r (with file \
+                  name)`) has the qualifier's leading word read as its value name, truncating \
+                  the rest",
+    },
+    DefectFamily {
+        name: "or-joined-alias",
+        meaning: "an alias row spelled `<flag>  or  <flag>` is read as one flag whose \
+                  description begins with the literal word `or`, so the second spelling never \
+                  becomes an alias",
+    },
     // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. This is the vaguest label
     // in the manifest — its own `meaning` below is a list of five unrelated
     // layouts, which is the tell — and reading the six labelled tools'

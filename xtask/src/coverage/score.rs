@@ -190,6 +190,7 @@ pub(super) fn score_one(tool: &str) -> Row {
     ) = split_family_counts(probe.root_help_text(), result.root.as_ref());
     let (wrapped_prose_count, wrapped_prose_samples, tail_operand_count, tail_operand_samples) =
         family_detector_counts(probe.root_help_text(), result.root.as_ref());
+    let vim_family = vim_family_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -221,6 +222,7 @@ pub(super) fn score_one(tool: &str) -> Row {
         wrapped_prose_samples,
         tail_operand_count,
         tail_operand_samples,
+        vim_family,
         status: status.label,
         fingerprint: build_fingerprint(result.root.as_ref()),
     }
@@ -373,6 +375,98 @@ fn family_detector_counts(
         to.finding_count(),
         to_samples,
     )
+}
+
+/// The seven vim-family detectors (atlas S-105..S-111), read off the same
+/// already-captured raw text and tree. One function rather than seven
+/// named locals: every family shares the exact same (name, finding count,
+/// capped samples) shape, and `Row::vim_family`/`Aggregate::vim_family`
+/// read that list generically rather than by seven repeated field names.
+fn vim_family_counts(
+    raw: Option<String>,
+    root: Option<&CommandNode>,
+) -> Vec<(&'static str, usize, Vec<String>)> {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return Vec::new();
+    };
+    if raw.trim().is_empty() {
+        return Vec::new();
+    }
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+
+    let pp = crate::plus_prefixed_option::detect(&raw, root);
+    let eo = crate::end_of_options_marker::detect(&raw, root);
+    let ss = crate::single_space_description_column::detect(&raw, root);
+    let uv = crate::usage_only_value_name::detect(&raw, root);
+    let sv = crate::second_optional_value_dropped::detect(&raw, root);
+    let pq = crate::parenthetical_qualifier_as_value::detect(&raw, root);
+    let oj = crate::or_joined_alias::detect(&raw, root);
+
+    vec![
+        (
+            "plus-prefixed-option",
+            pp.finding_count(),
+            pp.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} never became a flag, from {:?}", f.token, f.line))
+                .collect(),
+        ),
+        (
+            "end-of-options-marker",
+            eo.finding_count(),
+            eo.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("`--` never became a flag, from {:?}", f.line))
+                .collect(),
+        ),
+        (
+            "single-space-description-column",
+            ss.finding_count(),
+            ss.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} never attached to {:?}", f.description, f.spellings))
+                .collect(),
+        ),
+        (
+            "usage-only-value-name",
+            uv.finding_count(),
+            uv.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("-{} never carried value name {:?}", f.flag, f.value_name))
+                .collect(),
+        ),
+        (
+            "second-optional-value-dropped",
+            sv.finding_count(),
+            sv.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("-{} lost {:?}", f.flag, f.second_value))
+                .collect(),
+        ),
+        (
+            "parenthetical-qualifier-as-value",
+            pq.finding_count(),
+            pq.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("-{} carries value name {:?}", f.flag, f.value_name))
+                .collect(),
+        ),
+        (
+            "or-joined-alias",
+            oj.finding_count(),
+            oj.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} never became an alias of {:?}", f.second, f.first))
+                .collect(),
+        ),
+    ]
 }
 
 /// True when the root's captured `--help` output was detected as a
