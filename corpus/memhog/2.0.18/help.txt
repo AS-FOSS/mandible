@@ -1,0 +1,5 @@
+memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]
+-f mmap is backed by FILE
+-rNUM repeat memset NUM times
+-H disable transparent hugepages
+Policies: preferred-many local interleave membind preferred default

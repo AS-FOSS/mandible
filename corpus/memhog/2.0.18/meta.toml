@@ -1,0 +1,76 @@
+# No memhog fixture existed in this corpus before this one. `memhog` ships
+# in the `numactl` package (2.0.18-1ubuntu0.24.04.1 on this build) and its
+# `--help` exits 1 with everything on stdout.
+#
+# Maintainer, after looking at mandible's screen for this tool: "yeah this
+# one needs full revision". The whole screen is the contract gap; every one
+# of the raw capture's five lines is wrong or lost in the parsed tree. Row
+# by row, checked against `help.txt`:
+#
+#   1. `memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]`
+#      Kept verbatim in `usage`. But the positionals it documents —
+#      required `size[kmg]`, optional `policy` and `nodeset` — are not
+#      extracted at all; the tree has no `positionals` field.
+#   2. `-f mmap is backed by FILE`
+#      `-f` is invented a value name `mmap` — the first word of its own
+#      description, misread as a placeholder — and carries no description.
+#      The real description, "mmap is backed by FILE", is not attached to
+#      `-f` anywhere; instead this whole line is swallowed, concatenated
+#      with lines 3-5, into the root node's own `description` field.
+#   3. `-rNUM repeat memset NUM times`
+#      `-r`'s value name `NUM` is recovered correctly (the one row of the
+#      five with no invention), but its description "repeat memset NUM
+#      times" is lost the same way line 2's is: swallowed into the root
+#      node's `description` blob instead of attached to `-r`.
+#   4. `-H disable transparent hugepages`
+#      Same invention as line 2: `-H` is a boolean flag with no value in
+#      the tool, but the parser gives it a fabricated value name `disable`
+#      — the first word of its own description — and no description of its
+#      own; the real text is swallowed into the root blob again.
+#   5. `Policies: preferred-many local interleave membind preferred default`
+#      This line enumerates the values the `policy` positional accepts. It
+#      is not attached anywhere structured — there is no `policy` positional
+#      to attach it to, since line 1's positional extraction already failed
+#      — and instead becomes the tail of the same root-level `description`
+#      blob lines 2-4 were swallowed into.
+#
+# Net effect: the root node's `description` field is a single run-on
+# sentence built by concatenating lines 2 through 5, and every flag that
+# should have carried a piece of that text carries a fabricated value name
+# instead. Confidence on this tree is 0.0 (`cargo run -p xtask -- corpus
+# --show memhog`), the lowest this build reports.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "memhog"
+version = "2.0.18"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); numactl 2.0.18-1ubuntu0.24.04.1"
+
+# memhog --help exits 1.
+[[capture]]
+argv = ["memhog", "--help"]
+stdout = "help.txt"
+exit_code = 1
+
+[contract]
+# `mandible --doctor memhog` reports framework: unidentified, so Tier A'
+# found no fingerprint and the generic layout engine handled it.
+expected_framework = "generic"
+
+# Line 1's required positional, dropped entirely today.
+must_contain_positionals = ["size"]
+
+[contract.must_describe]
+"-f" = "mmap is backed by FILE"
+"-r" = "repeat memset NUM times"
+"-H" = "disable transparent hugepages"
+
+[contract.must_value_name]
+"-f" = "FILE"
+
+[xfail]
+broken = true
+reason = "every one of the five raw lines is wrong: no positional is extracted, -f and -H are given fabricated value names read off their own descriptions, and all three flags' real descriptions plus the policy-choices line are swallowed into one root-level description blob instead of being attached to their own rows"
