@@ -1675,3 +1675,48 @@ entry's `tools` field and nothing else. It does not get a new entry.
   count and the rendered count: ffplay 1136 to 465, gcc 43 to 37, curl 258
   to 253, as 61 to 59, vim.basic 45 to 43, tar 159 to 157, du 29 to 28,
   expand 5 to 4.
+
+### S-103: a command's wrapped description invents a subcommand
+
+- id: S-103
+- looks like: |
+        ls, list                 Print all the versions of packages that are
+                                 installed, as well as their dependencies, in a
+                                 tree-structure
+- tools: pnpm
+- handling: A command's description wraps onto a physical line with no column of
+  its own. The generic layout parser's heading fallback misreads an earlier
+  ragged-indent row as a section heading (see S-104), and the orphaned
+  continuation's own leading word then reads as a fresh subcommand.
+  `scan_ragged_command_run` recognizes the owning row directly, before the
+  heading fallback ever sees it, so the continuation folds into that row's
+  description instead of becoming a node. Fixed.
+- fleet: 0 after the fix (pnpm's 2 inventions, `tree-structure` and `package`,
+  both gone), 2026-09-03. The `wrapped-command-continuation-as-subcommand`
+  detector's own fleet-wide count is reported, not gated: a full sweep found
+  1 unrelated tool it also fires on, not yet excluded by a declared scope.
+
+### S-104: a short-alias prefix ragged-indents a command table's rows
+
+- id: S-104
+- looks like: |
+        add                  Installs a package and any packages that it depends
+     i, install              Install all dependencies for a project
+    ln, link                 Connect the local project to another one
+- tools: pnpm
+- handling: A command table's rows carry an optional short-alias-comma prefix
+  (`i, install`), which sits at a shallower indent than the unaliased rows
+  around it. The generic layout parser's block scanners key a row-vs-
+  continuation decision on one fixed indent baseline per block, which cannot
+  admit both indents at once: the shallower row never opens a block and is
+  dropped, and the deeper siblings after it get swallowed by the heading
+  fallback (see S-103). `scan_ragged_command_row`/`scan_ragged_command_run`
+  recognize each row directly, one physical line at a time, gated on the
+  document already being in a command-listing context and on a run of 2+
+  such rows in strict adjacency. Fixed.
+- fleet: 0 after the fix (pnpm's 12 aliased-and-sibling rows all recovered:
+  `i, install`, `ln, link`, `rm, remove`, `unlink`, `up, update`, `ls, list`,
+  `outdated`, `why`, `c, config`, `init`, `publish`, `stage`), 2026-09-03. The
+  `ragged-command-table` detector's own fleet-wide count is reported, not
+  gated: a full sweep found it also fires on 144 tools whose "missing
+  command" is really an unrelated bullet or reference list, not this shape.
