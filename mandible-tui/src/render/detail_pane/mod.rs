@@ -426,7 +426,12 @@ fn build_lines(
 ) -> BuiltLines {
     let mut lines = Vec::new();
     let mut target_flag_line = None;
-    let mut clip_rows: Vec<(usize, bool, bool)> = Vec::new();
+    // Every list section wraps to pane width and never clips (spec §9.3
+    // rule 15); USAGE now soft-wraps too (spec §9 rule 9), so
+    // nothing in the parsed view ever produces a clipped row any more.
+    // The field stays on [`BuiltLines`] because [`render`] still threads it
+    // through to [`draw_clip_marker_rails`] the same way the raw view does.
+    let clip_rows: Vec<(usize, bool, bool)> = Vec::new();
     let mut rows: Vec<EntryRow> = Vec::new();
     // Reset every frame so a node with no USAGE doesn't keep the previous
     // node's extent and draw a stale overflow marker.
@@ -494,39 +499,18 @@ fn build_lines(
         // apart from its prose.
         let indent = "  ";
         let forms = usage_forms(&node.name, &node.usage);
-        if app.horizontal_scroll_enabled {
-            // A synopsis is preformatted — spacing inside it is part of
-            // its meaning, so spec §9 has it scroll rather than wrap. One
-            // `Line` per usage form, never re-flowed; `h`/`l` reveal the rest instead
-            // of the old greedy word-wrap eating it into a ragged block.
-            let usage_lines: Vec<String> = forms
-                .iter()
-                .map(|(pad, text)| format!("{indent}{}{text}", " ".repeat(*pad)))
-                .collect();
-            let max_width = usage_lines
-                .iter()
-                .map(|line| display_width(line))
-                .max()
-                .unwrap_or(0);
-            app.set_detail_hextent(max_width, width);
-            let hoffset = app.clamped_detail_hscroll();
-            for line in usage_lines {
-                let (built, left, right) = hscroll_line(&line, hoffset, width);
-                if left || right {
-                    clip_rows.push((lines.len(), left, right));
-                }
-                lines.push(built);
-            }
-        } else {
-            // Wrapping mode keeps the same left edge for a form's own
-            // continuation rows, so a form that has to wrap still reads as
-            // one form rather than drifting back to the block indent.
-            for (pad, text) in &forms {
-                let lead = format!("{indent}{}", " ".repeat(*pad));
-                let avail = width.saturating_sub(display_width(&lead)).max(1);
-                for chunk in wrap_words(text, avail) {
-                    lines.push(Line::from(format!("{lead}{chunk}")));
-                }
+        // A rendered USAGE line is mandible's own reconstruction, not the
+        // tool author's layout: the parser already joined a usage that
+        // wrapped over several physical lines into one logical line, so it
+        // soft-wraps at the pane width in both modes instead of forcing
+        // horizontal scroll (spec §9 rule 9). Continuation rows
+        // keep the form's own left edge, so a form that has to wrap still
+        // reads as one form rather than drifting back to the block indent.
+        for (pad, text) in &forms {
+            let lead = format!("{indent}{}", " ".repeat(*pad));
+            let avail = width.saturating_sub(display_width(&lead)).max(1);
+            for chunk in wrap_words(text, avail) {
+                lines.push(Line::from(format!("{lead}{chunk}")));
             }
         }
     }
@@ -3346,6 +3330,81 @@ mod tests {
         );
     }
 
+    /// End-to-end for the `sg_luns` repro: a USAGE form wider than the pane
+    /// wraps onto a second row at the pane width, the continuation row
+    /// keeps the form's own left edge, and no horizontal clip marker
+    /// reaches the screen for it, on a real `TestBackend` frame (spec §9
+    /// rule 9).
+    #[test]
+    fn usage_form_wraps_on_screen_with_no_clip_marker() {
+        use crate::app::App;
+        use ratatui::backend::TestBackend;
+        use ratatui::buffer::Buffer;
+        use ratatui::Terminal;
+
+        fn frame_of(app: &App) -> Buffer {
+            let backend = TestBackend::new(80, 24);
+            let mut terminal = Terminal::new(backend).unwrap();
+            terminal
+                .draw(|frame| {
+                    let area = frame.area();
+                    render(frame, area, app);
+                })
+                .unwrap();
+            terminal.backend().buffer().clone()
+        }
+
+        let mut root = CommandNode::new("sg_luns", Provenance::single(Source::HelpText));
+        root.usage = vec![Text::sanitize_preserving_layout(
+            "Usage: sg_luns [--alpha] [--brief] [--decode] [--hex] [--inhex=FN] [--lu_cong] [--maxlen=LEN] [--quiet] [--raw] [--readonly] [--select=SR] [--verbose] [--version] [DEVICE]",
+        )];
+        let app = App::new("sg_luns".to_string(), root);
+
+        let buffer = frame_of(&app);
+        let rows: Vec<String> = (0..buffer.area.height)
+            .map(|y| {
+                (0..buffer.area.width)
+                    .map(|x| buffer[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect();
+        let usage_heading = rows
+            .iter()
+            .position(|r| r.contains("USAGE"))
+            .expect("USAGE heading should render");
+        let first = &rows[usage_heading + 1];
+        let second = &rows[usage_heading + 2];
+        assert!(
+            first.contains("sg_luns [--alpha]"),
+            "the first usage row should start the form: {first:?}"
+        );
+        assert!(
+            second
+                .trim_matches(|c: char| c == '│' || c.is_whitespace())
+                .starts_with("[--"),
+            "the form must wrap onto a second row instead of scrolling off screen: {second:?}"
+        );
+        // Border, then one padding column, then content (`Padding::horizontal(1)`).
+        let content_indent_of = |s: &str| s.chars().skip(2).take_while(|c| *c == ' ').count();
+        assert_eq!(
+            content_indent_of(first),
+            content_indent_of(second),
+            "the continuation row must keep the form's own left edge: {first:?} / {second:?}"
+        );
+        // No clip marker (draw_clip_marker_rails' literal "<"/">") anywhere
+        // on the two USAGE rows, in the padding gutter or the text itself.
+        assert!(!first.contains('<') && !first.contains('>'), "{first:?}");
+        assert!(!second.contains('<') && !second.contains('>'), "{second:?}");
+        // No horizontal-scroll overflow affordance on the pane's top
+        // border either — USAGE no longer contributes any hextent.
+        let top_border = &rows[0];
+        assert!(
+            !top_border.contains(app.glyphs.more_right)
+                && !top_border.contains(app.glyphs.more_left),
+            "the detail pane must show no horizontal-scroll affordance: {top_border:?}"
+        );
+    }
+
     /// Every form's rendered padding, for a tool's own synopsis block.
     fn pads(name: &str, forms: &[&str]) -> Vec<usize> {
         let usage: Vec<Text> = forms
@@ -3617,69 +3676,77 @@ mod tests {
     /// somewhere in the rendered lines, and never emit an ellipsis in its
     /// place.
     ///
-    /// Pinned with the horizontal-scroll toggle explicitly **off**: this is
-    /// the pre-existing wrapping behavior, and `horizontal_scroll = false`
-    /// (spec: the config toggle for this feature) must reproduce it
-    /// exactly. The toggle **on** has its own test below, where the same
-    /// token stays on one unwrapped line instead.
+    /// USAGE soft-wraps at the pane width in both `[ui] horizontal_scroll`
+    /// states (spec §9 rule 9): a rendered USAGE line is
+    /// mandible's own reconstruction of a synopsis the parser already
+    /// joined from several physical lines, not the tool author's layout,
+    /// so the toggle that governs the raw view's preformatted text no
+    /// longer governs this one.
     #[test]
-    fn build_lines_wraps_rather_than_truncates_a_long_usage_token_with_scroll_disabled() {
+    fn build_lines_wraps_rather_than_truncates_a_long_usage_token() {
         let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
         let long_url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef0123456789abcdef0123456789abcd";
         node.usage = vec![Text::sanitize(long_url)];
 
-        let mut app = test_app();
-        app.horizontal_scroll_enabled = false;
-        let built = build_lines(
-            &node,
-            false,
-            46,
-            style::Palette::extended(),
-            None,
-            crate::glyphs::UNICODE,
-            &app,
-        );
-        // Every usage line carries its own 2-space block indent (see the
-        // USAGE section of `build_lines`) — strip it per line before
-        // rejoining so adjacent chunks of the broken token reassemble
-        // without a spurious gap between them.
-        let joined: String = built
-            .lines
-            .iter()
-            .map(text_of)
-            .map(|t| t.trim_start().to_string())
-            .collect();
-        // The chunks concatenate back to the original token exactly, so
-        // the whole URL — not just a fragment of it — must appear intact
-        // somewhere in the rendered output.
-        assert!(
-            joined.contains(long_url),
-            "token was lost, not wrapped: {joined:?}"
-        );
-        assert!(
-            !joined.contains('…'),
-            "an over-long token must never be ellipsis-truncated: {joined:?}"
-        );
-        assert!(
-            built.lines.len() > 1,
-            "with scrolling disabled the long token should still wrap across lines: {:?}",
-            built.lines.iter().map(text_of).collect::<Vec<_>>()
-        );
+        for toggle in [false, true] {
+            let mut app = test_app();
+            app.horizontal_scroll_enabled = toggle;
+            let built = build_lines(
+                &node,
+                false,
+                46,
+                style::Palette::extended(),
+                None,
+                crate::glyphs::UNICODE,
+                &app,
+            );
+            // Every usage line carries its own 2-space block indent (see the
+            // USAGE section of `build_lines`) — strip it per line before
+            // rejoining so adjacent chunks of the broken token reassemble
+            // without a spurious gap between them.
+            let joined: String = built
+                .lines
+                .iter()
+                .map(text_of)
+                .map(|t| t.trim_start().to_string())
+                .collect();
+            // The chunks concatenate back to the original token exactly, so
+            // the whole URL — not just a fragment of it — must appear intact
+            // somewhere in the rendered output.
+            assert!(
+                joined.contains(long_url),
+                "token was lost, not wrapped ({toggle}): {joined:?}"
+            );
+            assert!(
+                !joined.contains('…'),
+                "an over-long token must never be ellipsis-truncated ({toggle}): {joined:?}"
+            );
+            assert!(
+                built.lines.len() > 1,
+                "the long token should wrap across lines ({toggle}): {:?}",
+                built.lines.iter().map(text_of).collect::<Vec<_>>()
+            );
+            assert!(
+                built.clip_rows.is_empty(),
+                "USAGE must never contribute a horizontal clip marker ({toggle})"
+            );
+        }
     }
 
-    /// The toggle **on** (the default): a USAGE synopsis is preformatted
-    /// and must stay on one line rather than being greedily word-wrapped,
-    /// with `h`/`l` revealing the rest instead (spec §9: preformatted
-    /// detail-pane content scrolls rather than wraps).
+    /// A usage form wider than the pane soft-wraps onto a second row at the
+    /// pane width instead of forcing horizontal scroll (spec §9 rule 9).
+    /// The continuation row keeps the form's own left edge — the block
+    /// indent plus the form's own pad, same as the first row — and no clip
+    /// marker is recorded for it. Regression fixture: `sg_luns`.
     #[test]
-    fn usage_synopsis_stays_on_one_line_when_horizontal_scroll_is_enabled() {
-        let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
-        let long_url = "https://registry.example.com/v2/org/repo/blobs/uploads/deadbeefcafefeed0123456789abcdef0123456789abcdef0123456789abcd";
-        node.usage = vec![Text::sanitize(long_url)];
+    fn usage_form_wraps_at_pane_width_with_continuation_keeping_its_own_left_edge() {
+        let mut node = CommandNode::new("sg_luns", Provenance::single(Source::HelpText));
+        node.usage = vec![Text::sanitize(
+            "sg_luns [--alpha] [--brief] [--decode] [--hex] [--inhex=FN] [--lu_cong] [--maxlen=LEN] [--quiet] [--raw] [--readonly] [--select=SR] [--verbose] [--version] [DEVICE]",
+        )];
 
-        let app = test_app();
-        assert!(app.horizontal_scroll_enabled, "default is on");
         let width = 46;
+        let app = test_app();
         let built = build_lines(
             &node,
             false,
@@ -3689,76 +3756,67 @@ mod tests {
             crate::glyphs::UNICODE,
             &app,
         );
-        // Unscrolled, the line shows a `width`-column prefix of the
-        // synopsis — the rest reachable with `l`, never reflowed onto a
-        // second line the way the disabled path wraps it.
-        let usage_lines: Vec<&Line> = built
-            .lines
-            .iter()
-            .filter(|l| text_of(l).trim_start().starts_with("url https"))
-            .collect();
-        assert_eq!(
-            usage_lines.len(),
-            1,
-            "a preformatted synopsis must not be split across lines: {:?}",
-            built.lines.iter().map(text_of).collect::<Vec<_>>()
-        );
-        let shown = text_of(usage_lines[0]);
-        // The clip marker lives in the padding gutter (see
-        // `draw_clip_marker_rails`), never inside the text, so the line
-        // itself is a clean unbroken prefix at full width.
-        assert!(
-            long_url.starts_with(shown.trim_start().trim_start_matches("url ")),
-            "the visible portion must be an unbroken prefix of the real synopsis: {shown:?}"
-        );
-        assert!(
-            display_width(&shown) <= width,
-            "must not overflow the pane and rely on Paragraph::Wrap to save it: {shown:?}"
-        );
-    }
-
-    /// Scrolling right trims preformatted USAGE content from the left —
-    /// the same offset the affordance in the border reflects — while
-    /// leaving everything else (here, nothing else on this node) alone.
-    /// Two-pass, matching how a real frame works: the first pass tells
-    /// `App` how wide the content is (`set_detail_hextent`), only after
-    /// which a scroll key has something to clamp against.
-    #[test]
-    fn usage_synopsis_scrolls_horizontally_when_enabled() {
-        let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
-        let long_url = "x".repeat(200);
-        node.usage = vec![Text::sanitize(&long_url)];
-
-        let mut app = test_app();
-        let _ = build_lines(
-            &node,
-            false,
-            46,
-            style::Palette::extended(),
-            None,
-            crate::glyphs::UNICODE,
-            &app,
-        );
-        app.detail_hscroll_right();
-        app.detail_hscroll_right();
-        let built = build_lines(
-            &node,
-            false,
-            46,
-            style::Palette::extended(),
-            None,
-            crate::glyphs::UNICODE,
-            &app,
-        );
-        let usage_line = built
+        let usage_lines: Vec<String> = built
             .lines
             .iter()
             .map(text_of)
-            .find(|t| t.contains('x'))
-            .expect("usage line should still be present");
+            .skip_while(|t| !t.contains("USAGE"))
+            .skip(1)
+            .take_while(|t| !t.trim().is_empty())
+            .collect();
         assert!(
-            !usage_line.trim_start().starts_with("url xxxx"),
-            "the line should have scrolled past its own start: {usage_line:?}"
+            usage_lines.len() > 1,
+            "an over-wide form must wrap onto a second row: {usage_lines:?}"
         );
+        for line in &usage_lines {
+            assert!(display_width(line) <= width, "row overruns: {line:?}");
+        }
+        let indent_of = |s: &str| s.len() - s.trim_start().len();
+        assert_eq!(
+            indent_of(&usage_lines[0]),
+            indent_of(&usage_lines[1]),
+            "continuation row must keep the form's own left edge: {usage_lines:?}"
+        );
+        assert!(
+            built.clip_rows.is_empty(),
+            "a wrapped USAGE row must never be marked clipped: {:?}",
+            built.clip_rows
+        );
+    }
+
+    /// A usage form that already fits the pane renders unchanged: one row,
+    /// byte for byte, in both `[ui] horizontal_scroll` states (spec §9 rule
+    /// 9).
+    #[test]
+    fn usage_form_that_fits_the_pane_is_unchanged() {
+        let mut node = CommandNode::new("url", Provenance::single(Source::HelpText));
+        node.usage = vec![Text::sanitize("url [-h] <command> [args]")];
+
+        let width = 46;
+        for toggle in [false, true] {
+            let mut app = test_app();
+            app.horizontal_scroll_enabled = toggle;
+            let built = build_lines(
+                &node,
+                false,
+                width,
+                style::Palette::extended(),
+                None,
+                crate::glyphs::UNICODE,
+                &app,
+            );
+            let usage_lines: Vec<String> = built
+                .lines
+                .iter()
+                .map(text_of)
+                .filter(|t| t.contains("url [-h]"))
+                .collect();
+            assert_eq!(
+                usage_lines,
+                vec!["  url [-h] <command> [args]".to_string()],
+                "a fitting form must render byte for byte ({toggle})"
+            );
+            assert!(built.clip_rows.is_empty());
+        }
     }
 }

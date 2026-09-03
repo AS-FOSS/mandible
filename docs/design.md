@@ -1578,21 +1578,27 @@ pane.
    top-left; a remembered position clamps to the extent the view has when
    restored; changing the selected node clears both views' memory.
 9. Preformatted content scrolls horizontally instead of wrapping; prose
-   does not. The raw `--help` view (`t`) and a node's USAGE synopsis lines
-   are the tool author's own layout. `h`/`l`/`←`/`→` scroll that content
-   when the detail pane has focus, clamped to the widest line, with a
-   marker in the border when more content sits off that edge. The summary,
-   description, and flag list keep wrapping to pane width as everywhere
-   else. Governed by `[ui] horizontal_scroll` in
-   `~/.config/mandible/config.toml`, default `true`.
-10. `horizontal_scroll = false` wraps every view; it never clips. A
-    preformatted line wider than the pane continues onto the next row
-    instead of ending at the border, in the raw view and the `unparsed`
-    fallback included, without being reflowed: a fitting line arrives byte
-    for byte, a row keeps its internal spacing, the cut prefers a
-    whitespace boundary and falls back to a character boundary only when a
-    token has none, and a continuation row carries the line's own leading
-    indent.
+   does not. The raw `--help` view (`t`) and the `unparsed` fallback are
+   the tool author's own layout, so they scroll. `h`/`l`/`←`/`→` scroll
+   that content when the detail pane has focus, clamped to the widest
+   line, with a marker in the border when more content sits off that
+   edge. A node's USAGE synopsis soft-wraps at the pane width instead of
+   scrolling. The parser already joins a usage that wrapped over several
+   physical lines into one logical line, so a rendered USAGE line is
+   mandible's own reconstruction, not the tool author's own layout (§16).
+   USAGE, the summary, description, and flag list all keep wrapping to
+   pane width. `[ui] horizontal_scroll` in
+   `~/.config/mandible/config.toml`, default `true`, governs only the raw
+   view and the `unparsed` fallback.
+10. `horizontal_scroll = false` wraps the raw view and the `unparsed`
+    fallback; it never clips. A preformatted line wider than the pane
+    continues onto the next row instead of ending at the border, without
+    being reflowed: a fitting line arrives byte for byte, a row keeps its
+    internal spacing, the cut prefers a whitespace boundary and falls back
+    to a character boundary only when a token has none, and a continuation
+    row carries the line's own leading indent. USAGE wraps at every
+    setting of this toggle already, under rule 9's own word-wrap instead
+    of this mechanism.
 11. Empty and degraded states are designed, not incidental. A node whose
     children are still being extracted shows a subtle spinner row; a tool
     where only Tier B fired shows the confidence in the footer; a tool no
@@ -1609,8 +1615,10 @@ so a `char`-count truncation overflows the border by one cell per wide
 character. Mandible's own layout and the tool's own raw text place the
 same flag at unrelated coordinates, which is why the parsed and raw views
 never share scroll state. Wrapping preformatted content reflows spacing
-that was part of its meaning, since the raw view and USAGE lines are the
-tool author's own layout.
+that was part of its meaning, since the raw view is the tool author's own
+layout. A rendered USAGE line is not: the parser already joined a usage
+that wrapped over several physical lines into one logical line, so it is
+mandible's own reconstruction and soft-wraps instead (§16).
 
 **Implemented in.** `mandible-tui/src/render/mod.rs`,
 `mandible-tui/src/sanitize.rs`, `mandible-tui/src/tree.rs`.
@@ -1864,12 +1872,13 @@ sections.
       rendering its label alone at column 0 directly beneath the header.
       A divider later in the same section keeps both.
 15. Descriptions always wrap. Sections are mandible's own layout, so
-    nothing in them is ever clipped or horizontally scrolled; `[ui]
-    horizontal_scroll` governs only content whose layout is not ours (the
-    raw view, verbatim USAGE synopsis lines, the `unparsed` fallback,
-    which reaches the pane by the same path as the raw view). A
-    description's preserved line breaks (§4.1) wrap too, each logical
-    line wrapped on its own at its own indent.
+    nothing in them is ever clipped or horizontally scrolled. USAGE is
+    mandible's own reconstruction too (§9 rule 9) and wraps the same way.
+    `[ui] horizontal_scroll` governs only content whose layout is not ours
+    (the raw view, the `unparsed` fallback, which reaches the pane by the
+    same path as the raw view). A description's preserved line breaks
+    (§4.1) wrap too, each logical line wrapped on its own at its own
+    indent.
 
 **Why.** A label in a different shade or weight from the line running out
 of it reads as two unrelated marks sharing a row, which is why a group
@@ -2690,6 +2699,20 @@ only as a zero-confidence fallback, which never touches a tool that already
 parsed. [M-14]'s reading wins. A tool whose only good documentation is a man
 page stays shallow in the tree, and that is a stated limit rather than a bug
 to chase.
+
+**USAGE soft-wraps at the pane width instead of scrolling horizontally
+(2026-09-03).** Shown `mandible sg_luns`, the maintainer asked "should we
+leave as original? or should we not let usage line go out of view in parse
+mode?". §9 rule 9
+named a node's USAGE synopsis as preformatted, tool-author layout, on the
+same footing as the raw `--help` view. That footing does not hold: the
+parser joins a usage that wrapped over several physical lines in the
+tool's own output into one logical line, so the rendered USAGE line is
+mandible's own reconstruction, not the author's layout. `sg_luns` wraps
+its usage over three physical lines plus an `or` alternative over two
+more, and the parser joins each into one line before mandible ever draws
+it. The raw `--help` view and the `unparsed` fallback keep their existing
+horizontal scroll; only USAGE moved.
 
 ### Deferred, with the reason each is not simply undone
 
