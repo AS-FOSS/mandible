@@ -1,6 +1,13 @@
 name: lessecho
 usage:
 - 'usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-fn] [-a] file ...'
+positionals:
+- name: file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -o

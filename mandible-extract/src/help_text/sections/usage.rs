@@ -353,7 +353,205 @@ pub(super) fn extract_positionals(
             out.push(positional);
         }
     }
+    if out.is_empty() {
+        out.extend(recover_primary_tail_operand(usage_lines, &primary_lines));
+    }
     out
+}
+
+/// `s` cut at the first run of [`MIN_COLUMN_GAP_SPACES`] or more
+/// consecutive spaces — the description-column boundary a usage line's
+/// own inline trailing prose sits behind (`vim.basic`'s `edit specified
+/// file(s)`, right after `[file ..]` on the very same physical line).
+/// Char-indexed throughout, never a raw byte slice (AGENTS.md's UTF-8
+/// boundary rule) — a non-ASCII description cannot panic this on a
+/// boundary that isn't a char boundary. See S-041.
+fn cut_before_description_gap(s: &str) -> &str {
+    let mut run = 0usize;
+    let mut run_start = None;
+    for (i, c) in s.char_indices() {
+        if c == ' ' {
+            if run == 0 {
+                run_start = Some(i);
+            }
+            run += 1;
+            if run >= MIN_COLUMN_GAP_SPACES {
+                return &s[..run_start.unwrap()];
+            }
+        } else {
+            run = 0;
+        }
+    }
+    s
+}
+
+/// Split `s` into whitespace-delimited groups, treating a `[...]` span as
+/// one group even when it contains internal spaces (`"[file ..]"` stays
+/// one token, matching how a synopsis's own bracket notation groups an
+/// optional clause). Unmatched brackets degrade gracefully: once opened, a
+/// group simply runs to the next matching close or the end of the string.
+/// See S-041.
+fn group_synopsis_tokens(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut depth = 0i32;
+    for c in s.chars() {
+        match c {
+            '[' => {
+                depth += 1;
+                cur.push(c);
+            }
+            ']' => {
+                depth = (depth - 1).max(0);
+                cur.push(c);
+            }
+            c if c.is_whitespace() && depth == 0 => {
+                if !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.is_empty() {
+        out.push(cur);
+    }
+    out
+}
+
+/// Whether `stripped` (a synopsis group with its own outer brackets
+/// already trimmed off) is a *plain* flag or flag cluster: `-`-led, and
+/// nothing else in it but letters, digits, `-` or `_` — no embedded space,
+/// no residual bracket, no `{}`/`<>`/`|`. This is deliberately stricter
+/// than "starts with `-`": a group whose own notation is more than a bare
+/// spelling — a flag carrying an explicit value word (`-d xy`, eqn; `-i
+/// index`, fc-validate), a brace-value placeholder (`-b{blocksize}[KMG]`,
+/// filefrag), or a nested alternation (`[-c|-C] cmd`, xfs_io) — is itself
+/// uncertain enough grammar that this rule refuses to license a trailing
+/// operand on its account. See S-041 and [`recover_primary_tail_operand`].
+fn is_clean_flag_group(stripped: &str) -> bool {
+    stripped.starts_with('-')
+        && stripped.len() > 1
+        && stripped
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+/// The primary synopsis's own trailing operand — atlas S-041, promoted
+/// from `xtask`'s `unparsed-tail-operand` detector
+/// (`xtask/src/tail_operand.rs`). The token loop above only ever promotes
+/// a `<value>` or an `ALL-CAPS` metavariable; a usage line's own final
+/// operand (`file`, `[bug-report-email-address]`) is neither shape and
+/// went unrecovered even though the synopsis plainly names it. Fires only
+/// when the loop above found nothing, and only for a one-physical-line
+/// primary entry ([`primary_synopsis_lines`]) — a wrapped synopsis is a
+/// harder shape this does not attempt. Each refusal is documented at its
+/// own check, deliberately stricter than the detector it promotes.
+fn recover_primary_tail_operand(
+    usage_lines: &[String],
+    primary_lines: &std::collections::HashSet<usize>,
+) -> Option<Entity> {
+    let line_idx = match primary_lines.len() {
+        1 => *primary_lines.iter().next()?,
+        _ => return None,
+    };
+    let line = usage_lines.get(line_idx)?;
+    let lower = line.to_ascii_lowercase();
+    let idx = lower.find("usage:")?;
+    let after = &line[idx + "usage:".len()..];
+    let before_desc = cut_before_description_gap(after);
+    let mut groups = group_synopsis_tokens(before_desc.trim());
+    if groups.len() < 2 {
+        return None;
+    }
+    groups.remove(0); // the program name itself
+                      // A trailing ellipsis-only group (lessecho's bare `file ...`) marks
+                      // the *previous* group as repeatable and is then dropped so the tail
+                      // check below lands on the real operand, not the dots.
+    let mut repeatable = false;
+    while let Some(last) = groups.last() {
+        let stripped = last.trim_matches(|c| c == '[' || c == ']');
+        if !stripped.is_empty() && stripped.chars().all(|c| c == '.') {
+            repeatable = true;
+            groups.pop();
+        } else {
+            break;
+        }
+    }
+    // At least one real group must stand between the program name and the
+    // tail: a lone bracket group right after the program name (`true`'s
+    // `Usage: true [ignored command line arguments]`) is prose describing
+    // the tool's forgiving argument handling, not a flag list licensing a
+    // trailing operand, and this rule must not read its first word as one.
+    if groups.len() < 2 {
+        return None;
+    }
+    let last = groups.last()?;
+    let stripped = last.trim_matches(|c| c == '[' || c == ']');
+    let word = stripped.split_whitespace().next()?;
+    let word = word.trim_end_matches('.');
+    if word.is_empty() || word.starts_with('-') || is_option_list_placeholder(word) {
+        return None;
+    }
+    let mut chars = word.chars();
+    let first = chars.next()?;
+    if !first.is_ascii_lowercase() {
+        return None;
+    }
+    if !chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        return None;
+    }
+    // Any word after the operand's own, inside the same bracket group,
+    // must itself be dots-only (vim.basic's inline `[file ..]`) — never
+    // more prose. Without this, `true`'s `[ignored command line
+    // arguments]` would read its first word, `ignored`, as if it were a
+    // real operand name.
+    if stripped
+        .split_whitespace()
+        .skip(1)
+        .any(|w| !w.chars().all(|c| c == '.'))
+    {
+        return None;
+    }
+    // Whether every earlier group is an option-list placeholder rather
+    // than a real flag — `apt-ftparchive`'s lone `[options]`, as opposed
+    // to `bashbug`/`lessecho`'s real flag lists. Starts `true`
+    // vacuously (no earlier groups at all) since the tail-bracket
+    // requirement below is the conservative choice in that case too.
+    let mut earlier_all_placeholder = true;
+    for earlier in &groups[..groups.len() - 1] {
+        let earlier_stripped = earlier.trim_matches(|c| c == '[' || c == ']');
+        if is_option_list_placeholder(earlier_stripped) {
+            continue;
+        }
+        if is_clean_flag_group(earlier_stripped) {
+            earlier_all_placeholder = false;
+            continue;
+        }
+        return None;
+    }
+    // An inline suffix within the tail's own bracket group (vim.basic's
+    // `[file ..]`, one group by `group_synopsis_tokens`'s bracket-span
+    // rule) marks the operand repeatable the same way a separate trailing
+    // ellipsis group does.
+    if stripped
+        .split_whitespace()
+        .skip(1)
+        .any(|w| !w.is_empty() && w.chars().all(|c| c == '.'))
+    {
+        repeatable = true;
+    }
+    let required = !last.starts_with('[');
+    if earlier_all_placeholder && required {
+        // `[options] command`'s shape: a lone placeholder group and a
+        // bare, required tail reads as easily as "provide a subcommand"
+        // as "provide an operand" — see the doc comment above.
+        return None;
+    }
+    let mut positional = Entity::positional(word.to_string(), Provenance::single(Source::HelpText));
+    positional.required = required;
+    positional.repeatable = repeatable;
+    Some(positional)
 }
 
 /// Extract flag spellings from a usage-synopsis block: usage-only options
@@ -2200,5 +2398,193 @@ mod tests {
     fn unmatched_bracket_in_usage_line_does_not_panic() {
         let parsed = parse("usage: widget [--flag <value>\n");
         assert!(parsed.flags.iter().all(|f| f.long() != Some("")));
+    }
+
+    // --- S-041: the primary synopsis's own trailing operand ---
+
+    /// bashbug's own bytes: a bracketed, optional tail operand behind two
+    /// plain long flags.
+    #[test]
+    fn bashbugs_bracketed_tail_operand_is_recovered() {
+        let parsed =
+            parse("Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["bug-report-email-address"], "{names:?}");
+        assert!(!parsed.positionals[0].required);
+    }
+
+    /// lessecho's own bytes: a bare, required, variadic tail operand
+    /// (`file ...`) behind nine plain short flags.
+    #[test]
+    fn lessechos_bare_variadic_tail_operand_is_recovered() {
+        let parsed = parse(
+            "usage: lessecho [-ox] [-cx] [-pn] [-dn] [-mx] [-nn] [-ex] [-fn] [-a] file ...\n",
+        );
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{names:?}");
+        assert!(parsed.positionals[0].required);
+        assert!(parsed.positionals[0].repeatable);
+    }
+
+    /// vim.basic's own bytes: the tail sits behind inline trailing prose on
+    /// the same physical line (`edit specified file(s)`), and is itself a
+    /// bracketed group with an inline `..` marking it repeatable.
+    #[test]
+    fn vim_basics_tail_operand_behind_inline_prose_is_recovered() {
+        let parsed = parse("Usage: vim [arguments] [file ..]       edit specified file(s)\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{names:?}");
+        assert!(!parsed.positionals[0].required);
+        assert!(parsed.positionals[0].repeatable);
+        // The inverse failure this fixture also guards: the `Arguments:`
+        // table's own `--` row must never surface as a positional.
+        assert!(parsed.positionals.iter().all(|p| p.primary_name() != "--"));
+    }
+
+    /// A tree that already carries a positional needs no help from this
+    /// rule — the gate lives in `extract_positionals` (only tries the tail
+    /// when the token loop above found nothing), exercised here through
+    /// the full pipeline with an explicit `<value>` already present.
+    #[test]
+    fn tail_operand_rule_is_silent_once_a_positional_is_already_present() {
+        let parsed = parse("usage: widget <target> [-a] [-b] tail\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["target"], "{names:?}");
+    }
+
+    /// `apt-extracttemplates`-shaped: several bare operands, not a flag
+    /// list plus one trailing operand. `file1` earlier on the line is
+    /// itself bare and non-flag, so the earlier-groups gate must refuse
+    /// the whole line rather than claim `file2`.
+    #[test]
+    fn apt_extracttemplates_shaped_multiple_bare_operands_gain_no_positional() {
+        let parsed = parse("Usage: apt-extracttemplates file1 [file2 ...]\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    /// `psfaddtable`-shaped: the identical several-bare-operands shape
+    /// with a different tool name, confirming the rule is not keyed on
+    /// `apt-extracttemplates` specifically.
+    #[test]
+    fn psfaddtable_shaped_multiple_bare_operands_gain_no_positional() {
+        let parsed = parse("Usage: psfaddtable infile mapfile outfile\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    /// A bare `--` terminator as the tail must never be read as an
+    /// operand.
+    #[test]
+    fn a_bare_double_dash_tail_is_never_a_positional() {
+        let parsed = parse("Usage: widget [-a] [-b] --\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    /// An ellipsis-only tail token, with nothing else after the flag
+    /// list, must never be read as an operand.
+    #[test]
+    fn an_ellipsis_only_tail_is_never_a_positional() {
+        let parsed = parse("Usage: widget [-a] [-b] ...\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    /// A flag-shaped tail (the last bracket group is itself `-h`) has no
+    /// operand to claim.
+    #[test]
+    fn a_flag_shaped_tail_is_never_a_positional() {
+        let parsed = parse("Usage: prog [-v] [-h]\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    /// An `OPTION_LIST_PLACEHOLDERS` word as the tail itself (not just as
+    /// an earlier group) is a stand-in for the flag list, never a real
+    /// operand.
+    #[test]
+    fn an_option_list_placeholder_tail_is_never_a_positional() {
+        let parsed = parse("USAGE: lldb [options]\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+    }
+
+    /// An ALL-CAPS metavariable tail is deliberately out of scope for this
+    /// rule (that shape is the token loop's own job, and would already
+    /// have been recovered there — a lowercase-led requirement keeps the
+    /// two rules from double-guessing the same token).
+    #[test]
+    fn an_all_caps_metavariable_tail_is_out_of_scope_for_this_rule() {
+        let parsed = parse("Usage: prog [OPTION]... FILE\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["FILE"], "{names:?}");
+    }
+
+    /// `[options] command`'s shape: a lone option-list placeholder ahead
+    /// of a bare, required tail reads as easily as "provide a subcommand"
+    /// as "provide an operand" — apt-ftparchive's real usage line — and
+    /// this rule must stay silent rather than guess. Contrast with
+    /// vim.basic above, the same placeholder-only shape but with a
+    /// bracketed (optional) tail, which stays in scope.
+    #[test]
+    fn placeholder_only_context_with_a_bare_required_tail_gains_no_positional() {
+        for line in [
+            "Usage: apt-ftparchive [options] command\n",
+            "usage: ffplay [options] input_file\n",
+            "Usage: gcc [options] file...\n",
+        ] {
+            let parsed = parse(line);
+            assert!(
+                parsed.positionals.is_empty(),
+                "{line:?}: {:?}",
+                parsed.positionals
+            );
+        }
+    }
+
+    /// An earlier group carrying more than a plain flag spelling — an
+    /// explicit value word (`-d xy`), a brace-value placeholder
+    /// (`-b{blocksize}[KMG]`), or a nested alternation (`[-c|-C] cmd`) —
+    /// is grammar this rule declines to reason about, even though the
+    /// tail itself looks exactly like a real operand.
+    #[test]
+    fn a_non_clean_flag_earlier_group_refuses_the_whole_line() {
+        for line in [
+            "usage: /usr/bin/eqn [-CNrR] [-d xy] [-f font] [file ...]\n",
+            "usage: /usr/bin/fc-validate [-Vhv] [-i index] font-file...\n",
+            "Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...\n",
+            "Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file\n",
+        ] {
+            let parsed = parse(line);
+            assert!(
+                parsed.positionals.is_empty(),
+                "{line:?}: {:?}",
+                parsed.positionals
+            );
+        }
+    }
+
+    /// A wrapped, multi-line primary synopsis is a different, harder shape
+    /// this rule declines: the tail token sits on a later physical line
+    /// than the flag groups that would otherwise license it.
+    #[test]
+    fn a_wrapped_multi_line_primary_entry_gains_no_tail_positional() {
+        let parsed = parse("Usage: widget [-a] [-b] \\\n              tail\n");
+        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
     }
 }

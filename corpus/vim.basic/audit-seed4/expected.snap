@@ -5,6 +5,12 @@ usage:
 - '   or: vim [arguments] -               read text from stdin'
 - '   or: vim [arguments] -t tag          edit file where tag is defined'
 - '   or: vim [arguments] -q [errorfile]  edit file with first error'
+positionals:
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -v

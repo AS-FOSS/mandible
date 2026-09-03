@@ -26,10 +26,6 @@ expected_framework = "generic"
 # emitted cannot be forbidden by name.
 must_contain_positionals = ["file"]
 
-[xfail]
-broken = true
-reason = "i believe it shows '--' as positional arg"
-
 # Fleet count: the unparsed-tail-operand detector fires on 194 tools
 # (194 flags) across a full-PATH sweep of 2318 tools, 2026-09-02. Calibrated
 # and passing: 3 of 3 labelled members detected, 0 false alarms on seed 4.
