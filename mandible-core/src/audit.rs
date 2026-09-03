@@ -502,11 +502,23 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
     // names B, C and D as declared exclusions with a witness line each (see
     // `xtask/src/commandtable.rs`). A zero count for that detector therefore
     // means shape A is repaired — it does NOT mean this family is done.
+    //
+    // A fifth grammar, found outside the seed-2 set (`corpus/pnpm/11.22.0/`,
+    // `[xfail]` until fixed — the tool is not one of seed-2's 8 labelled
+    // members, so it does not change that count):
+    //
+    //   E  ragged alias-column table          pnpm                          FIXED
+    //      (`  i, install   desc` beside `      add   desc`, an optional
+    //      short-alias prefix ragged-indenting some rows but not others)
+    //
+    // `xtask`'s `ragged-command-table` detector claims shape E only. Its
+    // own fleet count is ratchet-gated at zero the same way shape A's is.
     DefectFamily {
         name: "unparsed-subcommand",
         meaning: "subcommand names are plainly present in the help text but no child node is \
-                  produced for them — four unrelated grammars share this label; see the comment \
-                  above, only shape A (the dash-separated command table) is fixed",
+                  produced for them — five unrelated grammars share this label; see the comment \
+                  above, only shapes A and E (the dash-separated and ragged alias-column command \
+                  tables) are fixed",
     },
     DefectFamily {
         name: "unparsed-positional",
@@ -528,6 +540,22 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   indentation) wraps onto a physical line that happens to begin with a dash-led \
                   word, and the grammar reads that continuation as the start of a new flag row, \
                   fabricating a flag out of prose rather than out of any real option list",
+    },
+    // Added for atlas S-103 (`corpus/pnpm/11.22.0/`, `[xfail]` until fixed).
+    // A sibling of `wrapped-prose-row-boundary` above, not the same family:
+    // that one requires the continuation's own leading spelling to start
+    // with `-` (it fires only inside a flag table) and reads the invented
+    // entry as a flag; this one requires no dash at all (subcommand names
+    // never carry one) and reads it as a subcommand, gated on the document
+    // already being in a command-listing context rather than on any table
+    // shape of its own. Distinct grammars, same underlying mistake —
+    // a continuation line with no aligned column of its own is read as a
+    // fresh table row.
+    DefectFamily {
+        name: "wrapped-command-continuation-as-subcommand",
+        meaning: "a command's description wraps onto a physical line with no column of its own, \
+                  and the grammar reads that continuation's own leading word as a new subcommand \
+                  — inventing a command out of prose rather than out of any real command list",
     },
     // NOT ONE DEFECT, AND NO DETECTOR WAS BUILT. This is the vaguest label
     // in the manifest — its own `meaning` below is a list of five unrelated

@@ -1,5 +1,7 @@
-# Two defects live here, and only one of them is the fan-out this fixture was
-# captured for.
+# Two defects lived here, and only one of them is the fan-out this fixture
+# was captured for. The root-parse defect (item 2 below, atlas S-103/S-104)
+# is fixed; the fan-out (item 1) is not and is unrelated — do not weaken or
+# remove anything about it while touching this file for a different reason.
 #
 # 1. The fan-out (issue #114, docs/shapes.md S-079). `pnpm audit --help` and
 #    `pnpm audit signatures --help` return the same 2,251 bytes, and the
@@ -14,23 +16,20 @@
 #    `mandible-extract/src/help_text/mod.rs::tests::
 #    a_descendant_probe_identical_to_its_non_root_ancestor_does_not_fan_out`.
 #
-# 2. The root parse, which is wrong independently of the fan-out. pnpm groups
-#    its 18 root commands under four prose headings and writes the aliased ones
-#    with a leading short column (`i, install`, `ln, link`, `rm, remove`,
-#    `up, update`, `ls, list`, `c, config`). The parser reports 8 subcommands:
-#    add, audit, create, dlx, exec, package, run, tree-structure. Every aliased
-#    row is dropped, and so are the unaliased rows under them: unlink,
-#    outdated, why, init, publish, stage. Worse, `package` and `tree-structure`
-#    are inventions, both read off wrapped description lines. `tree-structure`
-#    is the last word of the `ls, list` description, alone on its own
-#    continuation line; `package` opens a continuation line under `why`. The
-#    tool documents neither as a command.
-#
-#    `min_subcommands` below states the omission half. There is no field for
-#    the invention half at this level: `must_not_contain_flags` is the one
-#    negative claim a contract can make and it is scoped to root flags, so it
-#    cannot say `package` and `tree-structure` are not commands. Those two
-#    names are named here instead.
+# 2. FIXED. pnpm groups its 18 root commands under four prose headings and
+#    writes six of them with a leading short-alias column (`i, install`,
+#    `ln, link`, `rm, remove`, `up, update`, `ls, list`, `c, config`), which
+#    ragged-indents those rows against their unaliased siblings. The generic
+#    layout parser used one fixed indent baseline per block and read a run of
+#    such rows as one giant misdetected heading, dropping every aliased row
+#    and every unaliased row after it, and inventing two commands
+#    (`tree-structure`, `package`) from the wrapped description lines that
+#    landed inside that misdetected heading's own block. Fixed in
+#    `mandible-extract/src/help_text/sections/{mod,scan}.rs`
+#    (`scan_ragged_command_run`/`try_ragged_command_row`), gated on the
+#    document already being in a command-listing context. Detectors:
+#    `ragged-command-table` (`unparsed-subcommand` shape E, atlas S-104) and
+#    `wrapped-command-continuation-as-subcommand` (atlas S-103).
 
 [bless]
 provenance = "agent"
@@ -58,14 +57,14 @@ stdout = "audit-help.txt"
 # pnpm's help is hand-rolled, so Tier A' fingerprints nothing.
 expected_framework = "generic"
 
-# The tool documents 18 root commands. The parser reports 8, two of which it
-# invented. This floor is the omission half of the root defect.
+# All 18 documented root commands now reach the tree.
 min_subcommands = 18
 
 # The one root flag pnpm lists under `Options:`.
 must_contain_flags = ["--recursive"]
 
-[xfail]
-broken = true
-reason = "the root command table is misread: the six aliased rows and the six rows under them are dropped, and `package` and `tree-structure` are invented from wrapped description lines"
-issue = "https://github.com/AS-FOSS/mandible/issues/114"
+# Root command tree and every root flag checked against the raw capture,
+# row by row, before blessing (corpus/README.md's bless workflow). Prose
+# (descriptions/summaries) was read as part of that same row-by-row check
+# but is not separately re-verified here, so it stays out of the claim.
+verdict_scope = ["flags", "subcommands"]

@@ -9,9 +9,11 @@ use crate::alternation;
 use crate::bundling;
 use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
+use crate::ragged_command_table;
 use crate::repeated_char;
 use crate::single_dash_long;
 use crate::tail_operand;
+use crate::wrapped_command_continuation;
 use crate::wrapped_prose;
 use mandible_core::CommandNode;
 use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
@@ -190,6 +192,12 @@ pub(super) fn score_one(tool: &str) -> Row {
     ) = split_family_counts(probe.root_help_text(), result.root.as_ref());
     let (wrapped_prose_count, wrapped_prose_samples, tail_operand_count, tail_operand_samples) =
         family_detector_counts(probe.root_help_text(), result.root.as_ref());
+    let (
+        ragged_command_count,
+        ragged_command_samples,
+        wrapped_command_count,
+        wrapped_command_samples,
+    ) = ragged_family_detector_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -221,6 +229,10 @@ pub(super) fn score_one(tool: &str) -> Row {
         wrapped_prose_samples,
         tail_operand_count,
         tail_operand_samples,
+        ragged_command_count,
+        ragged_command_samples,
+        wrapped_command_count,
+        wrapped_command_samples,
         status: status.label,
         fingerprint: build_fingerprint(result.root.as_ref()),
     }
@@ -372,6 +384,60 @@ fn family_detector_counts(
         wp_samples,
         to.finding_count(),
         to_samples,
+    )
+}
+
+/// One ragged-command-table finding, rendered as a single audit-section
+/// line.
+fn format_ragged_command_sample(finding: &ragged_command_table::Finding) -> String {
+    format!(
+        "{:?} (alias {:?}) missing, from {:?}",
+        finding.name, finding.alias, finding.row
+    )
+}
+
+/// One wrapped-command-continuation-as-subcommand finding, rendered as a
+/// single audit-section line.
+fn format_wrapped_command_sample(finding: &wrapped_command_continuation::Finding) -> String {
+    format!(
+        "{:?} fabricated from the line {:?}",
+        finding.name, finding.line
+    )
+}
+
+/// [`ragged_command_table::detect`] and
+/// [`wrapped_command_continuation::detect`], run over one tool's already-
+/// captured text and tree — split out of [`score_one`] for the same
+/// line-count reason as [`family_detector_counts`].
+fn ragged_family_detector_counts(
+    raw: Option<String>,
+    root: Option<&CommandNode>,
+) -> (usize, Vec<String>, usize, Vec<String>) {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return (0, Vec::new(), 0, Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return (0, Vec::new(), 0, Vec::new());
+    }
+    let rc = ragged_command_table::detect(&raw, root);
+    let rc_samples = rc
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_ragged_command_sample)
+        .collect();
+    let wc = wrapped_command_continuation::detect(&raw, root);
+    let wc_samples = wc
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_wrapped_command_sample)
+        .collect();
+    (
+        rc.finding_count(),
+        rc_samples,
+        wc.finding_count(),
+        wc_samples,
     )
 }
 

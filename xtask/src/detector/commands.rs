@@ -264,3 +264,28 @@ pub fn cmd_self_check(detector: Option<&str>) -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// A family detector's changed-count line plus self-check evidence,
+/// unlike [`ratchet_at_zero`]'s callers never gating `coverage --check`
+/// on the count — for a detector not yet fleet-precise, where ratcheting
+/// at zero would gate on the detector's own noise rather than a real
+/// regression.
+pub fn report_family_not_gated(
+    name: &str,
+    tools: usize,
+    flags: usize,
+    prev_tools: usize,
+    prev_flags: usize,
+) -> anyhow::Result<()> {
+    if (tools, flags) != (prev_tools, prev_flags) {
+        println!(
+            "{name} findings changed from {prev_tools}/{prev_flags} to {tools}/{flags} \
+             (reported, not gated)"
+        );
+    }
+    println!(
+        "\n{}",
+        ratchet_at_zero(find(name)?.as_ref(), tools, flags).report()
+    );
+    Ok(())
+}
