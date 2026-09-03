@@ -1,0 +1,99 @@
+# Three defects, quoted from the maintainer's own reading of this build's
+# screen, each beside the machine classification of what is actually wrong.
+#
+# Maintainer: "there is multiple variations of '-flag' with different
+# placeholders. does it fall under choices?"
+# Machine classification: the same flag spelled `-flag` three times, each
+# with a different value form (`<name>`, `[+|-]<name>`, `<name>=<value>`) and
+# a different description, candidate family "same spelling, different value
+# form". The parser keeps them as three separate flag entities, all spelled
+# `-flag`, with no field recording that they are value-form variants of one
+# option rather than three unrelated flags that happen to collide.
+#
+# Maintainer: "has wrong description for --help and its 3 aliases."
+# Machine classification: the `-?`, `-h`, `--help`, `-help` group's real
+# description, "to print this help message", is not attached at all. The
+# parser instead reads the leading word "to" off that same line as a value
+# name (`value_name: to`), so the group carries a fabricated value and no
+# description.
+#
+# Maintainer: "why the tool name is duplicated in the usage section, is it
+# supposed to indicate that you use it like that too? but what indicator
+# from raw text you took it?"
+# Machine classification: usage line, verified against the captured bytes.
+# VERIFIED FACT: the raw capture (below) names the tool exactly once, in the
+# line `    jinfo <option> <pid>`. The doubled name on screen has a parser
+# origin, not only a rendering one. The tree's `usage` list holds two forms:
+# the bare label line `Usage:`, and the real form. The bare label carries no
+# text of its own, so the detail pane prints the node's name for it, and the
+# reader sees `jinfo` above `jinfo <option> <pid>`. A label line that
+# introduces a synopsis is not itself a synopsis form.
+#
+# A fourth defect, found while checking the three above, recorded here rather
+# than dropped. The tree this fixture replays holds six flags, including all
+# three `-flag` rows with their own descriptions. The running TUI shows four,
+# with one `-flag` row. `mandible_core::merge::merge_entities` buckets an
+# entity by `(kind, spelling)`, so the three `-flag` rows collide on one key
+# and fold into a single entity that keeps the first description. The two
+# descriptions "to enable or disable the named VM flag" and "to set the named
+# VM flag to the given value" reach no screen. This is the same
+# same-spelling-key collision `docs/instruments.md` records for the sweep
+# fingerprint, in a second place. The corpus instrument cannot see it,
+# because a fixture replay never runs the merge, so no `[contract]` field
+# here can state it. It has no detector and no fleet count yet.
+#
+# Schema gap, honestly stated rather than worked around: the brief for this
+# fixture asked for a `must_keep_separate` entry naming the three `-flag`
+# rows, to assert they stay three distinct entities. `check_contract`'s
+# `must_keep_separate` (xtask/src/corpus/contract.rs) resolves each spelling
+# in a group to an entity index via `resolve_flag_entity`, which is a plain
+# `.find()` over the tree's flags for the first entity matching that
+# spelling — it always returns the *same* index for the *same* spelling
+# string, regardless of how many distinct entities actually carry it. A
+# group listing `-flag` three times therefore resolves all three lookups to
+# one index every time, and `check_contract` reports that as a collapse
+# unconditionally — even here, where the three `-flag` rows above are
+# genuinely three separate entities in the tree and never fused. Writing
+# `must_keep_separate = [["-flag", "-flag", "-flag"]]` would therefore
+# assert something the checker cannot mean: not "these three rows stayed
+# separate", but a mechanical falsehood that fails regardless of the tree.
+# A field able to carry the real claim would need to resolve each group
+# member to an entity by more than its spelling alone — an occurrence index,
+# or the description/value-form that distinguishes the three rows here —
+# since spelling alone cannot disambiguate entities that share it. No such
+# field exists today, so the claim stays in this prose instead of a
+# `[contract]` entry that would misstate what was checked.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jinfo"
+version = "17.0.20"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+# jinfo (java-17-openjdk-arm64, /usr/bin/jinfo -> java-17-openjdk-arm64)
+# writes its whole `--help` response to stderr; stdout is empty. `help.txt`
+# is committed empty (corpus/README.md's own convention, matching e.g.
+# corpus/ssh-keygen/9.6p1) rather than omitted, since `[[capture]].stdout`
+# is a required field.
+[[capture]]
+argv = ["jinfo", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+# `mandible --doctor jinfo` reports framework: unidentified, so Tier A'
+# found no fingerprint and the generic layout engine handled it.
+expected_framework = "generic"
+
+[contract.must_describe]
+"--help" = "to print this help message"
+"-?" = "to print this help message"
+"-h" = "to print this help message"
+"-help" = "to print this help message"
+
+[xfail]
+broken = true
+reason = "the -? | -h | --help | -help group's real description is dropped and replaced with a fabricated value name 'to' read off the same line; the three -flag rows (different value forms of one option) carry no field distinguishing them from unrelated same-spelling flags"
