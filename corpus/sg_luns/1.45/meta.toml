@@ -1,0 +1,72 @@
+# Two defects, quoted from the maintainer's own reading of this build's
+# screen, each beside the machine classification of what is actually wrong.
+#
+# Maintainer: "the flag '-lu_cong' got split into '-lu _cong'... Was this
+# thing preexisting? if newly introduced, then why was not this detected as
+# a regression."
+# Machine classification (a): same underscore-stopping family as
+# `corpus/icupkg/74.2`'s `--auto_toc_prefix` defect. VERIFIED FACT (`cargo
+# run -p xtask -- corpus --show sg_luns/1.45`): the extracted tree carries
+# an entity spelled `--lu` (paired with `-L`) with value_name `_cong`; no
+# entity is spelled `--lu_cong`. Pre-existing, not a regression: sweep-diff
+# only reports what *changed* between two sweeps, so a bug present since the
+# grammar was first written is invisible to it, and this fixture is what
+# makes it visible.
+#
+# Maintainer: "why long flags displayed first then short ones? was not it
+# supposed to be other way around, also how tf order has changed?"
+# Machine classification (b): the raw rows are written `--decode|-d`, long
+# spelling first, and mandible keeps the source order of spellings rather
+# than imposing one. VERIFIED FACT: every flag entity's `spellings` list in
+# the extracted tree has the long spelling first, matching the raw
+# `--long|-x` order exactly. A ruling on display order is recorded in
+# `docs/design.md` §16 as a recommendation and not as a decision, and it is
+# renderer-only: the IR's own spelling order is source order and stays that
+# way regardless of how a future renderer chooses to sort it for display.
+#
+# There is no `[contract]` field for a usage form, so this is stated in
+# prose instead. The raw block documents two synopsis forms:
+# `sg_luns [--decode] ... DEVICE` and `sg_luns --test=ALUN [...]`, separated
+# by a line reading `     or`. VERIFIED FACT: the extracted tree's `usage`
+# list holds two entries, and the first one ends `... [--version] DEVICE
+# or` — the bare `or` line is joined onto the end of the first usage form
+# rather than kept as its own separator or attached to the second form. This
+# is the same joining round 3 found on screen at 400 columns before any
+# round-3 change (`docs/design.md` §16's "USAGE soft-wraps" entry), and it
+# is still present in this build; no `[contract]` field can assert it, so it
+# is recorded here as a checked fact instead.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sg_luns"
+version = "1.45"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+# sg_luns writes its whole --help response to stderr; stdout is empty.
+# help.txt is committed empty (corpus/README.md's own convention, matching
+# e.g. corpus/ssh-keygen/9.6p1) rather than omitted, since [[capture]].stdout
+# is a required field.
+[[capture]]
+argv = ["sg_luns", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+# `mandible --doctor sg_luns` reports framework: unidentified, so Tier A'
+# found no fingerprint and the generic layout engine handled it.
+expected_framework = "generic"
+
+must_contain_flags = ["--lu_cong", "-L", "--decode", "-d", "--maxlen", "--select", "--test"]
+must_not_contain_flags = ["--lu"]
+must_contain_positionals = ["DEVICE"]
+
+[contract.must_describe]
+"--lu_cong" = "decode as if LU_CONG is set"
+"-L" = "decode as if LU_CONG is set"
+
+[xfail]
+broken = true
+reason = "the long-option grammar stops at the first underscore, so --lu_cong becomes --lu with value name _cong instead of one boolean flag; the usage block's two synopsis forms and the or-joined bare 'or' line have no contract field to assert them"

@@ -1,0 +1,35 @@
+Usage: sg_luns    [--decode] [--help] [--hex] [--linux] [--lu_cong]
+                  [--maxlen=LEN] [--quiet] [--raw] [--readonly]
+                  [--select=SR] [--verbose] [--version] DEVICE
+     or
+       sg_luns    --test=ALUN [--decode] [--hex] [--lu_cong] [--verbose]
+  where:
+    --decode|-d        decode all luns into component parts
+    --help|-h          print out usage message
+    --hex|-H           output response in hexadecimal; used twice
+                       shows decoded values in hex
+    --linux|-l         show Linux integer lun after T10 representation
+    --lu_cong|-L       decode as if LU_CONG is set; used twice:
+                       decode as if LU_CONG is clear
+    --maxlen=LEN|-m LEN    max response length (allocation length in cdb)
+                           (def: 0 -> 8192 bytes)
+    --quiet|-q         output only ASCII hex lun values
+    --raw|-r           output response in binary
+    --readonly|-R      open DEVICE read-only (def: read-write)
+    --select=SR|-s SR    select report SR (def: 0)
+                          0 -> luns apart from 'well known' lus
+                          1 -> only 'well known' logical unit numbers
+                          2 -> all luns
+                          0x10 -> administrative luns
+                          0x11 -> admin luns + non-conglomerate luns
+                          0x12 -> admin lun + its subsidiary luns
+    --test=ALUN|-t ALUN    decode ALUN and ignore most other options
+                           and DEVICE (apart from '-H')
+    --verbose|-v       increase verbosity
+    --version|-V       print version string and exit
+
+Performs a SCSI REPORT LUNS command or decodes the given ALUN. When SR is
+0x10 or 0x11 DEVICE must be LUN 0 or REPORT LUNS well known logical unit;
+when SR is 0x12 DEVICE must be an administrative logical unit. When the
+--test=ALUN option is given, decodes ALUN rather than sending a REPORT
+LUNS command.
