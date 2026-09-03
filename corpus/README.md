@@ -113,7 +113,13 @@ min_subcommands = 20                 # coarse floor, not an exact count
 must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 must_contain_positionals = ["pid"]   # same, for root positional operands —
                                      # matched on the operand's name, which
-                                     # is what a user actually types
+                                     # is what a user actually types. A
+                                     # trailing `...` ("file...") also
+                                     # requires the operand to be
+                                     # repeatable: `[file...]` with the
+                                     # dots glued loses the marker today
+                                     # while `[file ...]` keeps it, and no
+                                     # other field states the difference
 must_contain_modifiers = ["a", "U"]  # same, for the single-letter modifiers
                                      # a tool documents in a modifier table
                                      # (`ar`'s `[a]`, `[U]`). Bare letters,
@@ -152,6 +158,17 @@ must_keep_separate = [["-w", "-X"], ["-C", "-CC"]]
 # `[[capture]]` for that subcommand's own `--help`/`-h`.
 [contract.must_contain_flags_by_path]
 restore = ["--source", "--staged"]
+
+# A root flag's value placeholder must contain this text, keyed by the
+# flag's own spelling. Substring match after collapsing whitespace, the
+# same rule `must_describe` uses, and satisfied when *any* entity carrying
+# that spelling matches — a tool can document one spelling on two rows
+# (`vim`'s `-r` and `-r (with file name)`), and a first-match rule would
+# report the wrong one. The gap it closes: a value spec that lost a token
+# (`-V[N][fname]` read as `-V` plus `N`) leaves every other field intact,
+# so nothing but the snapshot could see it.
+[contract.must_value_name]
+"-V" = "fname"
 
 # Which dimensions of the tree a human actually verified before blessing
 # this fixture. Optional; see "What `--bless` does and does not assert"

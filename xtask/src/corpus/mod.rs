@@ -130,6 +130,12 @@ pub(crate) struct ContractMeta {
     /// Root positional operands the tree must carry, by name. Matched on
     /// `Entity::primary_name` exactly, root only — same scope as
     /// `must_contain_flags`.
+    ///
+    /// A trailing `...` on an entry (`"file..."`) additionally requires
+    /// the operand to be repeatable, written the way a tool writes it.
+    /// `[file...]` with the dots glued loses the marker today while
+    /// `[file ...]` keeps it, and no other field can state the
+    /// difference.
     #[serde(default)]
     must_contain_positionals: Vec<String>,
     /// Modifier letters the tree must carry (spec §4.5, §7 Tier B
@@ -185,6 +191,18 @@ pub(crate) struct ContractMeta {
     /// guarded only by the snapshot.
     #[serde(default)]
     must_describe: std::collections::BTreeMap<String, String>,
+    /// A root flag's value placeholder must contain this text, keyed by
+    /// the flag's own spelling (matched the way `must_contain_flags`
+    /// matches). Substring match after collapsing whitespace, the same
+    /// rule `must_describe` uses. Satisfied when ANY entity carrying that
+    /// spelling matches, since a tool can document one spelling on two
+    /// rows (`vim`'s `-r` and `-r (with file name)`).
+    ///
+    /// The gap it closes: a value spec that lost a token
+    /// (`-V[N][fname]` read as `-V` plus `N`) leaves every other field
+    /// intact, so nothing but the snapshot could see it.
+    #[serde(default)]
+    must_value_name: std::collections::BTreeMap<String, String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a
@@ -1198,6 +1216,108 @@ must_not_contain_flags = ["{forbidden}"]
                 .collect::<Vec<_>>(),
             vec!["must_describe: no root produced"]
         );
+    }
+
+    /// `must_value_name` in both directions, including the case that
+    /// distinguishes it from `must_describe`: one spelling heading two
+    /// rows, where only the second carries the value the contract names.
+    #[test]
+    fn must_value_name_scans_every_entity_carrying_the_spelling() {
+        let mut values = std::collections::BTreeMap::new();
+        values.insert("-r".to_string(), "file name".to_string());
+        let contract = ContractMeta {
+            must_value_name: values,
+            ..ContractMeta::default()
+        };
+
+        // Flag absent entirely.
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_value_name[\"-r\"]: flag not present"]
+        );
+
+        // One row, no value at all.
+        root.entities.push(Entity::flag_short(
+            'r',
+            Provenance::single(Source::HelpText),
+        ));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "must_value_name[\"-r\"]: expected a value name containing \"file name\", got [\"\"]"
+            ]
+        );
+
+        // A second row for the same spelling, carrying a truncated value:
+        // both are reported, and neither satisfies the claim.
+        let mut second = Entity::flag_short('r', Provenance::single(Source::HelpText));
+        second.value_name = Some("(with".to_string());
+        root.entities.push(second);
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "must_value_name[\"-r\"]: expected a value name containing \"file name\", got [\"\", \"(with\"]"
+            ]
+        );
+
+        // The whole value on the second row satisfies it, even though the
+        // first row still has none. `must_describe` would stop at the
+        // first row and report a failure here.
+        root.entities.last_mut().unwrap().value_name = Some("(with file name)".to_string());
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // No root at all fails this positive claim.
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_value_name: no root produced"]
+        );
+    }
+
+    /// A `must_contain_positionals` entry ending in `...` asserts the
+    /// operand is repeatable as well as present. Without the suffix the
+    /// same entry says nothing about repetition.
+    #[test]
+    fn must_contain_positionals_suffix_asserts_repetition() {
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        root.entities.push(Entity::positional(
+            "file",
+            Provenance::single(Source::HelpText),
+        ));
+
+        let plain = ContractMeta {
+            must_contain_positionals: vec!["file".to_string()],
+            ..ContractMeta::default()
+        };
+        assert!(check_contract(&plain, Some(&root)).is_empty());
+
+        let repeated = ContractMeta {
+            must_contain_positionals: vec!["file...".to_string()],
+            ..ContractMeta::default()
+        };
+        assert_eq!(
+            check_contract(&repeated, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_contain_positionals: missing file..."]
+        );
+
+        root.entities.last_mut().unwrap().repeatable = true;
+        assert!(check_contract(&repeated, Some(&root)).is_empty());
+        assert!(check_contract(&plain, Some(&root)).is_empty());
     }
 
     #[test]

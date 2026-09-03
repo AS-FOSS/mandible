@@ -1,0 +1,45 @@
+# The maintainer checked this build by hand: "its description trims the new
+# lines". The three header lines are joined into one description with
+# single spaces between them, which is how every node description is built
+# (spec §4.2). No word is dropped and the source block has no list
+# structure, no bullets and no aligned columns, so this is recorded as a
+# note and not as a defect.
+#
+# The joined text reads:
+#   AppArmor parser version 4.0.1 Copyright (C) 1999-2008 Novell Inc.
+#   Copyright 2009-2018 Canonical Ltd.
+# The three source lines are the version line and two copyright lines.
+
+# An agent captured and blessed this fixture; only a human may change the
+# value below (corpus/README.md's `[bless]` section).
+[bless]
+provenance = "agent"
+
+[tool]
+name = "apparmor_parser"
+version = "4.0.1"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["apparmor_parser", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+
+# The operand the tail-operand repair recovered, and four rows that cover
+# the shapes this document mixes: a tab gutter, a two-space gutter, a
+# long-only row, and a bracketed optional value.
+must_contain_positionals = ["profile"]
+must_contain_flags = ["--add", "--match-string", "--print-cache-dir", "--Werror"]
+
+# The `Options:` heading is underlined by an eight-dash ruler. That is the
+# shape `corpus/mariadb-check/2.7.4` turned into an invented flag. This
+# tool parses it correctly today and this holds it there.
+must_not_contain_flags = ["--------"]
+
+[contract.must_describe]
+"--max-jobs" = "Hard cap on --jobs. Default 8*cpus"
+"-h" = "Display this text or info about cmd"

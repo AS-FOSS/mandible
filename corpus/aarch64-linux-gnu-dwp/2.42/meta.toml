@@ -1,0 +1,36 @@
+# The maintainer checked this build by hand and asked why the operand lost
+# its repetition marker: "why its positional got parsed into file not
+# file...". Machine classification: glued repetition marker.
+#
+# `bc` is the control. Its usage line reads `[file ...]` with a space, and
+# its operand comes out repeatable. This tool writes `[file...]` with the
+# dots glued to the name, and the marker reaches nothing.
+
+# An agent captured this fixture; only a human may change the value below
+# (corpus/README.md's `[bless]` section).
+[bless]
+provenance = "agent"
+
+[tool]
+name = "aarch64-linux-gnu-dwp"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["aarch64-linux-gnu-dwp", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+# The name half already passes. The `...` suffix is the half that fails:
+# the operand reaches the tree as `file` and is not repeatable.
+must_contain_positionals = ["file..."]
+
+[xfail]
+broken = true
+reason = "the usage line writes its operand as `[file...]`, with the repetition dots glued to the name and no space between them. The operand reaches the tree named `file` and not repeatable, so the marker the tool printed is rendered nowhere. The same line written `[file ...]` parses repeatable, which is what `bc` does."
+
+# Fleet count: none. No detector models this shape yet, so the count is
+# unmeasured rather than zero.

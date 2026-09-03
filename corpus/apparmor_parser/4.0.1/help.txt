@@ -1,0 +1,52 @@
+AppArmor parser version 4.0.1
+Copyright (C) 1999-2008 Novell Inc.
+Copyright 2009-2018 Canonical Ltd.
+
+Usage: apparmor_parser [options] [profile]
+
+Options:
+--------
+-a, --add		Add apparmor definitions [default]
+-r, --replace		Replace apparmor definitions
+-R, --remove		Remove apparmor definitions
+-C, --Complain		Force the profile into complain mode
+-B, --binary		Input is precompiled profile
+-N, --names		Dump names of profiles in input.
+-S, --stdout		Dump compiled profile to stdout
+-o n, --ofile n		Write output to file n
+-b n, --base n		Set base dir and cwd
+-I n, --Include n	Add n to the search path
+-f n, --subdomainfs n	Set location of apparmor filesystem
+-m n, --match-string n  Use only features n
+-M n, --features-file n Set compile & kernel features to file n
+--policy-features n     Policy features set in file n
+--override-policy-abi n     As policy-features but override ABI rules
+--kernel-features n     Kernel features set in file n
+-n n, --namespace n	Set Namespace for the profile
+-X, --readimpliesX	Map profile read permissions to mr
+-k, --show-cache	Report cache hit/miss details
+-K, --skip-cache	Do not attempt to load or save cached profiles
+-T, --skip-read-cache	Do not attempt to load cached profiles
+-W, --write-cache	Save cached profile (force with -T)
+    --skip-bad-cache	Don't clear cache if out of sync
+    --purge-cache	Clear cache regardless of its state
+    --debug-cache       Debug cache file checks
+    --print-cache-dir	Print the cache directory path
+-L, --cache-loc n	Set the location of the profile caches
+-q, --quiet		Don't emit warnings
+-v, --verbose		Show profile names as they load
+-Q, --skip-kernel-load	Do everything except loading into kernel
+-V, --version		Display version info and exit
+-d [n], --debug 	Debug apparmor definitions OR [n]
+-p, --preprocess	Dump preprocessed profile
+-D [n], --dump		Dump internal info for debugging
+-O [n], --Optimize	Control dfa optimizations
+-h [cmd], --help[=cmd]  Display this text or info about cmd
+-j n, --jobs n		Set the number of compile threads
+--max-jobs n		Hard cap on --jobs. Default 8*cpus
+--abort-on-error	Abort processing of profiles on first error
+--skip-bad-cache-rebuild Do not try rebuilding the cache if it is rejected by the kernel
+--config-file n		Specify the parser config file location, processed early before other options.
+--print-config		Print config file location
+--warn n		Enable warnings (see --help=warn)
+--Werror [n]		Convert warnings to errors. If n is specified turn warn n into an error
