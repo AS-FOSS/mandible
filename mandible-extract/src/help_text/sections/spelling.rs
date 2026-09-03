@@ -303,6 +303,10 @@ pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     // `-` separator from the description side — `ar`'s tables put ` - ` on
     // every row, aligned or overrun, and the two must read the same.
     let gap = find_description_gap(line).or_else(|| find_dash_token_separator_gap(line));
+    // A naive gap landing right before an `or`-joined second spelling
+    // (`-h  or  --help`) is pushed past it — see
+    // `extend_gap_past_or_joined_alias` and docs/shapes.md S-099.
+    let gap = gap.map(|g| extend_gap_past_or_joined_alias(line, g));
     let (spec, desc) = split_at_column(line, gap);
     // `find_equals_separator_gap`/`find_multi_space_gap` may have cut at or
     // before a lone `=` separator token, leaving it attached to the front
@@ -716,6 +720,49 @@ mod tests {
                 .iter()
                 .map(|f| f.spelling())
                 .collect::<Vec<_>>()
+        );
+    }
+
+    // --- the `or`-joined alias row --------------------------------------
+    // `extend_gap_past_or_joined_alias` + `strip_or_alias_separator`,
+    // S-099. See corpus/vim.basic/audit-seed4/help.txt.
+
+    #[test]
+    fn an_or_joined_alias_row_recovers_the_second_spelling() {
+        // vim.basic's real row, byte-exact.
+        let parsed = parse(concat!(
+            "Arguments:\n",
+            "   -v\t\t\tVi mode (like \"vi\")\n",
+            "   -h  or  --help\tPrint Help (this message) and exit\n",
+        ));
+        let help = flag_named(&parsed, "help");
+        assert_eq!(help.short(), Some('h'));
+        assert_eq!(
+            help.description.as_ref().map(|t| t.as_str()),
+            Some("Print Help (this message) and exit"),
+            "the description must not begin with the literal word 'or'"
+        );
+    }
+
+    #[test]
+    fn prose_that_merely_begins_with_or_is_not_an_alias_join() {
+        // The false friend the detector's own gate exists for: the word
+        // after `or` is not itself a bare option spelling, so this is a
+        // description, not a second alias.
+        let parsed = parse(concat!("options:\n", "  -x  or use --long instead\n",));
+        let x = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('x'))
+            .expect("-x survives");
+        assert_eq!(
+            x.description.as_ref().map(|t| t.as_str()),
+            Some("or use --long instead"),
+            "prose beginning with 'or' must stay a description"
+        );
+        assert!(
+            !parsed.flags.iter().any(|f| f.long() == Some("long")),
+            "'--long' here is prose about another flag, not this row's alias"
         );
     }
 

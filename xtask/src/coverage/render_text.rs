@@ -195,7 +195,7 @@ pub(super) struct Row {
     /// A few of this row's own findings, pre-formatted, mirroring
     /// [`Self::wrapped_prose_samples`].
     pub(super) tail_operand_samples: Vec<String>,
-    /// The seven vim-family detectors (atlas S-105..S-111): `(family
+    /// The seven vim-family detectors (atlas S-095 to S-100 and S-105): `(family
     /// name, this tool's finding count, capped samples)`, one entry per
     /// family, in registration order. One field rather than seven
     /// repeated ones — see `crate::coverage::score::vim_family_counts`.

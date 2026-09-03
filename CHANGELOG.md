@@ -19,6 +19,7 @@ once it reaches a published 0.1.0 release.
 - A flag row that qualifies its spelling in parentheses (`-r (with file name)`, `--export (sh|make|cmdline|configure)`) no longer loses everything after the first word of the parenthetical: the qualifier names the value where it is one, and moves into the description where it is prose (docs/shapes.md S-098).
 - A flag whose value spec is two bracketed groups glued together (`-V[N][fname]`) no longer drops the second: both reach the value name, space-joined (docs/shapes.md S-097).
 - A flag documented only on a usage line now keeps the operand written beside it (`vim ... -q [errorfile]`, `dhcpcd --release [interface]`, `rpcinfo -p [host]`), instead of reaching the tree with no value at all (docs/shapes.md S-100).
+- A row that joins its spellings with the word `or` (`-h or -? or --help`) now yields one flag with every alias, instead of one flag whose description begins with the word `or` (`mandible icupkg`, `mandible vim.basic`, `mandible sg_map`, docs/shapes.md S-099).
 - A usage-line operand written with the repetition dots glued to its name (`[file...]`, `file...`) now reaches the tree repeatable, matching the same operand written with a space before the dots (docs/shapes.md S-101).
 
 ## [0.6.1] - 2026-09-01

@@ -715,7 +715,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                         // guessed as a value. `parse_flag_spec` reads the
                         // rebuilt `tok [member]` fragment the same way it
                         // reads any other bracketed optional value, so the
-                        // result is `ValueKind::Optional`. See S-108.
+                        // result is `ValueKind::Optional`. See S-100.
                         if parse_bundled_shorts(tok).is_none() && tok != "--" {
                             if let Some(UsageSegment::Group(members)) = segments.get(seg_idx) {
                                 if let [member] = members.as_slice() {
@@ -2149,7 +2149,7 @@ mod tests {
 
     /// vim.basic's and nvim's own `-q [errorfile]` alternative synopsis
     /// lines, byte-exact from `corpus/vim.basic/audit-seed4/help.txt` and
-    /// `corpus/nvim/0.9.5/help.txt`. See S-108.
+    /// `corpus/nvim/0.9.5/help.txt`. See S-100.
     #[test]
     fn a_bare_flag_followed_by_a_bracket_group_recovers_its_optional_value() {
         let vim = parse(
@@ -2183,7 +2183,7 @@ mod tests {
     }
 
     /// A bracket group with more than one member is an alternation, not a
-    /// value — never guessed. See S-108.
+    /// value — never guessed. See S-100.
     #[test]
     fn a_bare_flag_followed_by_a_multi_member_bracket_group_stays_boolean() {
         let raw = "Usage: prog -q [-a|-b]\n";
@@ -2197,7 +2197,7 @@ mod tests {
     }
 
     /// A bracket group whose sole member is itself flag-shaped is never
-    /// read as a value. See S-108.
+    /// read as a value. See S-100.
     #[test]
     fn a_bare_flag_followed_by_a_bracketed_flag_stays_boolean() {
         let raw = "Usage: prog -q [-x]\n";

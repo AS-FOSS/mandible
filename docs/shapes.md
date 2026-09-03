@@ -1653,17 +1653,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-099
 - looks like: |
       -h  or  --help	Print Help (this message) and exit
-- tools: vim.basic
-- handling: A row that joins two spellings with the word `or` instead of a comma yields
-  one flag `-h` whose description begins `or --help`. The `--help` spelling
-  never becomes an alias, and the description carries text that is not
-  description. Open defect, recorded by `corpus/vim.basic/audit-seed4`.
-  `xtask detector`'s `or-joined-alias` (`xtask/src/or_joined_alias.rs`)
-  generalizes this shape fleet-wide.
-- fleet: `or-joined-alias` fires on 30 tool(s)
-  (134 finding(s)) in a full-PATH sweep, 2026-09-03. Not
-  calibrated, same reasoning as S-095. Zero false alarms against every
-  seed-2/seed-4 judged-`correct` tool.
+      -h or -? or --help    print this message and exit
+- tools: vim.basic, nvim, icupkg, genrb, pkgdata, sg_map, getpcaps, mariadb-find-rows
+- handling: Fixed. `strip_or_alias_separator` in
+  `mandible-extract/src/help_text/grammar.rs` reads the bare word `or` as an
+  alias separator beside `,` and `|`, and `extend_gap_past_or_joined_alias`
+  in `sections/entry.rs` pushes the description-column boundary past the
+  second spelling so it is not read as description. Both demand positive
+  evidence: the word after `or` must be a whole spelling, and it must end
+  the spec fragment, meet a real column boundary, or be followed by another
+  `or` in a chain. `pod2man`'s sentence `--lquote or --rquote overrides
+  --quotes.` and `java`'s `-m or --module <module>/<mainclass> are passed`
+  continue after one space, so neither becomes an alias row.
+- fleet: `or-joined-alias` (`xtask/src/or_joined_alias.rs`) fell from 30
+  tool(s)/134 finding(s) to 9/15 in a full-PATH sweep of 2264 tools,
+  2026-09-03. The same sweep-diff shows a repaired alias list on 26 tools
+  and one flag-count loss, `icupkg` 21 to 20, where a duplicate `--help`
+  carrying no description and no value was absorbed into the `-h, -?,
+  --help` group that carries both.
 
 ### S-100: usage alternative reaches the tree without its own description
 
@@ -1684,8 +1691,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag no description.
 - fleet: `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
   fell from 76 tool(s)/255 finding(s) to 66/244 in a full-PATH sweep of
-  2264 tools, 2026-09-03. The same sweep-diff shows zero losses and zero
-  flag gains, with a recovered value name on 19 tools.
+  2264 tools measuring this change alone, 2026-09-03. That sweep-diff shows
+  zero losses and zero flag gains, with a recovered value name on 19 tools.
+  The count reads 75/311 with the S-099 alias join also applied, because a
+  joined alias row reaches the synopsis as one flag and surfaces more rows
+  of this shape than it repairs.
 
 ### S-101: repetition dots glued to an operand name
 

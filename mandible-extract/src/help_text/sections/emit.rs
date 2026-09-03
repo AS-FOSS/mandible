@@ -580,7 +580,7 @@ struct ParentheticalRepair {
 /// connector `with` names its value in the words after it, matching
 /// `corpus/vim.basic/audit-seed4`'s own contract. Anything else is prose,
 /// not a value, and goes to the description whole. See docs/shapes.md
-/// S-107, atlas S-098.
+/// S-098.
 fn repair_parenthetical_value(spec_text: &str, broken_value: &str) -> Option<ParentheticalRepair> {
     if !broken_value.starts_with('(') {
         return None;
@@ -1102,8 +1102,7 @@ mod tests {
     /// vim.basic's own row, byte-exact
     /// (`corpus/vim.basic/audit-seed4/help.txt`). Two entities share the
     /// spelling `-r`; the second's parenthetical qualifier used to be
-    /// truncated to the value `(with`. See docs/shapes.md S-107, atlas
-    /// S-098.
+    /// truncated to the value `(with`. See docs/shapes.md S-098.
     #[test]
     fn vim_r_parenthetical_qualifier_names_the_value_after_with() {
         let raw = "Options:\n   -r\t\t\tList swap files and exit\n   \
@@ -1136,7 +1135,7 @@ mod tests {
 
     /// A single-word parenthetical is a genuine value placeholder, not a
     /// qualifying phrase, and must keep naming the value (minus its
-    /// parens) rather than falling silent. See docs/shapes.md S-107.
+    /// parens) rather than falling silent. See docs/shapes.md S-098.
     #[test]
     fn a_single_word_parenthetical_value_still_names_the_value() {
         let raw = "Options:\n  -f (file)\tRead from file\n";
@@ -1155,7 +1154,7 @@ mod tests {
 
     /// A multi-word parenthetical that names no value at all (no `with`)
     /// must not fabricate one. The whole qualifier folds into the
-    /// description instead of vanishing. See docs/shapes.md S-107.
+    /// description instead of vanishing. See docs/shapes.md S-098.
     #[test]
     fn a_non_with_parenthetical_phrase_never_becomes_a_fabricated_value() {
         let raw = "Options:\n  -x (deprecated alias)\tDo the thing\n";

@@ -119,7 +119,7 @@ flags:
     - help-text
 - spellings:
   - -V
-  value_name: N
+  value_name: N fname
   value_kind: Optional
   group: 'Arguments:'
   description: Be verbose [level N] [log messages to fname]
@@ -149,7 +149,7 @@ flags:
     - help-text
 - spellings:
   - -r
-  value_name: (with
+  value_name: file name
   value_kind: Required
   group: 'Arguments:'
   description: Recover crashed session
@@ -329,7 +329,8 @@ flags:
     - help-text
 - spellings:
   - -h
-  description: or --help Print Help (this message) and exit
+  - --help
+  description: Print Help (this message) and exit
   provenance:
     sources:
     - help-text
@@ -348,6 +349,8 @@ flags:
     - help-text-synopsis
 - spellings:
   - -q
+  value_name: errorfile
+  value_kind: Optional
   provenance:
     sources:
     - help-text-synopsis

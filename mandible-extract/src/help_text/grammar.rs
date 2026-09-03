@@ -94,7 +94,16 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             if rest.is_empty() {
                 break;
             }
-            let explicit = saw_explicit_separator(before, rest);
+            // The bare word `or` joining two spellings (`-h  or  --help`)
+            // is an explicit alias separator alongside `,`/`|`. Word-bounded
+            // and gated on a real spelling following it (`alias_follows`),
+            // so a value or a description merely spelled "or" is never
+            // consumed. See docs/shapes.md S-099.
+            let or_alias = strip_or_alias_separator(rest);
+            let explicit = or_alias.is_some() || saw_explicit_separator(before, rest);
+            if let Some(after_or) = or_alias {
+                rest = after_or;
+            }
 
             // Rule (i): a row's separator style is fixed by its first
             // separator. Once an explicit `,`/`|` has appeared in this
@@ -250,6 +259,43 @@ fn alias_follows(after_separator: &str) -> bool {
         return false;
     };
     tail.is_empty() || tail.starts_with([' ', '\t', '=', '[', ',', '|'])
+}
+
+/// `rest` with a leading `or`-joined-alias separator removed, when `rest`
+/// opens with the bare word `or` followed by whitespace and then a real
+/// spelling ([`alias_follows`]) — `-h  or  --help`. Word-bounded (`or` must
+/// be followed by whitespace, never glued to the next token) so a value
+/// spec or a description spelled "or" is never mistaken for this. See
+/// docs/shapes.md S-099.
+fn strip_or_alias_separator(rest: &str) -> Option<&str> {
+    let after = rest.strip_prefix("or")?;
+    if !after.starts_with(|c: char| c.is_ascii_whitespace()) {
+        return None;
+    }
+    let after = after.trim_start_matches(' ');
+    if !alias_follows(after) {
+        return None;
+    }
+    or_alias_ends_the_spec(after).then_some(after)
+}
+
+/// True when the spelling opening `after` is the last thing in the spec
+/// fragment, or is followed by a real column boundary, or by another `or`
+/// in a chain (`icupkg`'s `-h or -? or --help`). `pod2man`'s prose
+/// sentence `--lquote or --rquote overrides --quotes.` and `java`'s
+/// `-m or --module <module>/<mainclass> are passed as the arguments`
+/// both continue after a single space, so neither is a row joining two
+/// spellings. See docs/shapes.md S-099.
+fn or_alias_ends_the_spec(after: &str) -> bool {
+    let token_len = after.find([' ', '\t', ',', '|']).unwrap_or(after.len());
+    let tail = &after[token_len..];
+    if tail.is_empty() || tail.starts_with(['\t', ',', '|', '=', '[']) || tail.starts_with("  ") {
+        return true;
+    }
+    let chained = tail.trim_start_matches(' ');
+    chained
+        .strip_prefix("or")
+        .is_some_and(|t| t.starts_with([' ', '\t']))
 }
 
 /// True when `before_separator` ends in a finished value placeholder — a
@@ -602,7 +648,7 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`, possibly
     // followed by one or more further bracketed optional values glued
     // directly on with no separator (`-V[N][fname]`, vim's own row; see
-    // docs/shapes.md S-106). `Entity::value_name` is a single field, so
+    // docs/shapes.md S-097). `Entity::value_name` is a single field, so
     // every glued bracket's content is folded into one value name,
     // space-joined in document order. Adjacency (no whitespace between
     // the closing `]` and the next `[`) is the only signal used, which is
@@ -1166,7 +1212,7 @@ mod tests {
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
 
-    /// vim's `-V[N][fname]` (docs/shapes.md S-106, corpus/vim.basic's
+    /// vim's `-V[N][fname]` (docs/shapes.md S-097, corpus/vim.basic's
     /// `audit-seed4` fixture): two bracketed optional values glued
     /// directly together. Both must survive in the one value name.
     #[test]
@@ -1197,7 +1243,7 @@ mod tests {
     }
 
     /// A single bracketed optional value followed, after whitespace, by
-    /// text that is not glued on must not be folded in — the shape S-106
+    /// text that is not glued on must not be folded in — the shape S-097
     /// recovers is adjacency with no separator, never "starts with `[`
     /// somewhere later in the fragment".
     #[test]
@@ -1374,6 +1420,54 @@ mod tests {
             !spec.fully_consumed,
             "the trailing --other is unconsumed, not an alias"
         );
+    }
+
+    // --- the `or`-joined alias, S-099 ------------------------------------
+
+    /// vim.basic's real spec text, byte-exact, once the layout parser has
+    /// admitted both spellings into it (see `spelling.rs`'s
+    /// `extend_gap_past_or_joined_alias`).
+    #[test]
+    fn an_or_separator_joins_two_spellings_like_a_comma() {
+        let spec = parse_flag_spec("-h  or  --help");
+        assert_eq!(spec.short(), Some('h'));
+        assert_eq!(spec.long(), Some("help"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// `icupkg`'s own chained row, byte-exact: three spellings joined by
+    /// two `or` separators, description behind a real column gap.
+    #[test]
+    fn an_or_chain_joins_three_spellings() {
+        let spec = parse_flag_spec("-h or -? or --help");
+        assert_eq!(spec.short(), Some('h'));
+        assert_eq!(spec.long(), Some("help"));
+    }
+
+    /// `pod2man`'s prose sentence, byte-exact. The word after `or` is a
+    /// real spelling, and the sentence continues after one space, so this
+    /// is prose about two options and not a row joining them.
+    #[test]
+    fn a_sentence_continuing_after_the_second_spelling_is_not_an_alias_join() {
+        assert_eq!(
+            strip_or_alias_separator("or --rquote overrides --quotes."),
+            None
+        );
+        let spec = parse_flag_spec("--lquote or --rquote overrides --quotes.");
+        assert_eq!(spec.long(), Some("lquote"));
+        assert_ne!(spec.spellings.len(), 2, "--rquote must not become an alias");
+    }
+
+    /// A value or description that merely spells the word "or" is never
+    /// mistaken for the separator — `alias_follows` demands a real
+    /// spelling immediately after it.
+    #[test]
+    fn a_bare_or_with_no_spelling_after_it_is_not_a_separator() {
+        assert_eq!(strip_or_alias_separator("or html"), None);
+        assert_eq!(strip_or_alias_separator("original"), None);
+        let spec = parse_flag_spec("--format or html");
+        assert_eq!(spec.long(), Some("format"));
+        assert_eq!(spec.value_name.as_deref(), Some("or"));
     }
 
     /// lsof's real plus-or-minus convention, byte-exact. See

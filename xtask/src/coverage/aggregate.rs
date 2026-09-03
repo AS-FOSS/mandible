@@ -175,7 +175,7 @@ pub struct Aggregate {
     pub tail_operand_tools: usize,
     /// Real operands lost to that shape, fleet-wide — one per finding.
     pub tail_operand_flags: usize,
-    /// The seven vim-family detectors (atlas S-105..S-111,
+    /// The seven vim-family detectors (atlas S-095 to S-100 and S-105,
     /// `xtask/src/plus_prefixed_option.rs` and its six siblings):
     /// `(family name, tools with at least one finding, findings
     /// fleet-wide)`, in registration order. **Not gated** — the calibration

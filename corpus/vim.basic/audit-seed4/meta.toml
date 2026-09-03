@@ -65,7 +65,7 @@ must_contain_flags = ["+", "--", "--help"]
 
 [xfail]
 broken = true
-reason = "three defects remain. A `+`-led option row (`+`, `+<lnum>`) still reaches nothing — a fix was attempted and reverted: it fabricated flags on git-lfs (an AsciiDoc list-continuation marker in prose) and date (a row of a `%`-conversion-modifier table), because a bare `+` line carries no structural signal telling an option row apart from either. `-h  or  --help` is read as one flag `-h` whose description begins `or --help`, so the `--help` spelling never becomes an alias. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions. Fixed: the end-of-options marker `--` (`mandible-extract/src/help_text/grammar.rs`'s `try_bare_sigil`) the parenthetical qualifier on `-r` (`sections/emit.rs`'s `repair_parenthetical_value`), and the second bracketed value on `-V` (`grammar.rs`'s `try_value`), all generic-parser repairs, 2026-09-03."
+reason = "two defects remain. A `+`-led option row (`+`, `+<lnum>`) still reaches nothing — a fix was attempted and reverted: it fabricated flags on git-lfs (an AsciiDoc list-continuation marker in prose) and date (a row of a `%`-conversion-modifier table), because a bare `+` line carries no structural signal telling an option row apart from either. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions. Fixed: the end-of-options marker `--` (`mandible-extract/src/help_text/grammar.rs`'s `try_bare_sigil`), the parenthetical qualifier on `-r` (`sections/emit.rs`'s `repair_parenthetical_value`), the second bracketed value on `-V` (`grammar.rs`'s `try_value`), `-q`'s usage-line operand (`sections/usage.rs`'s `extract_usage_flags`), and the `or`-joined alias on `-h` (`grammar.rs`'s `strip_or_alias_separator`), all generic-parser repairs, 2026-09-03."
 
 # Fleet count: the unparsed-tail-operand detector fires on 150 tools
 # (150 flags) across a full-PATH sweep of 2318 tools, 2026-09-03, down from
@@ -85,16 +85,17 @@ reason = "three defects remain. A `+`-led option row (`+`, `+<lnum>`) still reac
 #     reason above; a fix needs positive evidence a `+` row sits in a real
 #     option table, which no version tried so far provides safely.
 #   usage-only-value-name: FIXED for the value-name half. Pre-fix fleet
-#     count 76 tools/255 findings; post-fix full-PATH sweep 66/244. The
-#     missing-description half of the same rows is untouched.
+#     count 76 tools/255 findings; post-fix full-PATH sweep 66/244 for
+#     this change alone, 75/311 with the or-joined alias fix also
+#     applied. The missing-description half of the same rows is untouched.
 #   second-optional-value-dropped: FIXED. Pre-fix fleet count 13 tools/13
 #     findings; post-fix full-PATH sweep 3/3, the residue behind a bracket
 #     the fold refuses, so no ratchet gate at zero.
 #   parenthetical-qualifier-as-value: FIXED and REPAIRED. Pre-fix fleet
 #     count 9 tools/9 findings; post-fix full-PATH sweep 0/0,
 #     ratchet-gated at zero.
-#   or-joined-alias: CALIBRATED (PASSES), fleet 30 tools/134 findings.
-#     Clears the bar. Not fixed this round.
+#   or-joined-alias: FIXED. Pre-fix fleet count 30 tools/134 findings;
+#     post-fix full-PATH sweep 9/15.
 #   single-space-description-column: NOT calibratable against seed 4 —
 #     jinfo, its only motivating tool, has no audit verdict in any seed.
 #     Fleet 9 tools/27 findings, clears the bar on the count alone. Not
