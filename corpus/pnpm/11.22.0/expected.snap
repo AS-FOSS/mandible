@@ -1,0 +1,304 @@
+name: pnpm
+description: Version 11.22.0
+usage:
+- 'Usage: pnpm [command] [flags]'
+- '       pnpm [ -h | --help | -v | --version ]'
+flags:
+- spellings:
+  - -r
+  - --recursive
+  description: Run the command for each project in the workspace.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -v
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: add
+  summary: Installs a package and any packages that it depends on. By default, any new package is installed as a prod dependency
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: install
+  aliases:
+  - i
+  summary: Install all dependencies for a project
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: link
+  aliases:
+  - ln
+  summary: Connect the local project to another one
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: remove
+  aliases:
+  - rm
+  summary: Removes packages from node_modules and from the project's package.json
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unlink
+  summary: Unlinks a package. Like yarn unlink but pnpm re-installs the dependency after removing the external link
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: update
+  aliases:
+  - up
+  summary: Updates packages to their latest version based on the specified range
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: audit
+  summary: Checks for known security issues with the installed packages
+  description: Version 11.22.0
+  usage:
+  - 'Usage: pnpm audit [options]'
+  - '       pnpm audit signatures [options]'
+  flags:
+  - spellings:
+    - --audit-level
+    value_name: <severity>
+    value_kind: Required
+    description: 'Only print advisories with severity greater than or equal to one of the following: info|low|moderate|high|critical. Default: low'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -D
+    - --dev
+    description: Only audit "devDependencies"
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --fix
+    value_name: method
+    value_kind: Optional
+    description: 'Fix the audited vulnerabilities using the specified method: "override" or "update". "override" adds overrides to the package.json file in order to force non-vulnerable versions of the dependencies. "update" attempts to update the vulnerable packages in the lockfile to non-vulnerable versions. If no method is specified, "override" is used by default.'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore
+    value_name: <vulnerability>
+    value_kind: Required
+    description: Ignore a vulnerability by its GitHub advisory ID (e.g. GHSA-xxxx-xxxx-xxxx)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore-registry-errors
+    description: Use exit code 0 if the registry responds with an error. Useful when audit checks are used in CI. A build should not fail because the registry has issues.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore-unfixable
+    description: Ignore all vulnerabilities for which no fix exists
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -i
+    - --interactive
+    description: Show vulnerabilities and select which ones to fix interactively
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --json
+    description: Output audit report in JSON format
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-optional
+    description: Don't audit "optionalDependencies"
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -P
+    - --prod
+    description: Only audit "dependencies" and "optionalDependencies"
+    provenance:
+      sources:
+      - help-text
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: signatures
+    summary: Verify ECDSA registry signatures for installed packages from registries that provide signing keys at /-/npm/v1/keys.
+    group: 'Commands:'
+    provenance:
+      sources:
+      - help-text
+      confidence: 0.0
+    children_filled: true
+    heading_attested: true
+    unparsed:
+    - Version 11.22.0
+    - 'Usage: pnpm audit [options]'
+    - '       pnpm audit signatures [options]'
+    - ''
+    - Checks for known security issues with the installed packages.
+    - ''
+    - 'Commands:'
+    - '      signatures           Verify ECDSA registry signatures for installed'
+    - '                           packages from registries that provide signing keys at'
+    - '                           /-/npm/v1/keys.'
+    - ''
+    - 'Options:'
+    - '      --audit-level <severity>  Only print advisories with severity greater than'
+    - '                                or equal to one of the following:'
+    - '                                info|low|moderate|high|critical. Default: low'
+    - '  -D, --dev                     Only audit "devDependencies"'
+    - '      --fix [method]            Fix the audited vulnerabilities using the'
+    - '                                specified method: "override" or "update".'
+    - '                                "override" adds overrides to the package.json'
+    - '                                file in order to force non-vulnerable versions'
+    - '                                of the dependencies. "update" attempts to update'
+    - '                                the vulnerable packages in the lockfile to'
+    - '                                non-vulnerable versions. If no method is'
+    - '                                specified, "override" is used by default.'
+    - '      --ignore <vulnerability>  Ignore a vulnerability by its GitHub advisory ID'
+    - '                                (e.g. GHSA-xxxx-xxxx-xxxx)'
+    - '      --ignore-registry-errors  Use exit code 0 if the registry responds with an'
+    - '                                error. Useful when audit checks are used in CI.'
+    - '                                A build should not fail because the registry has'
+    - '                                issues.'
+    - '      --ignore-unfixable        Ignore all vulnerabilities for which no fix'
+    - '                                exists'
+    - '  -i, --interactive             Show vulnerabilities and select which ones to'
+    - '                                fix interactively'
+    - '      --json                    Output audit report in JSON format'
+    - '      --no-optional             Don''t audit "optionalDependencies"'
+    - '  -P, --prod                    Only audit "dependencies" and'
+    - '                                "optionalDependencies"'
+    - ''
+    - Visit https://pnpm.io/11.x/cli/audit for documentation about this command.
+- name: list
+  aliases:
+  - ls
+  summary: Print all the versions of packages that are installed, as well as their dependencies, in a tree-structure
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: outdated
+  summary: Check for outdated packages
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: why
+  summary: Shows all packages that depend on the specified package
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: create
+  summary: Create a project from a "create-*" or "@foo/create-*" starter kit
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: dlx
+  summary: Fetches a package from the registry without installing it as a dependency, hot loads it, and runs whatever default command binary it exposes
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: exec
+  summary: Executes a shell command in scope of a project
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: run
+  summary: Runs a defined package script
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: config
+  aliases:
+  - c
+  summary: Manage the pnpm configuration files
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Create a package.json file
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: publish
+  summary: Publishes a package to the registry
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: stage
+  summary: Stage packages for publishing
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
