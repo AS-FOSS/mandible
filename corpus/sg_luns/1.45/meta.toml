@@ -35,6 +35,17 @@
 # round-3 change (`docs/design.md` §16's "USAGE soft-wraps" entry), and it
 # is still present in this build; no `[contract]` field can assert it, so it
 # is recorded here as a checked fact instead.
+#
+# Promoted once the underscore split was fixed, so this fixture now carries
+# an expected.snap. One field inside that snapshot is known to be wrong and
+# is frozen anyway, and a reader must not take the promotion as a claim
+# that it is right: the first usage form still ends `... DEVICE or`,
+# because the raw block's bare separator line `     or` is joined onto the
+# end of the first form rather than kept as a separator. No `[contract]`
+# field can assert a usage form, so nothing here can fail on it. The rest
+# of the tree was read against the raw bytes row by row before the bless:
+# 13 flags, every one carrying both its spellings in source order and its
+# own description, plus the `DEVICE` positional.
 
 [bless]
 provenance = "agent"
@@ -67,6 +78,3 @@ must_contain_positionals = ["DEVICE"]
 "--lu_cong" = "decode as if LU_CONG is set"
 "-L" = "decode as if LU_CONG is set"
 
-[xfail]
-broken = true
-reason = "the long-option grammar stops at the first underscore, so --lu_cong becomes --lu with value name _cong instead of one boolean flag; the usage block's two synopsis forms and the or-joined bare 'or' line have no contract field to assert them"

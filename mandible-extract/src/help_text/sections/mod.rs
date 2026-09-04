@@ -206,7 +206,7 @@ fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
     // at least two independently parsed rows plus the heading vocabulary
     // above is the minimum evidence to reopen a same-indent section. See
     // S-071.
-    let (_, entries, _, _) = scan_flags_block(lines, flags_start, false);
+    let (_, entries, _, _, _) = scan_flags_block(lines, flags_start, false);
     entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
@@ -452,7 +452,10 @@ fn scan_usage_section(
         just_closed_paren_group = false;
         let is_marker =
             starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
-        let is_own_name = tool_name.is_some_and(|name| starts_with_tool_name(trimmed_start, name));
+        let is_own_name = tool_name.is_some_and(|name| {
+            starts_with_tool_name(trimmed_start, name)
+                || starts_with_tool_name_spelled_differently(trimmed_start, name)
+        });
         let starts_new_entry = is_marker || is_own_name;
 
         // A line the one above it ended with a backslash is a
@@ -939,7 +942,7 @@ fn emit_heading_block(
         // `split_shared_heading_rows`'s doc comment for why the BNF
         // fact is keyed on the row rather than the heading beside it.
         let heading_is_bnf = bnf_row_lines.contains(&flags_start);
-        let (end, entries, packed, argfile_entry) =
+        let (end, entries, packed, argfile_entry, is_plus_sigil) =
             scan_flags_block(lines, flags_start, heading_is_bnf);
         i = end;
         if is_ignorable_heading(heading) {
@@ -957,25 +960,16 @@ fn emit_heading_block(
         let group = stanza_label
             .clone()
             .or_else(|| meaningful_flag_group(heading.clone()));
-        if packed {
-            let seen = entries.len();
-            emit_packed_flags(
-                group.clone(),
-                entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
-                st.result,
-            );
-            st.total_entries += seen;
-            st.clean_entries += seen;
-        } else {
-            let (seen, clean) = emit_flags(group.clone(), entries, st.result);
-            st.total_entries += seen;
-            st.clean_entries += clean;
-        }
-        if let Some(entry) = argfile_entry {
-            st.total_entries += 1;
-            st.clean_entries += 1;
-            emit_argfile_flag(group, entry, st.result);
-        }
+        let (seen, clean) = emit_flags_block(
+            group,
+            entries,
+            packed,
+            &is_plus_sigil,
+            argfile_entry,
+            st.result,
+        );
+        st.total_entries += seen;
+        st.clean_entries += clean;
         st.command_mode = false;
         return i;
     }
@@ -1266,27 +1260,19 @@ fn scan_entries(
             // revisited as a heading — dcb and vdpa's `OPTIONS` row.
             // See S-042, noted as `bnf_row_lines`.
             let heading_is_bnf = bnf_row_lines.contains(&i);
-            let (end, entries, packed, argfile_entry) = scan_flags_block(lines, i, heading_is_bnf);
+            let (end, entries, packed, argfile_entry, is_plus_sigil) =
+                scan_flags_block(lines, i, heading_is_bnf);
             i = end;
-            if packed {
-                let seen = entries.len();
-                emit_packed_flags(
-                    None,
-                    entries.into_iter().map(|(s, d, _)| (s, d)).collect(),
-                    st.result,
-                );
-                st.total_entries += seen;
-                st.clean_entries += seen;
-            } else {
-                let (seen, clean) = emit_flags(None, entries, st.result);
-                st.total_entries += seen;
-                st.clean_entries += clean;
-            }
-            if let Some(entry) = argfile_entry {
-                st.total_entries += 1;
-                st.clean_entries += 1;
-                emit_argfile_flag(None, entry, st.result);
-            }
+            let (seen, clean) = emit_flags_block(
+                None,
+                entries,
+                packed,
+                &is_plus_sigil,
+                argfile_entry,
+                st.result,
+            );
+            st.total_entries += seen;
+            st.clean_entries += clean;
             st.command_mode = false;
             continue;
         }

@@ -1,0 +1,127 @@
+name: sg_luns
+description: Performs a SCSI REPORT LUNS command or decodes the given ALUN. When SR is 0x10 or 0x11 DEVICE must be LUN 0 or REPORT LUNS well known logical unit; when SR is 0x12 DEVICE must be an administrative logical unit. When the --test=ALUN option is given, decodes ALUN rather than sending a REPORT LUNS command.
+usage:
+- 'Usage: sg_luns    [--decode] [--help] [--hex] [--linux] [--lu_cong] [--maxlen=LEN] [--quiet] [--raw] [--readonly] [--select=SR] [--verbose] [--version] DEVICE or'
+- '       sg_luns    --test=ALUN [--decode] [--hex] [--lu_cong] [--verbose]'
+positionals:
+- name: DEVICE
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --decode
+  - -d
+  group: 'where:'
+  description: decode all luns into component parts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -h
+  group: 'where:'
+  description: print out usage message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hex
+  - -H
+  group: 'where:'
+  description: output response in hexadecimal; used twice shows decoded values in hex
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux
+  - -l
+  group: 'where:'
+  description: show Linux integer lun after T10 representation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lu_cong
+  - -L
+  group: 'where:'
+  description: 'decode as if LU_CONG is set; used twice: decode as if LU_CONG is clear'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --maxlen
+  - -m
+  value_name: LEN
+  value_kind: Required
+  group: 'where:'
+  description: 'max response length (allocation length in cdb) (def: 0 -> 8192 bytes)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet
+  - -q
+  group: 'where:'
+  description: output only ASCII hex lun values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raw
+  - -r
+  group: 'where:'
+  description: output response in binary
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --readonly
+  - -R
+  group: 'where:'
+  description: 'open DEVICE read-only (def: read-write)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --select
+  - -s
+  value_name: SR
+  value_kind: Required
+  group: 'where:'
+  description: 'select report SR (def: 0) 0 -> luns apart from ''well known'' lus 1 -> only ''well known'' logical unit numbers 2 -> all luns 0x10 -> administrative luns 0x11 -> admin luns + non-conglomerate luns 0x12 -> admin lun + its subsidiary luns'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --test
+  - -t
+  value_name: ALUN
+  value_kind: Required
+  group: 'where:'
+  description: decode ALUN and ignore most other options and DEVICE (apart from '-H')
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  group: 'where:'
+  description: increase verbosity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  - -V
+  group: 'where:'
+  description: print version string and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

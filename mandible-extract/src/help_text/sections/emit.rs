@@ -4,19 +4,92 @@
 
 use super::*;
 
-pub(super) fn emit_flags(
+/// Split `entries` (with `scan_flags_block`'s parallel `is_plus_sigil`)
+/// into the ordinary rows and the neighbor-gated plus-sigil rows, so a
+/// caller that reads `packed` never sends a `+`-led entry through
+/// [`emit_packed_flags`] — that function reads `-wholename` shapes, not
+/// [`parse_plus_sigil_spec`]'s grammar, and would otherwise keep the
+/// literal `+`/`+<lnum>` text as a bare "spelling". See docs/shapes.md
+/// S-095.
+fn partition_plus_sigil_entries(
+    entries: Vec<FlagRowEntry>,
+    is_plus_sigil: &[bool],
+) -> (Vec<FlagRowEntry>, Vec<FlagRowEntry>) {
+    let mut ordinary = Vec::new();
+    let mut plus_sigil = Vec::new();
+    for (idx, entry) in entries.into_iter().enumerate() {
+        if is_plus_sigil.get(idx).copied().unwrap_or(false) {
+            plus_sigil.push(entry);
+        } else {
+            ordinary.push(entry);
+        }
+    }
+    (ordinary, plus_sigil)
+}
+
+/// Emit everything one [`scan_flags_block`] call recovered — the packed
+/// or ordinary flags, plus the argfile row — the one place both
+/// `emit_heading_block` and its headingless twin route a scan's results
+/// through, so neither call site repeats the packed/plus-sigil/argfile
+/// three-way split inline. Returns `(seen, clean)` for the caller's own
+/// running totals.
+pub(super) fn emit_flags_block(
     group: Option<String>,
     entries: Vec<FlagRowEntry>,
+    packed: bool,
+    is_plus_sigil: &[bool],
+    argfile_entry: Option<FlagRowEntry>,
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let (mut seen, mut clean) = if packed {
+        let (ordinary, plus_sigil) = partition_plus_sigil_entries(entries, is_plus_sigil);
+        let ordinary_seen = ordinary.len();
+        emit_packed_flags(
+            group.clone(),
+            ordinary.into_iter().map(|(s, d, _)| (s, d)).collect(),
+            out,
+        );
+        let plus_seen = plus_sigil.len();
+        let (_, plus_clean) =
+            emit_flags_with(group.clone(), plus_sigil, &vec![true; plus_seen], out);
+        (ordinary_seen + plus_seen, ordinary_seen + plus_clean)
+    } else {
+        emit_flags_with(group.clone(), entries, is_plus_sigil, out)
+    };
+    if let Some(entry) = argfile_entry {
+        seen += 1;
+        clean += 1;
+        emit_argfile_flag(group, entry, out);
+    }
+    (seen, clean)
+}
+
+/// Turn recovered flag rows into `ParsedHelp` entries. `is_plus_sigil`
+/// (same length as `entries`, or empty to mean "none") reads `true` at
+/// index `n` to route that entry through [`parse_plus_sigil_spec`]
+/// instead of the ordinary [`parse_flag_spec`]. Set only by
+/// [`scan_flags_block`]'s neighbor-gated `+`/`+<placeholder>` row
+/// (S-095) — every other entry, from every other caller, always reads
+/// `false` here and gets the ordinary grammar, which stays deaf to a bare
+/// `+` (see `try_bare_sigil`'s own doc comment).
+pub(super) fn emit_flags_with(
+    group: Option<String>,
+    entries: Vec<FlagRowEntry>,
+    is_plus_sigil: &[bool],
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let mut seen = 0usize;
     let mut clean = 0usize;
-    for (spec_text, desc_text, choice_names) in entries {
+    for (idx, (spec_text, desc_text, choice_names)) in entries.into_iter().enumerate() {
         if out.flags.len() >= MAX_RECOVERED_ENTRIES {
             break;
         }
         seen += 1;
-        let mut spec = parse_flag_spec(&spec_text);
+        let mut spec = if is_plus_sigil.get(idx).copied().unwrap_or(false) {
+            parse_plus_sigil_spec(&spec_text)
+        } else {
+            parse_flag_spec(&spec_text)
+        };
         if spec.fully_consumed {
             clean += 1;
         }

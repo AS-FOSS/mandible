@@ -405,9 +405,109 @@ pub(super) fn block_is_packed_flag_rows(entry_lines: &[&str]) -> bool {
 pub(super) enum FlagsBlockRow<'a> {
     /// Looks like the start of a new flag entry.
     Entry(&'a str),
+    /// A `+`/`+<placeholder>` row admitted only by
+    /// [`has_flag_shaped_plus_neighbor`] — see docs/shapes.md S-095.
+    PlusSigil(&'a str),
     /// A continuation of the previous entry's description (`trim_end`ed
     /// text only — the row's own indentation has already done its job).
     Continuation(&'a str),
+}
+
+// --- S-095: the neighbor-gated `+`/`+<placeholder>` option row ---------
+//
+// `is_flag_shaped`/`looks_like_flag_start` stay deaf to a bare `+`
+// (neither function can see neighbouring rows, and a `+` line alone does
+// not separate vim's `+`/`+<lnum>` option rows from git-lfs's AsciiDoc
+// list-continuation marker or date's `%`-conversion-modifier row). The
+// gate lives here instead, in the one pass that already holds the whole
+// document's lines: `scan_flags_block` admits the row only beside a
+// flag-shaped neighbour, mirroring `xtask::plus_prefixed_option`'s own
+// `has_flag_shaped_neighbor` (kept as a separate copy — extract and xtask
+// do not share code).
+
+/// True when `token` is a `+`-prefixed option spelling this family
+/// claims: bare `+`, or `+` followed by a bracketed placeholder
+/// (`+<lnum>`, `+<cmd>`) — never `++` or a token with a real letter
+/// straight after the sigil (`+d`, which [`is_flag_shaped`] already
+/// reads). See docs/shapes.md S-095.
+pub(super) fn is_claimed_plus_token(token: &str) -> bool {
+    let Some(rest) = token.strip_prefix('+') else {
+        return false;
+    };
+    rest.is_empty() || rest.starts_with('<')
+}
+
+/// True when `line`'s own leading token is flag-shaped evidence for the
+/// plus-sigil gate: a real `-`-prefixed flag, the bare `--` marker, or
+/// this same family's own claimed `+`-token shape. See docs/shapes.md
+/// S-095.
+fn plus_neighbor_row_is_flag_shaped(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() || trimmed == line {
+        return false;
+    }
+    let Some(token) = trimmed.split_whitespace().next() else {
+        return false;
+    };
+    let token = token.trim_end_matches(',');
+    if let Some(rest) = token.strip_prefix("--") {
+        return rest.is_empty() || rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+    }
+    if let Some(rest) = token.strip_prefix('-') {
+        return rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric());
+    }
+    is_claimed_plus_token(token)
+}
+
+/// Whether the nearest non-blank line above or below `lines[i]` is itself
+/// flag-shaped — the positive option-table evidence required before a
+/// `+`-claimed row (see [`is_claimed_plus_token`]) is read as an entry.
+/// Refuses git-lfs's bare `+` (prose neighbours on both sides) and date's
+/// `+` row (surrounded by `0`, `^`, `_`, `#` modifier rows, none
+/// flag-shaped). See docs/shapes.md S-095.
+fn has_flag_shaped_plus_neighbor(lines: &[&str], i: usize) -> bool {
+    let above = lines[..i].iter().rev().find(|l| !l.trim().is_empty());
+    let below = lines[i + 1..].iter().find(|l| !l.trim().is_empty());
+    above.is_some_and(|l| plus_neighbor_row_is_flag_shaped(l))
+        || below.is_some_and(|l| plus_neighbor_row_is_flag_shaped(l))
+}
+
+/// Parse a neighbor-gated plus-sigil entry's spec text (`"+"`,
+/// `"+<lnum>"`, `"+<cmd>, -c <cmd>"`) into a [`FlagSpec`]. Reachable only
+/// from a row [`scan_flags_block`] already admitted through
+/// [`has_flag_shaped_plus_neighbor`] — never through the ordinary
+/// [`parse_flag_spec`]/`try_bare_sigil` grammar, which stays deaf to a
+/// bare `+` everywhere else (S-096's own reason: a fabricated `+` alias
+/// on `as`'s real `--gstabs+` once came from exactly this kind of
+/// unscoped widening). The leading `+` is stripped by hand as the bare
+/// sigil spelling; whatever follows (a `<placeholder>` value, a
+/// comma-joined alias like `-c <cmd>`) is read by the ordinary grammar,
+/// which already knows that shape. See docs/shapes.md S-095.
+pub(super) fn parse_plus_sigil_spec(spec_text: &str) -> FlagSpec {
+    let trimmed = spec_text.trim();
+    let Some(rest) = trimmed.strip_prefix('+') else {
+        return FlagSpec::default();
+    };
+    if !(rest.is_empty() || rest.starts_with('<')) {
+        return FlagSpec::default();
+    }
+    let mut spec = FlagSpec {
+        spellings: vec![Spelling::bare("+")],
+        ..FlagSpec::default()
+    };
+    if rest.is_empty() {
+        spec.fully_consumed = true;
+        return spec;
+    }
+    let tail = parse_flag_spec(rest);
+    spec.value_name = tail.value_name;
+    spec.value_kind = tail.value_kind;
+    spec.spellings.extend(tail.spellings);
+    spec.fully_consumed = tail.fully_consumed;
+    spec
 }
 
 /// One recovered flag-table row: its spec text, its description, and any
@@ -552,7 +652,13 @@ pub(super) fn scan_flags_block<'a>(
     lines: &[&'a str],
     start: usize,
     heading_is_bnf: bool,
-) -> (usize, Vec<FlagRowEntry>, bool, Option<FlagRowEntry>) {
+) -> (
+    usize,
+    Vec<FlagRowEntry>,
+    bool,
+    Option<FlagRowEntry>,
+    Vec<bool>,
+) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
@@ -597,8 +703,25 @@ pub(super) fn scan_flags_block<'a>(
             || (heading_is_bnf && looks_like_bnf_continuation_row(trimmed)))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
-        if is_entry_start {
-            rows.push(FlagsBlockRow::Entry(line));
+        // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented
+        // (a heading has none), the claimed shape, and beside a
+        // flag-shaped neighbor — see `has_flag_shaped_plus_neighbor`.
+        // Checked only once the ordinary shapes above have refused the
+        // row, and independently of the indent-tolerance gate above (a
+        // block's own plus row may open no more indented than its first
+        // real flag).
+        let is_plus_sigil_start = !is_entry_start
+            && indent > 0
+            && is_claimed_plus_token(first_word(trimmed).trim_end_matches(','))
+            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE)
+            && has_flag_shaped_plus_neighbor(lines, i);
+
+        if is_entry_start || is_plus_sigil_start {
+            rows.push(if is_plus_sigil_start {
+                FlagsBlockRow::PlusSigil(line)
+            } else {
+                FlagsBlockRow::Entry(line)
+            });
             min_entry_indent = Some(min_entry_indent.map_or(indent, |m| m.min(indent)));
             current_entry_line = Some(line);
             i += 1;
@@ -632,7 +755,7 @@ pub(super) fn scan_flags_block<'a>(
         .iter()
         .filter_map(|r| match r {
             FlagsBlockRow::Entry(l) => Some(*l),
-            FlagsBlockRow::Continuation(_) => None,
+            FlagsBlockRow::PlusSigil(_) | FlagsBlockRow::Continuation(_) => None,
         })
         .collect();
     let multi_column = block_is_multi_column(&entry_lines);
@@ -649,8 +772,21 @@ pub(super) fn scan_flags_block<'a>(
     let packed = !multi_column && !aligned_spellings && block_is_packed_flag_rows(&entry_lines);
 
     let mut entries: Vec<FlagRowEntry> = Vec::new();
+    // Parallel to `entries`, one entry per element: `true` where that
+    // entry came from a `FlagsBlockRow::PlusSigil` row, so
+    // `emit_flags`/`parse_plus_sigil_spec` is the only place that ever
+    // reads a bare `+` as a flag spelling — never the ordinary
+    // `parse_flag_spec`/`try_bare_sigil` grammar every other entry goes
+    // through. See docs/shapes.md S-095.
+    let mut is_plus_sigil: Vec<bool> = Vec::new();
     for row in rows {
+        let plus_sigil_row = matches!(row, FlagsBlockRow::PlusSigil(_));
+        let before = entries.len();
         match row {
+            FlagsBlockRow::PlusSigil(line) => {
+                let (spec, desc) = split_single_column_entry(line);
+                entries.push((spec, desc, Vec::new()));
+            }
             FlagsBlockRow::Entry(line) => {
                 // A docopt bracket-group row (LVM's `[ -d|--debug ]`) is
                 // one flag with no description column at all, so it's read
@@ -757,8 +893,13 @@ pub(super) fn scan_flags_block<'a>(
                 }
             }
         }
+        is_plus_sigil.resize(entries.len(), plus_sigil_row);
+        debug_assert!(
+            !plus_sigil_row || entries.len() == before + 1,
+            "a PlusSigil row must produce exactly one entry"
+        );
     }
-    (i, entries, packed, argfile_entry)
+    (i, entries, packed, argfile_entry, is_plus_sigil)
 }
 
 /// The fewest name/description pairs a deeper-indented run must show before
@@ -1670,6 +1811,135 @@ Options:
         assert!(
             desc.contains("strict parsing fails"),
             "the wrapped continuation must still land in the description: {desc:?}"
+        );
+    }
+
+    // --- S-095: the neighbor-gated `+`/`+<placeholder>` option row -----
+
+    /// `vim.basic --help`, byte-exact
+    /// (`corpus/vim.basic/audit-seed4/help.txt` lines 36-42): the bare `+`
+    /// row beside 40+ ordinary `-x` rows must become a flag spelled `+`.
+    #[test]
+    fn vim_basic_bare_plus_row_becomes_a_flag() {
+        let raw = "Arguments:\n\
+                    \x20  --noplugin\t\tDon't load plugin scripts\n\
+                    \x20  -p[N]\t\tOpen N tab pages (default: one for each file)\n\
+                    \x20  -O[N]\t\tLike -o but split vertically\n\
+                    \x20  +\t\t\tStart at end of file\n\
+                    \x20  +<lnum>\t\tStart at line <lnum>\n\
+                    \x20  --cmd <command>\tExecute <command> before loading any vimrc file\n";
+        let parsed = parse_named(raw, "vim.basic");
+        let plus = parsed
+            .flags
+            .iter()
+            .find(|f| {
+                f.spellings.len() == 1 && f.spellings[0].name == "+" && f.value_name.is_none()
+            })
+            .unwrap_or_else(|| panic!("no bare `+` flag in {:?}", parsed.flags));
+        assert_eq!(
+            plus.description.as_ref().map(|t| t.as_str()),
+            Some("Start at end of file")
+        );
+    }
+
+    /// The row directly below the one above, same fixture: `+<lnum>`
+    /// recovers a flag spelled `+` with value `<lnum>`.
+    #[test]
+    fn vim_basic_plus_lnum_row_recovers_a_value() {
+        let raw = "Arguments:\n\
+                    \x20  --noplugin\t\tDon't load plugin scripts\n\
+                    \x20  -p[N]\t\tOpen N tab pages (default: one for each file)\n\
+                    \x20  -O[N]\t\tLike -o but split vertically\n\
+                    \x20  +\t\t\tStart at end of file\n\
+                    \x20  +<lnum>\t\tStart at line <lnum>\n\
+                    \x20  --cmd <command>\tExecute <command> before loading any vimrc file\n";
+        let parsed = parse_named(raw, "vim.basic");
+        let lnum = parsed
+            .flags
+            .iter()
+            .find(|f| {
+                f.spellings.len() == 1 && f.spellings[0].name == "+" && f.value_name.is_some()
+            })
+            .unwrap_or_else(|| panic!("no `+<lnum>` flag in {:?}", parsed.flags));
+        assert_eq!(lnum.value_name.as_deref(), Some("<lnum>"));
+        assert_eq!(lnum.value_kind, ValueKind::Required);
+        assert_eq!(
+            lnum.description.as_ref().map(|t| t.as_str()),
+            Some("Start at line <lnum>")
+        );
+    }
+
+    /// `nvim --help`, byte-exact (`corpus/nvim/0.9.5/help.txt` lines
+    /// 6-11): the comma-joined alias row recovers *both* spellings —
+    /// `+<cmd>` and `-c <cmd>` — sharing one description, not just the
+    /// first. See AGENTS.md S-3.9.
+    #[test]
+    fn nvim_plus_cmd_alias_row_recovers_both_spellings() {
+        let raw = "Options:\n\
+                    \x20 --                    Only file names after this\n\
+                    \x20 +                     Start at end of file\n\
+                    \x20 --cmd <cmd>           Execute <cmd> before any config\n\
+                    \x20 +<cmd>, -c <cmd>      Execute <cmd> after config and first file\n\
+                    \x20 -l <script> [args...] Execute Lua <script> (with optional args)\n";
+        let parsed = parse_named(raw, "nvim");
+        let cmd = parsed
+            .flags
+            .iter()
+            .find(|f| f.spellings.iter().any(|s| s.name == "+") && f.value_name.is_some())
+            .unwrap_or_else(|| panic!("no `+<cmd>` flag in {:?}", parsed.flags));
+        assert_eq!(cmd.value_name.as_deref(), Some("<cmd>"));
+        assert_eq!(
+            cmd.short(),
+            Some('c'),
+            "the `-c <cmd>` alias must not be dropped: {:?}",
+            cmd.spellings
+        );
+        assert_eq!(
+            cmd.description.as_ref().map(|t| t.as_str()),
+            Some("Execute <cmd> after config and first file")
+        );
+    }
+
+    /// `git-lfs --help`'s real AsciiDoc list-continuation marker, byte-
+    /// exact: a bare `+` line with prose neighbors on both sides (a
+    /// numbered step above, a shell command below), neither flag-shaped.
+    /// Must never become a flag. The false positive a reverted fix once
+    /// produced here. See docs/shapes.md S-095.
+    #[test]
+    fn git_lfs_list_continuation_marker_is_not_a_flag() {
+        let raw = ". Setup Git LFS on your system. You only have to do this once per user\n\
+                    account:\n\
+                    +\n\
+                    \n\
+                    git lfs install\n";
+        let parsed = parse_named(raw, "git-lfs");
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.spellings.iter().any(|s| s.name == "+")),
+            "git-lfs's list-continuation marker must not become a `+` flag: {:?}",
+            parsed.flags
+        );
+    }
+
+    /// `date --help`'s real `%`-conversion-modifier table row, byte-exact:
+    /// `+` sits among `0`, `^` modifier-character rows, none a real
+    /// `-`-prefixed flag, so it has no flag-shaped neighbor. Must never
+    /// become a flag. See docs/shapes.md S-095.
+    #[test]
+    fn date_percent_modifier_plus_row_is_not_a_flag() {
+        let raw = "  0  (zero) pad with zeros\n\
+                    \x20 +  pad with zeros, and put '+' before future years with >4 digits\n\
+                    \x20 ^  use upper case if possible\n";
+        let parsed = parse_named(raw, "date");
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.spellings.iter().any(|s| s.name == "+")),
+            "date's `%`-modifier row must not become a `+` flag: {:?}",
+            parsed.flags
         );
     }
 }

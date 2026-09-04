@@ -60,6 +60,16 @@ pub(super) fn entity_value_text(flag: &Entity) -> Option<String> {
         .as_ref()
         .and_then(|name| match flag.value_kind {
             ValueKind::Required => Some(name.clone()),
+            // A glued run of optional bracketed groups (docs/shapes.md
+            // S-097, `try_value` in help_text/grammar.rs) keeps the source
+            // spelling of the whole run, brackets included (`[N][fname]`).
+            // A single group's own value name never carries a `]` at all
+            // (`try_value` stops at the first one), so this check only
+            // ever fires on an already-fully-bracketed folded run, never
+            // wrapping it a second time.
+            ValueKind::Optional if name.starts_with('[') && name.ends_with(']') => {
+                Some(name.clone())
+            }
             ValueKind::Optional => Some(format!("[{name}]")),
             ValueKind::None => None,
         })

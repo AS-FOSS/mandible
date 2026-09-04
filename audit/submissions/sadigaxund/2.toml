@@ -71,7 +71,11 @@ stratum = "ok"
 verdict = "wrong"
 note = "help text shows subcommands but they are not parsed, weirdly displayed. one other command had similar format"
 include_reason = "unaudited promotion (3464b0c): low-confidence -> ok, never independently reviewed"
-families = ["unparsed-subcommand"]
+# families_derived: a machine reading of corpus/ar/audit-seed2/help.txt's
+# own usage line evidences a second, unrelated shape on the same tool. Its
+# trailing `[member-name] [count] archive-file file...` documents four
+# operands and the tree carries none -> multi-operand-usage-tail.
+families = ["unparsed-subcommand", "multi-operand-usage-tail"]
 families_derived = true
 
 [[entry]]
@@ -149,7 +153,11 @@ stratum = "ok"
 verdict = "correct"
 k1 = true
 
-families = ["dropped-alias"]
+# families_derived: a machine reading of corpus/compactsnoop-bpfcc/audit-seed2/
+# evidences a second, unrelated shape on the same tool. help.txt's row
+# "-e, --extended_fields" reaches expected.snap as "- --extended" with
+# value_name "_fields" -> underscore-in-long-option.
+families = ["dropped-alias", "underscore-in-long-option"]
 families_derived = true
 [[entry.amendments]]
 previous_verdict = "correct"

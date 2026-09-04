@@ -505,7 +505,17 @@ note = "i believe it shows '--' as positional arg"
 # maintainer quote: help.txt's row "-h  or  --help\tPrint Help ..." reads
 # as one flag -h whose description begins "or --help", so --help never
 # becomes an alias -> or-joined-alias
-families = ["unparsed-positional", "plus-prefixed-option", "end-of-options-marker", "second-optional-value-dropped", "parenthetical-qualifier-as-value", "usage-only-value-name", "or-joined-alias"]
+#
+# Round 4: three more shapes, evidenced by the same fixture's own bytes.
+# help.txt's "   or: vim [arguments] -" (and two more "or:" continuations)
+# reaches root.usage with the marker still inside the form ->
+# usage-alternative-or-prefix. "Usage: vim [arguments] [file ..]"'s
+# leading word "vim" matches node "vim.basic"'s prefix before its first
+# "." but never the node's own full name -> usage-program-word-mismatch.
+# "-V[N][fname]" reaches the tree as the space-joined value name "N
+# fname" instead of the source's own bracket spelling ->
+# glued-optional-group-spelling.
+families = ["unparsed-positional", "plus-prefixed-option", "end-of-options-marker", "second-optional-value-dropped", "parenthetical-qualifier-as-value", "usage-only-value-name", "or-joined-alias", "usage-alternative-or-prefix", "usage-program-word-mismatch", "glued-optional-group-spelling"]
 families_derived = true
 
 [[entry]]

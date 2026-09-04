@@ -1,7 +1,28 @@
 name: aarch64-linux-gnu-ar
 description: '/usr/bin/aarch64-linux-gnu-ar: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>'
 usage:
-- 'Usage: /usr/bin/aarch64-linux-gnu-ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file... /usr/bin/aarch64-linux-gnu-ar -M [<mri-script]'
+- 'Usage: /usr/bin/aarch64-linux-gnu-ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>] [member-name] [count] archive-file file...'
+- '       /usr/bin/aarch64-linux-gnu-ar -M [<mri-script]'
+positionals:
+- name: member-name
+  provenance:
+    sources:
+    - help-text
+- name: count
+  provenance:
+    sources:
+    - help-text
+- name: archive-file
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - '@'

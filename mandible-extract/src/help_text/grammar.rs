@@ -223,8 +223,11 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             spec.value_kind = kind;
         }
 
-        // The alias list may continue past it; see [`alias_continues`].
-        let Some(next) = alias_continues(tail) else {
+        // The alias list may continue past it via `,`/`|`, see
+        // [`alias_continues`], or via the word `or` when the second
+        // spelling repeats the value too (`icupkg`'s `-s path or
+        // --sourcedir path`), see [`or_alias_continues`]. S-099.
+        let Some(next) = alias_continues(tail).or_else(|| or_alias_continues(tail)) else {
             spec.fully_consumed = tail.trim().is_empty();
             return spec;
         };
@@ -319,6 +322,36 @@ fn alias_continues(after_value: &str) -> Option<&str> {
     let separator = s.chars().next().filter(|c| is_alias_separator(*c))?;
     let rest = &s[separator.len_utf8()..];
     alias_follows(rest).then(|| rest.trim_start_matches(' '))
+}
+
+/// The rest of an alias list continuing past a value spec via the bare
+/// word `or`, mirroring [`alias_continues`]'s `,`/`|` handling for the
+/// value-carrying form of the or-joined alias (`icupkg`'s `-s path or
+/// --sourcedir path  directory for the --add items`). The second
+/// spelling must itself carry a value — one space then a bare token, not
+/// the two-space run that would already be the naive column gap — and
+/// that value must end the spec fragment, meet a real column boundary, or
+/// chain into another `or`, the same gate [`or_alias_ends_the_spec`]
+/// already applies, shifted past one value token. See docs/shapes.md
+/// S-099.
+fn or_alias_continues(after_value: &str) -> Option<&str> {
+    let s = after_value.trim_start_matches(' ');
+    let after_or = s.strip_prefix("or")?;
+    if !after_or.starts_with(|c: char| c.is_ascii_whitespace()) {
+        return None;
+    }
+    let spelling_start = after_or.trim_start_matches(' ');
+    if !alias_follows(spelling_start) {
+        return None;
+    }
+    let spelling_len = spelling_start
+        .find([' ', '\t', ',', '|'])
+        .unwrap_or(spelling_start.len());
+    let after_spelling = &spelling_start[spelling_len..];
+    let value_part = after_spelling
+        .strip_prefix(' ')
+        .filter(|v| !v.starts_with(' '))?;
+    or_alias_ends_the_spec(value_part).then_some(spelling_start)
 }
 
 /// Rewrite a brace-delimited alternation of flag spellings into the
@@ -466,7 +499,24 @@ fn long_dashes<'s>(input: &mut &'s str) -> Res<&'s str> {
 }
 
 fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
-    take_while(1.., |c: char| c.is_alphanumeric() || c == '-').parse_next(input)
+    // The first character keeps the original class (alphanumeric or `-`):
+    // a real long option never starts with `_`. `less --help`'s
+    // `--_<name>` row is backspace-overstrike underlining (`_\b<...`), not
+    // a spelling glued onto `--`; letting `_` open the name here would
+    // read that artifact as flag `--_`. See `a_leading_underscore_after_
+    // dashdash_is_never_a_spelling` below.
+    //
+    // `_` does join `-` in the *tail*: a real long option name may
+    // contain it (icupkg's `--auto_toc_prefix_with_type`, sg_luns's
+    // `--lu_cong`, bpfcc's `--extended_fields`); `sections/spelling.rs`
+    // already accepts it in its own name grammar and this was the odd one
+    // out. See docs/shapes.md S-106.
+    (
+        take_while(1..=1, |c: char| c.is_alphanumeric() || c == '-'),
+        take_while(0.., |c: char| c.is_alphanumeric() || c == '-' || c == '_'),
+    )
+        .take()
+        .parse_next(input)
 }
 
 /// `-x`, or `-xy...[rest]` where an abbreviation-continuation bracket
@@ -646,20 +696,21 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     let mut s = input;
 
     // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`, possibly
-    // followed by one or more further bracketed optional values glued
-    // directly on with no separator (`-V[N][fname]`, vim's own row; see
-    // docs/shapes.md S-097). `Entity::value_name` is a single field, so
-    // every glued bracket's content is folded into one value name,
-    // space-joined in document order. Adjacency (no whitespace between
-    // the closing `]` and the next `[`) is the only signal used, which is
-    // structural, not per-tool, and never fires across the whitespace
-    // that separates a spec fragment from a description column.
+    // followed by further bracketed optional values glued directly on
+    // with no separator (`-V[N][fname]`, vim's own row; docs/shapes.md
+    // S-097). `Entity::value_name` is one field, so a glued run folds
+    // into one value keeping the run's own source spelling, brackets
+    // included (`-V[N][fname]` -> `[N][fname]`). A single, non-glued
+    // group stays bracket-free, as before. Adjacency (no whitespace
+    // before the next `[`) is the only signal, structural not per-tool.
     if open_bracket(&mut s).is_ok() {
         let _has_eq = equals_sign(&mut s).is_ok();
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
         let mut combined = name.to_string();
-        while foldable_value(&combined) {
+        let mut current = name;
+        let mut folded_any = false;
+        while foldable_value(current) {
             let mut probe = s;
             if open_bracket(&mut probe).is_err() {
                 break;
@@ -670,9 +721,15 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             if close_bracket(&mut probe).is_err() || !foldable_value(next_name) {
                 break;
             }
-            combined.push(' ');
+            if !folded_any {
+                combined = format!("[{combined}]");
+                folded_any = true;
+            }
+            combined.push('[');
             combined.push_str(next_name);
+            combined.push(']');
             s = probe;
+            current = next_name;
         }
         return Some((combined, ValueKind::Optional, s));
     }
@@ -1054,8 +1111,10 @@ pub(super) fn split_alternatives(content: &str) -> Vec<&str> {
 pub(super) fn is_bare_flag_spelling(token: &str) -> bool {
     if let Some(name) = token.strip_prefix("--") {
         let mut cs = name.chars();
+        // `_` joins `-` for the same reason `long_name` does: a real
+        // long option name may contain it (S-106).
         return cs.next().is_some_and(|c| c.is_ascii_alphabetic())
-            && cs.all(|c| c.is_ascii_alphanumeric() || c == '-');
+            && cs.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
     }
     if let Some(name) = token.strip_prefix('-') {
         let mut cs = name.chars();
@@ -1214,12 +1273,14 @@ mod tests {
 
     /// vim's `-V[N][fname]` (docs/shapes.md S-097, corpus/vim.basic's
     /// `audit-seed4` fixture): two bracketed optional values glued
-    /// directly together. Both must survive in the one value name.
+    /// directly together. The value name keeps the source spelling of the
+    /// glued run, brackets included, since each group is independently
+    /// optional.
     #[test]
     fn parses_two_glued_optional_bracketed_values() {
         let spec = parse_flag_spec("-V[N][fname]");
         assert_eq!(spec.short(), Some('V'));
-        assert_eq!(spec.value_name.as_deref(), Some("N fname"));
+        assert_eq!(spec.value_name.as_deref(), Some("[N][fname]"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
         assert!(spec.fully_consumed);
     }
@@ -1468,6 +1529,47 @@ mod tests {
         let spec = parse_flag_spec("--format or html");
         assert_eq!(spec.long(), Some("format"));
         assert_eq!(spec.value_name.as_deref(), Some("or"));
+    }
+
+    /// `icupkg`'s real value-carrying or-joined row, byte-exact (see
+    /// corpus/icupkg/74.2/help.txt): both spellings repeat the value
+    /// `path`. First value wins (S-083), so the joined entity's value
+    /// name is the first spelling's own word.
+    #[test]
+    fn or_join_carries_the_value_on_both_spellings() {
+        let spec = parse_flag_spec("-s path or --sourcedir path");
+        assert_eq!(spec.short(), Some('s'));
+        assert_eq!(spec.long(), Some("sourcedir"));
+        assert_eq!(spec.value_name.as_deref(), Some("path"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// `icupkg`'s `-C comment or --comment comment`, byte-exact: a
+    /// different word for the value than the `-s`/`--sourcedir` row above,
+    /// still one value, still first-wins.
+    #[test]
+    fn or_join_with_value_uses_a_different_value_word() {
+        let spec = parse_flag_spec("-C comment or --comment comment");
+        assert_eq!(spec.short(), Some('C'));
+        assert_eq!(spec.long(), Some("comment"));
+        assert_eq!(spec.value_name.as_deref(), Some("comment"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// Negative: a value-carrying `or` join still only fires when the
+    /// second spelling's own value ends the fragment or meets a real
+    /// boundary. Here the second spelling's "value" runs straight into
+    /// more prose on a single space, so this must not join — the same
+    /// shape `a_sentence_continuing_after_the_second_spelling_is_not_an_alias_join`
+    /// protects for the value-free form.
+    #[test]
+    fn or_join_with_value_refuses_when_the_second_value_runs_into_prose() {
+        let spec = parse_flag_spec("-s path or --sourcedir word continues here");
+        assert_ne!(
+            spec.spellings.len(),
+            2,
+            "--sourcedir must not become an alias when its value runs into prose"
+        );
     }
 
     /// lsof's real plus-or-minus convention, byte-exact. See
@@ -2168,6 +2270,45 @@ mod tests {
         let spec = parse_flag_spec("-h, --[section-]headers");
         assert_eq!(spec.spellings.len(), 1);
         assert_eq!(spec.spellings[0].name, "h");
+    }
+
+    #[test]
+    fn a_glued_underscore_suffix_joins_the_long_name_not_the_value() {
+        // corpus/compactsnoop-bpfcc/audit-seed2/help.txt: "  -e,
+        // --extended_fields\n                        show system memory
+        // state". `--extended` used to end at `_`, leaving a fabricated
+        // value named `_fields` on a flag the tool never gives one. See
+        // docs/shapes.md S-106.
+        let spec = parse_flag_spec("-e, --extended_fields");
+        assert_eq!(spec.spellings.len(), 2);
+        assert_eq!(spec.spellings[1].name, "extended_fields");
+        assert!(spec.value_name.is_none());
+    }
+
+    #[test]
+    fn an_explicit_equals_value_that_begins_with_underscore_stays_a_value() {
+        // The shape the underscore widening must not eat: `--foo=_bar`
+        // separates name from value with a real `=`, so `_bar` is a
+        // value spec, never folded into the flag's own name.
+        let spec = parse_flag_spec("--foo=_bar");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "foo");
+        assert_eq!(spec.value_name.as_deref(), Some("_bar"));
+    }
+
+    #[test]
+    fn a_leading_underscore_after_dashdash_is_never_a_spelling() {
+        // `less --help`'s real `--_<name>` row, byte-exact with the
+        // backspace-overstrike underlining it renders with: raw bytes are
+        // `--_\x08<_\x08n_\x08a_\x08m_\x08e_\x08>` (an underscore then a
+        // backspace ahead of each underlined character). The leading `_`
+        // is overstrike, not a spelling: `less` has no option named `--_`.
+        // A real long option name never starts with `_`, only its tail
+        // may carry one, so `try_long` must refuse this row outright
+        // rather than reading a fabricated `--_` flag with a garbled
+        // value. See docs/shapes.md S-106.
+        let spec = parse_flag_spec("--_\u{8}<_\u{8}n_\u{8}a_\u{8}m_\u{8}e_\u{8}>");
+        assert!(spec.spellings.is_empty());
     }
 
     #[test]
