@@ -1665,13 +1665,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the spec fragment, meet a real column boundary, or be followed by another
   `or` in a chain. `pod2man`'s sentence `--lquote or --rquote overrides
   --quotes.` and `java`'s `-m or --module <module>/<mainclass> are passed`
-  continue after one space, so neither becomes an alias row.
+  continue after one space, so neither becomes an alias row. The
+  value-carrying form, both spellings repeating the value word
+  (`icupkg`'s `-s path or --sourcedir path`), is handled by
+  `or_alias_continues` in the same file: it demands a value on the second
+  spelling too, and that value must clear the same ends-the-spec gate. The
+  first spelling's own value word names the joined entity when the two
+  differ, the same first-value-wins rule alias lists already use for `,`.
+  `icupkg`'s `-c or --copyright include the ICU copyright notice` is a
+  still-open case of the value-free form: `--copyright` is followed by its
+  description across one space rather than a real column boundary, so the
+  gate refuses it and `-c` keeps the fabricated value `or`.
 - fleet: `or-joined-alias` (`xtask/src/or_joined_alias.rs`) fell from 30
   tool(s)/134 finding(s) to 9/15 in a full-PATH sweep of 2264 tools,
   2026-09-03. The same sweep-diff shows a repaired alias list on 26 tools
   and one flag-count loss, `icupkg` 21 to 20, where a duplicate `--help`
   carrying no description and no value was absorbed into the `-h, -?,
-  --help` group that carries both.
+  --help` group that carries both. The value-carrying continuation moved
+  one tool, `icupkg`, in a full-PATH sweep of 2264 tools, 2026-09-04: nine
+  rows (`-C`/`--comment`, `-a`/`--add`, `-d`/`--destdir`, `-m`/`--matchmode`,
+  `-o`/`--outlist`, `-r`/`--remove`, `-s`/`--sourcedir`, `-t`/`--type`,
+  `-x`/`--extract`) gained their second spelling with zero flag-count
+  losses fleet-wide; no other `PATH` tool on this sweep carries the
+  shape, so this increment does not clear the five-tool bar on its own.
 
 ### S-100: usage alternative reaches the tree without its own description
 

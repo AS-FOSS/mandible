@@ -223,8 +223,11 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             spec.value_kind = kind;
         }
 
-        // The alias list may continue past it; see [`alias_continues`].
-        let Some(next) = alias_continues(tail) else {
+        // The alias list may continue past it via `,`/`|`, see
+        // [`alias_continues`], or via the word `or` when the second
+        // spelling repeats the value too (`icupkg`'s `-s path or
+        // --sourcedir path`), see [`or_alias_continues`]. S-099.
+        let Some(next) = alias_continues(tail).or_else(|| or_alias_continues(tail)) else {
             spec.fully_consumed = tail.trim().is_empty();
             return spec;
         };
@@ -319,6 +322,36 @@ fn alias_continues(after_value: &str) -> Option<&str> {
     let separator = s.chars().next().filter(|c| is_alias_separator(*c))?;
     let rest = &s[separator.len_utf8()..];
     alias_follows(rest).then(|| rest.trim_start_matches(' '))
+}
+
+/// The rest of an alias list continuing past a value spec via the bare
+/// word `or`, mirroring [`alias_continues`]'s `,`/`|` handling for the
+/// value-carrying form of the or-joined alias (`icupkg`'s `-s path or
+/// --sourcedir path  directory for the --add items`). The second
+/// spelling must itself carry a value — one space then a bare token, not
+/// the two-space run that would already be the naive column gap — and
+/// that value must end the spec fragment, meet a real column boundary, or
+/// chain into another `or`, the same gate [`or_alias_ends_the_spec`]
+/// already applies, shifted past one value token. See docs/shapes.md
+/// S-099.
+fn or_alias_continues(after_value: &str) -> Option<&str> {
+    let s = after_value.trim_start_matches(' ');
+    let after_or = s.strip_prefix("or")?;
+    if !after_or.starts_with(|c: char| c.is_ascii_whitespace()) {
+        return None;
+    }
+    let spelling_start = after_or.trim_start_matches(' ');
+    if !alias_follows(spelling_start) {
+        return None;
+    }
+    let spelling_len = spelling_start
+        .find([' ', '\t', ',', '|'])
+        .unwrap_or(spelling_start.len());
+    let after_spelling = &spelling_start[spelling_len..];
+    let value_part = after_spelling
+        .strip_prefix(' ')
+        .filter(|v| !v.starts_with(' '))?;
+    or_alias_ends_the_spec(value_part).then_some(spelling_start)
 }
 
 /// Rewrite a brace-delimited alternation of flag spellings into the
@@ -1487,6 +1520,47 @@ mod tests {
         let spec = parse_flag_spec("--format or html");
         assert_eq!(spec.long(), Some("format"));
         assert_eq!(spec.value_name.as_deref(), Some("or"));
+    }
+
+    /// `icupkg`'s real value-carrying or-joined row, byte-exact (see
+    /// corpus/icupkg/74.2/help.txt): both spellings repeat the value
+    /// `path`. First value wins (S-083), so the joined entity's value
+    /// name is the first spelling's own word.
+    #[test]
+    fn or_join_carries_the_value_on_both_spellings() {
+        let spec = parse_flag_spec("-s path or --sourcedir path");
+        assert_eq!(spec.short(), Some('s'));
+        assert_eq!(spec.long(), Some("sourcedir"));
+        assert_eq!(spec.value_name.as_deref(), Some("path"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// `icupkg`'s `-C comment or --comment comment`, byte-exact: a
+    /// different word for the value than the `-s`/`--sourcedir` row above,
+    /// still one value, still first-wins.
+    #[test]
+    fn or_join_with_value_uses_a_different_value_word() {
+        let spec = parse_flag_spec("-C comment or --comment comment");
+        assert_eq!(spec.short(), Some('C'));
+        assert_eq!(spec.long(), Some("comment"));
+        assert_eq!(spec.value_name.as_deref(), Some("comment"));
+        assert!(spec.fully_consumed);
+    }
+
+    /// Negative: a value-carrying `or` join still only fires when the
+    /// second spelling's own value ends the fragment or meets a real
+    /// boundary. Here the second spelling's "value" runs straight into
+    /// more prose on a single space, so this must not join — the same
+    /// shape `a_sentence_continuing_after_the_second_spelling_is_not_an_alias_join`
+    /// protects for the value-free form.
+    #[test]
+    fn or_join_with_value_refuses_when_the_second_value_runs_into_prose() {
+        let spec = parse_flag_spec("-s path or --sourcedir word continues here");
+        assert_ne!(
+            spec.spellings.len(),
+            2,
+            "--sourcedir must not become an alias when its value runs into prose"
+        );
     }
 
     /// lsof's real plus-or-minus convention, byte-exact. See
