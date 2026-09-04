@@ -696,20 +696,21 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     let mut s = input;
 
     // Optional-value bracketed forms: `[=VALUE]` or `[VALUE]`, possibly
-    // followed by one or more further bracketed optional values glued
-    // directly on with no separator (`-V[N][fname]`, vim's own row; see
-    // docs/shapes.md S-097). `Entity::value_name` is a single field, so
-    // every glued bracket's content is folded into one value name,
-    // space-joined in document order. Adjacency (no whitespace between
-    // the closing `]` and the next `[`) is the only signal used, which is
-    // structural, not per-tool, and never fires across the whitespace
-    // that separates a spec fragment from a description column.
+    // followed by further bracketed optional values glued directly on
+    // with no separator (`-V[N][fname]`, vim's own row; docs/shapes.md
+    // S-097). `Entity::value_name` is one field, so a glued run folds
+    // into one value keeping the run's own source spelling, brackets
+    // included (`-V[N][fname]` -> `[N][fname]`). A single, non-glued
+    // group stays bracket-free, as before. Adjacency (no whitespace
+    // before the next `[`) is the only signal, structural not per-tool.
     if open_bracket(&mut s).is_ok() {
         let _has_eq = equals_sign(&mut s).is_ok();
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
         let mut combined = name.to_string();
-        while foldable_value(&combined) {
+        let mut current = name;
+        let mut folded_any = false;
+        while foldable_value(current) {
             let mut probe = s;
             if open_bracket(&mut probe).is_err() {
                 break;
@@ -720,9 +721,15 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             if close_bracket(&mut probe).is_err() || !foldable_value(next_name) {
                 break;
             }
-            combined.push(' ');
+            if !folded_any {
+                combined = format!("[{combined}]");
+                folded_any = true;
+            }
+            combined.push('[');
             combined.push_str(next_name);
+            combined.push(']');
             s = probe;
+            current = next_name;
         }
         return Some((combined, ValueKind::Optional, s));
     }
@@ -1266,12 +1273,14 @@ mod tests {
 
     /// vim's `-V[N][fname]` (docs/shapes.md S-097, corpus/vim.basic's
     /// `audit-seed4` fixture): two bracketed optional values glued
-    /// directly together. Both must survive in the one value name.
+    /// directly together. The value name keeps the source spelling of the
+    /// glued run, brackets included, since each group is independently
+    /// optional.
     #[test]
     fn parses_two_glued_optional_bracketed_values() {
         let spec = parse_flag_spec("-V[N][fname]");
         assert_eq!(spec.short(), Some('V'));
-        assert_eq!(spec.value_name.as_deref(), Some("N fname"));
+        assert_eq!(spec.value_name.as_deref(), Some("[N][fname]"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
         assert!(spec.fully_consumed);
     }

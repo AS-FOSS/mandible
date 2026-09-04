@@ -32,7 +32,8 @@
 # spelling is `errorfile`, and that is what `must_value_name` below asserts.
 #
 # `-V[N][file]` in the Options block is the same shape as vim.basic's
-# `-V[N][fname]` (atlas S-097). Fixed: the value name is now `N file`.
+# `-V[N][fname]` (atlas S-097). Fixed: the value name is now `[N][file]`,
+# the source spelling of the glued run, brackets included.
 
 [bless]
 provenance = "agent"

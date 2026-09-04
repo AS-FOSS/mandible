@@ -1614,18 +1614,34 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: vim.basic, nvim, vim, vi, view, rvim, rview, vim.tiny, vimdiff, ex
 - handling: Fixed. `try_value` in `mandible-extract/src/help_text/grammar.rs` folds every
   bracketed group glued directly onto the first into one value name,
-  space-joined in document order, because `Entity::value_name` is a single
-  field. `-V[N][fname]` becomes the value `N fname`. A group is folded only
-  when it carries a letter or a digit and no unclosed bracket, so `xxd`'s
-  `-s [+][-]seek` and `fzf-tmux`'s `-p [WIDTH[%][,HEIGHT[%]]]` are left
-  exactly as they were rather than gaining a value name made of
-  punctuation.
+  because `Entity::value_name` is a single field. The fold keeps the
+  source spelling of the whole glued run, brackets included: `-V[N][fname]`
+  becomes the value `[N][fname]`, not `N fname`, since each group is
+  independently optional. A group is folded only when it carries a letter
+  or a digit and no unclosed bracket, so `xxd`'s `-s [+][-]seek` and
+  `fzf-tmux`'s `-p [WIDTH[%][,HEIGHT[%]]]` are left exactly as they were
+  rather than gaining a value name made of punctuation; `gold`'s `--debug
+  [all,files,script,task][,...]` folds nothing either, since the second
+  group is punctuation-only. `entity_value_text`
+  (`mandible-tui/src/render/detail_pane/entity.rs`), the flag table's own
+  renderer, wraps an `Optional` value name in a bracket; it skips that
+  wrap when the name already starts and ends with a bracket, so a folded
+  run is never double-bracketed. `Entity::spelling` in
+  `mandible-core/src/entity.rs` also wraps an `Optional` value name, in
+  `[=VALUE]`, unconditionally; it is unaffected here, since one added
+  bracket layer around an already-bracketed run is not a doubled bracket
+  the way a bare re-wrap would be.
 - fleet: `second-optional-value-dropped`
   (`xtask/src/second_optional_value_dropped.rs`) fell from 13 tool(s)/13
   finding(s) to 3/3 in a full-PATH sweep of 2264 tools, 2026-09-03. The
   same sweep-diff shows zero losses and zero flag gains, with a repaired
   value name on 10 tools. The three that remain carry the shape behind a
-  bracket the fold refuses, so this is not ratchet-gated at zero.
+  bracket the fold refuses, so this is not ratchet-gated at zero. The
+  value name's spelling changed from space-joined to bracket-preserved on
+  2026-09-04: a full-PATH sweep of 2264 tools shows 0 flag-count losses,
+  0 flag-count gains, and the `value_name` field changed on the same 10
+  tools (ex, nvim, rview, rvim, vi, view, vim, vim.basic, vim.tiny,
+  vimdiff), each checked against its own raw `--help` text.
 
 ### S-098: parenthetical qualifier read as a value and truncated
 

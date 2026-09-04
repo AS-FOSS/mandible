@@ -36,7 +36,8 @@ must_contain_flags = ["+", "--", "--help"]
 
 # Maintainer: "'-V[N][fname]' got parsed into just '-V [N]' which lost
 # fname". Machine classification: second optional value dropped (atlas
-# S-097). Fixed: `-V` now carries the value name `N fname`.
+# S-097). Fixed: `-V` now carries the value name `[N][fname]`, the source
+# spelling of the glued run, brackets included.
 #
 # Maintainer, later, re-reading this build's screen: "is this parse
 # correct: original = '-V[N][fname]', got parsed into '-V[N fname]'?"
