@@ -628,18 +628,15 @@ fn heading_line_ruled(
     Line::from(spans)
 }
 
-/// One usage line, with the redundant `Usage:`/node-name prefix stripped:
-/// the `USAGE` heading above already supplies the label, and the name
-/// must not repeat if the tool's own command path already names it. A
-/// cobra tool prints its full path, not just the leaf name (`docker
-/// import --help` → `docker import [OPTIONS]...`), so the check scans the
-/// whole leading run of bare word tokens, stopping at the first
-/// option/placeholder/ALL-CAPS-metavar token, rather than just the first
-/// word. Fixtures: `docker import`, `smokecli columns outlier`.
+/// One usage line, with the redundant `Usage:`/`or:`/node-name prefix
+/// stripped: the heading and label already say that, and a cobra tool's
+/// full-path form (`docker import [OPTIONS]...`) must not double-prepend
+/// the node name either. Fixtures: `corpus/vim.basic/audit-seed4`,
+/// `corpus/cp/9.4`, `docker import`, `smokecli columns outlier`.
 ///
-/// One usage form: the column its text began at in the tool's own output
-/// (leading indent plus any dropped `Usage:` label width), and the text
-/// itself. [`usage_forms`] compensates with the column.
+/// One usage form: the column its text began at (leading indent plus any
+/// dropped `Usage:`/`or:` label width), and the text. [`usage_forms`]
+/// compensates with the column.
 fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
     let name = defensive_single_line(node_name);
     let raw = defensive_single_line(usage);
@@ -650,29 +647,65 @@ fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
     let mut text = raw.trim_start_matches(' ').to_string();
     let mut column = raw.chars().count() - text.chars().count();
 
-    // Drop a leading `usage:` label case-insensitively; charge its width
-    // to the column.
-    if text.len() >= 6 && text[..6].eq_ignore_ascii_case("usage:") {
+    // Drop a leading `usage:` label, or else a continuation's own `or:`/
+    // `or` marker, case-insensitively; charge its width to the column so
+    // the forms keep the alignment the tool author drew them with.
+    if text
+        .get(..6)
+        .is_some_and(|p| p.eq_ignore_ascii_case("usage:"))
+    {
         let after = text[6..].trim_start().to_string();
         column += text.chars().count() - after.chars().count();
         text = after;
+    } else {
+        let marker_len = or_marker_len(&text);
+        if marker_len > 0 {
+            let after = text[marker_len..].trim_start().to_string();
+            column += text.chars().count() - after.chars().count();
+            text = after;
+        }
     }
 
-    let text = if name.is_empty() || usage_names_the_node(&text, &name) {
+    let text = if name.is_empty() {
         text
+    } else if let Some((start, end)) = usage_naming_span(&text, &name) {
+        // The help text already names the node, by a path (`cp`'s
+        // `/usr/bin/cp`) or a prefix (`vim.basic`'s `vim`) rather than by
+        // an exact match. Replace that word with the node's own name
+        // instead of leaving it and prepending, which would double it.
+        format!("{}{name}{}", &text[..start], &text[end..])
     } else {
         format!("{name} {text}")
     };
     (column, text)
 }
 
+/// The byte length of a leading `or:`/`or ` continuation marker, or `0`.
+/// Reads bytes through `str::get`, never a raw index, so a multi-byte
+/// character straddling the offset degrades to "no marker" instead of
+/// panicking (AGENTS.md's rule against slicing tool output at a byte
+/// offset).
+fn or_marker_len(text: &str) -> usize {
+    if text.get(..3).is_some_and(|p| p.eq_ignore_ascii_case("or:")) {
+        return 3;
+    }
+    if text.as_bytes().get(2) == Some(&b' ')
+        && text.get(..2).is_some_and(|p| p.eq_ignore_ascii_case("or"))
+    {
+        return 2;
+    }
+    0
+}
+
 /// Every usage form, each as the padding it renders behind and its text,
-/// preserving the tool's own relative alignment once the dropped `Usage: `
-/// label no longer holds the first form's position (spec §4.1). Every
-/// form shifts left by the first form's own content column, so form one
-/// lands at the block indent and the rest keep their relative position; a
-/// form indented less than that shift (`du`'s `  or:  du ...`) clamps at
-/// the block indent rather than going negative.
+/// preserving the tool's own relative alignment once the dropped
+/// `Usage: `/`or: ` labels no longer hold each form's position (spec
+/// §4.1). Every form shifts left by the first form's own content column,
+/// so form one lands at the block indent and the rest keep their
+/// relative position; a form indented less than that shift clamps at the
+/// block indent rather than going negative, since a label width can
+/// still outweigh a shallower marker (e.g. a one-column `or ` under a
+/// deeper `Usage: `).
 fn usage_forms(node_name: &str, usage: &[Text]) -> Vec<(usize, String)> {
     let forms: Vec<(usize, String)> = usage
         .iter()
@@ -685,13 +718,38 @@ fn usage_forms(node_name: &str, usage: &[Text]) -> Vec<(usize, String)> {
         .collect()
 }
 
-/// Whether `name` already appears among `text`'s leading run of bare
-/// command-path words — see [`usage_form`] for why the search covers
-/// the whole run rather than only the first token.
-fn usage_names_the_node(text: &str, name: &str) -> bool {
-    text.split_whitespace()
-        .take_while(|word| !looks_like_option_or_placeholder(word))
-        .any(|word| word == name)
+/// The byte span of the word in `text`'s leading run of bare command-path
+/// tokens that names the node, if any — see [`usage_form`] for why the
+/// search covers the whole run rather than only the first token.
+fn usage_naming_span(text: &str, name: &str) -> Option<(usize, usize)> {
+    let mut cursor = 0;
+    for token in text.split_whitespace() {
+        let start = cursor + text[cursor..].find(token)?;
+        let end = start + token.len();
+        if looks_like_option_or_placeholder(token) {
+            return None;
+        }
+        if word_names_node(token, name) {
+            return Some((start, end));
+        }
+        cursor = end;
+    }
+    None
+}
+
+/// Whether `word` names the node: an exact match, its basename after the
+/// last `/` (`cp`'s `/usr/bin/cp`), or the node name's own prefix before
+/// its first `.` (`vim.basic`'s `vim`, from a `vim.basic --help` that
+/// still calls itself plain `vim`).
+fn word_names_node(word: &str, name: &str) -> bool {
+    let basename = word.rsplit('/').next().unwrap_or(word);
+    if basename == name {
+        return true;
+    }
+    match name.split_once('.') {
+        Some((prefix, _)) if !prefix.is_empty() => basename == prefix,
+        _ => false,
+    }
 }
 
 /// A token that ends a usage line's leading command-path run: an option
@@ -3536,6 +3594,97 @@ mod tests {
             "mytool [OPTIONS] FILE"
         );
         assert_eq!(usage_form("cat", "<url>").1, "cat <url>");
+    }
+
+    /// The full shape from `corpus/vim.basic/audit-seed4/expected.snap`:
+    /// four forms, the first behind `Usage:`, the other three behind
+    /// `or:`. Every form must start at the same column with no repeated
+    /// `vim` word and no leaked `or:` marker — the maintainer's own
+    /// complaint, quoted in `docs/design.md` §4.1.
+    #[test]
+    fn vim_basic_usage_drops_or_marker_and_names_the_node_once() {
+        let usage: Vec<Text> = [
+            "Usage: vim [arguments] [file ..]       edit specified file(s)",
+            "   or: vim [arguments] -               read text from stdin",
+            "   or: vim [arguments] -t tag          edit file where tag is defined",
+            "   or: vim [arguments] -q [errorfile]  edit file with first error",
+        ]
+        .iter()
+        .map(|f| Text::sanitize_preserving_layout(f))
+        .collect();
+        let forms = usage_forms("vim.basic", &usage);
+        let pads: Vec<usize> = forms.iter().map(|(pad, _)| *pad).collect();
+        assert_eq!(
+            pads,
+            vec![0, 0, 0, 0],
+            "all four forms start at the same column"
+        );
+        assert_eq!(
+            forms[0].1,
+            "vim.basic [arguments] [file ..]       edit specified file(s)"
+        );
+        assert_eq!(
+            forms[1].1,
+            "vim.basic [arguments] -               read text from stdin"
+        );
+        assert_eq!(
+            forms[2].1,
+            "vim.basic [arguments] -t tag          edit file where tag is defined"
+        );
+        assert_eq!(
+            forms[3].1,
+            "vim.basic [arguments] -q [errorfile]  edit file with first error"
+        );
+        for (_, text) in &forms {
+            assert!(!text.to_ascii_lowercase().contains("or:"), "{text:?}");
+            assert_eq!(text.matches("vim").count(), 1, "must not repeat: {text:?}");
+        }
+    }
+
+    /// `corpus/cp/9.4/expected.snap`'s shape: the help text names the
+    /// tool by its resolved path, not the node's short name, so the
+    /// basename after the last `/` must be recognized as naming the node
+    /// and replaced by it, not doubled behind it.
+    #[test]
+    fn cp_usage_names_the_node_by_path_basename() {
+        let usage: Vec<Text> = [
+            "Usage: /usr/bin/cp [OPTION]... [-T] SOURCE DEST",
+            "  or:  /usr/bin/cp [OPTION]... SOURCE... DIRECTORY",
+            "  or:  /usr/bin/cp [OPTION]... -t DIRECTORY SOURCE...",
+        ]
+        .iter()
+        .map(|f| Text::sanitize_preserving_layout(f))
+        .collect();
+        let forms = usage_forms("cp", &usage);
+        assert_eq!(forms[0].1, "cp [OPTION]... [-T] SOURCE DEST");
+        assert_eq!(forms[1].1, "cp [OPTION]... SOURCE... DIRECTORY");
+        assert_eq!(forms[2].1, "cp [OPTION]... -t DIRECTORY SOURCE...");
+    }
+
+    /// A form whose first characters are one multi-byte character must
+    /// not be read as an `or:` marker, and must not panic on the byte
+    /// offset the marker check uses (AGENTS.md's rule against slicing
+    /// tool output at a raw byte offset).
+    #[test]
+    fn a_multibyte_leading_word_is_not_an_or_marker_and_does_not_panic() {
+        assert_eq!(or_marker_len("or\u{e9}x [FILE]"), 0);
+        assert_eq!(or_marker_len("o\u{e9} [FILE]"), 0);
+        assert_eq!(or_marker_len("\u{e9}r: [FILE]"), 0);
+        assert_eq!(or_marker_len("or: [FILE]"), 3);
+        assert_eq!(or_marker_len("or [FILE]"), 2);
+    }
+
+    /// Negative: `egrep`'s usage names a program whose word merely
+    /// contains the node name (`grep`) as a suffix. A suffix is not a
+    /// basename and not the node's own dot-prefix, so the word must be
+    /// left alone and the node name still prepended — the shape this test
+    /// protects is "looks similar, is not the same word".
+    #[test]
+    fn a_lookalike_word_that_only_contains_the_name_is_not_treated_as_naming_it() {
+        assert_eq!(
+            usage_form("grep", "Usage: egrep [OPTIONS] PATTERN [FILE...]").1,
+            "grep egrep [OPTIONS] PATTERN [FILE...]"
+        );
     }
 
     /// A single over-long token must survive wrapping intact — broken
