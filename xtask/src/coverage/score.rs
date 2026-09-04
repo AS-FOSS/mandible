@@ -377,11 +377,12 @@ fn family_detector_counts(
     )
 }
 
-/// The seven vim-family detectors (atlas S-095 to S-100 and S-105), read off the same
-/// already-captured raw text and tree. One function rather than seven
+/// The seven vim-family detectors (atlas S-095 to S-100 and S-105) plus the
+/// six round-4 detectors (atlas S-106 to S-111), read off the same
+/// already-captured raw text and tree. One function rather than thirteen
 /// named locals: every family shares the exact same (name, finding count,
 /// capped samples) shape, and `Row::vim_family`/`Aggregate::vim_family`
-/// read that list generically rather than by seven repeated field names.
+/// read that list generically rather than by repeated field names.
 fn vim_family_counts(
     raw: Option<String>,
     root: Option<&CommandNode>,
@@ -402,7 +403,7 @@ fn vim_family_counts(
     let pq = crate::parenthetical_qualifier_as_value::detect(&raw, root);
     let oj = crate::or_joined_alias::detect(&raw, root);
 
-    vec![
+    let mut counts = vec![
         (
             "plus-prefixed-option",
             pp.finding_count(),
@@ -464,6 +465,97 @@ fn vim_family_counts(
                 .iter()
                 .take(cap)
                 .map(|f| format!("{:?} never became an alias of {:?}", f.second, f.first))
+                .collect(),
+        ),
+    ];
+    counts.extend(round4_family_counts(&raw, root));
+    counts
+}
+
+/// The six round-4 detectors (atlas S-106 to S-111), split out of
+/// [`vim_family_counts`] so that function stays under the line ceiling.
+/// Same (name, finding count, capped samples) shape as its caller.
+fn round4_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let ul = crate::detector::underscore_in_long_option::detect(raw, root);
+    let ap = crate::detector::usage_alternative_or_prefix::detect(raw, root);
+    let pm = crate::detector::usage_program_word_mismatch::detect(raw, root);
+    let mo = crate::detector::multi_operand_usage_tail::detect(raw, root);
+    let ov = crate::detector::or_joined_alias_with_values::detect(raw, root);
+    let gg = crate::detector::glued_optional_group_spelling::detect(raw, root);
+    vec![
+        (
+            "underscore-in-long-option",
+            ul.finding_count(),
+            ul.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "{:?} never became a long spelling, from {:?}",
+                        f.token, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "usage-alternative-or-prefix",
+            ap.finding_count(),
+            ap.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("usage form still carries its `or` marker: {:?}", f.line))
+                .collect(),
+        ),
+        (
+            "usage-program-word-mismatch",
+            pm.finding_count(),
+            pm.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "{:?} never matched the node's own name, from {:?}",
+                        f.token, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "multi-operand-usage-tail",
+            mo.finding_count(),
+            mo.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "{:?} never became a positional, from {:?}",
+                        f.operand, f.usage_line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "or-joined-alias-with-values",
+            ov.finding_count(),
+            ov.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} beside {:?} never became one entity", f.short, f.long))
+                .collect(),
+        ),
+        (
+            "glued-optional-group-spelling",
+            gg.finding_count(),
+            gg.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "-{} carries {:?} not {:?}",
+                        f.flag, f.value_name, f.source_spelling
+                    )
+                })
                 .collect(),
         ),
     ]

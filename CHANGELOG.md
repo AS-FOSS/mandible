@@ -14,14 +14,19 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- A long option name containing an underscore (`--extended_fields`, `--lu_cong`) no longer gets truncated at the `_` with the remainder fabricated into the flag's value name (docs/shapes.md S-106).
 - `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
 - The bare end-of-options marker `--` now reaches the tree instead of vanishing, in any tool's option table or usage line (`mandible vim.basic`, `mandible nvim`, `mandible awk`, `mandible cargo-fmt`, and dozens more on a full-`PATH` sweep, docs/shapes.md S-096).
 - A flag row that qualifies its spelling in parentheses (`-r (with file name)`, `--export (sh|make|cmdline|configure)`) no longer loses everything after the first word of the parenthetical: the qualifier names the value where it is one, and moves into the description where it is prose (docs/shapes.md S-098).
-- A flag whose value spec is two bracketed groups glued together (`-V[N][fname]`) no longer drops the second: both reach the value name, space-joined (docs/shapes.md S-097).
+- A flag whose value spec is two bracketed groups glued together (`-V[N][fname]`) no longer drops the second: both reach the value name in their original spelling, brackets included (docs/shapes.md S-097).
+- An or-joined alias row whose second spelling repeats the value too (`-s path or --sourcedir path`) now reaches the tree as one flag carrying both spellings and the value, instead of dropping the second spelling and fabricating the value from the word `or` (`mandible icupkg`, docs/shapes.md S-099).
 - A flag documented only on a usage line now keeps the operand written beside it (`vim ... -q [errorfile]`, `dhcpcd --release [interface]`, `rpcinfo -p [host]`), instead of reaching the tree with no value at all (docs/shapes.md S-100).
 - A row that joins its spellings with the word `or` (`-h or -? or --help`) now yields one flag with every alias, instead of one flag whose description begins with the word `or` (`mandible icupkg`, `mandible vim.basic`, `mandible sg_map`, docs/shapes.md S-099).
 - A usage-line operand written with the repetition dots glued to its name (`[file...]`, `file...`) now reaches the tree repeatable, matching the same operand written with a space before the dots (docs/shapes.md S-101).
 - The detail pane's USAGE section soft-wraps at the pane width instead of forcing horizontal scroll (`mandible sg_luns`, `mandible tar`); the raw `--help` view still scrolls.
+- A usage line's trailing run of two or more operands now reaches the tree, each keeping its own optionality and repetition, instead of the recovery capping at one (`mandible xfs_mkfile`, `mandible unmkinitramfs`, `mandible applydeltarpm`, `mandible logsave`, `mandible filefrag`, `mandible xdriinfo`, `mandible claude`, `mandible nft`, `mandible gdk-pixbuf-pixdata`, docs/shapes.md S-109).
+- A usage continuation that spells the tool as a full path (`/usr/bin/ar`) or as a dotted stem now opens its own usage form, so `mandible ar` shows two forms and all four operands `member-name`, `count`, `archive-file` and `file` (docs/shapes.md S-108).
+- A `+`-prefixed option row (`+`, `+<lnum>`, `+<cmd>`) beside an ordinary `-`-flagged row now reaches the tree, instead of vanishing (`mandible vim`, `mandible nvim`, and eight more on a full-`PATH` sweep, docs/shapes.md S-095).
 
 ## [0.6.1] - 2026-09-01
 

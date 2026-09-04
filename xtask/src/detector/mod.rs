@@ -41,6 +41,16 @@ mod detectors_misc;
 mod detectors_structural;
 mod render;
 
+// Round-4 family detectors (atlas S-106 to S-111). Nested here, unlike the
+// earlier detector modules under `xtask/src/`, because `xtask/src/main.rs`
+// is already at its own size ceiling (spec AGENTS.md §2).
+pub(crate) mod glued_optional_group_spelling;
+pub(crate) mod multi_operand_usage_tail;
+pub(crate) mod or_joined_alias_with_values;
+pub(crate) mod underscore_in_long_option;
+pub(crate) mod usage_alternative_or_prefix;
+pub(crate) mod usage_program_word_mismatch;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -644,6 +654,12 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(SecondOptionalValueDropped),
         Box::new(ParentheticalQualifierAsValue),
         Box::new(OrJoinedAlias),
+        Box::new(UnderscoreInLongOption),
+        Box::new(UsageAlternativeOrPrefix),
+        Box::new(UsageProgramWordMismatch),
+        Box::new(MultiOperandUsageTail),
+        Box::new(OrJoinedAliasWithValues),
+        Box::new(GluedOptionalGroupSpelling),
     ]
 }
 

@@ -119,7 +119,7 @@ flags:
     - help-text
 - spellings:
   - -V
-  value_name: N fname
+  value_name: '[N][fname]'
   value_kind: Optional
   group: 'Arguments:'
   description: Be verbose [level N] [log messages to fname]
@@ -244,9 +244,26 @@ flags:
     sources:
     - help-text
 - spellings:
+  - +
+  group: 'Arguments:'
+  description: Start at end of file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +
+  value_name: <lnum>
+  value_kind: Required
+  group: 'Arguments:'
+  description: Start at line <lnum>
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - --cmd
   value_name: <command>
   value_kind: Required
+  group: 'Arguments:'
   description: Execute <command> before loading any vimrc file
   provenance:
     sources:
@@ -255,6 +272,7 @@ flags:
   - -c
   value_name: <command>
   value_kind: Required
+  group: 'Arguments:'
   description: Execute <command> after loading the first file
   provenance:
     sources:
@@ -263,6 +281,7 @@ flags:
   - -S
   value_name: <session>
   value_kind: Required
+  group: 'Arguments:'
   description: Source file <session> after loading the first file
   provenance:
     sources:
@@ -271,6 +290,7 @@ flags:
   - -s
   value_name: <scriptin>
   value_kind: Required
+  group: 'Arguments:'
   description: Read Normal mode commands from file <scriptin>
   provenance:
     sources:
@@ -279,6 +299,7 @@ flags:
   - -w
   value_name: <scriptout>
   value_kind: Required
+  group: 'Arguments:'
   description: Append all typed commands to file <scriptout>
   provenance:
     sources:
@@ -287,12 +308,14 @@ flags:
   - -W
   value_name: <scriptout>
   value_kind: Required
+  group: 'Arguments:'
   description: Write all typed commands to file <scriptout>
   provenance:
     sources:
     - help-text
 - spellings:
   - -x
+  group: 'Arguments:'
   description: Edit encrypted files
   provenance:
     sources:
@@ -301,6 +324,7 @@ flags:
   - --startuptime
   value_name: <file>
   value_kind: Required
+  group: 'Arguments:'
   description: Write startup timing messages to <file>
   provenance:
     sources:
@@ -309,6 +333,7 @@ flags:
   - --log
   value_name: <file>
   value_kind: Required
+  group: 'Arguments:'
   description: Start logging to <file> early
   provenance:
     sources:
@@ -317,12 +342,14 @@ flags:
   - -i
   value_name: <viminfo>
   value_kind: Required
+  group: 'Arguments:'
   description: Use <viminfo> instead of .viminfo
   provenance:
     sources:
     - help-text
 - spellings:
   - --clean
+  group: 'Arguments:'
   description: '''nocompatible'', Vim defaults, no plugins, no viminfo'
   provenance:
     sources:
@@ -330,12 +357,14 @@ flags:
 - spellings:
   - -h
   - --help
+  group: 'Arguments:'
   description: Print Help (this message) and exit
   provenance:
     sources:
     - help-text
 - spellings:
   - --version
+  group: 'Arguments:'
   description: Print version information and exit
   provenance:
     sources:

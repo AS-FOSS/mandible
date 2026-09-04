@@ -36,7 +36,8 @@ must_contain_flags = ["+", "--", "--help"]
 
 # Maintainer: "'-V[N][fname]' got parsed into just '-V [N]' which lost
 # fname". Machine classification: second optional value dropped (atlas
-# S-097). Fixed: `-V` now carries the value name `N fname`.
+# S-097). Fixed: `-V` now carries the value name `[N][fname]`, the source
+# spelling of the glued run, brackets included.
 #
 # Maintainer, later, re-reading this build's screen: "is this parse
 # correct: original = '-V[N][fname]', got parsed into '-V[N fname]'?"
@@ -73,7 +74,7 @@ must_contain_flags = ["+", "--", "--help"]
 
 [xfail]
 broken = true
-reason = "two defects remain. A `+`-led option row (`+`, `+<lnum>`) still reaches nothing — a fix was attempted and reverted: it fabricated flags on git-lfs (an AsciiDoc list-continuation marker in prose) and date (a row of a `%`-conversion-modifier table), because a bare `+` line carries no structural signal telling an option row apart from either. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions. Fixed: the end-of-options marker `--` (`mandible-extract/src/help_text/grammar.rs`'s `try_bare_sigil`), the parenthetical qualifier on `-r` (`sections/emit.rs`'s `repair_parenthetical_value`), the second bracketed value on `-V` (`grammar.rs`'s `try_value`), `-q`'s usage-line operand (`sections/usage.rs`'s `extract_usage_flags`), and the `or`-joined alias on `-h` (`grammar.rs`'s `strip_or_alias_separator`), all generic-parser repairs, 2026-09-03."
+reason = "one defect remains. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions. Fixed: the end-of-options marker `--` (`mandible-extract/src/help_text/grammar.rs`'s `try_bare_sigil`), the parenthetical qualifier on `-r` (`sections/emit.rs`'s `repair_parenthetical_value`), the second bracketed value on `-V` (`grammar.rs`'s `try_value`), `-q`'s usage-line operand (`sections/usage.rs`'s `extract_usage_flags`), the `or`-joined alias on `-h` (`grammar.rs`'s `strip_or_alias_separator`), and the `+`-led option row `+`/`+<lnum>` (`flag_rows.rs`'s neighbor-gated `scan_flags_block` admission, docs/shapes.md S-095), all generic-parser repairs, 2026-09-03."
 
 # Fleet count: the unparsed-tail-operand detector fires on 150 tools
 # (150 flags) across a full-PATH sweep of 2318 tools, 2026-09-03, down from
@@ -135,3 +136,18 @@ reason = "two defects remain. A `+`-led option row (`+`, `+<lnum>`) still reache
 # Machine classification: the `or:` continuation marker on rows 2 to 4 is
 # never stripped. The four extra characters of `or: ` are what make those
 # rows sit further right than row 1.
+
+# What a reader sees on screen for the two `+` rows, checked on my own
+# 110x150 pty capture of this build and recorded rather than left for the
+# next reader to find. The replayed tree here is right: two entities, both
+# spelled `+`, one with the description "Start at end of file" and no
+# value, one with the value `<lnum>` and the description "Start at line
+# <lnum>". The running TUI shows one row, `+<lnum>` carrying "Start at end
+# of file". `mandible_core::merge::merge_entities` buckets an entity by
+# `(kind, spelling)`, so the two rows collide on the key `(Flag, "+")` and
+# fold, keeping the first description beside the second value name. This is
+# docs/shapes.md S-102, which already names this tool, and it is the same
+# collision corpus/jinfo/17.0.20 records for its three `-flag` rows. Before
+# the plus-prefixed fix neither row reached any surface at all, so the fix
+# adds one row and the fold still hides "Start at line <lnum>". A fixture
+# replay never runs the merge, so no `[contract]` field here can state it.
