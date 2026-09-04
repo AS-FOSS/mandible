@@ -13,10 +13,10 @@
 # archive-file, file. Family: multi-operand usage tail, because the
 # tail-operand repair recovers one trailing operand only.
 #
-# This fixture keeps its expected.snap; corpus/README.md allows a fixture
-# to stay xfail with a snapshot. The flip from passing to xfail is the
-# lifecycle direction corpus/README.md requires an explicit meta.toml edit
-# for, and this is that edit.
+# The fixture was flipped to xfail to record that gap and is promoted again
+# now that all four operands reach the tree. The second usage line spells
+# the tool as a full path, so it used to join the first line and hide the
+# operands behind it; both forms are separate entries in the snapshot now.
 
 [bless]
 provenance = "agent"
@@ -59,7 +59,3 @@ must_contain_modifiers = [
 # The first usage line's four trailing operands, dropped entirely. See the
 # header comment above.
 must_contain_positionals = ["member-name", "count", "archive-file", "file"]
-
-[xfail]
-broken = true
-reason = "the first usage line's four trailing operands (member-name, count, archive-file, file) are not extracted; the tail-operand repair recovers one trailing operand only"

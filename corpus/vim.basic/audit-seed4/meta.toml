@@ -136,3 +136,18 @@ reason = "one defect remains. The usage alternatives `-t tag` and `-q [errorfile
 # Machine classification: the `or:` continuation marker on rows 2 to 4 is
 # never stripped. The four extra characters of `or: ` are what make those
 # rows sit further right than row 1.
+
+# What a reader sees on screen for the two `+` rows, checked on my own
+# 110x150 pty capture of this build and recorded rather than left for the
+# next reader to find. The replayed tree here is right: two entities, both
+# spelled `+`, one with the description "Start at end of file" and no
+# value, one with the value `<lnum>` and the description "Start at line
+# <lnum>". The running TUI shows one row, `+<lnum>` carrying "Start at end
+# of file". `mandible_core::merge::merge_entities` buckets an entity by
+# `(kind, spelling)`, so the two rows collide on the key `(Flag, "+")` and
+# fold, keeping the first description beside the second value name. This is
+# docs/shapes.md S-102, which already names this tool, and it is the same
+# collision corpus/jinfo/17.0.20 records for its three `-flag` rows. Before
+# the plus-prefixed fix neither row reached any surface at all, so the fix
+# adds one row and the fold still hides "Start at line <lnum>". A fixture
+# replay never runs the merge, so no `[contract]` field here can state it.

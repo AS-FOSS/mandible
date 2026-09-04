@@ -180,7 +180,7 @@ flags:
     - help-text
 - spellings:
   - -V
-  value_name: N file
+  value_name: '[N][file]'
   value_kind: Optional
   description: Verbose [level][file]
   provenance:
