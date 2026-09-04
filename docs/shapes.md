@@ -718,7 +718,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]
       usage: lessecho [-ox] ... [-a] file ...
-- tools: bashbug, lessecho, vim.basic
+- tools: bashbug, lessecho, vim.basic, filefrag, applydeltarpm, claude,
+  gdk-pixbuf-pixdata, logsave, nft, unmkinitramfs, xdriinfo, xfs_mkfile
 - handling: An operand named only inside a bracket group at the tail of a usage line is
   not extracted as a positional; the tree currently carries no positionals at
   all for these tools even though the operand is real and documented. Open
@@ -1792,14 +1793,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/cp [OPTION]... [-T] SOURCE DEST
       Usage: vim [arguments] [file ..]       edit specified file(s)
-- tools: cp, vim.basic
-- handling: Open defect. A usage form's own leading word is the tool under a different
-  spelling — the resolved absolute path (`/usr/bin/cp` against node `cp`) or
-  the dotted stem (`vim` against node `vim.basic`) — so the renderer's own
-  leading-run name check misses it and prefixes the node name in front of
-  the form. `xtask detector`'s `usage-program-word-mismatch`
-  (`xtask/src/detector/usage_program_word_mismatch.rs`) generalizes this shape
-  fleet-wide, reimplementing the renderer's own leading-run rule rather
+- tools: cp, du, ar, aarch64-linux-gnu-ar, vim.basic
+- handling: A usage form's own leading word is the tool under a different spelling, either
+  the resolved absolute path (`/usr/bin/cp` against node `cp`) or the
+  dotted stem (`vim` against node `vim.basic`). The parser's
+  entry-splitting site now resolves that word through
+  `starts_with_tool_name_spelled_differently`, so a second usage line
+  spelled as a path opens its own entry instead of joining the first, and
+  operand recovery scoped to one primary line reaches it. The detail pane
+  replaces the word with the node's own name instead of prefixing the name
+  in front of it. `xtask detector`'s `usage-program-word-mismatch`
+  (`xtask/src/detector/usage_program_word_mismatch.rs`) generalizes the
+  shape fleet-wide, reimplementing the renderer's leading-run rule rather
   than importing it.
 - fleet: 447 tools, 526 findings, 2026-09-04
 

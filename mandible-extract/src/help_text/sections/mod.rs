@@ -452,7 +452,10 @@ fn scan_usage_section(
         just_closed_paren_group = false;
         let is_marker =
             starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
-        let is_own_name = tool_name.is_some_and(|name| starts_with_tool_name(trimmed_start, name));
+        let is_own_name = tool_name.is_some_and(|name| {
+            starts_with_tool_name(trimmed_start, name)
+                || starts_with_tool_name_spelled_differently(trimmed_start, name)
+        });
         let starts_new_entry = is_marker || is_own_name;
 
         // A line the one above it ended with a backslash is a

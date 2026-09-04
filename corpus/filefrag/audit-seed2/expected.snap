@@ -1,6 +1,13 @@
 name: filefrag
 usage:
 - 'Usage: /usr/sbin/filefrag [-b{blocksize}[KMG]] [-BeEksvxX] file ...'
+positionals:
+- name: file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -b
