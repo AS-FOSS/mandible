@@ -7,19 +7,22 @@
 #     --cmd <cmd> Execute <cmd> before any config
 #     +<cmd>, -c <cmd> Execute <cmd> after config and first file
 # Machine classification, row by row against the captured `Options:` block:
-#   - `--` (end-of-options marker): dropped entirely. No entity in the tree
-#     is spelled `--`.
-#   - `+` (plus-prefixed option): dropped entirely. No entity in the tree is
-#     spelled `+`.
+#   - `--` (end-of-options marker): fixed. `grammar.rs`'s `try_bare_sigil`
+#     reads the bare marker, generic across the fleet, 2026-09-03, REPAIRED
+#     (ratchet-gated at zero).
+#   - `+` (plus-prefixed option): fixed. `scan_flags_block`'s neighbor gate
+#     (docs/shapes.md S-095) admits the row beside a flag-shaped neighbor;
+#     `grammar.rs`'s `try_bare_sigil` itself stays deaf to a bare `+`
+#     everywhere else.
 #   - `--cmd <cmd>`: parses correctly today (spelling `--cmd`, value name
 #     `<cmd>`, description "Execute <cmd> before any config"). Quoted by the
 #     maintainer as part of the four-line block under review, but not itself
 #     a defect — not asserted broken below, since only spellings the parser
 #     really drops belong in `must_contain_flags`.
-#   - `+<cmd>, -c <cmd>`: both aliases of this row are lost. `+<cmd>` falls
-#     under the same plus-prefixed-option family as the bare `+` row above;
-#     `-c` is dropped independently — no entity in the tree is spelled `-c`.
-# So three spellings are really missing: `--`, `+`, `-c`.
+#   - `+<cmd>, -c <cmd>`: fixed. Both aliases now reach one entity: `+<cmd>`
+#     under the same S-095 gate as the bare `+` row above, `-c` recovered by
+#     the ordinary alias grammar once the gate opens the row at all.
+# The three spellings once dropped (`--`, `+`, `-c`) are all recovered.
 #
 # Maintainer: "i think '-q' flag migth be missing its placeholder, which
 # only came up in usage, or whatever that '[error_file]' is."
@@ -53,14 +56,10 @@ stdout = "help.txt"
 # found no fingerprint and the generic layout engine handled it.
 expected_framework = "generic"
 
-# The three spellings really dropped, checked against the tree's own flag
-# list (no entity anywhere is spelled `--`, `+`, or `-c`).
+# The three spellings once dropped, now recovered (see the row-by-row
+# classification above).
 must_contain_flags = ["--", "+", "-c"]
 
 [contract.must_value_name]
 "-q" = "errorfile"
 "-V" = "file"
-
-[xfail]
-broken = true
-reason = "The plus-prefixed option row is still dropped. -q's usage-only value name 'errorfile' is fixed: usage.rs's extract_usage_flags attaches the bracket group beside a bare flag token, generic across the fleet, family usage-only-value-name, fleet 76 tools/255 findings down to 66/244. The end-of-options marker '--' is fixed: grammar.rs's try_bare_sigil now reads the bare marker, generic across the fleet, 2026-09-03, REPAIRED (ratchet-gated at zero). The plus-prefixed option '+' (and its '+<cmd>' / '-c' aliased row) is still dropped: a fix was attempted and reverted for fabricating flags on git-lfs and date, where a bare '+' line carries no option-table evidence to tell it apart from prose or an unrelated table (family plus-prefixed-option, calibrated PASSES, fleet 10 tools/20 findings, clears the bar, not fixed this round for that reason)."

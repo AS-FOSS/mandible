@@ -1,0 +1,269 @@
+name: nvim
+usage:
+- 'Usage:'
+- '  nvim [options] [file ...]      Edit file(s)'
+- '  nvim [options] -t <tag>        Edit file where tag is defined'
+- '  nvim [options] -q [errorfile]  Edit file with first error'
+flags:
+- spellings:
+  - --
+  description: Only file names after this
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +
+  description: Start at end of file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cmd
+  value_name: <cmd>
+  value_kind: Required
+  description: Execute <cmd> before any config
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +
+  - -c
+  value_name: <cmd>
+  value_kind: Required
+  description: Execute <cmd> after config and first file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  value_name: <script>
+  value_kind: Required
+  description: '[args...] Execute Lua <script> (with optional args)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  description: Binary mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: Diff mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - -E
+  description: Ex mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  value_name: s,
+  value_kind: Required
+  description: Silent (batch) mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Print this help message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  value_name: <shada>
+  value_kind: Required
+  description: Use this shada file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: Modifications (writing files) not allowed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  description: Modifications in text not allowed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  description: No swap file, use memory only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: N
+  value_kind: Optional
+  description: 'Open N windows (default: one per file)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  value_name: N
+  value_kind: Optional
+  description: 'Open N vertical windows (default: one per file)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: N
+  value_kind: Optional
+  description: 'Open N tab pages (default: one per file)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - -L
+  description: List swap files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  value_name: <file>
+  value_kind: Required
+  description: Recover edit state for this file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  description: Read-only mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  value_name: <session>
+  value_kind: Required
+  description: Source <session> after loading the first file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  value_name: <scriptin>
+  value_kind: Required
+  description: Read Normal mode commands from <scriptin>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  value_name: <config>
+  value_kind: Required
+  description: Use this config file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  description: Print version information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  value_name: N file
+  value_kind: Optional
+  description: Verbose [level][file]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --api-info
+  description: Write msgpack-encoded API metadata to stdout
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --clean
+  description: '"Factory defaults" (skip user config and plugins, shada)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --embed
+  description: Use stdin/stdout as a msgpack-rpc channel
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --headless
+  description: Don't start a user interface
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --listen
+  value_name: <address>
+  value_kind: Required
+  description: Serve RPC API from this address
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --noplugin
+  description: Don't load plugins
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --remote
+  value_name: -subcommand
+  value_kind: Optional
+  description: Execute commands remotely on a server
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --server
+  value_name: <address>
+  value_kind: Required
+  description: Specify RPC server to send commands to
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --startuptime
+  value_name: <file>
+  value_kind: Required
+  description: Write startup timing messages to <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: <tag>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -q
+  value_name: errorfile
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

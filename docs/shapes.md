@@ -718,8 +718,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]
       usage: lessecho [-ox] ... [-a] file ...
-- tools: bashbug, lessecho, vim.basic, filefrag, applydeltarpm, claude,
-  gdk-pixbuf-pixdata, logsave, nft, unmkinitramfs, xdriinfo, xfs_mkfile
+- tools: bashbug, lessecho, vim.basic
 - handling: An operand named only inside a bracket group at the tail of a usage line is
   not extracted as a positional; the tree currently carries no positionals at
   all for these tools even though the operand is real and documented. Open
@@ -1570,21 +1569,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       +			Start at end of file
       +<lnum>		Start at line <lnum>
-- tools: vim.basic, vim, vi, view, rvim, ex, nvim
-- handling: Refused. A parser fix was written and reverted before it landed: reading a
-  bare `+` line as an option row fabricated a flag on `git-lfs`, whose
-  AsciiDoc list-continuation marker is a lone `+` between numbered steps in
-  prose, and on `date`, whose `%`-conversion-modifier table has a row
-  `+  pad with zeros`. A bare `+` line carries no signal separating an
-  option row from either. The detector was narrowed instead
-  (`has_flag_shaped_neighbor`), so a candidate is counted only beside a
-  flag-shaped row; both false positives are `Silent` self-checks built from
-  their own bytes. Distinct from S-086, the plus-or-minus alternation.
-- fleet: `plus-prefixed-option` (`xtask/src/plus_prefixed_option.rs`) fires
-  on 10 tool(s)/20 finding(s) in a full-PATH sweep of 2264 tools,
-  2026-09-03, down from 13/23 before the neighbor gate. Calibrated and
-  passing against seed 4. Clears the five-tool bar and stays unfixed, so
-  the shape is a live defect with no repair.
+- tools: vim.basic, vim, vi, view, rvim, rview, ex, nvim, vim.tiny, vimdiff
+- handling: Fixed. `scan_flags_block` (`mandible-extract/src/help_text/sections/flag_rows.rs`)
+  admits a `+`/`+<placeholder>` row as an entry only beside a flag-shaped
+  neighbor row (`has_flag_shaped_plus_neighbor`, the same evidence the
+  detector's own `has_flag_shaped_neighbor` requires), never through
+  `is_flag_shaped`/`looks_like_flag_start`, which stay deaf to a bare `+`
+  everywhere else. The row's spec text is read by a dedicated
+  `parse_plus_sigil_spec`, reachable only from that gated path, never
+  through the ordinary `parse_flag_spec`/`try_bare_sigil` grammar a prior,
+  reverted attempt widened unconditionally and fabricated flags on
+  `git-lfs` (an AsciiDoc list-continuation marker) and `date` (a
+  `%`-conversion-modifier table row) with. Distinct from S-086, the
+  plus-or-minus alternation.
+- fleet: sweep-diff against unmodified `origin/main`: 20 flag(s) gained
+  across 10 tool(s), 0 lost, 2026-09-04. Every gain checked against the
+  tool's own `--help` text. `git-lfs` and `date` unchanged (0 flags each,
+  before and after).
 
 ### S-096: end-of-options marker row dropped
 
@@ -1846,14 +1847,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV]
              [--plugin <name>] [member-name] [count] archive-file file...
-- tools: ar
-- handling: Open defect. The usage line's own trailing run of two or more operands,
-  bracketed or bare, documents more operands than the tree's positional
-  list carries. Distinct from `unparsed-tail-operand`, which covers a
-  single trailing operand only. `xtask detector`'s
-  `multi-operand-usage-tail` (`xtask/src/detector/multi_operand_usage_tail.rs`)
-  generalizes this shape fleet-wide.
-- fleet: 50 tools, 126 findings, 2026-09-04
+- tools: ar, aarch64-linux-gnu-ar, applydeltarpm, claude, filefrag,
+  gdk-pixbuf-pixdata, logsave, nft, unmkinitramfs, xdriinfo, xfs_mkfile
+- handling: The usage line's own trailing run of two or more operands, bracketed or
+  bare, now reaches the tree in source order, each operand keeping its own
+  optionality and its own repetition marker. Distinct from
+  `unparsed-tail-operand` (S-041), which covers a single trailing operand
+  only. The run is read only behind an earlier bracket-delimited flag
+  group, so a bare line whose first token takes its own value is refused
+  rather than mined. `xtask detector`'s `multi-operand-usage-tail`
+  (`xtask/src/detector/multi_operand_usage_tail.rs`) generalizes the shape
+  fleet-wide.
+- fleet: detector fires on 50 tools, 126 findings, over a 2318-tool sweep,
+  2026-09-04. The fix moved 12 tools with zero losses on the same sweep.
 
 ### S-110: "or"-joined alias where both spellings carry a value
 
