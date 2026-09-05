@@ -773,7 +773,11 @@ pub(super) fn scan_flags_block<'a>(
         if is_continuation {
             let entry_has_own_description =
                 current_entry_line.is_some_and(entry_row_carries_own_description);
-            if entry_has_own_description && nested_entry_table_starts_at(lines, i, indent) {
+            if entry_has_own_description
+                && (nested_entry_table_starts_at(lines, i, indent)
+                    || (is_section_heading_line(trimmed) && is_ignorable_heading(trimmed))
+                    || example_block_starts_at(lines, i))
+            {
                 break;
             }
             rows.push(FlagsBlockRow::Continuation(trimmed.trim_end()));
@@ -966,6 +970,66 @@ pub(super) fn scan_flags_block<'a>(
 /// line must not trip this on its own; only repetition is evidence of a
 /// table.
 pub(super) const MIN_NESTED_TABLE_ROWS: usize = 2;
+
+/// The fewest consecutive invocation-shaped lines
+/// [`example_block_starts_at`] demands before reading a deeper-indented
+/// run as a worked-example block rather than an ordinary wrapped
+/// description. Two, the same floor [`MIN_NESTED_TABLE_ROWS`] uses, for
+/// the same reason: one line that happens to start with `./` is cheap to
+/// produce by accident, a run of them is a worked example.
+pub(super) const MIN_EXAMPLE_BLOCK_LINES: usize = 2;
+
+/// A leading dash whose next char is not a digit — excludes a bare
+/// negative number (`-1`), a choices sub-table's own value column
+/// (ffplay's `all -1 ... all`), from [`looks_like_invocation_line`]'s
+/// flag check. See docs/shapes.md S-126.
+fn is_flag_like_token(w: &str) -> bool {
+    let mut chars = w.chars();
+    chars.next() == Some('-') && chars.next().is_some_and(|c| !c.is_ascii_digit())
+}
+
+/// One line of a shell worked example: a `./`-prefixed leading word, plus
+/// a real flag token or a `#` comment marker further on. Deliberately
+/// `./`-only, not "any bare word" — `ls`'s own `--time` description reads
+/// "with -l, WORD determines..." mid-sentence, a bare word (`with`)
+/// immediately followed by a real flag (`-l`), and a looser rule swallowed
+/// it whole. See docs/shapes.md S-126.
+fn looks_like_invocation_line(trimmed: &str) -> bool {
+    let mut words = trimmed.split_whitespace();
+    let Some(first) = words.next() else {
+        return false;
+    };
+    if !(first.starts_with("./") && first[2..].starts_with(|c: char| c.is_ascii_alphanumeric())) {
+        return false;
+    }
+    words.any(is_flag_like_token) || trimmed.contains(" # ") || trimmed.trim_end().ends_with('#')
+}
+
+/// Look ahead from a candidate continuation line at `lines[start]` for an
+/// unheaded worked-example block (`nfsslower-bpfcc`'s five `./nfsslower
+/// ...  # ...` lines right after its last flag's description, separated
+/// by a blank line and sitting one indent deeper than the flag rows):
+/// every non-blank line up to the next blank line or dedent must read as
+/// [`looks_like_invocation_line`], and there must be at least
+/// [`MIN_EXAMPLE_BLOCK_LINES`] of them. Refuses (returns `false`) the
+/// moment one line fails the shape test, so a genuine wrapped description
+/// that merely opens with a name-shaped word is never swallowed by this
+/// rule. See docs/shapes.md S-126.
+pub(super) fn example_block_starts_at(lines: &[&str], start: usize) -> bool {
+    let mut n = 0usize;
+    let mut j = start;
+    while let Some(line) = lines.get(j) {
+        if line.trim().is_empty() {
+            break;
+        }
+        if !looks_like_invocation_line(line.trim_start()) {
+            return false;
+        }
+        n += 1;
+        j += 1;
+    }
+    n >= MIN_EXAMPLE_BLOCK_LINES
+}
 
 /// Look ahead from a candidate continuation line at `lines[start]` (indent
 /// `indent`, already deeper than the flags block's own entries) for a

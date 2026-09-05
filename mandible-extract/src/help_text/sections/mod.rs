@@ -1451,6 +1451,12 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        // A block right under the usage line naming each positional's own
+        // description (`invoke-rc.d`'s `basename - Initscript ID...`).
+        // Consumed only when every row matches a positional this usage
+        // block just recovered, so it can never eat unrelated prose. See
+        // docs/shapes.md S-127.
+        i = apply_positional_description_block(&lines, i, &mut result.positionals);
     }
 
     // 2. Leading prose before the usage block (or before the first

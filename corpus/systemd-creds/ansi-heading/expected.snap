@@ -174,8 +174,35 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+- name: cat
+  summary: Show specified credentials
+  usage:
+  - CREDENTIAL...
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
 - name: setup
   summary: Generate credentials host key, if not existing yet
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: encrypt
+  summary: Encrypt plaintext credential file and write to ciphertext credential file
+  usage:
+  - INPUT OUTPUT
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: decrypt
+  summary: Decrypt ciphertext credential file and write to plaintext credential file
+  usage:
+  - INPUT [OUTPUT]
   group: 'Commands:'
   provenance:
     sources:

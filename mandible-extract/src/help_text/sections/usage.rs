@@ -662,6 +662,79 @@ fn recover_primary_tail_operands(
         .collect()
 }
 
+/// After the usage block, some tools describe each named positional on a
+/// `name - description` line right below it (`invoke-rc.d`'s `basename -
+/// Initscript ID...`). Every row's name must be EXACTLY one of
+/// `positionals`' own names, or the whole block is refused rather than
+/// guessed; a deeper-indented line folds in as a continuation. Returns
+/// the index past the consumed block, or `start` unchanged. See
+/// docs/shapes.md S-127.
+pub(super) fn apply_positional_description_block(
+    lines: &[&str],
+    start: usize,
+    positionals: &mut [Entity],
+) -> usize {
+    if positionals.is_empty() {
+        return start;
+    }
+    let mut i = start;
+    while lines.get(i).is_some_and(|l| l.trim().is_empty()) {
+        i += 1;
+    }
+    let Some(&first) = lines.get(i) else {
+        return start;
+    };
+    let baseline = leading_whitespace(first);
+    let mut rows: Vec<(String, String)> = Vec::new();
+    let mut j = i;
+    while let Some(&line) = lines.get(j) {
+        if line.trim().is_empty() {
+            break;
+        }
+        let indent = leading_whitespace(line);
+        if indent < baseline {
+            break;
+        }
+        if indent == baseline {
+            // A same-indent line with no ` - ` separator at all (`invoke-
+            // rc.d`'s own `WARNING: not all initscripts implement...`) is
+            // ordinary prose ending the block, not an unmatched row —
+            // stop here and keep whatever was already recovered, the same
+            // way a dedent would.
+            let Some(dash_idx) = find_dash_separator(line) else {
+                break;
+            };
+            let (name, desc) = split_at_dash(line, dash_idx);
+            let name = name.trim();
+            // A same-indent row that DOES carry a ` - ` separator but
+            // names something other than a known positional is the
+            // genuinely ambiguous case: refuse the whole block rather
+            // than guess which rows are real.
+            if !positionals.iter().any(|p| p.primary_name() == name) {
+                return start;
+            }
+            rows.push((name.to_string(), desc));
+        } else if let Some(last) = rows.last_mut() {
+            last.1.push(' ');
+            last.1.push_str(line.trim());
+        } else {
+            return start;
+        }
+        j += 1;
+    }
+    if rows.is_empty() {
+        return start;
+    }
+    for (name, desc) in &rows {
+        if let Some(p) = positionals.iter_mut().find(|p| p.primary_name() == name) {
+            if p.description.is_none() {
+                p.description = non_empty_text(desc);
+            }
+        }
+    }
+    j
+}
+
 /// Extract flag spellings from a usage-synopsis block: usage-only options
 /// (`git --help`'s `[-p | --paginate | -P | --no-pager]`) are otherwise
 /// never mined at all (spec [M-15]). [`extract_positionals`] reads the
@@ -682,6 +755,19 @@ fn recover_primary_tail_operands(
 /// docs/shapes.md S-100.
 fn names_a_value(member: &str) -> bool {
     !member.starts_with('-') && member.chars().any(|c| c.is_ascii_alphanumeric())
+}
+
+/// True when `token`'s first word, dash stripped, is an
+/// [`is_option_list_placeholder`] word (`makeconv`'s `[-options]`,
+/// perl's `[-OPTIONS [-MORE_OPTIONS]]`, X11's `[-options ...]`) — the
+/// author's generic "any option" placeholder, not a real flag. A tool
+/// with a real `-o` flag keeps it: only an exact placeholder word
+/// matches. See docs/shapes.md S-128.
+fn is_dash_prefixed_option_list_placeholder(token: &str) -> bool {
+    token
+        .strip_prefix('-')
+        .and_then(|rest| rest.split_whitespace().next())
+        .is_some_and(is_option_list_placeholder)
 }
 
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
@@ -737,6 +823,12 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                     let mut flaggy: Vec<&str> = Vec::new();
                     for m in members {
                         if m.starts_with('-') {
+                            // The author's own generic "any option"
+                            // placeholder, not a flag — see
+                            // `is_dash_prefixed_option_list_placeholder`.
+                            if is_dash_prefixed_option_list_placeholder(m) {
+                                continue;
+                            }
                             flaggy.push(m);
                             continue;
                         }
@@ -773,6 +865,9 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                 }
                 UsageSegment::Bare(tok) => {
                     if tok.starts_with('-') {
+                        if is_dash_prefixed_option_list_placeholder(tok) {
+                            continue;
+                        }
                         // A mandatory flag some synopsis writes unbracketed
                         // (`ssh-keygen -D pkcs11`) is two bare tokens: the
                         // flag, then its required value with no group at

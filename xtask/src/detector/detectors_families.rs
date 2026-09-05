@@ -544,3 +544,142 @@ impl Detector for SpacedSingleDashLong {
         super::spaced_single_dash_long::self_checks()
     }
 }
+
+pub(crate) struct CommandRowArgumentPlaceholder;
+
+impl Detector for CommandRowArgumentPlaceholder {
+    fn name(&self) -> &'static str {
+        "command-row-argument-placeholder"
+    }
+    fn family(&self) -> Option<&'static str> {
+        // Discovered from the seed-7 `systemctl` fixture, not the seed-2
+        // labelled set this module's calibration runs against — see
+        // `xtask/src/detector/mod.rs`'s module doc on why `None` is the
+        // honest answer rather than the nearest label.
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "under a recognized command heading, a row whose name column is a command name followed \
+         by an argument-placeholder run (`list-units [PATTERN...]`) is missing from the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::command_row_argument_placeholder::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} missing from the tree, from the row {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::command_row_argument_placeholder::self_checks()
+    }
+}
+
+pub(crate) struct ExamplesBlockContaminatesLastFlag;
+
+impl Detector for ExamplesBlockContaminatesLastFlag {
+    fn name(&self) -> &'static str {
+        "examples-block-contaminates-last-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "an unheaded, deeper-indented run of shell-invocation lines right after a flag's own \
+         described row folds whole onto that flag's description"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::examples_block_contaminates_last_flag::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} description carries a folded example block: {:?}",
+                    f.flag, f.description
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::examples_block_contaminates_last_flag::self_checks()
+    }
+}
+
+pub(crate) struct PositionalDescriptionBlock;
+
+impl Detector for PositionalDescriptionBlock {
+    fn name(&self) -> &'static str {
+        "positional-description-block"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "the usage block is followed by an indented `name - description` block naming each \
+         positional's own description, and the description never reaches the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::positional_description_block::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} never described, from {:?}", f.name, f.description))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::positional_description_block::self_checks()
+    }
+}
+
+pub(crate) struct GenericOptionPlaceholderFlag;
+
+impl Detector for GenericOptionPlaceholderFlag {
+    fn name(&self) -> &'static str {
+        "generic-option-placeholder-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own dash-prefixed generic placeholder (`[-options]`, `[-opts]`) is read \
+         literally and invents a short flag with a glued value name"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::generic_option_placeholder_flag::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} invented a flag, from {:?}", f.token, f.line))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::generic_option_placeholder_flag::self_checks()
+    }
+}
+
+pub(crate) struct DescriptionSubcommandsList;
+
+impl Detector for DescriptionSubcommandsList {
+    fn name(&self) -> &'static str {
+        "description-subcommands-list"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a `Subcommands:` sub-heading nested inside the `Description:` prose block, followed by \
+         a bulleted `- name: description` list, whose names never reach the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::description_subcommands_list::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} missing from the tree", f.name))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::description_subcommands_list::self_checks()
+    }
+}

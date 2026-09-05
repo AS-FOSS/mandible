@@ -271,9 +271,66 @@ pub(super) fn emit_env_vars(
     (seen, seen)
 }
 
+/// True when `rest` is nothing but argument placeholders: uppercase
+/// metavariables (`UNIT`, `PATTERN`), optionally bracketed (`[UNIT...]`),
+/// `...`-repeated, `|`-alternated (`PATTERN...|PID...`), or
+/// `NAME=VALUE`-shaped (`PROPERTY=VALUE...`) — one or more words, every one
+/// of them uppercase-led. An ordinary dropped description reads nothing
+/// like this: real prose carries at least one lowercase word and fails
+/// here immediately, so this never launders the single-space-description-
+/// column defect into a fabricated operand. See docs/shapes.md S-129.
+fn looks_like_operand_placeholder_run(rest: &str) -> bool {
+    let cleaned: String = rest
+        .chars()
+        .map(|c| {
+            if matches!(c, '[' | ']' | '.' | '|') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect();
+    let mut any = false;
+    for word in cleaned.split_whitespace().flat_map(|w| w.split('=')) {
+        if word.is_empty() {
+            continue;
+        }
+        any = true;
+        let mut chars = word.chars();
+        match chars.next() {
+            Some(c) if c.is_ascii_uppercase() => {}
+            _ => return false,
+        }
+        if !chars.all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') {
+            return false;
+        }
+    }
+    any
+}
+
+/// `trimmed`'s leading token as a command name, with everything after it
+/// kept as the node's own `usage` — `systemctl`'s `list-units
+/// [PATTERN...]`, `start UNIT...`, `set-property UNIT PROPERTY=VALUE...`.
+/// `None` unless the leading token is itself [`is_command_name_shaped`]
+/// and everything after it is nothing but placeholders
+/// ([`looks_like_operand_placeholder_run`]) — a lowercase continuation
+/// word is a dropped description, never an operand, and must not be
+/// swallowed here. `docs/design.md` §7 Tier B rule 7 still applies to the
+/// name alone; only the name is checked against it, never the operand
+/// text. See docs/shapes.md S-129.
+fn command_name_with_operand_placeholders(trimmed: &str) -> Option<(&str, &str)> {
+    let (first, rest) = trimmed.split_once(char::is_whitespace)?;
+    let name = strip_optional_modifier_suffix(first);
+    if !is_command_name_shaped(name) {
+        return None;
+    }
+    let rest = rest.trim();
+    looks_like_operand_placeholder_run(rest).then_some((name, rest))
+}
+
 /// Emit a recognized bare-word block's entries as subcommand stubs (spec
 /// §7 Tier B rules 1 and 3). Entries failing the name-shape test are
-/// dropped, never fabricated. See docs/shapes.md S-013.
+/// dropped, never fabricated. See docs/shapes.md S-013, S-129.
 pub(super) fn emit_subcommands(
     heading: &str,
     entries: Vec<(&str, String)>,
@@ -286,16 +343,25 @@ pub(super) fn emit_subcommands(
         // e.g. `gh --help`'s `"auth:        Authenticate..."`) is
         // punctuation, never part of the name; strip before the shape
         // check. Framework-general, not gated on a specific one.
-        let name = spec_text.trim().trim_end_matches(':').trim();
-        let name = strip_optional_modifier_suffix(name);
-        if name.is_empty() {
+        let trimmed = spec_text.trim().trim_end_matches(':').trim();
+        let whole = strip_optional_modifier_suffix(trimmed);
+        if whole.is_empty() {
             continue;
         }
         seen += 1;
-        if !is_command_name_shaped(name) {
+        // A row whose name column is a command name followed by an
+        // argument-placeholder run (systemctl's `list-units
+        // [PATTERN...]`) names one command with operands, not a
+        // multi-word fragment; the placeholder run itself never becomes a
+        // second name. See docs/shapes.md S-129.
+        let (name, operand_spec) = if is_command_name_shaped(whole) {
+            (whole, None)
+        } else if let Some((name, operand_spec)) = command_name_with_operand_placeholders(trimmed) {
+            (name, Some(operand_spec))
+        } else {
             out.saw_unattributable_content = true;
             continue;
-        }
+        };
         clean += 1;
         let mut node = CommandNode::new(name, Provenance::single(Source::HelpText));
         node.summary = non_empty_text(&desc_text);
@@ -306,6 +372,13 @@ pub(super) fn emit_subcommands(
         // argparse's `{choice,...}` pseudo-entry), so an entry recovered
         // here is never conjured from layout alone (spec issue #2).
         node.heading_attested = true;
+        if let Some(spec) = operand_spec {
+            // Kept verbatim as a usage pattern (spec §4.5), never split
+            // into positional entities — the shapes vary too widely
+            // (`UNIT`, `UNIT PATH [PATH]`, `UNIT PROPERTY=VALUE...`) for
+            // one grammar to name each operand without guessing.
+            node.usage.push(Text::sanitize(spec));
+        }
         out.try_push_subcommand(node);
     }
     (seen, clean)

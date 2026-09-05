@@ -296,11 +296,12 @@ pub fn check_vim_family_ratchet(
     Ok(ratchet.holds())
 }
 
-/// [`check_vim_family_ratchet`] for every round-6 parser-A family
-/// repaired and gated at zero, atlas S-116, S-118 to S-120
-/// (`spaced-single-dash-long`, S-117, stays open, not in this list),
-/// `true` only if every one holds. One call site for the whole batch, so
-/// `main.rs` gains one line rather than one per family.
+/// [`check_vim_family_ratchet`] for every family this round repaired and
+/// gated at zero, atlas S-116, S-118 to S-120 and S-126 to S-128, `true`
+/// only if every one holds. `spaced-single-dash-long`, S-117, and
+/// `description-subcommands-list`, S-130, stay open and are not listed.
+/// One call site for the whole batch, so `main.rs` gains one line rather
+/// than one per family.
 pub fn check_round6_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
@@ -311,6 +312,9 @@ pub fn check_round6_family_ratchets(
         "hash-in-spelling",
         "nested-bracket-value",
         "choices-after-optional-placeholder",
+        "examples-block-contaminates-last-flag",
+        "positional-description-block",
+        "generic-option-placeholder-flag",
     ] {
         if !check_vim_family_ratchet(name, previous, fresh)? {
             all_hold = false;
