@@ -14,6 +14,9 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- Two rows a tool writes for one spelling keep their own descriptions instead of folding into one row that shows the first row's text beside the second row's value (`mandible vim.basic`'s `+` and `+<lnum>`, `mandible icupkg`'s three `-t, --type` rows, docs/shapes.md S-102).
+- A second usage form written after a line holding only the word `or` is a form of its own now, instead of being glued onto the end of the first form or truncating the rest of the block (`mandible sg_luns`, `mandible update-catalog`, docs/shapes.md S-112).
+- A spelling a tool writes in its usage line and again in its option row no longer reaches the tree twice, once described and once bare (`mandible icupkg`'s `-?`, `mandible date`'s `--universal`, docs/shapes.md S-113).
 - A long option name containing an underscore (`--extended_fields`, `--lu_cong`) no longer gets truncated at the `_` with the remainder fabricated into the flag's value name (docs/shapes.md S-106).
 - `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
 - The bare end-of-options marker `--` now reaches the tree instead of vanishing, in any tool's option table or usage line (`mandible vim.basic`, `mandible nvim`, `mandible awk`, `mandible cargo-fmt`, and dozens more on a full-`PATH` sweep, docs/shapes.md S-096).
