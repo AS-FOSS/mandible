@@ -2732,6 +2732,26 @@ source spelling, so `-V[N][fname]` renders `[N][fname]`. Folding the groups
 into one space-joined name keeps the words and loses the bracket structure.
 The fixture is `corpus/vim.basic/audit-seed4`.
 
+**Short spellings before long ones, decided (2026-09-04).** The maintainer
+ruled: "displaying long before short breaks the alignment and eyes cant
+reliably track flags. so always shorts first and then longs. this does not
+lose authors intent." The rule: the renderer shows short spellings first
+and long ones after, always. The IR keeps source order. Display-side only.
+
+**A node whose help repeats an ancestor's renders parsed, not repeated
+(2026-09-04).** The maintainer ruled: "ok then both options it is." The
+rule: a node whose selected help text is byte-identical to an ancestor's,
+the case the [M-19] guard already detects, renders parsed and not
+repeated. It shows its description from the parent's own row, one notice
+line saying that this command prints the same help as its parent and that
+`t` shows it, and its accepted-modifier list when the parent's row carried
+one. It shows no usage, no children and no flags. The `t` key keeps the
+live verbatim view. The rule holds whether or not modifiers exist. The
+source spelling `r[ab][f][u]` stays as the display name in the commands
+pane. The maintainer also asked whether usage propagates to such a node:
+it does not, since the node has no usage of its own and the notice
+replaces it.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until
@@ -2795,17 +2815,6 @@ where the shim test's own comment carries the reasoning, the row can go too.
    piece for classic Unix prose, and it is also the one most likely to need
    per-distro path fiddling — which brushes against the §1 invariant. Keep it
    general (`MANPATH` + `man -k`) or don't ship it.
-
-### Recommendations awaiting the maintainer's word
-
-**Short spellings before long ones, recommended and not yet decided
-(2026-09-04).** Shown `mandible sg_luns`, the maintainer asked "why long
-flags displayed first then short ones? was not it supposed to be other way
-around, also how tf order has changed?". `sg_luns` writes its rows
-`--decode|-d`, long first, and mandible keeps the source order of
-spellings. The recommendation is that the renderer show short spellings
-before long ones while the IR keeps the source order. Nothing has been
-decided, and any change here is display-side only.
 
 ---
 
