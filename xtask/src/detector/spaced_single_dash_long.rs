@@ -1,26 +1,12 @@
 //! `spaced-single-dash-long` (atlas S-117, xfail, count only): a
-//! single-dash long option whose flag letter is uppercase and whose
-//! value is spaced, not glued (`-Xassembler <arg>`), reaches the tree
-//! truncated to its first character, with the rest of its own name read
-//! as the value (`-X` valued `"assembler"`, `<arg>` left unconsumed).
+//! single-dash long option with an uppercase flag letter and a spaced,
+//! not glued, value (`-Xassembler <arg>`) truncates to its first
+//! character (`-X` valued `"assembler"`).
 //!
-//! Root cause: `help_text::sections::repair::repair_single_dash_long_options`
-//! refuses to repair it. Its own condition 5,
-//! `token_is_uniformly_lowercase`, measures the *whole* reconstructed
-//! token (`-Xassembler`) for any uppercase letter at all, specifically to
-//! stay silent on the GCC/Clang glued-value convention (`-DMACRO`,
-//! `-oOUTFILE`), where an uppercase flag letter or an uppercase glued
-//! value is the only signal separating a glued convention flag from a
-//! genuine single-dash long name. `-Xassembler`'s own flag letter `X` is
-//! uppercase, so it reads as that same convention and the repair stays
-//! silent — even though its value is spaced, not glued, and the
-//! glued-value convention never spaces its value. By the time this
-//! repair runs, the row's own spacing is already gone: `value_name` is
-//! already the bare word `"assembler"`, with no record that a space
-//! (not a glued run) separated it from the flag. Fixing this needs that
-//! spacing evidence carried forward to the repair stage, or a different
-//! recognizer entirely; measured here, not fixed, per its own five-tool
-//! floor.
+//! Root cause: `repair::repair_single_dash_long_options` refuses any
+//! uppercase-carrying token, its only signal against the GCC/Clang
+//! glued-value convention (`-DMACRO`); the row's own spacing is already
+//! gone by the time it runs. Measured here, not fixed.
 //!
 //! Fixtures: `corpus/aarch64-linux-gnu-g++-13/13.3.0/` (`-Xassembler`,
 //! `-Xpreprocessor`, `-Xlinker`).
