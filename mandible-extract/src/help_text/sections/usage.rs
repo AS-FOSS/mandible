@@ -906,14 +906,10 @@ pub(super) fn shared_operand(rest: &str) -> Option<String> {
 /// and an existing flag is never altered here, only left alone or joined.
 /// A one-letter abbreviation bracket also counts as a short-letter match:
 /// `ip`'s `[ -force ]` reads as `-f` glued to `"orce"` on the short path,
-/// but the table documents it as `-f[amily]` (long-like). See S-088.
-///
-/// Checked against *every* spelling `f` carries, not only its primary
-/// `short()`/`long()` pick: an entity spelled `-h, -?, --help` reports
-/// `short() == Some('h')` (the first single-dash one-character spelling),
-/// so a candidate usage-derived `-?` used to pass this check as absent and
-/// get re-added as its own bare duplicate. `icupkg` is the fixture —
-/// `corpus/icupkg/74.2`.
+/// but the table documents it as `-f[amily]` (long-like). Checked against
+/// every spelling `f` carries, not only its primary pick — `-h, -?,
+/// --help` reports `short() == Some('h')`, so `-?` used to read as
+/// absent. See S-088, `corpus/icupkg/74.2`.
 pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
         f.spellings.iter().any(|s| {
@@ -921,7 +917,9 @@ pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Enti
                 || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1);
             let is_short = matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1;
             let is_abbrev_bracket = matches!(s.dashes, Dashes::Single) && s.abbrev == Some(1);
-            (candidate.long().is_some() && is_long_like && Some(s.name.as_str()) == candidate.long())
+            (candidate.long().is_some()
+                && is_long_like
+                && Some(s.name.as_str()) == candidate.long())
                 || (candidate.short().is_some()
                     && is_short
                     && s.name.chars().next() == candidate.short())

@@ -1,23 +1,14 @@
 //! `usage-spelling-duplicates-table-row` (round 5): the usage-only-
-//! spelling recovery pass (`mandible-extract/src/help_text/sections/
-//! mod.rs`, the `extract_usage_flags` loop feeding
-//! `flag_spelling_already_present`) adds a bare, undescribed entity for a
-//! spelling an existing table-row entity already carries among its
-//! *other* spellings.
+//! spelling recovery pass adds a bare, undescribed entity for a spelling
+//! an existing table-row entity already carries among its other
+//! spellings. `icupkg`'s `-h, -?, --help` row is the specimen:
+//! `flag_spelling_already_present` used to check only that entity's
+//! *primary* `short()`/`long()` pick, never every spelling, so `-?` read
+//! as absent and got re-added bare. Fixed there; this detector
+//! generalizes the symptom fleet-wide (docs/shapes.md S-113).
 //!
-//! `icupkg` is the specimen: the table row `-h or -? or --help` parses
-//! correctly into one entity carrying all three spellings, but the usage
-//! line `[-h|-?|--help ]` still adds a second, bare `-?` entity with no
-//! description — `flag_spelling_already_present` used to check only the
-//! existing entity's *primary* `short()`/`long()` pick (the first
-//! matching spelling), never every spelling it carries, so `-?` (never
-//! the first short spelling in `-h, -?, --help`) read as absent. Fixed in
-//! `flag_spelling_already_present` itself; this detector generalizes the
-//! symptom fleet-wide.
-//!
-//! No seed-2/4/5/6 labelled tool carries this shape under an existing
-//! `mandible_core::audit::DEFECT_FAMILIES` entry, so [`Detector::family`]
-//! returns `None` — spec §13.1e rule 6.
+//! No seed-2/4/5/6 labelled tool carries this shape, so
+//! [`Detector::family`] returns `None` — spec §13.1e rule 6.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{CommandNode, Dashes, Entity, Provenance, Source, Spelling, Text};

@@ -1,33 +1,14 @@
-//! `same-spelling-fold-loss` (round 5): two entities in the extracted tree
-//! share one identity key — the same key
-//! `mandible_core::merge::entity_identity` would bucket them under — but
-//! disagree about whether they take a value, or each carry their own
-//! documented description and the two differ.
+//! `same-spelling-fold-loss` (round 5): two root entities share one
+//! identity key (`mandible_core::merge::entity_identity`'s) but disagree
+//! about taking a value, or each carry a different description —
+//! docs/shapes.md S-102, `corpus/vim.basic/audit-seed4`'s bare `+` vs
+//! valued `+<lnum>`. `icupkg`'s `-tl`/`-tb`/`-te` is the same collision
+//! one layer earlier; a prototyped extraction fold moved only that one
+//! tool, below the five-tool bar, so it was not shipped and still
+//! surfaces here.
 //!
-//! A fold that runs *after* extraction (the interactive merge,
-//! `mandible_core::merge::merge_entity_bucket`) keys on this same identity
-//! and keeps only one row's description, or attaches one row's value to
-//! the other row's description — see docs/shapes.md's
-//! "same-spelling-fold-loss" entry and `corpus/vim.basic/audit-seed4`'s
-//! bare `+` ("Start at end of file") against valued `+<lnum>` ("Start at
-//! line <lnum>").
-//!
-//! `icupkg`'s own three-row `-t`/`--type` shape (`-tl`, `-tb`, `-te`) is
-//! this same identity collision one layer earlier, in extraction itself.
-//! An extraction-time fold was prototyped for it (folding the three rows
-//! into one entity's `choices`) but a full-`PATH` sweep showed it moved
-//! only `icupkg` itself — below the five-tool bar (spec §3.1) — so it was
-//! **not shipped**; `icupkg` therefore still surfaces here too, alongside
-//! vim.basic, until a fold that clears the bar is found. A self-check
-//! below still asserts this detector goes silent on an entity that has
-//! *already* been folded into one, since that is the shape the detector
-//! must recognize the absence of, whether or not any current pass
-//! produces it.
-//!
-//! No seed-2/4/5/6 labelled tool carries this shape under an existing
-//! `mandible_core::audit::DEFECT_FAMILIES` entry, so [`Detector::family`]
-//! returns `None` — spec §13.1e rule 6, the honest "not calibratable yet"
-//! answer, not a fabricated nearest match.
+//! No seed-2/4/5/6 labelled tool carries this shape, so
+//! [`Detector::family`] returns `None` — spec §13.1e rule 6.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{CommandNode, Dashes, Entity, Provenance, Source, Text, ValueKind};
@@ -60,8 +41,7 @@ fn identity_key(e: &Entity) -> Option<String> {
 /// take a value at all, or two different documented descriptions.
 fn disagrees(a: &Entity, b: &Entity) -> bool {
     let value_disagrees = (a.value_kind == ValueKind::None) != (b.value_kind == ValueKind::None);
-    let desc_disagrees =
-        matches!((&a.description, &b.description), (Some(x), Some(y)) if x != y);
+    let desc_disagrees = matches!((&a.description, &b.description), (Some(x), Some(y)) if x != y);
     value_disagrees || desc_disagrees
 }
 

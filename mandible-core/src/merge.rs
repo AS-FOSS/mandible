@@ -225,28 +225,14 @@ pub fn merge_entity_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
         .collect()
 }
 
-/// Partitions one identity-bucket into sub-groups safe to fold into a
-/// single entity each.
-///
-/// Two entities sharing an identical source set — the same tier's account
-/// of the same document — that disagree about whether the option takes a
-/// value, or that each carry their own documented description and the two
-/// differ, are two *forms* the tool wrote on two rows sharing one
-/// spelling, not one entity two sources reported differently: vim's bare
-/// `+` ("Start at end of file") and valued `+<lnum>` ("Start at line
-/// <lnum>") is the specimen (docs/shapes.md S-102,
-/// `corpus/vim.basic/audit-seed4`). Left in one bucket,
-/// [`merge_entity_bucket`]'s spelling-keyed pick keeps only one row's
-/// description and (via its independent `value_kind`/`value_name`
-/// resolution) can attach the *other* row's value to it — the loss S-102
-/// records.
-///
-/// Cross-source disagreement (one tier saw a value, another did not; two
-/// tiers wrote different prose for the same option) is exactly what this
-/// bucket exists to resolve via [`pick_option`]'s authority ordering, so
-/// the refusal below never fires across two different source sets —
-/// `merge_unifies_flags_by_identity_across_sources` pins that this still
-/// merges.
+/// Partitions one identity-bucket into sub-groups safe to fold each into
+/// one entity. Two same-source entities that disagree about taking a
+/// value, or carry two different descriptions, are two forms on two rows
+/// sharing one spelling (vim's bare `+` vs valued `+<lnum>`), not one
+/// entity two sources reported differently — see docs/shapes.md S-102,
+/// `corpus/vim.basic/audit-seed4`. Cross-source disagreement still folds
+/// via [`pick_option`]'s authority ordering, pinned by
+/// `merge_unifies_flags_by_identity_across_sources`.
 fn split_disagreeing_rows(bucket: Vec<Entity>) -> Vec<Vec<Entity>> {
     let mut groups: Vec<Vec<Entity>> = Vec::new();
     'entity: for e in bucket {
@@ -1154,12 +1140,18 @@ mod tests {
     #[test]
     fn same_source_rows_that_disagree_about_taking_a_value_stay_two_entities() {
         let mut n = node_from(Source::HelpText, "vim.basic");
-        let mut bare = Entity::new(crate::entity::EntityKind::Flag, Provenance::single(Source::HelpText));
+        let mut bare = Entity::new(
+            crate::entity::EntityKind::Flag,
+            Provenance::single(Source::HelpText),
+        );
         bare.spellings = vec![Spelling::bare("+")];
         bare.description = Some(Text::sanitize("Start at end of file"));
         n.entities.push(bare);
 
-        let mut valued = Entity::new(crate::entity::EntityKind::Flag, Provenance::single(Source::HelpText));
+        let mut valued = Entity::new(
+            crate::entity::EntityKind::Flag,
+            Provenance::single(Source::HelpText),
+        );
         valued.spellings = vec![Spelling::bare("+")];
         valued.value_name = Some("lnum".to_string());
         valued.value_kind = ValueKind::Required;
@@ -1180,10 +1172,8 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(
-            flags
-                .iter()
-                .any(|f| f.value_kind == ValueKind::None
-                    && f.description.as_ref().unwrap().as_str() == "Start at end of file"),
+            flags.iter().any(|f| f.value_kind == ValueKind::None
+                && f.description.as_ref().unwrap().as_str() == "Start at end of file"),
             "{flags:?}"
         );
         assert!(

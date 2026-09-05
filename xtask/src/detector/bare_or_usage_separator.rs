@@ -1,22 +1,11 @@
-//! `bare-or-usage-separator` (round 5): a usage line whose only content is
-//! the word `or` (any case, optional trailing colon) is a pure separator
-//! between two usage forms — the physical shape `sg_luns` writes
-//! (`corpus/sg_luns/1.45`, `Usage: ... DEVICE\n     or\n       sg_luns
-//! --test=ALUN ...`). Before this family's parser fix
-//! (`mandible-extract/src/help_text/sections/mod.rs`,
-//! `is_bare_or_form_separator`), that bare line read as an ordinary
-//! continuation and glued the word `or` onto the end of the first form's
-//! last token.
+//! `bare-or-usage-separator` (round 5): a usage line holding only the
+//! word `or` is a pure form separator (`sg_luns`, docs/shapes.md S-112).
+//! Before the parser fix it either truncated the usage block or glued
+//! onto the prior form. Measured by the after-the-fact symptom: `raw`
+//! carries the bare line, and a `root` usage form still ends with it.
 //!
-//! Measured by whether the raw text carries such a bare-separator line at
-//! all *and* the extracted tree still shows a usage form whose last token
-//! is the bare word `or` — the after-the-fact symptom, since checking the
-//! parser's own intermediate state is not available from `raw`+`root`
-//! alone.
-//!
-//! No seed-2/4/5/6 labelled tool carries this shape under an existing
-//! `mandible_core::audit::DEFECT_FAMILIES` entry, so [`Detector::family`]
-//! returns `None` — spec §13.1e rule 6.
+//! No seed-2/4/5/6 labelled tool carries this shape, so
+//! [`Detector::family`] returns `None` — spec §13.1e rule 6.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{CommandNode, Provenance, Source, Text};
@@ -65,7 +54,12 @@ impl Detector for BareOrUsageSeparator {
             .usage
             .iter()
             .filter(|form| ends_with_bare_or(form.as_str()))
-            .map(|form| format!("usage form ends with a glued bare `or`: {:?}", form.as_str()))
+            .map(|form| {
+                format!(
+                    "usage form ends with a glued bare `or`: {:?}",
+                    form.as_str()
+                )
+            })
             .collect()
     }
 
@@ -76,7 +70,10 @@ impl Detector for BareOrUsageSeparator {
     fn self_checks(&self) -> Vec<SelfCheck> {
         fn node_with_usage(usage: &[&str]) -> CommandNode {
             let mut root = CommandNode::new("sg_luns", Provenance::single(Source::HelpText));
-            root.usage = usage.iter().map(|u| Text::sanitize_preserving_layout(u)).collect();
+            root.usage = usage
+                .iter()
+                .map(|u| Text::sanitize_preserving_layout(u))
+                .collect();
             root
         }
         let raw = "Usage: sg_luns    [--decode] [--help] DEVICE\n     or\n       sg_luns    \
