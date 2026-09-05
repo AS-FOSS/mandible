@@ -1,0 +1,50 @@
+# Maintainer, seed 7, verdict "incomplete": "a lot of missing commands,
+# too much to do in one go, so we will come back to this". Machine
+# classification: stratum "ok".
+#
+# `help.txt` lists 74 command rows under seven headings (Unit Commands
+# 31, Unit File Commands 16, Machine Commands 1, Job Commands 2,
+# Environment Commands 4, Manager State Commands 5, System Commands 15;
+# 31+16+1+2+4+5+15 = 74). VERIFIED FACT, checked with an `awk` pass over
+# `../caps/systemctl.out` (this fixture's own `help.txt`, byte-identical)
+# that: (1) counted every command-row line under the seven heading blocks
+# — 74 total; (2) for each row, split off the name column at the first
+# run of two-or-more spaces before the summary column, and classified
+# that name column as single-token (no interior space) or multi-token.
+# The result: exactly 18 rows are single-token
+# (`preset-all`/`get-default`/`show-environment`/`daemon-reload`/
+# `daemon-reexec`/`is-system-running`/`default`/`rescue`/`emergency`/
+# `halt`/`poweroff`/`reboot`/`kexec`/`soft-reboot`/`suspend`/`hibernate`/
+# `hybrid-sleep`/`suspend-then-hibernate`), the other 56 all carry an
+# argument placeholder in the same column
+# (`list-units [PATTERN...]`/`start UNIT...`/etc). `cargo run -p xtask --
+# corpus --show systemctl/255`'s own `subcommands:` list carries exactly
+# those same 18 names and no others — the rows that parse are exactly the
+# rows whose name column is one token.
+#
+# The capture carries ANSI escapes (`^[[0m` before "Unit Commands:", byte-
+# identical to the tool's own output); `help.txt` keeps them exactly as
+# emitted, per corpus/README.md's byte-exact rule.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "systemctl"
+version = "255"                      # systemctl --version: "systemd 255
+                                     # (255.4-1ubuntu8.17)"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); systemd 255.4-1ubuntu8.17"
+
+[[capture]]
+argv = ["systemctl", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 74
+must_contain_flags = ["-h", "--version", "--system"]
+
+[xfail]
+broken = true
+reason = "fixed (round 6, atlas S-129): emit_subcommands now reads a row's leading token as the command name when the placeholder run after it is uppercase-led, recovering 71 of 74. The remaining 3 (set-property, mount-image, service-log-target) carry their description one space after the placeholder, narrower than every other row's gap, the single-space-description-column family's own shape on a plain flag row rather than a pipe-joined alias, so this parser's own fix does not reach them"

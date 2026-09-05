@@ -1,0 +1,66 @@
+# Maintainer, seed 7, verdict "incomplete": "should the positionals have
+# had the descriptions shown just below usage line?" Machine
+# classification: stratum "ok".
+#
+# `help.txt`'s usage block is:
+#   invoke-rc.d [options] <basename> <action> [extra parameters]
+#
+#   basename - Initscript ID, as per update-rc.d(8)
+#   action   - Initscript action. Known actions are: ...
+# The parsed tree's POSITIONALS section has both `basename` and `action`,
+# but neither carries a description, even though the raw text describes
+# both on the two indented lines right under the usage block. VERIFIED
+# FACT (`cargo run -p xtask -- corpus --show invoke-rc.d/1.66`): both
+# entities parse with `description: None`, and neither description string
+# reaches any other node either (not swallowed into the root's own
+# description the way `memhog`'s flag text is).
+#
+# Fixed (round 6, atlas S-127): `apply_positional_description_block`
+# (`mandible-extract/src/help_text/sections/usage.rs`) reads the block
+# right under the usage line, matches each row's name against a
+# positional the usage line already recovered, and attaches the rest of
+# the row as that positional's own description. `must_describe_positional`
+# (`xtask/src/corpus/mod.rs`), the positional analogue of `must_describe`,
+# asserts it below.
+#
+# USAGE also carries a spurious first form, the bare tool name, read off
+# the banner line "invoke-rc.d, Debian/SysVinit (/etc/rc?.d) initscript
+# subsystem." — a TUI display-time addition (§7's `usage` field on the
+# extracted tree itself holds only the real "Usage:"/synopsis pair, no
+# spurious third line), so it is not a `CommandNode` defect and nothing
+# here can assert it either.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "invoke-rc.d"
+version = "1.66"                     # invoke-rc.d has no --version; dpkg
+                                     # package init-system-helpers
+                                     # 1.66ubuntu1 ships it (dpkg -S).
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); init-system-helpers 1.66ubuntu1"
+
+[[capture]]
+argv = ["invoke-rc.d", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_positionals = ["basename", "action"]
+verdict_scope = ["flags", "subcommands"]
+
+[contract.must_describe_positional]
+"basename" = "Initscript ID, as per update-rc.d(8)"
+"action" = "Initscript action. Known actions are"
+
+[contract.must_describe]
+"--quiet" = "Quiet mode, no error messages are generated."
+"--force" = "Try to run the initscript regardless of policy"
+"--try-anyway" = "Try to run init script even if a non-fatal error is found."
+"--disclose-deny" = "Return status code 101 instead of status code 0"
+"--query" = "Returns one of status codes 100-106"
+"--no-fallback" = "Ignores any fallback action requests by the policy layer."
+"--skip-systemd-native" = "Exits before doing anything if a systemd environment is detected"
+"--help" = "Outputs help message to stdout"

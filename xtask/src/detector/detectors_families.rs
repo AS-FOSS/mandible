@@ -387,3 +387,299 @@ impl Detector for GluedOptionalGroupSpelling {
         super::glued_optional_group_spelling::self_checks()
     }
 }
+
+// Round-6 detectors, atlas id S-116 upward. No labelled seed-2 entry
+// describes any of these shapes — `gcc`'s own seed-2 note is about a
+// different defect (`--help={common|...}`) — so each returns `family:
+// None` (spec §13.1e rule 6: not calibratable is a first-class, honest
+// answer, never a label invented to fill the cell).
+
+pub(crate) struct CommaGluedOptionValue;
+
+impl Detector for CommaGluedOptionValue {
+    fn name(&self) -> &'static str {
+        "comma-glued-option-value"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a single-dash spelling directly glued to a comma (`-Wa,<options>`) never reaches the \
+         tree as its own whole-run spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::comma_glued_option_value::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::comma_glued_option_value::self_checks()
+    }
+}
+
+pub(crate) struct HashInSpelling;
+
+impl Detector for HashInSpelling {
+    fn name(&self) -> &'static str {
+        "hash-in-spelling"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a single-dash spelling that is nothing but a run of `#` (`-###`) never reaches the \
+         tree as its own whole-run spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::hash_in_spelling::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::hash_in_spelling::self_checks()
+    }
+}
+
+pub(crate) struct NestedBracketValue;
+
+impl Detector for NestedBracketValue {
+    fn name(&self) -> &'static str {
+        "nested-bracket-value"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a short flag's value spec is one bracket group with a bracket nested inside it \
+         (`-e[CHAR[WIDTH]]`), and the tree's value name for that flag is not the row's own \
+         bracketed spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::nested_bracket_value::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never carried the source spelling {:?}, from {:?}",
+                    f.flag, f.source_spelling, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::nested_bracket_value::self_checks()
+    }
+}
+
+pub(crate) struct ChoicesAfterOptionalPlaceholder;
+
+impl Detector for ChoicesAfterOptionalPlaceholder {
+    fn name(&self) -> &'static str {
+        "choices-after-optional-placeholder"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a docopt bracket row's own trailing bare `|`-separated choice list (`pvdisplay`'s own \
+         `--units [Number]r|R|h|...`) never attaches as the flag's `choices`"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::choices_after_optional_placeholder::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "--{} never gained choices {:?}, from {:?}",
+                    f.long, f.choices, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::choices_after_optional_placeholder::self_checks()
+    }
+}
+
+pub(crate) struct SpacedSingleDashLong;
+
+impl Detector for SpacedSingleDashLong {
+    fn name(&self) -> &'static str {
+        "spaced-single-dash-long"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "an uppercase-led single-dash long option whose value is spaced, not glued \
+         (`-Xassembler <arg>`), reaches the tree truncated to its flag letter"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::spaced_single_dash_long::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::spaced_single_dash_long::self_checks()
+    }
+}
+
+pub(crate) struct CommandRowArgumentPlaceholder;
+
+impl Detector for CommandRowArgumentPlaceholder {
+    fn name(&self) -> &'static str {
+        "command-row-argument-placeholder"
+    }
+    fn family(&self) -> Option<&'static str> {
+        // Discovered from the seed-7 `systemctl` fixture, not the seed-2
+        // labelled set this module's calibration runs against — see
+        // `xtask/src/detector/mod.rs`'s module doc on why `None` is the
+        // honest answer rather than the nearest label.
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "under a recognized command heading, a row whose name column is a command name followed \
+         by an argument-placeholder run (`list-units [PATTERN...]`) is missing from the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::command_row_argument_placeholder::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} missing from the tree, from the row {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::command_row_argument_placeholder::self_checks()
+    }
+}
+
+pub(crate) struct ExamplesBlockContaminatesLastFlag;
+
+impl Detector for ExamplesBlockContaminatesLastFlag {
+    fn name(&self) -> &'static str {
+        "examples-block-contaminates-last-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "an unheaded, deeper-indented run of shell-invocation lines right after a flag's own \
+         described row folds whole onto that flag's description"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::examples_block_contaminates_last_flag::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} description carries a folded example block: {:?}",
+                    f.flag, f.description
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::examples_block_contaminates_last_flag::self_checks()
+    }
+}
+
+pub(crate) struct PositionalDescriptionBlock;
+
+impl Detector for PositionalDescriptionBlock {
+    fn name(&self) -> &'static str {
+        "positional-description-block"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "the usage block is followed by an indented `name - description` block naming each \
+         positional's own description, and the description never reaches the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::positional_description_block::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} never described, from {:?}", f.name, f.description))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::positional_description_block::self_checks()
+    }
+}
+
+pub(crate) struct GenericOptionPlaceholderFlag;
+
+impl Detector for GenericOptionPlaceholderFlag {
+    fn name(&self) -> &'static str {
+        "generic-option-placeholder-flag"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own dash-prefixed generic placeholder (`[-options]`, `[-opts]`) is read \
+         literally and invents a short flag with a glued value name"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::generic_option_placeholder_flag::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} invented a flag, from {:?}", f.token, f.line))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::generic_option_placeholder_flag::self_checks()
+    }
+}
+
+pub(crate) struct DescriptionSubcommandsList;
+
+impl Detector for DescriptionSubcommandsList {
+    fn name(&self) -> &'static str {
+        "description-subcommands-list"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a `Subcommands:` sub-heading nested inside the `Description:` prose block, followed by \
+         a bulleted `- name: description` list, whose names never reach the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::description_subcommands_list::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} missing from the tree", f.name))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::description_subcommands_list::self_checks()
+    }
+}

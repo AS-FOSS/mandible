@@ -28,6 +28,17 @@ pub fn starts_with_or_marker(t: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// True if `t`'s only content, once trimmed, is the word `or` — any case —
+/// with an optional trailing colon: `sg_luns`' bare second-form separator
+/// (`corpus/sg_luns/1.45`), one whole physical line with nothing else on
+/// it. Distinct from [`starts_with_or_marker`], which matches an `or:`
+/// *prefix* even when real form content follows the colon on the same
+/// line (`ip`'s `or: ip link ...`); a line this predicate matches carries
+/// no such content and must contribute none to either usage form.
+pub fn is_bare_or_form_separator(t: &str) -> bool {
+    t.trim().trim_end_matches(':').eq_ignore_ascii_case("or")
+}
+
 /// True if `t` (already trimmed of leading whitespace) begins with `name`
 /// at a word boundary. Lets a tool that repeats its own name across lines
 /// with no `or:`/`usage:` marker read as two entries rather than one
@@ -662,6 +673,79 @@ fn recover_primary_tail_operands(
         .collect()
 }
 
+/// After the usage block, some tools describe each named positional on a
+/// `name - description` line right below it (`invoke-rc.d`'s `basename -
+/// Initscript ID...`). Every row's name must be EXACTLY one of
+/// `positionals`' own names, or the whole block is refused rather than
+/// guessed; a deeper-indented line folds in as a continuation. Returns
+/// the index past the consumed block, or `start` unchanged. See
+/// docs/shapes.md S-127.
+pub(super) fn apply_positional_description_block(
+    lines: &[&str],
+    start: usize,
+    positionals: &mut [Entity],
+) -> usize {
+    if positionals.is_empty() {
+        return start;
+    }
+    let mut i = start;
+    while lines.get(i).is_some_and(|l| l.trim().is_empty()) {
+        i += 1;
+    }
+    let Some(&first) = lines.get(i) else {
+        return start;
+    };
+    let baseline = leading_whitespace(first);
+    let mut rows: Vec<(String, String)> = Vec::new();
+    let mut j = i;
+    while let Some(&line) = lines.get(j) {
+        if line.trim().is_empty() {
+            break;
+        }
+        let indent = leading_whitespace(line);
+        if indent < baseline {
+            break;
+        }
+        if indent == baseline {
+            // A same-indent line with no ` - ` separator at all (`invoke-
+            // rc.d`'s own `WARNING: not all initscripts implement...`) is
+            // ordinary prose ending the block, not an unmatched row —
+            // stop here and keep whatever was already recovered, the same
+            // way a dedent would.
+            let Some(dash_idx) = find_dash_separator(line) else {
+                break;
+            };
+            let (name, desc) = split_at_dash(line, dash_idx);
+            let name = name.trim();
+            // A same-indent row that DOES carry a ` - ` separator but
+            // names something other than a known positional is the
+            // genuinely ambiguous case: refuse the whole block rather
+            // than guess which rows are real.
+            if !positionals.iter().any(|p| p.primary_name() == name) {
+                return start;
+            }
+            rows.push((name.to_string(), desc));
+        } else if let Some(last) = rows.last_mut() {
+            last.1.push(' ');
+            last.1.push_str(line.trim());
+        } else {
+            return start;
+        }
+        j += 1;
+    }
+    if rows.is_empty() {
+        return start;
+    }
+    for (name, desc) in &rows {
+        if let Some(p) = positionals.iter_mut().find(|p| p.primary_name() == name) {
+            if p.description.is_none() {
+                p.description = non_empty_text(desc);
+            }
+        }
+    }
+    j
+}
+
 /// Extract flag spellings from a usage-synopsis block: usage-only options
 /// (`git --help`'s `[-p | --paginate | -P | --no-pager]`) are otherwise
 /// never mined at all (spec [M-15]). [`extract_positionals`] reads the
@@ -682,6 +766,19 @@ fn recover_primary_tail_operands(
 /// docs/shapes.md S-100.
 fn names_a_value(member: &str) -> bool {
     !member.starts_with('-') && member.chars().any(|c| c.is_ascii_alphanumeric())
+}
+
+/// True when `token`'s first word, dash stripped, is an
+/// [`is_option_list_placeholder`] word (`makeconv`'s `[-options]`,
+/// perl's `[-OPTIONS [-MORE_OPTIONS]]`, X11's `[-options ...]`) — the
+/// author's generic "any option" placeholder, not a real flag. A tool
+/// with a real `-o` flag keeps it: only an exact placeholder word
+/// matches. See docs/shapes.md S-128.
+fn is_dash_prefixed_option_list_placeholder(token: &str) -> bool {
+    token
+        .strip_prefix('-')
+        .and_then(|rest| rest.split_whitespace().next())
+        .is_some_and(is_option_list_placeholder)
 }
 
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
@@ -714,7 +811,14 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
         // `-A|--autobackup y|n` as three alternatives and lose
         // `--autobackup`'s real value `y|n` down to just `y`. See S-088.
         if let Some(content) = bracket_flag_row_content(line.trim()) {
-            push_usage_flag(&mut out, parse_flag_spec(content));
+            // A trailing bare `|`-separated choice list on this same
+            // docopt bracket row (`pvdisplay`'s own `--units
+            // [Number]r|R|h|...`) is the flag's `choices` — the usage-line
+            // twin of `flag_rows::scan_flags_block`'s identical handling
+            // for a headed flags-block row. See docs/shapes.md S-120.
+            let mut flag_spec = parse_flag_spec(content);
+            flag_spec.choices = trailing_choice_list(content);
+            push_usage_flag(&mut out, flag_spec);
             continue;
         }
         let segments = usage_segments(line);
@@ -730,6 +834,12 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                     let mut flaggy: Vec<&str> = Vec::new();
                     for m in members {
                         if m.starts_with('-') {
+                            // The author's own generic "any option"
+                            // placeholder, not a flag — see
+                            // `is_dash_prefixed_option_list_placeholder`.
+                            if is_dash_prefixed_option_list_placeholder(m) {
+                                continue;
+                            }
                             flaggy.push(m);
                             continue;
                         }
@@ -766,6 +876,9 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                 }
                 UsageSegment::Bare(tok) => {
                     if tok.starts_with('-') {
+                        if is_dash_prefixed_option_list_placeholder(tok) {
+                            continue;
+                        }
                         // A mandatory flag some synopsis writes unbracketed
                         // (`ssh-keygen -D pkcs11`) is two bare tokens: the
                         // flag, then its required value with no group at
@@ -895,17 +1008,27 @@ pub(super) fn shared_operand(rest: &str) -> Option<String> {
 /// and an existing flag is never altered here, only left alone or joined.
 /// A one-letter abbreviation bracket also counts as a short-letter match:
 /// `ip`'s `[ -force ]` reads as `-f` glued to `"orce"` on the short path,
-/// but the table documents it as `-f[amily]` (long-like). See S-088.
+/// but the table documents it as `-f[amily]` (long-like). Checked against
+/// every spelling `f` carries, not only its primary pick — `-h, -?,
+/// --help` reports `short() == Some('h')`, so `-?` used to read as
+/// absent. See S-088, `corpus/icupkg/74.2`.
 pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
-        (candidate.long().is_some() && f.long() == candidate.long())
-            || (candidate.short().is_some() && f.short() == candidate.short())
-            || (candidate.short().is_some()
-                && f.spellings.iter().any(|s| {
-                    matches!(s.dashes, Dashes::Single)
-                        && s.abbrev == Some(1)
-                        && s.name.chars().next() == candidate.short()
-                }))
+        f.spellings.iter().any(|s| {
+            let is_long_like = matches!(s.dashes, Dashes::Double)
+                || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1);
+            let is_short = matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1;
+            let is_abbrev_bracket = matches!(s.dashes, Dashes::Single) && s.abbrev == Some(1);
+            (candidate.long().is_some()
+                && is_long_like
+                && Some(s.name.as_str()) == candidate.long())
+                || (candidate.short().is_some()
+                    && is_short
+                    && s.name.chars().next() == candidate.short())
+                || (candidate.short().is_some()
+                    && is_abbrev_bracket
+                    && s.name.chars().next() == candidate.short())
+        })
     })
 }
 
@@ -957,6 +1080,7 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
     flag.spellings = spec.spellings;
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
+    flag.choices = spec.choices.into_iter().map(Choice::bare).collect();
     out.push(flag);
 }
 
@@ -1010,6 +1134,15 @@ pub(super) fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> 
             short_spec.value_kind
         },
         value_name: long_spec.value_name.or(short_spec.value_name),
+        // Neither side of a short/long pair reaches this merge already
+        // carrying `choices`: only a docopt bracket row does, and that
+        // row is one whole flag, never split into a short/long pair
+        // needing this merge at all.
+        choices: Vec::new(),
+        // Same reasoning as `choices` immediately above: `value_prefix`
+        // is consumed inside `parse_flag_spec` itself before either side
+        // ever reaches this merge.
+        value_prefix: None,
         fully_consumed: short_spec.fully_consumed && long_spec.fully_consumed,
     })
 }
@@ -1505,6 +1638,60 @@ mod tests {
             .find(|f| f.long() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
+        // `y|n` is also a bare choice list (docs/shapes.md S-120):
+        // `value_name` keeps the raw text unchanged, and `choices` gains
+        // the same list as separate structure.
+        assert_eq!(
+            bbb.choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["y", "n"]
+        );
+    }
+
+    /// `pvdisplay --help`'s own tool-specific bracket rows, byte-exact
+    /// shape: no separate "OPTIONS" heading exists at all, so these reach
+    /// the tree only through the synopsis parser (`Source::HelpTextSynopsis`),
+    /// never `flag_rows::scan_flags_block`. The nested bracket
+    /// (`[Number]`) must not stop the trailing-choice-list scan from
+    /// reaching the pipe list glued right after it. See docs/shapes.md
+    /// S-120.
+    #[test]
+    fn a_headingless_synopsis_bracket_rows_trailing_pipe_list_attaches_as_choices() {
+        let help = "pvdisplay - Display attributes\n\n\
+                     Usage:\n\
+                     \tpvdisplay [ -a|--all ]\n\
+                     \t[    --configreport log|vg|lv|pv|pvseg|seg ]\n\
+                     \t[    --units [Number]r|R|h|H ]\n";
+        let parsed = parse_with_profile(help, None, Some("pvdisplay"));
+        let configreport = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("configreport"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(
+            configreport
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["log", "vg", "lv", "pv", "pvseg", "seg"]
+        );
+        let units = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("units"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(units.value_name.as_deref(), Some("Number"));
+        assert_eq!(
+            units
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["r", "R", "h", "H"]
+        );
     }
 
     // --- the stanza head's own mode-selecting flag ----------------------

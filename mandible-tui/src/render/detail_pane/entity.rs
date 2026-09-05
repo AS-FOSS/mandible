@@ -59,7 +59,11 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
 pub(super) fn entity_head_width(entity: &Entity, indent: usize) -> usize {
     let mut width = spelling_column(entity, indent) + display_width(&entity_name_spec(entity));
     if let Some(v) = entity_value_text(entity) {
-        let gap = if spelling_is_sigil(entity) { 0 } else { 1 };
+        let gap = if spelling_is_sigil(entity) || value_glues_by_prefix(entity) {
+            0
+        } else {
+            1
+        };
         width += gap + display_width(&v);
     }
     width
@@ -102,6 +106,21 @@ pub(super) fn spelling_is_sigil(flag: &Entity) -> bool {
             .chars()
             .next()
             .is_some_and(|c| !c.is_alphanumeric())
+}
+
+/// True when a required value glues to its spelling by a literal
+/// character other than whitespace, rather than the ordinary space
+/// (docs/shapes.md S-116, `-Wa,<options>`): the tool's own invocation
+/// requires that exact character, so drawing a space there would render
+/// a syntax the tool refuses. `help_text::grammar::parse_flag_spec`
+/// folds that character into `value_name`'s own first character for
+/// exactly this reason.
+pub(super) fn value_glues_by_prefix(flag: &Entity) -> bool {
+    flag.value_kind == ValueKind::Required
+        && flag
+            .value_name
+            .as_deref()
+            .is_some_and(|v| v.starts_with(','))
 }
 
 /// One entity's spellings, value placeholder, and description — styled
@@ -150,8 +169,14 @@ pub(super) fn entity_line(
     let mut prefix_width = display_width(leading) + display_width(&name_spec);
     if let Some(v) = &value_text {
         // One space after the spelling, never a padded slot of its own
-        // (spec §9.3), except the argfile sigil flag (spec §4.5, `@<file>`).
-        let gap = if spelling_is_sigil(flag) { "" } else { " " };
+        // (spec §9.3), except the argfile sigil flag (spec §4.5, `@<file>`)
+        // and a value that glues by its own literal character
+        // (docs/shapes.md S-116, `-Wa,<options>`).
+        let gap = if spelling_is_sigil(flag) || value_glues_by_prefix(flag) {
+            ""
+        } else {
+            " "
+        };
         first_line_spans.push(Span::raw(gap));
         first_line_spans.push(Span::styled(v.clone(), value_style));
         prefix_width += display_width(gap) + display_width(v);

@@ -1,0 +1,72 @@
+name: invoke-rc.d
+description: invoke-rc.d, Debian/SysVinit (/etc/rc?.d) initscript subsystem. Copyright (c) 2000,2001 Henrique de Moraes Holschuh <hmh@debian.org>
+usage:
+- 'Usage:'
+- '  invoke-rc.d [options] <basename> <action> [extra parameters]'
+positionals:
+- name: basename
+  required: true
+  description: Initscript ID, as per update-rc.d(8)
+  provenance:
+    sources:
+    - help-text
+- name: action
+  required: true
+  description: 'Initscript action. Known actions are: start, [force-]stop, [try-]restart, [force-]reload, status'
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --quiet
+  description: Quiet mode, no error messages are generated.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --force
+  description: Try to run the initscript regardless of policy and subsystem non-fatal errors.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --try-anyway
+  description: Try to run init script even if a non-fatal error is found.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disclose-deny
+  description: Return status code 101 instead of status code 0 if initscript action is denied by local policy rules or runlevel constrains.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --query
+  description: Returns one of status codes 100-106, does not run the initscript. Implies --disclose-deny and --no-fallback.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-fallback
+  description: 'Ignores any fallback action requests by the policy layer. Warning: this is usually a very *bad* idea for any actions other than "start".'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --skip-systemd-native
+  description: Exits before doing anything if a systemd environment is detected and the requested service is a native systemd unit. This is useful for maintainer scripts that want to defer systemd actions to deb-systemd-invoke
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: Outputs help message to stdout
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

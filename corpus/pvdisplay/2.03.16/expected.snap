@@ -1,0 +1,301 @@
+name: pvdisplay
+usage:
+- pvdisplay [ -a|--all ] [ -c|--colon ] [ -C|--columns ] [ -m|--maps ] [ -o|--options String ] [ -S|--select String ] [ -s|--short ] [ -O|--sort String ] [    --aligned ] [    --binary ] [    --configreport log|vg|lv|pv|pvseg|seg ] [    --foreign ] [    --ignorelockingfailure ] [    --logonly ] [    --noheadings ] [    --nosuffix ] [    --readonly ] [    --separator String ] [    --shared ] [    --unbuffered ] [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ] [ COMMON_OPTIONS ] [ PV|Tag ... ]
+positionals:
+- name: COMMON_OPTIONS
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -d
+  - --debug
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --yes
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --test
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --commandprofile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --config
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --driverloaded
+  value_name: y|n
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nolocking
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lockopt
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --longhelp
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --profile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --devicesfile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --devices
+  value_name: PV
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nohints
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --journal
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --all
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  - --colon
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  - --columns
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -m
+  - --maps
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -o
+  - --options
+  value_name: String
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -S
+  - --select
+  value_name: String
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -s
+  - --short
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -O
+  - --sort
+  value_name: String
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --aligned
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --binary
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --configreport
+  value_name: log|vg|lv|pv|pvseg|seg
+  value_kind: Required
+  choices:
+  - log
+  - vg
+  - lv
+  - pv
+  - pvseg
+  - seg
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --foreign
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --ignorelockingfailure
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --logonly
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --noheadings
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --nosuffix
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --readonly
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --separator
+  value_name: String
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --shared
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --unbuffered
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --units
+  value_name: Number
+  value_kind: Optional
+  choices:
+  - r
+  - R
+  - h
+  - H
+  - b
+  - B
+  - s
+  - S
+  - k
+  - K
+  - m
+  - M
+  - g
+  - G
+  - t
+  - T
+  - p
+  - P
+  - e
+  - E
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

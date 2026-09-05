@@ -80,6 +80,9 @@ flags:
   - --driverloaded
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: 'Common options for lvm:'
   provenance:
     sources:
@@ -153,6 +156,9 @@ flags:
   - --autobackup
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   provenance:
     sources:
     - help-text-synopsis
@@ -167,6 +173,9 @@ flags:
   - --zero
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   provenance:
     sources:
     - help-text-synopsis
@@ -196,6 +205,10 @@ flags:
   - --pvmetadatacopies
   value_name: 0|1|2
   value_kind: Required
+  choices:
+  - '0'
+  - '1'
+  - '2'
   provenance:
     sources:
     - help-text-synopsis
@@ -203,6 +216,9 @@ flags:
   - --metadataignore
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   provenance:
     sources:
     - help-text-synopsis
@@ -224,6 +240,9 @@ flags:
   - --reportformat
   value_name: basic|json
   value_kind: Required
+  choices:
+  - basic
+  - json
   provenance:
     sources:
     - help-text-synopsis

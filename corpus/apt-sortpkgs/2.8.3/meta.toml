@@ -1,0 +1,43 @@
+# Maintainer, seed 7, verdict "incomplete": "missing positionals". Machine
+# classification: stratum "ok".
+#
+# `help.txt`'s usage line is `apt-sortpkgs [options] file1 [file2 ...]`.
+# The parsed tree has no POSITIONALS section at all: `file1` and `file2`
+# are dropped entirely, even though both are named in the tool's own
+# usage line and nowhere else needs recovering (apt-sortpkgs documents no
+# separate positional-argument block).
+#
+# Round 6 checked this against `recover_primary_tail_operands`
+# (`mandible-extract/src/help_text/sections/usage.rs`), the
+# `multi-operand-usage-tail` family (S-109): the shape is `[options]` (a
+# lone placeholder) directly ahead of a bare, REQUIRED first operand
+# (`file1`), byte-identical to `apt-ftparchive [options] command` and
+# `gcc [options] file...`, both already tested
+# (`placeholder_only_context_with_a_bare_required_tail_gains_no_positional`)
+# as a deliberate refusal: a lone placeholder ahead of a bare required
+# tail reads as easily as "provide a subcommand" as "provide an operand",
+# and the rule stays silent rather than guess. This is not a new defect;
+# it is the same known ambiguity, already correctly declined, so no fix
+# applies here.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "apt-sortpkgs"
+version = "2.8.3"                    # apt-sortpkgs --help's own banner:
+                                     # "apt 2.8.3 (arm64)"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); apt 2.8.3"
+
+[[capture]]
+argv = ["apt-sortpkgs", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["file1", "file2"]
+
+[xfail]
+broken = true
+reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names two positionals, file1 and file2, but the parsed tree has no POSITIONALS section at all"

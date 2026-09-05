@@ -1,0 +1,39 @@
+name: nfsslower-bpfcc
+usage:
+- 'usage: nfsslower-bpfcc [-h] [-j] [-p PID] [min_ms]'
+positionals:
+- name: min_ms
+  description: Minimum IO duration to trace in ms (default=10ms)
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --csv
+  description: 'just print fields: comma-separated values'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --pid
+  value_name: PID
+  value_kind: Required
+  description: Trace this pid only
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

@@ -284,6 +284,43 @@ description does not contain the text, naming what was expected and what
 the description actually is (truncated to a readable length). A fixture
 that produces no root fails this exactly as it fails `must_contain_flags`.
 
+### A positional's description says what it should: `must_describe_positional`
+
+`must_describe` walks only `root.flags()`, so nothing could assert a
+positional's own description the way `invoke-rc.d` documents `action`
+right under its usage line — until now (docs/shapes.md S-127).
+
+```toml
+[contract.must_describe_positional]
+"action" = "Initscript action. Known actions are"
+```
+
+The named positional, matched on `Entity::primary_name`, root only, must
+exist and its rendered description must contain this text as a substring
+(same whitespace-collapsing comparison `must_describe` uses). `cargo xtask
+corpus` fails when the positional is absent, or when its description does
+not contain the text. A fixture that produces no root fails this exactly
+as it fails `must_contain_positionals`.
+
+### Stating that a description carries text it must not: `must_not_describe`
+
+`must_describe`'s substring check cannot say a description is
+*contaminated*: an unheaded example block folding onto a flag's real
+description (`corpus/nfsslower-bpfcc/0.29.1`) still contains the real
+text, so the positive check still passes. `must_not_describe` is the
+negative half, the same shape `must_not_contain_flags` is for invented
+flags.
+
+```toml
+[contract.must_not_describe]
+"-p" = "trace pid 121 only"
+```
+
+The named flag's rendered description must NOT contain this text as a
+substring, matched the way `must_describe` matches. Satisfied vacuously
+when the flag is absent or the fixture produces no root, the same
+reasoning `must_not_contain_flags` uses.
+
 ### What `--bless` does and does not assert: `verdict_scope`
 
 `--bless` freezes the *entire* tree into `expected.snap` — node summaries,

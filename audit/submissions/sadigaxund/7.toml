@@ -8,6 +8,8 @@ stratum = "incomplete"
 verdict = "incomplete"
 note = "1. See flags like this: -Wa, <options>, -Wp, <options>, -W1,<options>They got converted and merged intosingle '-W a,<options> Pass comma-separated...'The same goes for '-X'2. Moreover, see '-###' which got parsed into '-# ##'3. this tool also exposes '-v --help' combination which add much more tools. so we should come back to it after this is fixed."
 k1 = true
+families = ["comma-glued-option-value", "spaced-single-dash-long", "hash-in-spelling"]
+families_derived = true
 
 [[entry]]
 tool = "add-shell"
@@ -19,6 +21,8 @@ tool = "apt-sortpkgs"
 stratum = "ok"
 verdict = "incomplete"
 note = "missing positionals"
+families = ["multi-operand-usage-tail"]
+families_derived = true
 
 [[entry]]
 tool = "busybox"
@@ -71,12 +75,16 @@ tool = "invoke-rc.d"
 stratum = "ok"
 verdict = "incomplete"
 note = "should the positionals have had the descriptions shown just below usage line?"
+families = ["positional-description-block"]
+families_derived = true
 
 [[entry]]
 tool = "lxd.check-kernel"
 stratum = "verbatim"
 verdict = "wrong"
 note = "i think it ran something, might be security violation"
+families = ["no-usable-help"]
+families_derived = true
 
 [[entry]]
 tool = "makeconv"
@@ -84,6 +92,8 @@ stratum = "ok"
 verdict = "wrong"
 note = "false positive '-o ptions', and usage section has some description leaked into it. Hard to detect, fix? or skip?"
 k1 = true
+families = ["generic-option-placeholder-flag"]
+families_derived = true
 
 [[entry]]
 tool = "memhog"
@@ -91,12 +101,16 @@ stratum = "low-confidence"
 verdict = "wrong"
 note = "wrong placeholders and missing flag descriptions"
 k1 = true
+families = ["unparsed-positional", "value-name-mangled", "missing-flag-description"]
+families_derived = true
 
 [[entry]]
 tool = "nfsslower-bpfcc"
 stratum = "ok"
 verdict = "wrong"
 note = "the description of '-p PID' got contaminated with the usage examples"
+families = ["examples-block-contaminates-last-flag"]
+families_derived = true
 
 [[entry]]
 tool = "nm-online"
@@ -114,6 +128,8 @@ tool = "pip3"
 stratum = "ok"
 verdict = "incomplete"
 note = "other than that missing subcommands, nothing else is visibly wrong"
+families = ["description-subcommands-list"]
+families_derived = true
 
 [[entry]]
 tool = "pr"
@@ -121,6 +137,8 @@ stratum = "ok"
 verdict = "incomplete"
 note = "new pattern, 3+ occurences: see '-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]' which should have been aliases but i think only one got parsed and other got swalloed."
 k1 = true
+families = ["nested-bracket-value"]
+families_derived = true
 
 [[entry]]
 tool = "psfstriptable"
@@ -132,6 +150,8 @@ tool = "pvdisplay"
 stratum = "low-confidence"
 verdict = "wrong"
 note = "see '--units [Number]r|R|N|... ]' i think it trimmed the ending after '[Number]'"
+families = ["choices-after-optional-placeholder"]
+families_derived = true
 
 [[entry]]
 tool = "sg_bg_ctl"
@@ -150,6 +170,8 @@ stratum = "ok"
 verdict = "incomplete"
 note = "a lot of missing commands, too much to do in one go, so we will come back to this"
 k1 = true
+families = ["command-row-argument-placeholder"]
+families_derived = true
 
 [[entry]]
 tool = "tcpretrans.bt"
@@ -157,6 +179,8 @@ stratum = "ok"
 verdict = "wrong"
 note = "bad usage line"
 k1 = true
+families = ["usage-program-word-mismatch", "unparsed-positional"]
+families_derived = true
 
 [[entry]]
 tool = "ubuntu-drivers"

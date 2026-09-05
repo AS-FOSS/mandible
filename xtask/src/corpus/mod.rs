@@ -203,6 +203,27 @@ pub(crate) struct ContractMeta {
     /// intact, so nothing but the snapshot could see it.
     #[serde(default)]
     must_value_name: std::collections::BTreeMap<String, String>,
+    /// A root positional's rendered description must contain this text,
+    /// keyed by the positional's own name (matched on
+    /// `Entity::primary_name`, root only, same scope as
+    /// `must_contain_positionals`). The positional analogue of
+    /// `must_describe`: `check_must_describe` walks only `root.flags()`,
+    /// so no field could assert `invoke-rc.d`'s `action` carries its own
+    /// documented description until this one existed. Substring match
+    /// after collapsing whitespace, the same rule `must_describe` uses.
+    #[serde(default)]
+    must_describe_positional: std::collections::BTreeMap<String, String>,
+    /// A root flag's rendered description must NOT contain this text,
+    /// keyed by the flag's own spelling (matched the way `must_describe`
+    /// matches) — the mirror of `must_not_contain_flags` one level down.
+    /// Closes the gap `corpus/nfsslower-bpfcc/0.29.1` found: an unheaded
+    /// example block folds onto a flag's real, correct description, and
+    /// `must_describe`'s substring check still passes because the real
+    /// text is still present, just followed by everything the fold
+    /// added. A tree with no root, or the flag itself absent, satisfies
+    /// this vacuously, the same reasoning `must_not_contain_flags` uses.
+    #[serde(default)]
+    must_not_describe: std::collections::BTreeMap<String, String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a

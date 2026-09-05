@@ -1,0 +1,106 @@
+# Maintainer, seed 7, verdict "incomplete": "1. See flags like this: -Wa,
+# <options>, -Wp, <options>, -W1,<options>They got converted and merged
+# intosingle '-W a,<options> Pass comma-separated...'The same goes for
+# '-X'2. Moreover, see '-###' which got parsed into '-# ##'3. this tool
+# also exposes '-v --help' combination which add much more tools. so we
+# should come back to it after this is fixed."
+#
+# Row by row against `help.txt`:
+#   `-Wa,<options>`, `-Wp,<options>`, `-Wl,<options>` each parse as their
+#   own `Entity` (three entities, spelling "-W", one per row, checked with
+#   `cargo run -p xtask -- corpus --show`), but every entity's spelling is
+#   the single letter "W", so nothing in the tree keeps the three apart by
+#   name; the fold the maintainer saw is a display-time collapse, not a
+#   missing-data one. Only the assembler row's own description survives a
+#   `must_describe` lookup, since that check takes the first entity whose
+#   spelling matches and the assembler row parses first: `-Wp`'s and
+#   `-Wl`'s own text is unreachable by spelling. Same shape for
+#   `-Xassembler`/`-Xpreprocessor`/`-Xlinker`, three entities all spelled
+#   "-X".
+#   `-###` parses as spelling "-#", value name "##": the trailing `#` after
+#   the first two chars is read as the value placeholder instead of part
+#   of the flag's own name.
+#   `-save-temps` and `-save-temps=<arg>` parse as two entities, both
+#   spelled "-save-temps" — the plain form correctly boolean, the `=<arg>`
+#   form correctly carrying a value — so nothing is lost there; not
+#   asserted, since no contract field would express two same-spelling rows
+#   staying apart the way `must_keep_separate` does for different
+#   spellings.
+#   The `--help=` row's own choice list renders as a value name containing
+#   the full `{common|optimizers|...}` block; no field asserts value-name
+#   *shape* (bracket structure), only substring content, so this is not
+#   asserted either.
+#   DESCRIPTION reads `Options:`, a heading line read as the root node's
+#   own summary. No contract field states what the root description must
+#   NOT be, so this is prose-only: it would need something like a
+#   `must_not_describe_root` field, which does not exist.
+#
+# `flag_present` (`xtask/src/corpus/contract.rs`), the function every
+# flag-shaped `[contract]` field matches through, reads a short spec by
+# its first character only: `-Wa`, `-Wp`, `-Wl` and even `-###` all reduce
+# to "does any single-dash, single-character spelling starting with this
+# one letter exist", so `must_contain_flags` entries in that form are
+# guards that already pass, not the defect. `must_keep_separate` is the
+# field that actually catches this: it resolves each spec to the *first*
+# matching entity's index, and since `-Wa`/`-Wp`/`-Wl` all resolve to
+# index 0 (the assembler row parses first), the check reports them
+# collapsed. Same for the `-X` group.
+#
+# `-v --help` reveals more flags. Design §6 admits only one probe per
+# node; a second probe shaped by a flag's own output is not a documented
+# shape. Recorded here, not asserted.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "aarch64-linux-gnu-g++-13"
+version = "13.3.0"                   # `aarch64-linux-gnu-g++-13 --version`:
+                                     # "aarch64-linux-gnu-g++-13 (Ubuntu
+                                     # 13.3.0-6ubuntu2~24.04.1) 13.3.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); g++-13-aarch64-linux-gnu 13.3.0-6ubuntu2~24.04.1"
+
+[[capture]]
+argv = ["aarch64-linux-gnu-g++-13", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+# Guards: pass today (see comment above for why the spelling can't fail
+# these), kept so a future accidental drop of the row still gets caught.
+must_contain_flags = ["-Wa", "-Wp", "-Wl", "-###"]
+
+# The real assertion: the fold `flag_present`'s own matching rule produces.
+must_keep_separate = [
+  ["-Wa", "-Wp", "-Wl"],
+  ["-Xassembler", "-Xpreprocessor", "-Xlinker"],
+]
+
+[contract.must_value_name]
+# `-Wa`/`-Wp`/`-Wl` require the comma the tool itself prints
+# (`-Wa,<options>`, never `-Wa <options>`): the value name keeps that
+# comma as its own leading character (docs/shapes.md S-116) so a
+# renderer can draw the row without implying a space-separated
+# invocation the tool refuses.
+"-Wa" = ",<options>"
+"-Wp" = ",<options>"
+"-Wl" = ",<options>"
+
+[contract.must_describe]
+# Passes: the assembler row parses first, so a spelling-matched lookup
+# finds its own description.
+"-Wa" = "assembler"
+# Fail: both resolve to the assembler row's description, which names
+# neither preprocessor nor linker.
+"-Wp" = "preprocessor"
+"-Wl" = "linker"
+"-Xassembler" = "assembler"
+"-Xpreprocessor" = "preprocessor"
+"-Xlinker" = "linker"
+"-###" = "Like -v but options quoted"
+
+[xfail]
+broken = true
+reason = "three distinct -Wa/-Wp/-Wl rows (and three -Xassembler/-Xpreprocessor/-Xlinker rows) all parse with the same single-letter spelling, so must_keep_separate reports them collapsed and must_describe can only ever reach the first row's text; -### parses as spelling '-#' plus value name '##'; the root description is the 'Options:' heading, a heading-bleed with no contract field to name it; -v --help exposes more flags, a second-probe shape design §6 does not admit"

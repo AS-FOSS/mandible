@@ -1,0 +1,65 @@
+# Maintainer, seed 7, verdict "wrong": "false positive '-o ptions', and
+# usage section has some description leaked into it. Hard to detect,
+# fix? or skip?" Machine classification: stratum "ok".
+#
+# Everything makeconv writes goes to stderr; exit code is 1.
+# `help.stderr.txt`'s first two lines:
+#   usage: makeconv [-options] files...
+#           read .ucm codepage mapping files and write .cnv files
+# The second line is a tab-indented continuation of the usage synopsis,
+# describing what the tool does. The parsed tree folds it into the usage
+# line itself: `usage` reads "makeconv [-options] files... read .ucm
+# codepage mapping files and write .cnv files" as one string. No contract
+# field asserts usage text, so this half is prose-only.
+#
+# Fixed (round 6, atlas S-128): `[-options]`, a usage line's own generic
+# placeholder spelled with a leading dash, no longer invents a flag.
+# `is_dash_prefixed_option_list_placeholder`
+# (`mandible-extract/src/help_text/sections/usage.rs`) drops the token
+# before it reaches the flag grammar. `must_not_contain_flags = ["-o"]`
+# passes for real now.
+#
+# `files` stays lost. The tab-indented continuation still folds into the
+# usage text (the defect above), and `recover_primary_tail_operands` only
+# fires for a one-physical-line primary entry, so the fold blocks the
+# operand recovery collaterally. The continuation itself has no
+# terminating punctuation ("read .ucm codepage mapping files and write
+# .cnv files"), so `is_prose_sentence`'s existing hanging-indent guard
+# (S-003) never claims it either. A structurally sound fix needs its own
+# calibration against tools that write a genuine wrapped usage line with
+# no terminal punctuation, which this round did not reach.
+#
+# DESCRIPTION reads `options:` (the raw text's own next heading line,
+# lowercase, as the tool prints it) — a heading read as the root node's
+# summary, the same heading-bleed shape as `aarch64-linux-gnu-g++-13`'s
+# `Options:` in this same batch. No contract field states what the root
+# description must not be, so this is prose-only too.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "makeconv"
+version = "6.2"                      # makeconv --version: "makeconv
+                                     # version 6.2, ICU tool to read .ucm
+                                     # codepage mapping files..." (icu-devtools
+                                     # 74.2-1ubuntu3.1 ships it, a different
+                                     # version scheme from ICU's own release)
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); icu-devtools 74.2-1ubuntu3.1"
+
+# makeconv --help exits 1 and writes everything to stderr.
+[[capture]]
+argv = ["makeconv", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_not_contain_flags = ["-o"]
+must_contain_positionals = ["files"]
+
+[xfail]
+broken = true
+reason = "files, the real positional, is lost behind the tab-indented continuation folding into the usage text, with no field to assert usage text; the root description is the next heading line 'options:', a heading bleed with no field to name it"
