@@ -1,0 +1,55 @@
+# Maintainer, seed 7, verdict "wrong": "see '--units [Number]r|R|N|... ]'
+# i think it trimmed the ending after '[Number]'". Machine
+# classification: stratum "low-confidence".
+#
+# The real row (`help.txt`) is
+# `[    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ]`. The
+# maintainer's own note writes the list as `r|R|N|...`; there is no `N`
+# in the captured bytes (VERIFIED against `help.txt`), so this fixture
+# asserts the 18 letters that are actually there.
+#
+# VERIFIED FACT (`cargo run -p xtask -- corpus --show pvdisplay/2.03.16`):
+# `--units` parses with `value_name: Number` and zero `choices` — the
+# `r|R|h|H|...` list is dropped entirely, not merely unstructured.
+# `--configreport` and `--driverloaded` are a lighter version of the same
+# gap: their pipe lists (`log|vg|lv|pv|pvseg|seg`, `y|n`) survive as raw
+# `value_name` text, but neither attaches any structured `choices` either.
+#
+# POSITIONALS reads `COMMON_OPTIONS`, the synopsis's own placeholder for
+# lvm's shared option block (`[ COMMON_OPTIONS ]`, expanded in "Common
+# options for lvm:" below it) — not a real operand. The real operand,
+# `PV|Tag ...`, the line right after `COMMON_OPTIONS` in the synopsis, is
+# not extracted as a positional at all. No contract field can assert that
+# a recovered positional is a placeholder rather than a real operand
+# (the mirror of `must_not_contain_flags`, one kind up, does not exist),
+# so this is recorded here in prose.
+#
+# stderr carries a one-line non-root warning, captured in help.stderr.txt.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pvdisplay"
+version = "2.03.16"                  # pvdisplay --version: "LVM version:
+                                     # 2.03.16(2) (2022-05-18)" (dpkg
+                                     # package lvm2 2.03.16-3ubuntu3.2)
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); lvm2 2.03.16-3ubuntu3.2"
+
+[[capture]]
+argv = ["pvdisplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_attach_choices]
+"--units" = ["r", "R", "h", "H", "b", "B", "s", "S", "k", "K", "m", "M", "g", "G", "t", "T", "p", "P", "e", "E"]
+"--configreport" = ["log", "vg", "lv", "pv", "pvseg", "seg"]
+"--driverloaded" = ["y", "n"]
+
+[xfail]
+broken = true
+reason = "--units, --configreport and --driverloaded each document a pipe-separated choice list that never attaches as structured choices; --units loses the list outright (value_name trimmed to 'Number'), the other two keep it as raw value_name text only. COMMON_OPTIONS, the synopsis's own placeholder for lvm's shared option block, is extracted as the tool's one positional, while the real operand PV|Tag is dropped; no field states that a recovered positional is a placeholder rather than a real operand"
