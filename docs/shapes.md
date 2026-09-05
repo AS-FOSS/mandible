@@ -1793,10 +1793,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   count and the rendered count: ffplay 1136 to 465, gcc 43 to 37, curl 258
   to 253, as 61 to 59, vim.basic 45 to 43, tar 159 to 157, du 29 to 28,
   expand 5 to 4. The merge-time fix is invisible to this instrument (see
-  above), so this count is unchanged by round 5; `same-spelling-fold-loss`
-  (`xtask/src/detector/same_spelling_fold_loss.rs`) is not calibratable
-  against the seed-2/4/5/6 audit (no labelled member), and its own
-  self-checks are the evidence recorded instead.
+  above), so this count is unchanged by round 5. `same-spelling-fold-loss`
+  (`xtask/src/detector/same_spelling_fold_loss.rs`), wired into `xtask
+  coverage`'s aggregate, reads **182 tools / 664 findings** in a full-`PATH`
+  sweep of 2319 tools — clearing the five-tool bar by a wide margin, a
+  stronger argument for shipping the merge half than the information-loss
+  rule alone. Not calibratable against the seed-2/4/5/6 audit (no labelled
+  member); not gated (the merge half it argues for is invisible to this
+  same sweep, so a gate here would ratchet a number the fix cannot move).
 
 ### S-105: one-space description column on a pipe-joined alias row
 
