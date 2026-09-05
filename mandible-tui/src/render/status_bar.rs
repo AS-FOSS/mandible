@@ -161,8 +161,22 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 
 /// The right-hand end of the status row: a low-confidence warning when
 /// there is one, otherwise where the selected node's data came from.
+///
+/// A same-as-ancestor node (docs/design.md §16) is checked first and
+/// bypasses the confidence caveat entirely: its `confidence` is pinned to
+/// `0.0` because the probe never parsed it (spec [M-19]), not because a
+/// parse scored badly, so routing it through `provenance_caveat` read
+/// `low confidence: 0% parsed`, wrong twice over. This shows the node's own
+/// status instead, muted rather than warning-colored: nothing degraded
+/// here, so the sanctioned warning color (§9.2) does not apply.
 fn right_text(app: &App) -> Option<(String, Style)> {
     let node = app.selected_node()?;
+    if node.same_as_ancestor {
+        return Some((
+            "same as parent".to_string(),
+            style::muted(app.color_enabled),
+        ));
+    }
     if let Some(caveat) = crate::render::detail_pane::provenance_caveat(node, app.glyphs) {
         return Some((caveat, style::warning(app.color_enabled)));
     }
