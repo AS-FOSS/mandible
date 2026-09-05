@@ -58,6 +58,52 @@
 # contains, the same gap `corpus/jinfo/17.0.20/meta.toml` documents for its
 # own `-flag` rows. The entry is dropped rather than written to mean
 # something else.
+#
+# Maintainer, fourth batch: "in original text it shows as '-tl' and in
+# parsed we separate those into -t and l. Is this correct? does it mean i
+# can run command as like this: 'icupkg -t l'? or it incorrecrly expresses
+# that?"
+# Machine classification (e): the rows `-tl or --type l`, `-tb or --type
+# b`, `-te or --type e` are one flag with three literal choice values,
+# each carrying its own description. The value letter glues into the short
+# spelling and spells out after the long one, which is what marks it a
+# choice value rather than a placeholder. `icupkg -t l` is the invocation
+# the parse implies, and that is correct. VERIFIED FACT (`cargo run -p
+# xtask -- corpus --show icupkg/74.2`): the tree carries the three rows as
+# three separate entities, all spelled `-t`/`--type`, each with its own
+# value_name and description, because a fixture replay never runs the
+# merge that would fold them onto one bucket.
+#
+# Maintainer, fourth batch: "this is wrong '-c or'. Also why '-?' is
+# duplicated and shown at the end of the parse with no description, as
+# well as a synonym of help?"
+# Machine classification (f): the "-c or" defect is classification (a)'s
+# sibling and is already the reason this fixture is xfail. The trailing
+# bare `-?` is a second entity the usage line `[-h|-?|--help ]` builds for
+# its own synonym group. VERIFIED FACT: the tree carries two entities
+# spelled `-?`. The first is `-h`/`-?`/`--help`, described "print this
+# message and exit", built from the table row. The second is a lone `-?`
+# with no description, built from the usage line, and it sits last in flag
+# iteration order.
+#
+# Schema gap for the trailing bare `-?`: `must_describe`
+# (`xtask/src/corpus/contract.rs`'s `check_contract_collection_fields`)
+# resolves a spelling to its first matching entity in flag iteration
+# order. The first entity spelled `-?` already carries the correct
+# description, so `[contract.must_describe]` with `"-?" = "print this
+# message and exit"` would resolve to that entity and pass today, not the
+# duplicate the maintainer is asking about. No field in `[contract]`
+# targets one specific entity among two that share a spelling, so nothing
+# here can state that the duplicate exists. The gap is recorded rather
+# than worked around.
+#
+# Per-choice descriptions ("l" -> "output for little-endian/ASCII charset
+# family", and similarly for "b" and "e") have no asserting field either:
+# `must_attach_choices` checks only a choice's name, never its
+# `description` (`mandible-core::entity::Choice`). No entity in this tree
+# carries a `choices` list yet, since the three rows are still unfolded
+# separate entities. `expected.snap`, once this fixture is fixed and
+# blessed, is what will hold each choice's description.
 
 [bless]
 provenance = "agent"
@@ -79,6 +125,9 @@ expected_framework = "generic"
 
 must_contain_flags = ["--auto_toc_prefix", "--auto_toc_prefix_with_type", "--toc_prefix", "--sourcedir", "--destdir", "-s", "-d", "--copyright"]
 must_not_contain_flags = ["--auto"]
+
+[contract.must_attach_choices]
+"-t" = ["l", "b", "e"]
 
 [contract.must_value_name]
 "-s" = "path"
