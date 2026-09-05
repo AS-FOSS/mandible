@@ -295,3 +295,22 @@ pub fn check_vim_family_ratchet(
     println!("\n{}", ratchet.report());
     Ok(ratchet.holds())
 }
+
+/// Round 5's two repaired families (atlas S-112/S-113), gated the same
+/// way as [`check_vim_family_ratchet`]'s other callers, folded into one
+/// function so `xtask/src/main.rs`'s `run_coverage` gains one call site
+/// rather than two. `same-spelling-fold-loss` is not gated here: its
+/// merge half is invisible to this sweep.
+pub fn check_round5_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let mut holds = true;
+    for name in [
+        "bare-or-usage-separator",
+        "usage-spelling-duplicates-table-row",
+    ] {
+        holds &= check_vim_family_ratchet(name, previous, fresh)?;
+    }
+    Ok(holds)
+}

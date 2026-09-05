@@ -1254,26 +1254,7 @@ fn run_coverage(
             regressed = true;
         }
 
-        // `bare-or-usage-separator`, repaired by `mandible-extract/src/
-        // help_text/sections/mod.rs`'s `is_bare_or_form_separator`, atlas
-        // S-112. Gated at a literal zero the same way as the two above.
-        // (`same-spelling-fold-loss`, round 5's other new detector, is not
-        // gated: its merge-time half is invisible to this sweep.)
-        if !detector::check_vim_family_ratchet("bare-or-usage-separator", &previous, &fresh)? {
-            regressed = true;
-        }
-
-        // `usage-spelling-duplicates-table-row`, repaired by
-        // `flag_spelling_already_present` checking every spelling an
-        // existing row carries, atlas S-113. Gated at a literal zero the
-        // same way.
-        if !detector::check_vim_family_ratchet(
-            "usage-spelling-duplicates-table-row",
-            &previous,
-            &fresh,
-        )? {
-            regressed = true;
-        }
+        regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
