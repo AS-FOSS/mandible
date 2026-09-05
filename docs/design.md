@@ -1278,7 +1278,7 @@ into structured entities.
       carried a bracketed suffix). No information is lost by not repeating
       text one level up in the same tree, and `t` still fetches this node's
       own live text on demand, so the rule does not reduce what a reader
-      can reach (§3.9's invariant). `CommandNode::same_as_ancestor` records
+      can reach (AGENTS.md §3.9). `CommandNode::same_as_ancestor` records
       it; the detail pane shows the summary, a fixed notice, and the
       accepted-modifier block, never `unparsed`.
 6. A command block requires a recognized heading. Layout alone is never

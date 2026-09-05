@@ -155,7 +155,7 @@ pub struct CommandNode {
     pub same_as_ancestor: bool,
     /// The accepted-modifier letters a parent's own command-table row
     /// documented for this subcommand, e.g. `['a', 'b', 'f', 'u']` for
-    /// binutils `ar`'s `r[ab][f][u]` row (docs/shapes.md S-018). Filled
+    /// binutils `ar`'s `r[ab][f][u]` row (docs/shapes.md S-020). Filled
     /// only from that exact row shape — a command letter immediately
     /// followed by one or more bracketed single letters, no space — never
     /// from prose, a usage line, or the tool's own name. Each letter's own
