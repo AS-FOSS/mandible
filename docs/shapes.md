@@ -1895,9 +1895,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide.
 - fleet: 10 tools, 10 findings, 2026-09-04
 
-### S-112: bulleted subcommand list under a sub-heading inside Description
+### S-114: bulleted subcommand list under a sub-heading inside Description
 
-- id: S-112
+- id: S-114
 - looks like: |
       Description:
         Manage local and global configuration.
@@ -1914,18 +1914,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
   prose block, rather than under a top-level `Commands:`-style heading
   (spec §7 Tier B rule 6). No recognizer in the layout parser fires on a
   bulleted list nested inside prose, so none of the six reach the tree
-  (`corpus/pip3/audit-seed1`, whose `config` node carries no `subcommands`
+  (`corpus/pip3/24.0`, whose `config` node carries no `subcommands`
   key at all). Distinct from S-013's wrapped-description-line guard: this
   is a real, explicitly-labelled subcommand list, just at an indent and
   inside a section the current heading scan never descends into. Not
-  implemented this round: AGENTS.md §3.1 requires a new recognizer to move
-  at least five tools fleet-wide before it ships, and this shape has one
-  motivating tool so far.
+  implemented: AGENTS.md §3.1 requires a new recognizer to move at least
+  five tools fleet-wide before it ships, and this shape has one motivating
+  tool so far.
 - fleet: not measured
 
-### S-113: a parent's own usage form names a child, unused as that child's usage
+### S-115: a parent's own usage form names a child, unused as that child's usage
 
-- id: S-113
+- id: S-115
 - looks like: |
       Usage:
         pip3 config [<file-option>] list
@@ -1939,9 +1939,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   USAGE block is effectively documenting each child's invocation inline,
   one form per child. Nothing today reads a usage form whose first word
   after the tool name is a child's own name as that child's own usage;
-  found while reading `pip3`'s usage forms for S-112 above, not from a
-  fleet sweep. Related to, but distinct from, S-112: this shape needs the
-  child to already exist as a node (from S-112 or a `Commands:` heading)
-  before there is anywhere to attach the usage to. Not implemented this
-  round, same AGENTS.md §3.1 reason as S-112.
+  found while reading `pip3`'s usage forms for S-114 above, not from a
+  fleet sweep. Related to, but distinct from, S-114: this shape needs the
+  child to already exist as a node (from S-114 or a `Commands:` heading)
+  before there is anywhere to attach the usage to. Not implemented, for the
+  same AGENTS.md §3.1 reason as S-114.
 - fleet: not measured

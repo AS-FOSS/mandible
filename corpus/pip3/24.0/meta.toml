@@ -44,7 +44,7 @@ provenance = "agent"
 
 [tool]
 name = "pip3"
-version = "audit-seed1"
+version = "24.0"
 platform = "ubuntu-24.04"
 captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8), pip 24.0"
 
