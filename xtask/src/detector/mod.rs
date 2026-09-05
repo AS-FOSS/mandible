@@ -51,6 +51,16 @@ pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
 
+// Round-5 family detectors (three parser families: same-spelling-fold-loss,
+// bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
+// implements `Detector` directly rather than the separate
+// detect()/Report + wrapper split the round-4 modules above use — no
+// wrapper is needed since none of these three shares its detection logic
+// with anything else in this file.
+pub(crate) mod bare_or_usage_separator;
+pub(crate) mod same_spelling_fold_loss;
+pub(crate) mod usage_spelling_duplicates_table_row;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -660,6 +670,9 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(MultiOperandUsageTail),
         Box::new(OrJoinedAliasWithValues),
         Box::new(GluedOptionalGroupSpelling),
+        Box::new(same_spelling_fold_loss::SameSpellingFoldLoss),
+        Box::new(bare_or_usage_separator::BareOrUsageSeparator),
+        Box::new(usage_spelling_duplicates_table_row::UsageSpellingDuplicatesTableRow),
     ]
 }
 

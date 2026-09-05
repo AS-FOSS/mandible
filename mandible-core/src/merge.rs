@@ -216,11 +216,63 @@ pub fn merge_entity_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
     }
     order
         .into_iter()
-        .map(|key| {
+        .flat_map(|key| {
             let bucket = buckets.remove(&key).expect("key came from this map");
-            merge_entity_bucket(bucket)
+            split_disagreeing_rows(bucket)
+                .into_iter()
+                .map(merge_entity_bucket)
         })
         .collect()
+}
+
+/// Partitions one identity-bucket into sub-groups safe to fold into a
+/// single entity each.
+///
+/// Two entities sharing an identical source set — the same tier's account
+/// of the same document — that disagree about whether the option takes a
+/// value, or that each carry their own documented description and the two
+/// differ, are two *forms* the tool wrote on two rows sharing one
+/// spelling, not one entity two sources reported differently: vim's bare
+/// `+` ("Start at end of file") and valued `+<lnum>` ("Start at line
+/// <lnum>") is the specimen (docs/shapes.md S-102,
+/// `corpus/vim.basic/audit-seed4`). Left in one bucket,
+/// [`merge_entity_bucket`]'s spelling-keyed pick keeps only one row's
+/// description and (via its independent `value_kind`/`value_name`
+/// resolution) can attach the *other* row's value to it — the loss S-102
+/// records.
+///
+/// Cross-source disagreement (one tier saw a value, another did not; two
+/// tiers wrote different prose for the same option) is exactly what this
+/// bucket exists to resolve via [`pick_option`]'s authority ordering, so
+/// the refusal below never fires across two different source sets —
+/// `merge_unifies_flags_by_identity_across_sources` pins that this still
+/// merges.
+fn split_disagreeing_rows(bucket: Vec<Entity>) -> Vec<Vec<Entity>> {
+    let mut groups: Vec<Vec<Entity>> = Vec::new();
+    'entity: for e in bucket {
+        for group in groups.iter_mut() {
+            if group.iter().all(|g| !same_source_row_disagreement(g, &e)) {
+                group.push(e);
+                continue 'entity;
+            }
+        }
+        groups.push(vec![e]);
+    }
+    groups
+}
+
+/// Whether `a` and `b`, sharing one merge-bucket identity, are two rows
+/// from the *same* source the tool documented differently rather than two
+/// sources' accounts of one row. See [`split_disagreeing_rows`].
+fn same_source_row_disagreement(a: &Entity, b: &Entity) -> bool {
+    if a.provenance.sources != b.provenance.sources {
+        return false;
+    }
+    let value_shape_disagrees = (a.value_kind == crate::node::ValueKind::None)
+        != (b.value_kind == crate::node::ValueKind::None);
+    let description_disagrees =
+        matches!((&a.description, &b.description), (Some(x), Some(y)) if x != y);
+    value_shape_disagrees || description_disagrees
 }
 
 /// The identity two entities must share to be the same item.
@@ -1090,6 +1142,55 @@ mod tests {
             .find(|f| f.spellings == [Spelling::single_dash("help")])
             .unwrap_or_else(|| panic!("no standalone -help entity: {all_spellings:?}"));
         assert_eq!(dash_help.value_name.as_deref(), Some("topic"));
+    }
+
+    /// vim.basic's own two rows, byte-exact in shape (`corpus/vim.basic/
+    /// audit-seed4`): a bare `+` ("Start at end of file") and a valued
+    /// `+<lnum>` ("Start at line <lnum>"), both extracted correctly from
+    /// the *same* source. Left in one bucket, the spelling-keyed fold
+    /// picks one row's description and the other row's value, showing the
+    /// wrong pair together (docs/shapes.md S-102). This pins that the two
+    /// rows now survive as two entities instead.
+    #[test]
+    fn same_source_rows_that_disagree_about_taking_a_value_stay_two_entities() {
+        let mut n = node_from(Source::HelpText, "vim.basic");
+        let mut bare = Entity::new(crate::entity::EntityKind::Flag, Provenance::single(Source::HelpText));
+        bare.spellings = vec![Spelling::bare("+")];
+        bare.description = Some(Text::sanitize("Start at end of file"));
+        n.entities.push(bare);
+
+        let mut valued = Entity::new(crate::entity::EntityKind::Flag, Provenance::single(Source::HelpText));
+        valued.spellings = vec![Spelling::bare("+")];
+        valued.value_name = Some("lnum".to_string());
+        valued.value_kind = ValueKind::Required;
+        valued.description = Some(Text::sanitize("Start at line <lnum>"));
+        n.entities.push(valued);
+
+        // `Runner::fill_node`'s own contract: `existing` is always a
+        // second candidate alongside a fresh re-probe of the same source.
+        let merged = merge_nodes(vec![n.clone(), n]).unwrap();
+        let flags: Vec<&Entity> = merged.flags().collect();
+        assert_eq!(
+            flags.len(),
+            2,
+            "the bare and valued forms must stay two entities: {:?}",
+            flags
+                .iter()
+                .map(|f| (f.value_name.clone(), f.description.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            flags
+                .iter()
+                .any(|f| f.value_kind == ValueKind::None
+                    && f.description.as_ref().unwrap().as_str() == "Start at end of file"),
+            "{flags:?}"
+        );
+        assert!(
+            flags.iter().any(|f| f.value_name.as_deref() == Some("lnum")
+                && f.description.as_ref().unwrap().as_str() == "Start at line <lnum>"),
+            "{flags:?}"
+        );
     }
 
     /// A positional merges on its name across sources, taking `required`
