@@ -2026,7 +2026,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   implemented: AGENTS.md §3.1 requires a new recognizer to move at least
   five tools fleet-wide before it ships, and this shape has one motivating
   tool so far.
-- fleet: not measured
+- fleet: not fleet-measurable (`xtask coverage` probes root nodes only); 1 confirmed
+  instance, 2026-09-05. `description-subcommands-list`
+  (`xtask/src/detector/description_subcommands_list.rs`) generalizes the shape.
 
 ### S-115: a parent's own usage form names a child, unused as that child's usage
 
@@ -2050,3 +2052,193 @@ entry's `tools` field and nothing else. It does not get a new entry.
   before there is anywhere to attach the usage to. Not implemented, for the
   same AGENTS.md §3.1 reason as S-114.
 - fleet: not measured
+
+### S-116: a single-dash spelling glued to a comma
+
+- id: S-116
+- looks like: |
+      -Wa,<options>            Pass comma-separated <options> on to the assembler.
+      -Wl,<options>            Pass comma-separated <options> on to the linker.
+- tools: gcc, g++, cc, c++, cpp, c89, c99, aarch64-linux-gnu-gcc, aarch64-linux-gnu-g++,
+  aarch64-linux-gnu-cpp, clang, clang++, clang-cpp-18, and their versioned
+  aliases (23 tools total)
+- handling: A single-dash spelling whose first character is a letter, followed by one or
+  more letters and then a comma, is the whole spelling up to the comma; the
+  value follows the comma. `-Wa`, `-Wp` and `-Wl` used to truncate to `-W`,
+  folding all three rows' descriptions onto one entity. `xtask detector`'s
+  `comma-glued-option-value`
+  (`xtask/src/detector/comma_glued_option_value.rs`) generalizes this shape
+  fleet-wide.
+- fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved 23 tools with zero losses on the same sweep.
+
+### S-117: a spaced single-dash long option with an uppercase flag letter
+
+- id: S-117
+- looks like: |
+      -Xassembler <arg>        Pass <arg> on to the assembler.
+      -Xpreprocessor <arg>     Pass <arg> on to the preprocessor.
+- tools: gcc, g++, clang and the same compiler family S-116 lists
+- handling: Open defect. `-Xassembler` truncates to `-X` valued `"assembler"`, with `<arg>`
+  left unconsumed. `repair_single_dash_long_options` refuses any token
+  carrying an uppercase letter, its only signal against the GCC/Clang
+  glued-value convention (`-DMACRO`); `-Xassembler`'s flag letter is
+  uppercase, so it reads as that convention even though its value is
+  spaced, not glued. The row's own spacing is already gone by the time
+  that repair runs. `xtask detector`'s `spaced-single-dash-long`
+  (`xtask/src/detector/spaced_single_dash_long.rs`) generalizes this shape
+  fleet-wide.
+- fleet: 40 tools, 381 findings, 2026-09-05.
+
+### S-118: a single-dash spelling that is nothing but a run of `#`
+
+- id: S-118
+- looks like: |
+      -###                     Like -v but options quoted and commands not executed.
+- tools: the same compiler family S-116 lists (23 tools)
+- handling: A run of nothing but `#` after a single dash is the whole spelling. `-###`
+  used to stop at the first `#`, truncating to `-#` with a fabricated
+  value `##`. `xtask detector`'s `hash-in-spelling`
+  (`xtask/src/detector/hash_in_spelling.rs`) generalizes this shape
+  fleet-wide.
+- fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved the same 23 tools as S-116, in the same commit, with zero
+  losses on the same sweep.
+
+### S-119: a value spec with one bracket nested inside another
+
+- id: S-119
+- looks like: |
+      -e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]
+      --enable-tftp[=<intr>[,<intr>]]
+- tools: pr, fzf, fzf-tmux, dnsmasq, arptables, arptables-nft, iptables,
+  iptables-legacy, iptables-nft, iptables-translate, ip6tables,
+  ip6tables-legacy, ip6tables-nft, ip6tables-translate, less, pager,
+  zstd, zstdcat, zstdmt, unzstd, zstdless, uuidd (22 tools total)
+- handling: A value spec's bracket matcher stopped at the row's first `]`, so a bracket
+  nested inside another lost its own closing bracket and any long alias
+  glued after it (`pr`'s `-e[CHAR[WIDTH]]` lost `--expand-tabs` and one
+  `]`). Brackets are now matched by nesting depth: one group with exactly
+  one nested pair, nothing more, matched whole. `xtask detector`'s
+  `nested-bracket-value`
+  (`xtask/src/detector/nested_bracket_value.rs`) generalizes this shape
+  fleet-wide.
+- fleet: detector fires on 22 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved 22 tools with zero losses on the same sweep.
+
+### S-120: a docopt bracket row's own trailing choice list
+
+- id: S-120
+- looks like: |
+      [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ]
+      [    --configreport log|vg|lv|pv|pvseg|seg ]
+- tools: the whole lvm2 tool family: lvchange, lvconvert, lvcreate, lvdisplay,
+  lvextend, lvmconfig, lvmdiskscan, lvmsadc, lvmsar, lvreduce, lvremove,
+  lvrename, lvresize, lvs, lvscan, pvchange, pvck, pvcreate, pvdisplay,
+  pvmove, pvremove, pvresize, pvs, pvscan, vgcfgbackup, vgcfgrestore,
+  vgchange, vgck, vgconvert, vgcreate, vgdisplay, vgexport, vgextend,
+  vgimport, vgimportclone, vgmerge, vgmknodes, vgreduce, vgremove,
+  vgrename, vgs, vgscan, vgsplit (43 tools total)
+- handling: A docopt bracket row's own trailing bare `|`-separated choice list never
+  attached as the flag's `choices`, whether it followed a bracketed
+  placeholder (`--units`) or stood in for the whole value spec
+  (`--configreport`). Scoped to the docopt bracket-row shape alone: an
+  identical `word|word` fragment on an ordinary row is at least as often
+  an alternative-value-type placeholder (`pkg-config`'s own
+  `--personality=triplet|filename`) as a real choice list, and nothing
+  about the shape alone tells the two apart. `value_name` keeps the raw
+  text unchanged; this only adds structure. `xtask detector`'s
+  `choices-after-optional-placeholder`
+  (`xtask/src/detector/choices_after_optional_placeholder.rs`) generalizes
+  this shape fleet-wide.
+- fleet: detector fires on 43 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved 43 tools with zero losses on the same sweep.
+### S-126: unheaded example block folds onto the preceding flag's description
+
+- id: S-126
+- looks like: |
+      -p PID, --pid PID  Trace this pid only
+
+        ./nfsslower         # trace operations slower than 10ms
+        ./nfsslower -j 1    # ... 1 ms, parsable output (csv)
+- tools: nfsslower-bpfcc
+- handling: Fixed. `flag_rows::example_block_starts_at` reads a deeper-
+  indented run of shell-invocation lines (`./`-prefixed, plus a real flag
+  token or a `#` comment) right after a flag's own described row, and
+  ends the row's continuation there instead of folding the block in.
+  `must_not_describe` (`xtask/src/corpus/mod.rs`), the mirror of
+  `must_not_contain_flags`, asserts the negative claim no other field
+  could state.
+- fleet: `examples-block-contaminates-last-flag`
+  (`xtask/src/detector/examples_block_contaminates_last_flag.rs`) fell
+  from 1 tool/1 finding to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+
+### S-127: positional's own description sits in a block right under the usage line
+
+- id: S-127
+- looks like: |
+      invoke-rc.d [options] <basename> <action> [extra parameters]
+
+        basename - Initscript ID, as per update-rc.d(8)
+        action   - Initscript action. Known actions are: ...
+- tools: invoke-rc.d
+- handling: Fixed. `usage::apply_positional_description_block` reads the
+  block right under the usage line, matches each row's name against a
+  positional the usage line already recovered, and attaches the rest as
+  that positional's own description; a same-indent row with no `-`
+  separator ends the block without discarding what was already read.
+  `must_describe_positional` (`xtask/src/corpus/mod.rs`), the positional
+  analogue of `must_describe`, asserts it.
+- fleet: `positional-description-block`
+  (`xtask/src/detector/positional_description_block.rs`) fell from 1
+  tool/2 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+
+### S-128: usage line's dash-prefixed generic placeholder invents a flag
+
+- id: S-128
+- looks like: |
+      usage: makeconv [-options] files...
+- tools: makeconv, cpan, enc2xs, h2ph, libnetcfg, ptar, ptardiff, splain,
+  lshw, xauth, xev, xkill, xwininfo, genbrk, gencfu, gencnval, gendict,
+  gensprep, icuexportdata, pkgdata
+- handling: Fixed. `usage::is_dash_prefixed_option_list_placeholder` reads
+  a usage token's first word, dash stripped: `options`/`option`/`opts`,
+  the same closed set `is_option_list_placeholder` already reads with no
+  leading dash, dropped before it ever reaches the flag grammar rather
+  than read as a spelling plus a glued value. Catches the plain form
+  (`[-options]`), perl's nested `[-OPTIONS [-MORE_OPTIONS]]`, and X11's
+  trailing-ellipsis `[-options ...]`, since only the first word is
+  compared.
+- fleet: `generic-option-placeholder-flag`
+  (`xtask/src/detector/generic_option_placeholder_flag.rs`) fell from 20
+  tools/20 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 20 flags
+  corrected (18 invented flags dropped, 2 value names repaired), 0 losses.
+
+### S-129: command row's argument placeholder rejects the whole name field
+
+- id: S-129
+- looks like: |
+      list-units [PATTERN...]             List units currently in memory
+      start UNIT...                       Start (activate) one or more units
+- tools: systemctl, systemd-creds, systemd-analyze, systemd-hwdb,
+  systemd-id128, busctl, hostnamectl, localectl, loginctl, networkctl,
+  parted, resolvectl, timedatectl, varlinkctl, appstreamcli
+- handling: Fixed. `emit_subcommands` first tries the whole name field as
+  a command name (unchanged); when that fails the shape test, it now
+  tries the field's own leading token instead, and accepts it only when
+  everything after it is nothing but uppercase-led placeholders
+  (`command_name_with_operand_placeholders`) — never a lowercase
+  continuation word, so a genuine dropped description is never
+  laundered into an operand. The placeholder text is kept verbatim as
+  the node's own `usage` line rather than parsed into positional
+  entities, since the shapes vary too widely to name each operand
+  without guessing. `docs/design.md` §7 Tier B rule 7 still applies to
+  the name alone.
+- fleet: `command-row-argument-placeholder`
+  (`xtask/src/detector/command_row_argument_placeholder.rs`) fell from
+  11 tools/90 findings (measured against the unfixed parser on the
+  15-tool systemd/util set the fix targets) to 3 tools/12 findings
+  fleet-wide in a full-`PATH` sweep, 2026-09-05: 15 tools gained
+  subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
+  does not reach; not investigated further this round.
+

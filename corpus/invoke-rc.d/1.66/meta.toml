@@ -15,17 +15,13 @@
 # reaches any other node either (not swallowed into the root's own
 # description the way `memhog`'s flag text is).
 #
-# No contract field can assert a positional's description the way
-# `must_describe` asserts a flag's: `check_must_describe`
-# (`xtask/src/corpus/contract.rs`) walks only `root.flags()`, and
-# `EntityKind::Positional` never appears there. A positional analogue of
-# `must_describe` would be the field to add. This is the one respect in
-# which this fixture is not fully described by its own contract, same as
-# `corpus/sg_luns/1.45`'s unfixed usage-join defect: recorded here in
-# prose, with no field to fail on it, so the fixture is not marked
-# `[xfail]` — `must_contain_positionals` genuinely passes today
-# (`basename` and `action` are both recovered by name), and every flag's
-# spelling and description were checked against the raw bytes and match.
+# Fixed (round 6, atlas S-127): `apply_positional_description_block`
+# (`mandible-extract/src/help_text/sections/usage.rs`) reads the block
+# right under the usage line, matches each row's name against a
+# positional the usage line already recovered, and attaches the rest of
+# the row as that positional's own description. `must_describe_positional`
+# (`xtask/src/corpus/mod.rs`), the positional analogue of `must_describe`,
+# asserts it below.
 #
 # USAGE also carries a spurious first form, the bare tool name, read off
 # the banner line "invoke-rc.d, Debian/SysVinit (/etc/rc?.d) initscript
@@ -54,6 +50,10 @@ expected_framework = "generic"
 min_status = "ok"
 must_contain_positionals = ["basename", "action"]
 verdict_scope = ["flags", "subcommands"]
+
+[contract.must_describe_positional]
+"basename" = "Initscript ID, as per update-rc.d(8)"
+"action" = "Initscript action. Known actions are"
 
 [contract.must_describe]
 "--quiet" = "Quiet mode, no error messages are generated."

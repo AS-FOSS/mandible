@@ -27,7 +27,7 @@ flags:
   - --pid
   value_name: PID
   value_kind: Required
-  description: 'Trace this pid only ./nfsslower # trace operations slower than 10ms ./nfsslower 1 # trace operations slower than 1ms ./nfsslower -j 1 # ... 1 ms, parsable output (csv) ./nfsslower 0 # trace all nfs operations ./nfsslower -p 121 # trace pid 121 only'
+  description: Trace this pid only
   provenance:
     sources:
     - help-text

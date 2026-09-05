@@ -470,7 +470,153 @@ fn vim_family_counts(
     ];
     counts.extend(round4_family_counts(&raw, root));
     counts.extend(round5_family_counts(&raw, root));
+    counts.extend(round6_family_counts(&raw, root));
+    counts.extend(round6_block_family_counts(&raw, root));
     counts
+}
+
+/// The spelling-grammar family detectors, atlas S-116 to S-120, split
+/// out for the same line-count reason as [`round4_family_counts`].
+fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let cg = crate::detector::comma_glued_option_value::detect(raw, root);
+    let hs = crate::detector::hash_in_spelling::detect(raw, root);
+    let nb = crate::detector::nested_bracket_value::detect(raw, root);
+    let cp = crate::detector::choices_after_optional_placeholder::detect(raw, root);
+    let sd = crate::detector::spaced_single_dash_long::detect(raw, root);
+    vec![
+        (
+            "comma-glued-option-value",
+            cg.finding_count(),
+            cg.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "-{} never became its own spelling, from {:?}",
+                        f.name, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "hash-in-spelling",
+            hs.finding_count(),
+            hs.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "-{} never became its own spelling, from {:?}",
+                        f.name, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "nested-bracket-value",
+            nb.finding_count(),
+            nb.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "-{} never carried {:?}, from {:?}",
+                        f.flag, f.source_spelling, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "choices-after-optional-placeholder",
+            cp.finding_count(),
+            cp.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "--{} never gained choices {:?}, from {:?}",
+                        f.long, f.choices, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "spaced-single-dash-long",
+            sd.finding_count(),
+            sd.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "-{} never became its own spelling, from {:?}",
+                        f.name, f.line
+                    )
+                })
+                .collect(),
+        ),
+    ]
+}
+
+/// The block-boundary family detectors, atlas S-126 to S-129 and S-114, split out
+/// for the same reason [`round4_family_counts`] is.
+fn round6_block_family_counts(
+    raw: &str,
+    root: &CommandNode,
+) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let eb = crate::detector::examples_block_contaminates_last_flag::detect(raw, root);
+    let pd = crate::detector::positional_description_block::detect(raw, root);
+    let gp = crate::detector::generic_option_placeholder_flag::detect(raw, root);
+    let cp = crate::detector::command_row_argument_placeholder::detect(raw, root);
+    let ds = crate::detector::description_subcommands_list::detect(raw, root);
+    vec![
+        (
+            "examples-block-contaminates-last-flag",
+            eb.finding_count(),
+            eb.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("-{} description carries a folded example block", f.flag))
+                .collect(),
+        ),
+        (
+            "positional-description-block",
+            pd.finding_count(),
+            pd.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} never described, from {:?}", f.name, f.description))
+                .collect(),
+        ),
+        (
+            "generic-option-placeholder-flag",
+            gp.finding_count(),
+            gp.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} invented a flag, from {:?}", f.token, f.line))
+                .collect(),
+        ),
+        (
+            "command-row-argument-placeholder",
+            cp.finding_count(),
+            cp.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} missing from the tree, from {:?}", f.name, f.line))
+                .collect(),
+        ),
+        (
+            "description-subcommands-list",
+            ds.finding_count(),
+            ds.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} missing from the tree", f.name))
+                .collect(),
+        ),
+    ]
 }
 
 /// The three round-5 detectors, each implementing [`crate::detector::

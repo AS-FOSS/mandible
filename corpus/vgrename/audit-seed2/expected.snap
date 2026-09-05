@@ -5,6 +5,9 @@ flags:
   - --autobackup
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: 'Common options for command:'
   provenance:
     sources:
@@ -20,6 +23,9 @@ flags:
   - --reportformat
   value_name: basic|json
   value_kind: Required
+  choices:
+  - basic
+  - json
   group: 'Common options for command:'
   provenance:
     sources:
@@ -86,6 +92,9 @@ flags:
   - --driverloaded
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: 'Common options for lvm:'
   provenance:
     sources:

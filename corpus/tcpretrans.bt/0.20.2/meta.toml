@@ -24,6 +24,25 @@
 # one space after `FILE` (`--include FILE add an #include...`), one
 # space narrower than every other row's gap, and the layout parser's
 # column detection needs a wider gap.
+#
+# Round 6 classified all three defects. (1) The joined-forms shape is the
+# `bpftrace` interpreter answering in place of the script, an entirely
+# different program from `tcpretrans.bt`; the tool-name mismatch that
+# blocks each form starting its own entry is `usage-program-word-mismatch`
+# (S-108), counted at 450 tools/562 findings fleet-wide, well over the
+# fix bar already. A fix is not in scope here: the rule exists precisely
+# to refuse an unrecognized leading word, and loosening it to accept ANY
+# name (not just a spelling variant of the tool's own) would let
+# unrelated text in a genuine usage block get swallowed as more forms
+# elsewhere, the exact fabrication risk the rule exists to prevent. (2)
+# `--include`'s single-space gap is the SAME root cause as
+# `single-space-description-column` (S-105, 9 tools/27 findings) but a
+# DIFFERENT row shape: that detector's own grammar
+# (`xtask/src/single_space_description_column.rs`) requires a `" | "`-
+# joined alias row, and `--include FILE` is one plain flag with a value,
+# no alias join at all. It is not literally counted in the 9/27 today;
+# generalizing the detector to plain flag+value rows needs its own
+# calibration this round did not reach.
 
 [bless]
 provenance = "agent"

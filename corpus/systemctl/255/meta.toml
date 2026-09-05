@@ -47,4 +47,4 @@ must_contain_flags = ["-h", "--version", "--system"]
 
 [xfail]
 broken = true
-reason = "74 command rows sit under seven headings; only the 18 whose name column is a single token (no argument placeholder alongside it) parse as subcommands, and every row carrying a placeholder (list-units [PATTERN...], start UNIT..., etc.) is dropped"
+reason = "fixed (round 6, atlas S-129): emit_subcommands now reads a row's leading token as the command name when the placeholder run after it is uppercase-led, recovering 71 of 74. The remaining 3 (set-property, mount-image, service-log-target) carry their description one space after the placeholder, narrower than every other row's gap, the single-space-description-column family's own shape on a plain flag row rather than a pipe-joined alias, so this parser's own fix does not reach them"

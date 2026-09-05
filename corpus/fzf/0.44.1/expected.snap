@@ -271,7 +271,7 @@ flags:
     - help-text
 - spellings:
   - --scrollbar
-  value_name: C1[C2
+  value_name: '[C1[C2]]'
   value_kind: Optional
   group: Layout
   description: Scrollbar character(s) (each for main and preview window)

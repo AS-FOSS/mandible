@@ -15,6 +15,10 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- Under a recognized command heading, a row whose name is followed by an argument placeholder (`list-units [PATTERN...]`, `start UNIT...`) now reaches the tree as that command, with the placeholder kept as its own usage line, instead of being dropped whole (`mandible systemctl`, `mandible systemd-creds`, and dozens more on a full-`PATH` sweep, docs/shapes.md S-129).
+- A usage line's own generic placeholder token, spelled with a leading dash (`[-options]`, `[-opts]`), no longer invents a short flag with a glued value name (`mandible makeconv`, docs/shapes.md S-128).
+- A block right under the usage line naming each positional's own description now reaches the tree, instead of leaving every positional undescribed (`mandible invoke-rc.d`, docs/shapes.md S-127).
+- An unheaded, more-indented run of worked-example lines right after a flag's own described row no longer folds onto that flag's description (`mandible nfsslower-bpfcc`, docs/shapes.md S-126).
 - The detail pane shows a flag's short spelling before its long one, always (`-d, --decode`, not `--decode, -d`), so the eye can track a column of flags without the alignment breaking mid-list.
 - A description that folds an enumerated list into one paragraph (`sg_luns --select`'s `0 -> ... 1 -> ...`) now starts a new line at each item; a lone `N -> M` range in ordinary prose is left alone.
 - Two rows a tool writes for one spelling keep their own descriptions instead of folding into one row that shows the first row's text beside the second row's value (`mandible vim.basic`'s `+` and `+<lnum>`, `mandible icupkg`'s three `-t, --type` rows, docs/shapes.md S-102).
@@ -34,6 +38,10 @@ once it reaches a published 0.1.0 release.
 - A usage line's trailing run of two or more operands now reaches the tree, each keeping its own optionality and repetition, instead of the recovery capping at one (`mandible xfs_mkfile`, `mandible unmkinitramfs`, `mandible applydeltarpm`, `mandible logsave`, `mandible filefrag`, `mandible xdriinfo`, `mandible claude`, `mandible nft`, `mandible gdk-pixbuf-pixdata`, docs/shapes.md S-109).
 - A usage continuation that spells the tool as a full path (`/usr/bin/ar`) or as a dotted stem now opens its own usage form, so `mandible ar` shows two forms and all four operands `member-name`, `count`, `archive-file` and `file` (docs/shapes.md S-108).
 - A `+`-prefixed option row (`+`, `+<lnum>`, `+<cmd>`) beside an ordinary `-`-flagged row now reaches the tree, instead of vanishing (`mandible vim`, `mandible nvim`, and eight more on a full-`PATH` sweep, docs/shapes.md S-095).
+- A single-dash spelling glued directly to a comma (`-Wa,<options>`, `-Wp,<options>`, `-Wl,<options>`) now reaches the tree as its own flag with the comma's own value, instead of truncating to `-W` and folding all three rows onto it, and renders with the comma glued to its value (`-Wa,<options>`) rather than a space that would imply an invocation the tool refuses (`mandible gcc`, `mandible g++`, docs/shapes.md S-116).
+- A single-dash spelling that is nothing but a run of `#` (`-###`) now reaches the tree whole, instead of truncating to `-#` with a fabricated value `##` (`mandible gcc`, `mandible g++`, docs/shapes.md S-118).
+- A short flag whose value spec is one bracket group with another bracket nested inside it (`-e[CHAR[WIDTH]]`) now keeps both closing brackets and its long alias, instead of losing the alias and the outer bracket at the row's first `]` (`mandible pr`, docs/shapes.md S-119).
+- A docopt bracket row's own trailing `|`-separated choice list (`--units [Number]r|R|h|...`, `--configreport log|vg|lv|pv|pvseg|seg`) now attaches as the flag's choices, instead of reaching the tree as unstructured text or being dropped outright (`mandible pvdisplay`, `mandible pvscan`, and the rest of the lvm2 tool family, docs/shapes.md S-120).
 
 ## [0.6.1] - 2026-09-01
 

@@ -126,24 +126,24 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: a,<options>
+  - -Wa
+  value_name: ',<options>'
   value_kind: Required
   description: Pass comma-separated <options> on to the assembler.
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: p,<options>
+  - -Wp
+  value_name: ',<options>'
   value_kind: Required
   description: Pass comma-separated <options> on to the preprocessor.
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: l,<options>
+  - -Wl
+  value_name: ',<options>'
   value_kind: Required
   description: Pass comma-separated <options> on to the linker.
   provenance:
@@ -244,9 +244,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -#
-  value_name: '##'
-  value_kind: Required
+  - -###
   description: Like -v but options quoted and commands not executed.
   provenance:
     sources:

@@ -71,6 +71,9 @@ flags:
   - --driverloaded
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: 'Common options for lvm:'
   provenance:
     sources:
@@ -143,6 +146,9 @@ flags:
   - --reportformat
   value_name: basic|json
   value_kind: Required
+  choices:
+  - basic
+  - json
   provenance:
     sources:
     - help-text-synopsis

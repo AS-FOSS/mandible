@@ -33,6 +33,27 @@ pub struct FlagSpec {
     pub value_name: Option<String>,
     /// Whether the value (if any) is required or optional.
     pub value_kind: ValueKind,
+    /// A bare `|`-separated choice list, when a caller recovered one from
+    /// the row alongside this spec (docs/shapes.md S-120) — e.g. a
+    /// docopt bracket row's own trailing list
+    /// (`flag_rows::trailing_choice_list`). Never populated by this
+    /// grammar's own generic value parsing: an identical `word|word`
+    /// fragment is at least as often an alternative-value-type
+    /// placeholder (`pkg-config`'s own `--personality=triplet|filename`)
+    /// as a real enumerated choice, and nothing about the shape alone
+    /// tells the two apart, so only a caller with a narrower, scoped
+    /// signal ever sets this field.
+    pub choices: Vec<String>,
+    /// Set when the value about to be parsed attaches to the spelling
+    /// just collected by a literal character other than whitespace
+    /// (`-Wa,<options>`'s comma, docs/shapes.md S-116) — the tool's own
+    /// invocation requires that exact character, so rendering the usual
+    /// space there would draw a syntax the tool refuses. Folded into
+    /// `value_name` itself once the value is parsed (kept off `Entity`
+    /// entirely), so `-Wa`'s value_name reads `",<options>"` and a
+    /// renderer need only check its first character, the same way it
+    /// already does for the argfile sigil flag's glued value.
+    pub(crate) value_prefix: Option<char>,
     /// True if the grammar consumed the entire fragment cleanly (no
     /// leftover text it didn't understand). Used for confidence scoring.
     pub fully_consumed: bool,
@@ -153,6 +174,19 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                         break;
                     }
                 }
+                // The comma-glued shape (docs/shapes.md S-116) is the
+                // only way `try_short` ever returns a multi-letter,
+                // all-alphabetic single-dash name with its own tail
+                // still starting `,`: the tool's own invocation requires
+                // that comma, so the value about to be read must render
+                // glued to it, never with the usual space.
+                if matches!(spelling.dashes, Dashes::Single)
+                    && spelling.name.chars().count() > 1
+                    && spelling.name.chars().all(|c| c.is_ascii_alphabetic())
+                    && tail.starts_with(',')
+                {
+                    spec.value_prefix = Some(',');
+                }
                 saw_explicit_anywhere |= explicit;
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
@@ -218,8 +252,14 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             return spec;
         };
         // First value wins: a repeated placeholder names one value once.
+        // `value_prefix` folds in here rather than living on past this
+        // function: the value's own glue character (`-Wa,<options>`'s
+        // comma) becomes the leading character of `value_name` itself.
         if spec.value_name.is_none() {
-            spec.value_name = Some(value_name);
+            spec.value_name = Some(match spec.value_prefix.take() {
+                Some(c) => format!("{c}{value_name}"),
+                None => value_name,
+            });
             spec.value_kind = kind;
         }
 
@@ -550,6 +590,45 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             ));
         }
     }
+    // A run of nothing but `#` (gcc's `-###`) is the whole spelling, never
+    // truncated to one character. See docs/shapes.md S-118.
+    if run.chars().count() > 1 && run.chars().all(|c| c == '#') {
+        return Some((
+            Spelling {
+                name: run.to_string(),
+                dashes: Dashes::Single,
+                negatable: false,
+                abbrev: None,
+            },
+            after_run,
+        ));
+    }
+    // A letter run directly glued to a comma with no following space
+    // (`-Wa,<options>`) is the whole spelling up to the comma; the value
+    // follows the comma. Two things this must never claim: a genuine
+    // alias separator, which always has a space before the next spelling
+    // (`-es, -Es`), and the existing glued-short-plus-raw-argument
+    // convention `help_text::sections::repair` already owns
+    // (`-Wl,-rpath=/usr/lib` — see `the_glued_value_convention_is_never_
+    // repaired_when_it_carries_an_equals`), which starts with another dash.
+    // Both are excluded by requiring what follows the comma to be neither
+    // whitespace nor a dash. See docs/shapes.md S-116.
+    if run.chars().count() > 1
+        && run.chars().all(|c| c.is_ascii_alphabetic())
+        && after_run
+            .strip_prefix(',')
+            .is_some_and(|rest| !rest.is_empty() && !rest.starts_with(['-', ' ', '\t']))
+    {
+        return Some((
+            Spelling {
+                name: run.to_string(),
+                dashes: Dashes::Single,
+                negatable: false,
+                abbrev: None,
+            },
+            after_run,
+        ));
+    }
     // No abbreviation bracket: an ordinary one-character short flag;
     // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;
@@ -679,6 +758,21 @@ fn value_inside_brackets<'s>(input: &mut &'s str) -> Res<&'s str> {
     take_while(1.., |c: char| c != ']').parse_next(input)
 }
 
+/// From right after a value spec's outer `[` (and optional `=`), the shape
+/// `A[B]` where `A` and `B` each carry no further bracket — one nested
+/// pair, nothing else. Returns the content up to and including `B`'s own
+/// closing `]` (so the caller's own outer `close_bracket`/`strip_prefix`
+/// consumes the true outer one), or `None` when what follows the inner
+/// close is anything but the outer close itself — a second adjacent inner
+/// group, or no nesting at all. See docs/shapes.md S-119.
+fn nested_bracket_content(s: &str) -> Option<&str> {
+    let inner_open = s.find('[')?;
+    let after_inner_open = &s[inner_open + 1..];
+    let inner_close_rel = after_inner_open.find(']')?;
+    let content_len = inner_open + 1 + inner_close_rel + 1;
+    s[content_len..].starts_with(']').then(|| &s[..content_len])
+}
+
 /// A value spec following the flag token(s): `=VALUE`, ` VALUE`,
 /// `[=VALUE]`, `[VALUE]`, `<value>`, or a bare uppercase-ish word. Returns
 /// `(value_name, kind, rest)`.
@@ -705,6 +799,20 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     // before the next `[`) is the only signal, structural not per-tool.
     if open_bracket(&mut s).is_ok() {
         let _has_eq = equals_sign(&mut s).is_ok();
+        // A single group with exactly one bracket nested inside it,
+        // nothing more (`pr`'s `-e[CHAR[WIDTH]]`): matched by depth, not
+        // by the first `]`, so both closing brackets and a trailing long
+        // alias survive. Refuses anything looser — a second adjacent
+        // inner group (`fzf-tmux`'s `[WIDTH[%][,HEIGHT[%]]]`) — which
+        // keeps the existing first-`]`-stops reading below. See
+        // docs/shapes.md S-119.
+        if let Some(content) = nested_bracket_content(s) {
+            let after_inner = &s[content.len()..];
+            let after_outer = after_inner
+                .strip_prefix(']')
+                .expect("nested_bracket_content only returns a prefix a `]` follows");
+            return Some((format!("[{content}]"), ValueKind::Optional, after_outer));
+        }
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
         let mut combined = name.to_string();
@@ -1283,6 +1391,99 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("[N][fname]"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
         assert!(spec.fully_consumed);
+    }
+
+    /// `g++ --help`'s own row, byte-exact (`corpus/aarch64-linux-gnu-g++-13`).
+    /// A letter run glued directly to a comma is the whole spelling up to
+    /// the comma, and the value follows it. See docs/shapes.md S-116.
+    #[test]
+    fn a_letter_run_glued_to_a_comma_is_the_whole_spelling() {
+        // `value_name` keeps the comma itself (docs/shapes.md S-116): the
+        // tool's own invocation requires it, so a renderer that dropped
+        // it and drew a space instead would show a syntax gcc refuses.
+        for (row, name, value) in [
+            ("-Wa,<options>", "Wa", ",<options>"),
+            ("-Wp,<options>", "Wp", ",<options>"),
+            ("-Wl,<options>", "Wl", ",<options>"),
+        ] {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.long(), Some(name), "{row}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{row}");
+            assert_eq!(spec.value_kind, ValueKind::Required, "{row}");
+            assert!(spec.fully_consumed, "{row}");
+        }
+    }
+
+    /// The compiler glued-value convention this rule must never touch: no
+    /// comma, so the leading letter alone is the spelling and the rest is
+    /// a glued value, exactly as before. See docs/shapes.md S-116.
+    #[test]
+    fn a_letter_run_with_no_comma_keeps_the_single_letter_glued_reading() {
+        for (row, letter, value) in [
+            ("-Idirectory", 'I', "directory"),
+            ("-Lpath", 'L', "path"),
+            ("-lname", 'l', "name"),
+        ] {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.short(), Some(letter), "{row}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{row}");
+        }
+    }
+
+    /// A comma directly followed by a real second alias is still an
+    /// ordinary alias separator, not this rule — `alias_follows` gates it.
+    #[test]
+    fn a_comma_that_really_introduces_an_alias_is_not_swallowed_as_a_name() {
+        let spec = parse_flag_spec("-x,--extra");
+        assert_eq!(spec.short(), Some('x'));
+        assert_eq!(spec.long(), Some("extra"));
+    }
+
+    /// `gcc --help`'s own row, byte-exact (`corpus/gcc/13.3.0`,
+    /// `corpus/aarch64-linux-gnu-g++-13`). A run of nothing but `#` is the
+    /// whole spelling, never truncated to one character. See
+    /// docs/shapes.md S-118.
+    #[test]
+    fn a_hash_run_is_the_whole_spelling() {
+        let spec = parse_flag_spec("-###");
+        assert_eq!(spec.long(), Some("###"));
+        assert_eq!(spec.value_name, None);
+        assert!(spec.fully_consumed);
+    }
+
+    /// `pr`'s own row, byte-exact (`corpus/pr`). A single bracketed value
+    /// with one bracket nested inside it, plus a long alias glued right
+    /// after: both closing brackets survive and the long alias lands on
+    /// the same entity. See docs/shapes.md S-119.
+    #[test]
+    fn a_nested_bracket_value_keeps_both_brackets_and_the_long_alias() {
+        for (row, short, long, value) in [
+            (
+                "-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]",
+                'e',
+                "expand-tabs",
+                "[CHAR[WIDTH]]",
+            ),
+            (
+                "-i[CHAR[WIDTH]], --output-tabs[=CHAR[WIDTH]]",
+                'i',
+                "output-tabs",
+                "[CHAR[WIDTH]]",
+            ),
+            (
+                "-n[SEP[DIGITS]], --number-lines[=SEP[DIGITS]]",
+                'n',
+                "number-lines",
+                "[SEP[DIGITS]]",
+            ),
+        ] {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.short(), Some(short), "{row}");
+            assert_eq!(spec.long(), Some(long), "{row}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{row}");
+            assert_eq!(spec.value_kind, ValueKind::Optional, "{row}");
+            assert!(spec.fully_consumed, "{row}");
+        }
     }
 
     /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names

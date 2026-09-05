@@ -12,17 +12,22 @@
 # codepage mapping files and write .cnv files" as one string. No contract
 # field asserts usage text, so this half is prose-only.
 #
-# The same fold invents a flag: `[-options]`, the usage line's own
-# placeholder token, becomes a trailing flag row `-o ptions` with no
-# description — `-o` read as the spelling and `ptions` as its value name,
-# neither of which the tool documents. `must_not_contain_flags = ["-o"]`
-# asserts the negative half (makeconv has no `-o`; every real option is
-# spelled `-h`/`-V`/`-c`/`-d`/`-v`/`-q`/`-s`/`--small`/
-# `--ignore-siso-check`).
+# Fixed (round 6, atlas S-128): `[-options]`, a usage line's own generic
+# placeholder spelled with a leading dash, no longer invents a flag.
+# `is_dash_prefixed_option_list_placeholder`
+# (`mandible-extract/src/help_text/sections/usage.rs`) drops the token
+# before it reaches the flag grammar. `must_not_contain_flags = ["-o"]`
+# passes for real now.
 #
-# `files` is the real positional (`files...` in the usage line), lost
-# behind the same fold since the parser reads that whole trailing region
-# as the invented flag's value name instead of an operand.
+# `files` stays lost. The tab-indented continuation still folds into the
+# usage text (the defect above), and `recover_primary_tail_operands` only
+# fires for a one-physical-line primary entry, so the fold blocks the
+# operand recovery collaterally. The continuation itself has no
+# terminating punctuation ("read .ucm codepage mapping files and write
+# .cnv files"), so `is_prose_sentence`'s existing hanging-indent guard
+# (S-003) never claims it either. A structurally sound fix needs its own
+# calibration against tools that write a genuine wrapped usage line with
+# no terminal punctuation, which this round did not reach.
 #
 # DESCRIPTION reads `options:` (the raw text's own next heading line,
 # lowercase, as the tool prints it) — a heading read as the root node's
@@ -57,4 +62,4 @@ must_contain_positionals = ["files"]
 
 [xfail]
 broken = true
-reason = "the usage line's own [-options] placeholder token is read as an invented flag '-o ptions' (no real -o exists); the tab-indented continuation describing the tool folds into the usage text itself, with no field to assert usage text; files, the real positional, is lost behind the same fold; the root description is the next heading line 'options:', a heading bleed with no field to name it"
+reason = "files, the real positional, is lost behind the tab-indented continuation folding into the usage text, with no field to assert usage text; the root description is the next heading line 'options:', a heading bleed with no field to name it"
