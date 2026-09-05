@@ -1759,7 +1759,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   keyed on spelling alone, and picks the value name and the description from
   different members. One row's description reaches no rendered surface. The
   extraction is correct and the loss happens after it.
-  Round 5 (`same-spelling-fold-loss`) fixed the merge half for vim.basic's
+  The `same-spelling-fold-loss` fix addresses the merge half, for vim.basic's
   own instance: `+` ("Start at end of file") and `+<lnum>` ("Start at line
   <lnum>") shared one identity key and disagreed about taking a value, so
   `mandible_core::merge::merge_entity_lists` picked one row's description
@@ -1777,8 +1777,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   as a second candidate) exercises it. Verified instead by unit tests in
   `mandible-core/src/merge.rs`
   (`same_source_rows_that_disagree_about_taking_a_value_stay_two_entities`)
-  and a pty screen of `./target/release/mandible vim.basic` the maintainer
-  captured. The remaining tools on this entry's list are `ffplay`, `gcc`,
+  and a pty screen of `./target/release/mandible vim.basic`, which shows
+  `+` with "Start at end of file" and `+<lnum>` with "Start at line
+  <lnum>" as two rows. The remaining tools on this entry's list are `ffplay`, `gcc`,
   `curl`, etc. — their same-spelling pairs are still open, since this fix
   addresses the value-disagreement/description-disagreement shape
   generally but was verified against vim.basic specifically.
@@ -1786,14 +1787,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   option's three literal choice values written once per row) sits one
   layer earlier, in extraction itself, and needs a different fix (folding
   the three rows into one entity's `choices`). A prototype was built and
-  moved only `icupkg` in a full-`PATH` sweep — below the five-tool bar —
-  so it was not shipped this round.
+  moved only `icupkg` in a full-`PATH` sweep, below the five-tool bar, so
+  it was not shipped. The merge half already restores the three rows'
+  own descriptions; what stays open is folding them into one option's
+  `choices`, which `corpus/icupkg/74.2` asserts.
 - fleet: 18 of 133 corpus fixtures carry a spelling on two entities with
   different descriptions, 2026-09-03. Measured loss between the extracted
   count and the rendered count: ffplay 1136 to 465, gcc 43 to 37, curl 258
   to 253, as 61 to 59, vim.basic 45 to 43, tar 159 to 157, du 29 to 28,
   expand 5 to 4. The merge-time fix is invisible to this instrument (see
-  above), so this count is unchanged by round 5. `same-spelling-fold-loss`
+  above), so the merge fix leaves this count where it was. `same-spelling-fold-loss`
   (`xtask/src/detector/same_spelling_fold_loss.rs`), wired into `xtask
   coverage`'s aggregate, reads **182 tools / 664 findings** in a full-`PATH`
   sweep of 2319 tools — clearing the five-tool bar by a wide margin, a
