@@ -757,6 +757,19 @@ fn names_a_value(member: &str) -> bool {
     !member.starts_with('-') && member.chars().any(|c| c.is_ascii_alphanumeric())
 }
 
+/// True when `token`'s first word, dash stripped, is an
+/// [`is_option_list_placeholder`] word (`makeconv`'s `[-options]`,
+/// perl's `[-OPTIONS [-MORE_OPTIONS]]`, X11's `[-options ...]`) — the
+/// author's generic "any option" placeholder, not a real flag. A tool
+/// with a real `-o` flag keeps it: only an exact placeholder word
+/// matches. See docs/shapes.md S-128.
+fn is_dash_prefixed_option_list_placeholder(token: &str) -> bool {
+    token
+        .strip_prefix('-')
+        .and_then(|rest| rest.split_whitespace().next())
+        .is_some_and(is_option_list_placeholder)
+}
+
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     let mut out: Vec<Entity> = Vec::new();
     // Running depth of an open parenthesized alternation group (LVM's
@@ -803,6 +816,12 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                     let mut flaggy: Vec<&str> = Vec::new();
                     for m in members {
                         if m.starts_with('-') {
+                            // The author's own generic "any option"
+                            // placeholder, not a flag — see
+                            // `is_dash_prefixed_option_list_placeholder`.
+                            if is_dash_prefixed_option_list_placeholder(m) {
+                                continue;
+                            }
                             flaggy.push(m);
                             continue;
                         }
@@ -839,6 +858,9 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                 }
                 UsageSegment::Bare(tok) => {
                     if tok.starts_with('-') {
+                        if is_dash_prefixed_option_list_placeholder(tok) {
+                            continue;
+                        }
                         // A mandatory flag some synopsis writes unbracketed
                         // (`ssh-keygen -D pkcs11`) is two bare tokens: the
                         // flag, then its required value with no group at
