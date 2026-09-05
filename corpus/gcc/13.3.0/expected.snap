@@ -244,9 +244,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -#
-  value_name: '##'
-  value_kind: Required
+  - -###
   description: Like -v but options quoted and commands not executed.
   provenance:
     sources:

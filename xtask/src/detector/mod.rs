@@ -46,6 +46,7 @@ mod render;
 // is already at its own size ceiling (spec AGENTS.md §2).
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod glued_optional_group_spelling;
+pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod or_joined_alias_with_values;
 pub(crate) mod underscore_in_long_option;
@@ -662,6 +663,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(OrJoinedAliasWithValues),
         Box::new(GluedOptionalGroupSpelling),
         Box::new(CommaGluedOptionValue),
+        Box::new(HashInSpelling),
     ]
 }
 

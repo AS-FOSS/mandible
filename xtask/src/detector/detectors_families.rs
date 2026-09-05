@@ -423,3 +423,33 @@ impl Detector for CommaGluedOptionValue {
         super::comma_glued_option_value::self_checks()
     }
 }
+
+pub(crate) struct HashInSpelling;
+
+impl Detector for HashInSpelling {
+    fn name(&self) -> &'static str {
+        "hash-in-spelling"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a single-dash spelling that is nothing but a run of `#` (`-###`) never reaches the \
+         tree as its own whole-run spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::hash_in_spelling::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::hash_in_spelling::self_checks()
+    }
+}

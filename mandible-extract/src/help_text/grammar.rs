@@ -550,6 +550,19 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             ));
         }
     }
+    // A run of nothing but `#` (gcc's `-###`) is the whole spelling, never
+    // truncated to one character. See docs/shapes.md S-118.
+    if run.chars().count() > 1 && run.chars().all(|c| c == '#') {
+        return Some((
+            Spelling {
+                name: run.to_string(),
+                dashes: Dashes::Single,
+                negatable: false,
+                abbrev: None,
+            },
+            after_run,
+        ));
+    }
     // A letter run directly glued to a comma with no following space
     // (`-Wa,<options>`) is the whole spelling up to the comma; the value
     // follows the comma. Two things this must never claim: a genuine
@@ -1352,6 +1365,18 @@ mod tests {
         let spec = parse_flag_spec("-x,--extra");
         assert_eq!(spec.short(), Some('x'));
         assert_eq!(spec.long(), Some("extra"));
+    }
+
+    /// `gcc --help`'s own row, byte-exact (`corpus/gcc/13.3.0`,
+    /// `corpus/aarch64-linux-gnu-g++-13`). A run of nothing but `#` is the
+    /// whole spelling, never truncated to one character. See
+    /// docs/shapes.md S-118.
+    #[test]
+    fn a_hash_run_is_the_whole_spelling() {
+        let spec = parse_flag_spec("-###");
+        assert_eq!(spec.long(), Some("###"));
+        assert_eq!(spec.value_name, None);
+        assert!(spec.fully_consumed);
     }
 
     /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names
