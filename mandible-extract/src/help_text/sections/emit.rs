@@ -343,8 +343,8 @@ pub(super) fn emit_subcommands(
         // e.g. `gh --help`'s `"auth:        Authenticate..."`) is
         // punctuation, never part of the name; strip before the shape
         // check. Framework-general, not gated on a specific one.
-        let trimmed = spec_text.trim().trim_end_matches(':').trim();
-        let whole = strip_optional_modifier_suffix(trimmed);
+        let row_spelling = spec_text.trim().trim_end_matches(':').trim();
+        let whole = strip_optional_modifier_suffix(row_spelling);
         if whole.is_empty() {
             continue;
         }
@@ -356,7 +356,9 @@ pub(super) fn emit_subcommands(
         // second name. See docs/shapes.md S-129.
         let (name, operand_spec) = if is_command_name_shaped(whole) {
             (whole, None)
-        } else if let Some((name, operand_spec)) = command_name_with_operand_placeholders(trimmed) {
+        } else if let Some((name, operand_spec)) =
+            command_name_with_operand_placeholders(row_spelling)
+        {
             (name, Some(operand_spec))
         } else {
             out.saw_unattributable_content = true;
@@ -367,6 +369,21 @@ pub(super) fn emit_subcommands(
         node.summary = non_empty_text(&desc_text);
         node.group = heading_can_name_a_group(heading).then(|| heading.to_string());
         node.children_filled = false;
+        // spec §4.5/docs/design.md §16: the row's own bracketed suffix
+        // (`r[ab][f][u]`) names both the accepted-modifier letters and the
+        // display spelling the commands pane keeps, distinct from `name`
+        // (spec §7 Tier B rule 3's name-shape test rejects the bracketed
+        // form). `None`/empty when the row carried no such suffix at all —
+        // the overwhelming common case.
+        // Only a row whose bracket-free name is the whole name (`r[ab][f][u]`)
+        // carries a modifier suffix; a row with an operand placeholder run
+        // (`list-units [PATTERN...]`, S-129) names operands, not modifiers.
+        if operand_spec.is_none() {
+            node.accepted_modifiers = accepted_modifiers_from_row(row_spelling);
+            if row_spelling != name {
+                node.display_name = Some(row_spelling.to_string());
+            }
+        }
         // Every call site is already gated on positive evidence of a real
         // command list (a recognized heading, a `command_mode` chain, or
         // argparse's `{choice,...}` pseudo-entry), so an entry recovered
@@ -467,6 +484,39 @@ pub fn strip_optional_modifier_suffix(name: &str) -> &str {
         &name[..open]
     } else {
         name
+    }
+}
+
+/// The accepted-modifier letters glued onto a command-table row's name via
+/// bracketed groups with no space (spec §4.5, docs/design.md §16):
+/// `r[ab][f][u]` names modifiers `a`, `b`, `f`, `u` — each bracket group's
+/// characters read one at a time, since `ar` documents each as its own row
+/// rather than as one multi-letter modifier. Empty unless the suffix is
+/// entirely well-formed `[...]` groups, the same shape
+/// [`strip_optional_modifier_suffix`] requires, so a stray bracket
+/// contributes nothing. Reads only a command-table row's own name field.
+pub fn accepted_modifiers_from_row(name: &str) -> Vec<char> {
+    let Some(open) = name.find('[') else {
+        return Vec::new();
+    };
+    if open == 0 {
+        return Vec::new();
+    }
+    let mut rest = &name[open..];
+    let mut letters = Vec::new();
+    while let Some(after_open) = rest.strip_prefix('[') {
+        match after_open.find(']') {
+            Some(close) => {
+                letters.extend(after_open[..close].chars());
+                rest = &after_open[close + 1..];
+            }
+            None => return Vec::new(),
+        }
+    }
+    if rest.is_empty() {
+        letters
+    } else {
+        Vec::new()
     }
 }
 
@@ -1329,5 +1379,91 @@ mod tests {
             .find(|e| e.short() == Some('p'))
             .expect("-p recovered");
         assert_eq!(p.value_name.as_deref(), Some("N"));
+    }
+
+    // --- spec §16 (item 4): the accepted-modifier row shape ---
+
+    /// `r[ab][f][u]` names modifiers `a`, `b`, `f`, `u` — each bracket
+    /// group's own characters, not one multi-letter token. `m[ab]` is a
+    /// two-letter group on its own, proving a group isn't limited to one
+    /// character.
+    #[test]
+    fn accepted_modifiers_from_row_reads_every_bracket_groups_own_letters() {
+        assert_eq!(
+            accepted_modifiers_from_row("r[ab][f][u]"),
+            vec!['a', 'b', 'f', 'u']
+        );
+        assert_eq!(accepted_modifiers_from_row("m[ab]"), vec!['a', 'b']);
+        assert_eq!(accepted_modifiers_from_row("q[f]"), vec!['f']);
+    }
+
+    /// A row with no bracket suffix at all — the common case — carries no
+    /// accepted modifiers.
+    #[test]
+    fn accepted_modifiers_from_row_is_empty_with_no_bracket_suffix() {
+        assert_eq!(accepted_modifiers_from_row("d"), Vec::<char>::new());
+    }
+
+    /// A stray, malformed bracket (never closed, or a `[` at the very
+    /// start) must never be read as a modifier group — this is prose or a
+    /// different shape, not this row convention.
+    #[test]
+    fn accepted_modifiers_from_row_rejects_malformed_or_leading_brackets() {
+        assert_eq!(accepted_modifiers_from_row("r[ab"), Vec::<char>::new());
+        assert_eq!(accepted_modifiers_from_row("[ab]"), Vec::<char>::new());
+        assert_eq!(
+            accepted_modifiers_from_row("r[ab]x"),
+            Vec::<char>::new(),
+            "trailing text after the last bracket group is not this shape"
+        );
+    }
+
+    /// The full pipeline, on `ar`'s own real `--help` text
+    /// (corpus/ar/audit-seed2): every one of the five bracketed command
+    /// rows recovers its accepted-modifier letters and its source
+    /// spelling as `display_name`; the three plain rows (`d`, `p`, `s`)
+    /// carry neither.
+    #[test]
+    fn ar_command_rows_recover_accepted_modifiers_and_display_name() {
+        let parsed = parse_named(AR_HELP, "ar");
+        let find = |name: &str| {
+            parsed
+                .subcommands
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap_or_else(|| panic!("ar subcommand {name:?} not recovered"))
+        };
+
+        let r = find("r");
+        assert_eq!(r.accepted_modifiers, vec!['a', 'b', 'f', 'u']);
+        assert_eq!(r.display_name.as_deref(), Some("r[ab][f][u]"));
+
+        let m = find("m");
+        assert_eq!(m.accepted_modifiers, vec!['a', 'b']);
+        assert_eq!(m.display_name.as_deref(), Some("m[ab]"));
+
+        let q = find("q");
+        assert_eq!(q.accepted_modifiers, vec!['f']);
+        assert_eq!(q.display_name.as_deref(), Some("q[f]"));
+
+        let t = find("t");
+        assert_eq!(t.accepted_modifiers, vec!['O', 'v']);
+        assert_eq!(t.display_name.as_deref(), Some("t[O][v]"));
+
+        let x = find("x");
+        assert_eq!(x.accepted_modifiers, vec!['o']);
+        assert_eq!(x.display_name.as_deref(), Some("x[o]"));
+
+        for plain in ["d", "p", "s"] {
+            let node = find(plain);
+            assert!(
+                node.accepted_modifiers.is_empty(),
+                "{plain} must carry no accepted modifiers"
+            );
+            assert_eq!(
+                node.display_name, None,
+                "{plain}'s own spelling equals its name, so display_name stays unset"
+            );
+        }
     }
 }

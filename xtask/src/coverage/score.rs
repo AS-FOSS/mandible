@@ -469,6 +469,7 @@ fn vim_family_counts(
         ),
     ];
     counts.extend(round4_family_counts(&raw, root));
+    counts.extend(round5_family_counts(&raw, root));
     counts.extend(round6_family_counts(&raw, root));
     counts.extend(round6_block_family_counts(&raw, root));
     counts
@@ -557,7 +558,7 @@ fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
     ]
 }
 
-/// The block-boundary family detectors, atlas S-126 to S-130, split out
+/// The block-boundary family detectors, atlas S-126 to S-129 and S-114, split out
 /// for the same reason [`round4_family_counts`] is.
 fn round6_block_family_counts(
     raw: &str,
@@ -616,6 +617,31 @@ fn round6_block_family_counts(
                 .collect(),
         ),
     ]
+}
+
+/// The three round-5 detectors, each implementing [`crate::detector::
+/// Detector`] directly rather than the bare `detect()`/`Report` shape the
+/// families above use — `hits()` is called through the trait, on the same
+/// already-fetched capture, still zero additional probes. Same (name,
+/// finding count, capped samples) shape as its caller.
+fn round5_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    use crate::detector::{Detector, ToolEvidence};
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let evidence = ToolEvidence { raw, root };
+    let detectors: Vec<Box<dyn Detector>> = vec![
+        Box::new(crate::detector::same_spelling_fold_loss::SameSpellingFoldLoss),
+        Box::new(crate::detector::bare_or_usage_separator::BareOrUsageSeparator),
+        Box::new(
+            crate::detector::usage_spelling_duplicates_table_row::UsageSpellingDuplicatesTableRow,
+        ),
+    ];
+    detectors
+        .iter()
+        .map(|d| {
+            let hits = d.hits(&evidence);
+            (d.name(), hits.len(), hits.into_iter().take(cap).collect())
+        })
+        .collect()
 }
 
 /// The six round-4 detectors (atlas S-106 to S-111), split out of

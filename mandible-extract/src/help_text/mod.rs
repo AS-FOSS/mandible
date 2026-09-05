@@ -371,7 +371,7 @@ impl ExtractionTier for HelpTextTier {
             let detected_framework = framework::identify_from_artifact(tool)
                 .or_else(|| framework::identify_from_help_text(&raw))
                 .map(|f| f.name().to_string());
-            let mut node = verbatim_node(&node_name, &raw, detected_framework);
+            let mut node = same_as_ancestor_node(&node_name, detected_framework);
             node.confession = confession;
             return Ok(node);
         }
@@ -928,6 +928,26 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     // node's `subcommands` list above. `confession` is set by the caller
     // (`HelpTextTier::extract_node`), the only place with the
     // confession-aware probe result this function doesn't see.
+    node
+}
+
+/// Build the same-as-ancestor node docs/design.md §16's ruling describes
+/// (spec [M-19]): rather than [`verbatim_node`]'s raw dump of the repeated
+/// text, this node carries no text of its own at all —
+/// `same_as_ancestor: true`, no `unparsed`. Merged against the
+/// parent-built stub already carrying this node's own
+/// `summary`/`accepted_modifiers`/`display_name` from the command-table
+/// row (spec §4.4's merge); this constructor only supplies what the probe
+/// itself learned, that the text repeated and which framework (if any) it
+/// identified.
+fn same_as_ancestor_node(name: &str, detected_framework: Option<String>) -> CommandNode {
+    let provenance = Provenance::with_confidence(Source::HelpText, 0.0);
+    let mut node = CommandNode::new(name, provenance);
+    node.same_as_ancestor = true;
+    node.detected_framework = detected_framework;
+    // One probe completed; this level's children are known-complete: none,
+    // per §16's ruling (no usage, no children, no flags).
+    node.children_filled = true;
     node
 }
 
@@ -1663,10 +1683,17 @@ mod tests {
             "this level is still known-complete (empty), just not \
              re-probed forever"
         );
+        // docs/design.md §16's ruling reverses the earlier
+        // verbatim-dump answer: this node carries no repeated text of its
+        // own at all, and `t` re-fetches the live document instead of
+        // reading a stashed copy here.
         assert!(
-            !child.unparsed.is_empty(),
-            "the raw text must still be available to the verbatim ('t') \
-             view even though nothing was promoted to structure"
+            child.same_as_ancestor,
+            "a node whose selected help repeats an ancestor's must say so"
+        );
+        assert!(
+            child.unparsed.is_empty(),
+            "a same-as-ancestor node carries no repeated text; 't' re-fetches live"
         );
     }
 
@@ -1749,14 +1776,13 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(repeated.children_filled, "the repeated level is complete");
-        assert_eq!(
-            repeated
-                .unparsed
-                .iter()
-                .map(Text::as_str)
-                .collect::<Vec<_>>(),
-            audit_raw.lines().collect::<Vec<_>>(),
-            "the selected help must remain available verbatim"
+        assert!(
+            repeated.same_as_ancestor,
+            "a document identical to a strict non-root ancestor must say so"
+        );
+        assert!(
+            repeated.unparsed.is_empty(),
+            "docs/design.md §16: no repeated text is carried; 't' re-fetches live"
         );
         let cache = tier
             .selected_text
@@ -1860,10 +1886,8 @@ mod tests {
         assert_ne!(alpha_raw, beta_raw);
         assert!(gamma.children_filled);
         assert!(gamma.subcommands.is_empty());
-        assert_eq!(
-            gamma.unparsed.iter().map(Text::as_str).collect::<Vec<_>>(),
-            alpha_raw.lines().collect::<Vec<_>>()
-        );
+        assert!(gamma.same_as_ancestor);
+        assert!(gamma.unparsed.is_empty());
     }
 
     /// Equality is meaningful only along one command path. Two siblings
@@ -2062,14 +2086,8 @@ mod tests {
             .expect("first's descendant still sees first's ancestor");
         assert!(repeated.children_filled);
         assert!(repeated.subcommands.is_empty());
-        assert_eq!(
-            repeated
-                .unparsed
-                .iter()
-                .map(Text::as_str)
-                .collect::<Vec<_>>(),
-            branch_raw.lines().collect::<Vec<_>>()
-        );
+        assert!(repeated.same_as_ancestor);
+        assert!(repeated.unparsed.is_empty());
     }
 
     /// A full document history records nothing more and never degrades a
@@ -2428,6 +2446,8 @@ mod tests {
             "this level is still known-complete (empty), just not \
              re-probed forever"
         );
+        assert!(child.same_as_ancestor);
+        assert!(child.unparsed.is_empty());
     }
 
     /// A transcript missing the argv this tier actually sends must miss

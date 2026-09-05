@@ -2,6 +2,14 @@
 
 use super::*;
 
+/// True for a short spelling (one dash, one character) — the same shape
+/// test `Entity::short_spelling` uses. Display-order only (spec §16, "short
+/// spellings before long ones"): the IR keeps source order, this function
+/// decides only how [`entity_name_spec`] reassembles it for the screen.
+fn is_short_spelling(s: &Spelling) -> bool {
+    matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1
+}
+
 /// An entity's spellings, e.g. `-i, --interactive` for a flag or
 /// `pathspec` for a positional — with a repeatable positional's `...`
 /// (spec §9.3).
@@ -15,9 +23,13 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
     // and it is a *list*, so a row documenting four spellings
     // (`-h, -?, -help, --help`) renders all four rather than the two a
     // short/long pair could hold.
-    let spellings = flag
-        .spellings
-        .iter()
+    // Shorts before longs, always (spec §16): display-side only, a stable
+    // sort so each group keeps its own source order and the IR's
+    // `spellings` vector is untouched.
+    let mut ordered: Vec<&Spelling> = flag.spellings.iter().collect();
+    ordered.sort_by_key(|s| !is_short_spelling(s));
+    let spellings = ordered
+        .into_iter()
         .map(Spelling::render)
         .collect::<Vec<_>>()
         .join(", ");
@@ -253,9 +265,18 @@ pub(super) fn entity_line(
             // One space past the head, or the column — whichever is
             // further right. They coincide for every row whose head fits.
             let start = column.max(prefix_width + 1);
-            let first = width
-                .checked_sub(start)
-                .and_then(|room| leading_words(&remainder, room));
+            let first = width.checked_sub(start).and_then(|room| {
+                // Never let the head's own line swallow a later
+                // enumerated item's opening token (spec §16): cap the
+                // room to the offset of the first enumerator break, if
+                // any, so `wrap_description` below still gets to start
+                // that item on its own line.
+                let room = match enumerator_breaks(&remainder).first() {
+                    Some(&cut) => room.min(display_width(&remainder[..cut])),
+                    None => room,
+                };
+                leading_words(&remainder, room)
+            });
             if let Some((first_chunk, rest)) = first {
                 first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
                 first_line_spans.push(Span::styled(first_chunk, desc_style));
@@ -274,7 +295,7 @@ pub(super) fn entity_line(
 
     let indent_str = " ".repeat(column);
     if !remainder.is_empty() {
-        for chunk in wrap_words(&remainder, rest_width) {
+        for chunk in wrap_description(&remainder, rest_width) {
             lines.push(Line::from(Span::styled(
                 format!("{indent_str}{chunk}"),
                 desc_style,

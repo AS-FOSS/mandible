@@ -81,6 +81,17 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
+    // A node whose own selected help repeats an ancestor's byte for byte
+    // (spec [M-19], docs/design.md §16's ruling) renders parsed and not
+    // repeated: its own description, one notice line, and its
+    // accepted-modifier list — no usage, no children, no flags. `t` still
+    // fetches this node's own live text regardless of this branch.
+    if node.same_as_ancestor {
+        render_same_as_ancestor(frame, inner, app, node);
+        draw_hscroll_affordance(frame, area, app);
+        return;
+    }
+
     // No plausible parse for this node (spec §7 Tier B staged
     // degradation): renders the tool's own raw `--help` text via
     // `render_verbatim` instead of structure.
@@ -283,6 +294,77 @@ fn render_verbatim(
     let paragraph = Paragraph::new(lines).scroll((scroll as u16, 0));
     frame.render_widget(paragraph, inner);
     draw_clip_marker_rails(frame, inner, app.color_enabled, &clip_rows, scroll);
+}
+
+/// Render a same-as-ancestor node (spec [M-19], docs/design.md §16's
+/// ruling): the node's own `summary` (the parent's row description), the
+/// fixed notice from `mandible_core::notice`, and an accepted-modifiers
+/// block when the row carried one — no `USAGE`/`POSITIONALS`/`FLAGS`. `t`
+/// still fetches this node's own live text; this is the parsed view only.
+///
+/// `node.accepted_modifiers` is bare letters (spec §4.5); each one's own
+/// description is looked up on the *parent's* `Modifier` entities by name,
+/// since the child's row never carries it a second time. A letter the
+/// parent's table doesn't document still renders, with no description.
+fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &CommandNode) {
+    let width = inner.width as usize;
+    let mut lines: Vec<Line<'static>> = Vec::new();
+
+    if app.horizontal_scroll_enabled {
+        app.set_detail_hextent(0, width);
+    }
+
+    if let Some(summary) = &node.summary {
+        for chunk in wrap_words(summary.as_str(), width) {
+            lines.push(Line::from(Span::styled(
+                chunk,
+                Style::default().add_modifier(ratatui::style::Modifier::BOLD),
+            )));
+        }
+    }
+
+    open_block(&mut lines, SECTION_BLANKS);
+    for chunk in wrap_words(mandible_core::notice::SAME_AS_ANCESTOR_NOTICE, width) {
+        lines.push(Line::from(chunk));
+    }
+
+    if !node.accepted_modifiers.is_empty() {
+        let parent = app.selected_node_parent();
+        let modifiers: Vec<Entity> = node
+            .accepted_modifiers
+            .iter()
+            .map(|&letter| {
+                parent
+                    .and_then(|p| {
+                        p.modifiers()
+                            .find(|m| m.primary_name() == letter.to_string())
+                            .cloned()
+                    })
+                    .unwrap_or_else(|| {
+                        Entity::modifier(letter, mandible_core::Provenance::default())
+                    })
+            })
+            .collect();
+        let refs: Vec<&Entity> = modifiers.iter().collect();
+
+        open_block(&mut lines, SECTION_BLANKS);
+        lines.push(heading_line_ruled(
+            "MODIFIERS",
+            Some(refs.len()),
+            width,
+            app.palette,
+            app.glyphs,
+        ));
+        let section = section_lines(&refs, width, 0, app.palette, None, app.glyphs);
+        lines.extend(section.lines);
+    }
+
+    app.set_detail_extent(lines.len(), inner.height as usize);
+    let scroll = app.clamped_detail_scroll();
+    let paragraph = Paragraph::new(lines)
+        .wrap(Wrap { trim: false })
+        .scroll((scroll as u16, 0));
+    frame.render_widget(paragraph, inner);
 }
 
 /// Draw the per-line clip markers into the padding gutters either side of
@@ -2705,6 +2787,118 @@ mod tests {
         assert_eq!(entity_name_spec(&verbose), "--verbose");
     }
 
+    /// Short spellings render before long ones, always (spec §16,
+    /// maintainer ruling). `sg_luns` documents `--decode|-d` —
+    /// long first in the tool's own text — and must still render
+    /// `-d, --decode`. Display-only: the IR's own `spellings` order is
+    /// untouched (asserted separately below).
+    #[test]
+    fn short_spellings_render_before_long_ones_even_when_documented_long_first() {
+        let mut decode = Entity::flag_long("decode", Provenance::single(Source::HelpText));
+        decode.spellings.push(Spelling::short('d'));
+        assert_eq!(decode.spellings[0].name, "decode", "IR order untouched");
+        assert_eq!(entity_name_spec(&decode), "-d, --decode");
+    }
+
+    /// A row with more than two spellings still sorts shorts first: every
+    /// short (one dash, one char) precedes every long, each group keeping
+    /// its own relative order.
+    #[test]
+    fn every_short_precedes_every_long_keeping_each_groups_own_order() {
+        let mut e = Entity::flag_long("help", Provenance::single(Source::HelpText));
+        e.spellings = vec![
+            Spelling::short('h'),
+            Spelling::long("help"),
+            Spelling::short('?'),
+            Spelling::single_dash("help"),
+        ];
+        assert_eq!(entity_name_spec(&e), "-h, -?, --help, -help");
+    }
+
+    // --- spec §16: enumerator continuation breaks (item 6, sg_luns) ---
+
+    /// The exact defect: `sg_luns --select`'s description folds its
+    /// enumerated items into one paragraph. `wrap_description` must start a
+    /// new line at each `N ->` opener, decimal and hex alike, without
+    /// dropping any word.
+    #[test]
+    fn wrap_description_starts_a_new_line_at_each_enumerator_arrow() {
+        let text = "select report SR (def: 0) 0 -> luns apart from 'well known' lus \
+                     1 -> only 'well known' logical unit numbers 2 -> all luns \
+                     0x10 -> administrative luns";
+        let lines = wrap_description(text, 200);
+        assert_eq!(
+            lines,
+            vec![
+                "select report SR (def: 0)",
+                "0 -> luns apart from 'well known' lus",
+                "1 -> only 'well known' logical unit numbers",
+                "2 -> all luns",
+                "0x10 -> administrative luns",
+            ]
+        );
+        // Nothing lost: every word from the source reappears somewhere.
+        let rejoined: String = lines.join(" ");
+        for word in text.split_whitespace() {
+            assert!(rejoined.contains(word), "lost {word:?}: {lines:?}");
+        }
+    }
+
+    /// A description with no enumerator token wraps exactly as
+    /// `wrap_words` already did — this rule must never fire on ordinary
+    /// prose.
+    #[test]
+    fn wrap_description_is_unchanged_for_ordinary_prose() {
+        let text = "be more talkative about what is happening";
+        assert_eq!(wrap_description(text, 200), wrap_words(text, 200));
+    }
+
+    /// A single `N -> M` sitting alone in otherwise ordinary prose is a
+    /// range, not a list — `sg_luns --maxlen`'s real description. It must
+    /// never be force-broken: at a width the whole thing already fits in,
+    /// it must come back as one line, exactly as `wrap_words` would.
+    /// Found by a pty screenshot: an earlier draft of this rule broke
+    /// `"(def:"` onto its own ragged line here.
+    #[test]
+    fn wrap_description_does_not_break_a_lone_arrow_range() {
+        let text = "max response length (allocation length in cdb) (def: 0 -> 8192 bytes)";
+        assert_eq!(wrap_description(text, 200), wrap_words(text, 200));
+        assert_eq!(wrap_description(text, 200), vec![text]);
+    }
+
+    /// A bullet list (`- `/`* `) also opens a new line per item.
+    #[test]
+    fn wrap_description_starts_a_new_line_at_each_bullet() {
+        let text = "one of: - alpha the first - beta the second * gamma the third";
+        let lines = wrap_description(text, 200);
+        assert_eq!(
+            lines,
+            vec![
+                "one of:",
+                "- alpha the first",
+                "- beta the second",
+                "* gamma the third",
+            ]
+        );
+    }
+
+    /// `N:` (a colon glued straight onto a numeric key, no arrow) also
+    /// opens a new line.
+    #[test]
+    fn wrap_description_starts_a_new_line_at_a_colon_keyed_item() {
+        let text = "exit codes: 0: success 1: generic failure 2: usage error";
+        let lines = wrap_description(text, 200);
+        assert_eq!(
+            lines,
+            vec![
+                "exit codes:",
+                "0: success",
+                "1: generic failure",
+                "2: usage error",
+            ]
+        );
+    }
+
     /// The ellipsis is measured as part of the head, not drawn past it:
     /// a name the section's column was fitted to must not overrun that
     /// column by the three characters the pane added after measuring.
@@ -3352,6 +3546,126 @@ mod tests {
         assert!(rendered.contains("unparsed"), "{rendered}");
         assert!(rendered.contains("a friendly banner"), "{rendered}");
         assert!(rendered.contains("and nothing else"), "{rendered}");
+    }
+
+    /// A same-as-ancestor node (spec [M-19], docs/design.md §16's
+    /// ruling), `ar`'s `r[ab][f][u]` shape: its own summary, the
+    /// fixed notice, and its accepted-modifier letters with the
+    /// descriptions looked up from the *parent's* own modifier table — no
+    /// USAGE, no FLAGS, no repeated raw text anywhere on screen.
+    #[test]
+    fn same_as_ancestor_node_renders_summary_notice_and_accepted_modifiers() {
+        use crate::app::App;
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut root = CommandNode::new("ar", Provenance::single(Source::HelpText));
+        for (letter, desc) in [
+            ('a', "put file(s) after [member-name]"),
+            ('b', "put file(s) before [member-name]"),
+            ('f', "truncate inserted file names"),
+            ('u', "only replace files newer than current archive"),
+        ] {
+            let mut m = Entity::modifier(letter, Provenance::single(Source::HelpText));
+            m.description = Some(Text::sanitize(desc));
+            root.entities.push(m);
+        }
+
+        let mut r = CommandNode::new("r", Provenance::with_confidence(Source::HelpText, 0.0));
+        r.summary = Some(Text::sanitize(
+            "replace existing or insert new file(s) into the archive",
+        ));
+        r.same_as_ancestor = true;
+        r.accepted_modifiers = vec!['a', 'b', 'f', 'u'];
+        r.display_name = Some("r[ab][f][u]".to_string());
+        r.children_filled = true;
+        root.subcommands.push(r);
+
+        let mut app = App::new("ar".to_string(), root);
+        app.selected = 1; // the "r" row, directly under the already-expanded root
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| {
+                let area = frame.area();
+                render(frame, area, &app);
+            })
+            .unwrap();
+        let rendered: String = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<Vec<_>>()
+            .join("");
+
+        assert!(
+            rendered.contains("replace existing or insert new file(s) into the archive"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains(mandible_core::notice::SAME_AS_ANCESTOR_NOTICE),
+            "{rendered}"
+        );
+        assert!(rendered.contains("MODIFIERS (4)"), "{rendered}");
+        assert!(
+            rendered.contains("put file(s) before [member-name]"),
+            "a described letter must show the *parent's* own description: {rendered}"
+        );
+        assert!(!rendered.contains("USAGE"), "{rendered}");
+        assert!(!rendered.contains("FLAGS"), "{rendered}");
+        assert!(!rendered.contains("unparsed"), "{rendered}");
+    }
+
+    /// The same shape, but the parent's row carried no modifiers at all
+    /// (spec §16: "the rule holds whether or not modifiers exist") — no
+    /// MODIFIERS heading renders, just the summary and the notice.
+    #[test]
+    fn same_as_ancestor_node_with_no_modifiers_renders_summary_and_notice_only() {
+        use crate::app::App;
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        let mut root = CommandNode::new("systemctl", Provenance::single(Source::HelpText));
+        let mut status =
+            CommandNode::new("status", Provenance::with_confidence(Source::HelpText, 0.0));
+        status.summary = Some(Text::sanitize("Show runtime status of one or more units"));
+        status.same_as_ancestor = true;
+        status.children_filled = true;
+        root.subcommands.push(status);
+
+        let mut app = App::new("systemctl".to_string(), root);
+        app.selected = 1;
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal
+            .draw(|frame| {
+                let area = frame.area();
+                render(frame, area, &app);
+            })
+            .unwrap();
+        let rendered: String = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<Vec<_>>()
+            .join("");
+
+        assert!(
+            rendered.contains("Show runtime status of one or more units"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains(mandible_core::notice::SAME_AS_ANCESTOR_NOTICE),
+            "{rendered}"
+        );
+        assert!(!rendered.contains("MODIFIERS"), "{rendered}");
+        assert!(!rendered.contains("unparsed"), "{rendered}");
     }
 
     /// The verbatim fallback draws the author's own columns (spec §4.1's

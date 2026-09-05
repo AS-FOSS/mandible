@@ -494,6 +494,20 @@ pub struct NodeSnapshot {
     /// overwhelmingly common case, no confession printed at all.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confession: Option<ConfessionSnapshot>,
+    /// True when this node's own help fingerprinted as identical to a
+    /// strict ancestor's (spec [M-19], docs/design.md §16's ruling).
+    /// Omitted for the overwhelmingly common case, false.
+    #[serde(skip_serializing_if = "is_false")]
+    pub same_as_ancestor: bool,
+    /// The accepted-modifier letters a parent's own command-table row
+    /// documented for this subcommand, e.g. `[a, b, f, u]` for `ar`'s
+    /// `r[ab][f][u]`. Omitted when the row carried none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub accepted_modifiers: Vec<char>,
+    /// The row's own source spelling, when it differs from `name`. Omitted
+    /// for the overwhelmingly common case, no bracket suffix to keep.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
 }
 
 /// Snapshot form of [`crate::node::Confession`].
@@ -565,6 +579,9 @@ impl From<&CommandNode> for NodeSnapshot {
             // sort, no re-grouping.
             subcommands: n.subcommands.iter().map(NodeSnapshot::from).collect(),
             confession: n.confession.as_ref().map(ConfessionSnapshot::from),
+            same_as_ancestor: n.same_as_ancestor,
+            accepted_modifiers: n.accepted_modifiers.clone(),
+            display_name: n.display_name.clone(),
         }
     }
 }

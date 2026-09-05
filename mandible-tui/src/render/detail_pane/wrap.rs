@@ -168,6 +168,101 @@ pub(super) fn wrap_words(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
+/// True when `s` (a single word, no surrounding punctuation) reads as an
+/// enumerator's own key: a decimal run (`"0"`, `"12"`) or a `0x`-prefixed
+/// hex run (`"0x10"`) — `sg_luns --select`'s continuation lines number
+/// their entries both ways in the same list. Never a bare `x`/`0x` with
+/// nothing after it.
+fn is_enumerator_key(s: &str) -> bool {
+    match s.strip_prefix("0x") {
+        Some(hex) => !hex.is_empty() && hex.chars().all(|c| c.is_ascii_hexdigit()),
+        None => !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()),
+    }
+}
+
+/// `text` split into `(byte_offset, word)` pairs at whitespace boundaries —
+/// [`str::split_whitespace`] plus the offsets it doesn't give, needed to
+/// cut `text` at a word start rather than re-tokenizing it after the fact.
+fn word_offsets(text: &str) -> Vec<(usize, &str)> {
+    let mut out = Vec::new();
+    let mut chars = text.char_indices().peekable();
+    while let Some(&(start, c)) = chars.peek() {
+        if c.is_whitespace() {
+            chars.next();
+            continue;
+        }
+        let mut end = start;
+        while let Some(&(idx, c)) = chars.peek() {
+            if c.is_whitespace() {
+                break;
+            }
+            end = idx + c.len_utf8();
+            chars.next();
+        }
+        out.push((start, &text[start..end]));
+    }
+    out
+}
+
+/// True when `word` (at position `i` in `words`) opens an enumerated item:
+/// a token shaped `N ->`, `N:`, a bare `-`, or a bare `*`, where `N` is
+/// [`is_enumerator_key`]-shaped.
+fn opens_enumerated_item(words: &[(usize, &str)], i: usize) -> bool {
+    let word = words[i].1;
+    matches!(word, "-" | "*")
+        || (is_enumerator_key(word) && words.get(i + 1).is_some_and(|(_, w)| *w == "->"))
+        || (word.len() > 1 && word.ends_with(':') && is_enumerator_key(&word[..word.len() - 1]))
+}
+
+/// Byte offsets in `text` where an enumerated item opens (spec §16's
+/// enumerator-continuation rule), never the very first word — that item
+/// already opens its own segment by construction.
+///
+/// Empty unless at least *two* items open somewhere in `text` (counting
+/// the first word too): a lone `N ->` sitting in otherwise ordinary prose
+/// (`sg_luns --maxlen`'s `"(def: 0 -> 8192 bytes)"`) is a range, not a
+/// list, and forcing a break there would make an already-fitting line
+/// ragged for nothing. `sg_luns --select`'s six `N ->` openers are what
+/// this rule exists for.
+pub(super) fn enumerator_breaks(text: &str) -> Vec<usize> {
+    let words = word_offsets(text);
+    let opens: Vec<usize> = (0..words.len())
+        .filter(|&i| opens_enumerated_item(&words, i))
+        .collect();
+    if opens.len() < 2 {
+        return Vec::new();
+    }
+    opens
+        .into_iter()
+        .filter(|&i| i > 0)
+        .map(|i| words[i].0)
+        .collect()
+}
+
+/// [`wrap_words`], but a description never folds two enumerated items onto
+/// one wrapped line (spec §16, `sg_luns --select`'s `0 -> ... 1 -> ...`
+/// paragraph): `text` is first cut at every [`enumerator_breaks`] offset,
+/// each resulting segment wrapped independently, so an item's continuation
+/// still wraps at `width` but a new item always starts its own line. No
+/// text is dropped or reordered — a description with no such token wraps
+/// exactly as [`wrap_words`] already did.
+pub(super) fn wrap_description(text: &str, width: usize) -> Vec<String> {
+    let breaks = enumerator_breaks(text);
+    if breaks.is_empty() {
+        return wrap_words(text, width);
+    }
+    let mut lines = Vec::new();
+    let mut start = 0;
+    for cut in breaks.into_iter().chain(std::iter::once(text.len())) {
+        let segment = text[start..cut].trim();
+        if !segment.is_empty() {
+            lines.extend(wrap_words(segment, width));
+        }
+        start = cut;
+    }
+    lines
+}
+
 /// Break a single token wider than `width` display columns into as many
 /// width-limited chunks as it takes, so the token survives intact rather
 /// than being lost to an ellipsis truncation. Splits by summed

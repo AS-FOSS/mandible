@@ -38,35 +38,28 @@
 # 0)` is followed by an indented enumerated continuation (`0 -> ...`, `1 ->
 # ...`, up to `0x12 -> ...`), and the renderer folds that continuation into
 # one paragraph. No text is lost; every line survives inside the collapsed
-# description. This is a display question, not answered by any ruling yet,
-# and no ruling answers it.
+# description. It is a display question and no ruling answers it.
 #
 # There is no `[contract]` field for a usage form, so this is stated in
 # prose instead. The raw block documents two synopsis forms:
 # `sg_luns [--decode] ... DEVICE` and `sg_luns --test=ALUN [...]`, separated
-# by a line reading `     or`. VERIFIED FACT: the extracted tree's `usage`
-# list holds two entries, and the first one ends `... [--version] DEVICE
-# or` — the bare `or` line is joined onto the end of the first usage form
-# rather than kept as its own separator or attached to the second form. This
-# is the same joining round 3 found on screen at 400 columns before any
-# round-3 change (`docs/design.md` §16's "USAGE soft-wraps" entry), and it
-# is still present in this build; no `[contract]` field can assert it, so it
-# is recorded here as a checked fact instead. The target shape a fix must
-# produce: the `usage` list must hold two forms, and the first must not end
-# in the word `or`. No `[contract]` field can assert a usage form, so
-# `expected.snap` is what will freeze that shape once it is fixed and
-# reblessed.
+# by a line reading `     or`. That bare separator used to be joined onto
+# the end of the first form, so the first form read `... [--version]
+# DEVICE or`. It is fixed: a usage line whose only content is the word
+# `or`, in any case, with an optional trailing colon, is a form separator
+# and contributes no text to either form
+# (`mandible-extract/src/help_text/sections/usage.rs`'s
+# `is_bare_or_form_separator`, docs/shapes.md S-112).
+# VERIFIED FACT (`cargo run -p xtask -- corpus --show sg_luns/1.45`): the
+# extracted tree's `usage` list holds two entries, the first now ending
+# `... [--version] DEVICE` with no trailing `or`, the second unchanged.
+# No `[contract]` field can assert a usage form, so the re-blessed
+# `expected.snap` is what freezes that shape.
 #
-# Promoted once the underscore split was fixed, so this fixture now carries
-# an expected.snap. One field inside that snapshot is known to be wrong and
-# is frozen anyway, and a reader must not take the promotion as a claim
-# that it is right: the first usage form still ends `... DEVICE or`,
-# because the raw block's bare separator line `     or` is joined onto the
-# end of the first form rather than kept as a separator. No `[contract]`
-# field can assert a usage form, so nothing here can fail on it. The rest
-# of the tree was read against the raw bytes row by row before the bless:
-# 13 flags, every one carrying both its spellings in source order and its
-# own description, plus the `DEVICE` positional.
+# Re-blessed after that fix; the rest of the tree was read against the raw
+# bytes row by row before the original bless and is untouched by this
+# change: 13 flags, every one carrying both its spellings in source order
+# and its own description, plus the `DEVICE` positional.
 
 [bless]
 provenance = "agent"

@@ -334,6 +334,11 @@ fn scan_usage_section(
     // trailing bracket-row flags) apart from an ordinary between-
     // stanza blank line. Reset unconditionally elsewhere.
     let mut just_closed_paren_group = false;
+    // True for exactly the one loop iteration right after a bare `or`
+    // form-separator line was consumed — forces the next physical line to
+    // start a fresh usage entry even when it carries no marker or own-name
+    // evidence of its own. See `is_bare_or_form_separator`.
+    let mut force_new_entry_after_separator = false;
     i += 1;
     while i < lines.len() {
         let l = lines[i];
@@ -450,13 +455,29 @@ fn scan_usage_section(
             paren_group_depth = paren_depth_delta(trimmed_start);
         }
         just_closed_paren_group = false;
+        if is_bare_or_form_separator(trimmed_start) {
+            // spec: a usage line whose only content is the word `or` (any
+            // case, optional trailing colon) is a pure separator between
+            // two usage forms, contributing no text to either one —
+            // distinct from `or:` followed by real content on the same
+            // line, which `starts_with_or_marker` already handles.
+            // `sg_luns` writes its second synopsis form after a line
+            // holding only `or`; without this, the word read as an
+            // ordinary continuation and glued onto the end of the first
+            // form's last token. See docs/shapes.md and
+            // corpus/sg_luns/1.45.
+            force_new_entry_after_separator = true;
+            i += 1;
+            continue;
+        }
         let is_marker =
             starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
         let is_own_name = tool_name.is_some_and(|name| {
             starts_with_tool_name(trimmed_start, name)
                 || starts_with_tool_name_spelled_differently(trimmed_start, name)
         });
-        let starts_new_entry = is_marker || is_own_name;
+        let starts_new_entry = is_marker || is_own_name || force_new_entry_after_separator;
+        force_new_entry_after_separator = false;
 
         // A line the one above it ended with a backslash is a
         // continuation by the tool's own explicit statement, and no

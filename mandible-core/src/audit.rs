@@ -700,7 +700,7 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   property of the tool, not of the parser",
     },
     // The ten families the seed-7 audit produced, atlas S-116 to S-120 and
-    // S-126 to S-130. Each has its own detector under `xtask/src/detector/`
+    // S-126 to S-129 and S-114. Each has its own detector under `xtask/src/detector/`
     // and its own fleet count in the coverage aggregate footer.
     DefectFamily {
         name: "comma-glued-option-value",

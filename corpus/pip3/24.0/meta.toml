@@ -1,0 +1,72 @@
+# Captured to check whether docs/design.md §16's same-as-ancestor ruling
+# (2026-09-04) can be demonstrated on `pip3` the way `corpus/ar/audit-seed2`
+# demonstrates it. It cannot, today. Facts established, each checked
+# directly rather than assumed:
+#
+# `pip3 config debug --help` is byte-identical to `pip3 config --help`,
+# checked with `cmp`. That half of the ruling's precondition holds: `debug`
+# really would be a same-as-ancestor node if it reached the tree at all.
+#
+# It does not reach the tree. `config`'s six actions — `list`, `edit`,
+# `get`, `set`, `unset`, `debug` — are not recovered as subcommands: a
+# throwaway unit test calling the real parser (`parse_named`) directly on
+# the captured `pip3 config --help` text returns `subcommands: []`, and the
+# live TUI agrees — `mandible pip3`, expanding `config`, shows no chevron
+# and no children. The six rows sit in a bulleted list (`- list: List the
+# active configuration...`) under a `Subcommands:` sub-heading indented two
+# columns inside the `Description:` prose block. No recognizer in the
+# layout parser fires on that shape: it is not a top-level `Commands:`-style
+# heading (spec §7 Tier B rule 6), not an argparse `{choice,...}` pseudo-
+# entry (pip customizes its own formatter, so that shape never appears
+# either), and no existing rule reads a bulleted sub-list nested inside
+# prose as a command block.
+#
+# `config` is pip3's only candidate. Every one of pip3's 17 root-level
+# commands was captured and hashed against the root's own `--help`
+# (`md5sum`); all 17 hash distinct, so there is no other same-as-ancestor
+# instance anywhere else in this tool.
+#
+# The same-as-ancestor ruling cannot be demonstrated on `pip3` until a
+# recognizer for this shape exists. This fixture stays green — every
+# `[contract]` assertion below holds against the current parse, there is
+# no broken behavior to mark `[xfail]` here — and it is what that future
+# recognizer gets tested against: once it recovers `config`'s six actions,
+# this fixture's `min_subcommands`/`must_contain_flags_by_path` need
+# updating and `debug` becomes assertable as same-as-ancestor the way
+# `ar`'s bracketed rows are today. See docs/shapes.md's two new candidate
+# entries for the shape itself and a related one found while reading this
+# tool's usage forms; both are deliberately unimplemented (AGENTS.md §3.1:
+# a new heuristic needs a fleet-wide five-tool gain, not a single-tool
+# fixture).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pip3"
+version = "24.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8), pip 24.0"
+
+[[capture]]
+argv = ["pip3", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["pip3", "config", "--help"]
+stdout = "config-help.txt"
+
+[contract]
+# `mandible --doctor pip3` reports framework: unidentified, so Tier A'
+# found no fingerprint and the generic layout engine handled it.
+expected_framework = "generic"
+min_status = "ok"
+# The real count of root-level commands: install, download, uninstall,
+# freeze, inspect, list, show, check, config, search, cache, index, wheel,
+# hash, completion, debug, help.
+min_subcommands = 17
+must_contain_flags = ["--isolated", "--proxy", "--no-cache-dir"]
+# `config`'s own flags, from its captured `--help` above. Its six actions
+# are not among them — see the note above for why.
+[contract.must_contain_flags_by_path]
+config = ["--editor", "--global", "--user", "--site"]

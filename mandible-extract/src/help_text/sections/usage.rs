@@ -28,6 +28,17 @@ pub fn starts_with_or_marker(t: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// True if `t`'s only content, once trimmed, is the word `or` — any case —
+/// with an optional trailing colon: `sg_luns`' bare second-form separator
+/// (`corpus/sg_luns/1.45`), one whole physical line with nothing else on
+/// it. Distinct from [`starts_with_or_marker`], which matches an `or:`
+/// *prefix* even when real form content follows the colon on the same
+/// line (`ip`'s `or: ip link ...`); a line this predicate matches carries
+/// no such content and must contribute none to either usage form.
+pub fn is_bare_or_form_separator(t: &str) -> bool {
+    t.trim().trim_end_matches(':').eq_ignore_ascii_case("or")
+}
+
 /// True if `t` (already trimmed of leading whitespace) begins with `name`
 /// at a word boundary. Lets a tool that repeats its own name across lines
 /// with no `or:`/`usage:` marker read as two entries rather than one
@@ -997,17 +1008,27 @@ pub(super) fn shared_operand(rest: &str) -> Option<String> {
 /// and an existing flag is never altered here, only left alone or joined.
 /// A one-letter abbreviation bracket also counts as a short-letter match:
 /// `ip`'s `[ -force ]` reads as `-f` glued to `"orce"` on the short path,
-/// but the table documents it as `-f[amily]` (long-like). See S-088.
+/// but the table documents it as `-f[amily]` (long-like). Checked against
+/// every spelling `f` carries, not only its primary pick — `-h, -?,
+/// --help` reports `short() == Some('h')`, so `-?` used to read as
+/// absent. See S-088, `corpus/icupkg/74.2`.
 pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Entity]) -> bool {
     existing.iter().any(|f| {
-        (candidate.long().is_some() && f.long() == candidate.long())
-            || (candidate.short().is_some() && f.short() == candidate.short())
-            || (candidate.short().is_some()
-                && f.spellings.iter().any(|s| {
-                    matches!(s.dashes, Dashes::Single)
-                        && s.abbrev == Some(1)
-                        && s.name.chars().next() == candidate.short()
-                }))
+        f.spellings.iter().any(|s| {
+            let is_long_like = matches!(s.dashes, Dashes::Double)
+                || (matches!(s.dashes, Dashes::Single) && s.name.chars().count() > 1);
+            let is_short = matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1;
+            let is_abbrev_bracket = matches!(s.dashes, Dashes::Single) && s.abbrev == Some(1);
+            (candidate.long().is_some()
+                && is_long_like
+                && Some(s.name.as_str()) == candidate.long())
+                || (candidate.short().is_some()
+                    && is_short
+                    && s.name.chars().next() == candidate.short())
+                || (candidate.short().is_some()
+                    && is_abbrev_bracket
+                    && s.name.chars().next() == candidate.short())
+        })
     })
 }
 
