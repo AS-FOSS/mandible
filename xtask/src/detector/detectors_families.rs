@@ -453,3 +453,34 @@ impl Detector for HashInSpelling {
         super::hash_in_spelling::self_checks()
     }
 }
+
+pub(crate) struct NestedBracketValue;
+
+impl Detector for NestedBracketValue {
+    fn name(&self) -> &'static str {
+        "nested-bracket-value"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a short flag's value spec is one bracket group with a bracket nested inside it \
+         (`-e[CHAR[WIDTH]]`), and the tree's value name for that flag is not the row's own \
+         bracketed spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::nested_bracket_value::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never carried the source spelling {:?}, from {:?}",
+                    f.flag, f.source_spelling, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::nested_bracket_value::self_checks()
+    }
+}

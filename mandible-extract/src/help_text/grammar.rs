@@ -718,6 +718,21 @@ fn value_inside_brackets<'s>(input: &mut &'s str) -> Res<&'s str> {
     take_while(1.., |c: char| c != ']').parse_next(input)
 }
 
+/// From right after a value spec's outer `[` (and optional `=`), the shape
+/// `A[B]` where `A` and `B` each carry no further bracket — one nested
+/// pair, nothing else. Returns the content up to and including `B`'s own
+/// closing `]` (so the caller's own outer `close_bracket`/`strip_prefix`
+/// consumes the true outer one), or `None` when what follows the inner
+/// close is anything but the outer close itself — a second adjacent inner
+/// group, or no nesting at all. See docs/shapes.md S-119.
+fn nested_bracket_content(s: &str) -> Option<&str> {
+    let inner_open = s.find('[')?;
+    let after_inner_open = &s[inner_open + 1..];
+    let inner_close_rel = after_inner_open.find(']')?;
+    let content_len = inner_open + 1 + inner_close_rel + 1;
+    s[content_len..].starts_with(']').then(|| &s[..content_len])
+}
+
 /// A value spec following the flag token(s): `=VALUE`, ` VALUE`,
 /// `[=VALUE]`, `[VALUE]`, `<value>`, or a bare uppercase-ish word. Returns
 /// `(value_name, kind, rest)`.
@@ -744,6 +759,20 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     // before the next `[`) is the only signal, structural not per-tool.
     if open_bracket(&mut s).is_ok() {
         let _has_eq = equals_sign(&mut s).is_ok();
+        // A single group with exactly one bracket nested inside it,
+        // nothing more (`pr`'s `-e[CHAR[WIDTH]]`): matched by depth, not
+        // by the first `]`, so both closing brackets and a trailing long
+        // alias survive. Refuses anything looser — a second adjacent
+        // inner group (`fzf-tmux`'s `[WIDTH[%][,HEIGHT[%]]]`) — which
+        // keeps the existing first-`]`-stops reading below. See
+        // docs/shapes.md S-119.
+        if let Some(content) = nested_bracket_content(s) {
+            let after_inner = &s[content.len()..];
+            let after_outer = after_inner
+                .strip_prefix(']')
+                .expect("nested_bracket_content only returns a prefix a `]` follows");
+            return Some((format!("[{content}]"), ValueKind::Optional, after_outer));
+        }
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
         let mut combined = name.to_string();
@@ -1377,6 +1406,41 @@ mod tests {
         assert_eq!(spec.long(), Some("###"));
         assert_eq!(spec.value_name, None);
         assert!(spec.fully_consumed);
+    }
+
+    /// `pr`'s own row, byte-exact (`corpus/pr`). A single bracketed value
+    /// with one bracket nested inside it, plus a long alias glued right
+    /// after: both closing brackets survive and the long alias lands on
+    /// the same entity. See docs/shapes.md S-119.
+    #[test]
+    fn a_nested_bracket_value_keeps_both_brackets_and_the_long_alias() {
+        for (row, short, long, value) in [
+            (
+                "-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]",
+                'e',
+                "expand-tabs",
+                "[CHAR[WIDTH]]",
+            ),
+            (
+                "-i[CHAR[WIDTH]], --output-tabs[=CHAR[WIDTH]]",
+                'i',
+                "output-tabs",
+                "[CHAR[WIDTH]]",
+            ),
+            (
+                "-n[SEP[DIGITS]], --number-lines[=SEP[DIGITS]]",
+                'n',
+                "number-lines",
+                "[SEP[DIGITS]]",
+            ),
+        ] {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.short(), Some(short), "{row}");
+            assert_eq!(spec.long(), Some(long), "{row}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{row}");
+            assert_eq!(spec.value_kind, ValueKind::Optional, "{row}");
+            assert!(spec.fully_consumed, "{row}");
+        }
     }
 
     /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names

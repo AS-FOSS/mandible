@@ -681,13 +681,17 @@ fn entity_matches_flag_spec(entity: &Entity, spec: &str) -> bool {
                 && s.name == long
         })
     } else if let Some(short) = spec.strip_prefix('-') {
-        short.chars().next().is_some_and(|c| {
-            entity.spellings.iter().any(|s| {
-                matches!(s.dashes, Dashes::Single)
-                    && s.name.chars().count() == 1
-                    && s.name.starts_with(c)
-            })
-        })
+        // Exact match against any single-dash spelling, whatever its
+        // length — a single-dash query names the whole flag, `-Wa` and
+        // `-fdump-scos` (docs/shapes.md S-116/S-087) included, not merely
+        // a short flag's first letter. A one-character query (`-x`) is
+        // the same check: `s.name == short` already matches a
+        // single-character entity named `x`, so there is no separate
+        // first-letter case left to fall back to.
+        entity
+            .spellings
+            .iter()
+            .any(|s| matches!(s.dashes, Dashes::Single) && s.name == short)
     } else {
         entity.spellings.iter().any(|s| s.name == spec)
     }

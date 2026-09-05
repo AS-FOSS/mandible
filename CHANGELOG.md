@@ -30,6 +30,8 @@ once it reaches a published 0.1.0 release.
 - A `+`-prefixed option row (`+`, `+<lnum>`, `+<cmd>`) beside an ordinary `-`-flagged row now reaches the tree, instead of vanishing (`mandible vim`, `mandible nvim`, and eight more on a full-`PATH` sweep, docs/shapes.md S-095).
 - A single-dash spelling glued directly to a comma (`-Wa,<options>`, `-Wp,<options>`, `-Wl,<options>`) now reaches the tree as its own flag with the comma's own value, instead of truncating to `-W` and folding all three rows onto it (`mandible gcc`, `mandible g++`, docs/shapes.md S-116).
 - A single-dash spelling that is nothing but a run of `#` (`-###`) now reaches the tree whole, instead of truncating to `-#` with a fabricated value `##` (`mandible gcc`, `mandible g++`, docs/shapes.md S-118).
+- A short flag whose value spec is one bracket group with another bracket nested inside it (`-e[CHAR[WIDTH]]`) now keeps both closing brackets and its long alias, instead of losing the alias and the outer bracket at the row's first `]` (`mandible pr`, docs/shapes.md S-119).
+- A short flag whose value spec is one bracket group with another bracket nested inside it (`-e[CHAR[WIDTH]]`) now keeps both closing brackets and its long alias, instead of losing the alias and the outer bracket at the row's first `]` (`mandible pr`, docs/shapes.md S-119).
 
 ## [0.6.1] - 2026-09-01
 
