@@ -387,3 +387,39 @@ impl Detector for GluedOptionalGroupSpelling {
         super::glued_optional_group_spelling::self_checks()
     }
 }
+
+// Round-6 detectors, atlas id S-116 upward. No labelled seed-2 entry
+// describes any of these shapes — `gcc`'s own seed-2 note is about a
+// different defect (`--help={common|...}`) — so each returns `family:
+// None` (spec §13.1e rule 6: not calibratable is a first-class, honest
+// answer, never a label invented to fill the cell).
+
+pub(crate) struct CommaGluedOptionValue;
+
+impl Detector for CommaGluedOptionValue {
+    fn name(&self) -> &'static str {
+        "comma-glued-option-value"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a single-dash spelling directly glued to a comma (`-Wa,<options>`) never reaches the \
+         tree as its own whole-run spelling"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::comma_glued_option_value::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::comma_glued_option_value::self_checks()
+    }
+}

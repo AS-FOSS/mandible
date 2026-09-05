@@ -44,6 +44,7 @@ mod render;
 // Round-4 family detectors (atlas S-106 to S-111). Nested here, unlike the
 // earlier detector modules under `xtask/src/`, because `xtask/src/main.rs`
 // is already at its own size ceiling (spec AGENTS.md §2).
+pub(crate) mod comma_glued_option_value;
 pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod or_joined_alias_with_values;
@@ -660,6 +661,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(MultiOperandUsageTail),
         Box::new(OrJoinedAliasWithValues),
         Box::new(GluedOptionalGroupSpelling),
+        Box::new(CommaGluedOptionValue),
     ]
 }
 

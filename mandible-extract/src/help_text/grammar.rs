@@ -550,6 +550,32 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             ));
         }
     }
+    // A letter run directly glued to a comma with no following space
+    // (`-Wa,<options>`) is the whole spelling up to the comma; the value
+    // follows the comma. Two things this must never claim: a genuine
+    // alias separator, which always has a space before the next spelling
+    // (`-es, -Es`), and the existing glued-short-plus-raw-argument
+    // convention `help_text::sections::repair` already owns
+    // (`-Wl,-rpath=/usr/lib` — see `the_glued_value_convention_is_never_
+    // repaired_when_it_carries_an_equals`), which starts with another dash.
+    // Both are excluded by requiring what follows the comma to be neither
+    // whitespace nor a dash. See docs/shapes.md S-116.
+    if run.chars().count() > 1
+        && run.chars().all(|c| c.is_ascii_alphabetic())
+        && after_run
+            .strip_prefix(',')
+            .is_some_and(|rest| !rest.is_empty() && !rest.starts_with(['-', ' ', '\t']))
+    {
+        return Some((
+            Spelling {
+                name: run.to_string(),
+                dashes: Dashes::Single,
+                negatable: false,
+                abbrev: None,
+            },
+            after_run,
+        ));
+    }
     // No abbreviation bracket: an ordinary one-character short flag;
     // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;
@@ -1283,6 +1309,49 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("[N][fname]"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
         assert!(spec.fully_consumed);
+    }
+
+    /// `g++ --help`'s own row, byte-exact (`corpus/aarch64-linux-gnu-g++-13`).
+    /// A letter run glued directly to a comma is the whole spelling up to
+    /// the comma, and the value follows it. See docs/shapes.md S-116.
+    #[test]
+    fn a_letter_run_glued_to_a_comma_is_the_whole_spelling() {
+        for (row, name, value) in [
+            ("-Wa,<options>", "Wa", "<options>"),
+            ("-Wp,<options>", "Wp", "<options>"),
+            ("-Wl,<options>", "Wl", "<options>"),
+        ] {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.long(), Some(name), "{row}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{row}");
+            assert_eq!(spec.value_kind, ValueKind::Required, "{row}");
+            assert!(spec.fully_consumed, "{row}");
+        }
+    }
+
+    /// The compiler glued-value convention this rule must never touch: no
+    /// comma, so the leading letter alone is the spelling and the rest is
+    /// a glued value, exactly as before. See docs/shapes.md S-116.
+    #[test]
+    fn a_letter_run_with_no_comma_keeps_the_single_letter_glued_reading() {
+        for (row, letter, value) in [
+            ("-Idirectory", 'I', "directory"),
+            ("-Lpath", 'L', "path"),
+            ("-lname", 'l', "name"),
+        ] {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.short(), Some(letter), "{row}");
+            assert_eq!(spec.value_name.as_deref(), Some(value), "{row}");
+        }
+    }
+
+    /// A comma directly followed by a real second alias is still an
+    /// ordinary alias separator, not this rule — `alias_follows` gates it.
+    #[test]
+    fn a_comma_that_really_introduces_an_alias_is_not_swallowed_as_a_name() {
+        let spec = parse_flag_spec("-x,--extra");
+        assert_eq!(spec.short(), Some('x'));
+        assert_eq!(spec.long(), Some("extra"));
     }
 
     /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names

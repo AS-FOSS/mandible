@@ -469,7 +469,29 @@ fn vim_family_counts(
         ),
     ];
     counts.extend(round4_family_counts(&raw, root));
+    counts.extend(round6_family_counts(&raw, root));
     counts
+}
+
+/// The round-6 parser-A detectors (atlas ids S-116 upward), split out for
+/// the same line-count reason as [`round4_family_counts`].
+fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let cg = crate::detector::comma_glued_option_value::detect(raw, root);
+    vec![(
+        "comma-glued-option-value",
+        cg.finding_count(),
+        cg.findings
+            .iter()
+            .take(cap)
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect(),
+    )]
 }
 
 /// The six round-4 detectors (atlas S-106 to S-111), split out of
