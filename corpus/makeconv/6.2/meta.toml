@@ -1,0 +1,60 @@
+# Maintainer, seed 7, verdict "wrong": "false positive '-o ptions', and
+# usage section has some description leaked into it. Hard to detect,
+# fix? or skip?" Machine classification: stratum "ok".
+#
+# Everything makeconv writes goes to stderr; exit code is 1.
+# `help.stderr.txt`'s first two lines:
+#   usage: makeconv [-options] files...
+#           read .ucm codepage mapping files and write .cnv files
+# The second line is a tab-indented continuation of the usage synopsis,
+# describing what the tool does. The parsed tree folds it into the usage
+# line itself: `usage` reads "makeconv [-options] files... read .ucm
+# codepage mapping files and write .cnv files" as one string. No contract
+# field asserts usage text, so this half is prose-only.
+#
+# The same fold invents a flag: `[-options]`, the usage line's own
+# placeholder token, becomes a trailing flag row `-o ptions` with no
+# description — `-o` read as the spelling and `ptions` as its value name,
+# neither of which the tool documents. `must_not_contain_flags = ["-o"]`
+# asserts the negative half (makeconv has no `-o`; every real option is
+# spelled `-h`/`-V`/`-c`/`-d`/`-v`/`-q`/`-s`/`--small`/
+# `--ignore-siso-check`).
+#
+# `files` is the real positional (`files...` in the usage line), lost
+# behind the same fold since the parser reads that whole trailing region
+# as the invented flag's value name instead of an operand.
+#
+# DESCRIPTION reads `options:` (the raw text's own next heading line,
+# lowercase, as the tool prints it) — a heading read as the root node's
+# summary, the same heading-bleed shape as `aarch64-linux-gnu-g++-13`'s
+# `Options:` in this same batch. No contract field states what the root
+# description must not be, so this is prose-only too.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "makeconv"
+version = "6.2"                      # makeconv --version: "makeconv
+                                     # version 6.2, ICU tool to read .ucm
+                                     # codepage mapping files..." (icu-devtools
+                                     # 74.2-1ubuntu3.1 ships it, a different
+                                     # version scheme from ICU's own release)
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); icu-devtools 74.2-1ubuntu3.1"
+
+# makeconv --help exits 1 and writes everything to stderr.
+[[capture]]
+argv = ["makeconv", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_not_contain_flags = ["-o"]
+must_contain_positionals = ["files"]
+
+[xfail]
+broken = true
+reason = "the usage line's own [-options] placeholder token is read as an invented flag '-o ptions' (no real -o exists); the tab-indented continuation describing the tool folds into the usage text itself, with no field to assert usage text; files, the real positional, is lost behind the same fold; the root description is the next heading line 'options:', a heading bleed with no field to name it"
