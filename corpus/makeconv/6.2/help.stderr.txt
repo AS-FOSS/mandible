@@ -1,0 +1,15 @@
+usage: makeconv [-options] files...
+	read .ucm codepage mapping files and write .cnv files
+options:
+	-h or -? or --help  this usage text
+	-V or --version     show a version message
+	-c or --copyright   include a copyright notice
+	-d or --destdir     destination directory, followed by the path
+	-v or --verbose     Turn on verbose output
+	-q or --quiet       do not display warnings and progress
+	-s or --sourcedir   source directory, followed by the path
+	      --small       Generate smaller .cnv files. They will be
+	                    significantly smaller but may not be compatible with
+	                    older versions of ICU and will require heap memory
+	                    allocation when loaded.
+	      --ignore-siso-check         Use SI/SO other than 0xf/0xe.

@@ -1,0 +1,79 @@
+name: makeconv
+description: 'options:'
+usage:
+- 'usage: makeconv [-options] files... read .ucm codepage mapping files and write .cnv files'
+flags:
+- spellings:
+  - -h
+  - -?
+  - --help
+  description: this usage text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: show a version message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --copyright
+  description: include a copyright notice
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --destdir
+  description: destination directory, followed by the path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Turn on verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: do not display warnings and progress
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --sourcedir
+  description: source directory, followed by the path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --small
+  description: Generate smaller .cnv files. They will be significantly smaller but may not be compatible with older versions of ICU and will require heap memory allocation when loaded.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-siso-check
+  description: Use SI/SO other than 0xf/0xe.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: ptions
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

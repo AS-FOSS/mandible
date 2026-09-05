@@ -1,0 +1,55 @@
+# Maintainer, seed 7, verdict "wrong": "the description of '-p PID' got
+# contaminated with the usage examples". Machine classification: stratum
+# "ok".
+#
+# `help.txt`'s options block ends with `-p PID, --pid PID  Trace this pid
+# only`, followed by a blank line, then an unheaded, four-space-indented
+# example block (`./nfsslower # trace operations slower than 10ms`, and
+# four more lines in the same shape). VERIFIED FACT (`cargo run -p xtask
+# -- corpus --show nfsslower-bpfcc/0.29.1`): `-p`'s description is "Trace
+# this pid only ./nfsslower # trace operations slower than 10ms
+# ./nfsslower 1 # trace operations slower than 1ms ./nfsslower -j 1 # ...
+# 1 ms, parsable output (csv) ./nfsslower 0 # trace all nfs operations
+# ./nfsslower -p 121 # trace pid 121 only" — the whole trailing example
+# block, folded on.
+#
+# `must_describe["-p"] = "Trace this pid only"` passes today: the check
+# is a substring match, and the real text is still present, just followed
+# by everything the example block added. No field asserts an *exact*
+# description or a maximum length, so nothing here can turn the
+# contamination into a failing check; it is recorded as a guard only,
+# same shape `corpus/sg_luns/1.45` uses for its own known-but-unassertable
+# residual (that fixture's own header comment names the pattern). A
+# negative field asserting a description must NOT contain some text (a
+# `must_not_describe`, the mirror of `must_not_contain_flags` one level
+# down) would express this; it does not exist today.
+#
+# Everything else in the tree checks out against the raw bytes: `min_ms`
+# is the one positional, correctly optional; `-h`/`--help` and `-j`/`--csv`
+# both carry their own, uncontaminated descriptions; `expected_framework`
+# correctly detects argparse.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nfsslower-bpfcc"
+version = "0.29.1"                   # nfsslower-bpfcc has no --version
+                                     # (rejects the flag); dpkg package
+                                     # bpfcc-tools 0.29.1+ds-1ubuntu7 ships it.
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); bpfcc-tools 0.29.1+ds-1ubuntu7"
+
+[[capture]]
+argv = ["nfsslower-bpfcc", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "argparse"
+must_contain_positionals = ["min_ms"]
+verdict_scope = ["flags", "subcommands"]
+
+[contract.must_describe]
+"-h" = "show this help message and exit"
+"-j" = "just print fields: comma-separated values"
+"-p" = "Trace this pid only"
