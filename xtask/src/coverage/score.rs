@@ -481,6 +481,7 @@ fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
     let hs = crate::detector::hash_in_spelling::detect(raw, root);
     let nb = crate::detector::nested_bracket_value::detect(raw, root);
     let cp = crate::detector::choices_after_optional_placeholder::detect(raw, root);
+    let sd = crate::detector::spaced_single_dash_long::detect(raw, root);
     vec![
         (
             "comma-glued-option-value",
@@ -534,6 +535,20 @@ fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
                     format!(
                         "--{} never gained choices {:?}, from {:?}",
                         f.long, f.choices, f.line
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "spaced-single-dash-long",
+            sd.finding_count(),
+            sd.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "-{} never became its own spelling, from {:?}",
+                        f.name, f.line
                     )
                 })
                 .collect(),

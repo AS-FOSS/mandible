@@ -514,3 +514,33 @@ impl Detector for ChoicesAfterOptionalPlaceholder {
         super::choices_after_optional_placeholder::self_checks()
     }
 }
+
+pub(crate) struct SpacedSingleDashLong;
+
+impl Detector for SpacedSingleDashLong {
+    fn name(&self) -> &'static str {
+        "spaced-single-dash-long"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "an uppercase-led single-dash long option whose value is spaced, not glued \
+         (`-Xassembler <arg>`), reaches the tree truncated to its flag letter"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::spaced_single_dash_long::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::spaced_single_dash_long::self_checks()
+    }
+}

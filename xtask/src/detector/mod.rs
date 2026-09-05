@@ -51,6 +51,7 @@ pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
 pub(crate) mod or_joined_alias_with_values;
+pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
@@ -668,6 +669,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(HashInSpelling),
         Box::new(NestedBracketValue),
         Box::new(ChoicesAfterOptionalPlaceholder),
+        Box::new(SpacedSingleDashLong),
     ]
 }
 

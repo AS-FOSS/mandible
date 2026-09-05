@@ -1,17 +1,11 @@
 //! `choices-after-optional-placeholder` (atlas S-120): a docopt bracket
 //! row's own trailing bare `|`-separated choice list (`pvdisplay`'s own
 //! `--units [Number]r|R|h|...`, `--configreport
-//! log|vg|lv|pv|pvseg|seg`) never attaches as the flag's `choices`,
-//! whether the trailing list follows a bracketed placeholder or stands
-//! in for the whole value spec on its own.
+//! log|vg|lv|pv|pvseg|seg`) never attaches as the flag's `choices`.
 //!
-//! Reimplements the row shape independently rather than importing
-//! `mandible_extract::help_text::sections`'s own private
-//! `bracket_flag_row_content`/`trailing_choice_list` (crate-internal,
-//! `pub(super)`) — the same "reimplement, don't import" choice
-//! `usage_program_word_mismatch` already makes, so this detector can
-//! never disagree with the fix only by drifting out of sync with a
-//! private helper it can't see change.
+//! Reimplements the row shape rather than importing
+//! `help_text::sections`'s own private, crate-internal helpers — the
+//! same choice `usage_program_word_mismatch` already makes.
 //!
 //! Fixtures: `corpus/pvdisplay/2.03.16/`.
 
