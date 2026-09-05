@@ -1319,7 +1319,11 @@ into structured entities.
     in a usage placeholder is not an environment variable, and a heading
     that only mentions "operation" without one-word invocation verbs
     beneath it is not a modifier table.
-17. Every recognizer above is admitted only after being checked against the
+17. A usage synopsis's nested optional positionals, written `[A [B]]`,
+    flatten to an ordered list of optional positionals. Position carries
+    the dependency (`B` only makes sense once `A` is given), so the
+    nesting itself adds nothing a flat, ordered list does not already say.
+18. Every recognizer above is admitted only after being checked against the
     full frozen `PATH` capture set, never assumed from one tool alone
     (§13.1e).
 
@@ -2755,6 +2759,22 @@ source spelling `r[ab][f][u]` stays as the display name in the commands
 pane. The maintainer also asked whether usage propagates to such a node:
 it does not, since the node has no usage of its own and the notice
 replaces it.
+
+**A snap launcher can fail before the target program ever runs
+(2026-09-04).** `lxd.check-kernel`'s `--help` reached a snap launcher,
+which hands `--help` to the wrapped application instead of reading it
+itself. The capture failed inside snap before anything ran: snap exited 46
+because it could not create `/root/snap` under the scrubbed `HOME`, and
+could not open `/proc/<pid>/cgroup` inside the unshare. Nothing ran and
+nothing was written. This is the [M-11] class, "`--help` is not reliably
+read-only," one step earlier: the launcher itself failed, not the target.
+The verdict "wrong" stands, since the screen showed an error dump. No
+parser change follows. Snap launchers are a hazard class worth naming.
+
+**busybox is skipped indefinitely (2026-09-05).** The maintainer ruled:
+"we should skip busybox indefinitely, since it's too large, and feels
+like redo of things we already did." No busybox fixture, no busybox
+family, and no busybox count follow from this decision.
 
 ### Deferred, with the reason each is not simply undone
 

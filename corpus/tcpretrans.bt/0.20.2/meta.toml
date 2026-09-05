@@ -1,0 +1,55 @@
+# Maintainer, seed 7, verdict "wrong": "bad usage line". Machine
+# classification: stratum "ok".
+#
+# `tcpretrans.bt` is a bpftrace script; `--help` is answered by the
+# `bpftrace` interpreter, not the script, so the whole document names
+# `bpftrace` throughout and everything lands on stderr.
+# `help.stderr.txt`'s USAGE block is three separate lines:
+#   bpftrace [options] filename
+#   bpftrace [options] - <stdin input>
+#   bpftrace [options] -e 'program'
+# VERIFIED FACT (`cargo run -p xtask -- corpus --show tcpretrans.bt/0.20.2`):
+# the parsed tree's one `usage` entry is
+# "USAGE: bpftrace [options] filename bpftrace [options] - <stdin input>
+# bpftrace [options] -e 'program'" — the tool's own name `tcpretrans.bt`
+# is not glued onto it (that only happens in the TUI's own USAGE panel,
+# which prefixes every node's usage with the node's name; not a
+# `CommandNode` defect), but the three separate usage forms are joined
+# into one string, and the "USAGE:" heading is folded in as if it were
+# part of the first form. No contract field asserts usage text, so this
+# whole shape is prose-only. There is no POSITIONALS section at all:
+# `filename`, the first form's own operand, is lost with it.
+#
+# `--include FILE` carries no description: its description column starts
+# one space after `FILE` (`--include FILE add an #include...`), one
+# space narrower than every other row's gap, and the layout parser's
+# column detection needs a wider gap.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "tcpretrans.bt"
+version = "0.20.2"                   # tcpretrans.bt --help is answered
+                                     # by bpftrace itself: "bpftrace
+                                     # v0.20.2" (bpftrace --version);
+                                     # dpkg package bpftrace
+                                     # 0.20.2-1ubuntu4.3
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); bpftrace 0.20.2-1ubuntu4.3"
+
+[[capture]]
+argv = ["tcpretrans.bt", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["filename"]
+
+[contract.must_describe]
+"--include" = "add an #include file before preprocessing"
+
+[xfail]
+broken = true
+reason = "the three USAGE forms bpftrace documents join into one string with the USAGE: heading folded onto the first, and filename (the first form's own operand) is lost with no POSITIONALS section at all; --include FILE carries no description because its description column starts one space after the value, narrower than every other row's gap; no contract field asserts usage text"

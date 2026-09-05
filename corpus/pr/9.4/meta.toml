@@ -1,0 +1,59 @@
+# Maintainer, seed 7, verdict "incomplete": "new pattern, 3+ occurences:
+# see '-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]' which should have
+# been aliases but i think only one got parsed and other got swalloed."
+# Machine classification: stratum "ok".
+#
+# Row by row against `help.txt`, VERIFIED FACT via
+# `cargo run -p xtask -- corpus --show pr/9.4`:
+#   `-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]` parses with one spelling,
+#   `-e`; `--expand-tabs` is gone, and the value name is `CHAR[WIDTH`, the
+#   closing bracket lost. Same shape for
+#   `-i[CHAR[WIDTH]], --output-tabs[=CHAR[WIDTH]]` (spelling `-i` only,
+#   `--output-tabs` gone) and `-n[SEP[DIGITS]], --number-lines[=SEP[DIGITS]]`
+#   (spelling `-n` only, `--number-lines` gone).
+#   `-s[CHAR], --separator[=CHAR]` and `-S[STRING], --sep-string[=STRING]`
+#   both keep both spellings and a clean value name (`CHAR`, `STRING`), so
+#   the single-level bracket already works; the nested bracket
+#   (`[CHAR[WIDTH]]`, two levels deep) is what the three broken rows share
+#   and the two working rows don't.
+#   `+FIRST_PAGE[:LAST_PAGE], --pages=FIRST_PAGE[:LAST_PAGE]` is entirely
+#   missing from the parsed tree — no entity of any spelling. It is the
+#   only flag row in this document whose first token is `+` rather than
+#   `-`.
+#   `-COLUMN, --columns=COLUMN` parses as spelling `-C` (invented; the
+#   real tool documents no bare `-C`) plus `--columns`, value name
+#   `OLUMN` — the leading letter of `COLUMN` read as the short flag and
+#   the rest kept as the value name.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pr"
+version = "9.4"                      # pr --version: "pr (GNU coreutils) 9.4"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); coreutils 9.4-3ubuntu6.3"
+
+[[capture]]
+argv = ["pr", "--help"]
+stdout = "help.txt"
+
+[contract]
+# `mandible --doctor pr` reports framework: GNU argp/getopt_long (this
+# document's own "Mandatory arguments to long options are mandatory for
+# short options too." line is one of Tier A''s marker strings for it).
+expected_framework = "GNU argp/getopt_long"
+must_contain_flags = ["--pages"]
+must_not_contain_flags = ["-C"]
+
+[contract.must_value_name]
+"-e" = "CHAR[WIDTH]"
+
+[contract.must_describe]
+"--expand-tabs" = "expand input CHARs"
+"--output-tabs" = "replace spaces with CHARs"
+"--number-lines" = "number lines, use DIGITS"
+
+[xfail]
+broken = true
+reason = "three nested-bracket alias rows (-e/--expand-tabs, -i/--output-tabs, -n/--number-lines) each keep only the short spelling and lose the closing bracket off their value name; +FIRST_PAGE/--pages is dropped entirely, the only + -led row in the document; -COLUMN/--columns invents a short spelling -C by reading COLUMN's leading letter as the flag and the rest as the value name"
