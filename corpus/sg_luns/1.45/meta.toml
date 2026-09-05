@@ -39,7 +39,7 @@
 # ...`, up to `0x12 -> ...`), and the renderer folds that continuation into
 # one paragraph. No text is lost; every line survives inside the collapsed
 # description. This is a display question, not answered by any ruling yet,
-# and is queued as the lowest-priority renderer item this round.
+# and no ruling answers it.
 #
 # There is no `[contract]` field for a usage form, so this is stated in
 # prose instead. The raw block documents two synopsis forms:

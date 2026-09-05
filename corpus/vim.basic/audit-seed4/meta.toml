@@ -177,7 +177,7 @@ reason = "one defect remains. The usage alternatives `-t tag` and `-q [errorfile
 # `[contract.must_describe]` resolves a spelling to its first matching
 # entity in flag iteration order (`xtask/src/corpus/contract.rs`'s
 # `check_contract_collection_fields`). The first entity spelled `+` in this
-# tree is the bare row, described "Start at end of file", so the entry
-# below resolves to that entity. It cannot target the second `+` entity
+# tree is the bare row, described "Start at end of file", so the
+# `[contract.must_describe]` entry above resolves to that entity. It cannot target the second `+` entity
 # ("Start at line <lnum>"), since TOML allows one entry per key and
 # `must_describe` always takes the first match, never a later one.

@@ -2684,15 +2684,19 @@ is re-litigated.
 ### Maintainer decisions, recorded so they are not re-litigated
 
 **A tool that returns its root help for every subcommand is shown as-is
-(2026-08-12).** After [M-19], every `systemctl` subcommand's verbatim pane
-shows the same root help, because `systemctl <verb> --help` genuinely returns
-it. A special-case message ("this tool returns its root help for every
+(2026-08-12). Superseded by the 2026-09-04 ruling below on a node whose
+help repeats an ancestor's.** After [M-19], every `systemctl` subcommand's
+verbatim pane shows the same root help, because `systemctl <verb> --help`
+genuinely returns it. A special-case message ("this tool returns its root help for every
 subcommand") was proposed and **declined**: if that is how the tool behaves,
 showing it is honest, and a reader seeing identical text across 18 subcommands
 can draw the conclusion without being told. **Do not re-propose.** The one
 residual is that each degraded node keeps its own copy of that text instead of
 sharing one, which is a memory cost rather than a correctness one, and does not
-justify a special case either.
+justify a special case either. The 2026-09-04 ruling reverses the declined
+half: such a node now carries a notice line and shows no repeated text, so
+the residual copy is gone as well. The reasoning here survives as the record
+of why the earlier answer was no.
 
 **Error codes are not an entity kind (2026-09-03).** Asked "within 'nice' I
 noticed another IR type candidates which is error codes. should we even bother
