@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-05
+
 ### Added
 
 - `cargo xtask audit contribute` walks a contributor through auditing mandible against their own installed tools — login, a random 20-tool draw excluding anything already audited, review, and a verdict file ready to submit (CONTRIBUTING.md §2).
@@ -2243,6 +2245,8 @@ Known gaps are tracked as issues; busybox's applet list is
 <summary>Development history</summary>
 
 ## [Unreleased]
+
+## [0.7.0] - 2026-09-05
 
 ### Added (batch 6 part 6, framework-support workflow)
 

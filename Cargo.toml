@@ -17,7 +17,7 @@ members = [
 strip = "symbols"
 
 [workspace.package]
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -32,10 +32,10 @@ authors = ["Sadig Akhund <sadigaxund@gmail.com>"]
 # and then failed to resolve the moment the workspace reached 0.2.0. Caught by
 # a local build; after a tag it would have failed mid-release, with some crates
 # already published and unpublishable again.
-mandible-core = { path = "mandible-core", version = "0.6.1" }
-mandible-extract = { path = "mandible-extract", version = "0.6.1" }
-mandible-search = { path = "mandible-search", version = "0.6.1" }
-mandible-tui = { path = "mandible-tui", version = "0.6.1" }
+mandible-core = { path = "mandible-core", version = "0.7.0" }
+mandible-extract = { path = "mandible-extract", version = "0.7.0" }
+mandible-search = { path = "mandible-search", version = "0.7.0" }
+mandible-tui = { path = "mandible-tui", version = "0.7.0" }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
