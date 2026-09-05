@@ -14,6 +14,10 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- Under a recognized command heading, a row whose name is followed by an argument placeholder (`list-units [PATTERN...]`, `start UNIT...`) now reaches the tree as that command, with the placeholder kept as its own usage line, instead of being dropped whole (`mandible systemctl`, `mandible systemd-creds`, and dozens more on a full-`PATH` sweep, docs/shapes.md S-129).
+- A usage line's own generic placeholder token, spelled with a leading dash (`[-options]`, `[-opts]`), no longer invents a short flag with a glued value name (`mandible makeconv`, docs/shapes.md S-128).
+- A block right under the usage line naming each positional's own description now reaches the tree, instead of leaving every positional undescribed (`mandible invoke-rc.d`, docs/shapes.md S-127).
+- An unheaded, more-indented run of worked-example lines right after a flag's own described row no longer folds onto that flag's description (`mandible nfsslower-bpfcc`, docs/shapes.md S-126).
 - A long option name containing an underscore (`--extended_fields`, `--lu_cong`) no longer gets truncated at the `_` with the remainder fabricated into the flag's value name (docs/shapes.md S-106).
 - `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
 - The bare end-of-options marker `--` now reaches the tree instead of vanishing, in any tool's option table or usage line (`mandible vim.basic`, `mandible nvim`, `mandible awk`, `mandible cargo-fmt`, and dozens more on a full-`PATH` sweep, docs/shapes.md S-096).

@@ -1894,3 +1894,116 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/glued_optional_group_spelling.rs`) generalizes this shape
   fleet-wide.
 - fleet: 10 tools, 10 findings, 2026-09-04
+
+### S-126: unheaded example block folds onto the preceding flag's description
+
+- id: S-126
+- looks like: |
+      -p PID, --pid PID  Trace this pid only
+
+        ./nfsslower         # trace operations slower than 10ms
+        ./nfsslower -j 1    # ... 1 ms, parsable output (csv)
+- tools: nfsslower-bpfcc
+- handling: Fixed. `flag_rows::example_block_starts_at` reads a deeper-
+  indented run of shell-invocation lines (`./`-prefixed, plus a real flag
+  token or a `#` comment) right after a flag's own described row, and
+  ends the row's continuation there instead of folding the block in.
+  `must_not_describe` (`xtask/src/corpus/mod.rs`), the mirror of
+  `must_not_contain_flags`, asserts the negative claim no other field
+  could state.
+- fleet: `examples-block-contaminates-last-flag`
+  (`xtask/src/detector/examples_block_contaminates_last_flag.rs`) fell
+  from 1 tool/1 finding to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+
+### S-127: positional's own description sits in a block right under the usage line
+
+- id: S-127
+- looks like: |
+      invoke-rc.d [options] <basename> <action> [extra parameters]
+
+        basename - Initscript ID, as per update-rc.d(8)
+        action   - Initscript action. Known actions are: ...
+- tools: invoke-rc.d
+- handling: Fixed. `usage::apply_positional_description_block` reads the
+  block right under the usage line, matches each row's name against a
+  positional the usage line already recovered, and attaches the rest as
+  that positional's own description; a same-indent row with no `-`
+  separator ends the block without discarding what was already read.
+  `must_describe_positional` (`xtask/src/corpus/mod.rs`), the positional
+  analogue of `must_describe`, asserts it.
+- fleet: `positional-description-block`
+  (`xtask/src/detector/positional_description_block.rs`) fell from 1
+  tool/2 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+
+### S-128: usage line's dash-prefixed generic placeholder invents a flag
+
+- id: S-128
+- looks like: |
+      usage: makeconv [-options] files...
+- tools: makeconv, cpan, enc2xs, h2ph, libnetcfg, ptar, ptardiff, splain,
+  lshw, xauth, xev, xkill, xwininfo, genbrk, gencfu, gencnval, gendict,
+  gensprep, icuexportdata, pkgdata
+- handling: Fixed. `usage::is_dash_prefixed_option_list_placeholder` reads
+  a usage token's first word, dash stripped: `options`/`option`/`opts`,
+  the same closed set `is_option_list_placeholder` already reads with no
+  leading dash, dropped before it ever reaches the flag grammar rather
+  than read as a spelling plus a glued value. Catches the plain form
+  (`[-options]`), perl's nested `[-OPTIONS [-MORE_OPTIONS]]`, and X11's
+  trailing-ellipsis `[-options ...]`, since only the first word is
+  compared.
+- fleet: `generic-option-placeholder-flag`
+  (`xtask/src/detector/generic_option_placeholder_flag.rs`) fell from 20
+  tools/20 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 20 flags
+  corrected (18 invented flags dropped, 2 value names repaired), 0 losses.
+
+### S-129: command row's argument placeholder rejects the whole name field
+
+- id: S-129
+- looks like: |
+      list-units [PATTERN...]             List units currently in memory
+      start UNIT...                       Start (activate) one or more units
+- tools: systemctl, systemd-creds, systemd-analyze, systemd-hwdb,
+  systemd-id128, busctl, hostnamectl, localectl, loginctl, networkctl,
+  parted, resolvectl, timedatectl, varlinkctl, appstreamcli
+- handling: Fixed. `emit_subcommands` first tries the whole name field as
+  a command name (unchanged); when that fails the shape test, it now
+  tries the field's own leading token instead, and accepts it only when
+  everything after it is nothing but uppercase-led placeholders
+  (`command_name_with_operand_placeholders`) — never a lowercase
+  continuation word, so a genuine dropped description is never
+  laundered into an operand. The placeholder text is kept verbatim as
+  the node's own `usage` line rather than parsed into positional
+  entities, since the shapes vary too widely to name each operand
+  without guessing. `docs/design.md` §7 Tier B rule 7 still applies to
+  the name alone.
+- fleet: `command-row-argument-placeholder`
+  (`xtask/src/detector/command_row_argument_placeholder.rs`) fell from
+  11 tools/90 findings (measured against the unfixed parser on the
+  15-tool systemd/util set the fix targets) to 3 tools/12 findings
+  fleet-wide in a full-`PATH` sweep, 2026-09-05: 15 tools gained
+  subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
+  does not reach; not investigated further this round.
+
+### S-130: bulleted subcommand list nested inside `Description:` prose
+
+- id: S-130
+- looks like: |
+      Description:
+        Manage local and global configuration.
+
+        Subcommands:
+
+        - list: List the active configuration (or from the file specified)
+        - edit: Edit the configuration file in an editor
+- tools: pip3 (the `config` subcommand)
+- handling: Open defect, not fixed. `description-subcommands-list`
+  (`xtask/src/detector/description_subcommands_list.rs`, round 5's
+  S-114) generalizes the shape: a `Subcommands:` sub-heading at the same
+  indent as the `Description:` prose around it, followed by a bulleted
+  `- name: description` list. Only one instance is confirmed (`pip3
+  config`, captured locally; not yet a corpus fixture). `xtask coverage`
+  probes root nodes only, so a full-`PATH` fleet count for this shape is
+  not measurable without probing every subcommand; below the five-tool
+  bar on the evidence available, so no fix lands this round.
+- fleet: not fleet-measurable (root-only sweep); 1 confirmed instance,
+  2026-09-05.
