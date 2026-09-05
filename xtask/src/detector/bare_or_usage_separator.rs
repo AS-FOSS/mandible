@@ -1,11 +1,12 @@
 //! `bare-or-usage-separator` (round 5): a usage line holding only the
-//! word `or` is a pure form separator (`sg_luns`, docs/shapes.md S-112).
-//! Before the parser fix it either truncated the usage block or glued
-//! onto the prior form. Measured by the after-the-fact symptom: `raw`
-//! carries the bare line, and a `root` usage form still ends with it.
-//!
-//! No seed-2/4/5/6 labelled tool carries this shape, so
-//! [`Detector::family`] returns `None` — spec §13.1e rule 6.
+//! word `or` is a pure form separator (docs/shapes.md S-112). One cause,
+//! two symptoms, both modeled — an unindented bare `or` truncates the
+//! rest of the block (`update-catalog` and 3 siblings); an indented one
+//! glues onto the prior form (`sg_luns`, `sg_test_rwbuf`). Modeling only
+//! one would undercount the family, the loosening AGENTS.md §3.1 forbids
+//! the other way. Per bare-or line: the next line missing from every
+//! `root.usage` form is truncation; a form still ending with it is gluing.
+//! `family()` is `None` — no seed-2/4/5/6 tool carries this shape.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{CommandNode, Provenance, Source, Text};
@@ -19,7 +20,7 @@ fn is_bare_or_line(line: &str) -> bool {
 }
 
 /// True if `entry`'s last whitespace-separated token is the bare word
-/// `or` — the glued-continuation symptom this family's bug leaves behind.
+/// `or` — the gluing symptom.
 fn ends_with_bare_or(entry: &str) -> bool {
     entry
         .trim_end()
@@ -27,6 +28,15 @@ fn ends_with_bare_or(entry: &str) -> bool {
         .next()
         .map(|w| w.eq_ignore_ascii_case("or"))
         .unwrap_or(false)
+}
+
+/// The first non-blank physical line strictly after `raw`'s line `after`,
+/// trimmed — what the second usage form is supposed to start with.
+fn next_nonblank_line<'a>(lines: &[&'a str], after: usize) -> Option<&'a str> {
+    lines[after + 1..]
+        .iter()
+        .find(|l| !l.trim().is_empty())
+        .map(|l| l.trim())
 }
 
 pub struct BareOrUsageSeparator;
@@ -41,26 +51,44 @@ impl Detector for BareOrUsageSeparator {
     }
 
     fn describes(&self) -> &'static str {
-        "the raw text carries a usage line holding only the word `or`, and a usage form in the \
-         tree still ends with that bare word glued onto its last token"
+        "a raw usage block holds a line whose only content is the word `or`, and the tree \
+         either lost everything after it (truncation) or still ends a form with it (gluing)"
     }
 
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
-        if !evidence.raw.lines().any(is_bare_or_line) {
-            return Vec::new();
+        let lines: Vec<&str> = evidence.raw.lines().collect();
+        let mut findings = Vec::new();
+        for (i, line) in lines.iter().enumerate() {
+            if !is_bare_or_line(line) {
+                continue;
+            }
+            let next = next_nonblank_line(&lines, i);
+            let truncated = match next {
+                Some(needle) => !evidence
+                    .root
+                    .usage
+                    .iter()
+                    .any(|u| u.as_str().contains(needle)),
+                None => false,
+            };
+            if truncated {
+                findings.push(format!(
+                    "bare `or` line truncated the usage block: {:?} never reached the tree",
+                    next.unwrap_or("")
+                ));
+                continue;
+            }
+            if evidence
+                .root
+                .usage
+                .iter()
+                .any(|f| ends_with_bare_or(f.as_str()))
+            {
+                findings
+                    .push("bare `or` line glued onto the end of the prior usage form".to_string());
+            }
         }
-        evidence
-            .root
-            .usage
-            .iter()
-            .filter(|form| ends_with_bare_or(form.as_str()))
-            .map(|form| {
-                format!(
-                    "usage form ends with a glued bare `or`: {:?}",
-                    form.as_str()
-                )
-            })
-            .collect()
+        findings
     }
 
     fn scope(&self) -> Scope {
@@ -76,15 +104,23 @@ impl Detector for BareOrUsageSeparator {
                 .collect();
             root
         }
-        let raw = "Usage: sg_luns    [--decode] [--help] DEVICE\n     or\n       sg_luns    \
-                   --test=ALUN [--decode]\n";
+        let glued_raw = "Usage: sg_luns    [--decode] [--help] DEVICE\n     or\n       sg_luns    \
+                         --test=ALUN [--decode]\n";
+        // `update-catalog`'s own bytes, byte-exact in shape: a column-0
+        // `or` separates two forms, each spanning two physical lines.
+        let truncated_raw = "Usage:\n    update-catalog <options> --add --super \
+                              <centralized_catalog>\n    update-catalog <options> --add \
+                              <centralized_catalog> <ordinary_catalog>\nor\n    update-catalog \
+                              <options> --remove --super <centralized_catalog>\n    \
+                              update-catalog <options> --remove <centralized_catalog> \
+                              <ordinary_catalog>\n";
         vec![
             SelfCheck {
                 name: "sg_luns's own bytes, pre-fix shape (`or` glued onto the first form)",
-                why: "the defect itself: the raw text carries a bare `or` separator line and the \
-                      tree's first usage form still ends with it",
+                why: "the defect's gluing symptom: an indented bare `or` line falls through \
+                      every break check and its text joins the end of the prior form",
                 expect: Expect::Fires(1),
-                raw: raw.to_string(),
+                raw: glued_raw.to_string(),
                 root: node_with_usage(&[
                     "Usage: sg_luns    [--decode] [--help] DEVICE or",
                     "       sg_luns    --test=ALUN [--decode]",
@@ -95,10 +131,37 @@ impl Detector for BareOrUsageSeparator {
                 why: "once the parser drops the bare `or` line, the same raw bytes must go \
                       silent even though the separator line is still there",
                 expect: Expect::Silent,
-                raw: raw.to_string(),
+                raw: glued_raw.to_string(),
                 root: node_with_usage(&[
                     "Usage: sg_luns    [--decode] [--help] DEVICE",
                     "       sg_luns    --test=ALUN [--decode]",
+                ]),
+            },
+            SelfCheck {
+                name: "update-catalog's own bytes, pre-fix shape (`or` truncates the block)",
+                why: "the defect's other symptom: an unindented bare `or` ends the whole usage \
+                      block there, so the second form (`--remove`) never reaches the tree at all",
+                expect: Expect::Fires(1),
+                raw: truncated_raw.to_string(),
+                root: node_with_usage(&[
+                    "Usage:",
+                    "    update-catalog <options> --add --super <centralized_catalog>",
+                    "    update-catalog <options> --add <centralized_catalog> <ordinary_catalog>",
+                ]),
+            },
+            SelfCheck {
+                name: "update-catalog's own bytes, post-fix shape (second form recovered)",
+                why: "once the parser recovers the second form, the same raw bytes must go \
+                      silent",
+                expect: Expect::Silent,
+                raw: truncated_raw.to_string(),
+                root: node_with_usage(&[
+                    "Usage:",
+                    "    update-catalog <options> --add --super <centralized_catalog>",
+                    "    update-catalog <options> --add <centralized_catalog> <ordinary_catalog>",
+                    "    update-catalog <options> --remove --super <centralized_catalog>",
+                    "    update-catalog <options> --remove <centralized_catalog> \
+                     <ordinary_catalog>",
                 ]),
             },
             SelfCheck {
