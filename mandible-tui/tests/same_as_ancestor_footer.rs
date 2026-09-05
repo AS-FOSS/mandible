@@ -1,7 +1,7 @@
 //! Renders the real footer row through `ratatui::backend::TestBackend`
-//! (spec §9, AGENTS.md §3.2 — there is no tty in this sandbox) for a
-//! same-as-ancestor node (docs/design.md §16's 2026-09-04 ruling, spec
-//! [M-19]).
+//! for a same-as-ancestor node. There is no tty in this sandbox
+//! (AGENTS.md §3.6). The ruling is in docs/design.md §16, under a node
+//! whose help repeats an ancestor's.
 //!
 //! `mandible-extract`'s `same_as_ancestor_node` pins `confidence` to `0.0`
 //! because the probe never parsed this node at all, not because a parse
