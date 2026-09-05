@@ -2696,6 +2696,90 @@ mod tests {
         assert_eq!(entity_name_spec(&e), "-h, -?, --help, -help");
     }
 
+    // --- spec §16: enumerator continuation breaks (item 6, sg_luns) ---
+
+    /// The exact defect: `sg_luns --select`'s description folds its
+    /// enumerated items into one paragraph. `wrap_description` must start a
+    /// new line at each `N ->` opener, decimal and hex alike, without
+    /// dropping any word.
+    #[test]
+    fn wrap_description_starts_a_new_line_at_each_enumerator_arrow() {
+        let text = "select report SR (def: 0) 0 -> luns apart from 'well known' lus \
+                     1 -> only 'well known' logical unit numbers 2 -> all luns \
+                     0x10 -> administrative luns";
+        let lines = wrap_description(text, 200);
+        assert_eq!(
+            lines,
+            vec![
+                "select report SR (def: 0)",
+                "0 -> luns apart from 'well known' lus",
+                "1 -> only 'well known' logical unit numbers",
+                "2 -> all luns",
+                "0x10 -> administrative luns",
+            ]
+        );
+        // Nothing lost: every word from the source reappears somewhere.
+        let rejoined: String = lines.join(" ");
+        for word in text.split_whitespace() {
+            assert!(rejoined.contains(word), "lost {word:?}: {lines:?}");
+        }
+    }
+
+    /// A description with no enumerator token wraps exactly as
+    /// `wrap_words` already did — this rule must never fire on ordinary
+    /// prose.
+    #[test]
+    fn wrap_description_is_unchanged_for_ordinary_prose() {
+        let text = "be more talkative about what is happening";
+        assert_eq!(wrap_description(text, 200), wrap_words(text, 200));
+    }
+
+    /// A single `N -> M` sitting alone in otherwise ordinary prose is a
+    /// range, not a list — `sg_luns --maxlen`'s real description. It must
+    /// never be force-broken: at a width the whole thing already fits in,
+    /// it must come back as one line, exactly as `wrap_words` would.
+    /// Found by a pty screenshot: an earlier draft of this rule broke
+    /// `"(def:"` onto its own ragged line here.
+    #[test]
+    fn wrap_description_does_not_break_a_lone_arrow_range() {
+        let text = "max response length (allocation length in cdb) (def: 0 -> 8192 bytes)";
+        assert_eq!(wrap_description(text, 200), wrap_words(text, 200));
+        assert_eq!(wrap_description(text, 200), vec![text]);
+    }
+
+    /// A bullet list (`- `/`* `) also opens a new line per item.
+    #[test]
+    fn wrap_description_starts_a_new_line_at_each_bullet() {
+        let text = "one of: - alpha the first - beta the second * gamma the third";
+        let lines = wrap_description(text, 200);
+        assert_eq!(
+            lines,
+            vec![
+                "one of:",
+                "- alpha the first",
+                "- beta the second",
+                "* gamma the third",
+            ]
+        );
+    }
+
+    /// `N:` (a colon glued straight onto a numeric key, no arrow) also
+    /// opens a new line.
+    #[test]
+    fn wrap_description_starts_a_new_line_at_a_colon_keyed_item() {
+        let text = "exit codes: 0: success 1: generic failure 2: usage error";
+        let lines = wrap_description(text, 200);
+        assert_eq!(
+            lines,
+            vec![
+                "exit codes:",
+                "0: success",
+                "1: generic failure",
+                "2: usage error",
+            ]
+        );
+    }
+
     /// The ellipsis is measured as part of the head, not drawn past it:
     /// a name the section's column was fitted to must not overrun that
     /// column by the three characters the pane added after measuring.

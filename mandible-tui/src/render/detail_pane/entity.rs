@@ -242,9 +242,18 @@ pub(super) fn entity_line(
             // One space past the head, or the column — whichever is
             // further right. They coincide for every row whose head fits.
             let start = column.max(prefix_width + 1);
-            let first = width
-                .checked_sub(start)
-                .and_then(|room| leading_words(&remainder, room));
+            let first = width.checked_sub(start).and_then(|room| {
+                // Never let the head's own line swallow a later
+                // enumerated item's opening token (spec §16): cap the
+                // room to the offset of the first enumerator break, if
+                // any, so `wrap_description` below still gets to start
+                // that item on its own line.
+                let room = match enumerator_breaks(&remainder).first() {
+                    Some(&cut) => room.min(display_width(&remainder[..cut])),
+                    None => room,
+                };
+                leading_words(&remainder, room)
+            });
             if let Some((first_chunk, rest)) = first {
                 first_line_spans.push(Span::raw(" ".repeat(start - prefix_width)));
                 first_line_spans.push(Span::styled(first_chunk, desc_style));
@@ -263,7 +272,7 @@ pub(super) fn entity_line(
 
     let indent_str = " ".repeat(column);
     if !remainder.is_empty() {
-        for chunk in wrap_words(&remainder, rest_width) {
+        for chunk in wrap_description(&remainder, rest_width) {
             lines.push(Line::from(Span::styled(
                 format!("{indent_str}{chunk}"),
                 desc_style,
