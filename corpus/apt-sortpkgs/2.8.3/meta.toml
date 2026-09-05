@@ -6,6 +6,19 @@
 # are dropped entirely, even though both are named in the tool's own
 # usage line and nowhere else needs recovering (apt-sortpkgs documents no
 # separate positional-argument block).
+#
+# Round 6 checked this against `recover_primary_tail_operands`
+# (`mandible-extract/src/help_text/sections/usage.rs`), the
+# `multi-operand-usage-tail` family (S-109): the shape is `[options]` (a
+# lone placeholder) directly ahead of a bare, REQUIRED first operand
+# (`file1`), byte-identical to `apt-ftparchive [options] command` and
+# `gcc [options] file...`, both already tested
+# (`placeholder_only_context_with_a_bare_required_tail_gains_no_positional`)
+# as a deliberate refusal: a lone placeholder ahead of a bare required
+# tail reads as easily as "provide a subcommand" as "provide an operand",
+# and the rule stays silent rather than guess. This is not a new defect;
+# it is the same known ambiguity, already correctly declined, so no fix
+# applies here.
 
 [bless]
 provenance = "agent"

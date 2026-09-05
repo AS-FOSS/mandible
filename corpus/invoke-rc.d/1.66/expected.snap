@@ -6,11 +6,13 @@ usage:
 positionals:
 - name: basename
   required: true
+  description: Initscript ID, as per update-rc.d(8)
   provenance:
     sources:
     - help-text
 - name: action
   required: true
+  description: 'Initscript action. Known actions are: start, [force-]stop, [try-]restart, [force-]reload, status'
   provenance:
     sources:
     - help-text
