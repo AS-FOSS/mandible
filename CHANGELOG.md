@@ -11,9 +11,12 @@ once it reaches a published 0.1.0 release.
 ### Added
 
 - `cargo xtask audit contribute` walks a contributor through auditing mandible against their own installed tools — login, a random 20-tool draw excluding anything already audited, review, and a verdict file ready to submit (CONTRIBUTING.md §2).
+- A subcommand whose own `--help` repeats an ancestor's byte for byte now renders its description, a notice explaining that `t` shows the live text, and its accepted-modifier list, instead of a wall of duplicated raw text (`mandible ar`'s `r`/`m`/`q`/`t`/`x` operations, docs/design.md §16).
 
 ### Fixed
 
+- The detail pane shows a flag's short spelling before its long one, always (`-d, --decode`, not `--decode, -d`), so the eye can track a column of flags without the alignment breaking mid-list.
+- A description that folds an enumerated list into one paragraph (`sg_luns --select`'s `0 -> ... 1 -> ...`) now starts a new line at each item; a lone `N -> M` range in ordinary prose is left alone.
 - A long option name containing an underscore (`--extended_fields`, `--lu_cong`) no longer gets truncated at the `_` with the remainder fabricated into the flag's value name (docs/shapes.md S-106).
 - `mandible zgrep`/`mandible resolvconf` no longer show fabricated flags mined from a prose sentence that hard-wraps onto a dash-led word at its own paragraph's indent: the wrap now reads as a continuation of the sentence, which is folded into the node description instead.
 - The bare end-of-options marker `--` now reaches the tree instead of vanishing, in any tool's option table or usage line (`mandible vim.basic`, `mandible nvim`, `mandible awk`, `mandible cargo-fmt`, and dozens more on a full-`PATH` sweep, docs/shapes.md S-096).

@@ -23,3 +23,13 @@ pub const UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX: &str = "mandible could not verify
 /// blank lines; also mandible-authored prose.
 pub const ROOT_HELP_FALLBACK_LABEL: &str =
     "Showing the tool's own root --help instead, labelled below:";
+
+/// The notice a same-as-ancestor node's detail pane shows in place of its
+/// usage/children/flags (spec [M-19], docs/design.md §16's ruling): this
+/// command's own `--help` fingerprinted as byte-identical to an ancestor's,
+/// so there is nothing further to parse here that isn't already shown one
+/// level up — and `t` still fetches this node's own live text on demand.
+/// One place, so a test can assert it without a string literal duplicated
+/// in the pane and in the test.
+pub const SAME_AS_ANCESTOR_NOTICE: &str =
+    "This command prints the same help as its parent. Press t to see it.";

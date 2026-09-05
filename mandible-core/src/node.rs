@@ -144,6 +144,31 @@ pub struct CommandNode {
     /// confession at all, which is the overwhelming common case and is
     /// never treated as evidence of anything.
     pub confession: Option<Confession>,
+    /// True when this node's own selected `--help` text fingerprinted as
+    /// byte-identical to a strict ancestor's (spec [M-19], the self-similar
+    /// fan-out guard) — see docs/design.md §16's ruling. Replaces the
+    /// `unparsed` fill the same guard used before that ruling: such a node
+    /// carries no repeated text at all, and the detail
+    /// pane renders its own `summary`, a fixed notice, and
+    /// `accepted_modifiers` instead of usage/children/flags. The `t` key
+    /// still fetches this node's own live text regardless of this field.
+    pub same_as_ancestor: bool,
+    /// The accepted-modifier letters a parent's own command-table row
+    /// documented for this subcommand, e.g. `['a', 'b', 'f', 'u']` for
+    /// binutils `ar`'s `r[ab][f][u]` row (docs/shapes.md S-018). Filled
+    /// only from that exact row shape — a command letter immediately
+    /// followed by one or more bracketed single letters, no space — never
+    /// from prose, a usage line, or the tool's own name. Each letter's own
+    /// description is looked up in the *parent's* `Modifier` entities by
+    /// name; this field itself carries only the letters.
+    pub accepted_modifiers: Vec<char>,
+    /// The row's own source spelling, kept for display only, when it
+    /// differs from `name` — `ar`'s `r[ab][f][u]` row names the command
+    /// `r` (spec §7 Tier B rule 3's name-shape test rejects the bracketed
+    /// form outright), but the commands pane shows the row as the tool
+    /// itself printed it. `None` when the row's own spelling is `name`
+    /// verbatim, which is the overwhelming common case.
+    pub display_name: Option<String>,
 }
 
 /// A truncation confession a tool's own `--help` text printed, and what
@@ -242,6 +267,9 @@ impl CommandNode {
             invocation_attested: false,
             discovered_binary: None,
             confession: None,
+            same_as_ancestor: false,
+            accepted_modifiers: Vec::new(),
+            display_name: None,
         }
     }
 

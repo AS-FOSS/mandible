@@ -23,11 +23,9 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
     // and it is a *list*, so a row documenting four spellings
     // (`-h, -?, -help, --help`) renders all four rather than the two a
     // short/long pair could hold.
-    //
-    // Shorts before longs, always (spec §16, maintainer ruling: "displaying
-    // long before short breaks the alignment and eyes cant reliably track
-    // flags"). Display-side only — a stable sort, so each group keeps its
-    // own source order and the IR's own `spellings` vector is untouched.
+    // Shorts before longs, always (spec §16): display-side only, a stable
+    // sort so each group keeps its own source order and the IR's
+    // `spellings` vector is untouched.
     let mut ordered: Vec<&Spelling> = flag.spellings.iter().collect();
     ordered.sort_by_key(|s| !is_short_spelling(s));
     let spellings = ordered

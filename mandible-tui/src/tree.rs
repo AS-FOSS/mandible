@@ -20,8 +20,14 @@ pub struct TreeRow {
     /// The node's own name (not sanitized via `Text` — see
     /// [`crate::sanitize::defensive_single_line`], applied at render time
     /// as a belt-and-braces measure since the IR types `name` as a plain
-    /// `String`, not `Text`).
+    /// `String`, not `Text`). Always the bare invocation word — `path` is
+    /// built from this, never from `display_name`.
     pub name: String,
+    /// The row's own source spelling when it differs from `name` — `ar`'s
+    /// `r[ab][f][u]` row (spec §4.5, docs/design.md §16) — for display
+    /// only. The tree pane shows this instead of `name` when present;
+    /// every probe, path, and lookup still addresses the node by `name`.
+    pub display_name: Option<String>,
     /// A single-line summary preview, already collapsed via
     /// `Text::single_line`, if the node has one.
     pub summary: Option<String>,
@@ -98,6 +104,7 @@ fn make_row(
         path,
         depth,
         name: node.name.clone(),
+        display_name: node.display_name.clone(),
         summary: node.summary.as_ref().map(|t| t.single_line()),
         has_children: !node.subcommands.is_empty(),
         expanded,

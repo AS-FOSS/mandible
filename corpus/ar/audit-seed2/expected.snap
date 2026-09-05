@@ -208,6 +208,10 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+  accepted_modifiers:
+  - 'a'
+  - 'b'
+  display_name: m[ab]
 - name: p
   summary: print file(s) found in the archive
   group: 'commands:'
@@ -222,6 +226,9 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+  accepted_modifiers:
+  - 'f'
+  display_name: q[f]
 - name: r
   summary: replace existing or insert new file(s) into the archive
   group: 'commands:'
@@ -229,6 +236,12 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+  accepted_modifiers:
+  - 'a'
+  - 'b'
+  - 'f'
+  - 'u'
+  display_name: r[ab][f][u]
 - name: s
   summary: act as ranlib
   group: 'commands:'
@@ -243,6 +256,10 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+  accepted_modifiers:
+  - 'O'
+  - 'v'
+  display_name: t[O][v]
 - name: x
   summary: extract file(s) from the archive
   group: 'commands:'
@@ -250,3 +267,6 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+  accepted_modifiers:
+  - 'o'
+  display_name: x[o]

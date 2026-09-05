@@ -141,6 +141,32 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     // axes — which reads as a contest this field never has.
     let discovered_binary = candidates.iter().find_map(|c| c.discovered_binary.clone());
 
+    // Same "any contributor is enough" reasoning as `heading_attested`
+    // immediately below: a fact about how this node's own text compared to
+    // an ancestor's (spec [M-19]) doesn't stop being true because another
+    // candidate — the parent-built stub, which never probes and so never
+    // sets this — also contributed fields.
+    let same_as_ancestor = candidates.iter().any(|c| c.same_as_ancestor);
+    // Structural, like `usage`: the highest-structural-authority
+    // non-empty contributor wins rather than concatenating letters from
+    // several sources. In practice only the parent's own command-table
+    // scan ever sets this, so there is rarely more than one non-empty
+    // candidate to choose between.
+    let accepted_modifiers = pick_vec(
+        candidates
+            .iter()
+            .map(|c| (&c.provenance, &c.accepted_modifiers)),
+        Axis::Structural,
+    );
+    // Same reasoning as `detected_framework`: a fact about the row's own
+    // source spelling, never pieced together across sources.
+    let display_name = pick_option(
+        candidates
+            .iter()
+            .map(|c| (&c.provenance, c.display_name.as_ref())),
+        Axis::Structural,
+    );
+
     let structural_winner_idx =
         best_index(candidates.iter().map(|c| &c.provenance), Axis::Structural);
     let hidden = candidates[structural_winner_idx].hidden;
@@ -189,6 +215,9 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         invocation_attested,
         discovered_binary,
         confession,
+        same_as_ancestor,
+        accepted_modifiers,
+        display_name,
     })
 }
 
