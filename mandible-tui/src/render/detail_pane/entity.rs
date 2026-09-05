@@ -2,6 +2,14 @@
 
 use super::*;
 
+/// True for a short spelling (one dash, one character) — the same shape
+/// test `Entity::short_spelling` uses. Display-order only (spec §16, "short
+/// spellings before long ones"): the IR keeps source order, this function
+/// decides only how [`entity_name_spec`] reassembles it for the screen.
+fn is_short_spelling(s: &Spelling) -> bool {
+    matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1
+}
+
 /// An entity's spellings, e.g. `-i, --interactive` for a flag or
 /// `pathspec` for a positional — with a repeatable positional's `...`
 /// (spec §9.3).
@@ -15,9 +23,15 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
     // and it is a *list*, so a row documenting four spellings
     // (`-h, -?, -help, --help`) renders all four rather than the two a
     // short/long pair could hold.
-    let spellings = flag
-        .spellings
-        .iter()
+    //
+    // Shorts before longs, always (spec §16, maintainer ruling: "displaying
+    // long before short breaks the alignment and eyes cant reliably track
+    // flags"). Display-side only — a stable sort, so each group keeps its
+    // own source order and the IR's own `spellings` vector is untouched.
+    let mut ordered: Vec<&Spelling> = flag.spellings.iter().collect();
+    ordered.sort_by_key(|s| !is_short_spelling(s));
+    let spellings = ordered
+        .into_iter()
         .map(Spelling::render)
         .collect::<Vec<_>>()
         .join(", ");

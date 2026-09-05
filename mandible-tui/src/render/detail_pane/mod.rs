@@ -2668,6 +2668,34 @@ mod tests {
         assert_eq!(entity_name_spec(&verbose), "--verbose");
     }
 
+    /// Short spellings render before long ones, always (spec §16,
+    /// maintainer ruling 2026-09-04). `sg_luns` documents `--decode|-d` —
+    /// long first in the tool's own text — and must still render
+    /// `-d, --decode`. Display-only: the IR's own `spellings` order is
+    /// untouched (asserted separately below).
+    #[test]
+    fn short_spellings_render_before_long_ones_even_when_documented_long_first() {
+        let mut decode = Entity::flag_long("decode", Provenance::single(Source::HelpText));
+        decode.spellings.push(Spelling::short('d'));
+        assert_eq!(decode.spellings[0].name, "decode", "IR order untouched");
+        assert_eq!(entity_name_spec(&decode), "-d, --decode");
+    }
+
+    /// A row with more than two spellings still sorts shorts first: every
+    /// short (one dash, one char) precedes every long, each group keeping
+    /// its own relative order.
+    #[test]
+    fn every_short_precedes_every_long_keeping_each_groups_own_order() {
+        let mut e = Entity::flag_long("help", Provenance::single(Source::HelpText));
+        e.spellings = vec![
+            Spelling::short('h'),
+            Spelling::long("help"),
+            Spelling::short('?'),
+            Spelling::single_dash("help"),
+        ];
+        assert_eq!(entity_name_spec(&e), "-h, -?, --help, -help");
+    }
+
     /// The ellipsis is measured as part of the head, not drawn past it:
     /// a name the section's column was fitted to must not overrun that
     /// column by the three characters the pane added after measuring.
