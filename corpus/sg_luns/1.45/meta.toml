@@ -19,22 +19,42 @@
 # spelling first, and mandible keeps the source order of spellings rather
 # than imposing one. VERIFIED FACT: every flag entity's `spellings` list in
 # the extracted tree has the long spelling first, matching the raw
-# `--long|-x` order exactly. A ruling on display order is recorded in
-# `docs/design.md` §16 as a recommendation and not as a decision, and it is
-# renderer-only: the IR's own spelling order is source order and stays that
-# way regardless of how a future renderer chooses to sort it for display.
+# `--long|-x` order exactly.
+#
+# Maintainer, fourth batch, asking again: "did you answer why the long
+# flags are parsed before short ones?" The display-order ruling is now
+# recorded in `docs/design.md` §16 ("Short spellings before long ones",
+# 2026-09-04): the renderer always shows short spellings first and long
+# ones after. This is display-side only and does not lose the author's
+# intent. The IR keeps source order regardless: a flag entity's
+# `spellings` list still has the long spelling first here, matching the
+# raw `--long|-x` order, and it is the renderer that reorders for display.
+#
+# Maintainer, fourth batch: "the description of '--select -s' uses tabs to
+# display the information and folding them into single line kind of breaks
+# the expressiveness. Do we keep as is? if handle, what can be even done?
+# would it handling this not introduce inconsistencies + bad UI flow?"
+# Machine classification (c): `--select=SR|-s SR    select report SR (def:
+# 0)` is followed by an indented enumerated continuation (`0 -> ...`, `1 ->
+# ...`, up to `0x12 -> ...`), and the renderer folds that continuation into
+# one paragraph. No text is lost; every line survives inside the collapsed
+# description. It is a display question and no ruling answers it.
 #
 # There is no `[contract]` field for a usage form, so this is stated in
 # prose instead. The raw block documents two synopsis forms:
 # `sg_luns [--decode] ... DEVICE` and `sg_luns --test=ALUN [...]`, separated
-# by a line reading `     or`. Round 5 (`bare-or-usage-separator`, spec
-# §7 Tier B) fixed this: a usage line whose only content is the word `or`
-# (any case, optional trailing colon) is now recognized as a pure form
-# separator in `mandible-extract/src/help_text/sections/mod.rs`
-# (`is_bare_or_form_separator`) and contributes no text to either form.
+# by a line reading `     or`. That bare separator used to be joined onto
+# the end of the first form, so the first form read `... [--version]
+# DEVICE or`. It is fixed: a usage line whose only content is the word
+# `or`, in any case, with an optional trailing colon, is a form separator
+# and contributes no text to either form
+# (`mandible-extract/src/help_text/sections/usage.rs`'s
+# `is_bare_or_form_separator`, docs/shapes.md S-112).
 # VERIFIED FACT (`cargo run -p xtask -- corpus --show sg_luns/1.45`): the
 # extracted tree's `usage` list holds two entries, the first now ending
 # `... [--version] DEVICE` with no trailing `or`, the second unchanged.
+# No `[contract]` field can assert a usage form, so the re-blessed
+# `expected.snap` is what freezes that shape.
 #
 # Re-blessed after that fix; the rest of the tree was read against the raw
 # bytes row by row before the original bless and is untouched by this

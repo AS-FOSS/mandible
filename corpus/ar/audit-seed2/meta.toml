@@ -17,6 +17,47 @@
 # now that all four operands reach the tree. The second usage line spells
 # the tool as a full path, so it used to join the first line and hide the
 # operands behind it; both forms are separate entries in the snapshot now.
+#
+# Maintainer, fourth batch: "with ar, most of the concerns are gone. I
+# noticed new potential loss of information, give feedback: so within
+# 'commands:' section tool is listing its commands and some modifiers list
+# attached to it. Does it mean that only those modifiers are allowed to be
+# attached to that flag? so what then, currently we are losing that
+# combination allowlist i think." Machine classification: the ` commands:`
+# rows spell each command with its own accepted-modifier group —
+# `m[ab]`, `q[f]`, `r[ab][f][u]`, `t[O][v]`, `x[o]`, and `d`, `p`, `s` with
+# none. The commands pane shows only the bare letter, so the
+# accepted-modifier allowlist is lost.
+#
+# The main session asked whether a subcommand whose own `--help` returns
+# the root help byte for byte should keep showing that repeated verbatim
+# text, or render parsed but not repeated. Maintainer's ruling: "ok then
+# both options it is." Rule (docs/design.md §16, 2026-09-04): rendering
+# parsed but not repeated is the default view, and the `t` key still shows
+# the live verbatim text.
+#
+# Under both rulings, the target shape for `ar`'s subcommand nodes: the
+# display name keeps the source spelling (`r[ab][f][u]`, not bare `r`), and
+# the node carries an accepted-modifier list (`d`, `p`, `s` carry none).
+#
+# Contract-field question: no field in `xtask/src/corpus/contract.rs`
+# asserts a subcommand's display name or a per-subcommand modifier list
+# today. `must_contain_modifiers` (`check_contract_collection_fields`)
+# checks only `root.modifiers()`, the root's own modifier list, never a
+# subcommand's. `must_contain_flags_by_path` asserts a subcommand's flags
+# by path, but no analogous field exists for a subcommand's modifiers or
+# its display name. `CommandNode` (`mandible-core/src/node.rs`) itself
+# carries no per-subcommand accepted-modifier field yet, so this is a data
+# model gap, not only a contract gap. The fixture stays green and is not
+# flipped to xfail: every assertion `[contract]` can state today already
+# passes, and an xfail whose every assertion passes is reported as
+# demanding promotion, which would break the gate. Two fields would close
+# this once the data model carries the modifier list: a
+# `must_subcommand_display_name` field, keyed by subcommand name, asserting
+# the source spelling shown in the commands pane, and a
+# `must_subcommand_modifiers` field, keyed by subcommand path, asserting
+# its accepted-modifier letters the way `must_contain_flags_by_path` does
+# for flags.
 
 [bless]
 provenance = "agent"

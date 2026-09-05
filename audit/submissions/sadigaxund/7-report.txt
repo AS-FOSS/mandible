@@ -1,0 +1,40 @@
+audit seed=7 sample_size=30 (30 entries total)
+
+stratum             correct/judged   accuracy   95% CI            skipped   pending   out-of-scope
+incomplete              0/1        0.0%   [  0.0%,  79.3%]         0         0              0
+low-confidence          0/2        0.0%   [  0.0%,  65.8%]         0         0              0
+ok                     15/24      62.5%   [ 42.7%,  78.8%]         0         0              0
+verbatim                0/1        0.0%   [  0.0%,  79.3%]         2         0              0
+OVERALL                15/28      53.6%   [ 35.8%,  70.5%]         2         0              0
+
+note: n=28 judged so far — the interval above is wide at this size; keep reviewing for a number worth acting on (spec's own target is ~60-100).
+
+note: the 95% CI above bounds sampling error only — how much this sample's accuracy could plausibly vary on a fresh draw of the same size — never reviewer error. Read the accuracy figure as "accuracy of the parser as judged by this reviewer," not an absolute truth.
+note: no verdict in this file has been amended yet (`xtask audit amend`) — this says nothing about whether the recorded verdicts are all correct, only that none has been corrected so far.
+
+K1/K2/K3 sensitivity (8 entries tagged K1, 0 entries tagged K2, 0 entries tagged K3 — see mandible_core::audit's Entry::k1/k2/k3 doc comments and this module's *_signature functions):
+view                      correct/judged   accuracy   95% CI
+all-inclusive                15/28      53.6%   [ 35.8%,  70.5%]
+K1-excluded                  13/20      65.0%   [ 43.3%,  81.9%]
+K2-excluded                  15/28      53.6%   [ 35.8%,  70.5%]
+K3-excluded                  15/28      53.6%   [ 35.8%,  70.5%]
+K1+K2+K3-excluded            13/20      65.0%   [ 43.3%,  81.9%]
+
+tools judged wrong or incomplete (the next bugs):
+  aarch64-linux-gnu-g++-13 incomplete  1. See flags like this: -Wa, <options>, -Wp, <options>, -W1,<options>They got converted and merged intosingle '-W a,<options> Pass comma-separated...'The same goes for '-X'2. Moreover, see '-###' which got parsed into '-# ##'3. this tool also exposes '-v --help' combination which add much more tools. so we should come back to it after this is fixed.
+  apt-sortpkgs             incomplete  missing positionals
+  busybox                  incomplete  - busybox > acpid: should it have parsed flags from this line? "ignore compatibility options -g -m -s -S -v"- also usage line and body of help text have two different names for placeholder, where parser chose body's but usage's names are more descriptive, but im not sure about it. Maybe expected behavior - busybox > ar: new pattern: missing flags because it does not start with dash, example: x, p, t - busybox > arp: usage line looks bad. Also, migth have wrong and incomplete positionals- busybox > arping: possibly wrong parse, parsed: '-c N' original substring: '[-c CNT]'- busybox > ash: see what is this '[-|+Cabefmnuvx]' and many more in that usage line- busybox > basename: parsed="FILE", check if it should have been "FILE...". And see if '-a' should have had the same placeholder.- i will stop at basename, because still way too many tools to consider here
+  invoke-rc.d              incomplete  should the positionals have had the descriptions shown just below usage line?
+  lxd.check-kernel         wrong       i think it ran something, might be security violation
+  makeconv                 wrong       false positive '-o ptions', and usage section has some description leaked into it. Hard to detect, fix? or skip?
+  memhog                   wrong       wrong placeholders and missing flag descriptions
+  nfsslower-bpfcc          wrong       the description of '-p PID' got contaminated with the usage examples
+  pip3                     incomplete  other than that missing subcommands, nothing else is visibly wrong
+  pr                       incomplete  new pattern, 3+ occurences: see '-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]' which should have been aliases but i think only one got parsed and other got swalloed.
+  pvdisplay                wrong       see '--units [Number]r|R|N|... ]' i think it trimmed the ending after '[Number]'
+  systemctl                incomplete  a lot of missing commands, too much to do in one go, so we will come back to this
+  tcpretrans.bt            wrong       bad usage line
+
+tools skipped (2 — recorded, never omitted; excluded from every accuracy figure above, so this is the list that makes that exclusion checkable):
+  add-shell                (no reason recorded)
+  editres                  (no reason recorded)

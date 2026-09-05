@@ -2,7 +2,7 @@
 freeze_date = "2026-08-14"
 population_hash = "9818ac066f23868a"
 seed = 3
-cursor = 30
+cursor = 60
 
 [[entry]]
 tool = "bzcmp"

@@ -68,9 +68,18 @@ must_contain_flags = ["+", "--", "--help"]
 # classification: usage-alternative description dropped. `-t` and `-q` both
 # reach the tree from `help-text-synopsis` with no description, while the
 # usage line states one for each.
+#
+# Maintainer, fourth batch, on the `+` rows below: "I see that '+' got
+# parsed, but wrongly ... final product kept desc of '+' and body of
+# '+<lnum>'." The two rows fold in the TUI merge, detailed at the bottom of
+# this file. `must_describe` resolves a spelling to its first matching
+# entity in flag iteration order, and the first `+` entity in this tree is
+# the bare row, so the entry below resolves to it and asserts that
+# description, not the second entity's "Start at line <lnum>".
 [contract.must_describe]
 "-t" = "edit file where tag is defined"
 "-q" = "edit file with first error"
+"+" = "Start at end of file"
 
 [xfail]
 broken = true
@@ -137,17 +146,38 @@ reason = "one defect remains. The usage alternatives `-t tag` and `-q [errorfile
 # never stripped. The four extra characters of `or: ` are what make those
 # rows sit further right than row 1.
 
+# Maintainer, fourth batch: "I see that '+' got parsed, but wrongly. so in
+# raw text there is two of them: 1) '+' and 2) '+<lnum>'. each has their own
+# descriptions, but final product kept desc of '+' and body of '+<lnum>'."
+#
 # What a reader sees on screen for the two `+` rows, checked on my own
 # 110x150 pty capture of this build and recorded rather than left for the
 # next reader to find. The replayed tree here is right: two entities, both
 # spelled `+`, one with the description "Start at end of file" and no
 # value, one with the value `<lnum>` and the description "Start at line
 # <lnum>". The running TUI shows one row, `+<lnum>` carrying "Start at end
-# of file". `mandible_core::merge::merge_entities` buckets an entity by
-# `(kind, spelling)`, so the two rows collide on the key `(Flag, "+")` and
-# fold, keeping the first description beside the second value name. This is
-# docs/shapes.md S-102, which already names this tool, and it is the same
-# collision corpus/jinfo/17.0.20 records for its three `-flag` rows. Before
-# the plus-prefixed fix neither row reached any surface at all, so the fix
-# adds one row and the fold still hides "Start at line <lnum>". A fixture
-# replay never runs the merge, so no `[contract]` field here can state it.
+# of file". `mandible_core::merge::entity_identity` keys an entity on
+# `(kind, long-or-short spelling)`, so the two rows collide on the bucket
+# key `(Flag, "S:+")`, and `merge_entity_bucket` then keeps one description
+# and one value name for the bucket: the first description beside the
+# second value name. This is docs/shapes.md S-102, which already names
+# this tool, and it is the same collision corpus/jinfo/17.0.20 records for
+# its three `-flag` rows. Before the plus-prefixed fix neither row reached
+# any surface at all, so the fix adds one row and the fold still hides
+# "Start at line <lnum>". The fix is a merge change, so no `[contract]`
+# field and no sweep-diff can see it, and the evidence is a pty screen.
+# `Runner::extract_full_for` (`mandible-extract/src/runner.rs`) hands
+# `merge_nodes` a single candidate for a one-tier tool like vim.basic, and
+# `merge_nodes` short-circuits on a single candidate, so the bucketing
+# never runs there. `Runner::fill_node` always adds `existing` to the
+# candidates, so the bucketing always runs in the TUI. `xtask corpus` and
+# `xtask coverage` both go through `extract_full_for`, so neither can see
+# the fold, which is why this note cannot state it as a contract failure.
+#
+# `[contract.must_describe]` resolves a spelling to its first matching
+# entity in flag iteration order (`xtask/src/corpus/contract.rs`'s
+# `check_contract_collection_fields`). The first entity spelled `+` in this
+# tree is the bare row, described "Start at end of file", so the
+# `[contract.must_describe]` entry above resolves to that entity. It cannot target the second `+` entity
+# ("Start at line <lnum>"), since TOML allows one entry per key and
+# `must_describe` always takes the first match, never a later one.

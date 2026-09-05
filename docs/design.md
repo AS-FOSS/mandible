@@ -2684,15 +2684,19 @@ is re-litigated.
 ### Maintainer decisions, recorded so they are not re-litigated
 
 **A tool that returns its root help for every subcommand is shown as-is
-(2026-08-12).** After [M-19], every `systemctl` subcommand's verbatim pane
-shows the same root help, because `systemctl <verb> --help` genuinely returns
-it. A special-case message ("this tool returns its root help for every
+(2026-08-12). Superseded by the 2026-09-04 ruling below on a node whose
+help repeats an ancestor's.** After [M-19], every `systemctl` subcommand's
+verbatim pane shows the same root help, because `systemctl <verb> --help`
+genuinely returns it. A special-case message ("this tool returns its root help for every
 subcommand") was proposed and **declined**: if that is how the tool behaves,
 showing it is honest, and a reader seeing identical text across 18 subcommands
 can draw the conclusion without being told. **Do not re-propose.** The one
 residual is that each degraded node keeps its own copy of that text instead of
 sharing one, which is a memory cost rather than a correctness one, and does not
-justify a special case either.
+justify a special case either. The 2026-09-04 ruling reverses the declined
+half: such a node now carries a notice line and shows no repeated text, so
+the residual copy is gone as well. The reasoning here survives as the record
+of why the earlier answer was no.
 
 **Error codes are not an entity kind (2026-09-03).** Asked "within 'nice' I
 noticed another IR type candidates which is error codes. should we even bother
@@ -2731,6 +2735,26 @@ value spec written as two or more glued optional groups renders as its own
 source spelling, so `-V[N][fname]` renders `[N][fname]`. Folding the groups
 into one space-joined name keeps the words and loses the bracket structure.
 The fixture is `corpus/vim.basic/audit-seed4`.
+
+**Short spellings before long ones, decided (2026-09-04).** The maintainer
+ruled: "displaying long before short breaks the alignment and eyes cant
+reliably track flags. so always shorts first and then longs. this does not
+lose authors intent." The rule: the renderer shows short spellings first
+and long ones after, always. The IR keeps source order. Display-side only.
+
+**A node whose help repeats an ancestor's renders parsed, not repeated
+(2026-09-04).** The maintainer ruled: "ok then both options it is." The
+rule: a node whose selected help text is byte-identical to an ancestor's,
+the case the [M-19] guard already detects, renders parsed and not
+repeated. It shows its description from the parent's own row, one notice
+line saying that this command prints the same help as its parent and that
+`t` shows it, and its accepted-modifier list when the parent's row carried
+one. It shows no usage, no children and no flags. The `t` key keeps the
+live verbatim view. The rule holds whether or not modifiers exist. The
+source spelling `r[ab][f][u]` stays as the display name in the commands
+pane. The maintainer also asked whether usage propagates to such a node:
+it does not, since the node has no usage of its own and the notice
+replaces it.
 
 ### Deferred, with the reason each is not simply undone
 
@@ -2795,17 +2819,6 @@ where the shim test's own comment carries the reasoning, the row can go too.
    piece for classic Unix prose, and it is also the one most likely to need
    per-distro path fiddling — which brushes against the §1 invariant. Keep it
    general (`MANPATH` + `man -k`) or don't ship it.
-
-### Recommendations awaiting the maintainer's word
-
-**Short spellings before long ones, recommended and not yet decided
-(2026-09-04).** Shown `mandible sg_luns`, the maintainer asked "why long
-flags displayed first then short ones? was not it supposed to be other way
-around, also how tf order has changed?". `sg_luns` writes its rows
-`--decode|-d`, long first, and mandible keeps the source order of
-spellings. The recommendation is that the renderer show short spellings
-before long ones while the IR keeps the source order. Nothing has been
-decided, and any change here is display-side only.
 
 ---
 
