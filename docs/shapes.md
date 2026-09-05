@@ -1959,11 +1959,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`or:` still carrying real content after the colon on the same line),
   which this fix leaves untouched.
 - fleet: `bare-or-usage-separator` (`xtask/src/detector/
-  bare_or_usage_separator.rs`) is not calibratable against the seed-2/4/5/6
-  audit (no labelled member). Six tools confirmed by reading each one's own
-  `--help` capture directly, 2026-09-05; `update-catalog` also shows in a
-  full-`PATH` sweep-diff as a `--remove` flag gain with zero losses. The
-  other five tools' fix is text-only (a `usage` form, and for
+  bare_or_usage_separator.rs`), wired into `xtask coverage`'s aggregate and
+  modeling both symptoms (truncation and gluing) as one cause, reads
+  **6 tools / 6 findings before, 0/0 after** in a full-`PATH` sweep of 2319
+  tools — clearing the five-tool bar with a quotable, reproducible number.
+  Not calibratable against the seed-2/4/5/6 audit (no labelled member).
+  Ratchet-gated at zero in `coverage --check` alongside
+  `usage-spelling-duplicates-table-row`. `update-catalog`'s repair also
+  shows in a full-`PATH` sweep-diff as a `--remove` flag gain with zero
+  losses; the other five tools' fix is text-only (a `usage` form, and for
   `mariadb-tzinfo-to-sql`/`mysql_tzinfo_to_sql`/`aria_read_log` a
   positional their second form names), invisible to sweep-diff's
   flag-keyed fingerprint; `sg_luns`'s is confirmed via its corpus fixture.
