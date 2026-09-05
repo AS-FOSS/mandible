@@ -1023,6 +1023,10 @@ pub(super) fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> 
         // row is one whole flag, never split into a short/long pair
         // needing this merge at all.
         choices: Vec::new(),
+        // Same reasoning as `choices` immediately above: `value_prefix`
+        // is consumed inside `parse_flag_spec` itself before either side
+        // ever reaches this merge.
+        value_prefix: None,
         fully_consumed: short_spec.fully_consumed && long_spec.fully_consumed,
     })
 }

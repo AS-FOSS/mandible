@@ -44,6 +44,16 @@ pub struct FlagSpec {
     /// tells the two apart, so only a caller with a narrower, scoped
     /// signal ever sets this field.
     pub choices: Vec<String>,
+    /// Set when the value about to be parsed attaches to the spelling
+    /// just collected by a literal character other than whitespace
+    /// (`-Wa,<options>`'s comma, docs/shapes.md S-116) — the tool's own
+    /// invocation requires that exact character, so rendering the usual
+    /// space there would draw a syntax the tool refuses. Folded into
+    /// `value_name` itself once the value is parsed (kept off `Entity`
+    /// entirely), so `-Wa`'s value_name reads `",<options>"` and a
+    /// renderer need only check its first character, the same way it
+    /// already does for the argfile sigil flag's glued value.
+    pub(crate) value_prefix: Option<char>,
     /// True if the grammar consumed the entire fragment cleanly (no
     /// leftover text it didn't understand). Used for confidence scoring.
     pub fully_consumed: bool,
@@ -164,6 +174,19 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                         break;
                     }
                 }
+                // The comma-glued shape (docs/shapes.md S-116) is the
+                // only way `try_short` ever returns a multi-letter,
+                // all-alphabetic single-dash name with its own tail
+                // still starting `,`: the tool's own invocation requires
+                // that comma, so the value about to be read must render
+                // glued to it, never with the usual space.
+                if matches!(spelling.dashes, Dashes::Single)
+                    && spelling.name.chars().count() > 1
+                    && spelling.name.chars().all(|c| c.is_ascii_alphabetic())
+                    && tail.starts_with(',')
+                {
+                    spec.value_prefix = Some(',');
+                }
                 saw_explicit_anywhere |= explicit;
                 last_was_long_like = is_long_like(&spelling);
                 spec.spellings.push(spelling);
@@ -229,8 +252,14 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             return spec;
         };
         // First value wins: a repeated placeholder names one value once.
+        // `value_prefix` folds in here rather than living on past this
+        // function: the value's own glue character (`-Wa,<options>`'s
+        // comma) becomes the leading character of `value_name` itself.
         if spec.value_name.is_none() {
-            spec.value_name = Some(value_name);
+            spec.value_name = Some(match spec.value_prefix.take() {
+                Some(c) => format!("{c}{value_name}"),
+                None => value_name,
+            });
             spec.value_kind = kind;
         }
 
@@ -1369,10 +1398,13 @@ mod tests {
     /// the comma, and the value follows it. See docs/shapes.md S-116.
     #[test]
     fn a_letter_run_glued_to_a_comma_is_the_whole_spelling() {
+        // `value_name` keeps the comma itself (docs/shapes.md S-116): the
+        // tool's own invocation requires it, so a renderer that dropped
+        // it and drew a space instead would show a syntax gcc refuses.
         for (row, name, value) in [
-            ("-Wa,<options>", "Wa", "<options>"),
-            ("-Wp,<options>", "Wp", "<options>"),
-            ("-Wl,<options>", "Wl", "<options>"),
+            ("-Wa,<options>", "Wa", ",<options>"),
+            ("-Wp,<options>", "Wp", ",<options>"),
+            ("-Wl,<options>", "Wl", ",<options>"),
         ] {
             let spec = parse_flag_spec(row);
             assert_eq!(spec.long(), Some(name), "{row}");

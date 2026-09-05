@@ -79,11 +79,14 @@ must_keep_separate = [
 ]
 
 [contract.must_value_name]
-# Guards: pass today, since `must_value_name` scans every matching entity
-# and the assembler row's own value name already contains "<options>".
-"-Wa" = "<options>"
-"-Wp" = "<options>"
-"-Wl" = "<options>"
+# `-Wa`/`-Wp`/`-Wl` require the comma the tool itself prints
+# (`-Wa,<options>`, never `-Wa <options>`): the value name keeps that
+# comma as its own leading character (docs/shapes.md S-116) so a
+# renderer can draw the row without implying a space-separated
+# invocation the tool refuses.
+"-Wa" = ",<options>"
+"-Wp" = ",<options>"
+"-Wl" = ",<options>"
 
 [contract.must_describe]
 # Passes: the assembler row parses first, so a spelling-matched lookup

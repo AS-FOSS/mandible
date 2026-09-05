@@ -1860,6 +1860,43 @@ mod tests {
         );
     }
 
+    /// `-Wa,<options>` (docs/shapes.md S-116): the tool's own invocation
+    /// requires the comma, so a rendered space there would draw a syntax
+    /// gcc refuses. `value_name` carries the comma itself
+    /// (`",<options>"`), and the pane must draw it glued, never with the
+    /// ordinary one-space gap.
+    #[test]
+    fn a_comma_glued_value_renders_with_no_space() {
+        let mut flag = Entity::flag_spelled(
+            None,
+            Some("Wa".to_string()),
+            true,
+            false,
+            Provenance::single(Source::HelpText),
+        );
+        flag.value_name = Some(",<options>".to_string());
+        flag.value_kind = ValueKind::Required;
+        let lines = entity_line(
+            &flag,
+            false,
+            80,
+            true,
+            SectionLayout {
+                description: 20,
+                indent: 0,
+            },
+        );
+        let first = text_of(&lines[0]);
+        assert!(
+            first.trim_start().starts_with("-Wa,<options>"),
+            "the comma must glue directly onto the spelling: {first:?}"
+        );
+        assert!(
+            !first.contains("-Wa ,"),
+            "must never render a space before the glue comma: {first:?}"
+        );
+    }
+
     #[test]
     fn deprecated_flag_gets_a_tag() {
         let mut flag = Entity::flag_long("old-flag", Provenance::single(Source::HelpText));

@@ -127,7 +127,7 @@ flags:
     - help-text
 - spellings:
   - -Wa
-  value_name: <options>
+  value_name: ',<options>'
   value_kind: Required
   description: Pass comma-separated <options> on to the assembler.
   provenance:
@@ -135,7 +135,7 @@ flags:
     - help-text
 - spellings:
   - -Wp
-  value_name: <options>
+  value_name: ',<options>'
   value_kind: Required
   description: Pass comma-separated <options> on to the preprocessor.
   provenance:
@@ -143,7 +143,7 @@ flags:
     - help-text
 - spellings:
   - -Wl
-  value_name: <options>
+  value_name: ',<options>'
   value_kind: Required
   description: Pass comma-separated <options> on to the linker.
   provenance:
