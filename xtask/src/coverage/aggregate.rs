@@ -436,6 +436,13 @@ fn family_static_name(word: &str) -> Option<&'static str> {
         "second-optional-value-dropped",
         "parenthetical-qualifier-as-value",
         "or-joined-alias",
+        // Round 5: gated the same way as the two above, once each one's
+        // fleet count reached zero (see `xtask/src/main.rs`'s `--check`).
+        // `same-spelling-fold-loss` is not gated (its merge-time half is
+        // invisible to this sweep) and so is deliberately absent here,
+        // the same way round 4's six ungated names are absent.
+        "bare-or-usage-separator",
+        "usage-spelling-duplicates-table-row",
     ]
     .into_iter()
     .find(|&n| n == word)

@@ -1753,17 +1753,57 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -r (with file name)	Recover crashed session
 - tools: vim.basic, ffplay, ffmpeg, curl, gcc, as, dpkg, tar, du, expand, lsof,
   update-xmlcatalog, rust-lldb, qemu-arm64-static, ptargrep, pod2man,
-  mkfs.bfs, man-recode
+  mkfs.bfs, man-recode, icupkg
 - handling: A tool may document one spelling on two rows for two forms, and the parser
   extracts both. The interactive display then folds them into one entity,
   keyed on spelling alone, and picks the value name and the description from
   different members. One row's description reaches no rendered surface. The
-  extraction is correct and the loss happens after it. Open defect.
+  extraction is correct and the loss happens after it.
+  The `same-spelling-fold-loss` fix addresses the merge half, for vim.basic's
+  own instance: `+` ("Start at end of file") and `+<lnum>` ("Start at line
+  <lnum>") shared one identity key and disagreed about taking a value, so
+  `mandible_core::merge::merge_entity_lists` picked one row's description
+  and attached the other row's value to it. `split_disagreeing_rows`
+  (`mandible-core/src/merge.rs`) now refuses to fold two entities that
+  share an identical source set and disagree about taking a value or about
+  their own description, so the two rows survive as two entities instead
+  of one that mixes them. Chosen over inventing a two-description IR field,
+  which would concatenate two sentences the tool never wrote as one.
+  Cross-source disagreement (one tier saw a value, another did not) still
+  merges as before — the refusal is scoped to entities sharing one source.
+  This half is invisible to `xtask corpus`/`coverage`: both extract through
+  a single-candidate path that short-circuits before the merge fold ever
+  runs, so only the TUI (`Runner::fill_node`, which always adds `existing`
+  as a second candidate) exercises it. Verified instead by unit tests in
+  `mandible-core/src/merge.rs`
+  (`same_source_rows_that_disagree_about_taking_a_value_stay_two_entities`)
+  and a pty screen of `./target/release/mandible vim.basic`, which shows
+  `+` with "Start at end of file" and `+<lnum>` with "Start at line
+  <lnum>" as two rows. The remaining tools on this entry's list are `ffplay`, `gcc`,
+  `curl`, etc. — their same-spelling pairs are still open, since this fix
+  addresses the value-disagreement/description-disagreement shape
+  generally but was verified against vim.basic specifically.
+  icupkg's own instance of this identity collision (`-tl`/`-tb`/`-te`, one
+  option's three literal choice values written once per row) sits one
+  layer earlier, in extraction itself, and needs a different fix (folding
+  the three rows into one entity's `choices`). A prototype was built and
+  moved only `icupkg` in a full-`PATH` sweep, below the five-tool bar, so
+  it was not shipped. The merge half already restores the three rows'
+  own descriptions; what stays open is folding them into one option's
+  `choices`, which `corpus/icupkg/74.2` asserts.
 - fleet: 18 of 133 corpus fixtures carry a spelling on two entities with
   different descriptions, 2026-09-03. Measured loss between the extracted
   count and the rendered count: ffplay 1136 to 465, gcc 43 to 37, curl 258
   to 253, as 61 to 59, vim.basic 45 to 43, tar 159 to 157, du 29 to 28,
-  expand 5 to 4.
+  expand 5 to 4. The merge-time fix is invisible to this instrument (see
+  above), so the merge fix leaves this count where it was. `same-spelling-fold-loss`
+  (`xtask/src/detector/same_spelling_fold_loss.rs`), wired into `xtask
+  coverage`'s aggregate, reads **182 tools / 664 findings** in a full-`PATH`
+  sweep of 2319 tools — clearing the five-tool bar by a wide margin, a
+  stronger argument for shipping the merge half than the information-loss
+  rule alone. Not calibratable against the seed-2/4/5/6 audit (no labelled
+  member); not gated (the merge half it argues for is invisible to this
+  same sweep, so a gate here would ratchet a number the fix cannot move).
 
 ### S-105: one-space description column on a pipe-joined alias row
 
@@ -1894,3 +1934,68 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/glued_optional_group_spelling.rs`) generalizes this shape
   fleet-wide.
 - fleet: 10 tools, 10 findings, 2026-09-04
+
+### S-112: bare `or` line read as an ordinary continuation
+
+- id: S-112
+- looks like: |
+      Usage: sg_luns    [--decode] [--help] ... DEVICE
+           or
+             sg_luns    --test=ALUN [--decode] [--hex] [--lu_cong] [--verbose]
+- tools: update-catalog, aria_read_log, mariadb-tzinfo-to-sql,
+  mysql_tzinfo_to_sql, sg_luns, sg_test_rwbuf
+- handling: Fixed. A usage line whose only content is the word `or` (any case,
+  optional trailing colon) is a pure separator between two usage forms,
+  contributing no text to either. `is_bare_or_form_separator`
+  (`mandible-extract/src/help_text/sections/usage.rs`) recognizes the
+  shape; `scan_usage_section`
+  (`mandible-extract/src/help_text/sections/mod.rs`) consumes the line
+  without appending it anywhere and forces the next physical line to
+  start a fresh entry, however that line is itself shaped. Two distinct
+  symptoms shared one cause: an unindented bare `or` (at or below the
+  usage block's base indent) previously hit the "content doesn't read as
+  a usage fragment" rule and ended the whole block there, dropping every
+  line after it (`update-catalog`, `aria_read_log`,
+  `mariadb-tzinfo-to-sql`, `mysql_tzinfo_to_sql`); an indented one fell
+  through every other check and was glued onto the end of the prior
+  form's last token (`sg_luns`, `sg_test_rwbuf`). Distinct from S-107
+  (`or:` still carrying real content after the colon on the same line),
+  which this fix leaves untouched.
+- fleet: `bare-or-usage-separator` (`xtask/src/detector/
+  bare_or_usage_separator.rs`), wired into `xtask coverage`'s aggregate and
+  modeling both symptoms (truncation and gluing) as one cause, reads
+  **6 tools / 6 findings before, 0/0 after** in a full-`PATH` sweep of 2319
+  tools — clearing the five-tool bar with a quotable, reproducible number.
+  Not calibratable against the seed-2/4/5/6 audit (no labelled member).
+  Ratchet-gated at zero in `coverage --check` alongside
+  `usage-spelling-duplicates-table-row`. `update-catalog`'s repair also
+  shows in a full-`PATH` sweep-diff as a `--remove` flag gain with zero
+  losses; the other five tools' fix is text-only (a `usage` form, and for
+  `mariadb-tzinfo-to-sql`/`mysql_tzinfo_to_sql`/`aria_read_log` a
+  positional their second form names), invisible to sweep-diff's
+  flag-keyed fingerprint; `sg_luns`'s is confirmed via its corpus fixture.
+
+### S-113: usage-derived spelling duplicates a table row that already has it
+
+- id: S-113
+- looks like: |
+      Usage: icupkg [-h|-?|--help ] ...
+      ...
+      -h or -? or --help    print this message and exit
+- tools: date, icupkg, jcmd, piconv, ssh-copy-id
+- handling: Fixed. `flag_spelling_already_present`
+  (`mandible-extract/src/help_text/sections/usage.rs`) decides whether a
+  usage-only spelling duplicates a spelling an option-table row already
+  has, but checked only that row's *primary* `short()`/`long()` pick —
+  the first single-dash one-character spelling, for `short()` — not every
+  spelling the row carries. `icupkg`'s `-h, -?, --help` row reports
+  `short() == Some('h')`, so the usage line's own `-?` token read as
+  absent and was re-added as its own bare, undescribed duplicate entity.
+  Now checks every spelling on the row.
+- fleet: `usage-spelling-duplicates-table-row`
+  (`xtask/src/detector/usage_spelling_duplicates_table_row.rs`) is not
+  calibratable against the seed-2/4/5/6 audit (no labelled member). Five
+  tools in a full-`PATH` sweep-diff, zero losses: `date` (`--universal`),
+  `icupkg` (`-?`), `jcmd` (`-h`), `piconv` (`-c`), `ssh-copy-id` (`-?`) —
+  each duplicate confirmed still present via its rightful multi-spelling
+  row in the same sweep's fingerprint, 2026-09-05.
