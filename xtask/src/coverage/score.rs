@@ -469,7 +469,66 @@ fn vim_family_counts(
         ),
     ];
     counts.extend(round4_family_counts(&raw, root));
+    counts.extend(round6_family_counts(&raw, root));
     counts
+}
+
+/// The round-6 parser-B family detectors (atlas S-126 to S-129 plus
+/// S-130), split out for the same reason [`round4_family_counts`] is.
+fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let eb = crate::detector::examples_block_contaminates_last_flag::detect(raw, root);
+    let pd = crate::detector::positional_description_block::detect(raw, root);
+    let gp = crate::detector::generic_option_placeholder_flag::detect(raw, root);
+    let cp = crate::detector::command_row_argument_placeholder::detect(raw, root);
+    let ds = crate::detector::description_subcommands_list::detect(raw, root);
+    vec![
+        (
+            "examples-block-contaminates-last-flag",
+            eb.finding_count(),
+            eb.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("-{} description carries a folded example block", f.flag))
+                .collect(),
+        ),
+        (
+            "positional-description-block",
+            pd.finding_count(),
+            pd.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} never described, from {:?}", f.name, f.description))
+                .collect(),
+        ),
+        (
+            "generic-option-placeholder-flag",
+            gp.finding_count(),
+            gp.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} invented a flag, from {:?}", f.token, f.line))
+                .collect(),
+        ),
+        (
+            "command-row-argument-placeholder",
+            cp.finding_count(),
+            cp.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} missing from the tree, from {:?}", f.name, f.line))
+                .collect(),
+        ),
+        (
+            "description-subcommands-list",
+            ds.finding_count(),
+            ds.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} missing from the tree", f.name))
+                .collect(),
+        ),
+    ]
 }
 
 /// The six round-4 detectors (atlas S-106 to S-111), split out of

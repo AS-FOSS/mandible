@@ -51,6 +51,13 @@ pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
 
+// Round-6 parser-B family detectors (atlas S-126 upward).
+pub(crate) mod command_row_argument_placeholder;
+pub(crate) mod description_subcommands_list;
+pub(crate) mod examples_block_contaminates_last_flag;
+pub(crate) mod generic_option_placeholder_flag;
+pub(crate) mod positional_description_block;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -660,6 +667,11 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(MultiOperandUsageTail),
         Box::new(OrJoinedAliasWithValues),
         Box::new(GluedOptionalGroupSpelling),
+        Box::new(CommandRowArgumentPlaceholder),
+        Box::new(ExamplesBlockContaminatesLastFlag),
+        Box::new(PositionalDescriptionBlock),
+        Box::new(GenericOptionPlaceholderFlag),
+        Box::new(DescriptionSubcommandsList),
     ]
 }
 

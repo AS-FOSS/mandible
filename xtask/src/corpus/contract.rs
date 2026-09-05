@@ -245,6 +245,25 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    // `must_describe_positional`: same rule as `must_describe` above.
+    for name in b.must_describe_positional.keys() {
+        if !n.must_describe_positional.contains_key(name) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_describe_positional[{name:?}] (assertion removed)"
+            ));
+        }
+    }
+
+    // `must_not_describe`: a negative claim, weakens by losing an entry —
+    // same reasoning `must_not_contain_flags` above already carries.
+    for flag in b.must_not_describe.keys() {
+        if !n.must_not_describe.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_not_describe[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
     lines
 }
 
@@ -338,6 +357,14 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     if !contract.must_value_name.is_empty() {
         failures.push(ContractFailure("must_value_name: no root produced".into()));
     }
+    if !contract.must_describe_positional.is_empty() {
+        failures.push(ContractFailure(
+            "must_describe_positional: no root produced".into(),
+        ));
+    }
+    // `must_not_describe`, like `must_not_contain_flags`, is a negative
+    // claim satisfied vacuously by no tree at all — omitted here for the
+    // same reason `check_contract_missing_root`'s own doc comment gives.
     failures
 }
 
@@ -407,6 +434,33 @@ fn check_contract_scalar_fields(
             "must_not_contain_flags: present {}",
             present_forbidden.join(", ")
         )));
+    }
+
+    // `must_not_describe`: a root flag's description must NOT contain the
+    // given text, keyed by the flag's own spelling — the mirror of
+    // `must_not_contain_flags` one level down, closing the gap
+    // `must_describe`'s substring check cannot: the real, correct text is
+    // still present after an unheaded example block folds onto it, so
+    // only a negative assertion can name the contamination as a failure.
+    // Silent when the flag itself is absent, same reasoning
+    // `must_not_contain_flags` uses for a tree with no root at all.
+    for (flag_spec, forbidden_text) in &contract.must_not_describe {
+        let Some(entity) = root
+            .flags()
+            .find(|f| entity_matches_flag_spec(f, flag_spec))
+        else {
+            continue;
+        };
+        let actual = entity.description.as_ref().map_or("", |t| t.as_str());
+        let actual_collapsed = collapse_whitespace(actual);
+        let forbidden_collapsed = collapse_whitespace(forbidden_text);
+        if actual_collapsed.contains(&forbidden_collapsed) {
+            failures.push(ContractFailure(format!(
+                "must_not_describe[{flag_spec:?}]: description contains {:?}, got {:?}",
+                forbidden_collapsed,
+                truncate_for_display(&actual_collapsed, 160)
+            )));
+        }
     }
 
     // The other negative-claim shape: not "this spelling was invented",
@@ -546,6 +600,27 @@ fn check_contract_collection_fields(
                 if !actual_collapsed.contains(&expected_collapsed) {
                     failures.push(ContractFailure(format!(
                         "must_describe[{flag_spec:?}]: expected description to contain {:?}, got {:?}",
+                        expected_collapsed,
+                        truncate_for_display(&actual_collapsed, 120)
+                    )));
+                }
+            }
+        }
+    }
+
+    for (name, expected_text) in &contract.must_describe_positional {
+        match root.positionals().find(|p| p.primary_name() == name) {
+            None => failures.push(ContractFailure(format!(
+                "must_describe_positional[{name:?}]: positional not present"
+            ))),
+            Some(entity) => {
+                let actual = entity.description.as_ref().map_or("", |t| t.as_str());
+                let actual_collapsed = collapse_whitespace(actual);
+                let expected_collapsed = collapse_whitespace(expected_text);
+                if !actual_collapsed.contains(&expected_collapsed) {
+                    failures.push(ContractFailure(format!(
+                        "must_describe_positional[{name:?}]: expected description to contain \
+                         {:?}, got {:?}",
                         expected_collapsed,
                         truncate_for_display(&actual_collapsed, 120)
                     )));
