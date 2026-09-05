@@ -290,11 +290,14 @@ open the pull request. Merged audits sit under your name in the tree and are
 credited in the release notes.
 
 > [!NOTE]
-> When auditing, verify by hand and by eye only. mandible does have automated
-> checks (pty renders of the TUI, and `cargo xtask audit emit`), which prints a
-> tool's raw help text beside the tree mandible built from it, however none of
-> them can tell you what was missed or which flags are wrong. That judgement
-> is the whole point of an audit. So: no AI, no CI, nothing non-manual.
+> When auditing, verify by hand and by eye only, in the interface itself:
+> `cargo xtask audit contribute` opens it for you, and `mandible --review
+> <seed>` reopens an unfinished draw. mandible does have automated checks
+> (pty renders of the TUI, and `cargo xtask audit emit` and `review`, which
+> print a tool's raw help text beside the tree as plain text for machines
+> with no terminal), however none of them can tell you what was missed or
+> which flags are wrong. That judgement is the whole point of an audit. So:
+> no AI, no CI, nothing non-manual, and no verdicts formed from the text dump.
 
 [`CONTRIBUTING.md`](./CONTRIBUTING.md) has the details, plus writing tests and
 changing the parser.

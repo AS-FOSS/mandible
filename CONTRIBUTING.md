@@ -59,7 +59,10 @@ What the command does, in order:
    `t` to see the raw text, then `c`, `i`, `w` or `s` for correct, incomplete,
    wrong or skip. A note is required for wrong and incomplete. It saves after
    every verdict, so `Ctrl-C` and rerun the command to pick up where you left
-   off.
+   off. This step is `mandible --review <seed>`, and it is the only way to
+   audit: you judge the screen a user gets. `cargo xtask audit review` and
+   `emit` print the parse as text for scripts and machines with no terminal,
+   and a verdict formed from that text is not an audit.
 5. Writes `audit/submissions/<login>/<seed>.toml` and, beside it,
    `<seed>-report.txt`, the same summary `audit report` prints.
 6. Prints the commands to commit both files on a branch named

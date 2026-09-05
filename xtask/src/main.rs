@@ -355,10 +355,12 @@ enum AuditAction {
         #[arg(long)]
         update: bool,
     },
-    /// The interactive review loop: raw `--help` text and the parsed tree,
-    /// side by side, one verdict at a time. Reads `<word> [note...]` lines
-    /// from stdin and saves after every tool, so an interrupted session
-    /// resumes rather than restarts.
+    /// The stdin review loop, for scripts and machines with no tty: raw
+    /// `--help` text and the parsed tree as plain text, one verdict at a
+    /// time, read as `<word> [note...]` lines from stdin, saved after every
+    /// tool. Not the way to audit by hand: that is `mandible --review
+    /// <seed>`, which opens each tool in the real TUI exactly as a user
+    /// sees it, and is what `audit contribute` runs.
     Review {
         #[arg(long)]
         seed: u64,
@@ -367,8 +369,8 @@ enum AuditAction {
     },
     /// Non-interactive twin of `review`: write every still-pending tool's
     /// raw text + parsed tree to its own file under `--emit-dir`, for a
-    /// reviewer (or a machine with no tty) to read offline. Pair with
-    /// `ingest` to apply the resulting verdicts.
+    /// machine with no tty. Pair with `ingest` to apply the resulting
+    /// verdicts. Auditing by hand goes through `mandible --review <seed>`.
     Emit {
         #[arg(long)]
         seed: u64,
