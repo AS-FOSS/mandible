@@ -53,3 +53,9 @@ verdict_scope = ["flags", "subcommands"]
 "-h" = "show this help message and exit"
 "-j" = "just print fields: comma-separated values"
 "-p" = "Trace this pid only"
+
+# The examples block under the flag table used to fold onto the last row.
+# `must_describe` cannot see that, since the correct text is still there
+# in front of the contamination.
+[contract.must_not_describe]
+"-p" = "./nfsslower"
