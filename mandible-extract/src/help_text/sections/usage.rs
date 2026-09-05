@@ -28,6 +28,17 @@ pub fn starts_with_or_marker(t: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// True if `t`'s only content, once trimmed, is the word `or` — any case —
+/// with an optional trailing colon: `sg_luns`' bare second-form separator
+/// (`corpus/sg_luns/1.45`), one whole physical line with nothing else on
+/// it. Distinct from [`starts_with_or_marker`], which matches an `or:`
+/// *prefix* even when real form content follows the colon on the same
+/// line (`ip`'s `or: ip link ...`); a line this predicate matches carries
+/// no such content and must contribute none to either usage form.
+pub fn is_bare_or_form_separator(t: &str) -> bool {
+    t.trim().trim_end_matches(':').eq_ignore_ascii_case("or")
+}
+
 /// True if `t` (already trimmed of leading whitespace) begins with `name`
 /// at a word boundary. Lets a tool that repeats its own name across lines
 /// with no `or:`/`usage:` marker read as two entries rather than one
