@@ -31,6 +31,7 @@ once it reaches a published 0.1.0 release.
 - A usage line's trailing run of two or more operands now reaches the tree, each keeping its own optionality and repetition, instead of the recovery capping at one (`mandible xfs_mkfile`, `mandible unmkinitramfs`, `mandible applydeltarpm`, `mandible logsave`, `mandible filefrag`, `mandible xdriinfo`, `mandible claude`, `mandible nft`, `mandible gdk-pixbuf-pixdata`, docs/shapes.md S-109).
 - A usage continuation that spells the tool as a full path (`/usr/bin/ar`) or as a dotted stem now opens its own usage form, so `mandible ar` shows two forms and all four operands `member-name`, `count`, `archive-file` and `file` (docs/shapes.md S-108).
 - A `+`-prefixed option row (`+`, `+<lnum>`, `+<cmd>`) beside an ordinary `-`-flagged row now reaches the tree, instead of vanishing (`mandible vim`, `mandible nvim`, and eight more on a full-`PATH` sweep, docs/shapes.md S-095).
+- A same-as-ancestor node's status bar now shows `same as parent` instead of `low confidence: 0% parsed`, since the node was never parsed at any percentage (`mandible ar`'s `r` operation).
 
 ## [0.6.1] - 2026-09-01
 
