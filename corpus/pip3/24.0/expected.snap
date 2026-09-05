@@ -1,0 +1,588 @@
+name: pip3
+usage:
+- 'Usage:'
+- '  pip3 <command> [options]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  group: 'General Options:'
+  description: Show help.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debug
+  group: 'General Options:'
+  description: Let unhandled exceptions propagate outside the main subroutine, instead of logging them to stderr.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --isolated
+  group: 'General Options:'
+  description: Run pip in an isolated mode, ignoring environment variables and user configuration.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --require-virtualenv
+  group: 'General Options:'
+  description: Allow pip to only run in a virtual environment; exit with an error otherwise.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --python
+  value_name: <python>
+  value_kind: Required
+  group: 'General Options:'
+  description: Run pip with the specified Python interpreter.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  group: 'General Options:'
+  description: Give more output. Option is additive, and can be used up to 3 times.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'General Options:'
+  description: Show version and exit.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  group: 'General Options:'
+  description: Give less output. Option is additive, and can be used up to 3 times (corresponding to WARNING, ERROR, and CRITICAL logging levels).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --log
+  value_name: <path>
+  value_kind: Required
+  group: 'General Options:'
+  description: Path to a verbose appending log.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-input
+  group: 'General Options:'
+  description: Disable prompting for input.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --keyring-provider
+  value_name: <keyring_provider>
+  value_kind: Required
+  group: 'General Options:'
+  description: 'Enable the credential lookup via the keyring library if user input is allowed. Specify which mechanism to use [disabled, import, subprocess]. (default: disabled)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --proxy
+  value_name: <proxy>
+  value_kind: Required
+  group: 'General Options:'
+  description: Specify a proxy in the form scheme://[user:passwd@]proxy.server:port.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --retries
+  value_name: <retries>
+  value_kind: Required
+  group: 'General Options:'
+  description: Maximum number of retries each connection should attempt (default 5 times).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --timeout
+  value_name: <sec>
+  value_kind: Required
+  group: 'General Options:'
+  description: Set the socket timeout (default 15 seconds).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exists-action
+  value_name: <action>
+  value_kind: Required
+  group: 'General Options:'
+  description: 'Default action when a path already exists: (s)witch, (i)gnore, (w)ipe, (b)ackup, (a)bort.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --trusted-host
+  value_name: <hostname>
+  value_kind: Required
+  group: 'General Options:'
+  description: Mark this host or host:port pair as trusted, even though it does not have valid or any HTTPS.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cert
+  value_name: <path>
+  value_kind: Required
+  group: 'General Options:'
+  description: Path to PEM-encoded CA certificate bundle. If provided, overrides the default. See 'SSL Certificate Verification' in pip documentation for more information.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --client-cert
+  value_name: <path>
+  value_kind: Required
+  group: 'General Options:'
+  description: Path to SSL client certificate, a single file containing the private key and the certificate in PEM format.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cache-dir
+  value_name: <dir>
+  value_kind: Required
+  group: 'General Options:'
+  description: Store the cache data in <dir>.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-cache-dir
+  group: 'General Options:'
+  description: Disable the cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-pip-version-check
+  group: 'General Options:'
+  description: Don't periodically check PyPI to determine whether a new version of pip is available for download. Implied with --no-index.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-color
+  group: 'General Options:'
+  description: Suppress colored output.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-python-version-warning
+  group: 'General Options:'
+  description: Silence deprecation warnings for upcoming unsupported Pythons.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --use-feature
+  value_name: <feature>
+  value_kind: Required
+  group: 'General Options:'
+  description: Enable new functionality, that may be backward incompatible.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --use-deprecated
+  value_name: <feature>
+  value_kind: Required
+  group: 'General Options:'
+  description: Enable deprecated functionality, that will be removed in the future.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: install
+  summary: Install packages.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: download
+  summary: Download packages.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: uninstall
+  summary: Uninstall packages.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: freeze
+  summary: Output installed packages in requirements format.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: inspect
+  summary: Inspect the python environment.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list
+  summary: List installed packages.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Show information about installed packages.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: check
+  summary: Verify installed packages have compatible dependencies.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: config
+  summary: Manage local and global configuration.
+  usage:
+  - 'Usage:'
+  - '  pip3 config [<file-option>] list'
+  - '  pip3 config [<file-option>] [--editor <editor-path>] edit'
+  positionals:
+  - name: file-option
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --editor
+    value_name: <editor>
+    value_kind: Required
+    group: 'Config Options:'
+    description: Editor to use to edit the file. Uses VISUAL or EDITOR environment variables if not provided.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --global
+    group: 'Config Options:'
+    description: Use the system-wide configuration file only
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --user
+    group: 'Config Options:'
+    description: Use the user configuration file only
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --site
+    group: 'Config Options:'
+    description: Use the current environment configuration file only
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -h
+    - --help
+    group: 'General Options:'
+    description: Show help.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --debug
+    group: 'General Options:'
+    description: Let unhandled exceptions propagate outside the main subroutine, instead of logging them to stderr.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --isolated
+    group: 'General Options:'
+    description: Run pip in an isolated mode, ignoring environment variables and user configuration.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --require-virtualenv
+    group: 'General Options:'
+    description: Allow pip to only run in a virtual environment; exit with an error otherwise.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --python
+    value_name: <python>
+    value_kind: Required
+    group: 'General Options:'
+    description: Run pip with the specified Python interpreter.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -v
+    - --verbose
+    group: 'General Options:'
+    description: Give more output. Option is additive, and can be used up to 3 times.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -V
+    - --version
+    group: 'General Options:'
+    description: Show version and exit.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -q
+    - --quiet
+    group: 'General Options:'
+    description: Give less output. Option is additive, and can be used up to 3 times (corresponding to WARNING, ERROR, and CRITICAL logging levels).
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --log
+    value_name: <path>
+    value_kind: Required
+    group: 'General Options:'
+    description: Path to a verbose appending log.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-input
+    group: 'General Options:'
+    description: Disable prompting for input.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --keyring-provider
+    value_name: <keyring_provider>
+    value_kind: Required
+    group: 'General Options:'
+    description: 'Enable the credential lookup via the keyring library if user input is allowed. Specify which mechanism to use [disabled, import, subprocess]. (default: disabled)'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --proxy
+    value_name: <proxy>
+    value_kind: Required
+    group: 'General Options:'
+    description: Specify a proxy in the form scheme://[user:passwd@]proxy.server:port.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --retries
+    value_name: <retries>
+    value_kind: Required
+    group: 'General Options:'
+    description: Maximum number of retries each connection should attempt (default 5 times).
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --timeout
+    value_name: <sec>
+    value_kind: Required
+    group: 'General Options:'
+    description: Set the socket timeout (default 15 seconds).
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --exists-action
+    value_name: <action>
+    value_kind: Required
+    group: 'General Options:'
+    description: 'Default action when a path already exists: (s)witch, (i)gnore, (w)ipe, (b)ackup, (a)bort.'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --trusted-host
+    value_name: <hostname>
+    value_kind: Required
+    group: 'General Options:'
+    description: Mark this host or host:port pair as trusted, even though it does not have valid or any HTTPS.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --cert
+    value_name: <path>
+    value_kind: Required
+    group: 'General Options:'
+    description: Path to PEM-encoded CA certificate bundle. If provided, overrides the default. See 'SSL Certificate Verification' in pip documentation for more information.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --client-cert
+    value_name: <path>
+    value_kind: Required
+    group: 'General Options:'
+    description: Path to SSL client certificate, a single file containing the private key and the certificate in PEM format.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --cache-dir
+    value_name: <dir>
+    value_kind: Required
+    group: 'General Options:'
+    description: Store the cache data in <dir>.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-cache-dir
+    group: 'General Options:'
+    description: Disable the cache.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --disable-pip-version-check
+    group: 'General Options:'
+    description: Don't periodically check PyPI to determine whether a new version of pip is available for download. Implied with --no-index.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-color
+    group: 'General Options:'
+    description: Suppress colored output.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-python-version-warning
+    group: 'General Options:'
+    description: Silence deprecation warnings for upcoming unsupported Pythons.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --use-feature
+    value_name: <feature>
+    value_kind: Required
+    group: 'General Options:'
+    description: Enable new functionality, that may be backward incompatible.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --use-deprecated
+    value_name: <feature>
+    value_kind: Required
+    group: 'General Options:'
+    description: Enable deprecated functionality, that will be removed in the future.
+    provenance:
+      sources:
+      - help-text
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: search
+  summary: Search PyPI for packages.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cache
+  summary: Inspect and manage pip's wheel cache.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: index
+  summary: Inspect information available from package indexes.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: wheel
+  summary: Build wheels from your requirements.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hash
+  summary: Compute hashes of package archives.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: completion
+  summary: A helper command used for command completion.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: debug
+  summary: Show information useful for debugging.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: help
+  summary: Show help for commands.
+  group: 'Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

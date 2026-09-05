@@ -113,12 +113,20 @@ fn prefix_width(depth: usize) -> usize {
     2 * depth + 2
 }
 
+/// The text a row's name column actually shows: `display_name` when the
+/// row carries one — the row's own source spelling (`ar`'s `r[ab][f][u]`,
+/// spec §4.5, docs/design.md §16) — else the bare `name`. `path` and every
+/// lookup keyed off it are untouched; this is display only.
+fn row_display_name(row: &TreeRow) -> &str {
+    row.display_name.as_deref().unwrap_or(&row.name)
+}
+
 /// `min(longest prefix+name over every row, 40% of pane width)`, plus the
 /// 2-space gap before the summary starts (spec §9.1).
 fn summary_column(rows: &[TreeRow], width: usize) -> usize {
     let longest = rows
         .iter()
-        .map(|r| prefix_width(r.depth) + display_width(&defensive_single_line(&r.name)))
+        .map(|r| prefix_width(r.depth) + display_width(&defensive_single_line(row_display_name(r))))
         .max()
         .unwrap_or(0);
     let cap = width * SUMMARY_COLUMN_CAP_PERCENT / 100;
@@ -146,7 +154,7 @@ fn build_row_line(
     };
     let prefix = format!("{indent}{chevron} ");
     let prefix_w = display_width(&prefix);
-    let name = defensive_single_line(&row.name);
+    let name = defensive_single_line(row_display_name(row));
 
     let base_style = if selected {
         style::selected(color_enabled)
@@ -291,6 +299,7 @@ mod tests {
             path: vec![name.to_string()],
             depth,
             name: name.to_string(),
+            display_name: None,
             summary: summary.map(|s| s.to_string()),
             has_children,
             expanded: false,
@@ -352,6 +361,26 @@ mod tests {
         let r = row(1, "clean", Some("Remove the target directory"), false);
         let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
         assert!(!rendered(&line).contains("unverified"), "{line:?}");
+    }
+
+    /// `ar`'s `r[ab][f][u]` row (spec §4.5, docs/design.md §16): the
+    /// commands pane shows the row's own source spelling, not the bare
+    /// name the IR keeps for probing.
+    #[test]
+    fn a_row_with_a_display_name_shows_the_source_spelling() {
+        let mut r = row(1, "r", None, false);
+        r.display_name = Some("r[ab][f][u]".to_string());
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        assert!(rendered(&line).contains("r[ab][f][u]"), "{line:?}");
+    }
+
+    /// The overwhelming common case — no `display_name` — still shows the
+    /// bare `name`, byte for byte.
+    #[test]
+    fn a_row_with_no_display_name_shows_the_bare_name() {
+        let r = row(1, "commit", None, false);
+        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        assert!(rendered(&line).contains("commit"), "{line:?}");
     }
 
     /// The badge takes the column first and the summary follows it, so a

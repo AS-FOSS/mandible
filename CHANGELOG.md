@@ -11,9 +11,12 @@ once it reaches a published 0.1.0 release.
 ### Added
 
 - `cargo xtask audit contribute` walks a contributor through auditing mandible against their own installed tools — login, a random 20-tool draw excluding anything already audited, review, and a verdict file ready to submit (CONTRIBUTING.md §2).
+- A subcommand whose own `--help` repeats an ancestor's byte for byte now renders its description, a notice explaining that `t` shows the live text, and its accepted-modifier list, instead of a wall of duplicated raw text (`mandible ar`'s `r`/`m`/`q`/`t`/`x` operations, docs/design.md §16).
 
 ### Fixed
 
+- The detail pane shows a flag's short spelling before its long one, always (`-d, --decode`, not `--decode, -d`), so the eye can track a column of flags without the alignment breaking mid-list.
+- A description that folds an enumerated list into one paragraph (`sg_luns --select`'s `0 -> ... 1 -> ...`) now starts a new line at each item; a lone `N -> M` range in ordinary prose is left alone.
 - Two rows a tool writes for one spelling keep their own descriptions instead of folding into one row that shows the first row's text beside the second row's value (`mandible vim.basic`'s `+` and `+<lnum>`, `mandible icupkg`'s three `-t, --type` rows, docs/shapes.md S-102).
 - A second usage form written after a line holding only the word `or` is a form of its own now, instead of being glued onto the end of the first form or truncating the rest of the block (`mandible sg_luns`, `mandible update-catalog`, docs/shapes.md S-112).
 - A spelling a tool writes in its usage line and again in its option row no longer reaches the tree twice, once described and once bare (`mandible icupkg`'s `-?`, `mandible date`'s `--universal`, docs/shapes.md S-113).

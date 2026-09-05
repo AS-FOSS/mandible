@@ -1268,6 +1268,19 @@ into structured entities.
       only, marked low-confidence.
    3. The parse yields nothing structurally plausible: render the raw help
       text verbatim, labelled `unparsed`, framework shown as unknown.
+   4. **`same-as-ancestor`** (§16's ruling): this node's own
+      selected help fingerprinted as byte-identical to a strict ancestor's
+      (spec [M-19]'s self-similar-fan-out guard). Distinct from step 3 and
+      not a further degradation of it: the node is not fabricating and is
+      not giving up on structure it never had — it is reporting a true fact
+      about the document, which the parent's own row already partially
+      described (its `summary`, and its `accepted_modifiers` when the row
+      carried a bracketed suffix). No information is lost by not repeating
+      text one level up in the same tree, and `t` still fetches this node's
+      own live text on demand, so the rule does not reduce what a reader
+      can reach (AGENTS.md §3.9). `CommandNode::same_as_ancestor` records
+      it; the detail pane shows the summary, a fixed notice, and the
+      accepted-modifier block, never `unparsed`.
 6. A command block requires a recognized heading. Layout alone is never
    sufficient evidence that a block of text names subcommands.
    `Commands:`/`Subcommands:`/`Available Commands:`/`SUBCOMMANDS`, a
@@ -2758,7 +2771,15 @@ live verbatim view. The rule holds whether or not modifiers exist. The
 source spelling `r[ab][f][u]` stays as the display name in the commands
 pane. The maintainer also asked whether usage propagates to such a node:
 it does not, since the node has no usage of its own and the notice
-replaces it.
+replaces it. **Implemented in:** the new `same-as-ancestor` degradation
+step, §7 Tier B rule 5.4; the IR fields `CommandNode::same_as_ancestor`,
+`accepted_modifiers`, `display_name` (§4, `mandible-core/src/node.rs`); the
+command-table row shape in `mandible-extract/src/help_text/sections/emit.rs`
+(`accepted_modifiers_from_row`); and the detail pane's
+`render_same_as_ancestor` (`mandible-tui/src/render/detail_pane/mod.rs`),
+with the commands pane reading `display_name` in
+`mandible-tui/src/render/tree_pane.rs`. Fixture:
+`corpus/ar/audit-seed2`.
 
 **A snap launcher can fail before the target program ever runs
 (2026-09-04).** `lxd.check-kernel`'s `--help` reached a snap launcher,

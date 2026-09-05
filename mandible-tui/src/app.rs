@@ -666,6 +666,19 @@ impl App {
         resolve(&self.root, &row.path)
     }
 
+    /// The selected node's own parent command, if it has one — `None` for
+    /// the root row itself. A same-as-ancestor node's accepted-modifier
+    /// block (spec §16, docs/design.md §9.3) states each letter's
+    /// description from the *parent's* own modifier table, since the
+    /// child's `accepted_modifiers` field carries only the bare letters.
+    pub fn selected_node_parent(&self) -> Option<&CommandNode> {
+        let row = self.selected_row()?;
+        if row.path.len() < 2 {
+            return None;
+        }
+        resolve(&self.root, &row.path[..row.path.len() - 1])
+    }
+
     /// The selected row's path from the root, e.g. `["git", "rebase"]`.
     pub fn selected_path(&self) -> Option<Vec<String>> {
         Some(self.selected_row()?.path.clone())

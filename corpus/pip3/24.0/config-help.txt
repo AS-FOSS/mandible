@@ -1,0 +1,84 @@
+
+Usage:   
+  pip3 config [<file-option>] list
+  pip3 config [<file-option>] [--editor <editor-path>] edit
+  
+  pip3 config [<file-option>] get command.option
+  pip3 config [<file-option>] set command.option value
+  pip3 config [<file-option>] unset command.option
+  pip3 config [<file-option>] debug
+  
+
+Description:
+  Manage local and global configuration.
+  
+  Subcommands:
+  
+  - list: List the active configuration (or from the file specified)
+  - edit: Edit the configuration file in an editor
+  - get: Get the value associated with command.option
+  - set: Set the command.option=value
+  - unset: Unset the value associated with command.option
+  - debug: List the configuration files and values defined under them
+  
+  Configuration keys should be dot separated command and option name,
+  with the special prefix "global" affecting any command. For example,
+  "pip config set global.index-url https://example.org/" would configure
+  the index url for all commands, but "pip config set download.timeout 10"
+  would configure a 10 second timeout only for "pip download" commands.
+  
+  If none of --user, --global and --site are passed, a virtual
+  environment configuration file is used if one is active and the file
+  exists. Otherwise, all modifications happen to the user file by
+  default.
+
+Config Options:
+  --editor <editor>           Editor to use to edit the file. Uses VISUAL or EDITOR environment
+                              variables if not provided.
+  --global                    Use the system-wide configuration file only
+  --user                      Use the user configuration file only
+  --site                      Use the current environment configuration file only
+
+General Options:
+  -h, --help                  Show help.
+  --debug                     Let unhandled exceptions propagate outside the main subroutine,
+                              instead of logging them to stderr.
+  --isolated                  Run pip in an isolated mode, ignoring environment variables and user
+                              configuration.
+  --require-virtualenv        Allow pip to only run in a virtual environment; exit with an error
+                              otherwise.
+  --python <python>           Run pip with the specified Python interpreter.
+  -v, --verbose               Give more output. Option is additive, and can be used up to 3 times.
+  -V, --version               Show version and exit.
+  -q, --quiet                 Give less output. Option is additive, and can be used up to 3 times
+                              (corresponding to WARNING, ERROR, and CRITICAL logging levels).
+  --log <path>                Path to a verbose appending log.
+  --no-input                  Disable prompting for input.
+  --keyring-provider <keyring_provider>
+                              Enable the credential lookup via the keyring library if user input
+                              is allowed. Specify which mechanism to use [disabled, import,
+                              subprocess]. (default: disabled)
+  --proxy <proxy>             Specify a proxy in the form
+                              scheme://[user:passwd@]proxy.server:port.
+  --retries <retries>         Maximum number of retries each connection should attempt (default 5
+                              times).
+  --timeout <sec>             Set the socket timeout (default 15 seconds).
+  --exists-action <action>    Default action when a path already exists: (s)witch, (i)gnore,
+                              (w)ipe, (b)ackup, (a)bort.
+  --trusted-host <hostname>   Mark this host or host:port pair as trusted, even though it does not
+                              have valid or any HTTPS.
+  --cert <path>               Path to PEM-encoded CA certificate bundle. If provided, overrides
+                              the default. See 'SSL Certificate Verification' in pip documentation
+                              for more information.
+  --client-cert <path>        Path to SSL client certificate, a single file containing the private
+                              key and the certificate in PEM format.
+  --cache-dir <dir>           Store the cache data in <dir>.
+  --no-cache-dir              Disable the cache.
+  --disable-pip-version-check
+                              Don't periodically check PyPI to determine whether a new version of
+                              pip is available for download. Implied with --no-index.
+  --no-color                  Suppress colored output.
+  --no-python-version-warning
+                              Silence deprecation warnings for upcoming unsupported Pythons.
+  --use-feature <feature>     Enable new functionality, that may be backward incompatible.
+  --use-deprecated <feature>  Enable deprecated functionality, that will be removed in the future.
