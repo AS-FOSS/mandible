@@ -1894,3 +1894,104 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/glued_optional_group_spelling.rs`) generalizes this shape
   fleet-wide.
 - fleet: 10 tools, 10 findings, 2026-09-04
+
+### S-116: a single-dash spelling glued to a comma
+
+- id: S-116
+- looks like: |
+      -Wa,<options>            Pass comma-separated <options> on to the assembler.
+      -Wl,<options>            Pass comma-separated <options> on to the linker.
+- tools: gcc, g++, cc, c++, cpp, c89, c99, aarch64-linux-gnu-gcc, aarch64-linux-gnu-g++,
+  aarch64-linux-gnu-cpp, clang, clang++, clang-cpp-18, and their versioned
+  aliases (23 tools total)
+- handling: A single-dash spelling whose first character is a letter, followed by one or
+  more letters and then a comma, is the whole spelling up to the comma; the
+  value follows the comma. `-Wa`, `-Wp` and `-Wl` used to truncate to `-W`,
+  folding all three rows' descriptions onto one entity. `xtask detector`'s
+  `comma-glued-option-value`
+  (`xtask/src/detector/comma_glued_option_value.rs`) generalizes this shape
+  fleet-wide.
+- fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved 23 tools with zero losses on the same sweep.
+
+### S-117: a spaced single-dash long option with an uppercase flag letter
+
+- id: S-117
+- looks like: |
+      -Xassembler <arg>        Pass <arg> on to the assembler.
+      -Xpreprocessor <arg>     Pass <arg> on to the preprocessor.
+- tools: gcc, g++, clang and the same compiler family S-116 lists
+- handling: Open defect. `-Xassembler` truncates to `-X` valued `"assembler"`, with `<arg>`
+  left unconsumed. `repair_single_dash_long_options` refuses any token
+  carrying an uppercase letter, its only signal against the GCC/Clang
+  glued-value convention (`-DMACRO`); `-Xassembler`'s flag letter is
+  uppercase, so it reads as that convention even though its value is
+  spaced, not glued. The row's own spacing is already gone by the time
+  that repair runs. `xtask detector`'s `spaced-single-dash-long`
+  (`xtask/src/detector/spaced_single_dash_long.rs`) generalizes this shape
+  fleet-wide.
+- fleet: 40 tools, 381 findings, 2026-09-05.
+
+### S-118: a single-dash spelling that is nothing but a run of `#`
+
+- id: S-118
+- looks like: |
+      -###                     Like -v but options quoted and commands not executed.
+- tools: the same compiler family S-116 lists (23 tools)
+- handling: A run of nothing but `#` after a single dash is the whole spelling. `-###`
+  used to stop at the first `#`, truncating to `-#` with a fabricated
+  value `##`. `xtask detector`'s `hash-in-spelling`
+  (`xtask/src/detector/hash_in_spelling.rs`) generalizes this shape
+  fleet-wide.
+- fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved the same 23 tools as S-116, in the same commit, with zero
+  losses on the same sweep.
+
+### S-119: a value spec with one bracket nested inside another
+
+- id: S-119
+- looks like: |
+      -e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]
+      --enable-tftp[=<intr>[,<intr>]]
+- tools: pr, fzf, fzf-tmux, dnsmasq, arptables, arptables-nft, iptables,
+  iptables-legacy, iptables-nft, iptables-translate, ip6tables,
+  ip6tables-legacy, ip6tables-nft, ip6tables-translate, less, pager,
+  zstd, zstdcat, zstdmt, unzstd, zstdless, uuidd (22 tools total)
+- handling: A value spec's bracket matcher stopped at the row's first `]`, so a bracket
+  nested inside another lost its own closing bracket and any long alias
+  glued after it (`pr`'s `-e[CHAR[WIDTH]]` lost `--expand-tabs` and one
+  `]`). Brackets are now matched by nesting depth: one group with exactly
+  one nested pair, nothing more, matched whole. `xtask detector`'s
+  `nested-bracket-value`
+  (`xtask/src/detector/nested_bracket_value.rs`) generalizes this shape
+  fleet-wide.
+- fleet: detector fires on 22 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved 22 tools with zero losses on the same sweep.
+
+### S-120: a docopt bracket row's own trailing choice list
+
+- id: S-120
+- looks like: |
+      [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ]
+      [    --configreport log|vg|lv|pv|pvseg|seg ]
+- tools: the whole lvm2 tool family: lvchange, lvconvert, lvcreate, lvdisplay,
+  lvextend, lvmconfig, lvmdiskscan, lvmsadc, lvmsar, lvreduce, lvremove,
+  lvrename, lvresize, lvs, lvscan, pvchange, pvck, pvcreate, pvdisplay,
+  pvmove, pvremove, pvresize, pvs, pvscan, vgcfgbackup, vgcfgrestore,
+  vgchange, vgck, vgconvert, vgcreate, vgdisplay, vgexport, vgextend,
+  vgimport, vgimportclone, vgmerge, vgmknodes, vgreduce, vgremove,
+  vgrename, vgs, vgscan, vgsplit (43 tools total)
+- handling: A docopt bracket row's own trailing bare `|`-separated choice list never
+  attached as the flag's `choices`, whether it followed a bracketed
+  placeholder (`--units`) or stood in for the whole value spec
+  (`--configreport`). Scoped to the docopt bracket-row shape alone: an
+  identical `word|word` fragment on an ordinary row is at least as often
+  an alternative-value-type placeholder (`pkg-config`'s own
+  `--personality=triplet|filename`) as a real choice list, and nothing
+  about the shape alone tells the two apart. `value_name` keeps the raw
+  text unchanged; this only adds structure. `xtask detector`'s
+  `choices-after-optional-placeholder`
+  (`xtask/src/detector/choices_after_optional_placeholder.rs`) generalizes
+  this shape fleet-wide.
+- fleet: detector fires on 43 tools, over a 2265-tool sweep, 2026-09-05. The
+  fix moved 43 tools with zero losses on the same sweep.
