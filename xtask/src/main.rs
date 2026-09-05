@@ -1254,30 +1254,8 @@ fn run_coverage(
             regressed = true;
         }
 
-        // Round 6 parser-B families (atlas S-126 to S-128), each fell to
-        // zero fleet-wide (`docs/shapes.md`). Gated the same way as the
-        // two families above.
-        if !detector::check_vim_family_ratchet(
-            "examples-block-contaminates-last-flag",
-            &previous,
-            &fresh,
-        )? {
-            regressed = true;
-        }
-        if !detector::check_vim_family_ratchet(
-            "positional-description-block",
-            &previous,
-            &fresh,
-        )? {
-            regressed = true;
-        }
-        if !detector::check_vim_family_ratchet(
-            "generic-option-placeholder-flag",
-            &previous,
-            &fresh,
-        )? {
-            regressed = true;
-        }
+        // Round 6 parser-B families (atlas S-126 to S-128), gated at zero.
+        regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

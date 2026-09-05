@@ -1,16 +1,12 @@
 //! `generic-option-placeholder-flag` (atlas S-128): a usage line's own
-//! generic placeholder token — `[-options]`, `[-option]`, `[-opts]` or
-//! `[options]` — spelled WITH a leading dash glued onto the word, is read
-//! literally as an invented short flag. `makeconv`'s `usage: makeconv
-//! [-options] files...` becomes a fabricated `-o ptions` with no
-//! description.
+//! generic placeholder token, spelled WITH a leading dash glued onto the
+//! word (`[-options]`), is read literally as an invented short flag —
+//! `makeconv`'s `[-options] files...` becomes a fabricated `-o ptions`.
 //!
 //! A local, independent copy of the placeholder-word check
-//! `mandible_extract::help_text::sections::entry::is_option_list_placeholder`
-//! makes, rather than an import — an oracle built on the parser's own
-//! helper would agree with the parser by construction.
-//!
-//! Fixture: `corpus/makeconv/6.2`.
+//! `is_option_list_placeholder` makes, not an import: an oracle built on
+//! the parser's own helper would agree with it by construction. Fixture:
+//! `corpus/makeconv/6.2`.
 
 use mandible_core::CommandNode;
 

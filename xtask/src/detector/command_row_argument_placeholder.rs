@@ -1,17 +1,13 @@
 //! `command-row-argument-placeholder` (atlas S-129): under a recognized
 //! command heading, a row whose name column is a command name followed by
-//! an argument-placeholder run (`systemctl`'s `list-units [PATTERN...]`,
-//! `start UNIT...`) is a command with operands, not a fragment — but
-//! reading the whole name column as one name field, unbroken, fails the
-//! bare-name shape test and the row is dropped rather than recovered.
+//! an argument-placeholder run (`systemctl`'s `list-units [PATTERN...]`)
+//! is a command with operands, but the whole unbroken field fails the
+//! bare-name shape test and the row is dropped.
 //!
-//! A local copy of "recognized command heading" and "is a placeholder
-//! run", independent of `mandible_extract::help_text`'s own rules, per
-//! this crate's own convention (`crate::commandtable`): a detector built
-//! on the parser's own helper would agree with the parser by
-//! construction, which is exactly what an oracle must not do.
-//!
-//! Fixture: `corpus/systemctl/255`.
+//! A local copy of "recognized heading"/"is a placeholder", independent
+//! of `mandible_extract::help_text` (`crate::commandtable`'s own
+//! convention): an oracle built on the parser's own helper would agree
+//! with it by construction. Fixture: `corpus/systemctl/255`.
 
 use mandible_core::{is_command_name_shaped, CommandNode};
 

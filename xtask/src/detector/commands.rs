@@ -295,3 +295,22 @@ pub fn check_vim_family_ratchet(
     println!("\n{}", ratchet.report());
     Ok(ratchet.holds())
 }
+
+/// The three round-6 parser-B families gated at a literal zero together
+/// (atlas S-126 to S-128), each via [`check_vim_family_ratchet`]. Split
+/// out so `main.rs`'s own `coverage --check` block costs one line per
+/// new repaired family instead of growing past its size ceiling.
+pub fn check_round6_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let mut holds = true;
+    for name in [
+        "examples-block-contaminates-last-flag",
+        "positional-description-block",
+        "generic-option-placeholder-flag",
+    ] {
+        holds &= check_vim_family_ratchet(name, previous, fresh)?;
+    }
+    Ok(holds)
+}
