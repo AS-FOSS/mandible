@@ -1,0 +1,174 @@
+[meta]
+seed = 7
+sample_size = 30
+
+[[entry]]
+tool = "aarch64-linux-gnu-g++-13"
+stratum = "incomplete"
+verdict = "incomplete"
+note = "1. See flags like this: -Wa, <options>, -Wp, <options>, -W1,<options>They got converted and merged intosingle '-W a,<options> Pass comma-separated...'The same goes for '-X'2. Moreover, see '-###' which got parsed into '-# ##'3. this tool also exposes '-v --help' combination which add much more tools. so we should come back to it after this is fixed."
+k1 = true
+
+[[entry]]
+tool = "add-shell"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "apt-sortpkgs"
+stratum = "ok"
+verdict = "incomplete"
+note = "missing positionals"
+
+[[entry]]
+tool = "busybox"
+stratum = "ok"
+verdict = "incomplete"
+note = """- busybox > acpid: should it have parsed flags from this line? "ignore compatibility options -g -m -s -S -v"- also usage line and body of help text have two different names for placeholder, where parser chose body's but usage's names are more descriptive, but im not sure about it. Maybe expected behavior - busybox > ar: new pattern: missing flags because it does not start with dash, example: x, p, t - busybox > arp: usage line looks bad. Also, migth have wrong and incomplete positionals- busybox > arping: possibly wrong parse, parsed: '-c N' original substring: '[-c CNT]'- busybox > ash: see what is this '[-|+Cabefmnuvx]' and many more in that usage line- busybox > basename: parsed="FILE", check if it should have been "FILE...". And see if '-a' should have had the same placeholder.- i will stop at basename, because still way too many tools to consider here"""
+
+[[entry]]
+tool = "byobu-select-profile"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "catman"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "cpuunclaimed-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "debconf-set-selections"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "editres"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "filegone-bpfcc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "gencat"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "htop"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "invoke-rc.d"
+stratum = "ok"
+verdict = "incomplete"
+note = "should the positionals have had the descriptions shown just below usage line?"
+
+[[entry]]
+tool = "lxd.check-kernel"
+stratum = "verbatim"
+verdict = "wrong"
+note = "i think it ran something, might be security violation"
+
+[[entry]]
+tool = "makeconv"
+stratum = "ok"
+verdict = "wrong"
+note = "false positive '-o ptions', and usage section has some description leaked into it. Hard to detect, fix? or skip?"
+k1 = true
+
+[[entry]]
+tool = "memhog"
+stratum = "low-confidence"
+verdict = "wrong"
+note = "wrong placeholders and missing flag descriptions"
+k1 = true
+
+[[entry]]
+tool = "nfsslower-bpfcc"
+stratum = "ok"
+verdict = "wrong"
+note = "the description of '-p PID' got contaminated with the usage examples"
+
+[[entry]]
+tool = "nm-online"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pidof"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "pip3"
+stratum = "ok"
+verdict = "incomplete"
+note = "other than that missing subcommands, nothing else is visibly wrong"
+
+[[entry]]
+tool = "pr"
+stratum = "ok"
+verdict = "incomplete"
+note = "new pattern, 3+ occurences: see '-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]' which should have been aliases but i think only one got parsed and other got swalloed."
+k1 = true
+
+[[entry]]
+tool = "psfstriptable"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pvdisplay"
+stratum = "low-confidence"
+verdict = "wrong"
+note = "see '--units [Number]r|R|N|... ]' i think it trimmed the ending after '[Number]'"
+
+[[entry]]
+tool = "sg_bg_ctl"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sqlite3"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "systemctl"
+stratum = "ok"
+verdict = "incomplete"
+note = "a lot of missing commands, too much to do in one go, so we will come back to this"
+k1 = true
+
+[[entry]]
+tool = "tcpretrans.bt"
+stratum = "ok"
+verdict = "wrong"
+note = "bad usage line"
+k1 = true
+
+[[entry]]
+tool = "ubuntu-drivers"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "uncompress"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "zdiff"
+stratum = "ok"
+verdict = "correct"
