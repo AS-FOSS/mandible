@@ -11,29 +11,30 @@
 //! [`Detector::family`] returns `None` — spec §13.1e rule 6.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
-use mandible_core::{CommandNode, Dashes, Entity, Provenance, Source, Text, ValueKind};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source, Text, ValueKind};
 
 /// The bucket key two entities must share to be the same item, mirroring
-/// `mandible_core::merge::entity_identity` (private to that crate) closely
-/// enough for detection purposes: long name (with dash count), else short
+/// `mandible_core::merge::entity_identity` (private to that crate): the
+/// kind leads — a flag and a positional spelled alike are unrelated items,
+/// never one bucket — then long name (with dash count), else short
 /// letter, else the bare name a dashless kind carries. `None` for an
 /// entity with no spelling at all — nothing to collide on.
-fn identity_key(e: &Entity) -> Option<String> {
-    if let Some(l) = e.long_spelling() {
+fn identity_key(e: &Entity) -> Option<(EntityKind, String)> {
+    let key = if let Some(l) = e.long_spelling() {
         let dashes = if matches!(l.dashes, Dashes::Double) {
             "2"
         } else {
             "1"
         };
-        return Some(format!("L:{dashes}:{}", l.name));
-    }
-    if let Some(s) = e.short() {
-        return Some(format!("S:{s}"));
-    }
-    if !e.spellings.is_empty() {
-        return Some(format!("N:{}", e.primary_name()));
-    }
-    None
+        format!("L:{dashes}:{}", l.name)
+    } else if let Some(s) = e.short() {
+        format!("S:{s}")
+    } else if !e.spellings.is_empty() {
+        format!("N:{}", e.primary_name())
+    } else {
+        return None;
+    };
+    Some((e.kind, key))
 }
 
 /// True when `a` and `b` are the shape this detector claims: same identity
@@ -63,36 +64,44 @@ impl Detector for SameSpellingFoldLoss {
     }
 
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
-        let mut by_key: std::collections::BTreeMap<String, Vec<&Entity>> =
-            std::collections::BTreeMap::new();
+        let mut by_key: std::collections::HashMap<(EntityKind, String), Vec<&Entity>> =
+            std::collections::HashMap::new();
         for e in &evidence.root.entities {
             if let Some(key) = identity_key(e) {
                 by_key.entry(key).or_default().push(e);
             }
         }
         let mut findings = Vec::new();
-        for (key, group) in by_key {
-            if group.len() < 2 {
+        for ((kind, key), group) in by_key {
+            // A group above this size is not a real same-spelling
+            // collision — it is some other shape entirely (a degenerate
+            // tree with many entities sharing an empty bare name, say),
+            // and no tool this detector was built for behind it looks
+            // like this. The real specimens (icupkg, vim.basic) top out
+            // at 3. One finding per *bucket* below, not per pair — a
+            // bucket of size `n` is one loss, not `n choose 2` of them.
+            const MAX_GROUP: usize = 16;
+            if group.len() < 2 || group.len() > MAX_GROUP {
                 continue;
             }
-            for i in 0..group.len() {
-                for j in (i + 1)..group.len() {
-                    if disagrees(group[i], group[j]) {
-                        findings.push(format!(
-                            "{key}: {:?} vs {:?}",
-                            group[i]
-                                .description
-                                .as_ref()
-                                .map(Text::as_str)
-                                .unwrap_or(""),
-                            group[j]
-                                .description
-                                .as_ref()
-                                .map(Text::as_str)
-                                .unwrap_or(""),
-                        ));
-                    }
-                }
+            let disagreeing_pair = (0..group.len())
+                .flat_map(|i| ((i + 1)..group.len()).map(move |j| (i, j)))
+                .find(|&(i, j)| disagrees(group[i], group[j]));
+            if let Some((i, j)) = disagreeing_pair {
+                findings.push(format!(
+                    "{kind:?} {key} ({} rows): {:?} vs {:?}",
+                    group.len(),
+                    group[i]
+                        .description
+                        .as_ref()
+                        .map(Text::as_str)
+                        .unwrap_or(""),
+                    group[j]
+                        .description
+                        .as_ref()
+                        .map(Text::as_str)
+                        .unwrap_or(""),
+                ));
             }
         }
         findings
