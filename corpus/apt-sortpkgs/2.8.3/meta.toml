@@ -1,0 +1,30 @@
+# Maintainer, seed 7, verdict "incomplete": "missing positionals". Machine
+# classification: stratum "ok".
+#
+# `help.txt`'s usage line is `apt-sortpkgs [options] file1 [file2 ...]`.
+# The parsed tree has no POSITIONALS section at all: `file1` and `file2`
+# are dropped entirely, even though both are named in the tool's own
+# usage line and nowhere else needs recovering (apt-sortpkgs documents no
+# separate positional-argument block).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "apt-sortpkgs"
+version = "2.8.3"                    # apt-sortpkgs --help's own banner:
+                                     # "apt 2.8.3 (arm64)"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); apt 2.8.3"
+
+[[capture]]
+argv = ["apt-sortpkgs", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["file1", "file2"]
+
+[xfail]
+broken = true
+reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names two positionals, file1 and file2, but the parsed tree has no POSITIONALS section at all"
