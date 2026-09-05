@@ -699,6 +699,59 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   nothing, errors, opens a REPL, or emits something that is not help) — a \
                   property of the tool, not of the parser",
     },
+    // The ten families the seed-7 audit produced, atlas S-116 to S-120 and
+    // S-126 to S-130. Each has its own detector under `xtask/src/detector/`
+    // and its own fleet count in the coverage aggregate footer.
+    DefectFamily {
+        name: "comma-glued-option-value",
+        meaning: "a single-dash spelling glued to a comma (`-Wa,<options>`) truncates at the \
+                  flag letter, so every row sharing that letter folds onto one entity",
+    },
+    DefectFamily {
+        name: "spaced-single-dash-long",
+        meaning: "an uppercase-led single-dash long option whose value is spaced rather than \
+                  glued (`-Xassembler <arg>`) truncates to its flag letter",
+    },
+    DefectFamily {
+        name: "hash-in-spelling",
+        meaning: "a single-dash spelling that is a run of `#` (`-###`) stops at the first `#`, \
+                  leaving the rest as a fabricated value",
+    },
+    DefectFamily {
+        name: "nested-bracket-value",
+        meaning: "a value spec with one bracket nested inside another (`-e[CHAR[WIDTH]]`) loses \
+                  its outer closing bracket and any alias glued after it",
+    },
+    DefectFamily {
+        name: "choices-after-optional-placeholder",
+        meaning: "a bracket row's trailing `|`-separated list (`--units [Number]r|R|h`) never \
+                  attaches to the flag as its choices",
+    },
+    DefectFamily {
+        name: "examples-block-contaminates-last-flag",
+        meaning: "an unheaded block of invocation lines after the flag table folds whole onto \
+                  the last flag's description",
+    },
+    DefectFamily {
+        name: "positional-description-block",
+        meaning: "the usage block is followed by a `name - description` block naming each \
+                  positional, and none of that text reaches the positional it describes",
+    },
+    DefectFamily {
+        name: "generic-option-placeholder-flag",
+        meaning: "a usage line's own dash-prefixed generic placeholder (`[-options]`) is read \
+                  literally and invents a short flag with a glued value",
+    },
+    DefectFamily {
+        name: "command-row-argument-placeholder",
+        meaning: "under a recognized command heading, a row whose name is followed by argument \
+                  placeholders (`list-units [PATTERN...]`) is dropped whole",
+    },
+    DefectFamily {
+        name: "description-subcommands-list",
+        meaning: "a `Subcommands:` sub-heading nested inside a description block, followed by a \
+                  bulleted `- name: description` list, yields no children",
+    },
 ];
 
 /// Every family name, in [`DEFECT_FAMILIES`] order.
