@@ -39,6 +39,18 @@ fn next_nonblank_line<'a>(lines: &[&'a str], after: usize) -> Option<&'a str> {
         .map(|l| l.trim())
 }
 
+/// The last non-blank physical line strictly before `raw`'s line `before`,
+/// trimmed — the line the usage scan has to have reached for the block
+/// to have stopped *at* the bare-or line rather than earlier, for some
+/// unrelated reason this family did not cause.
+fn prev_nonblank_line<'a>(lines: &[&'a str], before: usize) -> Option<&'a str> {
+    lines[..before]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty())
+        .map(|l| l.trim())
+}
+
 pub struct BareOrUsageSeparator;
 
 impl Detector for BareOrUsageSeparator {
@@ -62,15 +74,29 @@ impl Detector for BareOrUsageSeparator {
             if !is_bare_or_line(line) {
                 continue;
             }
-            let next = next_nonblank_line(&lines, i);
-            let truncated = match next {
-                Some(needle) => !evidence
+            // The block must have actually reached this line for its
+            // truncation to be this family's doing — otherwise an
+            // unrelated, earlier-firing rule ended it first (a wrapped
+            // continuation that itself looks like a flag row, say), and
+            // claiming this bare-or line broke it would be inventing a
+            // cause the raw bytes don't support.
+            let reached_here = prev_nonblank_line(&lines, i).is_some_and(|prev| {
+                evidence
                     .root
                     .usage
                     .iter()
-                    .any(|u| u.as_str().contains(needle)),
-                None => false,
-            };
+                    .any(|u| u.as_str().contains(prev))
+            });
+            let next = next_nonblank_line(&lines, i);
+            let truncated = reached_here
+                && match next {
+                    Some(needle) => !evidence
+                        .root
+                        .usage
+                        .iter()
+                        .any(|u| u.as_str().contains(needle)),
+                    None => false,
+                };
             if truncated {
                 findings.push(format!(
                     "bare `or` line truncated the usage block: {:?} never reached the tree",
@@ -171,6 +197,21 @@ impl Detector for BareOrUsageSeparator {
                 expect: Expect::Silent,
                 raw: "Usage: foo [-a] BAR\nSome sentence that says or so.\n".to_string(),
                 root: node_with_usage(&["Usage: foo [-a] BAR"]),
+            },
+            SelfCheck {
+                name: "sg_test_rwbuf's own bytes, block already ended before the `or` line",
+                why: "an unrelated, earlier-firing rule (a wrapped continuation line that itself \
+                      reads as a flag row) truncates the block before the bare `or` is ever \
+                      reached, so the missing second form is not this family's doing and must \
+                      not be claimed",
+                expect: Expect::Silent,
+                raw: "Usage: sg_test_rwbuf [--addrd=AR] [--addwr=AW] [--help] [--quick]\n         \
+                      --size=SZ [--times=NUM] [--verbose] [--version]\n            DEVICE\n or\n  \
+                      sg_test_rwbuf DEVICE SZ [AW] [AR]\n"
+                    .to_string(),
+                root: node_with_usage(&[
+                    "Usage: sg_test_rwbuf [--addrd=AR] [--addwr=AW] [--help] [--quick]",
+                ]),
             },
         ]
     }
