@@ -51,6 +51,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -592,6 +593,30 @@ pub fn cmd_sample(
 /// that entry's stratum untouched but counts it as missing rather than
 /// silently skipping it. Pure and side-effect-free so [`cmd_reclassify`]
 /// can run it over every entry in parallel via `rayon`.
+/// One `\r`-rewritten stderr line, `reclassify  1234/2299  12.3s`, refreshed
+/// every 16 completions and on the last one. Stderr, so a redirected stdout
+/// keeps only the report; `\r` rather than a bar crate, so xtask gains no
+/// dependency for a counter.
+fn report_progress(done: usize, total: usize, start: Instant) {
+    if !done.is_multiple_of(16) && done != total {
+        return;
+    }
+    use std::io::Write;
+    let mut err = std::io::stderr().lock();
+    let _ = write!(
+        err,
+        "\rreclassify {done:>5}/{total}  {:.1?}",
+        start.elapsed()
+    );
+    let _ = err.flush();
+}
+
+/// Ends the `\r` line so the report below starts on a fresh one.
+fn finish_progress() {
+    use std::io::Write;
+    let _ = writeln!(std::io::stderr());
+}
+
 fn reclassify_one(cdir: &Path, tool: &str) -> Option<String> {
     let recordings = load_captures_for_tool(cdir, tool).ok()?;
     let transcript: Arc<dyn mandible_extract::exec::Probe> = Arc::new(Transcript::new(recordings));
@@ -625,11 +650,18 @@ pub fn cmd_reclassify(dir: &Path, update: bool) -> anyhow::Result<()> {
     let cdir = captures_dir(dir);
 
     let start = Instant::now();
+    let total = queue.entries.len();
+    let done = AtomicUsize::new(0);
     let outcomes: Vec<Option<String>> = queue
         .entries
         .par_iter()
-        .map(|entry| reclassify_one(&cdir, &entry.tool))
+        .map(|entry| {
+            let outcome = reclassify_one(&cdir, &entry.tool);
+            report_progress(done.fetch_add(1, Ordering::Relaxed) + 1, total, start);
+            outcome
+        })
         .collect();
+    finish_progress();
 
     let mut new_strata: Vec<Option<String>> = Vec::with_capacity(queue.entries.len());
     let mut transitions: Vec<(String, String, String)> = Vec::new();
