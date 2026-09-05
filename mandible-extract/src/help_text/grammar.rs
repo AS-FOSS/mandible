@@ -33,6 +33,17 @@ pub struct FlagSpec {
     pub value_name: Option<String>,
     /// Whether the value (if any) is required or optional.
     pub value_kind: ValueKind,
+    /// A bare `|`-separated choice list, when a caller recovered one from
+    /// the row alongside this spec (docs/shapes.md S-120) — e.g. a
+    /// docopt bracket row's own trailing list
+    /// (`flag_rows::trailing_choice_list`). Never populated by this
+    /// grammar's own generic value parsing: an identical `word|word`
+    /// fragment is at least as often an alternative-value-type
+    /// placeholder (`pkg-config`'s own `--personality=triplet|filename`)
+    /// as a real enumerated choice, and nothing about the shape alone
+    /// tells the two apart, so only a caller with a narrower, scoped
+    /// signal ever sets this field.
+    pub choices: Vec<String>,
     /// True if the grammar consumed the entire fragment cleanly (no
     /// leftover text it didn't understand). Used for confidence scoring.
     pub fully_consumed: bool,

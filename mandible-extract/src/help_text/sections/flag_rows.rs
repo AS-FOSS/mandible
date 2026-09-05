@@ -648,6 +648,47 @@ pub(super) fn choice_description_sub_row(trimmed: &str) -> Option<(&str, &str)> 
     Some((name, desc))
 }
 
+/// A bare identifier: letters/digits, `_`/`-`, first character
+/// alphanumeric — the shape a choice value is written in (`r`, `pvseg`,
+/// `shell-escape`), never punctuation alone. See docs/shapes.md S-120.
+fn is_choice_token(token: &str) -> bool {
+    let mut chars = token.chars();
+    chars.next().is_some_and(|c| {
+        c.is_ascii_alphanumeric()
+            && chars.all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    })
+}
+
+/// A docopt bracket-row's own trailing bare `|`-separated choice list, if
+/// the row ends in one (`pvdisplay`'s own `--units [Number]r|R|h|...`,
+/// `--configreport log|vg|lv|pv|pvseg|seg`). Non-destructive: `content`
+/// still goes to [`super::grammar::parse_flag_spec`] unchanged, so
+/// `value_name` keeps the trailing text exactly as before (S-083's own
+/// `--format json|yaml|table`). Walks back from the end, stopping at the
+/// first space or bracket, so an alias separator that is also `|`
+/// (`-A|--autobackup y|n`) is never absorbed. Two or more tokens
+/// required. See docs/shapes.md S-120.
+pub(super) fn trailing_choice_list(content: &str) -> Vec<String> {
+    let trimmed = content.trim_end();
+    let mut start = trimmed.len();
+    for (i, c) in trimmed.char_indices().rev() {
+        if c.is_ascii_alphanumeric() || c == '_' || c == '-' || c == '|' {
+            start = i;
+        } else {
+            break;
+        }
+    }
+    let before = trimmed[..start].trim_end();
+    let tail = &trimmed[start..];
+    if !before.is_empty() && tail.contains('|') {
+        let tokens: Vec<&str> = tail.split('|').collect();
+        if tokens.len() >= 2 && tokens.iter().all(|t| is_choice_token(t)) {
+            return tokens.into_iter().map(str::to_string).collect();
+        }
+    }
+    Vec::new()
+}
+
 pub(super) fn scan_flags_block<'a>(
     lines: &[&'a str],
     start: usize,
@@ -793,7 +834,23 @@ pub(super) fn scan_flags_block<'a>(
                 // directly rather than through either column splitter
                 // below. See docs/shapes.md S-005.
                 if let Some(content) = bracket_flag_row_content(line.trim()) {
-                    entries.push((content.to_string(), String::new(), Vec::new()));
+                    // A trailing bare `|`-separated choice list, glued or
+                    // spaced onto the row's own spec (`pvdisplay`'s own
+                    // `--units [Number]r|R|h|...`, `--configreport
+                    // log|vg|lv|pv|pvseg|seg`), is the flag's `choices`.
+                    // Scoped to this docopt bracket-row shape alone,
+                    // never the ordinary column-split rows below: an
+                    // identical `word|word` fragment there is at least as
+                    // often an alternative-value-type placeholder
+                    // (`pkg-config`'s own `--personality=triplet|filename`)
+                    // as a real enumerated choice, and nothing about the
+                    // shape alone tells the two apart. See docs/shapes.md
+                    // S-120.
+                    let choice_names = trailing_choice_list(content)
+                        .into_iter()
+                        .map(|c| (c, None))
+                        .collect();
+                    entries.push((content.to_string(), String::new(), choice_names));
                     continue;
                 }
                 // The packed shape (`find --help`'s Tests/Actions tables,
@@ -1007,6 +1064,58 @@ pub(super) fn entry_row_carries_own_description(entry_line: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `pvscan --help`'s own "Common options for lvm:" block, byte-exact
+    /// shape: a docopt bracket row's own trailing bare `|`-separated
+    /// list attaches as `choices`, and `value_name` keeps the same raw
+    /// text it always has. See docs/shapes.md S-120.
+    #[test]
+    fn a_headed_bracket_rows_trailing_pipe_list_attaches_as_choices() {
+        let help = "\
+Usage: pvscan [options]
+
+  Common options for lvm:
+\t[ -d|--debug ]
+\t[    --driverloaded y|n ]
+\t[    --reportformat basic|json ]
+";
+        let parsed = parse(help);
+        let driverloaded = flag_named(&parsed, "driverloaded");
+        assert_eq!(driverloaded.value_name.as_deref(), Some("y|n"));
+        assert_eq!(
+            driverloaded
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["y", "n"]
+        );
+        let reportformat = flag_named(&parsed, "reportformat");
+        assert_eq!(
+            reportformat
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["basic", "json"]
+        );
+        // The alias row's own `|` (`-d|--debug`) is not a choice list: no
+        // trailing bare list follows it.
+        let debug = flag_named(&parsed, "debug");
+        assert!(debug.choices.is_empty());
+    }
+
+    /// `pvdisplay --help`'s own alias-family row, byte-exact: a docopt
+    /// bracket row whose alias separator is also `|`
+    /// (`-A|--autobackup`-style, this tool family's own convention) must
+    /// never have the scan reach back through it into the alias text.
+    #[test]
+    fn an_alias_separator_that_is_also_pipe_is_never_absorbed_into_choices() {
+        assert_eq!(
+            trailing_choice_list("-A|--autobackup y|n"),
+            vec!["y".to_string(), "n".to_string()]
+        );
+    }
 
     /// `btrfs --help`'s shape: a flags block followed by a deeper-indented
     /// command table whose own rows each have a description one indent

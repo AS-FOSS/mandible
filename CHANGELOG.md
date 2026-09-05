@@ -31,7 +31,7 @@ once it reaches a published 0.1.0 release.
 - A single-dash spelling glued directly to a comma (`-Wa,<options>`, `-Wp,<options>`, `-Wl,<options>`) now reaches the tree as its own flag with the comma's own value, instead of truncating to `-W` and folding all three rows onto it (`mandible gcc`, `mandible g++`, docs/shapes.md S-116).
 - A single-dash spelling that is nothing but a run of `#` (`-###`) now reaches the tree whole, instead of truncating to `-#` with a fabricated value `##` (`mandible gcc`, `mandible g++`, docs/shapes.md S-118).
 - A short flag whose value spec is one bracket group with another bracket nested inside it (`-e[CHAR[WIDTH]]`) now keeps both closing brackets and its long alias, instead of losing the alias and the outer bracket at the row's first `]` (`mandible pr`, docs/shapes.md S-119).
-- A short flag whose value spec is one bracket group with another bracket nested inside it (`-e[CHAR[WIDTH]]`) now keeps both closing brackets and its long alias, instead of losing the alias and the outer bracket at the row's first `]` (`mandible pr`, docs/shapes.md S-119).
+- A docopt bracket row's own trailing `|`-separated choice list (`--units [Number]r|R|h|...`, `--configreport log|vg|lv|pv|pvseg|seg`) now attaches as the flag's choices, instead of reaching the tree as unstructured text or being dropped outright (`mandible pvdisplay`, `mandible pvscan`, and the rest of the lvm2 tool family, docs/shapes.md S-120).
 
 ## [0.6.1] - 2026-09-01
 

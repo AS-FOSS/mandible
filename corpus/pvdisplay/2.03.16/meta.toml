@@ -50,6 +50,15 @@ expected_framework = "generic"
 "--configreport" = ["log", "vg", "lv", "pv", "pvseg", "seg"]
 "--driverloaded" = ["y", "n"]
 
-[xfail]
-broken = true
-reason = "--units, --configreport and --driverloaded each document a pipe-separated choice list that never attaches as structured choices; --units loses the list outright (value_name trimmed to 'Number'), the other two keep it as raw value_name text only. COMMON_OPTIONS, the synopsis's own placeholder for lvm's shared option block, is extracted as the tool's one positional, while the real operand PV|Tag is dropped; no field states that a recovered positional is a placeholder rather than a real operand"
+# Promoted: a docopt bracket row's own trailing bare `|`-separated list
+# (`flag_rows::trailing_choice_list`, docs/shapes.md S-120) now attaches
+# as `choices` on both paths that read this row (the headed flags block
+# and, for a tool-specific option with no such heading, the synopsis
+# itself). `--units` keeps its own `value_name: Number` unchanged; the
+# choice list is additional structure, not a replacement.
+#
+# COMMON_OPTIONS is still the synopsis's own placeholder for lvm's shared
+# option block, extracted as the tool's one positional, while the real
+# operand PV|Tag is still dropped; no field states that a recovered
+# positional is a placeholder rather than a real operand, so this stays
+# unasserted, same as before.

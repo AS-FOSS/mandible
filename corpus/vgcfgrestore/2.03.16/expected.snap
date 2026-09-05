@@ -98,6 +98,9 @@ flags:
   - --driverloaded
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: 'Common options for lvm:'
   provenance:
     sources:

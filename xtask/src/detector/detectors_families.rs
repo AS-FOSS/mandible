@@ -484,3 +484,33 @@ impl Detector for NestedBracketValue {
         super::nested_bracket_value::self_checks()
     }
 }
+
+pub(crate) struct ChoicesAfterOptionalPlaceholder;
+
+impl Detector for ChoicesAfterOptionalPlaceholder {
+    fn name(&self) -> &'static str {
+        "choices-after-optional-placeholder"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a docopt bracket row's own trailing bare `|`-separated choice list (`pvdisplay`'s own \
+         `--units [Number]r|R|h|...`) never attaches as the flag's `choices`"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::choices_after_optional_placeholder::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "--{} never gained choices {:?}, from {:?}",
+                    f.long, f.choices, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::choices_after_optional_placeholder::self_checks()
+    }
+}

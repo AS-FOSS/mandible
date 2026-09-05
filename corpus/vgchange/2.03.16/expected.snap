@@ -44,6 +44,9 @@ flags:
   - --autobackup
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: Activate or deactivate LVs.
   provenance:
     sources:
@@ -68,6 +71,10 @@ flags:
   - --activationmode
   value_name: partial|degraded|complete
   value_kind: Required
+  choices:
+  - partial
+  - degraded
+  - complete
   group: Activate or deactivate LVs.
   provenance:
     sources:
@@ -94,6 +101,9 @@ flags:
   - --monitor
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: Activate or deactivate LVs.
   provenance:
     sources:
@@ -102,6 +112,9 @@ flags:
   - --poll
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: Activate or deactivate LVs.
   provenance:
     sources:
@@ -130,6 +143,9 @@ flags:
   - --reportformat
   value_name: basic|json
   value_kind: Required
+  choices:
+  - basic
+  - json
   group: Activate or deactivate LVs.
   provenance:
     sources:
@@ -145,6 +161,9 @@ flags:
   - --autobackup
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
@@ -181,6 +200,9 @@ flags:
   - --poll
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
@@ -201,6 +223,9 @@ flags:
   - --reportformat
   value_name: basic|json
   value_kind: Required
+  choices:
+  - basic
+  - json
   group: Reactivate LVs using the latest metadata.
   provenance:
     sources:
@@ -313,6 +338,9 @@ flags:
   - --driverloaded
   value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   group: 'Common options for lvm:'
   provenance:
     sources:

@@ -714,7 +714,14 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
         // `-A|--autobackup y|n` as three alternatives and lose
         // `--autobackup`'s real value `y|n` down to just `y`. See S-088.
         if let Some(content) = bracket_flag_row_content(line.trim()) {
-            push_usage_flag(&mut out, parse_flag_spec(content));
+            // A trailing bare `|`-separated choice list on this same
+            // docopt bracket row (`pvdisplay`'s own `--units
+            // [Number]r|R|h|...`) is the flag's `choices` — the usage-line
+            // twin of `flag_rows::scan_flags_block`'s identical handling
+            // for a headed flags-block row. See docs/shapes.md S-120.
+            let mut flag_spec = parse_flag_spec(content);
+            flag_spec.choices = trailing_choice_list(content);
+            push_usage_flag(&mut out, flag_spec);
             continue;
         }
         let segments = usage_segments(line);
@@ -957,6 +964,7 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
     flag.spellings = spec.spellings;
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
+    flag.choices = spec.choices.into_iter().map(Choice::bare).collect();
     out.push(flag);
 }
 
@@ -1010,6 +1018,11 @@ pub(super) fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> 
             short_spec.value_kind
         },
         value_name: long_spec.value_name.or(short_spec.value_name),
+        // Neither side of a short/long pair reaches this merge already
+        // carrying `choices`: only a docopt bracket row does, and that
+        // row is one whole flag, never split into a short/long pair
+        // needing this merge at all.
+        choices: Vec::new(),
         fully_consumed: short_spec.fully_consumed && long_spec.fully_consumed,
     })
 }
@@ -1505,6 +1518,60 @@ mod tests {
             .find(|f| f.long() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
         assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
+        // `y|n` is also a bare choice list (docs/shapes.md S-120):
+        // `value_name` keeps the raw text unchanged, and `choices` gains
+        // the same list as separate structure.
+        assert_eq!(
+            bbb.choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["y", "n"]
+        );
+    }
+
+    /// `pvdisplay --help`'s own tool-specific bracket rows, byte-exact
+    /// shape: no separate "OPTIONS" heading exists at all, so these reach
+    /// the tree only through the synopsis parser (`Source::HelpTextSynopsis`),
+    /// never `flag_rows::scan_flags_block`. The nested bracket
+    /// (`[Number]`) must not stop the trailing-choice-list scan from
+    /// reaching the pipe list glued right after it. See docs/shapes.md
+    /// S-120.
+    #[test]
+    fn a_headingless_synopsis_bracket_rows_trailing_pipe_list_attaches_as_choices() {
+        let help = "pvdisplay - Display attributes\n\n\
+                     Usage:\n\
+                     \tpvdisplay [ -a|--all ]\n\
+                     \t[    --configreport log|vg|lv|pv|pvseg|seg ]\n\
+                     \t[    --units [Number]r|R|h|H ]\n";
+        let parsed = parse_with_profile(help, None, Some("pvdisplay"));
+        let configreport = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("configreport"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(
+            configreport
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["log", "vg", "lv", "pv", "pvseg", "seg"]
+        );
+        let units = parsed
+            .flags
+            .iter()
+            .find(|f| f.long() == Some("units"))
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(units.value_name.as_deref(), Some("Number"));
+        assert_eq!(
+            units
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["r", "R", "h", "H"]
+        );
     }
 
     // --- the stanza head's own mode-selecting flag ----------------------
