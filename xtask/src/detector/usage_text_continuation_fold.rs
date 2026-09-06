@@ -1,4 +1,4 @@
-//! `usage-text-continuation-fold` (atlas S-136): a `usage:` line's own
+//! `usage-text-continuation-fold` (atlas S-135): a `usage:` line's own
 //! tab-indented continuation sentence, describing what the tool does
 //! rather than more invocation grammar, folds straight into the usage
 //! text instead of being dropped. `makeconv`'s `usage: makeconv

@@ -159,7 +159,7 @@ pub(super) fn is_line_continuation_fragment(heading: &str) -> bool {
 /// `\tread .ucm codepage mapping files...` still folds into usage.
 /// Gated on the literal tab, not indentation alone: `unzip`'s own
 /// genuine, two-space-indented continuation also lacks a period and
-/// must stay out of scope. See docs/shapes.md S-136.
+/// must stay out of scope. See docs/shapes.md S-135.
 pub(super) fn looks_like_unpunctuated_description_continuation(line: &str) -> bool {
     let Some(trimmed) = line.strip_prefix('\t').map(str::trim) else {
         return false;

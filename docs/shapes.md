@@ -2450,9 +2450,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   bare lowercase first description word (never a value, `-m or
   --match-arch file.o`'s own shape). Below the five-tool bar. Ship
   nothing; the fixture stays `[xfail]`.
-### S-136: usage line's tab-indented continuation folds in unpunctuated
+### S-135: usage line's tab-indented continuation folds in unpunctuated
 
-- id: S-136
+- id: S-135
 - looks like: |
       usage: makeconv [-options] files...
       	read .ucm codepage mapping files and write .cnv files
@@ -2474,9 +2474,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   gained a clean usage line and, for makeconv, one recovered positional,
   0 losses.
 
-### S-137: usage line's `X1 [X2 ...]` tail is one variadic positional
+### S-136: usage line's `X1 [X2 ...]` tail is one variadic positional
 
-- id: S-137
+- id: S-136
 - looks like: |
       Usage: apt-sortpkgs [options] file1 [file2 ...]
 - tools: apt-sortpkgs, apt-extracttemplates, apt-mark

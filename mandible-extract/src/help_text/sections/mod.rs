@@ -531,7 +531,7 @@ fn scan_usage_section(
             // this the same way for a continuation with no terminal
             // period at all — makeconv's tab-indented description of what
             // the tool does, which otherwise folds straight into the
-            // usage text. See docs/shapes.md S-136.
+            // usage text. See docs/shapes.md S-135.
             if leading_whitespace(l) > base_indent
                 && (is_prose_sentence(trimmed_start)
                     || looks_like_unpunctuated_description_continuation(l))

@@ -20,7 +20,7 @@
 # tail reads as easily as "provide a subcommand" as "provide an operand",
 # and the rule stays silent rather than guess.
 #
-# Open (round 7, atlas S-137): `file1 [file2 ...]` is narrower than the
+# Open (round 7, atlas S-136): `file1 [file2 ...]` is narrower than the
 # declined ambiguity above. The second name is the first's own name with
 # the next integer, bracketed and ellipsis-marked — numbering the bare
 # tail otherwise lacks. `numbered-variadic-usage-tail`

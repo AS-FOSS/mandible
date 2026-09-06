@@ -680,7 +680,7 @@ impl Detector for DescriptionSubcommandsList {
     }
 }
 
-// Round-7 detectors, atlas ids S-136 and S-137. Neither shape has a
+// Round-7 detectors, atlas ids S-135 and S-136. Neither shape has a
 // labelled seed-2 entry — both were found from the maintainer's later,
 // seed-7 fixture passes (`corpus/makeconv/6.2`, `corpus/apt-sortpkgs/2.8.3`)
 // — so both return `family: None`, the same honest answer round 6's own

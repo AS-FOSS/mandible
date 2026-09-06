@@ -681,7 +681,7 @@ fn round6_block_family_counts(
     ]
 }
 
-/// The two round-7 family detectors, atlas S-136 and S-137, split out
+/// The two round-7 family detectors, atlas S-135 and S-136, split out
 /// for the same line-count reason [`round4_family_counts`] is.
 fn round7_usage_family_counts(
     raw: &str,

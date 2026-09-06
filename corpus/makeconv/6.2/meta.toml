@@ -20,7 +20,7 @@
 # before it reaches the flag grammar. `must_not_contain_flags = ["-o"]`
 # passes for real now.
 #
-# Fixed (round 7, atlas S-136): the tab-indented continuation carries no
+# Fixed (round 7, atlas S-135): the tab-indented continuation carries no
 # terminating punctuation, so it used to fold into the usage line rather
 # than get dropped the way a period-terminated continuation already was.
 # `looks_like_unpunctuated_description_continuation`
@@ -29,7 +29,7 @@
 # line (`unzip`'s own) is untouched. `must_not_contain_usage_text` states
 # the usage half of the defect directly.
 #
-# Fixed, as a collateral repair of the S-136 fix above: with the
+# Fixed, as a collateral repair of the S-135 fix above: with the
 # continuation dropped, the primary usage entry is one physical line
 # again, so `recover_primary_tail_operands` fires and recovers `files` as
 # a required, repeatable positional. `must_contain_positionals =

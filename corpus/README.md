@@ -262,7 +262,7 @@ the same asymmetry `must_not_contain_flags` has.
 about the usage block itself carrying text that does not belong there —
 `makeconv`'s tab-indented description sentence, which has no terminating
 period, folds straight into the usage line with no heading, no flag and
-no positional to name it (docs/shapes.md S-136). Nothing but a byte-exact
+no positional to name it (docs/shapes.md S-135). Nothing but a byte-exact
 snapshot diff could see that until now.
 
 ```toml
