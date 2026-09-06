@@ -167,9 +167,6 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         Axis::Structural,
     );
 
-    let structural_winner_idx =
-        best_index(candidates.iter().map(|c| &c.provenance), Axis::Structural);
-    let hidden = candidates[structural_winner_idx].hidden;
     let children_filled = candidates.iter().any(|c| c.children_filled);
     // Same "any contributor is enough" reasoning as `children_filled`:
     // this is positive evidence the node names a real command (spec
@@ -204,7 +201,6 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         entities,
         subcommands,
         examples,
-        hidden,
         deprecated,
         children_filled,
         group,
@@ -382,7 +378,6 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     );
     let repeatable = bucket.iter().any(|f| f.repeatable);
     let required = bucket.iter().any(|f| f.required);
-    let hidden = bucket.iter().all(|f| f.hidden) && !bucket.is_empty();
     let deprecated = pick_option(
         bucket
             .iter()
@@ -457,7 +452,6 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     merged.choices = choices;
     merged.repeatable = repeatable;
     merged.required = required;
-    merged.hidden = hidden;
     merged.deprecated = deprecated;
     merged.inherited = inherited;
     merged.group = group;
@@ -552,26 +546,6 @@ where
         }
     }
     best.map(|(_, v)| v.clone()).unwrap_or_default()
-}
-
-fn best_index<'a, I>(provenances: I, axis: Axis) -> usize
-where
-    I: IntoIterator<Item = &'a Provenance>,
-{
-    let mut best_i = 0usize;
-    let mut best_auth: Option<u8> = None;
-    for (i, prov) in provenances.into_iter().enumerate() {
-        let auth = prov.effective_authority(axis);
-        let replace = match best_auth {
-            None => true,
-            Some(b) => auth > b,
-        };
-        if replace {
-            best_auth = Some(auth);
-            best_i = i;
-        }
-    }
-    best_i
 }
 
 /// Unify flags that arrived as separate short/long rows from the same
@@ -695,7 +669,6 @@ fn absorb_pair(existing: &mut Entity, other: Entity) {
     }
     existing.repeatable |= other.repeatable;
     existing.required |= other.required;
-    existing.hidden &= other.hidden;
     existing.inherited |= other.inherited;
     existing.default = existing.default.clone().or(other.default);
     existing.env_var = existing.env_var.clone().or(other.env_var);

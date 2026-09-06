@@ -353,7 +353,6 @@ pub struct CommandNode {
     pub entities: Vec<Entity>,
     pub subcommands: Vec<CommandNode>,
     pub examples: Vec<Example>,
-    pub hidden: bool,
     pub deprecated: Option<Text>,       // Some(reason) when deprecated
     /// True when this node's children are known-complete. False means the
     /// subtree has not been extracted yet (see §5, lazy extraction).
@@ -393,7 +392,7 @@ pub struct Entity {
     pub env_var: Option<String>,
     pub provenance: Provenance,
     // ... plus the flags carried over from the type this replaced:
-    // repeatable, required, hidden, deprecated, inherited, default.
+    // repeatable, required, deprecated, inherited, default.
 }
 
 pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
@@ -1595,8 +1594,10 @@ pane.
 5. The flattened row list is cached and invalidated on expand/collapse,
    search change, or lazy fill, never rebuilt per keypress.
 6. The detail pane groups flags by `Flag::group`, with inherited flags in a
-   final dimmed "Inherited" group, and hidden/deprecated flags suppressed
-   unless toggled with `.`.
+   final dimmed "Inherited" group. A deprecated flag always renders, tagged
+   with its reason (§9.2). There is no hidden-flag concept: nothing but a
+   removed user-override field ever set one, so the toggle that showed it
+   was removed with it.
 7. Scroll state is per-pane; the wheel scrolls the pane under the cursor.
 8. The parsed view and the raw view each keep their own scroll position,
    vertical and horizontal. `t` restores the exact position the view being
@@ -2830,6 +2831,14 @@ defect from a rendered screen, where ten rows read `-n` valued `oI`
 instead of `-noI`. The gcc and clang glued-value convention stays
 byte-identical, which is the whole safety argument for the
 discriminator.
+
+**The hidden-flag toggle is removed (2026-09-07).** The maintainer ruled it
+"unnecessary, useless surface to maintain." Nothing but the user-override
+tier ever set `Entity::hidden` or `CommandNode::hidden`, so both fields, the
+`.` key, and `App::show_hidden` are gone rather than kept dark. A deprecated
+flag now always renders with its `(deprecated)` tag, the same as it did
+while the toggle was on. `docs/shapes.md` carries no entry, since removing a
+control is not a parser family.
 
 ### Deferred, with the reason each is not simply undone
 

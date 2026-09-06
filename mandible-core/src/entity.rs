@@ -253,8 +253,6 @@ pub struct Entity {
     pub repeatable: bool,
     /// True if this entity is required.
     pub required: bool,
-    /// True if this entity should be hidden by default.
-    pub hidden: bool,
     /// `Some(reason)` when deprecated.
     pub deprecated: Option<Text>,
     /// True when declared on an ancestor node and propagated down (cobra
@@ -297,7 +295,6 @@ impl Entity {
             choices: Vec::new(),
             repeatable: false,
             required: false,
-            hidden: false,
             deprecated: None,
             inherited: false,
             group: None,

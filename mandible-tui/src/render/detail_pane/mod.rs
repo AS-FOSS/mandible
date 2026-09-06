@@ -110,7 +110,6 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let width = inner.width as usize;
     let built = build_lines(
         node,
-        app.show_hidden,
         width,
         app.palette,
         app.selected_flag.as_ref(),
@@ -499,7 +498,6 @@ const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
 
 fn build_lines(
     node: &CommandNode,
-    show_hidden: bool,
     width: usize,
     palette: style::Palette,
     target_flag: Option<&FlagKey>,
@@ -602,10 +600,7 @@ fn build_lines(
     // space — which is what keeps a tool with only a description and flags
     // looking exactly as it did before this section model existed.
     for (kind, label, indent) in LIST_SECTIONS {
-        let visible: Vec<&Entity> = node
-            .entities_of(kind)
-            .filter(|e| show_hidden || (!e.hidden && e.deprecated.is_none()))
-            .collect();
+        let visible: Vec<&Entity> = node.entities_of(kind).collect();
         if visible.is_empty() {
             continue;
         }
@@ -1280,7 +1275,6 @@ mod tests {
         ));
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -1316,7 +1310,6 @@ mod tests {
         ));
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -1329,40 +1322,6 @@ mod tests {
                 .any(|l| l.trim() == "Search for PATTERNS in each FILE named on the command line."),
             "prose must reflow to one line at this width: {text:?}"
         );
-    }
-
-    #[test]
-    fn hidden_flags_suppressed_by_default() {
-        let mut node = node_with_flags();
-        node.flags_mut().next().expect("a flag").hidden = true;
-        let built = build_lines(
-            &node,
-            false,
-            80,
-            style::Palette::extended(),
-            None,
-            crate::glyphs::UNICODE,
-            &test_app(),
-        );
-        let joined: String = built.lines.iter().map(text_of).collect();
-        assert!(!joined.contains("--interactive"));
-    }
-
-    #[test]
-    fn hidden_flags_shown_when_toggled() {
-        let mut node = node_with_flags();
-        node.flags_mut().next().expect("a flag").hidden = true;
-        let built = build_lines(
-            &node,
-            true,
-            80,
-            style::Palette::extended(),
-            None,
-            crate::glyphs::UNICODE,
-            &test_app(),
-        );
-        let joined: String = built.lines.iter().map(text_of).collect();
-        assert!(joined.contains("--interactive"));
     }
 
     /// Every description starts in the same column, whatever the flag's
@@ -2942,7 +2901,6 @@ mod tests {
         node.entities.push(flag);
         let flags_only = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -2962,7 +2920,6 @@ mod tests {
         node.entities.insert(0, positional);
         let both = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -3009,7 +2966,6 @@ mod tests {
 
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -3071,7 +3027,6 @@ mod tests {
 
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -3129,7 +3084,6 @@ mod tests {
         let app = test_app();
         let built = build_lines(
             &node,
-            false,
             width,
             style::Palette::extended(),
             None,
@@ -3184,7 +3138,6 @@ mod tests {
         let target = FlagKey::Long("option-39".to_string());
         let built = build_lines(
             &node,
-            false,
             60,
             style::Palette::extended(),
             Some(&target),
@@ -3214,7 +3167,6 @@ mod tests {
         let target = FlagKey::Long("interactive".to_string());
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             Some(&target),
@@ -3232,7 +3184,6 @@ mod tests {
         let node = node_with_flags();
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             Some(&FlagKey::Long("interactive".to_string())),
@@ -3249,7 +3200,6 @@ mod tests {
         let node = node_with_flags();
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             None,
@@ -3295,7 +3245,6 @@ mod tests {
         let node = node_with_all_entity_kinds();
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             Some(&FlagKey::Name("d".to_string())),
@@ -3332,7 +3281,6 @@ mod tests {
         let node = node_with_all_entity_kinds();
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             Some(&FlagKey::Name("AR_TIMESTAMP".to_string())),
@@ -3360,7 +3308,6 @@ mod tests {
         let node = node_with_all_entity_kinds();
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             Some(&FlagKey::Name("archive".to_string())),
@@ -3403,7 +3350,6 @@ mod tests {
 
         let built = build_lines(
             &node,
-            false,
             80,
             style::Palette::extended(),
             Some(&FlagKey::Long("help".to_string())),
@@ -4196,7 +4142,6 @@ mod tests {
             app.horizontal_scroll_enabled = toggle;
             let built = build_lines(
                 &node,
-                false,
                 46,
                 style::Palette::extended(),
                 None,
@@ -4252,7 +4197,6 @@ mod tests {
         let app = test_app();
         let built = build_lines(
             &node,
-            false,
             width,
             style::Palette::extended(),
             None,
@@ -4301,7 +4245,6 @@ mod tests {
             app.horizontal_scroll_enabled = toggle;
             let built = build_lines(
                 &node,
-                false,
                 width,
                 style::Palette::extended(),
                 None,

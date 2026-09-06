@@ -12,6 +12,10 @@ once it reaches a published 0.1.0 release.
 
 - `cargo xtask audit contribute` now draws tool names off `PATH` before probing anything, then probes only the drawn sample, instead of freezing and classifying the whole `PATH` first; the submitted verdict file now records the machine and containment posture it was captured under (#102).
 
+### Removed
+
+- The `.` hidden/deprecated toggle is gone, with the `show_hidden` state and the override tier's `hidden` field it depended on; a deprecated flag now always renders with its `(deprecated)` tag.
+
 ### Fixed
 
 - `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.

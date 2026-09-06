@@ -203,9 +203,6 @@ pub struct FlagSnapshot {
     /// True if this flag is required.
     #[serde(skip_serializing_if = "is_false")]
     pub required: bool,
-    /// True if this flag should be hidden by default.
-    #[serde(skip_serializing_if = "is_false")]
-    pub hidden: bool,
     /// The deprecation reason, when deprecated.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deprecated: Option<String>,
@@ -243,7 +240,6 @@ impl From<&Entity> for FlagSnapshot {
             choices: e.choices.iter().map(ChoiceSnapshot::from).collect(),
             repeatable: e.repeatable,
             required: e.required,
-            hidden: e.hidden,
             deprecated: e.deprecated.as_ref().map(|t| t.as_str().to_string()),
             inherited: e.inherited,
             group: e.group.clone(),
@@ -458,9 +454,6 @@ pub struct NodeSnapshot {
     pub detected_framework: Option<String>,
     /// Which source(s) contributed this node's own fields.
     pub provenance: ProvenanceSnapshot,
-    /// True if this command should be hidden from the tree by default.
-    #[serde(skip_serializing_if = "is_false")]
-    pub hidden: bool,
     /// True when this node's `subcommands` list is known-complete.
     #[serde(skip_serializing_if = "is_false")]
     pub children_filled: bool,
@@ -568,7 +561,6 @@ impl From<&CommandNode> for NodeSnapshot {
             deprecated: n.deprecated.as_ref().map(|t| t.as_str().to_string()),
             detected_framework: n.detected_framework.clone(),
             provenance: ProvenanceSnapshot::from(&n.provenance),
-            hidden: n.hidden,
             children_filled: n.children_filled,
             heading_attested: n.heading_attested,
             invocation_attested: n.invocation_attested,
