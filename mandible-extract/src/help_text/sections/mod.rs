@@ -114,24 +114,12 @@ impl ParsedHelp {
     /// Accept `node` into `subcommands` unless it's a duplicate name (an
     /// entry recovered twice, e.g. because a heading's block repeats
     /// verbatim in genuinely broken output) or the recovery cap has
-    /// already been hit. Returns whether it was accepted as a new entry.
-    /// A duplicate name is not always garbage: fail2ban-client's own
-    /// `Command:` table repeats `set`/`get` across dozens of distinct
-    /// accepted patterns, so a duplicate's own `usage` line (if any)
-    /// merges onto the already-accepted node instead of being dropped.
-    /// See docs/shapes.md S-141.
-    fn try_push_subcommand(&mut self, mut node: CommandNode) -> bool {
+    /// already been hit. Returns whether it was accepted.
+    fn try_push_subcommand(&mut self, node: CommandNode) -> bool {
         if self.subcommands.len() >= MAX_RECOVERED_ENTRIES {
             return false;
         }
         if !self.subcommand_names_seen.insert(node.name.clone()) {
-            if let Some(existing) = self.subcommands.iter_mut().find(|c| c.name == node.name) {
-                for usage in node.usage.drain(..) {
-                    if !existing.usage.contains(&usage) {
-                        existing.usage.push(usage);
-                    }
-                }
-            }
             return false;
         }
         self.subcommands.push(node);

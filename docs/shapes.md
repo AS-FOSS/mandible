@@ -2580,6 +2580,37 @@ entry's `tools` field and nothing else. It does not get a new entry.
   count, read from that same sweep-diff, is 1 tool. Both are below the
   five-tool floor. Not shipped; the fixture stays xfail with the counts
   in its reason.
+### S-141: a command table's rows are multi-word command patterns
+
+- id: S-141
+- looks like: |
+      restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
+      set loglevel <LEVEL>                     sets logging level to <LEVEL>.
+- tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
+  resolvectl, timedatectl
+- handling: Open. A prototype read each token of a row's own name field
+  separately, so a bracket- or angle-wrapped group (`[--unban]`,
+  `<JAIL>`) cleaned the way an uppercase metavariable does, and
+  `try_push_subcommand` merged a repeated leading word's usage onto the
+  node already accepted instead of dropping every row past the first. It
+  is not shipped. On rendered screens it changed nothing for busctl,
+  hostnamectl, localectl, networkctl, resolvectl or timedatectl, which
+  already carry their commands, and it took fail2ban-client from eleven
+  fabricated command rows to twenty, adding `logtarget`, `persistent`,
+  `of`, `list`, `files`, `filter`, `for`, `back` and `failures`, each a
+  word cut out of a wrapped description. A flag-count sweep-diff cannot
+  see that, since the rows it adds are subcommands.
+  The blocker underneath is named now. A centered ALL-CAPS group label as
+  a block's own first line defeats `bare_block_end`'s baseline indent
+  before any real row is reached, so no row of fail2ban-client's table
+  can be read whatever the name rule does. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) stays as the instrument.
+- fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
+  fail2ban-client holds 85 of them and 84 were read by hand and are
+  genuine. Above the five-tool bar, and still waiting on the
+  `bare_block_end` baseline defect. Nothing shipped; the fixture stays
+  xfail with the count in its reason.
+
 ### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
 
 - id: S-142
@@ -2605,37 +2636,3 @@ entry's `tools` field and nothing else. It does not get a new entry.
   a colored banner, leaving 1 genuine hit. Both real counts are below the
   five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
   both counts in its reason.
-### S-141: a command table's rows are multi-word command patterns
-
-- id: S-141
-- looks like: |
-      restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
-      set loglevel <LEVEL>                     sets logging level to <LEVEL>.
-- tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
-  resolvectl, timedatectl, claude
-- handling: Fixed. `command_name_with_operand_placeholders`'s tail test now
-  reads each token on its own: a bracket- or angle-wrapped group
-  (`[--unban]`, `<JAIL>`, `[SIGNATURE [ARGUMENT...]]`'s own two halves)
-  cleans the same way an uppercase metavariable does, a dash-led flag
-  spelling counts only once it carried such a wrapper (a bare one, with
-  none, is a worked usage example naming the tool itself, never accepted),
-  and the pattern's own literal second word (`loglevel` in `set loglevel
-  <LEVEL>`) is admitted bare only in the leading position. The trailing
-  colon `emit_subcommands` already stripped as cobra's single-word
-  template convention is now stripped only for a genuinely single-word
-  name, so a sentence fragment ending in a colon (`xauth`'s own "options
-  are:") keeps its colon and fails the shape test instead of reading as a
-  fabricated two-word command. `try_push_subcommand` merges a repeated
-  leading word's own usage line onto the already-accepted node instead of
-  dropping every row past the first. `command-pattern-table`
-  (`xtask/src/command_pattern_table.rs`) still measures the residue: a
-  centered ALL-CAPS group label as a block's own first line defeats
-  `bare_block_end`'s baseline before any row is reached (fail2ban-client),
-  and a handful of tools (`gprofng`, `mountstats`, `swift-init`) whose own
-  worked-example or sub-heading text repeats a bare name-shaped word gain
-  one spurious node each, all on tools with zero correctly-parsed
-  subcommands either side of this fix.
-- fleet: 18 tools/224 findings fell to 12 tools/126 findings on a
-  full-`PATH` sweep, 2026-09-06, zero sweep-diff losses (flag-count and
-  subcommand removals both zero). Not gated at zero: the residue above
-  keeps a nonzero count.
