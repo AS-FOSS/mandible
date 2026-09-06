@@ -520,6 +520,36 @@ fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
     Some((word.to_string(), required, marker_repeat || inline_repeat))
 }
 
+/// Split a trailing run of ASCII digits off `word` as an integer.
+fn split_trailing_integer(word: &str) -> Option<(&str, u64)> {
+    let digit_count = word.chars().rev().take_while(char::is_ascii_digit).count();
+    if digit_count == 0 || digit_count == word.len() {
+        return None;
+    }
+    let (stem, digits) = word.split_at(word.len() - digit_count);
+    digits.parse().ok().map(|n| (stem, n))
+}
+
+/// `X1 [X2 ...]` → shared stem. Required bare first, optional repeatable
+/// second, consecutive trailing integers on one alphabetic stem. See
+/// docs/shapes.md S-136 and corpus/apt-sortpkgs/2.8.3.
+fn numbered_variadic_tail_stem(
+    first: &(String, bool, bool),
+    second: &(String, bool, bool),
+) -> Option<String> {
+    let (name1, required1, repeat1) = first;
+    let (name2, required2, repeat2) = second;
+    if !*required1 || *repeat1 || *required2 || !*repeat2 {
+        return None;
+    }
+    let (stem1, n1) = split_trailing_integer(name1)?;
+    let (stem2, n2) = split_trailing_integer(name2)?;
+    if stem1.is_empty() || stem1 != stem2 || n2 != n1 + 1 {
+        return None;
+    }
+    Some(stem1.to_string())
+}
+
 /// The primary synopsis's own trailing run of operands — atlas S-041
 /// (one operand) generalized to a run of two or more, promoted from
 /// `xtask`'s `unparsed-tail-operand` detector (`xtask/src/tail_operand.rs`).
@@ -583,6 +613,19 @@ fn recover_primary_tail_operands(
         return Vec::new();
     }
     collected.reverse(); // restore source order
+
+    // `file1 [file2 ...]` collapses to one variadic `file`. Numbering is
+    // its own evidence and bypasses the earlier-context gates below. See
+    // docs/shapes.md S-136 and corpus/apt-sortpkgs/2.8.3.
+    if collected.len() == 2 {
+        if let Some(stem) = numbered_variadic_tail_stem(&collected[0], &collected[1]) {
+            let mut positional =
+                Entity::positional(stem, Provenance::single(Source::HelpText));
+            positional.required = true;
+            positional.repeatable = true;
+            return vec![positional];
+        }
+    }
 
     // At least one real group must stand between the program name and the
     // run: a lone bracket group right after the program name (`true`'s
@@ -3074,14 +3117,53 @@ mod tests {
         assert_eq!(names, vec!["target"], "{names:?}");
     }
 
-    /// `apt-extracttemplates`-shaped: several bare operands, not a flag
-    /// list plus one trailing operand. `file1` earlier on the line is
-    /// itself bare and non-flag, so the earlier-groups gate must refuse
-    /// the whole line rather than claim `file2`.
+    /// S-136: `file1 [file2 ...]` with no earlier flag group still
+    /// collapses to one variadic `file` — numbering is its own evidence.
+    /// See docs/shapes.md S-136.
     #[test]
-    fn apt_extracttemplates_shaped_multiple_bare_operands_gain_no_positional() {
+    fn apt_extracttemplates_numbered_tail_collapses_to_one_variadic_file() {
         let parsed = parse("Usage: apt-extracttemplates file1 [file2 ...]\n");
-        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{names:?}");
+        assert!(parsed.positionals[0].required);
+        assert!(parsed.positionals[0].repeatable);
+    }
+
+    /// S-136: apt-sortpkgs's own bytes — `[options]` ahead of the numbered
+    /// pair. Fixture: corpus/apt-sortpkgs/2.8.3.
+    #[test]
+    fn apt_sortpkgs_numbered_tail_collapses_to_one_variadic_file() {
+        let parsed = parse("Usage: apt-sortpkgs [options] file1 [file2 ...]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{names:?}");
+        assert!(parsed.positionals[0].required);
+        assert!(parsed.positionals[0].repeatable);
+    }
+
+    /// S-136 negatives: non-matching stems, non-consecutive integers, and
+    /// a second name that is not itself marked repeatable.
+    #[test]
+    fn numbered_variadic_tail_refuses_non_matching_shapes() {
+        for line in [
+            "Usage: widget [options] infile [outfile ...]\n",
+            "Usage: widget [options] file1 [file3 ...]\n",
+            "Usage: widget [options] file1 [file2]\n",
+        ] {
+            let parsed = parse(line);
+            assert!(
+                parsed.positionals.is_empty(),
+                "{line:?}: {:?}",
+                parsed.positionals
+            );
+        }
     }
 
     /// `psfaddtable`-shaped: the identical several-bare-operands shape

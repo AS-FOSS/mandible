@@ -2480,16 +2480,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: apt-sortpkgs [options] file1 [file2 ...]
 - tools: apt-sortpkgs, apt-extracttemplates, apt-mark
-- handling: Open. `numbered-variadic-usage-tail`
-  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads a usage
-  line's trailing pair where the second name is the first's own name
-  with the next integer, bracketed and ellipsis-marked, and would
-  collapse it into one variadic positional named by the shared stem —
-  narrower than the `multi-operand-usage-tail` ambiguity (S-109) round 6
-  declined, since the numbering is evidence a bare tail lacks.
+- handling: Fixed. `recover_primary_tail_operands`
+  (`mandible-extract/src/help_text/sections/usage.rs`) collapses a
+  trailing pair where the second name is the first's own name with the
+  next integer, bracketed and ellipsis-marked, into one required
+  repeatable positional named by the shared stem. Numbering is its own
+  evidence, so the pair is recovered even with no earlier flag group
+  (`apt-extracttemplates`) and even behind a lone `[options]`
+  placeholder that S-109 would refuse. Narrower than the
+  `multi-operand-usage-tail` ambiguity (S-109). Detector:
+  `numbered-variadic-usage-tail`
+  (`xtask/src/detector/numbered_variadic_usage_tail.rs`).
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
-  below the five-tool floor a fix must clear. Not shipped; the fixture
-  stays xfail with the count in its reason.
+  below the five-tool floor. Shipped as the maintainer's named item,
+  issue #141. Fixture `corpus/apt-sortpkgs/2.8.3` awaits
+  `xtask corpus --bless` on MSRV before leaving `[xfail]`.
 
 ### S-137: lvm2 invocation forms read as section headings
 

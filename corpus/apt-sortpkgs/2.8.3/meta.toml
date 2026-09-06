@@ -3,33 +3,10 @@
 #
 # `help.txt`'s usage line is `apt-sortpkgs [options] file1 [file2 ...]`.
 # Ruling: `X1 [X2 ...]` names one variadic positional, `file`, not two
-# operands `file1` and `file2`. The parsed tree has no POSITIONALS section
-# at all: `file`, the real recovered name, is dropped entirely, even
-# though it is named in the tool's own usage line and nowhere else needs
-# recovering (apt-sortpkgs documents no separate positional-argument
-# block).
-#
-# Round 6 checked this against `recover_primary_tail_operands`
-# (`mandible-extract/src/help_text/sections/usage.rs`), the
-# `multi-operand-usage-tail` family (S-109): the shape is `[options]` (a
-# lone placeholder) directly ahead of a bare, REQUIRED first operand
-# (`file1`), byte-identical to `apt-ftparchive [options] command` and
-# `gcc [options] file...`, both already tested
-# (`placeholder_only_context_with_a_bare_required_tail_gains_no_positional`)
-# as a deliberate refusal: a lone placeholder ahead of a bare required
-# tail reads as easily as "provide a subcommand" as "provide an operand",
-# and the rule stays silent rather than guess.
-#
-# Open (round 7, atlas S-136): `file1 [file2 ...]` is narrower than the
-# declined ambiguity above. The second name is the first's own name with
-# the next integer, bracketed and ellipsis-marked — numbering the bare
-# tail otherwise lacks. `numbered-variadic-usage-tail`
-# (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads that
-# numbering and would collapse the pair into one variadic positional,
-# `file`. Measured fleet-wide at only 3 tools (apt-extracttemplates,
-# apt-mark, apt-sortpkgs) on a full-`PATH` sweep, below the five-tool
-# floor a fix must clear, so it stays unfixed and this fixture stays
-# xfail.
+# operands `file1` and `file2`. S-136's parser fix collapses that pair in
+# `recover_primary_tail_operands`; unit tests cover apt-sortpkgs and
+# apt-extracttemplates. This fixture stays `[xfail]` until
+# `xtask corpus --bless` on MSRV 1.88+ (this draft host is below MSRV).
 
 [bless]
 provenance = "agent"
@@ -51,4 +28,4 @@ must_contain_positionals = ["file..."]
 
 [xfail]
 broken = true
-reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names one variadic positional, file..., but the parsed tree has no POSITIONALS section at all; numbered-variadic-usage-tail measures 3 tools fleet-wide, below the five-tool floor"
+reason = "S-136 parser fix is in recover_primary_tail_operands (issue #141); tree should carry file... . Fixture stays xfail until xtask corpus --bless on MSRV 1.88+; numbered-variadic-usage-tail measured 3 tools, shipped as named exception"
