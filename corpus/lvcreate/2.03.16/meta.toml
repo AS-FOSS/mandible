@@ -16,11 +16,11 @@ stderr = "help.stderr.txt"
 expected_framework = "generic"
 min_status = "low-confidence"
 must_contain_flags = ["--mirrorlog", "--type", "--extents"]
-must_not_contain_usage_text = ["lvcreate -s|--snapshot LV"]
+must_not_contain_usage_text = ["[ --type linear ] (implied)"]
 
 [contract.must_attach_choices]
 "--mirrorlog" = ["core", "disk"]
 
 [xfail]
 broken = true
-reason = "lvm2 help is a list of invocation forms. Each form is a prose line, then a usage line, then tab-indented option rows. 1. No root flag group starts with lvcreate or Lvcreate. 2. --mirrorlog sits in a group whose label is the prose line Create a raid1 or mirror LV., or in no group at all. 3. The tree's usage carries more than one form."
+reason = "lvm2 help is a list of invocation forms. Each form is a prose line, then a usage line, then tab-indented option rows. 1. No root flag group starts with lvcreate or Lvcreate. 2. --mirrorlog sits in a group whose label is the prose line Create a raid1 or mirror LV., or in no group at all. 3. The tree's usage carries every invocation form, not two. lvcreate -s|--snapshot LV is a real form and must survive."
