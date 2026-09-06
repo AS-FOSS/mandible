@@ -1520,7 +1520,7 @@ fn parse_body(
                 .unwrap_or(lines.len());
             lines[..body_start].iter().enumerate().position(|(idx, l)| {
                 let t = l.trim_start();
-                looks_like_unlabeled_synopsis_line(t, name)
+                (looks_like_unlabeled_synopsis_line(t, name)
                     // LVM's own emitter writes a bare invocation line
                     // (`vgck` alone) with all docopt notation on the rows
                     // that continue it, invisible to
@@ -1528,7 +1528,19 @@ fn parse_body(
                     // own-name line is accepted too, but only when the
                     // next physical line is unambiguous flag-row
                     // evidence. See S-005.
-                    || looks_like_bare_synopsis_head(&lines, idx, name)
+                    || looks_like_bare_synopsis_head(&lines, idx, name))
+                    // A head shaped like one whole LVM invocation form —
+                    // the tool's own name plus its flags on the same
+                    // line — and labeled by a genuine prose sentence
+                    // above it (`stanza_description_above`) is deferred
+                    // whole to that per-heading path rather than claimed
+                    // here as the primary entry: otherwise its own
+                    // tab-indented option rows fold into this entry's
+                    // display text instead of reaching their own group,
+                    // the one shape vgchange's bare `vgchange` head (no
+                    // flag of its own) never triggers. See docs/shapes.md
+                    // S-137.
+                    && stanza_description_above(&lines, idx, Some(name)).is_none()
             })
         })
     } else {
@@ -1673,16 +1685,42 @@ mod tests {
     #[test]
     fn lvcreate_invocation_forms_each_reach_usage_and_keep_their_own_prose_group() {
         let parsed = parse_named(LVCREATE_HELP, "lvcreate");
-        assert!(
-            parsed.usage.len() > 10,
-            "expected many invocation forms in usage, got {:?}",
+        assert_eq!(
+            parsed.usage.len(),
+            17,
+            "expected every invocation form in usage, got {:?}",
             parsed.usage
         );
+        // The very first form is a real usage form too, not the folded
+        // string the unlabelled-synopsis entry point would otherwise
+        // build by absorbing its own tab-indented option rows.
+        assert_eq!(
+            parsed.usage[0].as_str(),
+            "lvcreate -L|--size Size[m|UNIT] VG"
+        );
         assert!(
-            parsed
-                .flags
-                .iter()
-                .all(|f| !f.group.as_deref().is_some_and(|g| g.starts_with("lvcreate"))),
+            parsed.flags.iter().all(|f| !f
+                .group
+                .as_deref()
+                .is_some_and(|g| g.starts_with("lvcreate"))),
+            "a flag group was built from the invocation line itself: {:?}",
+            parsed.flags
+        );
+        // The first form's own flag reaches the tree grouped under its
+        // own prose sentence, exactly as every later form's does.
+        let linear_extents = parsed.flags.iter().find(|f| {
+            f.long() == Some("extents") && f.group.as_deref() == Some("Create a linear LV.")
+        });
+        assert!(
+            linear_extents.is_some(),
+            "the first form's own --extents lost its group: {:?}",
+            parsed.flags
+        );
+        assert!(
+            parsed.flags.iter().all(|f| !f
+                .group
+                .as_deref()
+                .is_some_and(|g| g.starts_with("lvcreate"))),
             "a flag group was built from the invocation line itself: {:?}",
             parsed.flags
         );

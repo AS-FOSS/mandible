@@ -62,6 +62,16 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             }
         }
 
+        if let Some(base_min) = b.must_usage_forms_min {
+            let now_min = n.must_usage_forms_min.unwrap_or(0);
+            if now_min < base_min {
+                lines.push(format!(
+                    "CONTRACT WEAKENED: {} must_usage_forms_min ({base_min} -> {now_min})",
+                    base.label
+                ));
+            }
+        }
+
         // Every list-shaped field weakens the same way, by losing an
         // entry, and a negative claim is no exception: the direction of
         // the claim flips, the direction of its weakening does not.
@@ -83,6 +93,11 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
                 "must_not_contain_usage_text",
                 &b.must_not_contain_usage_text,
                 &n.must_not_contain_usage_text,
+            ),
+            (
+                "must_not_contain_flag_group_prefixes",
+                &b.must_not_contain_flag_group_prefixes,
+                &n.must_not_contain_flag_group_prefixes,
             ),
             (
                 "must_contain_positionals",
@@ -265,6 +280,17 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    // `must_flag_group`: same rule as `must_describe` above — a string
+    // value (including the empty-string "no group" claim) has no natural
+    // stronger/weaker ordering, so only its outright removal is reported.
+    for flag in b.must_flag_group.keys() {
+        if !n.must_flag_group.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_flag_group[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
     // `must_accept_modifiers`: same shape as `must_contain_flags_by_path` —
     // a dropped letter under an existing path weakens it.
     for (path, base_letters) in &b.must_accept_modifiers {
@@ -340,6 +366,11 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     if contract.min_subcommands.is_some() {
         failures.push(ContractFailure("min_subcommands: no root produced".into()));
     }
+    if contract.must_usage_forms_min.is_some() {
+        failures.push(ContractFailure(
+            "must_usage_forms_min: no root produced".into(),
+        ));
+    }
     if !contract.must_contain_flags.is_empty() {
         failures.push(ContractFailure(
             "must_contain_flags: no root produced".into(),
@@ -385,6 +416,9 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
         failures.push(ContractFailure(
             "must_display_name: no root produced".into(),
         ));
+    }
+    if !contract.must_flag_group.is_empty() {
+        failures.push(ContractFailure("must_flag_group: no root produced".into()));
     }
     if !contract.must_accept_modifiers.is_empty() {
         failures.push(ContractFailure(
@@ -433,6 +467,15 @@ fn check_contract_scalar_fields(
         if got < min {
             failures.push(ContractFailure(format!(
                 "min_subcommands: required at least {min}, got {got}"
+            )));
+        }
+    }
+
+    if let Some(min) = contract.must_usage_forms_min {
+        let got = root.usage.len();
+        if got < min {
+            failures.push(ContractFailure(format!(
+                "must_usage_forms_min: required at least {min}, got {got}"
             )));
         }
     }
@@ -501,6 +544,27 @@ fn check_contract_scalar_fields(
         failures.push(ContractFailure(format!(
             "must_not_contain_usage_text: present {}",
             present_usage_text.join(", ")
+        )));
+    }
+
+    // The group-label mirror of the negative claim above: no root flag's
+    // own `group` may start with one of these spellings — the invented
+    // group `must_not_contain_flags` cannot see, since a fabricated
+    // heading is never itself a flag spelling (docs/shapes.md S-137).
+    let present_group_prefixes: Vec<&str> = contract
+        .must_not_contain_flag_group_prefixes
+        .iter()
+        .filter(|prefix| {
+            root.flags()
+                .filter_map(|f| f.group.as_deref())
+                .any(|g| g.starts_with(prefix.as_str()))
+        })
+        .map(|s| s.as_str())
+        .collect();
+    if !present_group_prefixes.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_flag_group_prefixes: present {}",
+            present_group_prefixes.join(", ")
         )));
     }
 
@@ -700,7 +764,54 @@ fn check_contract_collection_fields(
     failures.extend(check_must_value_name(contract, root));
     failures.extend(check_must_display_name_and_modifiers(contract, root));
     failures.extend(check_must_not_value_name(contract, root));
+    failures.extend(check_must_flag_group(contract, root));
 
+    failures
+}
+
+/// `must_flag_group`: a root flag's own `group`, keyed by the flag's own
+/// spelling (matched the way `must_contain_flags` matches). The expected
+/// value is compared to `Flag::group` exactly — no substring, no
+/// whitespace collapsing, `must_display_name`'s own reasoning — except the
+/// empty string, which instead asserts the flag carries no group at all.
+/// Scans every matching entity, the same reasoning `must_value_name` gives
+/// for one spelling heading two rows.
+fn check_must_flag_group(contract: &ContractMeta, root: &CommandNode) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (flag_spec, expected) in &contract.must_flag_group {
+        let matches: Vec<&Entity> = root
+            .flags()
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+            .collect();
+        if matches.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_flag_group[{flag_spec:?}]: flag not present"
+            )));
+            continue;
+        }
+        let ok = matches.iter().any(|entity| {
+            if expected.is_empty() {
+                entity.group.is_none()
+            } else {
+                entity.group.as_deref() == Some(expected.as_str())
+            }
+        });
+        if !ok {
+            let actual: Vec<String> = matches
+                .iter()
+                .map(|e| format!("{:?}", e.group.as_deref().unwrap_or("(none)")))
+                .collect();
+            let expected_display = if expected.is_empty() {
+                "(no group)".to_string()
+            } else {
+                format!("{expected:?}")
+            };
+            failures.push(ContractFailure(format!(
+                "must_flag_group[{flag_spec:?}]: expected group {expected_display}, got {}",
+                actual.join(", ")
+            )));
+        }
+    }
     failures
 }
 

@@ -246,8 +246,7 @@ pub(super) fn looks_like_invocation_form_head(heading: &str, name: &str) -> bool
     let Some(rest) = heading.strip_prefix(name) else {
         return false;
     };
-    rest.trim_start()
-        .split_whitespace()
+    rest.split_whitespace()
         .next()
         .is_some_and(is_bare_flag_token)
 }

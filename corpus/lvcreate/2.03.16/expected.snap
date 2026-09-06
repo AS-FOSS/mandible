@@ -1,0 +1,1305 @@
+name: lvcreate
+usage:
+- lvcreate -L|--size Size[m|UNIT] VG
+- lvcreate -i|--stripes Number -L|--size Size[m|UNIT] VG
+- lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG
+- lvcreate --type raid -L|--size Size[m|UNIT] VG
+- lvcreate -m|--mirrors Number -i|--stripes Number -L|--size Size[m|UNIT] VG
+- lvcreate -s|--snapshot -L|--size Size[m|UNIT] LV
+- lvcreate --type thin-pool -L|--size Size[m|UNIT] VG
+- lvcreate --type cache-pool -L|--size Size[m|UNIT] VG
+- lvcreate -V|--virtualsize Size[m|UNIT] --thinpool LV VG
+- lvcreate -s|--snapshot LV
+- lvcreate --type thin --thinpool LV LV
+- lvcreate --type vdo -L|--size Size[m|UNIT] VG
+- lvcreate --type cache -L|--size Size[m|UNIT] --cachepool LV VG
+- lvcreate --type cache -L|--size Size[m|UNIT] --cachevol LV VG
+- lvcreate --type cache -L|--size Size[m|UNIT] --cachedevice PV VG
+- lvcreate --type writecache -L|--size Size[m|UNIT] --cachevol LV VG
+- lvcreate --type writecache -L|--size Size[m|UNIT] --cachedevice PV VG
+flags:
+- spellings:
+  - -L
+  - --size
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a linear LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_name: linear
+  value_kind: Required
+  group: Create a linear LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a linear LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_name: striped
+  value_kind: Required
+  group: Create a striped LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a striped LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a striped LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_kind: Required
+  choices:
+  - raid1
+  - mirror
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --regionsize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mirrorlog
+  value_kind: Required
+  choices:
+  - core
+  - disk
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --minrecoveryrate
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --maxrecoveryrate
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid1 or mirror LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --mirrors
+  value_name: Number
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --regionsize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --minrecoveryrate
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --maxrecoveryrate
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raidintegrity
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raidintegritymode
+  value_name: String
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raidintegrityblocksize
+  value_name: Number
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_name: raid10
+  value_kind: Required
+  group: Create a raid10 LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a raid10 LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid10 LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --regionsize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a raid10 LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --minrecoveryrate
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid10 LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --maxrecoveryrate
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a raid10 LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_name: snapshot
+  value_kind: Required
+  group: Create a COW snapshot LV of an origin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a COW snapshot LV of an origin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a COW snapshot LV of an origin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a COW snapshot LV of an origin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --chunksize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a COW snapshot LV of an origin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --thin
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --chunksize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --thinpool
+  value_name: LV_new
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --discards
+  value_kind: Required
+  choices:
+  - passdown
+  - nopassdown
+  - ignore
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --errorwhenfull
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poolmetadatasize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poolmetadataspare
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --cache
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --chunksize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemode
+  value_kind: Required
+  choices:
+  - writethrough
+  - writeback
+  - passthrough
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachepolicy
+  value_name: String
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesettings
+  value_name: String
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemetadataformat
+  value_kind: Required
+  choices:
+  - auto
+  - '1'
+  - '2'
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poolmetadatasize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poolmetadataspare
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_name: thin
+  value_kind: Required
+  group: Create a thin LV in a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --thin
+  group: Create a thin LV in a thin pool.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --snapshot
+  value_name: LV
+  value_kind: Required
+  group: Create a thin LV that is a snapshot of an existing thin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  value_name: thin
+  value_kind: Required
+  group: Create a thin LV that is a snapshot of an existing thin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --thin
+  group: Create a thin LV that is a snapshot of an external origin LV.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --virtualsize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vdo
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vdopool
+  value_name: LV_new
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --compression
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --deduplication
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vdosettings
+  value_name: String
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --cache
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --chunksize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemode
+  value_kind: Required
+  choices:
+  - writethrough
+  - writeback
+  - passthrough
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachepolicy
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesettings
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemetadataformat
+  value_kind: Required
+  choices:
+  - auto
+  - '1'
+  - '2'
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poolmetadatasize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poolmetadataspare
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --chunksize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemode
+  value_kind: Required
+  choices:
+  - writethrough
+  - writeback
+  - passthrough
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachepolicy
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesettings
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemetadataformat
+  value_kind: Required
+  choices:
+  - auto
+  - '1'
+  - '2'
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --chunksize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemode
+  value_kind: Required
+  choices:
+  - writethrough
+  - writeback
+  - passthrough
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachepolicy
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesettings
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachemetadataformat
+  value_kind: Required
+  choices:
+  - auto
+  - '1'
+  - '2'
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesettings
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --extents
+  value_name: Number[PERCENT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --stripes
+  value_name: Number
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --stripesize
+  value_name: Size[k|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesize
+  value_name: Size[m|UNIT]
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cachesettings
+  value_name: String
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --activate
+  value_kind: Required
+  choices:
+  - y
+  - n
+  - ay
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --autobackup
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --contiguous
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --persistent
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --major
+  value_name: Number
+  value_kind: Required
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --setactivationskip
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --ignoreactivationskip
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --name
+  value_name: String
+  value_kind: Required
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --permission
+  value_kind: Required
+  choices:
+  - rw
+  - r
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --readahead
+  value_kind: Required
+  choices:
+  - auto
+  - none
+  - Number
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --wipesignatures
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  - --zero
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --addtag
+  value_name: Tag
+  value_kind: Required
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --alloc
+  value_kind: Required
+  choices:
+  - contiguous
+  - cling
+  - cling_by_tags
+  - normal
+  - anywhere
+  - inherit
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --setautoactivation
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignoremonitoring
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --metadataprofile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --minor
+  value_name: Number
+  value_kind: Required
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --monitor
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nosync
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --noudevsync
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reportformat
+  value_kind: Required
+  choices:
+  - basic
+  - json
+  group: 'Common options for command:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --yes
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --test
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --commandprofile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --config
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --driverloaded
+  value_kind: Required
+  choices:
+  - y
+  - n
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nolocking
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lockopt
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --longhelp
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --profile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --devicesfile
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --devices
+  value_name: PV
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nohints
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --journal
+  value_name: String
+  value_kind: Required
+  group: 'Common options for lvm:'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

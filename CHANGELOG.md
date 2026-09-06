@@ -15,6 +15,7 @@ once it reaches a published 0.1.0 release.
 - A docopt bracket row's own trailing choice list no longer repeats as the flag's value name too, so `mandible pvdisplay`'s `--configreport` and `--driverloaded` show their choices once instead of twice (docs/shapes.md S-130).
 - A usage-synopsis flag whose value name holds a space (`-w Process ID`) keeps the whole name now, and the trailing bracket group it sat beside no longer loses its own two-word positional (`mandible caffeinate`, docs/shapes.md S-131, S-132).
 - A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-135).
+- Every invocation form lvm2 documents now reaches usage as its own alternative, keeping the prose sentence above it as its option group instead of inventing a heading from the form's own usage line (`mandible lvcreate`, docs/shapes.md S-137).
 
 ## [0.7.0] - 2026-09-05
 

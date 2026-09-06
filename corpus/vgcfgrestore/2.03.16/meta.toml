@@ -25,21 +25,24 @@
 # - `-f`/`--file` and `-l`/`--list` carry their stanza's own sentence as
 #   `group` instead of the head line.
 #
-# Two of the four stanzas are deliberately **not** relabelled, and this
-# fixture pins that too — the strict recognizer's recorded misses:
+# One of the four stanzas is deliberately **not** relabelled, and this
+# fixture still pins that miss:
 # - `vgcfgrestore VG` (stanza 1) names no flag at all, so it is not a
 #   stanza head (`recover_stanza_head_flag`) and "Restore VG metadata
 #   from last backup." is not adopted. That stanza reaches the tree
 #   through no path at all, before this fix or after it — a documented
 #   miss, not a regression, and the honest cost of anchoring the rule on
 #   a head that names its mode.
-# - `vgcfgrestore -l|--list -f|--file String` (stanza 4) names *two*
-#   flags, which `grammar::looks_like_stanza_head_flag` refuses by
-#   construction (it admits exactly one bare flag token), so "List one VG
-#   metadata backup file." is still dropped. Widening that predicate is
-#   not attempted here: it is the same predicate that keeps a worked
-#   example from being mined as a stanza head, and it has its own
-#   measurement.
+#
+# `vgcfgrestore -l|--list -f|--file String` (stanza 4) names *two* flags,
+# which `grammar::looks_like_stanza_head_flag` still refuses by
+# construction — that predicate stays narrow, since it also keeps a
+# worked example from being mined as a stanza head. S-137
+# (`sections::looks_like_invocation_form_head`) reads the head shape
+# without that restriction, so the head line itself now reaches `usage`
+# as its own form. Its own label, "List one VG metadata backup file.", is
+# not adopted: `-f`/`--file` and `-l`/`--list` keep the group their own
+# earlier stanza (2 and 3) already gave them.
 #
 # Captured on this machine's real `vgcfgrestore` (lvm2 2.03.16, Ubuntu
 # 24.04): help.txt is the tool's own stdout byte-exact, help.stderr.txt
