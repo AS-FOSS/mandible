@@ -1179,65 +1179,29 @@ fn run_coverage(
             regressed = true;
         }
 
-        // `repeated-char-flag` (`crate::repeated_char`), the second of the
-        // three families sharing the `short && !long && value_name`
-        // fingerprint, on exactly the terms `bundled-short-flag` reached
-        // above and after the same movement: reported-and-ungated while the
-        // number had no baseline, ratcheted at a literal zero once the
-        // repair landed (`help_text::sections::repair_repeated_character_flags`).
-        // Gated against `0` and not against `previous` for the same reason —
-        // the checked-in scoreboard is editable, so a commit reintroducing
-        // the defect would otherwise raise its own baseline — and gated on
-        // the detector's own self-checks alongside the count, because a gate
-        // on `count == 0` alone is satisfied by deleting the detector.
-        if fresh.repeated_char_tools != previous.repeated_char_tools
-            || fresh.repeated_char_flags != previous.repeated_char_flags
-        {
-            println!(
-                "repeated-char-flag misreads changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
-                previous.repeated_char_tools,
-                previous.repeated_char_flags,
-                fresh.repeated_char_tools,
-                fresh.repeated_char_flags,
-            );
-        }
-        let repeat_ratchet = detector::ratchet_at_zero(
-            detector::find("repeated-char-flag")?.as_ref(),
+        // `repeated-char-flag` and `single-dash-long`, the second and third
+        // of three families sharing the `short && !long && value_name`
+        // fingerprint (see `bundled-short-flag` above), ratcheted at zero
+        // each: see `detector::check_scalar_family_ratchet`'s doc comment
+        // for why zero and not `previous`. `single_dash_long::tests::
+        // the_real_parser_leaves_no_split_in_any_audited_fixture` separately
+        // covers the fix itself being deleted, which no fleet count catches.
+        if !detector::check_scalar_family_ratchet(
+            "repeated-char-flag",
+            previous.repeated_char_tools,
+            previous.repeated_char_flags,
             fresh.repeated_char_tools,
             fresh.repeated_char_flags,
-        );
-        println!("\n{}", repeat_ratchet.report());
-        if !repeat_ratchet.holds() {
+        )? {
             regressed = true;
         }
-
-        // `single-dash-long` (`crate::single_dash_long`), the third family
-        // sharing the `short && !long && value_name` fingerprint, ratcheted
-        // at zero the same way as the two above, gated against a literal
-        // `0` for the same editable-baseline reason. The complementary
-        // hazard — the detector staying healthy while the fix itself is
-        // deleted, which no fleet count or self-check catches — is covered
-        // separately by `single_dash_long::tests::
-        // the_real_parser_leaves_no_split_in_any_audited_fixture`, which
-        // replays frozen bytes under `cargo nextest`.
-        if fresh.single_dash_split_tools != previous.single_dash_split_tools
-            || fresh.single_dash_split_flags != previous.single_dash_split_flags
-        {
-            println!(
-                "single-dash-long splits changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
-                previous.single_dash_split_tools,
-                previous.single_dash_split_flags,
-                fresh.single_dash_split_tools,
-                fresh.single_dash_split_flags,
-            );
-        }
-        let single_dash_ratchet = detector::ratchet_at_zero(
-            detector::find("single-dash-long")?.as_ref(),
+        if !detector::check_scalar_family_ratchet(
+            "single-dash-long",
+            previous.single_dash_split_tools,
+            previous.single_dash_split_flags,
             fresh.single_dash_split_tools,
             fresh.single_dash_split_flags,
-        );
-        println!("\n{}", single_dash_ratchet.report());
-        if !single_dash_ratchet.holds() {
+        )? {
             regressed = true;
         }
 
@@ -1266,53 +1230,7 @@ fn run_coverage(
 
         regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
-
-        // pnpm's two families (atlas S-103, S-104), fixed in
-        // `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted
-        // at zero the same way as `single-dash-long` above: the fix moves
-        // two tools fleet-wide, below the five-tool bar in AGENTS.md §3.1,
-        // recorded as a maintainer exception in `docs/design.md` §16.
-        if fresh.ragged_command_tools != previous.ragged_command_tools
-            || fresh.ragged_command_flags != previous.ragged_command_flags
-        {
-            println!(
-                "ragged-command-table findings changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
-                previous.ragged_command_tools,
-                previous.ragged_command_flags,
-                fresh.ragged_command_tools,
-                fresh.ragged_command_flags,
-            );
-        }
-        let ragged_command_ratchet = detector::ratchet_at_zero(
-            detector::find("ragged-command-table")?.as_ref(),
-            fresh.ragged_command_tools,
-            fresh.ragged_command_flags,
-        );
-        println!("\n{}", ragged_command_ratchet.report());
-        if !ragged_command_ratchet.holds() {
-            regressed = true;
-        }
-
-        if fresh.wrapped_command_tools != previous.wrapped_command_tools
-            || fresh.wrapped_command_flags != previous.wrapped_command_flags
-        {
-            println!(
-                "wrapped-command-continuation-as-subcommand findings changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
-                previous.wrapped_command_tools,
-                previous.wrapped_command_flags,
-                fresh.wrapped_command_tools,
-                fresh.wrapped_command_flags,
-            );
-        }
-        let wrapped_command_ratchet = detector::ratchet_at_zero(
-            detector::find("wrapped-command-continuation-as-subcommand")?.as_ref(),
-            fresh.wrapped_command_tools,
-            fresh.wrapped_command_flags,
-        );
-        println!("\n{}", wrapped_command_ratchet.report());
-        if !wrapped_command_ratchet.holds() {
-            regressed = true;
-        }
+        regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
