@@ -766,6 +766,84 @@ mod tests {
         );
     }
 
+    // --- S-134: value-free or-joined alias, one-space description -------
+
+    /// `icupkg`'s copyright row, byte-exact from corpus/icupkg/74.2/help.txt.
+    #[test]
+    fn s134_icupkg_copyright_row_joins_short_long_and_description() {
+        let parsed = parse(concat!(
+            "options:\n",
+            "\t-c or --copyright include the ICU copyright notice\n",
+        ));
+        let copyright = flag_named(&parsed, "copyright");
+        assert_eq!(copyright.short(), Some('c'));
+        assert_eq!(
+            copyright.description.as_ref().map(|t| t.as_str()),
+            Some("include the ICU copyright notice"),
+        );
+        assert!(
+            copyright.value_name.is_none(),
+            "must not fabricate value_name from the word or or the description"
+        );
+    }
+
+    /// `pod2man`-like prose: a later flag-shaped token means this is not
+    /// an or-joined alias row.
+    #[test]
+    fn s134_pod2man_prose_is_not_joined() {
+        let parsed = parse(concat!(
+            "options:\n",
+            "  --lquote or --rquote overrides --quotes.\n",
+        ));
+        let lquote = flag_named(&parsed, "lquote");
+        assert!(
+            lquote.long() == Some("lquote"),
+            "lquote survives as its own flag"
+        );
+        assert!(
+            !parsed
+                .flags
+                .iter()
+                .any(|f| f.long() == Some("lquote") && f.spellings.len() == 2),
+            "--rquote must not become an alias of --lquote"
+        );
+        assert!(
+            !parsed.flags.iter().any(|f| {
+                f.long() == Some("lquote") && f.spellings.iter().any(|s| s.name == "rquote")
+            }),
+            "--rquote must not join --lquote"
+        );
+    }
+
+    /// Valued row: first description word is not bare lowercase (`file.o`),
+    /// so the S-134 gap finder must refuse.
+    #[test]
+    fn s134_gap_does_not_claim_match_arch_value_row() {
+        assert_eq!(
+            find_or_joined_single_space_description_gap("-m or --match-arch file.o"),
+            None
+        );
+        assert_eq!(
+            find_or_joined_single_space_description_gap("  -m or --match-arch file.o"),
+            None
+        );
+    }
+
+    /// Three-way `or` chain (S-099) must keep working unchanged.
+    #[test]
+    fn s134_does_not_break_or_help_chain() {
+        let parsed = parse(concat!(
+            "options:\n",
+            "  -h or -? or --help  print this message and exit\n",
+        ));
+        let help = flag_named(&parsed, "help");
+        assert_eq!(help.short(), Some('h'));
+        assert_eq!(
+            help.description.as_ref().map(|t| t.as_str()),
+            Some("print this message and exit"),
+        );
+    }
+
     #[test]
     fn one_suggestive_row_is_not_a_column() {
         // Recurrence, not suggestion: a single row of the shape in an

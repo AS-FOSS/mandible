@@ -109,6 +109,10 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
         // Whether an explicit `,`/`|` has appeared anywhere earlier in
         // *this* alias run — see the whitespace-continuation rules below.
         let mut saw_explicit_anywhere = false;
+        // Whether this run joined spellings via the bare word `or`
+        // (S-099 / S-134). Used to refuse inventing a value_name from
+        // leftover lowercase description prose after an or-join.
+        let mut saw_or_alias = false;
         loop {
             let before = rest;
             rest = skip_separators(rest);
@@ -123,6 +127,7 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             let or_alias = strip_or_alias_separator(rest);
             let explicit = or_alias.is_some() || saw_explicit_separator(before, rest);
             if let Some(after_or) = or_alias {
+                saw_or_alias = true;
                 rest = after_or;
             }
 
@@ -245,6 +250,16 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             return spec;
         }
 
+        // S-134 defense: if an `or`-joined full line reached grammar
+        // before layout split the one-space description, leftover
+        // lowercase prose is not a value_name. Gated on `saw_or_alias` so
+        // an ordinary `-o, --output file` lowercase value stays a value.
+        // Primary path still splits in layout so `rest` is empty here.
+        if saw_or_alias && is_s134_lowercase_description_prose(rest) {
+            spec.fully_consumed = true;
+            return spec;
+        }
+
         // Whatever remains is treated as a value spec: `=VALUE`, ` VALUE`,
         // `[=VALUE]`, `[VALUE]`, or a bare `<value>`/`VALUE` token.
         let Some((value_name, kind, tail)) = try_value(rest) else {
@@ -324,21 +339,88 @@ fn strip_or_alias_separator(rest: &str) -> Option<&str> {
 
 /// True when the spelling opening `after` is the last thing in the spec
 /// fragment, or is followed by a real column boundary, or by another `or`
-/// in a chain (`icupkg`'s `-h or -? or --help`). `pod2man`'s prose
-/// sentence `--lquote or --rquote overrides --quotes.` and `java`'s
-/// `-m or --module <module>/<mainclass> are passed as the arguments`
-/// both continue after a single space, so neither is a row joining two
-/// spellings. See docs/shapes.md S-099.
+/// in a chain (`icupkg`'s `-h or -? or --help`), or — S-134 — by one space
+/// then a bare ascii-lowercase description word after a `--long` spelling
+/// with no later flag-shaped token (`icupkg`'s
+/// `-c or --copyright include the ICU copyright notice`). `pod2man`'s prose
+/// sentence `--lquote or --rquote overrides --quotes.` still refuses
+/// because a later token is flag-shaped after stripping its trailing
+/// period; `java`'s `-m or --module <module>/<mainclass> are passed as the
+/// arguments` continues after one space onto a non-lowercase / value-like
+/// token, so neither is a row joining two spellings. See docs/shapes.md
+/// S-099 and S-134.
 fn or_alias_ends_the_spec(after: &str) -> bool {
     let token_len = after.find([' ', '\t', ',', '|']).unwrap_or(after.len());
+    let spelling = &after[..token_len];
     let tail = &after[token_len..];
     if tail.is_empty() || tail.starts_with(['\t', ',', '|', '=', '[']) || tail.starts_with("  ") {
         return true;
     }
     let chained = tail.trim_start_matches(' ');
-    chained
+    if chained
         .strip_prefix("or")
         .is_some_and(|t| t.starts_with([' ', '\t']))
+    {
+        return true;
+    }
+    // S-134: value-free `or`-joined `--long` with a one-space lowercase
+    // description ends the spec (unless a later token is flag-shaped).
+    spelling.starts_with("--") && is_s134_one_space_lowercase_description(tail)
+}
+
+/// True when `tail` (text immediately after a `--long` spelling) is exactly
+/// one ASCII space then a bare all-ascii-lowercase word, and no later
+/// whitespace token is flag-shaped after stripping a trailing `.` `,` `;`
+/// or `:`. Shared by [`or_alias_ends_the_spec`] and the leftover-prose
+/// defense in [`parse_flag_spec`]. See docs/shapes.md S-134.
+fn is_s134_one_space_lowercase_description(tail: &str) -> bool {
+    if !tail.starts_with(' ') || tail.starts_with("  ") {
+        return false;
+    }
+    let desc = &tail[1..];
+    if desc.is_empty() || desc.starts_with([' ', '\t']) {
+        return false;
+    }
+    is_s134_lowercase_description_prose(desc)
+}
+
+/// True when `rest` is description prose that would be the S-134 leftover
+/// after a joined `--long`: it opens with a bare all-ascii-lowercase word
+/// and contains no flag-shaped token (after stripping trailing `.` `,` `;`
+/// or `:`). Defense for when the full help line reaches the grammar before
+/// layout splits it. See docs/shapes.md S-134.
+fn is_s134_lowercase_description_prose(rest: &str) -> bool {
+    let trimmed = rest.trim_start();
+    let mut words = trimmed.split_whitespace();
+    let Some(first) = words.next() else {
+        return false;
+    };
+    if !first.chars().all(|c| c.is_ascii_lowercase()) {
+        return false;
+    }
+    for tok in std::iter::once(first).chain(words) {
+        let stripped = tok.trim_end_matches(['.', ',', ';', ':']);
+        if s134_token_looks_flag_shaped(stripped) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Narrow flag-shape check for S-134's later-token refuse: a leading `--`
+/// then an alphabetic, or a leading `-` then an alphanumeric / `?`/`#`/`@`.
+/// Kept local so this module never imports the layout helpers.
+fn s134_token_looks_flag_shaped(tok: &str) -> bool {
+    if let Some(rest) = tok.strip_prefix("--") {
+        return rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+    }
+    if let Some(rest) = tok.strip_prefix('-') {
+        return rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '?' | '#' | '@'));
+    }
+    false
 }
 
 /// True when `before_separator` ends in a finished value placeholder — a
@@ -1732,6 +1814,40 @@ mod tests {
         let spec = parse_flag_spec("--lquote or --rquote overrides --quotes.");
         assert_eq!(spec.long(), Some("lquote"));
         assert_ne!(spec.spellings.len(), 2, "--rquote must not become an alias");
+    }
+
+    /// S-134: value-free `or`-joined spellings with no trailing prose
+    /// (layout already peeled the one-space description).
+    #[test]
+    fn value_free_or_join_with_empty_tail_is_fully_consumed() {
+        let spec = parse_flag_spec("-c or --copyright");
+        assert_eq!(spec.short(), Some('c'));
+        assert_eq!(spec.long(), Some("copyright"));
+        assert!(spec.value_name.is_none());
+        assert!(spec.fully_consumed);
+    }
+
+    /// S-134: the separator still strips when the second spelling is
+    /// followed by one-space lowercase description prose.
+    #[test]
+    fn strip_or_alias_accepts_one_space_lowercase_description_after_long() {
+        let after = strip_or_alias_separator(
+            "or --copyright include the ICU copyright notice",
+        );
+        assert!(
+            after.is_some_and(|s| s.starts_with("--copyright")),
+            "got {after:?}"
+        );
+    }
+
+    /// S-134 defense: full line reaching grammar must not invent a value.
+    #[test]
+    fn value_free_or_join_full_line_does_not_invent_a_value() {
+        let spec = parse_flag_spec("-c or --copyright include the ICU copyright notice");
+        assert_eq!(spec.short(), Some('c'));
+        assert_eq!(spec.long(), Some("copyright"));
+        assert!(spec.value_name.is_none());
+        assert!(spec.fully_consumed);
     }
 
     /// A value or description that merely spells the word "or" is never

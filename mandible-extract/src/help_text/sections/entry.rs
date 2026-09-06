@@ -181,6 +181,12 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     if let Some(col) = find_placeholder_boundary_gap(line) {
         return Some(col);
     }
+    // Only consulted when the rules above found nothing: value-free
+    // `or`-joined alias with a one-space lowercase description. See
+    // docs/shapes.md S-134.
+    if let Some(col) = find_or_joined_single_space_description_gap(line) {
+        return Some(col);
+    }
     // Same "no aligned column anywhere" precondition, one shape further
     // out: no placeholder either, just a sentence. See
     // `find_sentence_start_gap`.
@@ -192,6 +198,13 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
 /// description. Never moves the gap earlier, and only when the word after
 /// `or` is a whole spelling standing alone.
 /// See docs/shapes.md S-099 and `corpus/vim.basic/audit-seed4/help.txt`.
+///
+/// Also extends for S-134: when the second spelling is a genuine `--long`
+/// and exactly one space then a bare ascii-lowercase description word
+/// follows (with no later flag-shaped token), the gap still moves past the
+/// long spelling even though the tail is neither empty, a tab, nor a
+/// two-space column. See docs/shapes.md S-134 and
+/// `corpus/icupkg/74.2/help.txt`.
 pub(super) fn extend_gap_past_or_joined_alias(line: &str, naive_gap: usize) -> usize {
     let Some(after) = line.get(naive_gap..) else {
         return naive_gap;
@@ -212,9 +225,115 @@ pub(super) fn extend_gap_past_or_joined_alias(line: &str, naive_gap: usize) -> u
     }
     let tail = &second[tok2.len()..];
     if !tail.is_empty() && !tail.starts_with('\t') && !tail.starts_with("  ") {
-        return naive_gap;
+        // S-134: one-space lowercase description after a `--long` still
+        // ends the joined spelling list.
+        if !(tok2.starts_with("--") && is_or_joined_single_space_description(tail)) {
+            return naive_gap;
+        }
     }
     naive_gap + leading_ws + "or".len() + mid_ws + tok2.len()
+}
+
+/// True when `after_long` (text immediately after a `--long` spelling) is
+/// exactly one ASCII space then a bare all-ascii-lowercase description
+/// word, and no later whitespace token is flag-shaped after stripping a
+/// trailing `.` `,` `;` or `:`. The gate that distinguishes
+/// `icupkg`'s `-c or --copyright include the ICU copyright notice` (S-134)
+/// from `pod2man`'s `--lquote or --rquote overrides --quotes.` and from a
+/// valued row like `-m or --match-arch file.o`.
+fn is_or_joined_single_space_description(after_long: &str) -> bool {
+    if !after_long.starts_with(' ') || after_long.starts_with("  ") {
+        return false;
+    }
+    let desc = &after_long[1..];
+    if desc.is_empty() || desc.starts_with([' ', '\t']) {
+        return false;
+    }
+    let first = first_word(desc);
+    if first.is_empty() || !first.chars().all(|c| c.is_ascii_lowercase()) {
+        return false;
+    }
+    let after_first = desc.get(first.len()..).unwrap_or("");
+    for tok in after_first.split_whitespace() {
+        let stripped = tok.trim_end_matches(['.', ',', ';', ':']);
+        if is_flag_shaped(stripped) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Fallback for a value-free `or`-joined alias row whose description starts
+/// one space after the long spelling — `icupkg`'s
+/// `-c or --copyright include the ICU copyright notice`. Without this, no
+/// earlier gap finder matches (only one space, description lowercase so
+/// [`find_sentence_start_gap`] refuses), and the whole line reaches the
+/// grammar as a spec: `-c` keeps the fabricated value `or` and
+/// `--copyright` reaches nothing. See docs/shapes.md S-134.
+///
+/// **Only consulted when earlier finders found nothing.** Pattern: a
+/// flag-shaped token, then the bare word `or`, then a genuine `--long`,
+/// then exactly one space, then a word whose chars are all ascii lowercase
+/// (never a value placeholder like `file.o` or `PATH`). Returns the byte
+/// index of that space — the same convention as [`find_multi_space_gap`].
+/// Refuses when any later whitespace token (after the first description
+/// word) is flag-shaped after stripping a trailing `.` `,` `;` or `:`, so
+/// `pod2man`'s `--lquote or --rquote overrides --quotes.` stays prose.
+pub(super) fn find_or_joined_single_space_description_gap(line: &str) -> Option<usize> {
+    if !line.trim_start().starts_with('-') {
+        return None;
+    }
+    let bytes = line.as_bytes();
+    let mut i = 0usize;
+    let mut tokens: Vec<(usize, usize)> = Vec::new();
+    while i < bytes.len() {
+        if bytes[i] == b' ' || bytes[i] == b'\t' {
+            i += 1;
+            continue;
+        }
+        let start = i;
+        while i < bytes.len() && bytes[i] != b' ' && bytes[i] != b'\t' {
+            i += 1;
+        }
+        tokens.push((start, i));
+    }
+    for t in 0..tokens.len().saturating_sub(3) {
+        let (s0, e0) = tokens[t];
+        let (s1, e1) = tokens[t + 1];
+        let (s2, e2) = tokens[t + 2];
+        let (s3, e3) = tokens[t + 3];
+        let tok0 = line.get(s0..e0)?;
+        let tok1 = line.get(s1..e1)?;
+        let tok2 = line.get(s2..e2)?;
+        let tok3 = line.get(s3..e3)?;
+        if !is_flag_shaped(tok0) || tok1 != "or" {
+            continue;
+        }
+        if !tok2.starts_with("--") || !is_flag_shaped(tok2) {
+            continue;
+        }
+        let between = line.get(e2..s3)?;
+        if between != " " {
+            continue;
+        }
+        if !tok3.chars().all(|c| c.is_ascii_lowercase()) {
+            continue;
+        }
+        let mut later_ok = true;
+        for &(ls, le) in &tokens[t + 4..] {
+            let tok = line.get(ls..le)?;
+            let stripped = tok.trim_end_matches(['.', ',', ';', ':']);
+            if is_flag_shaped(stripped) {
+                later_ok = false;
+                break;
+            }
+        }
+        if !later_ok {
+            continue;
+        }
+        return Some(e2);
+    }
+    None
 }
 
 /// Second fallback for a flag row with no aligned column at all: the

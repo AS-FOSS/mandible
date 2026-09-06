@@ -1689,10 +1689,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   spelling too, and that value must clear the same ends-the-spec gate. The
   first spelling's own value word names the joined entity when the two
   differ, the same first-value-wins rule alias lists already use for `,`.
-  `icupkg`'s `-c or --copyright include the ICU copyright notice` is a
-  still-open case of the value-free form: `--copyright` is followed by its
-  description across one space rather than a real column boundary, so the
-  gate refuses it and `-c` keeps the fabricated value `or`.
+  `icupkg`'s `-c or --copyright include the ICU copyright notice` was the
+  value-free one-space form; that case is fixed under S-134.
 - fleet: `or-joined-alias` (`xtask/src/or_joined_alias.rs`) fell from 30
   tool(s)/134 finding(s) to 9/15 in a full-PATH sweep of 2264 tools,
   2026-09-03. The same sweep-diff shows a repaired alias list on 26 tools
@@ -2436,20 +2434,27 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -c or --copyright include the ICU copyright notice
 - tools: icupkg
-- handling: Open defect. `-c or --copyright`'s row joins two value-free spellings
-  with the word `or`, the same shape `or_joined_alias` (S-099) already
-  reads, but its description starts only one space after `--copyright`,
-  not the two-space or tab gap `or_alias_ends_the_spec` requires before
-  treating the row as fully joined. `-c` keeps the literal word `or` as a
-  fabricated value name and `--copyright` reaches nothing.
+- handling: Fixed (parser shipped). `find_or_joined_single_space_description_gap`
+  in `mandible-extract/src/help_text/sections/entry.rs` splits the row at
+  the one space before a bare ascii-lowercase description word after a
+  genuine `--long` joined by `or`, and `extend_gap_past_or_joined_alias`
+  accepts the same one-space+lowercase rule when extending a naive gap.
+  `or_alias_ends_the_spec` in `grammar.rs` gains the matching gate (and a
+  leftover-prose defense in `parse_flag_spec`) so `-c or --copyright`
+  becomes one flag with description `include the ICU copyright notice`.
+  Later flag-shaped tokens still refuse the join (`pod2man`'s
+  `--lquote or --rquote overrides --quotes.`), and a value-like first
+  word (`file.o`) never matches. Fleet detector remains below the
+  five-tool bar / not a fleet rule; `corpus/icupkg/74.2` stays `[xfail]`
+  until snap bless (MSRV 1.88).
 - fleet: `or-joined-alias-single-space-gap`
   (`xtask/src/detector/or_joined_alias_single_space_gap.rs`) reads 4
   tools / 4 findings on a full-`PATH` sweep of 2319 tools, 2026-09-06,
   requiring a genuine double-dash long spelling (never a second short
   flag in a three-way `or` chain, S-099's own `-h or -? or --help`) and a
   bare lowercase first description word (never a value, `-m or
-  --match-arch file.o`'s own shape). Below the five-tool bar. Ship
-  nothing; the fixture stays `[xfail]`.
+  --match-arch file.o`'s own shape). Below the five-tool bar; detector
+  is not promoted to a fleet rule. Fixture stays `[xfail]` pending bless.
 ### S-135: usage line's tab-indented continuation folds in unpunctuated
 
 - id: S-135
