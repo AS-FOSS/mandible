@@ -1545,7 +1545,7 @@ fn parse_body(
     // repeated-character pass: that pass consumes `-vv` and friends, so
     // by the time this one runs the repeated-character family is already
     // gone from the fingerprint the two detectors share.
-    repair_single_dash_long_options(&mut result.flags, &glued_tokens);
+    repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
     // Last because it can only fill what the two above finished naming:
     // descriptions written as free prose paragraphs, not option-table
     // columns.

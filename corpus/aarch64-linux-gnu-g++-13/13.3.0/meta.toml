@@ -5,46 +5,20 @@
 # also exposes '-v --help' combination which add much more tools. so we
 # should come back to it after this is fixed."
 #
-# Row by row against `help.txt`:
-#   VERIFIED FACT (`cargo run -p xtask -- corpus --show`): `-Wa,<options>`,
-#   `-Wp,<options>`, `-Wl,<options>` now parse as three entities correctly
-#   spelled `-Wa`, `-Wp`, `-Wl`, each with its own description; this half
-#   of the maintainer's report no longer reproduces and is not asserted as
-#   broken below. `-Xassembler`, `-Xpreprocessor`, `-Xlinker` still fold to
-#   three entities all spelled `-X`, so nothing in the tree keeps them
-#   apart by name and only the assembler row's description is reachable by
-#   spelling.
-#   `-###` parses as spelling "-#", value name "##": the trailing `#` after
-#   the first two chars is read as the value placeholder instead of part
-#   of the flag's own name.
-#   `-save-temps` and `-save-temps=<arg>` parse as two entities, both
-#   spelled "-save-temps" — the plain form correctly boolean, the `=<arg>`
-#   form correctly carrying a value — so nothing is lost there; not
-#   asserted, since no contract field would express two same-spelling rows
-#   staying apart the way `must_keep_separate` does for different
-#   spellings.
-#   The `--help=` row's own choice list renders as a value name containing
-#   the full `{common|optimizers|...}` block; no field asserts value-name
-#   *shape* (bracket structure), only substring content, so this is not
-#   asserted either.
-#   DESCRIPTION reads `Options:`, a heading line read as the root node's
-#   own summary. No contract field states what the root description must
-#   NOT be, so this is prose-only: it would need something like a
-#   `must_not_describe_root` field, which does not exist.
+# All three reported defects are fixed: `-Wa,<options>`/`-Wp,<options>`/
+# `-Wl,<options>` each parse as their own entity (docs/shapes.md S-116),
+# `-###` parses as its own boolean spelling (S-118), and
+# `-Xassembler`/`-Xpreprocessor`/`-Xlinker` each parse as their own entity
+# with value `<arg>` (S-117). `-v --help` still exposes more flags; design
+# §6 admits only one probe per node, so a second probe shaped by a flag's
+# own output stays out of scope and unasserted.
 #
-# `flag_present` (`xtask/src/corpus/contract.rs`) matches a single-dash
-# spec against a single-dash spelling by exact name equality, not by
-# first character. `-Wa`/`-Wp`/`-Wl` each resolve to their own entity now,
-# so `must_keep_separate = [["-Wa", "-Wp", "-Wl"]]` holds vacuously (no
-# entity collides) rather than catching a fold. The `-X` group's specs
-# (`-Xassembler`, `-Xpreprocessor`, `-Xlinker`) resolve to no entity at
-# all, since the entities are spelled plain `-X`, so that group is
-# vacuous the same way; the defect shows up in `must_describe` and
-# `must_value_name` instead, both reporting the flag absent.
-#
-# `-v --help` reveals more flags. Design §6 admits only one probe per
-# node; a second probe shaped by a flag's own output is not a documented
-# shape. Recorded here, not asserted.
+# Two residuals stay unasserted, no contract field expresses either: the
+# `--help=` row's choice list renders as a value name containing the full
+# `{common|optimizers|...}` block (no field asserts value-name bracket
+# shape, only substring content); the root description reads the
+# `Options:` heading (no field states what the root description must not
+# be).
 
 [bless]
 provenance = "agent"
@@ -64,12 +38,8 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 
-# Guards: pass today (see comment above for why the spelling can't fail
-# these), kept so a future accidental drop of the row still gets caught.
 must_contain_flags = ["-Wa", "-Wp", "-Wl", "-###"]
 
-# Both groups pass today, one for real and one vacuously (see comment
-# above): kept so a future fold of either group is still caught.
 must_keep_separate = [
   ["-Wa", "-Wp", "-Wl"],
   ["-Xassembler", "-Xpreprocessor", "-Xlinker"],
@@ -84,27 +54,15 @@ must_keep_separate = [
 "-Wa" = ",<options>"
 "-Wp" = ",<options>"
 "-Wl" = ",<options>"
-# Fail: each spec names the full row spelling ("Xassembler"), but the
-# entity's own spelling is folded to the single letter "X", so no entity
-# matches the spec at all; the value name these rows actually print is
-# "<arg>" (`-Xassembler <arg>`, `-Xpreprocessor <arg>`, `-Xlinker <arg>`).
 "-Xassembler" = "<arg>"
 "-Xpreprocessor" = "<arg>"
 "-Xlinker" = "<arg>"
 
 [contract.must_describe]
-# Passes: -Wa, -Wp and -Wl are each their own entity with their own
-# description now.
 "-Wa" = "assembler"
 "-Wp" = "preprocessor"
 "-Wl" = "linker"
-# Fail: no entity is spelled "Xassembler", "Xpreprocessor" or "Xlinker";
-# the entities are spelled plain "-X".
 "-Xassembler" = "assembler"
 "-Xpreprocessor" = "preprocessor"
 "-Xlinker" = "linker"
 "-###" = "Like -v but options quoted"
-
-[xfail]
-broken = true
-reason = "three distinct -Xassembler/-Xpreprocessor/-Xlinker rows all fold to the single-letter spelling -X, so must_keep_separate reports them collapsed and must_describe and must_value_name find no entity spelled 'Xassembler', 'Xpreprocessor' or 'Xlinker' at all; -### parses as spelling '-#' plus value name '##'; the root description is the 'Options:' heading, a heading-bleed with no contract field to name it; -v --help exposes more flags, a second-probe shape design §6 does not admit"

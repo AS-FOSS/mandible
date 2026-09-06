@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`, docs/shapes.md S-117).
+
 ## [0.7.0] - 2026-09-05
 
 ### Added
