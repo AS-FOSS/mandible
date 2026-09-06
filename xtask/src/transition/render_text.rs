@@ -31,6 +31,8 @@ pub fn render_text(t: &Transition) -> String {
     out.push_str(&text_status_transitions_section(t));
     out.push_str(&text_flag_losses_section(t));
     out.push_str(&text_flag_gains_section(t));
+    out.push_str(&text_subcommand_losses_section(t));
+    out.push_str(&text_subcommand_gains_section(t));
     out.push_str(&text_field_level_section(t));
     out.push_str(&text_appeared_disappeared_section(t));
     out.push_str(&text_near_cap_section(t));
@@ -126,6 +128,56 @@ fn text_flag_gains_section(t: &Transition) -> String {
         t.flag_gains.len()
     ));
     for d in &t.flag_gains {
+        out.push_str(&format!(
+            "  {}: {} -> {} (+{})\n",
+            d.tool,
+            d.before,
+            d.after,
+            d.delta()
+        ));
+    }
+    out.push('\n');
+    out
+}
+
+/// The `# subcommand-count losses` section — mirrors
+/// [`text_flag_losses_section`] exactly, over the subcommand-count
+/// dimension (`ParsedRow::nodes - 1`) rather than the flag column. A
+/// subcommand loss is a lost row, never a fabrication, so it is read the
+/// same as a flag loss: as the bar.
+fn text_subcommand_losses_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_lost: i64 = t.subcommand_losses.iter().map(|d| -d.delta()).sum();
+    out.push_str(&format!(
+        "# subcommand-count losses (never netted): {total_lost} lost across {} tool(s)\n",
+        t.subcommand_losses.len()
+    ));
+    for d in &t.subcommand_losses {
+        out.push_str(&format!(
+            "  {}: {} -> {} ({})\n",
+            d.tool,
+            d.before,
+            d.after,
+            d.delta()
+        ));
+    }
+    out.push('\n');
+    out
+}
+
+/// The `# subcommand-count gains` section — mirrors
+/// [`text_flag_gains_section`]. A gain here is not automatically a fix: a
+/// detector or fixture change can invent rows just as easily as it can
+/// recover real ones, so every gaining tool is named and left for a human
+/// to read against the rendered screen, never scored as good on its own.
+fn text_subcommand_gains_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_gained: i64 = t.subcommand_gains.iter().map(|d| d.delta()).sum();
+    out.push_str(&format!(
+        "# subcommand-count gains (verify against the rendered screen, not this count alone): {total_gained} gained across {} tool(s)\n",
+        t.subcommand_gains.len()
+    ));
+    for d in &t.subcommand_gains {
         out.push_str(&format!(
             "  {}: {} -> {} (+{})\n",
             d.tool,

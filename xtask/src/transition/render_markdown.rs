@@ -25,6 +25,8 @@ pub fn render_markdown(t: &Transition) -> String {
     out.push_str(&md_status_transitions_section(t));
     out.push_str(&md_flag_losses_section(t));
     out.push_str(&md_flag_gains_section(t));
+    out.push_str(&md_subcommand_losses_section(t));
+    out.push_str(&md_subcommand_gains_section(t));
     out.push_str(&md_field_level_section(t));
     out.push_str(&md_appeared_disappeared_section(t));
     out.push_str(&md_near_cap_section(t));
@@ -180,6 +182,81 @@ fn md_flag_gains_section(t: &Transition) -> String {
             out.push_str(&format!(
                 "\n_{} more not shown._\n",
                 t.flag_gains.len() - TABLE_ROW_LIMIT
+            ));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// The "### Subcommand-count losses" section — mirrors
+/// [`md_flag_losses_section`] over the subcommand-count dimension
+/// (`ParsedRow::nodes - 1`).
+fn md_subcommand_losses_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_lost: i64 = t.subcommand_losses.iter().map(|d| -d.delta()).sum();
+    out.push_str("### Subcommand-count losses (never netted against gains)\n\n");
+    if t.subcommand_losses.is_empty() {
+        out.push_str("No matched tool lost subcommands.\n\n");
+    } else {
+        out.push_str(&format!(
+            "**{total_lost} subcommand(s) lost across {n} tool(s).** A gain elsewhere never \
+             offsets this.\n\n",
+            n = t.subcommand_losses.len(),
+        ));
+        out.push_str("| tool | before | after | lost |\n|---|---|---|---|\n");
+        for d in t.subcommand_losses.iter().take(TABLE_ROW_LIMIT) {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                escape_md(d.tool),
+                d.before,
+                d.after,
+                -d.delta(),
+            ));
+        }
+        if t.subcommand_losses.len() > TABLE_ROW_LIMIT {
+            out.push_str(&format!(
+                "\n_{} more not shown._\n",
+                t.subcommand_losses.len() - TABLE_ROW_LIMIT
+            ));
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// The "### Subcommand-count gains" section — mirrors
+/// [`md_flag_gains_section`]. A gain is named, not scored: it can be a
+/// real recovery or a fabricated row (the round-8 `fail2ban-client`
+/// defect this column exists to catch), and only a human reading the
+/// rendered screen can tell which.
+fn md_subcommand_gains_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_gained: i64 = t.subcommand_gains.iter().map(|d| d.delta()).sum();
+    out.push_str("### Subcommand-count gains\n\n");
+    if t.subcommand_gains.is_empty() {
+        out.push_str("No matched tool gained subcommands.\n\n");
+    } else {
+        out.push_str(&format!(
+            "**{total_gained} subcommand(s) gained across {n} tool(s).** A gain is not \
+             automatically a fix: verify each named tool against its rendered screen before \
+             trusting the count.\n\n",
+            n = t.subcommand_gains.len(),
+        ));
+        out.push_str("| tool | before | after | gained |\n|---|---|---|---|\n");
+        for d in t.subcommand_gains.iter().take(TABLE_ROW_LIMIT) {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                escape_md(d.tool),
+                d.before,
+                d.after,
+                d.delta(),
+            ));
+        }
+        if t.subcommand_gains.len() > TABLE_ROW_LIMIT {
+            out.push_str(&format!(
+                "\n_{} more not shown._\n",
+                t.subcommand_gains.len() - TABLE_ROW_LIMIT
             ));
         }
         out.push('\n');
