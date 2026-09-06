@@ -263,6 +263,7 @@ mod tests {
             meta: AuditMeta {
                 seed,
                 sample_size: tools.len(),
+                ..Default::default()
             },
             entries: tools
                 .iter()
@@ -819,6 +820,7 @@ mod tests {
             meta: AuditMeta {
                 seed: 4,
                 sample_size: 3,
+                ..Default::default()
             },
             entries: vec![
                 entry("zzz-editres", Some("skip"), None, None),

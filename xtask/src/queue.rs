@@ -537,7 +537,15 @@ pub fn cmd_sample(
         load(&vpath)?
     } else {
         AuditFile {
-            meta: AuditMeta { seed, sample_size },
+            meta: AuditMeta {
+                seed,
+                sample_size,
+                platform: mandible_core::audit::current_platform(),
+                // The queue was frozen (possibly contained); drawing from
+                // it here re-probes each drawn tool with `classify_one`
+                // directly, with no containment attempt of its own.
+                containment: "uncontained".to_string(),
+            },
             entries: Vec::new(),
         }
     };

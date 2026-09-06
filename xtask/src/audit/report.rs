@@ -232,6 +232,26 @@ pub(crate) fn render_report(dir: &Path, seed: u64) -> anyhow::Result<String> {
         file.meta.sample_size,
         file.entries.len()
     ));
+    // A file written before `AuditMeta::platform`/`containment` existed
+    // deserializes both as empty strings (`#[serde(default)]`) — omitted
+    // here rather than printed blank. Issue #102 item 3: a reader weighing
+    // a submitted verdict needs to know the machine and containment
+    // posture it was captured under.
+    if !file.meta.platform.is_empty() || !file.meta.containment.is_empty() {
+        lines.push(format!(
+            "platform={} containment={}",
+            if file.meta.platform.is_empty() {
+                "unknown"
+            } else {
+                &file.meta.platform
+            },
+            if file.meta.containment.is_empty() {
+                "unknown"
+            } else {
+                &file.meta.containment
+            },
+        ));
+    }
     lines.push(String::new());
     lines.extend(stratum_table_lines(&file, &by_stratum));
     lines.extend(k_sensitivity_lines(&file));

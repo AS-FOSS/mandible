@@ -55,6 +55,11 @@ pub fn cmd_spot_audit(
             meta: AuditMeta {
                 seed,
                 sample_size: 0,
+                platform: mandible_core::audit::current_platform(),
+                // `classify_one` probes directly, with no containment
+                // attempt — the same bounded-list posture `--tools` and
+                // this command's own promoted list already have.
+                containment: "uncontained".to_string(),
             },
             entries: Vec::new(),
         }
