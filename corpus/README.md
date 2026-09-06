@@ -127,11 +127,15 @@ must_contain_modifiers = ["a", "U"]  # same, for the single-letter modifiers
                                      # since `[u]` and `[U]` are different
                                      # modifiers on the tools that have them
 
-# The one *negative* claim: root flag spellings the tree must NOT carry.
+# A negative claim: root flag spellings the tree must NOT carry.
 # Everything above says "the parser dropped something real"; this says
 # "the parser invented something". See "Stating that a flag does not
 # exist" below for exactly what it does and does not assert.
 must_not_contain_flags = ["--------------------------------"]
+
+# The positional mirror of the above: root positional names the tree must
+# NOT carry. See "Stating that a positional does not exist" below.
+must_not_contain_positionals = ["ID"]
 
 # The other negative shape: spellings that really exist and must NOT
 # resolve to the same entity. Guards the alias-run fold specifically. See
@@ -217,6 +221,30 @@ A fixture that produces no root at all satisfies this vacuously and is not
 reported — the one asymmetry with the positive fields, which a missing tree
 trivially breaks. Dropping an entry is a weakening exactly as dropping a
 `must_contain_flags` entry is, and `--baseline-dir` reports it as one.
+
+### Stating that a positional does *not* exist: `must_not_contain_positionals`
+
+The positional mirror of `must_not_contain_flags`, built for
+`corpus/caffeinate/26.6.2` (issue #135): its usage line's `-w` takes the
+value `Process ID`, and the unfixed parser split that value at its own
+space, leaving `Process` as the value name and inventing a positional
+spelled `ID`. Nothing before this field could state that `caffeinate` has
+no such positional.
+
+```toml
+must_not_contain_positionals = ["ID"]
+```
+
+Matched **exactly the way `must_contain_positionals` is**, negated: a bare
+name asserts no root positional carries that exact name, and a trailing
+`...` still requires repeatability for the match to count (so it plays no
+part in a negative claim, which never fires on a repeatable operand
+sharing the bare name). Root only, the same scope every other positional
+field has. Claims nothing about the raw capture — `ID` still occurs there,
+inside `-w`'s own value spec, and the existence oracle is correctly silent
+on this defect for the same reason it is on the mariadb ruler. A fixture
+that produces no root at all satisfies this vacuously and is not reported,
+the same asymmetry `must_not_contain_flags` has.
 
 ### Stating that two flags did not fuse: `must_keep_separate`
 

@@ -21,7 +21,8 @@
 //! - (b) `[contract]`: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_modifiers`,
-//!   `must_not_contain_flags`, `must_keep_separate`, `must_attach_choices`,
+//!   `must_not_contain_flags`, `must_not_contain_positionals`,
+//!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe` ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
 //!   both pass fails the run — the bug is fixed, promote it
@@ -165,6 +166,14 @@ pub(crate) struct ContractMeta {
     /// reported, unlike every positive field above.
     #[serde(default)]
     must_not_contain_flags: Vec<String>,
+    /// Root positional names the tree must **not** carry — the positional
+    /// mirror of `must_not_contain_flags` (issue #135's `caffeinate`
+    /// invented `ID` out of `-w`'s own split value name). Matched by
+    /// [`positional_present`], negated, same scope as
+    /// `must_contain_positionals`: root only, exact name, and a tree with
+    /// no root satisfies this vacuously and is not reported.
+    #[serde(default)]
+    must_not_contain_positionals: Vec<String>,
     /// Spelling groups that must resolve to *distinct* root-flag entities
     /// — the other shape a negative claim can take, guarding against the
     /// alias-run fold merging unrelated flags onto one multi-spelling

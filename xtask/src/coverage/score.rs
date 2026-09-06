@@ -472,7 +472,31 @@ fn vim_family_counts(
     counts.extend(round5_family_counts(&raw, root));
     counts.extend(round6_family_counts(&raw, root));
     counts.extend(round6_block_family_counts(&raw, root));
+    counts.extend(round7_family_counts(&raw, root));
     counts
+}
+
+/// Issue #135's own two family detectors (atlas S-131, S-132), each
+/// implementing [`crate::detector::Detector`] directly — same shape
+/// [`round5_family_counts`] uses, split out for the same line-count
+/// reason [`round4_family_counts`] is.
+fn round7_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    use crate::detector::{Detector, ToolEvidence};
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let evidence = ToolEvidence { raw, root };
+    let detectors: Vec<Box<dyn Detector>> = vec![
+        Box::new(crate::detector::usage_bracket_group_multiword_value::UsageBracketGroupMultiwordValue),
+        Box::new(
+            crate::detector::trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand,
+        ),
+    ];
+    detectors
+        .iter()
+        .map(|d| {
+            let hits = d.hits(&evidence);
+            (d.name(), hits.len(), hits.into_iter().take(cap).collect())
+        })
+        .collect()
 }
 
 /// The spelling-grammar family detectors, atlas S-116 to S-120, split

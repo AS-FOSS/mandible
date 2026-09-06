@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A usage-synopsis flag whose value name holds a space (`-w Process ID`) keeps the whole name now, and the trailing bracket group it sat beside no longer loses its own two-word positional (`mandible caffeinate`, docs/shapes.md S-131, S-132).
+
 ## [0.7.0] - 2026-09-05
 
 ### Added

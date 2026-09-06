@@ -2242,3 +2242,52 @@ entry's `tools` field and nothing else. It does not get a new entry.
   subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
   does not reach; not investigated further this round.
 
+
+### S-131: usage-synopsis flag whose value name holds a space
+
+- id: S-131
+- looks like: |
+      usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]
+- tools: caffeinate, bdftopcf; a full-`PATH` sweep also gave a fuller value
+  name to cargo-deb, e2freefrag, rpc.gssd, ssh-copy-id and
+  xdg-user-dirs-update, and dropped a fabricated positional duplicating a
+  flag's own multi-word value on add-apt-repository, apt-add-repository,
+  asan_symbolize and gdbus-codegen
+- handling: Fixed. A usage bracket group of one flag spelling followed by
+  two or more plain words with nothing else in the group
+  (`usage::multi_word_value_group`) reads the whole run of words as one
+  value name, rather than the generic value reader's first-word-only
+  read; `extract_positionals`'s own token loop tracks the flag's own
+  still-open bracket depth so the second word is never read as an
+  unrelated ALL-CAPS positional. `must_value_name` asserts the whole name
+  survives.
+- fleet: `usage-bracket-group-multiword-value`
+  (`xtask/src/detector/usage_bracket_group_multiword_value.rs`) found 0
+  tools/0 findings in a full-`PATH` sweep of 2319 tools, 2026-09-06 —
+  `caffeinate` is macOS-only and not installed there. `sweep-diff` against
+  the unfixed parser found 10 tools gained or corrected a value name, 0
+  losses. Below the five-tool bar on this box's own sweep; shipped as the
+  maintainer's own named item, issue #135.
+
+### S-132: usage line's trailing bracket group of two or more words
+
+- id: S-132
+- looks like: |
+      usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]
+- tools: caffeinate, bdftopcf
+- handling: Fixed. The primary usage line's own trailing bracket group,
+  when it holds two or more real words (an ellipsis marker never counts
+  as one), something stands between the program name and it, and another
+  group on the line already shows the S-131 shape, becomes one variadic
+  positional (`usage::recover_trailing_multiword_operand`). That last
+  requirement is load-bearing: a full-`PATH` sweep found two false alarms
+  without it, `luksformat`'s `[ mkfs options ]` and `xauth`'s `[command
+  arg ...]`, neither a real fixed operand name. `must_contain_positionals`
+  asserts the two-word name.
+- fleet: `trailing-bracket-group-multiword-operand`
+  (`xtask/src/detector/trailing_bracket_group_multiword_operand.rs`) found
+  0 tools/0 findings in a full-`PATH` sweep of 2319 tools, 2026-09-06 —
+  `caffeinate` is macOS-only and not installed there. `sweep-diff` against
+  the unfixed parser found `bdftopcf` gained its only real positional, 0
+  losses. Below the five-tool bar on this box's own sweep; shipped as the
+  maintainer's own named item, issue #135.
