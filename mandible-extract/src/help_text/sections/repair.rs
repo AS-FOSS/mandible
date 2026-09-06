@@ -200,7 +200,8 @@ pub(super) const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// the first `=`, via [`split_glued_value`]) is option-name-shaped
 /// ([`is_option_name_tail`]); that name half is at least
 /// [`MIN_SWALLOWED_NAME_CHARS`] characters; the reconstructed name
-/// token is uniformly lowercase ([`token_is_uniformly_lowercase`]) —
+/// token is uniformly lowercase ([`token_is_uniformly_lowercase`]), or
+/// one of two narrower exceptions admits an uppercase-carrying token —
 /// the whole safety argument, since the GCC/Clang glued-value
 /// convention (`gcc -DMACRO`, `cc -oOUTFILE`) is otherwise
 /// indistinguishable by shape, and is separated only by case (an
@@ -210,6 +211,15 @@ pub(super) const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// handed off to [`repair_repeated_character_flags`]); and the
 /// reconstructed token (name and glued value) occurs glued and
 /// delimited in the raw text ([`token_occurs_glued`]).
+///
+/// The two exceptions to uniform lowercase: a value spaced one column
+/// after the name ([`spaced_value_placeholder`], `-Xassembler <arg>`,
+/// atlas S-117), and mksquashfs's shape, a name whose lowercase-led
+/// prefix is shared by another row's own swallowed name in the same
+/// table ([`shares_lowercase_prefix_with_sibling`], `-noI`/`-noId`/
+/// `-noD` all sharing `"no"`, atlas S-139) — the glued-value
+/// convention documents one flag letter per macro or feature, so no
+/// sibling row there shares a two-letter lowercase prefix with it.
 ///
 /// A glued `=value` half (`dbiprof`'s `-number=N`) is split at the `=`
 /// and, when present, kept on the resulting flag (`-foffload` stays
@@ -234,7 +244,11 @@ pub(super) fn repair_single_dash_long_options(
     glued_tokens: &GluedTokenIndex<'_>,
     raw: &str,
 ) {
-    for flag in flags.iter_mut() {
+    // Snapshot every row's own swallowed name before any row is rewritten,
+    // so the sibling-prefix check below reads the same table the document
+    // wrote rather than one this loop has partly repaired already.
+    let siblings: Vec<Option<String>> = flags.iter().map(swallowed_name_token).collect();
+    for (index, flag) in flags.iter_mut().enumerate() {
         // 1. Option-table-sourced, never synopsis.
         if !flag.provenance.sources.contains(&Source::HelpText)
             || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
@@ -267,16 +281,23 @@ pub(super) fn repair_single_dash_long_options(
             continue;
         }
         let name_token = format!("-{short}{name_tail}");
-        // 5. Uniformly lowercase, or the row's own spacing shows the value
-        //    is spaced rather than glued (`-Xassembler <arg>`, atlas
-        //    S-117): the discriminator against the GCC/Clang glued-value
-        //    convention (`-DMACRO`) stays exactly as strict, since that
-        //    convention's row never carries a spaced placeholder after the
-        //    swallowed name.
-        let spaced_value = (!token_is_uniformly_lowercase(&name_token))
+        // 5. Uniformly lowercase, or one of two narrower exceptions: the
+        //    row's own spacing shows the value is spaced rather than glued
+        //    (`-Xassembler <arg>`, atlas S-117), or another row in this
+        //    same table swallows a name sharing this one's lowercase-led
+        //    prefix (`-noI`/`-noId`/`-noD`, atlas S-139). Both stay exactly
+        //    as strict as plain lowercase against the GCC/Clang glued-value
+        //    convention (`-DMACRO`): that convention's row never carries a
+        //    spaced placeholder after the swallowed name, and never shares
+        //    a two-letter lowercase prefix with a sibling row.
+        let uniformly_lowercase = token_is_uniformly_lowercase(&name_token);
+        let spaced_value = (!uniformly_lowercase)
             .then(|| spaced_value_placeholder(raw, &name_token))
             .flatten();
-        if !token_is_uniformly_lowercase(&name_token) && spaced_value.is_none() {
+        let shared_prefix = !uniformly_lowercase
+            && spaced_value.is_none()
+            && shares_lowercase_prefix_with_sibling(&name_token, index, &siblings);
+        if !uniformly_lowercase && spaced_value.is_none() && !shared_prefix {
             continue;
         }
         // 7. Whole token occurs glued and delimited in the raw text. Last
@@ -308,6 +329,72 @@ pub(super) fn repair_single_dash_long_options(
             },
         }
     }
+}
+
+/// [`repair_single_dash_long_options`]'s conditions 1 through 4, applied
+/// to one flag with no side effect, so the sibling snapshot it builds and
+/// each iteration's own check read the exact same rule. Returns the
+/// swallowed name token, dash included (`"-noI"`), or `None` when this
+/// flag is not a candidate at all — a row already carrying a long name,
+/// a boolean, a one-character tail, or a tail that is not
+/// option-name-shaped never enters the sibling comparison.
+fn swallowed_name_token(flag: &Entity) -> Option<String> {
+    if !flag.provenance.sources.contains(&Source::HelpText)
+        || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
+    {
+        return None;
+    }
+    let short = flag.short()?;
+    if flag.long().is_some() || flag.value_kind != ValueKind::Required {
+        return None;
+    }
+    let tail = flag.value_name.as_deref()?;
+    let (name_tail, _) = split_glued_value(tail)?;
+    if name_tail.chars().count() < MIN_SWALLOWED_NAME_CHARS || !is_option_name_tail(name_tail) {
+        return None;
+    }
+    Some(format!("-{short}{name_tail}"))
+}
+
+/// The lowercase-only run at the very start of `name` (dash already
+/// stripped), stopping at the first character that is not an ASCII
+/// lowercase letter: `"noI"` -> `"no"`, `"DMACRO"` -> `""`, `"oOUTFILE"`
+/// -> `"o"`.
+fn lowercase_prefix(name: &str) -> &str {
+    let end = name
+        .char_indices()
+        .find(|&(_, c)| !c.is_ascii_lowercase())
+        .map_or(name.len(), |(i, _)| i);
+    &name[..end]
+}
+
+/// True when some *other* row's own swallowed name ([`swallowed_name_token`],
+/// taken from `siblings`, one entry per flag in table order) shares
+/// `name_token`'s lowercase-led prefix, at least
+/// [`MIN_SWALLOWED_NAME_CHARS`] letters of it. mksquashfs's `-noI`,
+/// `-noId`, `-noD`, `-noF` and `-noX` all share `"no"` this way; the
+/// GCC/Clang glued-value convention documents one flag letter per macro
+/// or feature, so no sibling row there shares a prefix this long with
+/// it. See docs/shapes.md S-139.
+fn shares_lowercase_prefix_with_sibling(
+    name_token: &str,
+    self_index: usize,
+    siblings: &[Option<String>],
+) -> bool {
+    let Some(bare) = name_token.strip_prefix('-') else {
+        return false;
+    };
+    let prefix = lowercase_prefix(bare);
+    if prefix.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+        return false;
+    }
+    siblings.iter().enumerate().any(|(i, other)| {
+        i != self_index
+            && other.as_deref().is_some_and(|tok| {
+                tok.strip_prefix('-')
+                    .is_some_and(|bare| lowercase_prefix(bare) == prefix)
+            })
+    })
 }
 
 /// The value placeholder a row documents one space after `name_token`
