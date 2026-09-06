@@ -486,11 +486,29 @@ fn round7_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
     let evidence = ToolEvidence { raw, root };
     let vd =
         crate::detector::value_name_duplicates_choices::ValueNameDuplicatesChoices.hits(&evidence);
-    vec![(
-        "value-name-duplicates-choices",
-        vd.len(),
-        vd.into_iter().take(cap).collect(),
-    )]
+    let cv = crate::detector::choice_value_rows_unfolded::ChoiceValueRowsUnfolded.hits(&evidence);
+    let sg = crate::detector::or_joined_alias_single_space_gap::detect(raw, root);
+    vec![
+        (
+            "value-name-duplicates-choices",
+            vd.len(),
+            vd.into_iter().take(cap).collect(),
+        ),
+        (
+            "choice-value-rows-unfolded",
+            cv.len(),
+            cv.into_iter().take(cap).collect(),
+        ),
+        (
+            "or-joined-alias-single-space-gap",
+            sg.finding_count(),
+            sg.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?}/{:?} never joined, from {:?}", f.short, f.long, f.line))
+                .collect(),
+        ),
+    ]
 }
 
 /// The spelling-grammar family detectors, atlas S-116 to S-120, split

@@ -1,14 +1,11 @@
 //! `value-name-duplicates-choices` (atlas S-130): a docopt bracket row's
-//! own trailing `|`-separated choice list (`flag_rows::trailing_choice_list`,
-//! S-120) attaches as `choices`, and when no bracketed placeholder
-//! introduced the list, the same text is *also* what the grammar read as
-//! `value_name`, so the rendered screen prints the list twice
-//! (`pvdisplay`'s `--configreport`, `--driverloaded`). `--units
-//! [Number]`'s own `value_name` is a real, distinct placeholder and never
-//! matches. Fixed in `mandible-extract/src/help_text/sections/emit.rs`'s
-//! `value_name_duplicates_its_own_choices`, mirrored here so the fleet
-//! count is measurable independently of the fix itself.
-//!
+//! trailing `|`-list attaches as `choices`, and when no bracketed
+//! placeholder introduced it, the same text is also `value_name`, so the
+//! screen prints the list twice (`pvdisplay`'s `--configreport`,
+//! `--driverloaded`). `--units [Number]` keeps a real, distinct
+//! placeholder and never matches. Fixed in
+//! `mandible-extract/src/help_text/sections/emit.rs`'s
+//! `value_name_duplicates_its_own_choices`, mirrored here for measurement.
 //! No seed-2/4/5/6 labelled tool carries this shape, so
 //! [`Detector::family`] returns `None`.
 
