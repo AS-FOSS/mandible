@@ -123,13 +123,19 @@ impl Report {
 }
 
 /// Whether `pattern` (led by `name`) is already carried by the tree, under
-/// either candidate representation: a node's own `display_name`, or one
-/// of its `usage` lines, matched verbatim against the row's own field.
+/// any of three shapes: a node's own `display_name` matched verbatim
+/// against the row's whole field, a `usage` line matched verbatim against
+/// the whole field, or a `usage` line matched against the field's own
+/// tail after `name` — the shape `emit_subcommands`
+/// (`command_name_with_operand_placeholders`, S-129) actually stores: the
+/// operand text alone, with the leading name carried by the node's own
+/// `name` rather than repeated inside `usage`.
 fn tree_attests(node: &CommandNode, name: &str, pattern: &str) -> bool {
+    let tail = pattern.strip_prefix(name).map(str::trim_start);
     node.subcommands.iter().any(|c| {
         (c.name == name
             && (c.display_name.as_deref() == Some(pattern)
-                || c.usage.iter().any(|u| u.as_str() == pattern)))
+                || c.usage.iter().any(|u| u.as_str() == pattern || Some(u.as_str()) == tail)))
             || tree_attests(c, name, pattern)
     })
 }

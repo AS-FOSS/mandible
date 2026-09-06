@@ -2499,19 +2499,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
       set loglevel <LEVEL>                     sets logging level to <LEVEL>.
 - tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
   resolvectl, timedatectl, claude
-- handling: Open. `command-pattern-table`
-  (`xtask/src/command_pattern_table.rs`) reads a command-table row's
-  name field as two or more words led by a command-name-shaped token,
-  under a heading naming commands, skipping centered ALL-CAPS group
-  labels a block like fail2ban-client's own carries. Today's grammar
-  reads only the row's leading word and drops the rest of the field;
-  a repeated leading word (`set`, `get`) also loses every row after
-  the first, since the row-splitting grammar has no merge path for a
-  duplicate command name. A fix needs that merge path before it can
-  carry every row's own pattern as a `usage` line under one node.
-- fleet: measured 18 tools/224 findings on a full-`PATH` sweep,
-  2026-09-06, above the five-tool floor. Not shipped; the shared
-  row-splitting grammar this shape touches has no merge path yet for
-  a repeated command name, and a change there needs its own zero-loss
-  sweep-diff before it can land. The fixture stays xfail with the
-  count in its reason.
+- handling: Fixed. `command_name_with_operand_placeholders` now accepts a
+  bracket- or angle-wrapped token (`[--unban]`, `<JAIL>`) or a dash-led
+  flag spelling (`--all`) anywhere in the tail, and the pattern's own
+  literal second word (`loglevel` in `set loglevel <LEVEL>`) in the
+  leading position, keeping a plain multi-word dropped description
+  refused. `try_push_subcommand` merges a repeated leading word's own
+  usage line onto the already-accepted node instead of dropping every
+  row past the first. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) still measures the residue: a
+  centered ALL-CAPS group label as a block's own first line defeats
+  `bare_block_end`'s baseline before any row is reached (fail2ban-client),
+  and a bracketed placeholder spanning two space-separated tokens
+  (`[SIGNATURE [ARGUMENT...]]`) is not read (busctl's `call`/`emit`),
+  both documented misses this fix does not reach.
+- fleet: 18 tools/224 findings fell to 11 tools/124 findings on a
+  full-`PATH` sweep, 2026-09-06, zero sweep-diff losses. Not gated at
+  zero: the residue above keeps a nonzero count.

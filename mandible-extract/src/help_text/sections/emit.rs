@@ -303,24 +303,28 @@ pub(super) fn emit_env_vars(
     (seen, seen)
 }
 
-/// True when `rest` is nothing but argument placeholders: uppercase
-/// metavariables (`UNIT`, `PATTERN`), optionally bracketed (`[UNIT...]`),
-/// `...`-repeated, `|`-alternated (`PATTERN...|PID...`), or
-/// `NAME=VALUE`-shaped (`PROPERTY=VALUE...`) — one or more words, every one
-/// of them uppercase-led. An ordinary dropped description reads nothing
-/// like this: real prose carries at least one lowercase word and fails
-/// here immediately, so this never launders the single-space-description-
-/// column defect into a fabricated operand. See docs/shapes.md S-129.
-fn looks_like_operand_placeholder_run(rest: &str) -> bool {
-    let cleaned: String = rest
+/// True when `token` is entirely wrapped in one bracket pair, `[...]` or
+/// `<...>` — an optional-syntax group (`[--unban]`, `[UNIT...]`) or a
+/// placeholder (`<JAIL>`, `<LEVEL>`), read opaque without inspecting what
+/// is inside. The wrapper itself is the evidence this is command-pattern
+/// syntax rather than prose: real dropped descriptions essentially never
+/// wrap a whole word in a literal bracket or angle-bracket pair. See
+/// docs/shapes.md S-141.
+fn is_bracket_or_angle_wrapped(token: &str) -> bool {
+    let bytes = token.as_bytes();
+    bytes.len() >= 2
+        && ((bytes[0] == b'[' && bytes[bytes.len() - 1] == b']')
+            || (bytes[0] == b'<' && bytes[bytes.len() - 1] == b'>'))
+}
+
+/// True when every whitespace-delimited word of `token` (brackets, dots and
+/// `|` stripped first, `=` splitting each word further) is uppercase-led —
+/// the strict placeholder shape a bare metavariable run has (`UNIT`,
+/// `PATTERN...`, `PROPERTY=VALUE...`). See docs/shapes.md S-129.
+fn is_uppercase_placeholder_token(token: &str) -> bool {
+    let cleaned: String = token
         .chars()
-        .map(|c| {
-            if matches!(c, '[' | ']' | '.' | '|') {
-                ' '
-            } else {
-                c
-            }
-        })
+        .map(|c| if matches!(c, '.' | '|') { ' ' } else { c })
         .collect();
     let mut any = false;
     for word in cleaned.split_whitespace().flat_map(|w| w.split('=')) {
@@ -340,16 +344,56 @@ fn looks_like_operand_placeholder_run(rest: &str) -> bool {
     any
 }
 
+/// True when `rest` is nothing but command-pattern syntax: a run of
+/// whitespace-delimited tokens, each one either an uppercase metavariable
+/// ([`is_uppercase_placeholder_token`]), a whole bracket- or angle-wrapped
+/// group ([`is_bracket_or_angle_wrapped`], opaque — `[--unban]`,
+/// `[UNIT...]`, `<JAIL>`), a dash-led flag spelling ([`is_flag_shaped`],
+/// `--all`), or — only in the very first position — a bare literal
+/// lowercase word that is itself [`is_command_name_shaped`] (`set
+/// loglevel <LEVEL>`'s `loglevel`, fail2ban-client's own second word of a
+/// multi-word command). An ordinary dropped description reads nothing
+/// like this: real prose is a run of several free lowercase words with no
+/// brackets, angle brackets or dash-led tokens, and fails on the second
+/// word, so this never launders the single-space-description-column
+/// defect into a fabricated operand. See docs/shapes.md S-129, S-141.
+fn looks_like_operand_placeholder_run(rest: &str) -> bool {
+    let mut any = false;
+    for (idx, token) in rest.split_whitespace().enumerate() {
+        any = true;
+        if is_bracket_or_angle_wrapped(token) || is_flag_shaped(token) {
+            continue;
+        }
+        if idx == 0 && is_command_name_shaped(token) {
+            continue;
+        }
+        if !token.is_empty() && token.chars().all(|c| matches!(c, '.' | '|')) {
+            // Pure `.`/`|` punctuation between placeholders (`...`, a bare
+            // `|` separator on its own) — never itself a word, so never
+            // prose. Deliberately narrower than "no alphanumeric": a bare
+            // `--` (the getopt option terminator) has no alnum either but
+            // is not this shape, and must keep failing below so a worked
+            // example's own invocation (`trash -- -foo`) is still refused.
+            continue;
+        }
+        if !is_uppercase_placeholder_token(token) {
+            return false;
+        }
+    }
+    any
+}
+
 /// `trimmed`'s leading token as a command name, with everything after it
 /// kept as the node's own `usage` — `systemctl`'s `list-units
-/// [PATTERN...]`, `start UNIT...`, `set-property UNIT PROPERTY=VALUE...`.
-/// `None` unless the leading token is itself [`is_command_name_shaped`]
-/// and everything after it is nothing but placeholders
-/// ([`looks_like_operand_placeholder_run`]) — a lowercase continuation
-/// word is a dropped description, never an operand, and must not be
-/// swallowed here. `docs/design.md` §7 Tier B rule 7 still applies to the
-/// name alone; only the name is checked against it, never the operand
-/// text. See docs/shapes.md S-129.
+/// [PATTERN...]`, `start UNIT...`, `set-property UNIT PROPERTY=VALUE...`,
+/// and fail2ban-client's own `set loglevel <LEVEL>`, `restart [--unban]
+/// [--if-exists] <JAIL>`. `None` unless the leading token is itself
+/// [`is_command_name_shaped`] and everything after it is nothing but
+/// command-pattern syntax ([`looks_like_operand_placeholder_run`]) — an
+/// ordinary dropped description is a run of free lowercase words and must
+/// not be swallowed here. `docs/design.md` §7 Tier B rule 7 still applies
+/// to the name alone; only the name is checked against it, never the
+/// operand text. See docs/shapes.md S-129, S-141.
 fn command_name_with_operand_placeholders(trimmed: &str) -> Option<(&str, &str)> {
     let (first, rest) = trimmed.split_once(char::is_whitespace)?;
     let name = strip_optional_modifier_suffix(first);
@@ -1497,5 +1541,109 @@ mod tests {
                 "{plain}'s own spelling equals its name, so display_name stays unset"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod command_pattern_table_tests {
+    use super::*;
+
+    /// fail2ban-client's own row shapes (docs/shapes.md S-141), minus the
+    /// centered `BASIC`/`LOGGING` group labels: those break
+    /// `bare_block_end`'s own block-baseline computation (a block's first
+    /// line sets its floor, and a centered label sits far deeper than the
+    /// rows beneath it), a distinct, pre-existing defect this fix does not
+    /// touch. Proves `command_name_with_operand_placeholders` and
+    /// `try_push_subcommand`'s merge path in isolation from that defect and
+    /// from the fixture's own unrelated `--with-time` corruption.
+    const COMMAND_PATTERNS: &str = "\
+Usage: fail2ban-client [OPTIONS] <COMMAND>
+
+Command:
+    start                                    starts the server and the jails
+    restart                                  restarts the server
+    restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
+                                             for 'reload --restart ... <JAIL>')
+    reload [--restart] [--unban] [--all]     reloads the configuration without
+                                             restarting of the server, the
+                                             option '--restart' activates
+    reload [--restart] [--unban] [--if-exists] <JAIL>
+                                             reloads the jail <JAIL>, or
+                                             restarts it (if option '--restart'
+                                             specified)
+    unban --all                              unbans all IP addresses (in all
+                                             jails and database)
+    unban <IP> ... <IP>                      unbans <IP> (in all jails and
+                                             database)
+    set loglevel <LEVEL>                     sets logging level to <LEVEL>.
+                                             Levels: CRITICAL, ERROR, WARNING
+    get loglevel                             gets the logging level
+";
+
+    /// Every one of the fixture's own reason-paragraph-2 patterns
+    /// (`set loglevel <LEVEL>`, `get loglevel`, `start`, `reload`, `unban`)
+    /// recovers a node, and a repeated leading word (`set`/`get`/`reload`/
+    /// `unban`) merges every row's own pattern onto one node's `usage`
+    /// instead of dropping every row past the first. See docs/shapes.md
+    /// S-141.
+    #[test]
+    fn multi_word_command_patterns_merge_onto_one_node_per_leading_word() {
+        let parsed = parse(COMMAND_PATTERNS);
+        let find = |name: &str| {
+            parsed
+                .subcommands
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{name:?} not recovered among {:?}",
+                        parsed
+                            .subcommands
+                            .iter()
+                            .map(|c| &c.name)
+                            .collect::<Vec<_>>()
+                    )
+                })
+        };
+
+        assert_eq!(find("start").usage, Vec::<Text>::new());
+
+        let restart = find("restart");
+        assert_eq!(
+            restart.usage,
+            vec![Text::sanitize("[--unban] [--if-exists] <JAIL>")]
+        );
+
+        let reload = find("reload");
+        assert_eq!(
+            reload.usage,
+            vec![
+                Text::sanitize("[--restart] [--unban] [--all]"),
+                Text::sanitize("[--restart] [--unban] [--if-exists] <JAIL>"),
+            ]
+        );
+
+        let unban = find("unban");
+        assert_eq!(
+            unban.usage,
+            vec![Text::sanitize("--all"), Text::sanitize("<IP> ... <IP>")]
+        );
+
+        let set = find("set");
+        assert_eq!(set.usage, vec![Text::sanitize("loglevel <LEVEL>")]);
+
+        let get = find("get");
+        assert_eq!(get.usage, vec![Text::sanitize("loglevel")]);
+    }
+
+    /// An ordinary dropped-description continuation (several free lowercase
+    /// words, no brackets, no angle brackets, no dash-led token) still
+    /// fails: only the pattern's own literal second word is admitted bare,
+    /// never a whole run of prose. See docs/shapes.md S-129.
+    #[test]
+    fn a_multi_word_dropped_description_is_still_refused() {
+        assert!(!looks_like_operand_placeholder_run(
+            "the configuration without restarting"
+        ));
     }
 }
