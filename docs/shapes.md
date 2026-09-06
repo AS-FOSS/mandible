@@ -2141,7 +2141,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   row and stays an honest miss. `xtask detector`'s `spaced-single-dash-long`
   matches the same one-space bound.
 - fleet: 0 tools, 0 findings, 2026-09-06. Was 40 tools, 381 findings before the
-  detector's own bound was narrowed to match the repair's evidence.
+  detector's own bound was narrowed to match the repair's evidence. The fix moved 25
+  tools, the gcc and clang families plus mksquashfs and sqfstar, with 0 losses on a
+  full-`PATH` sweep. Seed-7 calibration verdict REPAIRED: 0 true positives, 1 false
+  negative (`aarch64-linux-gnu-g++-13`), 1 true negative, all four self-checks held,
+  2026-09-06.
 
 ### S-118: a single-dash spelling that is nothing but a run of `#`
 
