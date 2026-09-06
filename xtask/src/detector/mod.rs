@@ -52,6 +52,7 @@ pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
 pub(crate) mod glued_optional_group_spelling;
+pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
@@ -717,6 +718,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
         Box::new(invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup),
+        Box::new(GluedUppercaseSharedPrefix),
     ]
 }
 

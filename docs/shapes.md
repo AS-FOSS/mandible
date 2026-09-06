@@ -2526,3 +2526,32 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide with a full-`PATH` sweep-diff of 2269 tools, 2026-09-06: 0
   flags lost, 23 flags gained across lvconvert, lvcreate, lvextend,
   lvresize and vgreduce.
+### S-139: a single-dash spelling glued to a tab, carrying an interior uppercase letter
+
+- id: S-139
+- looks like: |
+      -noI			do not compress inode table
+      -noId			do not compress the uid/gid table (implied by -noI)
+      -noD			do not compress data blocks
+- tools: mksquashfs, sqfstar
+- handling: Fixed. `-noI` used to truncate to short `-n` valued `"oI"`.
+  `repair_single_dash_long_options`
+  (`mandible-extract/src/help_text/sections/repair.rs`) refused any
+  reconstructed token carrying an uppercase letter, its only signal
+  against the GCC/Clang glued-value convention (`-DMACRO`).
+  `shares_lowercase_prefix_with_sibling` admits a token whose swallowed
+  name shares its lowercase-led prefix with another row's own swallowed
+  name in the same table (`-noI`, `-noId`, `-noD`, `-noF`, `-noX` all
+  share `"no"`). The glued-value convention documents one flag letter per
+  macro or feature, so no sibling row there shares a two-letter lowercase
+  prefix with it. `xtask detector`'s `glued-uppercase-shared-prefix`
+  (`xtask/src/detector/glued_uppercase_shared_prefix.rs`) generalizes
+  the shape fleet-wide.
+- fleet: the fix moved 2 tools, mksquashfs and sqfstar, 10 flags each,
+  with 0 losses on a full-`PATH` sweep, 2026-09-06. `unsquashfs` and
+  `sqfscat` document no `-no*` row of this shape. Two tools is below the
+  five-tool floor AGENTS.md §3.1 sets, and it shipped as a named
+  exception recorded in `docs/design.md` §16. `corpus/mksquashfs/4.6.1`
+  is promoted out of `[xfail]`. No labelled member of this family exists
+  in any audit seed; the detector's four self-checks are the only
+  standing evidence.

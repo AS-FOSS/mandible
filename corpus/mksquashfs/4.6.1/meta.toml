@@ -7,6 +7,9 @@ version = "4.6.1"
 platform = "ubuntu-24.04"
 captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); squashfs-tools 4.6.1-1build1"
 
+# mksquashfs writes its whole response to stderr and stdout is empty.
+# `help.txt` is committed empty, the shape `corpus/jinfo/17.0.20` uses,
+# since `[[capture]].stdout` is a required field.
 [[capture]]
 argv = ["mksquashfs", "--help"]
 stdout = "help.txt"
@@ -15,9 +18,12 @@ exit_code = 1
 
 [contract]
 expected_framework = "generic"
-must_contain_flags = ["-noI", "-noId", "-noD", "-noF", "-noX", "-noInodeCompression"]
+# Ten rows the tool writes as single-dash long options, each its own
+# spelling. docs/shapes.md S-139.
+must_contain_flags = [
+  "-noI", "-noId", "-noD", "-noF", "-noX",
+  "-noInodeCompression", "-noIdTableCompression", "-noDataCompression",
+  "-noFragmentCompression", "-noXattrCompression",
+]
+# All ten used to collapse onto short `-n`, which mksquashfs never documents.
 must_not_contain_flags = ["-n"]
-
-[xfail]
-broken = true
-reason = "rows like -noI, -noId, -noD, -noF, -noX and -noInodeCompression are single-dash long options separated from their description by tabs. The repair that recovers a single-dash long option refuses any token carrying an uppercase letter, so -noI renders as -n valued oI. mksquashfs documents no real -n row."

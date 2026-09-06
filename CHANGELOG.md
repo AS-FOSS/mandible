@@ -16,6 +16,7 @@ once it reaches a published 0.1.0 release.
 - A usage-synopsis flag whose value name holds a space (`-w Process ID`) keeps the whole name now, and the trailing bracket group it sat beside no longer loses its own two-word positional (`mandible caffeinate`, docs/shapes.md S-131, S-132).
 - A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-135).
 - Every invocation form lvm2 documents now reaches usage as its own alternative, keeping the prose sentence above it as its option group instead of inventing a heading from the form's own usage line (`mandible lvcreate`, docs/shapes.md S-137).
+- A single-dash long option carrying an interior uppercase letter keeps its whole name when a sibling row in the same table shares its lowercase prefix, so `mandible mksquashfs` shows `-noI` and its nine siblings instead of ten rows reading `-n` (docs/shapes.md S-139).
 
 ## [0.7.0] - 2026-09-05
 
