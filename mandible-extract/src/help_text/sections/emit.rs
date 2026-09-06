@@ -316,31 +316,17 @@ fn is_uppercase_word(word: &str) -> bool {
     chars.all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
-/// True when `rest` is nothing but command-pattern syntax, never a
-/// dropped description. Each whitespace-delimited token of `rest` is
-/// tested on its own:
-///
-/// - The very first token may be a bare literal lowercase word that is
-///   itself [`is_command_name_shaped`] (`set loglevel <LEVEL>`'s
-///   `loglevel`, fail2ban-client's own second word of a multi-word
-///   command) — never a later one, so a genuine multi-word dropped
-///   description still fails on its second free word.
-/// - Otherwise the token, with `[`, `]`, `<`, `>`, `.` and `|` replaced by
-///   spaces and each resulting word further split on `=`, must be nothing
-///   but uppercase-led words (`UNIT`, `PATTERN...`, `PROPERTY=VALUE...`,
-///   `<JAIL>`, `[SIGNATURE [ARGUMENT...]]`'s own two halves read as one
-///   placeholder each) — or nothing at all once cleaned, a token of pure
-///   bracket/dot/pipe punctuation (`...`, a lone `[`/`]`).
-/// - A token that carried a `[`/`]`/`<`/`>` wrapper and still isn't
-///   uppercase after cleaning may be a dash-led flag spelling instead
-///   (`[--unban]`'s own `--unban`, `restart`'s row). A *bare* dash-led
-///   token with no such wrapper (`ethtool --monitor`, a worked usage
-///   example naming the tool itself) is never accepted this way: real
-///   prose never wraps a word in brackets or angle brackets, but a tool's
-///   own invocation line can and does put a real flag right after its own
-///   name with nothing else to distinguish the two shapes.
-///
-/// See docs/shapes.md S-129, S-141.
+/// True when `rest` is nothing but command-pattern syntax, never a dropped
+/// description. Per whitespace-delimited token: the first token alone may
+/// be a bare [`is_command_name_shaped`] word (`set loglevel <LEVEL>`'s
+/// `loglevel`); otherwise, cleaned of `[`, `]`, `<`, `>`, `.`, `|` and
+/// split on `=`, every word must be uppercase-led (`UNIT`,
+/// `[SIGNATURE [ARGUMENT...]]`'s own two halves) or nothing (`...`); a
+/// token that carried a bracket/angle wrapper and still isn't uppercase
+/// may instead be a dash-led flag (`[--unban]`), but a *bare* dash token
+/// with no wrapper (`ethtool --monitor`, a worked usage example) never
+/// passes this way — real prose never wraps a word in brackets. See
+/// docs/shapes.md S-129, S-141.
 fn looks_like_operand_placeholder_run(rest: &str) -> bool {
     let mut any = false;
     for (idx, token) in rest.split_whitespace().enumerate() {

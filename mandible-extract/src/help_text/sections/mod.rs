@@ -115,15 +115,11 @@ impl ParsedHelp {
     /// entry recovered twice, e.g. because a heading's block repeats
     /// verbatim in genuinely broken output) or the recovery cap has
     /// already been hit. Returns whether it was accepted as a new entry.
-    ///
     /// A duplicate name is not always garbage: fail2ban-client's own
-    /// `Command:` table repeats `set`/`get` across dozens of rows, each
-    /// one a distinct accepted pattern (`set loglevel <LEVEL>`, `set
-    /// dbfile <FILE>`, ...). Rather than drop every row past the first,
-    /// a duplicate's own `usage` line (if any) is merged onto the
-    /// already-accepted node — the only field a second row can safely
-    /// contribute, since summary/display_name belong to the first row's
-    /// own spelling. See docs/shapes.md S-141.
+    /// `Command:` table repeats `set`/`get` across dozens of distinct
+    /// accepted patterns, so a duplicate's own `usage` line (if any)
+    /// merges onto the already-accepted node instead of being dropped.
+    /// See docs/shapes.md S-141.
     fn try_push_subcommand(&mut self, mut node: CommandNode) -> bool {
         if self.subcommands.len() >= MAX_RECOVERED_ENTRIES {
             return false;
