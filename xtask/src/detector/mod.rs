@@ -48,6 +48,7 @@ pub(crate) mod choice_value_rows_unfolded;
 pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
+pub(crate) mod description_continuation_dash_flag;
 pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
@@ -712,6 +713,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
+        Box::new(description_continuation_dash_flag::RawContinuationShape),
+        Box::new(description_continuation_dash_flag::BareQuoteValue),
     ]
 }
 
