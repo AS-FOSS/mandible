@@ -190,6 +190,103 @@ pub(super) fn heading_can_name_a_group(heading: &str) -> bool {
         && !is_dash_underline_row(heading)
 }
 
+/// True when `heading` opens with the tool's own name followed by at
+/// least one flag-shaped token — the invocation-form head every LVM
+/// stanza documents, whether it names one mode flag
+/// ([`super::usage::recover_stanza_head_flag`]'s narrower single-flag
+/// shape, S-089) or several required flags glued into one whole form
+/// (`lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG`). Whether a
+/// single mode-flag entity can *also* be built is that function's own,
+/// unrelated question. See docs/shapes.md S-137.
+pub(super) fn looks_like_invocation_form_head(heading: &str, name: &str) -> bool {
+    if name.is_empty() || is_ignorable_heading(heading) || !starts_with_tool_name(heading, name) {
+        return false;
+    }
+    heading
+        .strip_prefix(name)
+        .and_then(|rest| rest.split_whitespace().next())
+        .is_some_and(is_bare_flag_token)
+}
+
+/// Fewest whitespace-separated words the line(s) above a stanza head must
+/// carry before [`stanza_description_above`] adopts them as that stanza's
+/// label. Three, deliberately not [`MIN_PROSE_SENTENCE_WORDS`]'s five: that
+/// floor guards against claiming a two/three-word heading anywhere in the
+/// document, while this one only ever runs in the single slot between a
+/// blank line and a confirmed stanza head, where vgchange's own four-word
+/// `Activate or deactivate LVs.` and lvcreate's own four-word `Create a
+/// linear LV.` are the shortest real specimens measured. See S-012.
+pub(super) const MIN_STANZA_DESCRIPTION_WORDS: usize = 3;
+
+/// Most physical lines a stanza description may wrap across before
+/// [`stanza_description_above`] gives up. Four: lvcreate's own longest
+/// specimen (three lines) leaves one line of headroom without admitting
+/// an unrelated multi-paragraph run. See docs/shapes.md S-137.
+pub(super) const MAX_STANZA_DESCRIPTION_LINES: usize = 4;
+
+/// The description sentence a multi-variant tool writes directly above a
+/// usage stanza's head line, when `lines[head_idx]` is
+/// [`looks_like_invocation_form_head`]-shaped and one or more lines above
+/// it, joined, read as one sentence wrapped across up to
+/// [`MAX_STANZA_DESCRIPTION_LINES`] lines. Each candidate line must sit at
+/// the head's own column, be a single field, open with none of the
+/// tool's own name, flag/usage notation or an [`is_ignorable_heading`]
+/// marker, and, unless it is the block's last, carry the raw trailing
+/// space a genuine hard wrap leaves. The block must stand alone
+/// (predecessor blank or absent) and, joined, end in a full stop and
+/// carry [`MIN_STANZA_DESCRIPTION_WORDS`] words. See S-012, S-137.
+pub(super) fn stanza_description_above(
+    lines: &[&str],
+    head_idx: usize,
+    tool_name: Option<&str>,
+) -> Option<String> {
+    let name = tool_name?;
+    if head_idx == 0 || !looks_like_invocation_form_head(lines[head_idx].trim(), name) {
+        return None;
+    }
+    let head_indent = leading_whitespace(lines[head_idx]);
+    let floor = head_idx.saturating_sub(MAX_STANZA_DESCRIPTION_LINES);
+    let mut start = head_idx;
+    // A missing trailing space on a non-terminal candidate simply stops
+    // the walk here rather than aborting outright: the anti-paragraph
+    // check just below always independently rejects a walk that stopped
+    // this way, since the failing line itself is non-blank by
+    // construction and becomes `lines[start - 1]`.
+    while start > floor {
+        let candidate = lines[start - 1];
+        let text = candidate.trim();
+        let is_terminal = start == head_idx;
+        if leading_whitespace(candidate) != head_indent
+            || find_multi_space_gap(candidate).is_some()
+            || text.is_empty()
+            || starts_with_tool_name(text, name)
+            || looks_like_flag_start(text)
+            || looks_like_usage_fragment(text)
+            || is_ignorable_heading(text)
+            || (!is_terminal && !candidate.ends_with(' '))
+        {
+            break;
+        }
+        start -= 1;
+    }
+    if start == head_idx || (start > 0 && !lines[start - 1].trim().is_empty()) {
+        return None;
+    }
+    let joined = lines[start..head_idx]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let trimmed_end = joined.trim_end();
+    if trimmed_end.is_empty() || !trimmed_end.ends_with('.') || trimmed_end.ends_with("...") {
+        return None;
+    }
+    if joined.split_whitespace().count() < MIN_STANZA_DESCRIPTION_WORDS {
+        return None;
+    }
+    Some(joined)
+}
+
 /// True when `line`, trimmed, is nothing but dash characters and
 /// whitespace — a table's own column-underline decoration (jmod's
 /// `Option`/`Description` header row: `------  -----------`), not a real

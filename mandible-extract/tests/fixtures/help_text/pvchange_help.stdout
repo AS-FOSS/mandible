@@ -1,0 +1,50 @@
+  pvchange - Change attributes of physical volume(s)
+
+  Change properties of all PVs.
+  pvchange -a|--all
+	( -x|--allocatable y|n,
+	  -u|--uuid,
+	     --addtag Tag,
+	     --deltag Tag,
+	     --metadataignore y|n )
+
+	[ COMMON_OPTIONS ]
+
+  Change properties of specified PVs.
+  pvchange
+	( -x|--allocatable y|n,
+	  -u|--uuid,
+	     --addtag Tag,
+	     --deltag Tag,
+	     --metadataignore y|n )
+	 PV|Select ...
+	[ -S|--select String ]
+	[ COMMON_OPTIONS ]
+
+  Common options for command:
+	[ -A|--autobackup y|n ]
+	[ -f|--force ]
+	[ -u|--uuid ]
+	[    --reportformat basic|json ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.

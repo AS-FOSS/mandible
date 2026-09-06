@@ -1518,30 +1518,52 @@ fn parse_body(
                     !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
                 })
                 .unwrap_or(lines.len());
-            lines[..body_start].iter().enumerate().position(|(idx, l)| {
+            // A manual loop, not `.position()`: a head shaped like one
+            // whole LVM invocation form — the tool's own name plus its
+            // flags on the same line — and labeled by a genuine prose
+            // sentence above it (`stanza_description_above`) must stop
+            // the search outright the moment it is seen, deferring the
+            // entire document to the per-heading stanza path. `.position()`
+            // would instead skip such a line and let a LATER, unlabeled
+            // line claim the primary entry, abandoning every earlier
+            // stanza (including this one) to neither path. Vgchange's own
+            // bare `vgchange` head (no flag of its own) never triggers
+            // this, since `stanza_description_above` requires one. See
+            // docs/shapes.md S-137.
+            let mut found = None;
+            for (idx, l) in lines[..body_start].iter().enumerate() {
+                // Excluded only when the form's own continuation is a
+                // bracket flag row: the per-heading path this defers to
+                // (`scan_flags_block`) reads that shape but not a
+                // parenthesized alternation group (`pvchange`'s own first
+                // form), which only the synopsis-fold path below still
+                // understands. Deferring that shape too would drop its
+                // flags rather than relabel them. See docs/shapes.md
+                // S-137.
+                let continuation_is_bracket_row = lines
+                    .get(idx + 1)
+                    .is_some_and(|n| looks_like_bracket_flag_row(n.trim_start()));
+                if continuation_is_bracket_row
+                    && stanza_description_above(&lines, idx, Some(name)).is_some()
+                {
+                    break;
+                }
                 let t = l.trim_start();
-                (looks_like_unlabeled_synopsis_line(t, name)
-                    // LVM's own emitter writes a bare invocation line
-                    // (`vgck` alone) with all docopt notation on the rows
-                    // that continue it, invisible to
-                    // `looks_like_unlabeled_synopsis_line` alone. A bare
-                    // own-name line is accepted too, but only when the
-                    // next physical line is unambiguous flag-row
-                    // evidence. See S-005.
-                    || looks_like_bare_synopsis_head(&lines, idx, name))
-                    // A head shaped like one whole LVM invocation form —
-                    // the tool's own name plus its flags on the same
-                    // line — and labeled by a genuine prose sentence
-                    // above it (`stanza_description_above`) is deferred
-                    // whole to that per-heading path rather than claimed
-                    // here as the primary entry: otherwise its own
-                    // tab-indented option rows fold into this entry's
-                    // display text instead of reaching their own group,
-                    // the one shape vgchange's bare `vgchange` head (no
-                    // flag of its own) never triggers. See docs/shapes.md
-                    // S-137.
-                    && stanza_description_above(&lines, idx, Some(name)).is_none()
-            })
+                // LVM's own emitter also writes a bare invocation line
+                // (`vgck` alone) with all docopt notation on the rows
+                // that continue it, invisible to
+                // `looks_like_unlabeled_synopsis_line` alone. A bare
+                // own-name line is accepted too, but only when the next
+                // physical line is unambiguous flag-row evidence. See
+                // S-005.
+                if looks_like_unlabeled_synopsis_line(t, name)
+                    || looks_like_bare_synopsis_head(&lines, idx, name)
+                {
+                    found = Some(idx);
+                    break;
+                }
+            }
+            found
         })
     } else {
         None
@@ -1749,6 +1771,24 @@ mod tests {
                  device, which converts the new LV to type cache."
             )
         );
+    }
+
+    /// `pvchange --help`'s own bytes, byte-exact: its first invocation
+    /// form is labeled by a genuine prose sentence but its own
+    /// continuation is a parenthesized alternation group, a shape only
+    /// the unlabelled-synopsis fold understands. S-137's exclusion must
+    /// not defer this form to the per-heading path, which would drop its
+    /// flags outright rather than relabel them. See docs/shapes.md S-137.
+    #[test]
+    fn pvchange_paren_group_form_keeps_every_flag_despite_its_own_label() {
+        let parsed = parse_named(PVCHANGE_HELP, "pvchange");
+        for long in ["allocatable", "uuid", "addtag", "deltag", "metadataignore"] {
+            assert!(
+                parsed.flags.iter().any(|f| f.long() == Some(long)),
+                "--{long} missing: {:?}",
+                parsed.flags
+            );
+        }
     }
 
     // --- compute_confidence's one-row-sample fallback -------------------
