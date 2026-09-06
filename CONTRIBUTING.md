@@ -168,6 +168,12 @@ spawns a subprocess has to:
 `InertArgv` is a closed enum, so adding a shape takes a deliberate edit and a
 spec amendment. That friction is the point. See docs/design.md section 6.
 
+A full-`PATH` sweep also runs contained: on Linux it re-executes itself
+under `unshare --user --pid --mount`, and on macOS there is no equivalent,
+so it refuses to run at all. `--allow-uncontained` overrides the refusal
+for a host that lacks the namespaces, and is meant for a disposable box,
+never a machine you care about.
+
 ### Tests
 
 Unit tests sit next to the code, integration tests in each crate's `tests/`,
@@ -180,11 +186,13 @@ specific past regression.
 ### Style
 
 Every crate carries `#![forbid(unsafe_code)]`, with one audited exception:
-`mandible-extract` uses `#![deny(unsafe_code)]` and one scoped
-`#[allow(unsafe_code)]` on the probe-spawning function, for a `pre_exec` call to
-`setsid`. That gives each probe its own session so a descendant cannot reach the
-controlling terminal through `/dev/tty` whatever its own streams point at. If
-you think you need `unsafe` anywhere else, raise it as a discussion first.
+`mandible-extract` uses `#![deny(unsafe_code)]` and exactly two scoped
+`#[allow(unsafe_code)]` sites. One is on the probe-spawning function, for a
+`pre_exec` call to `setsid`, giving each probe its own session so a
+descendant cannot reach the controlling terminal through `/dev/tty` whatever
+its own streams point at. The other is `containment::secured_scoreboard_file`'s
+`File::from_raw_fd`. If you think you need `unsafe` anywhere else, raise it
+as a discussion first.
 
 Library crates carry `#![warn(missing_docs)]`. Use `thiserror` in libraries and
 `anyhow` only in the `mandible` binary.
