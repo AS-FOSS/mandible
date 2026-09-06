@@ -1,15 +1,14 @@
-//! `spaced-single-dash-long` (atlas S-117, xfail, count only): a
-//! single-dash long option with an uppercase flag letter and a spaced,
-//! not glued, value (`-Xassembler <arg>`) truncates to its first
-//! character (`-X` valued `"assembler"`).
+//! `spaced-single-dash-long` (atlas S-117): a single-dash long option
+//! with an uppercase flag letter and a spaced, not glued, value
+//! (`-Xassembler <arg>`) truncated to its first character. Repaired by
+//! `help_text::sections::repair::spaced_value_placeholder`.
 //!
-//! Root cause: `repair::repair_single_dash_long_options` refuses any
-//! uppercase-carrying token, its only signal against the GCC/Clang
-//! glued-value convention (`-DMACRO`); the row's own spacing is already
-//! gone by the time it runs. Measured here, not fixed.
+//! Requires exactly one space before an angle- or bracket-delimited
+//! placeholder, never a wider gap: a wider gap (`ld`'s `-Bgroup`) is
+//! indistinguishable from the glued-value convention's own row
+//! (`-Dname`), an honest miss, not counted here.
 //!
-//! Fixtures: `corpus/aarch64-linux-gnu-g++-13/13.3.0/` (`-Xassembler`,
-//! `-Xpreprocessor`, `-Xlinker`).
+//! Fixtures: `corpus/aarch64-linux-gnu-g++-13/13.3.0/`.
 
 use mandible_core::CommandNode;
 
@@ -29,8 +28,10 @@ impl Report {
 }
 
 /// `-Xword <placeholder>`: a single dash, one uppercase letter, a run of
-/// two or more lowercase letters, then a space and a bracket/angle
-/// placeholder token. Returns the reconstructed name (`"Xassembler"`).
+/// two or more lowercase letters, then exactly one space and an angle- or
+/// bracket-delimited placeholder token. Returns the reconstructed name
+/// (`"Xassembler"`). One space only, never a wider column gap — see this
+/// module's doc comment for why a wider gap is out of scope.
 fn spaced_single_dash_long(token: &str, rest: &str) -> Option<String> {
     let word = token.strip_prefix('-')?;
     let mut chars = word.chars();
@@ -42,12 +43,15 @@ fn spaced_single_dash_long(token: &str, rest: &str) -> Option<String> {
     if tail.chars().count() < 2 || !tail.chars().all(|c| c.is_ascii_lowercase()) {
         return None;
     }
-    let next = rest.trim_start();
-    let placeholder_shaped = next.starts_with('<')
-        || next
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_uppercase() || c == '[');
+    let mut rest_chars = rest.chars();
+    if rest_chars.next() != Some(' ') {
+        return None;
+    }
+    let after_space = rest_chars.as_str();
+    if after_space.starts_with([' ', '\t']) {
+        return None;
+    }
+    let placeholder_shaped = after_space.starts_with('<') || after_space.starts_with('[');
     placeholder_shaped.then(|| word.to_string())
 }
 
@@ -140,6 +144,16 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
             expect: Expect::Silent,
             raw: "  -DMACRO                  Define MACRO.\n".to_string(),
             root: node_with_flags("gcc", vec![single_dash_flag("D")]),
+        },
+        SelfCheck {
+            name: "ld's own row, a wide column gap before its description (`-Bgroup`)",
+            why: "a whole column, not one space, separates the swallowed name from its own \
+                  description — indistinguishable from the glued-value convention's row \
+                  (`-Dname`), so this stays an honest miss, never claimed",
+            expect: Expect::Silent,
+            raw: "  -Bgroup                     Selects group name lookup rules for DSO\n"
+                .to_string(),
+            root: node_with_flags("ld", vec![single_dash_flag("B")]),
         },
     ]
 }

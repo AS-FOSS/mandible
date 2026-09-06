@@ -2129,19 +2129,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -Xassembler <arg>        Pass <arg> on to the assembler.
       -Xpreprocessor <arg>     Pass <arg> on to the preprocessor.
-- tools: gcc, g++, clang and the same compiler family S-116 lists
-- handling: Open defect. `-Xassembler` truncates to `-X` valued `"assembler"`, with `<arg>`
-  left unconsumed. `repair_single_dash_long_options` refuses any token
-  carrying an uppercase letter, its only signal against the GCC/Clang
-  glued-value convention (`-DMACRO`); `-Xassembler`'s flag letter is
-  uppercase, so it reads as that convention even though its value is
-  spaced, not glued. The row's own spacing is already gone by the time
-  that repair runs. `xtask detector`'s `spaced-single-dash-long`
-  (`xtask/src/detector/spaced_single_dash_long.rs`) generalizes this shape
-  fleet-wide.
-- fleet: 40 tools, 381 findings, 2026-09-05. Seed-7 calibration (`--seed 7
-  --fixture-version '*'`) verdict PASSES: 1 true positive
-  (`aarch64-linux-gnu-g++-13`), 0 false negatives, 1 true negative, 2026-09-06.
+- tools: gcc, g++, clang and the same compiler family S-116 lists; mksquashfs, sqfstar
+- handling: `-Xassembler` used to truncate to `-X` valued `"assembler"`, with `<arg>` left
+  unconsumed. `repair_single_dash_long_options` refused any token carrying
+  an uppercase letter, its only signal against the GCC/Clang glued-value
+  convention (`-DMACRO`). `spaced_value_placeholder`
+  (`mandible-extract/src/help_text/sections/repair.rs`) now admits an
+  uppercase-led name when the row keeps its value one space away, angle-
+  or bracket-delimited, never a wider column gap: a wider gap (`ld`'s
+  `-Bgroup`) is indistinguishable from the glued-value convention's own
+  row and stays an honest miss. `xtask detector`'s `spaced-single-dash-long`
+  matches the same one-space bound.
+- fleet: 0 tools, 0 findings, 2026-09-06. Was 40 tools, 381 findings before the
+  detector's own bound was narrowed to match the repair's evidence.
 
 ### S-118: a single-dash spelling that is nothing but a run of `#`
 

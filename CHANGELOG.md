@@ -11,6 +11,7 @@ once it reaches a published 0.1.0 release.
 ### Fixed
 
 - A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
+- A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`, docs/shapes.md S-117).
 
 ## [0.7.0] - 2026-09-05
 
