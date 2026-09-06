@@ -545,6 +545,39 @@ impl Detector for SpacedSingleDashLong {
     }
 }
 
+pub(crate) struct GluedUppercaseSharedPrefix;
+
+impl Detector for GluedUppercaseSharedPrefix {
+    fn name(&self) -> &'static str {
+        "glued-uppercase-shared-prefix"
+    }
+    fn family(&self) -> Option<&'static str> {
+        // No audit seed carries a labelled member of this family (spec
+        // §13.1e rule 6): calibration has nothing to generalize against.
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a lowercase-led single-dash token carrying an interior uppercase letter, glued to a tab \
+         or column-gapped description with no value at all (mksquashfs's `-noI`), reaches the \
+         tree truncated to its flag letter"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::glued_uppercase_shared_prefix::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::glued_uppercase_shared_prefix::self_checks()
+    }
+}
+
 pub(crate) struct CommandRowArgumentPlaceholder;
 
 impl Detector for CommandRowArgumentPlaceholder {

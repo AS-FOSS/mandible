@@ -2490,3 +2490,149 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
   below the five-tool floor a fix must clear. Not shipped; the fixture
   stays xfail with the count in its reason.
+
+### S-137: lvm2 invocation forms read as section headings
+
+- id: S-137
+- looks like: |
+      Create a raid1 or mirror LV.
+      lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG
+      	[ --type raid1|mirror ] (implied)
+- tools: the whole lvm2 tool family (docs/shapes.md S-130's 43 tools);
+  gains confirmed on lvconvert, lvcreate, lvextend, lvresize, vgreduce
+- handling: Fixed. Each invocation form is a prose sentence, a usage
+  line naming the form's own flags, then tab-indented option rows.
+  `sections::looks_like_invocation_form_head` (heading.rs) admits a head
+  naming more than one flag, which `stanza_description_above` (S-012)
+  required only one of before, so the prose sentence becomes the option
+  rows' group and the head line survives as its own `usage` entry. The
+  unlabelled-synopsis entry point defers such a form outright rather
+  than fold its rows into a display string, unless the form's own
+  continuation is a parenthesized alternation group (`pvchange`'s first
+  form), which only that fold path still reads.
+  `grammar::bracket_flag_row_content` also now tolerates one trailing
+  parenthetical remark (`[ --type linear ] (implied)`), or `--type`
+  stays unrecovered. `corpus/lvcreate/2.03.16` promoted out of `[xfail]`;
+  `corpus/vgcfgrestore/2.03.16` re-blessed, gaining the one usage form
+  it was missing with no other change.
+- fleet: `invocation-form-head-as-flag-group`
+  (`xtask/src/detector/invocation_form_head_as_flag_group.rs`), gated on
+  raw evidence a real label was actually discarded (not merely that a
+  group looks invocation-shaped, which `pydoc3`'s own correct
+  no-description fallback and `pvck`'s unterminated "Repair LVM headers
+  and metadata on a device" both do), reads 2 tools (lvchange, lvcreate)
+  / 99 findings on this box's own installed subset of the 43-tool
+  family with the fix reverted, and 0/0 with it applied. Confirmed
+  fleet-wide with a full-`PATH` sweep-diff of 2269 tools, 2026-09-06: 0
+  flags lost, 23 flags gained across lvconvert, lvcreate, lvextend,
+  lvresize and vgreduce.
+### S-139: a single-dash spelling glued to a tab, carrying an interior uppercase letter
+
+- id: S-139
+- looks like: |
+      -noI			do not compress inode table
+      -noId			do not compress the uid/gid table (implied by -noI)
+      -noD			do not compress data blocks
+- tools: mksquashfs, sqfstar
+- handling: Fixed. `-noI` used to truncate to short `-n` valued `"oI"`.
+  `repair_single_dash_long_options`
+  (`mandible-extract/src/help_text/sections/repair.rs`) refused any
+  reconstructed token carrying an uppercase letter, its only signal
+  against the GCC/Clang glued-value convention (`-DMACRO`).
+  `shares_lowercase_prefix_with_sibling` admits a token whose swallowed
+  name shares its lowercase-led prefix with another row's own swallowed
+  name in the same table (`-noI`, `-noId`, `-noD`, `-noF`, `-noX` all
+  share `"no"`). The glued-value convention documents one flag letter per
+  macro or feature, so no sibling row there shares a two-letter lowercase
+  prefix with it. `xtask detector`'s `glued-uppercase-shared-prefix`
+  (`xtask/src/detector/glued_uppercase_shared_prefix.rs`) generalizes
+  the shape fleet-wide.
+- fleet: the fix moved 2 tools, mksquashfs and sqfstar, 10 flags each,
+  with 0 losses on a full-`PATH` sweep, 2026-09-06. `unsquashfs` and
+  `sqfscat` document no `-no*` row of this shape. Two tools is below the
+  five-tool floor AGENTS.md §3.1 sets, and it shipped as a named
+  exception recorded in `docs/design.md` §16. `corpus/mksquashfs/4.6.1`
+  is promoted out of `[xfail]`. No labelled member of this family exists
+  in any audit seed; the detector's four self-checks are the only
+  standing evidence.
+### S-140: a description continuation line that begins with a dash
+
+- id: S-140
+- looks like: |
+      get <JAIL> banip [<SEP>|--with-time]     gets the list of of banned IP
+                                               addresses for <JAIL>. Optionally
+                                               the separator character ('<SEP>',
+                                               default is space) or the option '
+                                               --with-time' (printing the times
+- tools: fail2ban-client
+- handling: Open. A command-table row's own wrapped description continues five lines
+  down onto a physical line that opens, at the row's description column, with
+  a dash-led token. The generic layout engine's heading fallback reads that
+  continuation as a fresh flag row and promotes the row above it into the
+  fabricated flag's group. `description-continuation-dash-flag-shape`
+  (raw structural signal) and `description-continuation-dash-flag-value`
+  (the fabricated flag's own bare-quote value) measure the two halves
+  separately.
+- fleet: shape detector fires on 73 tools/283 findings on a full-`PATH`
+  sweep, 2026-09-06; a candidate fix's own sweep-diff gained only
+  fail2ban-client's one fabricated flag and lost 39 real flags across 23
+  other tools, so the shape signal alone overclaims. The tree-artifact
+  count, read from that same sweep-diff, is 1 tool. Both are below the
+  five-tool floor. Not shipped; the fixture stays xfail with the counts
+  in its reason.
+### S-141: a command table's rows are multi-word command patterns
+
+- id: S-141
+- looks like: |
+      restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
+      set loglevel <LEVEL>                     sets logging level to <LEVEL>.
+- tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
+  resolvectl, timedatectl
+- handling: Open. A prototype read each token of a row's own name field
+  separately, so a bracket- or angle-wrapped group (`[--unban]`,
+  `<JAIL>`) cleaned the way an uppercase metavariable does, and
+  `try_push_subcommand` merged a repeated leading word's usage onto the
+  node already accepted instead of dropping every row past the first. It
+  is not shipped. On rendered screens it changed nothing for busctl,
+  hostnamectl, localectl, networkctl, resolvectl or timedatectl, which
+  already carry their commands, and it took fail2ban-client from eleven
+  fabricated command rows to twenty, adding `logtarget`, `persistent`,
+  `of`, `list`, `files`, `filter`, `for`, `back` and `failures`, each a
+  word cut out of a wrapped description. A flag-count sweep-diff cannot
+  see that, since the rows it adds are subcommands.
+  The blocker underneath is named now. A centered ALL-CAPS group label as
+  a block's own first line defeats `bare_block_end`'s baseline indent
+  before any real row is reached, so no row of fail2ban-client's table
+  can be read whatever the name rule does. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) stays as the instrument.
+- fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
+  fail2ban-client holds 85 of them and 84 were read by hand and are
+  genuine. Above the five-tool bar, and still waiting on the
+  `bare_block_end` baseline defect. Nothing shipped; the fixture stays
+  xfail with the count in its reason.
+
+### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
+
+- id: S-142
+- looks like: |
+      SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
+      exclude dirs/files]
+- tools: mksquashfs, sqfstar
+- handling: Open, two shapes. `SYNTAX:` glues straight to the program name with no
+  space, a spelling `starts_with_usage_prefix` never matches, so the whole
+  two-line block reads as leading description prose and no positional is
+  recovered. The second line also continues an unclosed `[` group at
+  column zero, a shape today's continuation rule misses since it only
+  reads a continuation's own first character, never a depth carried over
+  from the line above.
+- fleet: `usage-label-glued-to-program-name`
+  (`xtask/src/detector/usage_label_glued_to_program_name.rs`) reads 8
+  tools/8 findings raw on a full-`PATH` sweep of 2323 tools, 2026-09-06;
+  6 are `http`/`https` doc-URL false positives whose path basename
+  coincides with the tool's own name, leaving 2 genuine hits (both
+  squashfs-tools). `usage-open-bracket-continues-at-column-zero`
+  (`xtask/src/detector/usage_open_bracket_continues_at_column_zero.rs`)
+  reads 2 tools/2 findings raw; one is an ANSI-escape false positive from
+  a colored banner, leaving 1 genuine hit. Both real counts are below the
+  five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
+  both counts in its reason.

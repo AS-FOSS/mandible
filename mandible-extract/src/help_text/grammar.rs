@@ -926,19 +926,33 @@ pub fn is_dash_underline_token(token: &str) -> bool {
 // lines also open with `[` and that predicate doubles as the usage
 // block's own terminator. See docs/shapes.md S-005.
 
+/// True when `rest` (already trimmed, the text following a bracket flag
+/// row's own closing `]`) is nothing but one parenthetical remark —
+/// lvm2's own `(implied)` annotation on a mode flag whose value a form
+/// already defaults to (`[ --type linear ] (implied)`) — rather than a
+/// real trailing description column
+/// ([`bracket_flag_row_refuses_trailing_text`]'s own `"  enable
+/// debugging"` counter-example, which carries no parentheses at all).
+/// See docs/shapes.md S-137.
+fn is_trailing_parenthetical_remark(rest: &str) -> bool {
+    rest.starts_with('(') && rest.ends_with(')') && rest.len() > 2
+}
+
 /// The inner content of a [`looks_like_bracket_flag_row`] line, or `None`.
 /// Two conditions: `input` trimmed is exactly one bracket group (nothing
-/// before `[`, nothing but whitespace after `]`), and the group's content
-/// starts with `-` — which turns away LVM's operand rows in the identical
+/// before `[`, and nothing after `]` but whitespace or one
+/// [`is_trailing_parenthetical_remark`]), and the group's content starts
+/// with `-` — which turns away LVM's operand rows in the identical
 /// notation (`[ COMMON_OPTIONS ]`, `[ VG|Tag ... ]`). See docs/shapes.md
-/// S-005.
+/// S-005, S-137.
 pub fn bracket_flag_row_content(input: &str) -> Option<&str> {
     let trimmed = input.trim();
     if !trimmed.starts_with('[') {
         return None;
     }
     let (content, rest) = split_at_matching_close(trimmed, '[', ']')?;
-    if !rest.trim().is_empty() {
+    let rest = rest.trim();
+    if !rest.is_empty() && !is_trailing_parenthetical_remark(rest) {
         return None;
     }
     let content = content.trim();

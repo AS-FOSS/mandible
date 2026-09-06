@@ -1,3 +1,12 @@
+# Fixed (docs/shapes.md S-137). Each invocation form's own usage line now
+# reaches `usage` as its own entry, and its option rows carry the prose
+# sentence above it as their group instead of the usage line itself.
+# `sections::looks_like_invocation_form_head` admits a head naming more
+# than one flag, which `stanza_description_above` (S-012) required only
+# one of before. `grammar::bracket_flag_row_content` also now tolerates a
+# trailing parenthetical remark (`[ --type linear ] (implied)`), or
+# `--type` would still be missing.
+
 [bless]
 provenance = "agent"
 
@@ -17,10 +26,14 @@ expected_framework = "generic"
 min_status = "low-confidence"
 must_contain_flags = ["--mirrorlog", "--type", "--extents"]
 must_not_contain_usage_text = ["[ --type linear ] (implied)"]
+must_usage_forms_min = 17
+must_not_contain_flag_group_prefixes = ["lvcreate", "Lvcreate"]
+# COMMON_OPTIONS is a placeholder for the two shared option blocks, never
+# an operand. It used to reach the tree as a root positional.
+must_not_contain_positionals = ["COMMON_OPTIONS"]
 
 [contract.must_attach_choices]
 "--mirrorlog" = ["core", "disk"]
 
-[xfail]
-broken = true
-reason = "lvm2 help is a list of invocation forms. Each form is a prose line, then a usage line, then tab-indented option rows. 1. No root flag group starts with lvcreate or Lvcreate. 2. --mirrorlog sits in a group whose label is the prose line Create a raid1 or mirror LV., or in no group at all. 3. The tree's usage carries every invocation form, not two. lvcreate -s|--snapshot LV is a real form and must survive."
+[contract.must_flag_group]
+"--mirrorlog" = "Create a raid1 or mirror LV."

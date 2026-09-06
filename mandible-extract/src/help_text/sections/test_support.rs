@@ -49,3 +49,7 @@ pub(super) const APT_GET_HELP: &str =
     include_str!("../../../tests/fixtures/help_text/apt_get_help.stdout");
 pub(super) const SIZE_HELP: &str =
     include_str!("../../../tests/fixtures/help_text/size_help.stdout");
+pub(super) const LVCREATE_HELP: &str =
+    include_str!("../../../tests/fixtures/help_text/lvcreate_help.stdout");
+pub(super) const PVCHANGE_HELP: &str =
+    include_str!("../../../tests/fixtures/help_text/pvchange_help.stdout");

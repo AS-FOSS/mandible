@@ -371,6 +371,19 @@ pub fn check_scalar_family_ratchet(
     Ok(ratchet.holds())
 }
 
+/// [`check_vim_family_ratchet`] for round 8's two repaired families, atlas
+/// S-137 and S-139, gated at zero the same way [`check_round6_family_ratchets`]
+/// is. S-139's own fix moves two tools, below the five-tool bar, and is
+/// recorded as an exception in `docs/design.md` §16.
+pub fn check_round8_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let forms = check_vim_family_ratchet("invocation-form-head-as-flag-group", previous, fresh)?;
+    let glued = check_vim_family_ratchet("glued-uppercase-shared-prefix", previous, fresh)?;
+    Ok(forms && glued)
+}
+
 /// pnpm's two families (atlas S-103, S-104), fixed in
 /// `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted at
 /// zero the same way as `single-dash-long`: the fix moves two tools
@@ -395,4 +408,44 @@ pub fn check_ragged_family_ratchets(
         fresh.wrapped_command_flags,
     )?;
     Ok(ragged && wrapped)
+}
+
+/// `command-pattern-table` (atlas S-141): reported, not gated. A
+/// full-`PATH` sweep clears the five-tool bar (18 tools/224 findings, see
+/// docs/shapes.md S-141), but the shared row-splitting grammar it
+/// touches has no merge path yet for a repeated command name, so no fix
+/// has landed and there is nothing to ratchet at zero. Self-checks still
+/// run and gate, the same way `brace-alternation-flag`'s do above.
+pub fn check_command_pattern_reported(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    if fresh.command_pattern_tools != previous.command_pattern_tools
+        || fresh.command_pattern_flags != previous.command_pattern_flags
+    {
+        println!(
+            "command-pattern-table findings changed from {} tool(s)/{} pattern(s) to {} \
+             tool(s)/{} pattern(s) (reported, not gated)",
+            previous.command_pattern_tools,
+            previous.command_pattern_flags,
+            fresh.command_pattern_tools,
+            fresh.command_pattern_flags,
+        );
+    }
+    let detector = find("command-pattern-table")?;
+    let self_checks = run_self_checks(detector.as_ref());
+    println!(
+        "\ncommand-pattern-table: {} tool(s)/{} pattern(s) — REPORTED, NOT GATED.\n{}",
+        fresh.command_pattern_tools,
+        fresh.command_pattern_flags,
+        render_self_checks(&self_checks),
+    );
+    if !self_checks_are_conclusive(&self_checks) {
+        println!(
+            "command-pattern-table's own hand-built evidence no longer holds — its fleet \
+             number above cannot be read at all until that is fixed."
+        );
+        return Ok(false);
+    }
+    Ok(true)
 }

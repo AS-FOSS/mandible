@@ -110,6 +110,10 @@ min_status = "ok"                    # floor: ok > incomplete > low-confidence
                                      # > verbatim > no-tier ("suspicious"
                                      # meets no floor)
 min_subcommands = 20                 # coarse floor, not an exact count
+must_usage_forms_min = 2             # coarse floor on root.usage, the same
+                                     # shape as min_subcommands but for a
+                                     # multi-invocation-form tool (lvm2's
+                                     # own emitter)
 must_contain_flags = ["--paginate"]  # optional spot-checks, root flags only
 must_contain_positionals = ["pid"]   # same, for root positional operands —
                                      # matched on the operand's name, which
@@ -136,6 +140,17 @@ must_not_contain_flags = ["--------------------------------"]
 # The positional mirror of the above: root positional names the tree must
 # NOT carry. See "Stating that a positional does not exist" below.
 must_not_contain_positionals = ["ID"]
+
+# The group-label mirror of the above: no root flag's own group may START
+# WITH one of these spellings. See "Stating that a flag group is not an
+# invocation line" below.
+must_not_contain_flag_group_prefixes = ["lvcreate", "Lvcreate"]
+
+# A root flag's own group must equal this text exactly, keyed by the
+# flag's own spelling — or, when the value is the empty string, the flag
+# must carry no group at all. See "A flag's own group" below.
+[contract.must_flag_group]
+"--mirrorlog" = "Create a raid1 or mirror LV."
 
 # The other negative shape: spellings that really exist and must NOT
 # resolve to the same entity. Guards the alias-run fold specifically. See
@@ -275,6 +290,54 @@ folded usage line is already one physical string. A fixture that produces
 no root satisfies this vacuously, the same reasoning `must_not_contain_flags`
 uses. Dropping an entry is a weakening exactly as dropping a
 `must_not_contain_flags` entry is.
+
+### Stating that a flag group is not an invocation line: `must_not_contain_flag_group_prefixes`
+
+`must_not_contain_flags` and `must_not_contain_usage_text` say nothing
+about a flag's own `group` label carrying invented structure. lvm2's own
+`--help` (`lvcreate`, `lvconvert`, `vgchange`, ...) writes one invocation
+form per stanza: a prose sentence, then the form's own usage line, then
+its option rows. The unfixed parser reads a later form's usage line
+itself as a section heading and files that form's rows under it
+(`"Lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG"`), instead of
+the prose sentence directly above it (docs/shapes.md S-137). Nothing
+before this field could state that a group is the tool's own invocation
+prefix rather than a human-written label.
+
+```toml
+must_not_contain_flag_group_prefixes = ["lvcreate", "Lvcreate"]
+```
+
+Every root flag's `group`, when set, is checked against every listed
+spelling with `str::starts_with` — verbatim, no whitespace collapsing.
+Root only, the same scope every other flag-shaped field has. A fixture
+that produces no root, or whose flags carry no group at all, satisfies
+this vacuously and is not reported, the same reasoning
+`must_not_contain_flags` uses.
+
+### A flag's own group: `must_flag_group`
+
+The positive half of the field above: a root flag's own `group` must
+equal specific text, keyed by the flag's own spelling (matched the way
+`must_contain_flags` matches). `lvcreate`'s `--mirrorlog` must sit in the
+group `"Create a raid1 or mirror LV."`, the prose sentence its own
+invocation form carries.
+
+```toml
+[contract.must_flag_group]
+"--mirrorlog" = "Create a raid1 or mirror LV."
+"--size" = ""
+```
+
+The expected text is matched against `Flag::group` exactly — no
+substring, no whitespace collapsing, the same rule `must_display_name`
+uses for a label — except the empty string `""`, which instead asserts
+the flag carries **no** group at all (a grammar that declines to invent
+one, per its own reasoned choice, is exactly as checkable as one that
+does). `cargo xtask corpus` fails when the named flag is absent, or when
+no matching entity carries the expected group, naming what was expected
+and every group it found instead. A fixture that produces no root fails
+this exactly as it fails `must_display_name`.
 
 ### Stating that two flags did not fuse: `must_keep_separate`
 

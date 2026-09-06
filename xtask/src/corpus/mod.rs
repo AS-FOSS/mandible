@@ -24,7 +24,9 @@
 //!   `must_not_contain_flags`, `must_not_contain_positionals`,
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
 //!   `must_keep_separate`, `must_attach_choices`,
-//!   `must_describe` ([`check_contract`]).
+//!   `must_describe`, `must_usage_forms_min`,
+//!   `must_not_contain_flag_group_prefixes`, `must_flag_group`
+//!   ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
 //!   both pass fails the run — the bug is fixed, promote it
 //!   (`corpus/README.md`'s lifecycle rules).
@@ -121,6 +123,13 @@ pub(crate) struct ContractMeta {
     min_status: Option<String>,
     #[serde(default)]
     min_subcommands: Option<usize>,
+    /// Fewest entries `root.usage` must carry — the usage-block analogue of
+    /// `min_subcommands`. Added for `lvcreate`'s own shape (docs/shapes.md
+    /// S-137): a multi-form tool documents each invocation as its own
+    /// alternative, and nothing before this field could state that the
+    /// tree carries more than one.
+    #[serde(default)]
+    must_usage_forms_min: Option<usize>,
     #[serde(default)]
     must_contain_flags: Vec<String>,
     /// Same spot-check as `must_contain_flags`, for a subcommand's own
@@ -187,6 +196,18 @@ pub(crate) struct ContractMeta {
     /// same reasoning `must_not_contain_flags` uses.
     #[serde(default)]
     must_not_contain_usage_text: Vec<String>,
+    /// Spellings no root flag's own `group` may **start with** — the
+    /// group-label mirror of `must_not_contain_flags`, added for
+    /// `lvcreate`'s own shape (docs/shapes.md S-137): the unfixed parser
+    /// invents a group from a later invocation form's own usage line
+    /// (`"Lvcreate -m|--mirrors Number..."`), and nothing before this
+    /// field could state that no group is the tool's own invocation
+    /// prefix rather than a human-written label. Matched against
+    /// `Flag::group` verbatim (no whitespace collapsing), root only. A
+    /// tree with no root, or no flag carrying a group at all, satisfies
+    /// this vacuously, the same reasoning `must_not_contain_flags` uses.
+    #[serde(default)]
+    must_not_contain_flag_group_prefixes: Vec<String>,
     /// Spelling groups that must resolve to *distinct* root-flag entities
     /// — the other shape a negative claim can take, guarding against the
     /// alias-run fold merging unrelated flags onto one multi-spelling
@@ -253,6 +274,18 @@ pub(crate) struct ContractMeta {
     /// ancestor's renders parsed, not repeated).
     #[serde(default)]
     must_display_name: std::collections::BTreeMap<String, String>,
+    /// A root flag's own `group`, keyed by the flag's own spelling
+    /// (matched the way `must_contain_flags` matches). The value is
+    /// matched against `Flag::group` exactly (no substring, no whitespace
+    /// collapsing — a group label is one physical string, `must_display_name`'s
+    /// own reasoning), except the empty string `""`, which instead asserts
+    /// the flag carries **no** group at all. Added for `lvcreate`'s own
+    /// shape (docs/shapes.md S-137): `--mirrorlog` must sit in the group
+    /// `"Create a raid1 or mirror LV."`, the prose sentence its own
+    /// invocation form carries, and nothing before this field could check
+    /// which label a flag actually landed under.
+    #[serde(default)]
+    must_flag_group: std::collections::BTreeMap<String, String>,
     /// The modifier letters a subcommand accepts
     /// (`CommandNode::accepted_modifiers`), keyed by path the same way.
     /// `ar`'s `r` row accepts `a`, `b`, `f`, `u`. A path with no entry here
@@ -1104,6 +1137,129 @@ must_not_contain_flags = ["{forbidden}"]
                 );
             }
         }
+    }
+
+    /// `must_usage_forms_min`, the usage-block analogue of
+    /// `min_subcommands` (docs/shapes.md S-137): a tree with fewer forms
+    /// than required fails, naming both counts; enough forms passes; no
+    /// root at all fails loudly rather than passing vacuously, the same
+    /// reasoning `min_subcommands` uses.
+    #[test]
+    fn must_usage_forms_min_requires_enough_usage_entries() {
+        let contract = ContractMeta {
+            must_usage_forms_min: Some(3),
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("lvcreate", Provenance::single(Source::HelpText));
+        root.usage
+            .push(Text::sanitize("lvcreate -L|--size Size VG"));
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_usage_forms_min: required at least 3, got 1"]
+        );
+        root.usage.push(Text::sanitize(
+            "lvcreate -m|--mirrors Number -L|--size Size VG",
+        ));
+        root.usage
+            .push(Text::sanitize("lvcreate -s|--snapshot -L|--size Size LV"));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_usage_forms_min: no root produced"]
+        );
+    }
+
+    /// `must_not_contain_flag_group_prefixes`, the group-label mirror of
+    /// `must_not_contain_flags` (docs/shapes.md S-137): a flag grouped
+    /// under an invented invocation-line heading fails, naming the
+    /// prefix; a flag grouped under the tool's own prose sentence passes;
+    /// no root, or no flag carrying a group at all, satisfies it
+    /// vacuously, the same reasoning `must_not_contain_flags` uses.
+    #[test]
+    fn must_not_contain_flag_group_prefixes_names_the_invented_heading() {
+        let contract = ContractMeta {
+            must_not_contain_flag_group_prefixes: vec!["lvcreate".into(), "Lvcreate".into()],
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("lvcreate", Provenance::single(Source::HelpText));
+        let mut flag = Entity::flag_long("mirrorlog", Provenance::single(Source::HelpText));
+        flag.group = Some("lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG".into());
+        root.entities.push(flag);
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_not_contain_flag_group_prefixes: present lvcreate"]
+        );
+
+        let mut fixed = CommandNode::new("lvcreate", Provenance::single(Source::HelpText));
+        let mut fixed_flag = Entity::flag_long("mirrorlog", Provenance::single(Source::HelpText));
+        fixed_flag.group = Some("Create a raid1 or mirror LV.".into());
+        fixed.entities.push(fixed_flag);
+        assert!(check_contract(&contract, Some(&fixed)).is_empty());
+
+        assert!(check_contract(&contract, None).is_empty());
+    }
+
+    /// `must_flag_group`, both the exact-label claim and the empty-string
+    /// "no group" claim (docs/shapes.md S-137): `--mirrorlog` must sit
+    /// under the prose sentence its own invocation form carries; a
+    /// mismatched label, or an absent flag, fails; no root fails loudly,
+    /// the same reasoning `must_describe` uses for a positive claim.
+    #[test]
+    fn must_flag_group_checks_the_exact_label_or_absence() {
+        let contract = ContractMeta {
+            must_flag_group: [
+                (
+                    "--mirrorlog".to_string(),
+                    "Create a raid1 or mirror LV.".to_string(),
+                ),
+                ("--size".to_string(), String::new()),
+            ]
+            .into_iter()
+            .collect(),
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("lvcreate", Provenance::single(Source::HelpText));
+        let mut mirrorlog = Entity::flag_long("mirrorlog", Provenance::single(Source::HelpText));
+        mirrorlog.group = Some("lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG".into());
+        root.entities.push(mirrorlog);
+        let mut size = Entity::flag_long("size", Provenance::single(Source::HelpText));
+        size.group = Some("some group".into());
+        root.entities.push(size);
+        let failures: Vec<String> = check_contract(&contract, Some(&root))
+            .iter()
+            .map(|f| f.0.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(failures.len(), 2, "{failures:?}");
+        assert!(failures[0].starts_with("must_flag_group[\"--mirrorlog\"]"));
+        assert!(failures[1].starts_with("must_flag_group[\"--size\"]"));
+
+        let mut fixed = CommandNode::new("lvcreate", Provenance::single(Source::HelpText));
+        let mut fixed_mirrorlog =
+            Entity::flag_long("mirrorlog", Provenance::single(Source::HelpText));
+        fixed_mirrorlog.group = Some("Create a raid1 or mirror LV.".into());
+        fixed.entities.push(fixed_mirrorlog);
+        fixed.entities.push(Entity::flag_long(
+            "size",
+            Provenance::single(Source::HelpText),
+        ));
+        assert!(check_contract(&contract, Some(&fixed)).is_empty());
+
+        assert_eq!(
+            check_contract(&contract, None)
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_flag_group: no root produced"]
+        );
     }
 
     /// `must_keep_separate` in both directions: two spellings that resolve

@@ -48,10 +48,12 @@ pub(crate) mod choice_value_rows_unfolded;
 pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
+pub(crate) mod description_continuation_dash_flag;
 pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
 pub(crate) mod glued_optional_group_spelling;
+pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
@@ -80,6 +82,15 @@ pub(crate) mod usage_spelling_duplicates_table_row;
 // S-132), same direct-`Detector`-impl shape as the round-5 modules above.
 pub(crate) mod trailing_bracket_group_multiword_operand;
 pub(crate) mod usage_bracket_group_multiword_value;
+
+// Round-8 family detector (issue "lvm2 invocation forms read as section
+// headings", atlas S-137), same direct-`Detector`-impl shape.
+pub(crate) mod invocation_form_head_as_flag_group;
+// Round-8 family detector (atlas S-142's two measurement halves: the
+// usage label glued to the program name, and the open-bracket
+// continuation at column zero), same direct-`Detector`-impl shape.
+pub(crate) mod usage_label_glued_to_program_name;
+pub(crate) mod usage_open_bracket_continues_at_column_zero;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -705,6 +716,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(DescriptionSubcommandsList),
         Box::new(RaggedCommandTable),
         Box::new(WrappedCommandContinuation),
+        Box::new(CommandPatternTable),
         Box::new(value_name_duplicates_choices::ValueNameDuplicatesChoices),
         Box::new(choice_value_rows_unfolded::ChoiceValueRowsUnfolded),
         Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),
@@ -712,6 +724,14 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
+        Box::new(invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup),
+        Box::new(GluedUppercaseSharedPrefix),
+        Box::new(description_continuation_dash_flag::RawContinuationShape),
+        Box::new(description_continuation_dash_flag::BareQuoteValue),
+        Box::new(usage_label_glued_to_program_name::UsageLabelGluedToProgramName),
+        Box::new(
+            usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
+        ),
     ]
 }
 
@@ -1617,6 +1637,8 @@ mod tests {
             "unparsed-command-table",
             "repeated-char-flag",
             "single-dash-long",
+            "invocation-form-head-as-flag-group",
+            "glued-uppercase-shared-prefix",
         ] {
             assert!(
                 find(name).is_ok(),

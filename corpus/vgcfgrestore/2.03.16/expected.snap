@@ -2,6 +2,7 @@ name: vgcfgrestore
 usage:
 - vgcfgrestore -f|--file String VG
 - vgcfgrestore -l|--list VG
+- vgcfgrestore -l|--list -f|--file String
 flags:
 - spellings:
   - -f

@@ -11,6 +11,7 @@ mod alternation;
 mod audit;
 mod audit_contribute;
 mod bundling;
+mod command_pattern_table;
 mod commandtable;
 mod corpus;
 mod coverage;
@@ -1231,6 +1232,11 @@ fn run_coverage(
         regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_command_pattern_reported(&previous, &fresh)?;
+
+        // `glued-uppercase-shared-prefix` (atlas S-139) is gated inside
+        // `check_round8_family_ratchets` beside S-137's own family.
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

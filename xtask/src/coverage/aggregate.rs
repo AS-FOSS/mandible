@@ -194,6 +194,13 @@ pub struct Aggregate {
     /// Fabricated subcommands from that shape, fleet-wide — one per
     /// finding.
     pub wrapped_command_flags: usize,
+    /// Tools with at least one [`crate::command_pattern_table`] finding — a
+    /// multi-word command-pattern row whose exact pattern never reaches the
+    /// tree (`unparsed-subcommand` shape F, atlas S-141).
+    pub command_pattern_tools: usize,
+    /// Real command patterns lost to that shape, fleet-wide — one per
+    /// finding.
+    pub command_pattern_flags: usize,
 }
 
 /// Compute aggregate stats over `rows`.
@@ -273,6 +280,8 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let ragged_command_flags: usize = rows.iter().map(|r| r.ragged_command_count).sum();
     let wrapped_command_tools = rows.iter().filter(|r| r.wrapped_command_count > 0).count();
     let wrapped_command_flags: usize = rows.iter().map(|r| r.wrapped_command_count).sum();
+    let command_pattern_tools = rows.iter().filter(|r| r.command_pattern_count > 0).count();
+    let command_pattern_flags: usize = rows.iter().map(|r| r.command_pattern_count).sum();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
@@ -317,6 +326,8 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
         ragged_command_flags,
         wrapped_command_tools,
         wrapped_command_flags,
+        command_pattern_tools,
+        command_pattern_flags,
     }
 }
 
@@ -379,7 +390,7 @@ pub(super) fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} ragged_command_tools={} ragged_command_flags={} wrapped_command_tools={} wrapped_command_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} ragged_command_tools={} ragged_command_flags={} wrapped_command_tools={} wrapped_command_flags={} command_pattern_tools={} command_pattern_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -408,6 +419,8 @@ pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.ragged_command_flags,
         aggregate.wrapped_command_tools,
         aggregate.wrapped_command_flags,
+        aggregate.command_pattern_tools,
+        aggregate.command_pattern_flags,
         aggregate.total,
         aggregate.described_flags,
         aggregate.describable_flags,
@@ -568,6 +581,11 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     let mut ragged_command_flags = 0usize;
     let mut wrapped_command_tools = 0usize;
     let mut wrapped_command_flags = 0usize;
+    // Same reasoning again, brand new field (this task): a scoreboard
+    // written before the command-pattern-table detector existed carries no
+    // such key.
+    let mut command_pattern_tools = 0usize;
+    let mut command_pattern_flags = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -614,6 +632,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "ragged_command_flags" => ragged_command_flags = value.parse::<usize>().ok()?,
             "wrapped_command_tools" => wrapped_command_tools = value.parse::<usize>().ok()?,
             "wrapped_command_flags" => wrapped_command_flags = value.parse::<usize>().ok()?,
+            "command_pattern_tools" => command_pattern_tools = value.parse::<usize>().ok()?,
+            "command_pattern_flags" => command_pattern_flags = value.parse::<usize>().ok()?,
             "described_flags" => described_flags = value.parse::<f64>().ok()?,
             "describable_flags" => describable_flags = value.parse::<f64>().ok()?,
             "total_flags" => total_flags = value.parse::<usize>().ok()?,
@@ -656,6 +676,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         ragged_command_flags,
         wrapped_command_tools,
         wrapped_command_flags,
+        command_pattern_tools,
+        command_pattern_flags,
     })
 }
 

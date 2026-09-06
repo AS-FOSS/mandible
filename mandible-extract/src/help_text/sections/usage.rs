@@ -210,74 +210,6 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
     Some(flag)
 }
 
-/// Fewest whitespace-separated words the line above a stanza head must
-/// carry before [`stanza_description_above`] adopts it as that stanza's
-/// label. Three, deliberately not [`MIN_PROSE_SENTENCE_WORDS`]'s five: that
-/// floor guards against claiming a two/three-word heading anywhere in the
-/// document, while this one only ever runs in the single slot between a
-/// blank line and a confirmed stanza head, where vgchange's own four-word
-/// `Activate or deactivate LVs.` is the shortest real specimen measured.
-/// See S-012.
-pub(super) const MIN_STANZA_DESCRIPTION_WORDS: usize = 3;
-
-/// The description sentence a multi-variant tool writes directly above a
-/// usage stanza's head line, when `lines[head_idx]` is such a head and the
-/// line above it is such a sentence — LVM's own one-stanza-per-form
-/// emitter:
-///
-/// ```text
-///   Start the lockspace of a shared VG in lvmlockd.
-///   vgchange --lockstart
-/// \t[ -S|--select String ]
-/// ```
-///
-/// The head must already be accepted by [`recover_stanza_head_flag`]. The
-/// line above it must: sit at the head's own column; stand alone (its own
-/// predecessor blank or absent — the anti-paragraph clause, so a
-/// hard-wrapped or trailing-paragraph sentence is refused whole rather
-/// than adopted as a fragment); end in a full stop, not an ellipsis; be a
-/// single field ([`find_multi_space_gap`]); not open with the tool's own
-/// name or with flag/usage notation; and carry at least
-/// [`MIN_STANZA_DESCRIPTION_WORDS`] words while not being an
-/// [`is_ignorable_heading`] marker. Returned verbatim, terminator
-/// included — the display layer strips it (spec §9.3). See S-012.
-pub(super) fn stanza_description_above<'a>(
-    lines: &[&'a str],
-    head_idx: usize,
-    tool_name: Option<&str>,
-) -> Option<&'a str> {
-    let name = tool_name?;
-    if head_idx == 0 {
-        return None;
-    }
-    recover_stanza_head_flag(lines[head_idx].trim(), Some(name))?;
-    if head_idx >= 2 && !lines[head_idx - 2].trim().is_empty() {
-        return None;
-    }
-    let raw = lines[head_idx - 1];
-    if leading_whitespace(raw) != leading_whitespace(lines[head_idx]) {
-        return None;
-    }
-    let text = raw.trim();
-    if text.is_empty() || !text.ends_with('.') || text.ends_with("...") {
-        return None;
-    }
-    if text.split_whitespace().count() < MIN_STANZA_DESCRIPTION_WORDS {
-        return None;
-    }
-    if find_multi_space_gap(raw).is_some() {
-        return None;
-    }
-    if starts_with_tool_name(text, name)
-        || looks_like_flag_start(text)
-        || looks_like_usage_fragment(text)
-        || is_ignorable_heading(text)
-    {
-        return None;
-    }
-    Some(text)
-}
-
 /// Pull placeholder tokens (`<value>`, bare `UPPERCASE` words not preceded
 /// by `-`) out of usage lines as positionals. Best-effort: usage-line
 /// grammar is genuinely varied (docopt-style `[OPTIONS]`, `<required>`,
@@ -2814,7 +2746,7 @@ mod tests {
         ];
         assert_eq!(
             stanza_description_above(&lines, 2, Some("vgchange")),
-            Some("Start the lockspace of a VG.")
+            Some("Start the lockspace of a VG.".to_string())
         );
         for near_miss in [
             // Not at the head's own column.
