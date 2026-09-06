@@ -22,6 +22,30 @@ impl FlagDelta<'_> {
     }
 }
 
+/// One matched tool's subcommand-count comparison, mirroring [`FlagDelta`]:
+/// gains and losses stay two separate totals, never netted (spec §13.4
+/// rule 2). Count is `nodes - 1`, so no scoreboard format change is
+/// needed. A round-8 fix once added nine invented subcommand rows and this
+/// diff's flag-only reading found zero losses.
+pub(super) struct SubcommandDelta<'a> {
+    pub(super) tool: &'a str,
+    pub(super) before: usize,
+    pub(super) after: usize,
+}
+
+impl SubcommandDelta<'_> {
+    pub(super) fn delta(&self) -> i64 {
+        self.after as i64 - self.before as i64
+    }
+}
+
+/// `ParsedRow::nodes` counts the root plus every subcommand
+/// (`count_nodes`'s own doc comment); subtract the root to read a per-tool
+/// subcommand count off a column every scoreboard already carries.
+fn subcommand_count(row: &super::ParsedRow) -> usize {
+    row.nodes.saturating_sub(1)
+}
+
 /// One matched tool's status change.
 pub(super) struct StatusTransition<'a> {
     pub(super) tool: &'a str,
@@ -87,6 +111,12 @@ pub struct Transition<'a> {
     pub(super) status_transitions: Vec<StatusTransition<'a>>,
     pub(super) flag_gains: Vec<FlagDelta<'a>>,
     pub(super) flag_losses: Vec<FlagDelta<'a>>,
+    /// Subcommand-count gains and losses, reported the same way flags are:
+    /// two separate totals, never netted (spec §13.4 rule 2). See
+    /// [`SubcommandDelta`]'s doc comment for why this column needed no
+    /// scoreboard format change.
+    pub(super) subcommand_gains: Vec<SubcommandDelta<'a>>,
+    pub(super) subcommand_losses: Vec<SubcommandDelta<'a>>,
     /// Per-tool field-level diffs — only tools with at least one change
     /// ([`FieldDiff::is_empty`] false), sorted by tool name. Empty (not
     /// absent) when neither side's scoreboard carries a `#fp` footer at
@@ -118,6 +148,8 @@ impl Transition<'_> {
             && self.status_transitions.is_empty()
             && self.flag_gains.is_empty()
             && self.flag_losses.is_empty()
+            && self.subcommand_gains.is_empty()
+            && self.subcommand_losses.is_empty()
             && self.field_diffs.is_empty()
     }
 }
@@ -138,6 +170,8 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     let mut status_transitions = Vec::new();
     let mut flag_gains = Vec::new();
     let mut flag_losses = Vec::new();
+    let mut subcommand_gains = Vec::new();
+    let mut subcommand_losses = Vec::new();
     let mut field_diffs = Vec::new();
     let mut field_diff_unmeasured = 0usize;
 
@@ -167,6 +201,21 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
                 flag_gains.push(d);
             } else {
                 flag_losses.push(d);
+            }
+        }
+
+        let before_subs = subcommand_count(before_row);
+        let after_subs = subcommand_count(after_row);
+        if before_subs != after_subs {
+            let d = SubcommandDelta {
+                tool,
+                before: before_subs,
+                after: after_subs,
+            };
+            if d.delta() > 0 {
+                subcommand_gains.push(d);
+            } else {
+                subcommand_losses.push(d);
             }
         }
 
@@ -241,6 +290,8 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     // the most is the one worth looking at first.
     flag_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
     flag_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
+    subcommand_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
+    subcommand_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
     status_transitions.sort_by_key(|t| t.tool.to_string());
     field_diffs.sort_by_key(|d| d.tool.to_string());
 
@@ -253,6 +304,8 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         status_transitions,
         flag_gains,
         flag_losses,
+        subcommand_gains,
+        subcommand_losses,
         field_diffs,
         field_diff_unmeasured,
     }

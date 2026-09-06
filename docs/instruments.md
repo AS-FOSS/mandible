@@ -30,8 +30,11 @@ own lifecycle rules, never because the tool it names became inconvenient.
 ## SweepDiff (`xtask sweep-diff`)
 
 SweepDiff compares two rendered coverage scoreboards and reports which
-tools gained or lost flags, and which changed parse status, without
-netting gains against losses. It answers "which specific tools did this
+tools gained or lost flags, which gained or lost subcommands, and which
+changed parse status, without netting gains against losses. A subcommand
+gain is named, never scored: it can be a real recovery or an invented row,
+and only a human reading the rendered screen can tell which. It answers
+"which specific tools did this
 change touch", the question the fleet-wide aggregate cannot answer
 because a four-tool regression moves it by hundredths of a percent. It
 ships as a non-blocking report by maintainer decision. It retires as a
