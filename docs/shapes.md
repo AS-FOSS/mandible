@@ -2490,3 +2490,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
   below the five-tool floor a fix must clear. Not shipped; the fixture
   stays xfail with the count in its reason.
+
+### S-140: a description continuation line that begins with a dash
+
+- id: S-140
+- looks like: |
+      get <JAIL> banip [<SEP>|--with-time]     gets the list of of banned IP
+                                               addresses for <JAIL>. Optionally
+                                               the separator character ('<SEP>',
+                                               default is space) or the option '
+                                               --with-time' (printing the times
+- tools: fail2ban-client
+- handling: Open. A command-table row's own wrapped description continues five lines
+  down onto a physical line that opens, at the row's description column, with
+  a dash-led token. The generic layout engine's heading fallback reads that
+  continuation as a fresh flag row and promotes the row above it into the
+  fabricated flag's group. `description-continuation-dash-flag-shape`
+  (raw structural signal) and `description-continuation-dash-flag-value`
+  (the fabricated flag's own bare-quote value) measure the two halves
+  separately.
+- fleet: shape detector fires on 73 tools/283 findings on a full-`PATH`
+  sweep, 2026-09-06; a candidate fix's own sweep-diff gained only
+  fail2ban-client's one fabricated flag and lost 39 real flags across 23
+  other tools, so the shape signal alone overclaims. The tree-artifact
+  count, read from that same sweep-diff, is 1 tool. Both are below the
+  five-tool floor. Not shipped; the fixture stays xfail with the counts
+  in its reason.

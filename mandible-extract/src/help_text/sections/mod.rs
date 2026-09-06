@@ -844,16 +844,6 @@ fn emit_heading_block(
     let heading_indent = h.heading_indent;
     let heading_idx = h.heading_idx;
 
-    // The candidate heading line already carries its own description
-    // column — it is a two-column entry (a flag or command-table row),
-    // not a section label, and its "more-indented content" is that row's
-    // own wrapped description continuing, never a fresh flags block.
-    // Mirrors the same-named guard in `emit_flush_heading` (S-092); here
-    // it stops a continuation line that happens to open with a dash
-    // (`fail2ban-client`'s `--with-time'`) from being read as a flag row
-    // with the row above promoted into its group. See S-140.
-    let heading_is_itself_a_row = find_description_gap(lines[heading_idx]).is_some();
-
     // Reaching here means genuinely more-indented content follows this
     // heading — LVM's own stanza shape, a head line naming a
     // mode-selecting flag followed by that mode's rows. Recovering
@@ -1008,10 +998,7 @@ fn emit_heading_block(
     // just the *first*: some tools document a positional at the top of
     // their options table, and keying the whole decision off row one
     // threw the rest of the block away. See `flags_block_start`.
-    let flags_start_candidate = (!heading_is_itself_a_row)
-        .then(|| flags_block_start(lines, i))
-        .flatten();
-    if let Some(flags_start) = flags_start_candidate {
+    if let Some(flags_start) = flags_block_start(lines, i) {
         // `flags_start` — never `heading_idx` — is the evidence: see
         // `split_shared_heading_rows`'s doc comment for why the BNF
         // fact is keyed on the row rather than the heading beside it.
@@ -1677,54 +1664,6 @@ fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: boo
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // --- S-140: a description continuation line beginning with a dash ---
-
-    /// `fail2ban-client --help`'s own shape, trimmed to the one offending
-    /// row: a command-table entry whose description wraps across several
-    /// lines, one of which opens with a dash-quoted flag mention
-    /// (`--with-time'`). The row above must never become a flag named
-    /// `--with-time`, and its own text must never become a flag group.
-    const F2B_BANIP_ROW: &str = "\
-Commands:
-
-    get <JAIL> banip [<SEP>|--with-time]     gets the list of of banned IP
-                                             addresses for <JAIL>. Optionally
-                                             the separator character ('<SEP>',
-                                             default is space) or the option '
-                                             --with-time' (printing the times
-                                             of ban) may be specified. The IPs
-                                             are ordered by end of ban.
-    get <JAIL> maxretry                      gets the number of failures
-                                             allowed for <JAIL>
-";
-
-    #[test]
-    fn a_dash_led_description_continuation_never_becomes_a_flag() {
-        let parsed = parse(F2B_BANIP_ROW);
-        assert!(
-            !parsed.flags.iter().any(|f| f.long() == Some("with-time")),
-            "the wrapped continuation `--with-time'` must never surface as a flag: {:?}",
-            parsed
-                .flags
-                .iter()
-                .map(|f| f.spelling())
-                .collect::<Vec<_>>()
-        );
-        assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.group.as_deref().is_some_and(|g| g.contains("banip"))),
-            "the command row above the continuation must never be promoted into a flag group: \
-             {:?}",
-            parsed
-                .flags
-                .iter()
-                .map(|f| f.group.clone())
-                .collect::<Vec<_>>()
-        );
-    }
 
     // --- compute_confidence's one-row-sample fallback -------------------
 
