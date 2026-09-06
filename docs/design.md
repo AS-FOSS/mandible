@@ -2807,6 +2807,16 @@ command table and inventing two commands from wrapped text. Both
 families are ratcheted at zero fleet-wide the same way a repaired family
 above the bar is.
 
+**The glued interior-uppercase repair ships below the five-tool bar
+(2026-09-06).** `shares_lowercase_prefix_with_sibling` (docs/shapes.md
+S-139) moves two tools, mksquashfs and sqfstar, ten flags each, with zero
+losses on a full-`PATH` sweep. It ships as a recorded exception on the
+same grounds the ragged-command-table fix did. The maintainer named the
+defect from a rendered screen, where ten rows read `-n` valued `oI`
+instead of `-noI`. The gcc and clang glued-value convention stays
+byte-identical, which is the whole safety argument for the
+discriminator.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until

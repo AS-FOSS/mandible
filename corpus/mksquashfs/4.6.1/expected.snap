@@ -1,0 +1,657 @@
+name: mksquashfs
+description: SYNTAX:mksquashfs source1 source2 ... FILESYSTEM [OPTIONS] [-e list of exclude dirs/files]
+flags:
+- spellings:
+  - -b
+  value_name: <block_size>
+  value_kind: Required
+  description: set data block to <block_size>. Default 128 Kbytes. Optionally a suffix of K or M can be given to specify Kbytes or Mbytes respectively
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -comp
+  description: 'select <comp> compression Compressors available: gzip (default) lzo lz4 xz zstd lzma'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noI
+  description: do not compress inode table
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noId
+  description: do not compress the uid/gid table (implied by -noI)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noD
+  description: do not compress data blocks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noF
+  description: do not compress fragment blocks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noX
+  description: do not compress extended attributes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-compression
+  description: do not compress any of the data or metadata. This is equivalent to specifying -noI -noD -noF and -noX
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -tar
+  description: read uncompressed tar file from standard in (stdin)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-strip
+  description: act like tar, and do not strip leading directories from source files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -tarstyle
+  description: alternative name for -no-strip
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cpiostyle
+  description: act like cpio, and read file pathnames from standard in (stdin)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cpiostyle0
+  description: like -cpiostyle, but filenames are null terminated. Can be used with find -print0 action
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -reproducible
+  description: build filesystems that are reproducible (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -not-reproducible
+  description: build filesystems that are not reproducible
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mkfs-time
+  description: set filesystem creation timestamp to <time>. <time> can be an unsigned 32-bit int indicating seconds since the epoch (1970-01-01) or a string value which is passed to the "date" command to parse. Any string value which the date command recognises can be used such as "now", "last week", or "Wed Feb 15 21:02:39 GMT 2023"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -all-time
+  description: set all file timestamps to <time>. <time> can be an unsigned 32-bit int indicating seconds since the epoch (1970-01-01) or a string value which is passed to the "date" command to parse. Any string value which the date command recognises can be used such as "now", "last week", or "Wed Feb 15 21:02:39 GMT 2023"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -root-time
+  description: set root directory time to <time>. <time> can be an unsigned 32-bit int indicating seconds since the epoch (1970-01-01) or a string value which is passed to the "date" command to parse. Any string value which the date command recognises can be used such as "now", "last week", or "Wed Feb 15 21:02:39 GMT 2023"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -root-mode
+  description: set root directory permissions to octal <mode>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -root-uid
+  description: set root directory owner to specified <value>, <value> can be either an integer uid or user name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -root-gid
+  description: set root directory group to specified <value>, <value> can be either an integer gid or group name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -all-root
+  description: make all files owned by root
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -force-uid
+  description: set all file uids to specified <value>, <value> can be either an integer uid or user name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -force-gid
+  description: set all file gids to specified <value>, <value> can be either an integer gid or group name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -pseudo-override
+  description: make pseudo file uids and gids override -all-root, -force-uid and -force-gid options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-exports
+  description: do not make filesystem exportable via NFS (-tar default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -exports
+  description: make filesystem exportable via NFS (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-sparse
+  description: do not detect sparse files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-tailends
+  description: do not pack tail ends into fragments (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -tailends
+  description: pack tail ends into fragments
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-fragments
+  description: do not use fragments
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-duplicates
+  description: do not perform duplicate checking
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-hardlinks
+  description: do not hardlink files, instead store duplicates
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -keep-as-directory
+  description: if one source directory is specified, create a root directory containing that directory, rather than the contents of the directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: <pseudo-definition>
+  value_kind: Required
+  description: add pseudo file definition. The definition should be quoted
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: f
+  value_kind: Required
+  description: add list of pseudo file definitions from <pseudo-file>, use - for stdin. Pseudo file definitions should not be quoted
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sort
+  description: sort files according to priorities in <sort_file>. One file or dir with priority per line. Priority -32768 to 32767, default priority 0
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  value_name: f
+  value_kind: Required
+  description: list of exclude dirs/files. One per line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -wildcards
+  description: allow extended shell wildcards (globbing) to be used in exclude dirs/files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -regex
+  description: allow POSIX regular expressions to be used in exclude dirs/files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -max-depth
+  description: descend at most <levels> of directories when scanning filesystem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -one-file-system
+  description: do not cross filesystem boundaries. If a directory crosses the boundary, create an empty directory for each mount point. If a file crosses the boundary ignore it
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -one-file-system-x
+  description: do not cross filesystem boundaries. Like -one-file-system option except directories are also ignored if they cross the boundary
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-xattrs
+  description: do not store extended attributes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xattrs
+  description: store extended attributes (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xattrs-exclude
+  description: exclude any xattr names matching <regex>. <regex> is a POSIX regular expression, e.g. -xattrs-exclude '^user.' excludes xattrs from the user namespace
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xattrs-include
+  description: include any xattr names matching <regex>. <regex> is a POSIX regular expression, e.g. -xattrs-include '^user.' includes xattrs from the user namespace
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xattrs-add
+  description: add the xattr <name> with <val> to files. If an user xattr it will be added to regular files and directories (see man 7 xattr). Otherwise it will be added to all files. <val> by default will be treated as binary (i.e. an uninterpreted byte sequence), but it can be prefixed with 0s, where it will be treated as base64 encoded, or prefixed with 0x, where val will be treated as hexidecimal. Additionally it can be prefixed with 0t where this encoding is similar to binary encoding, except backslashes are specially treated, and a backslash followed by 3 octal digits can be used to encode any ASCII character, which obviously can be used to encode control codes. The option can be repeated multiple times to add multiple xattrs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -version
+  description: print version, licence and copyright message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -exit-on-error
+  description: treat normally ignored errors as fatal
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -quiet
+  description: no verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -info
+  description: print files written to filesystem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-progress
+  description: do not display the progress bar
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -progress
+  description: display progress bar when using the -info option
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -percentage
+  description: display a percentage rather than the full progress bar. Can be used with dialog --gauge etc.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -throttle
+  description: throttle the I/O input rate by the given percentage. This can be used to reduce the I/O and CPU consumption of Mksquashfs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -limit
+  description: limit the I/O input rate to the given percentage. This can be used to reduce the I/O and CPU consumption of Mksquashfs (alternative to -throttle)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -processors
+  description: use <number> processors. By default will use number of processors available
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mem
+  description: use <size> physical memory for caches. Use K, M or G to specify Kbytes, Mbytes or Gbytes respectively
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mem-percent
+  description: use <percent> physical memory for caches. Default 25%
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mem-default
+  description: print default memory usage in Mbytes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noappend
+  description: do not append to existing filesystem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -root-becomes
+  description: when appending source files/directories, make the original root become a subdirectory in the new root called <name>, rather than adding the new source items to the original root
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -no-recovery
+  description: do not generate a recovery file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -recovery-path
+  description: use <name> as the directory to store the recovery file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -recover
+  description: recover filesystem data using recovery file <name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -action
+  description: evaluate <expr> on every file, and execute <action> if it returns TRUE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -log-action
+  description: as above, but log expression evaluation results and actions performed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -true-action
+  description: as above, but only log expressions which return TRUE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -false-action
+  description: as above, but only log expressions which return FALSE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -action-file
+  description: as action, but read actions from <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -log-action-file
+  description: as -log-action, but read actions from <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -true-action-file
+  description: as -true-action, but read actions from <f>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -false-action-file
+  description: as -false-action, but read actions from <f>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -default-mode
+  description: tar files often do not store permissions for intermediate directories. This option sets the default directory permissions to octal <mode>, rather than 0755. This also sets the root inode mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -default-uid
+  description: tar files often do not store uids for intermediate directories. This option sets the default directory owner to <uid>, rather than the user running Mksquashfs. This also sets the root inode uid
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -default-gid
+  description: tar files often do not store gids for intermediate directories. This option sets the default directory group to <gid>, rather than the group of the user running Mksquashfs. This also sets the root inode gid
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ignore-zeros
+  description: allow tar files to be concatenated together and fed to Mksquashfs. Normally a tarfile has two consecutive 512 byte blocks filled with zeros which means EOF and Mksquashfs will stop reading after the first tar file on encountering them. This option makes Mksquashfs ignore the zero filled blocks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nopad
+  description: do not pad filesystem to a multiple of 4K
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -offset
+  description: skip <offset> bytes at the beginning of FILESYSTEM. Optionally a suffix of K, M or G can be given to specify Kbytes, Mbytes or Gbytes respectively. Default 0 bytes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: <offset>
+  value_kind: Required
+  description: synonym for -offset
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fstime
+  description: alternative name for -mkfs-time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -always-use-fragments
+  description: alternative name for -tailends
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -root-owned
+  description: alternative name for -all-root
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noInodeCompression
+  description: alternative name for -noI
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noIdTableCompression
+  description: alternative name for -noId
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noDataCompression
+  description: alternative name for -noD
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noFragmentCompression
+  description: alternative name for -noF
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noXattrCompression
+  description: alternative name for -noX
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -help
+  description: output this options text to stdout
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  description: output this options text to stdout
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  value_name: help
+  value_kind: Required
+  description: print compressor options for selected compressor
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Xcompression-level
+  value_name: <compression-level>
+  value_kind: Required
+  description: <compression-level> should be 1 .. 9 (default 9)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Xwindow-size
+  value_name: <window-size>
+  value_kind: Required
+  description: <window-size> should be 8 .. 15 (default 15)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  value_name: strategy
+  value_kind: Required
+  description: 'Compress using strategy1,strategy2,...,strategyN in turn and choose the best compression. Available strategies: default, filtered, huffman_only, run_length_encoded and fixed'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Xalgorithm
+  value_name: <algorithm>
+  value_kind: Required
+  group: lzo
+  description: 'Where <algorithm> is one of: lzo1x_1 lzo1x_1_11 lzo1x_1_12 lzo1x_1_15 lzo1x_999 (default)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Xcompression-level
+  value_name: <compression-level>
+  value_kind: Required
+  group: lzo
+  description: <compression-level> should be 1 .. 9 (default 8) Only applies to lzo1x_999 algorithm
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  value_name: hc
+  value_kind: Required
+  group: lz4
+  description: Compress using LZ4 High Compression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  value_name: bcj
+  value_kind: Required
+  group: xz
+  description: 'Compress using filter1,filter2,...,filterN in turn (in addition to no filter), and choose the best compression. Available filters: x86, arm, armthumb, powerpc, sparc, ia64'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Xdict-size
+  value_name: <dict-size>
+  value_kind: Required
+  group: xz
+  description: Use <dict-size> as the XZ dictionary size. The dictionary size can be specified as a percentage of the block size, or as an absolute value. The dictionary size must be less than or equal to the block size and 8192 bytes or larger. It must also be storable in the xz header as either 2^n or as 2^n+2^(n+1). Example dict-sizes are 75%, 50%, 37.5%, 25%, or 32K, 16K, 8K etc.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Xcompression-level
+  value_name: <compression-level>
+  value_kind: Required
+  group: zstd
+  description: <compression-level> should be 1 .. 22 (default 15)
+  provenance:
+    sources:
+    - help-text
+env_vars:
+- name: SOURCE_DATE_EPOCH
+  group: 'Environment:'
+  description: If set, this is used as the filesystem creation timestamp. Also any file timestamps which are after SOURCE_DATE_EPOCH will be clamped to SOURCE_DATE_EPOCH. See https://reproducible-builds.org/docs/source-date-epoch/ for more information
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
