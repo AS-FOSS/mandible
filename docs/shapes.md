@@ -2277,9 +2277,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   sweep-diff: 43 tools show a `value_name`-only field change, 0 flags lost,
   0 flags gained.
 
-### S-131: one option's literal choices, one row per value, never folded
+### S-133: one option's literal choices, one row per value, never folded
 
-- id: S-131
+- id: S-133
 - looks like: |
       -tl or --type l   output for little-endian/ASCII charset family
       -tb or --type b   output for big-endian/ASCII charset family
@@ -2308,9 +2308,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   family alone: 1 tool, below the five-tool bar. Ship nothing; the
   fixture stays `[xfail]`.
 
-### S-132: value-free `or`-joined alias, one-space description gap
+### S-134: value-free `or`-joined alias, one-space description gap
 
-- id: S-132
+- id: S-134
 - looks like: |
       -c or --copyright include the ICU copyright notice
 - tools: icupkg

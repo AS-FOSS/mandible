@@ -477,7 +477,7 @@ fn vim_family_counts(
     counts
 }
 
-/// The round-7 family detectors, atlas S-130 to S-132: `pvdisplay`'s
+/// Three round-7 family detectors, atlas S-130, S-133 and S-134: `pvdisplay`'s
 /// duplicated placeholder and `icupkg`'s two unfixed `or`-joined row
 /// shapes, split out for the same line-count reason
 /// [`round6_block_family_counts`] is.

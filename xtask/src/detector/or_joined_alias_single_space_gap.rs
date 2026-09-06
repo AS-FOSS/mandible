@@ -1,4 +1,4 @@
-//! `or-joined-alias-single-space-gap` (atlas S-132): `icupkg`'s own `-c or
+//! `or-joined-alias-single-space-gap` (atlas S-134): `icupkg`'s own `-c or
 //! --copyright include the ICU copyright notice` row joins two
 //! value-free spellings with the word `or`, same as `crate::or_joined_alias`
 //! (S-099) already reads, but its description starts only one space after

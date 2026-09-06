@@ -1,4 +1,4 @@
-//! `choice-value-rows-unfolded` (atlas S-131): `icupkg`'s own `-tl or
+//! `choice-value-rows-unfolded` (atlas S-133): `icupkg`'s own `-tl or
 //! --type l`, `-tb or --type b`, `-te or --type e` rows are one option
 //! with three literal choice values, each carrying its own description —
 //! but the tree carries them as three separate entities, all spelled
