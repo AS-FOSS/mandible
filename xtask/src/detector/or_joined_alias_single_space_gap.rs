@@ -1,17 +1,12 @@
-//! `or-joined-alias-single-space-gap` (atlas S-134): `icupkg`'s own `-c or
-//! --copyright include the ICU copyright notice` row joins two
-//! value-free spellings with the word `or`, same as `crate::or_joined_alias`
-//! (S-099) already reads, but its description starts only one space after
-//! `--copyright`, not the two-space or tab gap `or_alias_ends_the_spec`
-//! requires before it will treat the row as fully joined. The short
-//! spelling keeps the literal word `or` as a fabricated value name and
-//! `--copyright` reaches nothing. Distinct from `or-joined-alias-with-values`
-//! (S-110), which covers a value on at least one spelling; here neither
-//! side carries one.
+//! `or-joined-alias-single-space-gap` (atlas S-134): a row joins two
+//! value-free spellings with the word `or` and starts its description one
+//! space after the long spelling, so the short spelling keeps `or` as a
+//! fabricated value and the long one reaches nothing. `or_joined_alias`
+//! (S-099) needs a two-space or tab gap before it reads the row as
+//! joined. Fixture: `corpus/icupkg/74.2`.
 //!
 //! No seed-2/4/5/6 labelled tool carries this shape, so
 //! [`Detector::family`] returns `None`.
-
 use crate::detector::{Detector, Expect, SelfCheck, ToolEvidence};
 use mandible_core::CommandNode;
 
@@ -36,21 +31,12 @@ struct Row {
     long: String,
 }
 
-/// `<short> or <long>` (no value on either side), an indented row, with
-/// the description starting exactly one space after `<long>` — not the
-/// two-space (or tab) column gap that would already let
-/// `or_alias_ends_the_spec` treat the row as fully joined.
-///
-/// Two guards keep this from matching shapes that only superficially
-/// resemble it, found by running an early, looser version fleet-wide:
-/// `tokens[2]` must be a genuine double-dash long spelling, never a
-/// second short flag in a three-way `or` chain (`-h or -? or --help`,
-/// already S-099's own chained shape, wrongly read `-?` as "the long
-/// spelling" and reported a false break every time); and the first word
-/// of the description must be a bare lowercase word, never a value token
-/// (`-m or --match-arch file.o  match the architecture...` carries a
-/// value on the long spelling, `crate::or_joined_alias_with_values`'s own
-/// territory, not this value-free shape).
+/// `<short> or <long>` with no value on either side, indented, the
+/// description one space after `<long>`. Two guards, both taken from a
+/// looser version measured fleet-wide: the long token carries two dashes,
+/// which keeps the three-way `-h or -? or --help` chain (S-099) out, and
+/// the description's first word is bare lowercase, which keeps a valued
+/// row (S-110) out. Fixture: `corpus/icupkg/74.2`.
 fn parse_row(line: &str) -> Option<Row> {
     let trimmed = line.trim_start();
     if trimmed.is_empty() || trimmed == line {
