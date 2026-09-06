@@ -10,6 +10,7 @@ mod aggregate;
 mod fingerprint;
 mod render_markdown;
 mod render_text;
+mod round8_family_counts;
 mod score;
 
 use aggregate::compute_aggregate;

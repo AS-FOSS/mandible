@@ -52,7 +52,7 @@ const SPLIT_SAMPLES_PER_ROW: usize = 3;
 /// Cap on how many of one tool's own [`crate::wrapped_prose`] fabrications
 /// or [`crate::tail_operand`] findings feed their fleet-wide sample
 /// sections — mirrors [`SPLIT_SAMPLES_PER_ROW`].
-const FAMILY_DETECTOR_SAMPLES_PER_ROW: usize = 3;
+pub(super) const FAMILY_DETECTOR_SAMPLES_PER_ROW: usize = 3;
 
 pub(super) fn score_one(tool: &str) -> Row {
     let start = Instant::now();
@@ -487,6 +487,9 @@ fn vim_family_counts(
     counts.extend(round6_block_family_counts(&raw, root));
     counts.extend(round7_family_counts(&raw, root));
     counts.extend(round7_usage_family_counts(&raw, root));
+    counts.extend(super::round8_family_counts::round8_usage_family_counts(
+        &raw, root,
+    ));
     counts
 }
 

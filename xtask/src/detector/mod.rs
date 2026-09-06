@@ -81,6 +81,12 @@ pub(crate) mod usage_spelling_duplicates_table_row;
 pub(crate) mod trailing_bracket_group_multiword_operand;
 pub(crate) mod usage_bracket_group_multiword_value;
 
+// Round-8 family detector (atlas S-142's two measurement halves: the
+// usage label glued to the program name, and the open-bracket
+// continuation at column zero), same direct-`Detector`-impl shape.
+pub(crate) mod usage_label_glued_to_program_name;
+pub(crate) mod usage_open_bracket_continues_at_column_zero;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -712,6 +718,10 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
+        Box::new(usage_label_glued_to_program_name::UsageLabelGluedToProgramName),
+        Box::new(
+            usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
+        ),
     ]
 }
 
