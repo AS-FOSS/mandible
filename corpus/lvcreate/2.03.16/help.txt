@@ -1,0 +1,240 @@
+  lvcreate - Create a logical volume
+
+  Create a linear LV.
+  lvcreate -L|--size Size[m|UNIT] VG
+	[ --type linear ] (implied)
+	[ -l|--extents Number[PERCENT] ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a striped LV.
+  lvcreate -i|--stripes Number -L|--size Size[m|UNIT] VG
+	[ --type striped ] (implied)
+	[ -l|--extents Number[PERCENT] ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a raid1 or mirror LV.
+  lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG
+	[ --type raid1|mirror ] (implied)
+	[ -l|--extents Number[PERCENT] ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -R|--regionsize Size[m|UNIT] ]
+	[    --mirrorlog core|disk ]
+	[    --minrecoveryrate Size[k|UNIT] ]
+	[    --maxrecoveryrate Size[k|UNIT] ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a raid LV (a specific raid level must be used, e.g. raid1).
+  lvcreate --type raid -L|--size Size[m|UNIT] VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -m|--mirrors Number ]
+	[ -R|--regionsize Size[m|UNIT] ]
+	[    --minrecoveryrate Size[k|UNIT] ]
+	[    --maxrecoveryrate Size[k|UNIT] ]
+	[    --raidintegrity y|n ]
+	[    --raidintegritymode String ]
+	[    --raidintegrityblocksize Number ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a raid10 LV.
+  lvcreate -m|--mirrors Number -i|--stripes Number -L|--size Size[m|UNIT] VG
+	[ --type raid10 ] (implied)
+	[ -l|--extents Number[PERCENT] ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -R|--regionsize Size[m|UNIT] ]
+	[    --minrecoveryrate Size[k|UNIT] ]
+	[    --maxrecoveryrate Size[k|UNIT] ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a COW snapshot LV of an origin LV.
+  lvcreate -s|--snapshot -L|--size Size[m|UNIT] LV
+	[ --type snapshot ] (implied)
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -c|--chunksize Size[k|UNIT] ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a thin pool.
+  lvcreate --type thin-pool -L|--size Size[m|UNIT] VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -T|--thin ]
+	[ -c|--chunksize Size[k|UNIT] ]
+	[    --thinpool LV_new ]
+	[    --discards passdown|nopassdown|ignore ]
+	[    --errorwhenfull y|n ]
+	[    --poolmetadatasize Size[m|UNIT] ]
+	[    --poolmetadataspare y|n ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a cache pool.
+  lvcreate --type cache-pool -L|--size Size[m|UNIT] VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -H|--cache ]
+	[ -c|--chunksize Size[k|UNIT] ]
+	[    --cachemode writethrough|writeback|passthrough ]
+	[    --cachepolicy String ]
+	[    --cachesettings String ]
+	[    --cachemetadataformat auto|1|2 ]
+	[    --poolmetadatasize Size[m|UNIT] ]
+	[    --poolmetadataspare y|n ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a thin LV in a thin pool.
+  lvcreate -V|--virtualsize Size[m|UNIT] --thinpool LV VG
+	[ --type thin ] (implied)
+	[ -T|--thin ]
+	[ COMMON_OPTIONS ]
+
+  Create a thin LV that is a snapshot of an existing thin LV.
+  lvcreate -s|--snapshot LV
+	[ --type thin ] (implied)
+	[ COMMON_OPTIONS ]
+
+  Create a thin LV that is a snapshot of an external origin LV.
+  lvcreate --type thin --thinpool LV LV
+	[ -T|--thin ]
+	[ COMMON_OPTIONS ]
+
+  Create a LV that returns VDO when used.
+  lvcreate --type vdo -L|--size Size[m|UNIT] VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -V|--virtualsize Size[m|UNIT] ]
+	[    --vdo ]
+	[    --vdopool LV_new ]
+	[    --compression y|n ]
+	[    --deduplication y|n ]
+	[    --vdosettings String ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a new LV, then attach the specified cachepool 
+  which converts the new LV to type cache.
+  lvcreate --type cache -L|--size Size[m|UNIT] --cachepool LV VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -H|--cache ]
+	[ -c|--chunksize Size[k|UNIT] ]
+	[    --cachemode writethrough|writeback|passthrough ]
+	[    --cachepolicy String ]
+	[    --cachesettings String ]
+	[    --cachemetadataformat auto|1|2 ]
+	[    --poolmetadatasize Size[m|UNIT] ]
+	[    --poolmetadataspare y|n ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a new LV, then attach the specified cachevol 
+  which converts the new LV to type cache.
+  lvcreate --type cache -L|--size Size[m|UNIT] --cachevol LV VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -c|--chunksize Size[k|UNIT] ]
+	[    --cachemode writethrough|writeback|passthrough ]
+	[    --cachepolicy String ]
+	[    --cachesettings String ]
+	[    --cachemetadataformat auto|1|2 ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a new LV, then attach a cachevol created from 
+  the specified cache device, which converts the 
+  new LV to type cache.
+  lvcreate --type cache -L|--size Size[m|UNIT] --cachedevice PV VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[ -c|--chunksize Size[k|UNIT] ]
+	[    --cachesize Size[m|UNIT] ]
+	[    --cachemode writethrough|writeback|passthrough ]
+	[    --cachepolicy String ]
+	[    --cachesettings String ]
+	[    --cachemetadataformat auto|1|2 ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a new LV, then attach the specified cachevol 
+  which converts the new LV to type writecache.
+  lvcreate --type writecache -L|--size Size[m|UNIT] --cachevol LV VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[    --cachesettings String ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Create a new LV, then attach a cachevol created from 
+  the specified cache device, which converts the 
+  new LV to type writecache.
+  lvcreate --type writecache -L|--size Size[m|UNIT] --cachedevice PV VG
+	[ -l|--extents Number[PERCENT] ]
+	[ -i|--stripes Number ]
+	[ -I|--stripesize Size[k|UNIT] ]
+	[    --cachesize Size[m|UNIT] ]
+	[    --cachesettings String ]
+	[ COMMON_OPTIONS ]
+	[ PV ... ]
+
+  Common options for command:
+	[ -a|--activate y|n|ay ]
+	[ -A|--autobackup y|n ]
+	[ -C|--contiguous y|n ]
+	[ -M|--persistent y|n ]
+	[ -j|--major Number ]
+	[ -k|--setactivationskip y|n ]
+	[ -K|--ignoreactivationskip ]
+	[ -n|--name String ]
+	[ -p|--permission rw|r ]
+	[ -r|--readahead auto|none|Number ]
+	[ -W|--wipesignatures y|n ]
+	[ -Z|--zero y|n ]
+	[    --addtag Tag ]
+	[    --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit ]
+	[    --setautoactivation y|n ]
+	[    --ignoremonitoring ]
+	[    --metadataprofile String ]
+	[    --minor Number ]
+	[    --monitor y|n ]
+	[    --nosync ]
+	[    --noudevsync ]
+	[    --reportformat basic|json ]
+
+  Common options for lvm:
+	[ -d|--debug ]
+	[ -h|--help ]
+	[ -q|--quiet ]
+	[ -v|--verbose ]
+	[ -y|--yes ]
+	[ -t|--test ]
+	[    --commandprofile String ]
+	[    --config String ]
+	[    --driverloaded y|n ]
+	[    --nolocking ]
+	[    --lockopt String ]
+	[    --longhelp ]
+	[    --profile String ]
+	[    --version ]
+	[    --devicesfile String ]
+	[    --devices PV ]
+	[    --nohints ]
+	[    --journal String ]
+
+  Use --longhelp to show all options and advanced commands.
