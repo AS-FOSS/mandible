@@ -18,9 +18,18 @@
 # (`placeholder_only_context_with_a_bare_required_tail_gains_no_positional`)
 # as a deliberate refusal: a lone placeholder ahead of a bare required
 # tail reads as easily as "provide a subcommand" as "provide an operand",
-# and the rule stays silent rather than guess. This is not a new defect;
-# it is the same known ambiguity, already correctly declined, so no fix
-# applies here.
+# and the rule stays silent rather than guess.
+#
+# Open (round 7, atlas S-137): `file1 [file2 ...]` is narrower than the
+# declined ambiguity above. The second name is the first's own name with
+# the next integer, bracketed and ellipsis-marked — numbering the bare
+# tail otherwise lacks. `numbered-variadic-usage-tail`
+# (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads that
+# numbering and would collapse the pair into one variadic positional,
+# `file`. Measured fleet-wide at only 3 tools (apt-extracttemplates,
+# apt-mark, apt-sortpkgs) on a full-`PATH` sweep, below the five-tool
+# floor a fix must clear, so it stays unfixed and this fixture stays
+# xfail.
 
 [bless]
 provenance = "agent"
@@ -42,4 +51,4 @@ must_contain_positionals = ["file..."]
 
 [xfail]
 broken = true
-reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names one variadic positional, file..., but the parsed tree has no POSITIONALS section at all"
+reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names one variadic positional, file..., but the parsed tree has no POSITIONALS section at all; numbered-variadic-usage-tail measures 3 tools fleet-wide, below the five-tool floor"

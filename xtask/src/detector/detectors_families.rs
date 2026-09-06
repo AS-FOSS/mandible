@@ -679,3 +679,64 @@ impl Detector for DescriptionSubcommandsList {
         super::description_subcommands_list::self_checks()
     }
 }
+
+// Round-7 detectors, atlas ids S-136 and S-137. Neither shape has a
+// labelled seed-2 entry — both were found from the maintainer's later,
+// seed-7 fixture passes (`corpus/makeconv/6.2`, `corpus/apt-sortpkgs/2.8.3`)
+// — so both return `family: None`, the same honest answer round 6's own
+// detectors above give for the same reason.
+
+pub(crate) struct UsageTextContinuationFold;
+
+impl Detector for UsageTextContinuationFold {
+    fn name(&self) -> &'static str {
+        "usage-text-continuation-fold"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own tab-indented, unpunctuated description continuation folds into the \
+         usage text instead of being dropped"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::usage_text_continuation_fold::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} folded into usage {:?}", f.continuation, f.usage))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::usage_text_continuation_fold::self_checks()
+    }
+}
+
+pub(crate) struct NumberedVariadicUsageTail;
+
+impl Detector for NumberedVariadicUsageTail {
+    fn name(&self) -> &'static str {
+        "numbered-variadic-usage-tail"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own trailing `X1 [X2 ...]` tail — the second name is the first's own \
+         name with the next integer — names one variadic positional the tree does not carry"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::numbered_variadic_usage_tail::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} never became a positional, from the usage line {:?}",
+                    f.positional, f.usage_line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::numbered_variadic_usage_tail::self_checks()
+    }
+}

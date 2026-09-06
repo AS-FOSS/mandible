@@ -55,6 +55,7 @@ pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
+pub(crate) mod numbered_variadic_usage_tail;
 pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
 pub(crate) mod positional_description_block;
@@ -62,6 +63,7 @@ pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
+pub(crate) mod usage_text_continuation_fold;
 pub(crate) mod value_name_duplicates_choices;
 
 // Round-5 family detectors (three parser families: same-spelling-fold-loss,
@@ -708,6 +710,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),
         Box::new(usage_bracket_group_multiword_value::UsageBracketGroupMultiwordValue),
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
+        Box::new(UsageTextContinuationFold),
+        Box::new(NumberedVariadicUsageTail),
     ]
 }
 

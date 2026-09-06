@@ -22,6 +22,7 @@
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_modifiers`,
 //!   `must_not_contain_flags`, `must_not_contain_positionals`,
+//!   `must_not_contain_flags`, `must_not_contain_usage_text`,
 //!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe` ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
@@ -174,6 +175,18 @@ pub(crate) struct ContractMeta {
     /// no root satisfies this vacuously and is not reported.
     #[serde(default)]
     must_not_contain_positionals: Vec<String>,
+    /// Text the tree's `usage` field must **not** carry — the usage-block
+    /// analogue of `must_not_contain_flags`, added because `makeconv`'s
+    /// tab-indented description sentence had no field able to say the
+    /// usage half of its own defect: the sentence folds straight into
+    /// `usage` with no heading, no flag and no positional to name it.
+    ///
+    /// A substring match against every entry of `root.usage`, verbatim
+    /// (no whitespace collapsing — a folded usage line is one physical
+    /// string already). Satisfied vacuously by a tree with no root, the
+    /// same reasoning `must_not_contain_flags` uses.
+    #[serde(default)]
+    must_not_contain_usage_text: Vec<String>,
     /// Spelling groups that must resolve to *distinct* root-flag entities
     /// — the other shape a negative claim can take, guarding against the
     /// alias-run fold merging unrelated flags onto one multi-spelling

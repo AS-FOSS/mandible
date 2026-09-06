@@ -2450,3 +2450,43 @@ entry's `tools` field and nothing else. It does not get a new entry.
   bare lowercase first description word (never a value, `-m or
   --match-arch file.o`'s own shape). Below the five-tool bar. Ship
   nothing; the fixture stays `[xfail]`.
+### S-136: usage line's tab-indented continuation folds in unpunctuated
+
+- id: S-136
+- looks like: |
+      usage: makeconv [-options] files...
+      	read .ucm codepage mapping files and write .cnv files
+- tools: makeconv, genbrk, gencfu, gencnval, gendict, icuexportdata, pkgdata
+- handling: Fixed. `looks_like_unpunctuated_description_continuation`
+  (`mandible-extract/src/help_text/sections/heading.rs`) drops a
+  literal-tab hanging continuation that reads as plain English with no
+  invocation grammar, even with no terminating period —
+  `is_prose_sentence`'s own hanging-indent guard (S-003) requires one.
+  Gated on the literal tab, not indentation alone, so `unzip`'s own
+  genuine, two-space-indented continuation stays untouched. Dropping the
+  fold lets `recover_primary_tail_operands` read the primary entry as
+  one physical line again, recovering `makeconv`'s own `files` tail
+  operand as a side effect. `must_not_contain_usage_text` states the
+  usage half of the defect.
+- fleet: `usage-text-continuation-fold`
+  (`xtask/src/detector/usage_text_continuation_fold.rs`) fell from 7
+  tools/7 findings to 0/0 in a full-`PATH` sweep, 2026-09-06: 7 tools
+  gained a clean usage line and, for makeconv, one recovered positional,
+  0 losses.
+
+### S-137: usage line's `X1 [X2 ...]` tail is one variadic positional
+
+- id: S-137
+- looks like: |
+      Usage: apt-sortpkgs [options] file1 [file2 ...]
+- tools: apt-sortpkgs, apt-extracttemplates, apt-mark
+- handling: Open. `numbered-variadic-usage-tail`
+  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads a usage
+  line's trailing pair where the second name is the first's own name
+  with the next integer, bracketed and ellipsis-marked, and would
+  collapse it into one variadic positional named by the shared stem —
+  narrower than the `multi-operand-usage-tail` ambiguity (S-109) round 6
+  declined, since the numbering is evidence a bare tail lacks.
+- fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
+  below the five-tool floor a fix must clear. Not shipped; the fixture
+  stays xfail with the count in its reason.
