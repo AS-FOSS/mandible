@@ -115,8 +115,6 @@ struct OverrideFile {
     #[serde(default)]
     description: Option<String>,
     #[serde(default)]
-    hidden: Option<bool>,
-    #[serde(default)]
     deprecated: Option<String>,
     #[serde(default)]
     flags: Vec<FlagOverride>,
@@ -130,7 +128,6 @@ impl OverrideFile {
             path: Vec::new(),
             summary: self.summary.clone(),
             description: self.description.clone(),
-            hidden: self.hidden,
             deprecated: self.deprecated.clone(),
             flags: self.flags.clone(),
         }
@@ -147,8 +144,6 @@ struct NodeOverride {
     #[serde(default)]
     description: Option<String>,
     #[serde(default)]
-    hidden: Option<bool>,
-    #[serde(default)]
     deprecated: Option<String>,
     #[serde(default)]
     flags: Vec<FlagOverride>,
@@ -164,7 +159,6 @@ impl NodeOverride {
         let mut node = CommandNode::new(name, provenance);
         node.summary = self.summary.map(|s| Text::sanitize(&s));
         node.description = self.description.map(|s| Text::sanitize(&s));
-        node.hidden = self.hidden.unwrap_or(false);
         node.deprecated = self.deprecated.map(|s| Text::sanitize(&s));
         node.set_flags(
             self.flags
@@ -190,8 +184,6 @@ struct FlagOverride {
     #[serde(default)]
     value_name: Option<String>,
     #[serde(default)]
-    hidden: Option<bool>,
-    #[serde(default)]
     deprecated: Option<String>,
     #[serde(default)]
     default: Option<String>,
@@ -209,7 +201,6 @@ impl FlagOverride {
             Provenance::single(Source::UserOverride),
         );
         flag.value_name = self.value_name;
-        flag.hidden = self.hidden.unwrap_or(false);
         flag.deprecated = self.deprecated.map(|s| Text::sanitize(&s));
         flag.description = self.description.map(|s| Text::sanitize(&s));
         flag.default = self.default.map(|s| Text::sanitize(&s));

@@ -304,7 +304,6 @@ mod tests {
             has_children,
             expanded: false,
             children_filled: true,
-            hidden: false,
             pending: false,
             unverified: false,
         }

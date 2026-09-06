@@ -226,8 +226,6 @@ pub struct App {
     pub horizontal_scroll_enabled: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
-    /// Whether hidden/deprecated items are shown (toggled with `.`).
-    pub show_hidden: bool,
     /// A short-lived status line message (e.g. "copied: --interactive").
     ///
     /// Genuinely short-lived: it used to sit in the footer until some
@@ -441,7 +439,6 @@ impl App {
             saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
             show_help: false,
-            show_hidden: false,
             status_message: None,
             status_expires_at: None,
             search_index,
@@ -471,8 +468,8 @@ impl App {
         }
     }
 
-    /// Recompute `rows` if a structural change (expand/collapse, search,
-    /// hidden-toggle) has happened since the last build. Cheap no-op
+    /// Recompute `rows` if a structural change (expand/collapse, search)
+    /// has happened since the last build. Cheap no-op
     /// otherwise. Callers must call this before reading `rows` — the event
     /// loop calls it once per iteration, right before rendering.
     pub fn ensure_rows_fresh(&mut self) {
@@ -491,7 +488,6 @@ impl App {
             &self.root,
             &self.expanded,
             matching_paths.as_ref(),
-            self.show_hidden,
             &self.pending,
         );
         if self.selected >= self.rows.len() {
@@ -1176,12 +1172,6 @@ impl App {
     /// `?`: toggle the keybinding overlay.
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
-    }
-
-    /// `.`: toggle showing hidden/deprecated items.
-    pub fn toggle_show_hidden(&mut self) {
-        self.show_hidden = !self.show_hidden;
-        self.mark_dirty();
     }
 
     /// Detail pane scroll down.

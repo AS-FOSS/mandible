@@ -29,7 +29,6 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
         Some("h l  ← →"),
         "Scroll preformatted text sideways (detail pane focused)",
     ),
-    (Some("."), "Show hidden and deprecated items"),
     (None, "ACTIONS"),
     (Some("y"), "Copy selected flag or command path"),
     (Some("r"), "Re-extract this tool"),

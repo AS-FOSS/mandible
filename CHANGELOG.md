@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Removed
+
+- The `.` hidden/deprecated toggle is gone, with the `show_hidden` state and the override tier's `hidden` field it depended on; a deprecated flag now always renders with its `(deprecated)` tag.
+
 ### Fixed
 
 - A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
