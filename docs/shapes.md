@@ -2490,3 +2490,39 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
   below the five-tool floor a fix must clear. Not shipped; the fixture
   stays xfail with the count in its reason.
+
+### S-137: lvm2 invocation forms read as section headings
+
+- id: S-137
+- looks like: |
+      Create a raid1 or mirror LV.
+      lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG
+      	[ --type raid1|mirror ] (implied)
+- tools: the whole lvm2 tool family (docs/shapes.md S-130's 43 tools);
+  gains confirmed on lvconvert, lvcreate, lvextend, lvresize, vgreduce
+- handling: Fixed. Each invocation form is a prose sentence, a usage
+  line naming the form's own flags, then tab-indented option rows.
+  `sections::looks_like_invocation_form_head` (heading.rs) admits a head
+  naming more than one flag, which `stanza_description_above` (S-012)
+  required only one of before, so the prose sentence becomes the option
+  rows' group and the head line survives as its own `usage` entry. The
+  unlabelled-synopsis entry point defers such a form outright rather
+  than fold its rows into a display string, unless the form's own
+  continuation is a parenthesized alternation group (`pvchange`'s first
+  form), which only that fold path still reads.
+  `grammar::bracket_flag_row_content` also now tolerates one trailing
+  parenthetical remark (`[ --type linear ] (implied)`), or `--type`
+  stays unrecovered. `corpus/lvcreate/2.03.16` promoted out of `[xfail]`;
+  `corpus/vgcfgrestore/2.03.16` re-blessed, gaining the one usage form
+  it was missing with no other change.
+- fleet: `invocation-form-head-as-flag-group`
+  (`xtask/src/detector/invocation_form_head_as_flag_group.rs`), gated on
+  raw evidence a real label was actually discarded (not merely that a
+  group looks invocation-shaped, which `pydoc3`'s own correct
+  no-description fallback and `pvck`'s unterminated "Repair LVM headers
+  and metadata on a device" both do), reads 2 tools (lvchange, lvcreate)
+  / 99 findings on this box's own installed subset of the 43-tool
+  family with the fix reverted, and 0/0 with it applied. Confirmed
+  fleet-wide with a full-`PATH` sweep-diff of 2269 tools, 2026-09-06: 0
+  flags lost, 23 flags gained across lvconvert, lvcreate, lvextend,
+  lvresize and vgreduce.
