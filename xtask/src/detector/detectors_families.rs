@@ -552,7 +552,9 @@ impl Detector for GluedUppercaseSharedPrefix {
         "glued-uppercase-shared-prefix"
     }
     fn family(&self) -> Option<&'static str> {
-        Some("glued-uppercase-shared-prefix")
+        // No audit seed carries a labelled member of this family (spec
+        // §13.1e rule 6): calibration has nothing to generalize against.
+        None
     }
     fn describes(&self) -> &'static str {
         "a lowercase-led single-dash token carrying an interior uppercase letter, glued to a tab \

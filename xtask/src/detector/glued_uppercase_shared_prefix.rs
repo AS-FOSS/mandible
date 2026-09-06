@@ -141,7 +141,10 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
             why: "once the tree carries the whole name, the same raw row must go silent",
             expect: Expect::Silent,
             raw: format!("{MKSQUASHFS_NOI_ROW}{MKSQUASHFS_NOD_ROW}"),
-            root: node_with_flags("mksquashfs", vec![single_dash_flag("noI"), single_dash_flag("noD")]),
+            root: node_with_flags(
+                "mksquashfs",
+                vec![single_dash_flag("noI"), single_dash_flag("noD")],
+            ),
         },
         SelfCheck {
             name: "the glued-value convention, an uppercase flag letter with no interior letter \

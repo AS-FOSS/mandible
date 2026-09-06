@@ -2490,3 +2490,30 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
   below the five-tool floor a fix must clear. Not shipped; the fixture
   stays xfail with the count in its reason.
+
+### S-139: a single-dash spelling glued to a tab, carrying an interior uppercase letter
+
+- id: S-139
+- looks like: |
+      -noI			do not compress inode table
+      -noId			do not compress the uid/gid table (implied by -noI)
+      -noD			do not compress data blocks
+- tools: mksquashfs, sqfstar
+- handling: Open. `-noI` truncates to short `-n` valued `"oI"`.
+  `repair_single_dash_long_options`
+  (`mandible-extract/src/help_text/sections/repair.rs`) refuses any
+  reconstructed token carrying an uppercase letter, its only signal
+  against the GCC/Clang glued-value convention (`-DMACRO`). A candidate
+  discriminator was measured: admit a token whose swallowed name shares
+  its lowercase-led prefix with a sibling row in the same table (`-noI`,
+  `-noId`, `-noD`, `-noF`, `-noX` all share `"no"`). `xtask detector`'s
+  `glued-uppercase-shared-prefix`
+  (`xtask/src/detector/glued_uppercase_shared_prefix.rs`) generalizes
+  the shape fleet-wide.
+- fleet: the discriminator moved 2 tools, mksquashfs and sqfstar, 10 flags
+  each, zero losses on a full-`PATH` sweep, 2026-09-06. `unsquashfs` and
+  `sqfscat` document no `-no*` row of this shape. Below the five-tool
+  floor AGENTS.md §3.1 requires. Not shipped; the corpus fixture stays
+  xfail with the count in its reason. No labelled member of this family
+  exists in any audit seed; the detector's four self-checks are the only
+  standing evidence.

@@ -52,6 +52,7 @@ pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
 pub(crate) mod glued_optional_group_spelling;
+pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
@@ -65,7 +66,6 @@ pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
 pub(crate) mod usage_text_continuation_fold;
 pub(crate) mod value_name_duplicates_choices;
-pub(crate) mod glued_uppercase_shared_prefix;
 
 // Round-5 family detectors (three parser families: same-spelling-fold-loss,
 // bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
