@@ -44,6 +44,7 @@ mod render;
 // One module per family detector, atlas S-106 upward. Nested here, unlike
 // the earlier detector modules under `xtask/src/`, because
 // `xtask/src/main.rs` is already at its own size ceiling (AGENTS.md §2).
+pub(crate) mod choice_value_rows_unfolded;
 pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
@@ -54,12 +55,14 @@ pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
+pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
 pub(crate) mod positional_description_block;
 pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
+pub(crate) mod value_name_duplicates_choices;
 
 // Round-5 family detectors (three parser families: same-spelling-fold-loss,
 // bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
@@ -695,6 +698,9 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(DescriptionSubcommandsList),
         Box::new(RaggedCommandTable),
         Box::new(WrappedCommandContinuation),
+        Box::new(value_name_duplicates_choices::ValueNameDuplicatesChoices),
+        Box::new(choice_value_rows_unfolded::ChoiceValueRowsUnfolded),
+        Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),
     ]
 }
 

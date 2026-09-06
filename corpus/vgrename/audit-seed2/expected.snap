@@ -3,7 +3,6 @@ flags:
 - spellings:
   - -A
   - --autobackup
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -21,7 +20,6 @@ flags:
     - help-text
 - spellings:
   - --reportformat
-  value_name: basic|json
   value_kind: Required
   choices:
   - basic
@@ -90,7 +88,6 @@ flags:
     - help-text
 - spellings:
   - --driverloaded
-  value_name: y|n
   value_kind: Required
   choices:
   - y

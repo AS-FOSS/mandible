@@ -96,7 +96,6 @@ flags:
     - help-text
 - spellings:
   - --driverloaded
-  value_name: y|n
   value_kind: Required
   choices:
   - y

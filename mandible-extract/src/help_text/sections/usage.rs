@@ -1081,6 +1081,15 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
     flag.choices = spec.choices.into_iter().map(Choice::bare).collect();
+    // The usage-line twin of `emit::value_name_duplicates_its_own_choices`:
+    // a docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
+    // S-120) can be read here too, and with no bracketed placeholder ahead
+    // of it the same list is also what `value_name` holds. Dropped rather
+    // than kept twice. See docs/shapes.md S-130.
+    if super::emit::value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices)
+    {
+        flag.value_name = None;
+    }
     out.push(flag);
 }
 
@@ -1637,10 +1646,10 @@ mod tests {
             .iter()
             .find(|f| f.long() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
-        assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
-        // `y|n` is also a bare choice list (docs/shapes.md S-120):
-        // `value_name` keeps the raw text unchanged, and `choices` gains
-        // the same list as separate structure.
+        // `y|n` is also a bare choice list (docs/shapes.md S-120), and here
+        // it is the *whole* value spec, so `value_name` is dropped rather
+        // than kept as a duplicate of `choices` (docs/shapes.md S-130).
+        assert_eq!(bbb.value_name, None);
         assert_eq!(
             bbb.choices
                 .iter()
@@ -1670,6 +1679,10 @@ mod tests {
             .iter()
             .find(|f| f.long() == Some("configreport"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        // No bracketed placeholder introduces this list, so `value_name`
+        // is dropped rather than kept as a duplicate of `choices`
+        // (docs/shapes.md S-130).
+        assert_eq!(configreport.value_name, None);
         assert_eq!(
             configreport
                 .choices
@@ -1899,7 +1912,10 @@ mod tests {
         let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
         let reportformat = flag_named(&parsed, "reportformat");
         assert_eq!(reportformat.short(), None);
-        assert_eq!(reportformat.value_name.as_deref(), Some("basic|json"));
+        // `basic|json` is also the flag's whole choices list, so
+        // `value_name` is dropped rather than kept as a duplicate
+        // (docs/shapes.md S-130).
+        assert_eq!(reportformat.value_name, None);
     }
 
     #[test]
@@ -1914,7 +1930,9 @@ mod tests {
         assert_eq!(commandprofile.value_name.as_deref(), Some("String"));
 
         let driverloaded = flag_named(&parsed, "driverloaded");
-        assert_eq!(driverloaded.value_name.as_deref(), Some("y|n"));
+        // `y|n` is also the flag's whole choices list, so `value_name` is
+        // dropped rather than kept as a duplicate (docs/shapes.md S-130).
+        assert_eq!(driverloaded.value_name, None);
 
         // 20 flags total: the 18 rows, plus --reportformat from the first
         // stanza's continuation and --updatemetadata from the second
@@ -1975,7 +1993,9 @@ mod tests {
 
         let autobackup = flag_named(&parsed, "autobackup");
         assert_eq!(autobackup.short(), Some('A'));
-        assert_eq!(autobackup.value_name.as_deref(), Some("y|n"));
+        // `y|n` is also the flag's whole choices list, so `value_name` is
+        // dropped rather than kept as a duplicate (docs/shapes.md S-130).
+        assert_eq!(autobackup.value_name, None);
 
         let force = flag_named(&parsed, "force");
         assert_eq!(force.short(), Some('f'));

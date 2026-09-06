@@ -1145,7 +1145,10 @@ Usage: pvscan [options]
 ";
         let parsed = parse(help);
         let driverloaded = flag_named(&parsed, "driverloaded");
-        assert_eq!(driverloaded.value_name.as_deref(), Some("y|n"));
+        // `value_name` is dropped rather than kept as `"y|n"`: it is
+        // nothing but `choices` rejoined with `|`, the same trailing list,
+        // so keeping both would print it twice. See docs/shapes.md S-130.
+        assert_eq!(driverloaded.value_name, None);
         assert_eq!(
             driverloaded
                 .choices

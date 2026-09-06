@@ -2316,3 +2316,89 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
   false negative (`systemctl`), 1 true negative, 2026-09-06.
 
+
+### S-130: choices read from the placeholder repeat in the placeholder too
+
+- id: S-130
+- looks like: |
+      [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ]
+      [    --configreport log|vg|lv|pv|pvseg|seg ]
+- tools: the whole lvm2 tool family: lvchange, lvconvert, lvcreate, lvdisplay,
+  lvextend, lvmconfig, lvmdiskscan, lvmsadc, lvmsar, lvreduce, lvremove,
+  lvrename, lvresize, lvs, lvscan, pvchange, pvck, pvcreate, pvdisplay,
+  pvmove, pvremove, pvresize, pvs, pvscan, vgcfgbackup, vgcfgrestore,
+  vgchange, vgck, vgconvert, vgcreate, vgdisplay, vgexport, vgextend,
+  vgimport, vgimportclone, vgmerge, vgmknodes, vgreduce, vgremove,
+  vgrename, vgs, vgscan, vgsplit (43 tools total)
+- handling: Fixed. S-120's own fix attaches a docopt bracket row's trailing
+  `|`-list as `choices` without touching `value_name`, which is right when
+  a bracketed placeholder introduces the list (`--units [Number]`) and
+  wrong when the list stands in for the whole value spec
+  (`--configreport`, `--driverloaded`): the same text then sits in both
+  fields, and the rendered screen prints it twice.
+  `value_name_duplicates_its_own_choices`
+  (`mandible-extract/src/help_text/sections/emit.rs`, mirrored in
+  `usage.rs` for the synopsis path) drops `value_name` when it is nothing
+  but `choices` rejoined with `|`, in the same order. Dropped rather than
+  replaced with a generic placeholder, since `choices` already carries the
+  full enumeration and a placeholder would tell the reader nothing new.
+  `must_not_value_name` (`xtask/src/corpus/mod.rs`), the value-name mirror
+  of `must_not_describe`, asserts it on `corpus/pvdisplay/2.03.16`.
+- fleet: `value-name-duplicates-choices`
+  (`xtask/src/detector/value_name_duplicates_choices.rs`) reads 43 tools /
+  195 findings with the fix reverted and 0/0 with it applied, on the same
+  43-tool lvm2 family, 2026-09-06. Confirmed fleet-wide with a full-`PATH`
+  sweep-diff: 43 tools show a `value_name`-only field change, 0 flags lost,
+  0 flags gained.
+
+### S-133: one option's literal choices, one row per value, never folded
+
+- id: S-133
+- looks like: |
+      -tl or --type l   output for little-endian/ASCII charset family
+      -tb or --type b   output for big-endian/ASCII charset family
+      -te or --type e   output for big-endian/EBCDIC charset family
+- tools: icupkg
+- handling: Open defect. `icupkg`'s three rows are one flag, `-t, --type`, with three
+  literal choice values, each keeping its own description. The tree
+  carries them as three separate entities, all spelled `-t`/`--type`,
+  differing only in `value_name` and description, never folded into one
+  flag's `choices`. `docs/shapes.md` S-102 already records a prototype
+  fold that moved only `icupkg` on a full-`PATH` sweep, below the
+  five-tool bar.
+- fleet: `choice-value-rows-unfolded`
+  (`xtask/src/detector/choice_value_rows_unfolded.rs`) reads 8 tools / 12
+  findings on a full-`PATH` sweep of 2319 tools, 2026-09-06, requiring
+  both a short and a long spelling on every row so it never claims
+  single-spelling collisions (S-117's `-Xassembler`/`-Xpreprocessor`
+  family). Read by hand: only `icupkg` (`l`/`b`/`e`) is this shape.
+  The rest are different shapes this detector cannot yet tell apart from
+  it — `iptables`'s `-D`/`--delete` documents the *same* placeholder name
+  (`chain`) on two invocation forms, not distinct choices; `expand`'s
+  `-t`/`--tabs` accepts `N` or `LIST` as two value *types*, the same
+  `pkg-config`-style ambiguity S-120's own handling notes; `-q`/`-qq` and
+  `-t`/`-tt` are S-035's repeated-letter verbosity levels. Folding any of
+  those into `choices` would misrepresent them. True count for this
+  family alone: 1 tool, below the five-tool bar. Ship nothing; the
+  fixture stays `[xfail]`.
+
+### S-134: value-free `or`-joined alias, one-space description gap
+
+- id: S-134
+- looks like: |
+      -c or --copyright include the ICU copyright notice
+- tools: icupkg
+- handling: Open defect. `-c or --copyright`'s row joins two value-free spellings
+  with the word `or`, the same shape `or_joined_alias` (S-099) already
+  reads, but its description starts only one space after `--copyright`,
+  not the two-space or tab gap `or_alias_ends_the_spec` requires before
+  treating the row as fully joined. `-c` keeps the literal word `or` as a
+  fabricated value name and `--copyright` reaches nothing.
+- fleet: `or-joined-alias-single-space-gap`
+  (`xtask/src/detector/or_joined_alias_single_space_gap.rs`) reads 4
+  tools / 4 findings on a full-`PATH` sweep of 2319 tools, 2026-09-06,
+  requiring a genuine double-dash long spelling (never a second short
+  flag in a three-way `or` chain, S-099's own `-h or -? or --help`) and a
+  bare lowercase first description word (never a value, `-m or
+  --match-arch file.o`'s own shape). Below the five-tool bar. Ship
+  nothing; the fixture stays `[xfail]`.
