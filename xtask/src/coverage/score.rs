@@ -472,6 +472,7 @@ fn vim_family_counts(
     counts.extend(round5_family_counts(&raw, root));
     counts.extend(round6_family_counts(&raw, root));
     counts.extend(round6_block_family_counts(&raw, root));
+    counts.extend(round7_family_counts(&raw, root));
     counts
 }
 
@@ -614,6 +615,39 @@ fn round6_block_family_counts(
                 .iter()
                 .take(cap)
                 .map(|f| format!("{:?} missing from the tree", f.name))
+                .collect(),
+        ),
+    ]
+}
+
+/// The two round-7 family detectors, atlas S-136 and S-137, split out
+/// for the same line-count reason [`round4_family_counts`] is.
+fn round7_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let uc = crate::detector::usage_text_continuation_fold::detect(raw, root);
+    let nv = crate::detector::numbered_variadic_usage_tail::detect(raw, root);
+    vec![
+        (
+            "usage-text-continuation-fold",
+            uc.finding_count(),
+            uc.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} folded into usage {:?}", f.continuation, f.usage))
+                .collect(),
+        ),
+        (
+            "numbered-variadic-usage-tail",
+            nv.finding_count(),
+            nv.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "{:?} never became a positional, from the usage line {:?}",
+                        f.positional, f.usage_line
+                    )
+                })
                 .collect(),
         ),
     ]

@@ -4,21 +4,14 @@
 #
 # Maintainer, later pass: "makeconv: yes usage prose still there and no
 # more options. Additionally i noticed that it might be missing
-# positional: 'files...', verify". Verified: `must_contain_positionals =
-# ["files"]` still fails today, for the reason given below. The usage
-# half, that the usage form must not carry the tab-indented description
-# sentence, has no contract field either; a field shaped like
-# `must_not_contain_usage` would state it.
+# positional: 'files...', verify".
 #
 # Everything makeconv writes goes to stderr; exit code is 1.
 # `help.stderr.txt`'s first two lines:
 #   usage: makeconv [-options] files...
 #           read .ucm codepage mapping files and write .cnv files
 # The second line is a tab-indented continuation of the usage synopsis,
-# describing what the tool does. The parsed tree folds it into the usage
-# line itself: `usage` reads "makeconv [-options] files... read .ucm
-# codepage mapping files and write .cnv files" as one string. No contract
-# field asserts usage text, so this half is prose-only.
+# describing what the tool does.
 #
 # Fixed (round 6, atlas S-128): `[-options]`, a usage line's own generic
 # placeholder spelled with a leading dash, no longer invents a flag.
@@ -27,21 +20,27 @@
 # before it reaches the flag grammar. `must_not_contain_flags = ["-o"]`
 # passes for real now.
 #
-# `files` stays lost. The tab-indented continuation still folds into the
-# usage text (the defect above), and `recover_primary_tail_operands` only
-# fires for a one-physical-line primary entry, so the fold blocks the
-# operand recovery collaterally. The continuation itself has no
-# terminating punctuation ("read .ucm codepage mapping files and write
-# .cnv files"), so `is_prose_sentence`'s existing hanging-indent guard
-# (S-003) never claims it either. A structurally sound fix needs its own
-# calibration against tools that write a genuine wrapped usage line with
-# no terminal punctuation, which this round did not reach.
+# Fixed (round 7, atlas S-136): the tab-indented continuation carries no
+# terminating punctuation, so it used to fold into the usage line rather
+# than get dropped the way a period-terminated continuation already was.
+# `looks_like_unpunctuated_description_continuation`
+# (`mandible-extract/src/help_text/sections/usage.rs`) drops it instead,
+# gated on the literal tab so a genuine, space-indented wrapped synopsis
+# line (`unzip`'s own) is untouched. `must_not_contain_usage_text` states
+# the usage half of the defect directly.
+#
+# Fixed, as a collateral repair of the S-136 fix above: with the
+# continuation dropped, the primary usage entry is one physical line
+# again, so `recover_primary_tail_operands` fires and recovers `files` as
+# a required, repeatable positional. `must_contain_positionals =
+# ["files..."]` passes for real now.
 #
 # DESCRIPTION reads `options:` (the raw text's own next heading line,
 # lowercase, as the tool prints it) — a heading read as the root node's
 # summary, the same heading-bleed shape as `aarch64-linux-gnu-g++-13`'s
 # `Options:` in this same batch. No contract field states what the root
-# description must not be, so this is prose-only too.
+# description must not be, so this remains prose-only and out of this
+# fixture's scope.
 
 [bless]
 provenance = "agent"
@@ -66,8 +65,5 @@ exit_code = 1
 [contract]
 expected_framework = "generic"
 must_not_contain_flags = ["-o"]
-must_contain_positionals = ["files"]
-
-[xfail]
-broken = true
-reason = "files, the real positional, is lost behind the tab-indented continuation folding into the usage text, with no field to assert usage text; the root description is the next heading line 'options:', a heading bleed with no field to name it"
+must_contain_positionals = ["files..."]
+must_not_contain_usage_text = ["read .ucm codepage mapping files"]

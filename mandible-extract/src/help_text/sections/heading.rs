@@ -152,6 +152,34 @@ pub(super) fn is_line_continuation_fragment(heading: &str) -> bool {
     heading.trim_end().ends_with('\\')
 }
 
+/// True when `line` (raw, untrimmed) is a literal-tab hanging
+/// continuation reading as plain English with no invocation grammar,
+/// even with no terminating full stop — [`is_prose_sentence`]'s own
+/// hanging-indent guard (S-003) requires a period, so makeconv's
+/// `\tread .ucm codepage mapping files...` still folds into usage.
+/// Gated on the literal tab, not indentation alone: `unzip`'s own
+/// genuine, two-space-indented continuation also lacks a period and
+/// must stay out of scope. See docs/shapes.md S-136.
+pub(super) fn looks_like_unpunctuated_description_continuation(line: &str) -> bool {
+    let Some(trimmed) = line.strip_prefix('\t').map(str::trim) else {
+        return false;
+    };
+    if trimmed.is_empty() || trimmed.ends_with('.') || trimmed.contains("...") {
+        return false;
+    }
+    if trimmed.contains(['[', ']', '<', '>', '{', '}', '|']) {
+        return false;
+    }
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    words.len() >= MIN_PROSE_SENTENCE_WORDS
+        && !words.iter().any(|w| w.starts_with('-'))
+        && !words.iter().any(|w| {
+            let core = w.trim_matches(|c: char| !c.is_alphanumeric());
+            core.len() > 1 && core.chars().all(|c| c.is_ascii_uppercase())
+        })
+        && find_multi_space_gap(line).is_none()
+}
+
 /// True when `heading` may be copied into a recovered entry's `group`.
 /// The one predicate the three group-assigning call sites share.
 /// Subtractive only: a line either reads as positively not a heading, or

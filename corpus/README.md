@@ -218,6 +218,26 @@ reported — the one asymmetry with the positive fields, which a missing tree
 trivially breaks. Dropping an entry is a weakening exactly as dropping a
 `must_contain_flags` entry is, and `--baseline-dir` reports it as one.
 
+### Stating that usage text carries text it must not: `must_not_contain_usage_text`
+
+`must_not_contain_flags` says a spelling was invented. It says nothing
+about the usage block itself carrying text that does not belong there —
+`makeconv`'s tab-indented description sentence, which has no terminating
+period, folds straight into the usage line with no heading, no flag and
+no positional to name it (docs/shapes.md S-136). Nothing but a byte-exact
+snapshot diff could see that until now.
+
+```toml
+must_not_contain_usage_text = ["read .ucm codepage mapping files"]
+```
+
+Every entry of `root.usage` is checked for this text as a verbatim
+substring — no whitespace collapsing, unlike `must_describe`, since a
+folded usage line is already one physical string. A fixture that produces
+no root satisfies this vacuously, the same reasoning `must_not_contain_flags`
+uses. Dropping an entry is a weakening exactly as dropping a
+`must_not_contain_flags` entry is.
+
 ### Stating that two flags did not fuse: `must_keep_separate`
 
 `must_not_contain_flags` catches invention. It says nothing about a
@@ -533,7 +553,7 @@ $ cargo run -p xtask -- corpus --baseline-dir /tmp/corpus-at-main   # also flag 
 corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
 a dropped `must_contain_flags`/`must_contain_flags_by_path`/
-`must_contain_positionals`/`must_not_contain_flags`/`must_keep_separate`/
+`must_contain_positionals`/`must_not_contain_flags`/`must_not_contain_usage_text`/`must_keep_separate`/
 `must_attach_choices` entry, a removed `must_describe` entry, a fixture
 newly marked `[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle

@@ -97,6 +97,20 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             ));
         }
 
+        let dropped_forbidden_usage_text: Vec<&str> = b
+            .must_not_contain_usage_text
+            .iter()
+            .filter(|spec| !n.must_not_contain_usage_text.iter().any(|s| s == *spec))
+            .map(String::as_str)
+            .collect();
+        if !dropped_forbidden_usage_text.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_not_contain_usage_text (dropped: {})",
+                base.label,
+                dropped_forbidden_usage_text.join(", ")
+            ));
+        }
+
         let missing_positionals: Vec<&str> = b
             .must_contain_positionals
             .iter()
@@ -433,6 +447,27 @@ fn check_contract_scalar_fields(
         failures.push(ContractFailure(format!(
             "must_not_contain_flags: present {}",
             present_forbidden.join(", ")
+        )));
+    }
+
+    // The usage-block analogue of the negative claim above: text the
+    // tree's own `usage` field must not carry. Verbatim substring match,
+    // no whitespace collapsing (`must_describe`'s reasoning does not
+    // apply — a folded usage line is one physical string already).
+    let present_usage_text: Vec<&str> = contract
+        .must_not_contain_usage_text
+        .iter()
+        .filter(|text| {
+            root.usage
+                .iter()
+                .any(|u| u.as_str().contains(text.as_str()))
+        })
+        .map(|s| s.as_str())
+        .collect();
+    if !present_usage_text.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_usage_text: present {}",
+            present_usage_text.join(", ")
         )));
     }
 

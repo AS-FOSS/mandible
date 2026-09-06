@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-136).
+
 ## [0.7.0] - 2026-09-05
 
 ### Added

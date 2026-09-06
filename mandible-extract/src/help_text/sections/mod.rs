@@ -525,7 +525,15 @@ fn scan_usage_section(
             // strictly more indented than the base — du's own
             // trailing sentence sits at the base indent and must keep
             // taking the base-indent fallback below. See S-003.
-            if leading_whitespace(l) > base_indent && is_prose_sentence(trimmed_start) {
+            // `looks_like_unpunctuated_description_continuation` widens
+            // this the same way for a continuation with no terminal
+            // period at all — makeconv's tab-indented description of what
+            // the tool does, which otherwise folds straight into the
+            // usage text. See docs/shapes.md S-136.
+            if leading_whitespace(l) > base_indent
+                && (is_prose_sentence(trimmed_start)
+                    || looks_like_unpunctuated_description_continuation(l))
+            {
                 i += 1;
                 continue;
             }
