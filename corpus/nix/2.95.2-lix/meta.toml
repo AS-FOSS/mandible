@@ -4,7 +4,7 @@ provenance = "agent"
 [tool]
 name = "nix"
 version = "2.95.2-lix"
-platform = "nixos-24.11-x86_64"
+platform = "nixos-x86_64, kernel 6.18.39-NixOS"
 captured_with = "mandible 0.6.1"
 
 [[capture]]
@@ -29,5 +29,5 @@ must_contain_flags = [
 
 [xfail]
 broken = true
-reason = "lowdown man-page rendering: 30 nix `nix <word> - description` bullet\nrows under `... commands:` labels, and 9 `-flag description` bullet rows\nunder `Options`, all render as prose. The reporter's own `mandible\n--doctor nix` read 1 node and 0 flags. The reporter's paste is not\nbyte-exact: a GitHub issue textarea drops trailing whitespace on\nrendering, so this fixture's help.txt is instead the reporter's own\n`mandible --report` output, which preserves it."
+reason = "lowdown man-page rendering: 30 `nix <word> - description` bullet rows under `... commands:` labels, and 9 `-flag description` bullet rows under `Options`, all render as prose. mandible --doctor nix read 1 node and 0 flags on the reporter's box. The reporter's paste is not byte-exact: a GitHub issue textarea drops trailing whitespace on rendering, so this fixture's help.txt is instead the reporter's own mandible --report output, which preserves it."
 issue = "https://github.com/AS-FOSS/mandible/issues/138"
