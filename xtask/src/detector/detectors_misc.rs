@@ -445,3 +445,82 @@ impl Detector for UnparsedTailOperand {
         crate::tail_operand::self_checks()
     }
 }
+
+/// `ragged-command-table` (`crate::ragged_command_table`, atlas S-104): a
+/// command table whose rows carry an optional short-alias prefix
+/// ragged-indents its own rows, dropping the shallower rows and the run
+/// of siblings after them. Generalizes `unparsed-subcommand` shape E; see
+/// `mandible-core/src/audit.rs`'s own comment on that family.
+pub(crate) struct RaggedCommandTable;
+
+impl Detector for RaggedCommandTable {
+    fn name(&self) -> &'static str {
+        "ragged-command-table"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("unparsed-subcommand")
+    }
+    fn describes(&self) -> &'static str {
+        "a run of 2+ adjacent command-table rows, one bearing a short-alias-comma prefix, whose \
+         primary name never reaches the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::ragged_command_table::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                let alias = f.alias.as_deref().unwrap_or("none");
+                format!("{:?} (alias {alias:?}) missing, from {:?}", f.name, f.row)
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "shape E only (a ragged alias-column table) of `unparsed-subcommand`'s five \
+                    grammars — shapes B, C and D are out of reach the same way \
+                    `unparsed-command-table` declares them, and are not re-declared here since \
+                    this detector never claimed them",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::ragged_command_table::self_checks()
+    }
+}
+
+/// `wrapped-command-continuation-as-subcommand` (`crate::wrapped_command_continuation`,
+/// atlas S-103): a command's description wraps onto a line with no column
+/// of its own, and the grammar reads that continuation's own leading word
+/// as a fresh subcommand. See that module's own doc comment for how this
+/// differs from `wrapped-prose-row-boundary`.
+pub(crate) struct WrappedCommandContinuation;
+
+impl Detector for WrappedCommandContinuation {
+    fn name(&self) -> &'static str {
+        "wrapped-command-continuation-as-subcommand"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("wrapped-command-continuation-as-subcommand")
+    }
+    fn describes(&self) -> &'static str {
+        "a bare single word, at the same indent as an unfinished sentence above it and with no \
+         aligned column of its own, that reached the tree as a subcommand"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::wrapped_command_continuation::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} fabricated from the line {:?}", f.name, f.line))
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "a continuation line's own single leading word only — see this detector's \
+                    own module doc comment",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::wrapped_command_continuation::self_checks()
+    }
+}

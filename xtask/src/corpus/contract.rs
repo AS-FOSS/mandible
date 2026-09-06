@@ -62,81 +62,61 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             }
         }
 
-        let missing_flags: Vec<&str> = b
-            .must_contain_flags
-            .iter()
-            .filter(|spec| !n.must_contain_flags.iter().any(|s| s == *spec))
-            .map(String::as_str)
-            .collect();
-        if !missing_flags.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_flags (dropped: {})",
-                base.label,
-                missing_flags.join(", ")
-            ));
-        }
-
-        // A negative claim weakens by *losing an entry*, exactly as a
-        // positive one does — the direction of the claim flips, the
-        // direction of its weakening does not. Dropping
-        // `must_not_contain_flags = ["---...---"]` retires the only
-        // statement that the mariadb ruler is a phantom, and would let the
-        // defect return unremarked. Adding an entry tightens, and is never
-        // flagged, same as `must_contain_flags`.
-        let dropped_forbidden: Vec<&str> = b
-            .must_not_contain_flags
-            .iter()
-            .filter(|spec| !n.must_not_contain_flags.iter().any(|s| s == *spec))
-            .map(String::as_str)
-            .collect();
-        if !dropped_forbidden.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_not_contain_flags (dropped: {})",
-                base.label,
-                dropped_forbidden.join(", ")
-            ));
-        }
-
-        let missing_positionals: Vec<&str> = b
-            .must_contain_positionals
-            .iter()
-            .filter(|name| !n.must_contain_positionals.iter().any(|s| s == *name))
-            .map(String::as_str)
-            .collect();
-        if !missing_positionals.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_positionals (dropped: {})",
-                base.label,
-                missing_positionals.join(", ")
-            ));
-        }
-
-        let missing_modifiers: Vec<&str> = b
-            .must_contain_modifiers
-            .iter()
-            .filter(|name| !n.must_contain_modifiers.iter().any(|s| s == *name))
-            .map(String::as_str)
-            .collect();
-        if !missing_modifiers.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_modifiers (dropped: {})",
-                base.label,
-                missing_modifiers.join(", ")
-            ));
-        }
-
-        let missing_env_vars: Vec<&str> = b
-            .must_contain_env_vars
-            .iter()
-            .filter(|name| !n.must_contain_env_vars.iter().any(|s| s == *name))
-            .map(String::as_str)
-            .collect();
-        if !missing_env_vars.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_env_vars (dropped: {})",
-                base.label,
-                missing_env_vars.join(", ")
-            ));
+        // Every list-shaped field weakens the same way, by losing an
+        // entry, and a negative claim is no exception: the direction of
+        // the claim flips, the direction of its weakening does not.
+        // Dropping `must_not_contain_flags = ["---...---"]` retires the
+        // only statement that the mariadb ruler is a phantom. Adding an
+        // entry tightens and is never flagged.
+        for (field, base_list, now_list) in [
+            (
+                "must_contain_flags",
+                &b.must_contain_flags,
+                &n.must_contain_flags,
+            ),
+            (
+                "must_not_contain_flags",
+                &b.must_not_contain_flags,
+                &n.must_not_contain_flags,
+            ),
+            (
+                "must_not_contain_usage_text",
+                &b.must_not_contain_usage_text,
+                &n.must_not_contain_usage_text,
+            ),
+            (
+                "must_contain_positionals",
+                &b.must_contain_positionals,
+                &n.must_contain_positionals,
+            ),
+            (
+                "must_not_contain_positionals",
+                &b.must_not_contain_positionals,
+                &n.must_not_contain_positionals,
+            ),
+            (
+                "must_contain_modifiers",
+                &b.must_contain_modifiers,
+                &n.must_contain_modifiers,
+            ),
+            (
+                "must_contain_env_vars",
+                &b.must_contain_env_vars,
+                &n.must_contain_env_vars,
+            ),
+        ] {
+            let dropped: Vec<&str> = base_list
+                .iter()
+                .filter(|entry| !now_list.iter().any(|s| s == *entry))
+                .map(String::as_str)
+                .collect();
+            if !dropped.is_empty() {
+                lines.push(format!(
+                    "CONTRACT WEAKENED: {} {field} (dropped: {})",
+                    base.label,
+                    dropped.join(", ")
+                ));
+            }
         }
 
         for (path, base_specs) in &b.must_contain_flags_by_path {
@@ -245,6 +225,16 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    // `must_not_value_name`: a negative claim, weakens by losing an entry
+    // — same reasoning `must_not_describe` above already carries.
+    for flag in b.must_not_value_name.keys() {
+        if !n.must_not_value_name.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_not_value_name[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
     // `must_describe_positional`: same rule as `must_describe` above.
     for name in b.must_describe_positional.keys() {
         if !n.must_describe_positional.contains_key(name) {
@@ -260,6 +250,34 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         if !n.must_not_describe.contains_key(flag) {
             lines.push(format!(
                 "CONTRACT WEAKENED: {label} must_not_describe[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
+    // `must_display_name`: same rule as `must_describe` above — a string
+    // value has no natural stronger/weaker ordering, so only its outright
+    // removal is reported.
+    for path in b.must_display_name.keys() {
+        if !n.must_display_name.contains_key(path) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_display_name[{path:?}] (assertion removed)"
+            ));
+        }
+    }
+
+    // `must_accept_modifiers`: same shape as `must_contain_flags_by_path` —
+    // a dropped letter under an existing path weakens it.
+    for (path, base_letters) in &b.must_accept_modifiers {
+        let now_letters = n.must_accept_modifiers.get(path);
+        let missing: Vec<&str> = base_letters
+            .iter()
+            .filter(|letter| !now_letters.is_some_and(|ls| ls.iter().any(|l| l == *letter)))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_accept_modifiers[{path:?}] (dropped: {})",
+                missing.join(", ")
             ));
         }
     }
@@ -295,8 +313,9 @@ pub(crate) fn check_contract(
 /// report reads the same shape whether the failure is "wrong tree" or "no
 /// tree".
 ///
-/// `must_not_contain_flags` and `must_keep_separate` are deliberately
-/// absent from this list. Every field above is a positive claim, which a
+/// `must_not_contain_flags`, `must_not_contain_positionals` and
+/// `must_keep_separate` are deliberately absent from this list. Every
+/// field above is a positive claim, which a
 /// missing tree trivially breaks — "the tool has --paginate" cannot hold
 /// of no tree. A negative claim is the opposite: "no root flag is spelled
 /// X" is *satisfied* by a tree with no flags at all, so reporting it here
@@ -360,6 +379,16 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     if !contract.must_describe_positional.is_empty() {
         failures.push(ContractFailure(
             "must_describe_positional: no root produced".into(),
+        ));
+    }
+    if !contract.must_display_name.is_empty() {
+        failures.push(ContractFailure(
+            "must_display_name: no root produced".into(),
+        ));
+    }
+    if !contract.must_accept_modifiers.is_empty() {
+        failures.push(ContractFailure(
+            "must_accept_modifiers: no root produced".into(),
         ));
     }
     // `must_not_describe`, like `must_not_contain_flags`, is a negative
@@ -433,6 +462,45 @@ fn check_contract_scalar_fields(
         failures.push(ContractFailure(format!(
             "must_not_contain_flags: present {}",
             present_forbidden.join(", ")
+        )));
+    }
+
+    // The positional mirror of the negative claim above: an operand the
+    // parser invented that the tool has no such name for
+    // (`corpus/caffeinate/26.6.2`'s `ID`, split off `-w`'s own value name
+    // `Process ID`). Same matcher as `must_contain_positionals`, negated,
+    // root only.
+    let present_forbidden_positionals: Vec<&str> = contract
+        .must_not_contain_positionals
+        .iter()
+        .filter(|spec| positional_present(root, spec))
+        .map(|s| s.as_str())
+        .collect();
+    if !present_forbidden_positionals.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_positionals: present {}",
+            present_forbidden_positionals.join(", ")
+        )));
+    }
+
+    // The usage-block analogue of the negative claim above: text the
+    // tree's own `usage` field must not carry. Verbatim substring match,
+    // no whitespace collapsing (`must_describe`'s reasoning does not
+    // apply — a folded usage line is one physical string already).
+    let present_usage_text: Vec<&str> = contract
+        .must_not_contain_usage_text
+        .iter()
+        .filter(|text| {
+            root.usage
+                .iter()
+                .any(|u| u.as_str().contains(text.as_str()))
+        })
+        .map(|s| s.as_str())
+        .collect();
+    if !present_usage_text.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_usage_text: present {}",
+            present_usage_text.join(", ")
         )));
     }
 
@@ -630,7 +698,58 @@ fn check_contract_collection_fields(
     }
 
     failures.extend(check_must_value_name(contract, root));
+    failures.extend(check_must_display_name_and_modifiers(contract, root));
+    failures.extend(check_must_not_value_name(contract, root));
 
+    failures
+}
+
+/// `must_display_name`/`must_accept_modifiers`: a subcommand's own source
+/// spelling and accepted-modifier letters, both keyed by path the way
+/// `must_contain_flags_by_path` is.
+fn check_must_display_name_and_modifiers(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (path, expected_name) in &contract.must_display_name {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_display_name: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let actual = node.display_name.as_deref().unwrap_or(node.name.as_str());
+        if actual != expected_name {
+            failures.push(ContractFailure(format!(
+                "must_display_name[{path:?}]: expected {expected_name:?}, got {actual:?}"
+            )));
+        }
+    }
+    for (path, expected_letters) in &contract.must_accept_modifiers {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_accept_modifiers: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let missing: Vec<&str> = expected_letters
+            .iter()
+            .filter(|letter| {
+                !node
+                    .accepted_modifiers
+                    .iter()
+                    .any(|m| m.to_string() == **letter)
+            })
+            .map(|s| s.as_str())
+            .collect();
+        if !missing.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_accept_modifiers[{path:?}]: missing {}",
+                missing.join(", ")
+            )));
+        }
+    }
     failures
 }
 
@@ -664,6 +783,30 @@ fn check_must_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec<Con
             failures.push(ContractFailure(format!(
                 "must_value_name[{flag_spec:?}]: expected a value name containing {expected:?}, got {seen:?}"
             )));
+        }
+    }
+    failures
+}
+
+/// `must_not_value_name`: a flag's value placeholder must NOT carry the
+/// given text, the mirror of `check_must_value_name` above. Scans EVERY
+/// matching entity, same reason: one spelling can head two rows. Silent
+/// when the flag itself is absent, the same reasoning `must_not_describe`
+/// uses. See docs/shapes.md S-130.
+fn check_must_not_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (flag_spec, forbidden_text) in &contract.must_not_value_name {
+        let forbidden = collapse_whitespace(forbidden_text);
+        for entity in root
+            .flags()
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+        {
+            let actual = collapse_whitespace(entity.value_name.as_deref().unwrap_or(""));
+            if actual.contains(&forbidden) {
+                failures.push(ContractFailure(format!(
+                    "must_not_value_name[{flag_spec:?}]: value name contains {forbidden:?}, got {actual:?}"
+                )));
+            }
         }
     }
     failures

@@ -2797,6 +2797,16 @@ parser change follows. Snap launchers are a hazard class worth naming.
 like redo of things we already did." No busybox fixture, no busybox
 family, and no busybox count follow from this decision.
 
+**The ragged-command-table fix ships below the five-tool bar
+(2026-09-06).** `AGENTS.md` §3.1 sets five tools fleet-wide as the bar a
+new parser heuristic must clear. `scan_ragged_command_row` and
+`scan_ragged_command_run` (docs/shapes.md S-103, S-104) move two: pnpm
+itself and fail2ban-client. The maintainer ruled it ships anyway, as a
+recorded exception, since the alternative is dropping pnpm's whole root
+command table and inventing two commands from wrapped text. Both
+families are ratcheted at zero fleet-wide the same way a repaired family
+above the bar is.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until

@@ -8,6 +8,14 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
+- A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`, docs/shapes.md S-117).
+- A docopt bracket row's own trailing choice list no longer repeats as the flag's value name too, so `mandible pvdisplay`'s `--configreport` and `--driverloaded` show their choices once instead of twice (docs/shapes.md S-130).
+- A usage-synopsis flag whose value name holds a space (`-w Process ID`) keeps the whole name now, and the trailing bracket group it sat beside no longer loses its own two-word positional (`mandible caffeinate`, docs/shapes.md S-131, S-132).
+- A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-135).
+
 ## [0.7.0] - 2026-09-05
 
 ### Added

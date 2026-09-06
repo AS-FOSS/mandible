@@ -78,6 +78,7 @@ pub fn cmd_calibrate(
     let cases = load_cases(&file, corpus_root, fixture_version)?;
     let unclassified: Vec<String> = file.unclassified().map(|e| e.tool.clone()).collect();
     let set = SetSize {
+        seed,
         sampled: file.entries.len(),
         judged: cases.len(),
         evaluable: cases.iter().filter(|c| c.evidence.is_some()).count(),
@@ -316,11 +317,10 @@ pub fn check_round5_family_ratchets(
 }
 
 /// [`check_vim_family_ratchet`] for every family this round repaired and
-/// gated at zero, atlas S-116, S-118 to S-120 and S-126 to S-128, `true`
-/// only if every one holds. `spaced-single-dash-long`, S-117, and
-/// `description-subcommands-list`, S-114, stay open and are not listed.
-/// One call site for the whole batch, so `main.rs` gains one line rather
-/// than one per family.
+/// gated at zero, atlas S-116 to S-120, S-126 to S-128, S-131 and S-132,
+/// `true` only if every one holds. `description-subcommands-list`, S-114,
+/// stays open and is not listed. One call site for the whole batch, so
+/// `main.rs` gains one line rather than one per family.
 pub fn check_round6_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
@@ -331,13 +331,68 @@ pub fn check_round6_family_ratchets(
         "hash-in-spelling",
         "nested-bracket-value",
         "choices-after-optional-placeholder",
+        "spaced-single-dash-long",
         "examples-block-contaminates-last-flag",
         "positional-description-block",
         "generic-option-placeholder-flag",
+        "usage-bracket-group-multiword-value",
+        "trailing-bracket-group-multiword-operand",
     ] {
         if !check_vim_family_ratchet(name, previous, fresh)? {
             all_hold = false;
         }
     }
     Ok(all_hold)
+}
+
+/// One family's fleet count, ratcheted at zero, for a family whose
+/// `(tools, flags)` pair lives in its own two [`crate::coverage::Aggregate`]
+/// fields rather than in `vim_family`'s generic list. Same shape and
+/// reasoning as [`check_vim_family_ratchet`]; kept separate because that
+/// one is keyed on the `vim_family` field this family predates. Gated
+/// against a literal `0`, not `previous`, because the checked-in scoreboard
+/// is editable, so a commit reintroducing a defect would otherwise raise
+/// its own baseline.
+pub fn check_scalar_family_ratchet(
+    name: &'static str,
+    prev_tools: usize,
+    prev_flags: usize,
+    fresh_tools: usize,
+    fresh_flags: usize,
+) -> anyhow::Result<bool> {
+    if fresh_tools != prev_tools || fresh_flags != prev_flags {
+        println!(
+            "{name} findings changed from {prev_tools} tool(s)/{prev_flags} flag(s) to \
+             {fresh_tools} tool(s)/{fresh_flags} flag(s)",
+        );
+    }
+    let ratchet = ratchet_at_zero(find(name)?.as_ref(), fresh_tools, fresh_flags);
+    println!("\n{}", ratchet.report());
+    Ok(ratchet.holds())
+}
+
+/// pnpm's two families (atlas S-103, S-104), fixed in
+/// `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted at
+/// zero the same way as `single-dash-long`: the fix moves two tools
+/// fleet-wide, below the five-tool bar in AGENTS.md §3.1, recorded as a
+/// maintainer exception in `docs/design.md` §16.
+pub fn check_ragged_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let ragged = check_scalar_family_ratchet(
+        "ragged-command-table",
+        previous.ragged_command_tools,
+        previous.ragged_command_flags,
+        fresh.ragged_command_tools,
+        fresh.ragged_command_flags,
+    )?;
+    let wrapped = check_scalar_family_ratchet(
+        "wrapped-command-continuation-as-subcommand",
+        previous.wrapped_command_tools,
+        previous.wrapped_command_flags,
+        fresh.wrapped_command_tools,
+        fresh.wrapped_command_flags,
+    )?;
+    Ok(ragged && wrapped)
 }

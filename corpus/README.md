@@ -127,11 +127,15 @@ must_contain_modifiers = ["a", "U"]  # same, for the single-letter modifiers
                                      # since `[u]` and `[U]` are different
                                      # modifiers on the tools that have them
 
-# The one *negative* claim: root flag spellings the tree must NOT carry.
+# A negative claim: root flag spellings the tree must NOT carry.
 # Everything above says "the parser dropped something real"; this says
 # "the parser invented something". See "Stating that a flag does not
 # exist" below for exactly what it does and does not assert.
 must_not_contain_flags = ["--------------------------------"]
+
+# The positional mirror of the above: root positional names the tree must
+# NOT carry. See "Stating that a positional does not exist" below.
+must_not_contain_positionals = ["ID"]
 
 # The other negative shape: spellings that really exist and must NOT
 # resolve to the same entity. Guards the alias-run fold specifically. See
@@ -169,6 +173,17 @@ restore = ["--source", "--staged"]
 # so nothing but the snapshot could see it.
 [contract.must_value_name]
 "-V" = "fname"
+
+# A subcommand's own display spelling, keyed by path the same way
+# `must_contain_flags_by_path` is. `ar`'s `r` row displays as `r[ab][f][u]`
+# even though the parsed node's own name is bare `r`.
+[contract.must_display_name]
+r = "r[ab][f][u]"
+
+# The modifier letters a subcommand accepts, keyed by path the same way.
+# `ar`'s `r` row accepts `a`, `b`, `f` and `u`.
+[contract.must_accept_modifiers]
+r = ["a", "b", "f", "u"]
 
 # Which dimensions of the tree a human actually verified before blessing
 # this fixture. Optional; see "What `--bless` does and does not assert"
@@ -217,6 +232,49 @@ A fixture that produces no root at all satisfies this vacuously and is not
 reported — the one asymmetry with the positive fields, which a missing tree
 trivially breaks. Dropping an entry is a weakening exactly as dropping a
 `must_contain_flags` entry is, and `--baseline-dir` reports it as one.
+
+### Stating that a positional does *not* exist: `must_not_contain_positionals`
+
+The positional mirror of `must_not_contain_flags`, built for
+`corpus/caffeinate/26.6.2` (issue #135): its usage line's `-w` takes the
+value `Process ID`, and the unfixed parser split that value at its own
+space, leaving `Process` as the value name and inventing a positional
+spelled `ID`. Nothing before this field could state that `caffeinate` has
+no such positional.
+
+```toml
+must_not_contain_positionals = ["ID"]
+```
+
+Matched **exactly the way `must_contain_positionals` is**, negated: a bare
+name asserts no root positional carries that exact name, and a trailing
+`...` still requires repeatability for the match to count (so it plays no
+part in a negative claim, which never fires on a repeatable operand
+sharing the bare name). Root only, the same scope every other positional
+field has. Claims nothing about the raw capture — `ID` still occurs there,
+inside `-w`'s own value spec, and the existence oracle is correctly silent
+on this defect for the same reason it is on the mariadb ruler. A fixture
+that produces no root at all satisfies this vacuously and is not reported,
+the same asymmetry `must_not_contain_flags` has.
+### Stating that usage text carries text it must not: `must_not_contain_usage_text`
+
+`must_not_contain_flags` says a spelling was invented. It says nothing
+about the usage block itself carrying text that does not belong there —
+`makeconv`'s tab-indented description sentence, which has no terminating
+period, folds straight into the usage line with no heading, no flag and
+no positional to name it (docs/shapes.md S-135). Nothing but a byte-exact
+snapshot diff could see that until now.
+
+```toml
+must_not_contain_usage_text = ["read .ucm codepage mapping files"]
+```
+
+Every entry of `root.usage` is checked for this text as a verbatim
+substring — no whitespace collapsing, unlike `must_describe`, since a
+folded usage line is already one physical string. A fixture that produces
+no root satisfies this vacuously, the same reasoning `must_not_contain_flags`
+uses. Dropping an entry is a weakening exactly as dropping a
+`must_not_contain_flags` entry is.
 
 ### Stating that two flags did not fuse: `must_keep_separate`
 
@@ -302,6 +360,49 @@ corpus` fails when the positional is absent, or when its description does
 not contain the text. A fixture that produces no root fails this exactly
 as it fails `must_contain_positionals`.
 
+### A subcommand's own source spelling: `must_display_name`
+
+A command-table row can document a subcommand together with the
+modifiers it accepts glued onto the same row (`ar`'s `r[ab][f][u]`), and
+the shape test that recognizes the command name rejects the bracketed
+form outright (spec §7 Tier B rule 3) — the node's own `name` is the bare
+letter, `r`. The commands pane still shows the row as the tool printed
+it, in `CommandNode::display_name` (docs/design.md §16, "a node whose
+help repeats an ancestor's renders parsed, not repeated").
+
+```toml
+[contract.must_display_name]
+r = "r[ab][f][u]"
+```
+
+Keyed by path the same way `must_contain_flags_by_path` is. The named
+node's `display_name`, or its bare `name` when `display_name` is unset,
+must equal this text exactly. `cargo xtask corpus` fails when no node
+exists at the path, or when the spelling differs, naming both. A fixture
+that produces no root fails this exactly as it fails
+`must_contain_flags_by_path`.
+
+### A subcommand's own accepted modifiers: `must_accept_modifiers`
+
+The same command-table row documents which single-letter modifiers that
+subcommand accepts (`ar`'s `r[ab][f][u]` accepts `a`, `b`, `f`, `u`),
+recovered into `CommandNode::accepted_modifiers`. `must_contain_modifiers`
+only ever asserts the root's own modifier list; nothing asserted a
+subcommand's own accepted set until now.
+
+```toml
+[contract.must_accept_modifiers]
+r = ["a", "b", "f", "u"]
+```
+
+Keyed by path the same way `must_contain_flags_by_path` is. Every listed
+letter must be in the named node's `accepted_modifiers`; `cargo xtask
+corpus` fails naming whichever letters are missing. A path with no entry
+here asserts nothing about its modifiers, positive or negative — a
+subcommand documented with no modifiers at all (`ar`'s `d`, `p`, `s`)
+needs no entry. A fixture that produces no root fails this exactly as it
+fails `must_contain_flags_by_path`.
+
 ### Stating that a description carries text it must not: `must_not_describe`
 
 `must_describe`'s substring check cannot say a description is
@@ -320,6 +421,27 @@ The named flag's rendered description must NOT contain this text as a
 substring, matched the way `must_describe` matches. Satisfied vacuously
 when the flag is absent or the fixture produces no root, the same
 reasoning `must_not_contain_flags` uses.
+
+### Stating that a value name carries text it must not: `must_not_value_name`
+
+`must_value_name`'s substring check cannot say a placeholder is
+*duplicated*: `pvdisplay`'s `--configreport` reads its choices straight
+off a docopt bracket row's own trailing `|`-list, and the same list also
+survives as `value_name`, so the rendered screen prints it twice
+(docs/shapes.md S-130). `must_value_name` still passes, since the
+placeholder does contain the text it names; nothing said it must not
+carry more.
+
+```toml
+[contract.must_not_value_name]
+"--configreport" = "log|vg|lv|pv|pvseg|seg"
+```
+
+The named flag's `value_name` must NOT contain this text as a substring,
+matched the way `must_value_name` matches: every entity carrying that
+spelling is checked, substring comparison after collapsing whitespace on
+both sides. Satisfied vacuously when the flag is absent or the fixture
+produces no root, the same reasoning `must_not_describe` uses.
 
 ### What `--bless` does and does not assert: `verdict_scope`
 
@@ -534,6 +656,10 @@ corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
 a dropped `must_contain_flags`/`must_contain_flags_by_path`/
 `must_contain_positionals`/`must_not_contain_flags`/`must_keep_separate`/
+`must_attach_choices`/`must_accept_modifiers` entry, a removed
+`must_describe`/`must_display_name` entry, a fixture newly marked
+`[xfail]`, or a fixture missing entirely) — reported, never
+`must_contain_positionals`/`must_not_contain_flags`/`must_not_contain_usage_text`/`must_keep_separate`/
 `must_attach_choices` entry, a removed `must_describe` entry, a fixture
 newly marked `[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle

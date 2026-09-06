@@ -24,6 +24,7 @@ mod or_joined_alias;
 mod parenthetical_qualifier_as_value;
 mod plus_prefixed_option;
 mod queue;
+mod ragged_command_table;
 mod repeated_char;
 mod residue;
 mod rng;
@@ -34,6 +35,7 @@ mod status;
 mod tail_operand;
 mod transition;
 mod usage_only_value_name;
+mod wrapped_command_continuation;
 mod wrapped_prose;
 
 use clap::{Parser, Subcommand};
@@ -253,9 +255,15 @@ enum DetectorAction {
         /// The corpus root holding the audited tools' fixtures.
         #[arg(long, default_value = "corpus")]
         corpus_dir: PathBuf,
-        /// The fixture directory name to replay under each tool — the
-        /// audit's own staged fixtures live at
-        /// `corpus/<tool>/audit-seed2/`.
+        /// A glob matched against each tool's version directory name (`*`
+        /// is "any sequence"; anything else must match literally, so the
+        /// default stays an exact match). The seed 2/4/5/6 audits stage
+        /// fixtures at a shared name (`corpus/<tool>/audit-seed2/`); the
+        /// seed-7 audit names each directory after the tool's own version
+        /// (`corpus/pvdisplay/2.03.16/`), so `*` is the pattern that picks
+        /// out a tool's one version directory whatever it is called. A
+        /// pattern matching more than one directory for the same tool is
+        /// refused, naming every directory it matched.
         #[arg(long, default_value = "audit-seed2")]
         fixture_version: String,
     },
@@ -1171,65 +1179,29 @@ fn run_coverage(
             regressed = true;
         }
 
-        // `repeated-char-flag` (`crate::repeated_char`), the second of the
-        // three families sharing the `short && !long && value_name`
-        // fingerprint, on exactly the terms `bundled-short-flag` reached
-        // above and after the same movement: reported-and-ungated while the
-        // number had no baseline, ratcheted at a literal zero once the
-        // repair landed (`help_text::sections::repair_repeated_character_flags`).
-        // Gated against `0` and not against `previous` for the same reason —
-        // the checked-in scoreboard is editable, so a commit reintroducing
-        // the defect would otherwise raise its own baseline — and gated on
-        // the detector's own self-checks alongside the count, because a gate
-        // on `count == 0` alone is satisfied by deleting the detector.
-        if fresh.repeated_char_tools != previous.repeated_char_tools
-            || fresh.repeated_char_flags != previous.repeated_char_flags
-        {
-            println!(
-                "repeated-char-flag misreads changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
-                previous.repeated_char_tools,
-                previous.repeated_char_flags,
-                fresh.repeated_char_tools,
-                fresh.repeated_char_flags,
-            );
-        }
-        let repeat_ratchet = detector::ratchet_at_zero(
-            detector::find("repeated-char-flag")?.as_ref(),
+        // `repeated-char-flag` and `single-dash-long`, the second and third
+        // of three families sharing the `short && !long && value_name`
+        // fingerprint (see `bundled-short-flag` above), ratcheted at zero
+        // each: see `detector::check_scalar_family_ratchet`'s doc comment
+        // for why zero and not `previous`. `single_dash_long::tests::
+        // the_real_parser_leaves_no_split_in_any_audited_fixture` separately
+        // covers the fix itself being deleted, which no fleet count catches.
+        if !detector::check_scalar_family_ratchet(
+            "repeated-char-flag",
+            previous.repeated_char_tools,
+            previous.repeated_char_flags,
             fresh.repeated_char_tools,
             fresh.repeated_char_flags,
-        );
-        println!("\n{}", repeat_ratchet.report());
-        if !repeat_ratchet.holds() {
+        )? {
             regressed = true;
         }
-
-        // `single-dash-long` (`crate::single_dash_long`), the third family
-        // sharing the `short && !long && value_name` fingerprint, ratcheted
-        // at zero the same way as the two above, gated against a literal
-        // `0` for the same editable-baseline reason. The complementary
-        // hazard — the detector staying healthy while the fix itself is
-        // deleted, which no fleet count or self-check catches — is covered
-        // separately by `single_dash_long::tests::
-        // the_real_parser_leaves_no_split_in_any_audited_fixture`, which
-        // replays frozen bytes under `cargo nextest`.
-        if fresh.single_dash_split_tools != previous.single_dash_split_tools
-            || fresh.single_dash_split_flags != previous.single_dash_split_flags
-        {
-            println!(
-                "single-dash-long splits changed from {} tool(s)/{} flag(s) to {} tool(s)/{} flag(s)",
-                previous.single_dash_split_tools,
-                previous.single_dash_split_flags,
-                fresh.single_dash_split_tools,
-                fresh.single_dash_split_flags,
-            );
-        }
-        let single_dash_ratchet = detector::ratchet_at_zero(
-            detector::find("single-dash-long")?.as_ref(),
+        if !detector::check_scalar_family_ratchet(
+            "single-dash-long",
+            previous.single_dash_split_tools,
+            previous.single_dash_split_flags,
             fresh.single_dash_split_tools,
             fresh.single_dash_split_flags,
-        );
-        println!("\n{}", single_dash_ratchet.report());
-        if !single_dash_ratchet.holds() {
+        )? {
             regressed = true;
         }
 
@@ -1258,6 +1230,8 @@ fn run_coverage(
 
         regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
+
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
         }

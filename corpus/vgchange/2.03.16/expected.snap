@@ -42,7 +42,6 @@ flags:
 - spellings:
   - -A
   - --autobackup
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -69,7 +68,6 @@ flags:
     - help-text
 - spellings:
   - --activationmode
-  value_name: partial|degraded|complete
   value_kind: Required
   choices:
   - partial
@@ -99,7 +97,6 @@ flags:
     - help-text
 - spellings:
   - --monitor
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -110,7 +107,6 @@ flags:
     - help-text
 - spellings:
   - --poll
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -141,7 +137,6 @@ flags:
     - help-text
 - spellings:
   - --reportformat
-  value_name: basic|json
   value_kind: Required
   choices:
   - basic
@@ -159,7 +154,6 @@ flags:
 - spellings:
   - -A
   - --autobackup
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -198,7 +192,6 @@ flags:
     - help-text
 - spellings:
   - --poll
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -221,7 +214,6 @@ flags:
     - help-text
 - spellings:
   - --reportformat
-  value_name: basic|json
   value_kind: Required
   choices:
   - basic
@@ -336,7 +328,6 @@ flags:
     - help-text
 - spellings:
   - --driverloaded
-  value_name: y|n
   value_kind: Required
   choices:
   - y

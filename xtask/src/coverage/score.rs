@@ -7,11 +7,14 @@ use super::render_text::truncate_col;
 use super::Row;
 use crate::alternation;
 use crate::bundling;
+use crate::detector::{Detector, ToolEvidence};
 use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
+use crate::ragged_command_table;
 use crate::repeated_char;
 use crate::single_dash_long;
 use crate::tail_operand;
+use crate::wrapped_command_continuation;
 use crate::wrapped_prose;
 use mandible_core::CommandNode;
 use mandible_extract::{default_tiers_with_probe, resolve_tool, ExtractionResult, Runner};
@@ -191,6 +194,12 @@ pub(super) fn score_one(tool: &str) -> Row {
     let (wrapped_prose_count, wrapped_prose_samples, tail_operand_count, tail_operand_samples) =
         family_detector_counts(probe.root_help_text(), result.root.as_ref());
     let vim_family = vim_family_counts(probe.root_help_text(), result.root.as_ref());
+    let (
+        ragged_command_count,
+        ragged_command_samples,
+        wrapped_command_count,
+        wrapped_command_samples,
+    ) = ragged_family_detector_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -223,6 +232,10 @@ pub(super) fn score_one(tool: &str) -> Row {
         tail_operand_count,
         tail_operand_samples,
         vim_family,
+        ragged_command_count,
+        ragged_command_samples,
+        wrapped_command_count,
+        wrapped_command_samples,
         status: status.label,
         fingerprint: build_fingerprint(result.root.as_ref()),
     }
@@ -472,7 +485,56 @@ fn vim_family_counts(
     counts.extend(round5_family_counts(&raw, root));
     counts.extend(round6_family_counts(&raw, root));
     counts.extend(round6_block_family_counts(&raw, root));
+    counts.extend(round7_family_counts(&raw, root));
+    counts.extend(round7_usage_family_counts(&raw, root));
     counts
+}
+
+/// The round-7 family detectors, atlas S-130 to S-134: `pvdisplay`'s
+/// duplicated placeholder, `icupkg`'s two unfixed `or`-joined row shapes,
+/// and issue #135's two multi-word bracket-group shapes. Split out for the
+/// same line-count reason [`round6_block_family_counts`] is.
+fn round7_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let evidence = ToolEvidence { raw, root };
+    let vd =
+        crate::detector::value_name_duplicates_choices::ValueNameDuplicatesChoices.hits(&evidence);
+    let cv = crate::detector::choice_value_rows_unfolded::ChoiceValueRowsUnfolded.hits(&evidence);
+    let sg = crate::detector::or_joined_alias_single_space_gap::detect(raw, root);
+    let bracket: Vec<Box<dyn crate::detector::Detector>> = vec![
+        Box::new(
+            crate::detector::usage_bracket_group_multiword_value::UsageBracketGroupMultiwordValue,
+        ),
+        Box::new(
+            crate::detector::trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand,
+        ),
+    ];
+    let mut out = vec![
+        (
+            "value-name-duplicates-choices",
+            vd.len(),
+            vd.into_iter().take(cap).collect(),
+        ),
+        (
+            "choice-value-rows-unfolded",
+            cv.len(),
+            cv.into_iter().take(cap).collect(),
+        ),
+        (
+            "or-joined-alias-single-space-gap",
+            sg.finding_count(),
+            sg.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?}/{:?} never joined, from {:?}", f.short, f.long, f.line))
+                .collect(),
+        ),
+    ];
+    out.extend(bracket.iter().map(|d| {
+        let hits = d.hits(&evidence);
+        (d.name(), hits.len(), hits.into_iter().take(cap).collect())
+    }));
+    out
 }
 
 /// The spelling-grammar family detectors, atlas S-116 to S-120, split
@@ -619,6 +681,42 @@ fn round6_block_family_counts(
     ]
 }
 
+/// The two round-7 family detectors, atlas S-135 and S-136, split out
+/// for the same line-count reason [`round4_family_counts`] is.
+fn round7_usage_family_counts(
+    raw: &str,
+    root: &CommandNode,
+) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let uc = crate::detector::usage_text_continuation_fold::detect(raw, root);
+    let nv = crate::detector::numbered_variadic_usage_tail::detect(raw, root);
+    vec![
+        (
+            "usage-text-continuation-fold",
+            uc.finding_count(),
+            uc.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} folded into usage {:?}", f.continuation, f.usage))
+                .collect(),
+        ),
+        (
+            "numbered-variadic-usage-tail",
+            nv.finding_count(),
+            nv.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "{:?} never became a positional, from the usage line {:?}",
+                        f.positional, f.usage_line
+                    )
+                })
+                .collect(),
+        ),
+    ]
+}
+
 /// The three round-5 detectors, each implementing [`crate::detector::
 /// Detector`] directly rather than the bare `detect()`/`Report` shape the
 /// families above use — `hits()` is called through the trait, on the same
@@ -731,6 +829,60 @@ fn round4_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
                 .collect(),
         ),
     ]
+}
+
+/// One ragged-command-table finding, rendered as a single audit-section
+/// line.
+fn format_ragged_command_sample(finding: &ragged_command_table::Finding) -> String {
+    format!(
+        "{:?} (alias {:?}) missing, from {:?}",
+        finding.name, finding.alias, finding.row
+    )
+}
+
+/// One wrapped-command-continuation-as-subcommand finding, rendered as a
+/// single audit-section line.
+fn format_wrapped_command_sample(finding: &wrapped_command_continuation::Finding) -> String {
+    format!(
+        "{:?} fabricated from the line {:?}",
+        finding.name, finding.line
+    )
+}
+
+/// [`ragged_command_table::detect`] and
+/// [`wrapped_command_continuation::detect`], run over one tool's already-
+/// captured text and tree — split out of [`score_one`] for the same
+/// line-count reason as [`family_detector_counts`].
+fn ragged_family_detector_counts(
+    raw: Option<String>,
+    root: Option<&CommandNode>,
+) -> (usize, Vec<String>, usize, Vec<String>) {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return (0, Vec::new(), 0, Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return (0, Vec::new(), 0, Vec::new());
+    }
+    let rc = ragged_command_table::detect(&raw, root);
+    let rc_samples = rc
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_ragged_command_sample)
+        .collect();
+    let wc = wrapped_command_continuation::detect(&raw, root);
+    let wc_samples = wc
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_wrapped_command_sample)
+        .collect();
+    (
+        rc.finding_count(),
+        rc_samples,
+        wc.finding_count(),
+        wc_samples,
+    )
 }
 
 /// True when the root's captured `--help` output was detected as a

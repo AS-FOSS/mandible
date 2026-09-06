@@ -232,6 +232,7 @@ pub(super) const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 pub(super) fn repair_single_dash_long_options(
     flags: &mut [Entity],
     glued_tokens: &GluedTokenIndex<'_>,
+    raw: &str,
 ) {
     for flag in flags.iter_mut() {
         // 1. Option-table-sourced, never synopsis.
@@ -266,29 +267,98 @@ pub(super) fn repair_single_dash_long_options(
             continue;
         }
         let name_token = format!("-{short}{name_tail}");
-        // 5. Uniformly lowercase — the only thing separating this from the
-        //    glued-value convention. See this function's doc comment.
-        if !token_is_uniformly_lowercase(&name_token) {
+        // 5. Uniformly lowercase, or the row's own spacing shows the value
+        //    is spaced rather than glued (`-Xassembler <arg>`, atlas
+        //    S-117): the discriminator against the GCC/Clang glued-value
+        //    convention (`-DMACRO`) stays exactly as strict, since that
+        //    convention's row never carries a spaced placeholder after the
+        //    swallowed name.
+        let spaced_value = (!token_is_uniformly_lowercase(&name_token))
+            .then(|| spaced_value_placeholder(raw, &name_token))
+            .flatten();
+        if !token_is_uniformly_lowercase(&name_token) && spaced_value.is_none() {
             continue;
         }
         // 7. Whole token occurs glued and delimited in the raw text. Last
-        //    since it's the only condition reading the document.
-        if !glued_tokens.contains(&format!("-{short}{tail}")) {
+        //    since it's the only condition reading the document. Not asked
+        //    of the spaced shape: its own name token is never glued to a
+        //    value at all, that's the whole point of the discriminator.
+        if spaced_value.is_none() && !glued_tokens.contains(&format!("-{short}{tail}")) {
             continue;
         }
         // Run up to the `=` becomes one single-dash long spelling; name
         // held bare, `Dashes::Single` adds the dash at display time.
         flag.spellings = vec![Spelling::single_dash(&name_token[1..])];
-        match glued_value {
-            // The document wrote the value spec, so it survives.
-            Some(value) => flag.value_name = Some(value.to_string()),
-            // Dropped by the grammar before this ran; becomes the
-            // correctly-named boolean rather than a fabricated value.
-            None => {
-                flag.value_name = None;
-                flag.value_kind = ValueKind::None;
+        match spaced_value {
+            // The placeholder the row spaced after the name is the real
+            // value; the grammar's swallowed guess never was one.
+            Some((value, kind)) => {
+                flag.value_name = Some(value);
+                flag.value_kind = kind;
             }
+            None => match glued_value {
+                // The document wrote the value spec, so it survives.
+                Some(value) => flag.value_name = Some(value.to_string()),
+                // Dropped by the grammar before this ran; becomes the
+                // correctly-named boolean rather than a fabricated value.
+                None => {
+                    flag.value_name = None;
+                    flag.value_kind = ValueKind::None;
+                }
+            },
         }
+    }
+}
+
+/// The value placeholder a row documents one space after `name_token`
+/// (`-Xassembler <arg>`), never a description's own bracket or
+/// capitalized word past a wider, tab-carrying gap (gcc's `-Wtraditional`
+/// row, `-DMACRO`'s row). Angle- or bracket-delimited only — an
+/// uppercase-led bare word is indistinguishable from a description's
+/// first word, so it is out of scope here though the detector counts it.
+/// See docs/shapes.md S-117 and
+/// corpus/aarch64-linux-gnu-g++-13/13.3.0/help.txt.
+pub(super) fn spaced_value_placeholder(raw: &str, name_token: &str) -> Option<(String, ValueKind)> {
+    let hay: Vec<char> = raw.chars().collect();
+    let needle: Vec<char> = name_token.chars().collect();
+    if needle.is_empty() || hay.len() < needle.len() {
+        return None;
+    }
+    (0..=(hay.len() - needle.len())).find_map(|start| {
+        let end = start + needle.len();
+        if hay[start..end] != needle[..] {
+            return None;
+        }
+        if start != 0 && is_word_char(hay[start - 1]) {
+            return None;
+        }
+        if end < hay.len() && is_word_char(hay[end]) {
+            return None;
+        }
+        // Exactly one space: a second space or a tab right after it is
+        // already the description column's own gap, never this row's
+        // value separator.
+        if hay.get(end) != Some(&' ') || matches!(hay.get(end + 1), Some(' ' | '\t')) {
+            return None;
+        }
+        placeholder_at(&hay, end + 1)
+    })
+}
+
+/// The placeholder token starting at `hay[start]`, if any — the shape half
+/// of [`spaced_value_placeholder`], split out so each bracket kind's span
+/// search stays a one-liner.
+fn placeholder_at(hay: &[char], start: usize) -> Option<(String, ValueKind)> {
+    match *hay.get(start)? {
+        '<' => {
+            let close = (start..hay.len()).find(|&i| hay[i] == '>')?;
+            Some((hay[start..=close].iter().collect(), ValueKind::Required))
+        }
+        '[' => {
+            let close = (start..hay.len()).find(|&i| hay[i] == ']')?;
+            Some((hay[start..=close].iter().collect(), ValueKind::Optional))
+        }
+        _ => None,
     }
 }
 
@@ -673,6 +743,65 @@ mod tests {
                     .collect::<Vec<_>>()
             );
         }
+    }
+
+    /// g++'s real rows, byte-exact (`corpus/aarch64-linux-gnu-g++-13/13.3.0/help.txt`).
+    /// Atlas S-117: the swallowed name recovers because the row keeps its
+    /// value spaced, one space before `<arg>`, unlike the glued-value
+    /// convention's row above.
+    #[test]
+    fn gpps_spaced_x_options_recover_their_full_name_and_value() {
+        let parsed = parse(concat!(
+            "  -Xassembler <arg>        Pass <arg> on to the assembler.\n",
+            "  -Xpreprocessor <arg>     Pass <arg> on to the preprocessor.\n",
+            "  -Xlinker <arg>           Pass <arg> on to the linker.\n",
+        ));
+        for name in ["Xassembler", "Xpreprocessor", "Xlinker"] {
+            let flag = flag_named(&parsed, name);
+            assert!(flag.single_dash(), "-{name} is spelled with one dash");
+            assert_eq!(flag.short(), None, "the fabricated -X is gone");
+            assert_eq!(flag.value_name.as_deref(), Some("<arg>"));
+            assert_eq!(flag.value_kind, ValueKind::Required);
+        }
+    }
+
+    /// gcc's real row, byte-exact (`corpus/lto-dump/13.3.0/help.txt`):
+    /// a wide, tab-carrying gap, not one space, separates `-Wtraditional`
+    /// from its own description `[available in C, ObjC]` — a bracket that
+    /// would otherwise read as this repair's placeholder shape. Guards
+    /// the one-space bound in `spaced_value_placeholder`.
+    #[test]
+    fn a_wide_gap_before_a_bracketed_description_is_never_a_placeholder() {
+        let parsed = parse("  -Wtraditional               \t\t[available in C, ObjC]\n");
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| f.long() != Some("Wtraditional")),
+            "a description's own bracket was read as a value placeholder: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// A capitalized description's first word is not a placeholder either
+    /// — the whole reason the uppercase-word shape stays out of
+    /// `spaced_value_placeholder` even though the detector counts it.
+    #[test]
+    fn a_capitalized_description_after_one_space_is_never_a_placeholder() {
+        let parsed = parse("  -Xoption      Enable the option.\n");
+        assert!(
+            parsed.flags.iter().all(|f| f.long() != Some("Xoption")),
+            "a description's own capitalized word was read as a value placeholder: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
     }
 
     /// `dbiprof`'s real option table, byte-exact. See docs/shapes.md

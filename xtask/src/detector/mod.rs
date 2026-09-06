@@ -30,7 +30,7 @@
 use crate::corpus;
 use mandible_core::audit::{self, AuditFile};
 use mandible_core::{CommandNode, Entity, Provenance, Source};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 mod calibration;
@@ -44,6 +44,7 @@ mod render;
 // One module per family detector, atlas S-106 upward. Nested here, unlike
 // the earlier detector modules under `xtask/src/`, because
 // `xtask/src/main.rs` is already at its own size ceiling (AGENTS.md §2).
+pub(crate) mod choice_value_rows_unfolded;
 pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
@@ -54,12 +55,16 @@ pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
+pub(crate) mod numbered_variadic_usage_tail;
+pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
 pub(crate) mod positional_description_block;
 pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
+pub(crate) mod usage_text_continuation_fold;
+pub(crate) mod value_name_duplicates_choices;
 
 // Round-5 family detectors (three parser families: same-spelling-fold-loss,
 // bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
@@ -70,6 +75,11 @@ pub(crate) mod usage_program_word_mismatch;
 pub(crate) mod bare_or_usage_separator;
 pub(crate) mod same_spelling_fold_loss;
 pub(crate) mod usage_spelling_duplicates_table_row;
+
+// Round-7 family detectors (issue #135's own two shapes, atlas S-131 and
+// S-132), same direct-`Detector`-impl shape as the round-5 modules above.
+pub(crate) mod trailing_bracket_group_multiword_operand;
+pub(crate) mod usage_bracket_group_multiword_value;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -693,6 +703,15 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(PositionalDescriptionBlock),
         Box::new(GenericOptionPlaceholderFlag),
         Box::new(DescriptionSubcommandsList),
+        Box::new(RaggedCommandTable),
+        Box::new(WrappedCommandContinuation),
+        Box::new(value_name_duplicates_choices::ValueNameDuplicatesChoices),
+        Box::new(choice_value_rows_unfolded::ChoiceValueRowsUnfolded),
+        Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),
+        Box::new(usage_bracket_group_multiword_value::UsageBracketGroupMultiwordValue),
+        Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
+        Box::new(UsageTextContinuationFold),
+        Box::new(NumberedVariadicUsageTail),
     ]
 }
 
@@ -970,6 +989,7 @@ mod tests {
         let text = render(
             &cal,
             &SetSize {
+                seed: 2,
                 sampled: 94,
                 judged: 86,
                 evaluable: 71,
@@ -1035,6 +1055,7 @@ mod tests {
         let text = render(
             &cal,
             &SetSize {
+                seed: 2,
                 sampled: 94,
                 judged: 86,
                 evaluable: 71,
@@ -1059,6 +1080,7 @@ mod tests {
         let text = render(
             &cal,
             &SetSize {
+                seed: 2,
                 sampled: 94,
                 judged: 86,
                 evaluable: 71,
@@ -1067,6 +1089,30 @@ mod tests {
         assert!(text.contains("NOT GROUND TRUTH ABOUT THE FLEET"), "{text}");
         assert!(text.contains("MACHINE READING"), "{text}");
         assert!(text.contains("VERDICT: PASSES"), "{text}");
+    }
+
+    /// The caveat names the seed the run read, so a seed-7 report never
+    /// describes the seed-2 manifest. `xtask/src/detector/render.rs`.
+    #[test]
+    fn the_caveat_names_the_seed_it_was_run_with() {
+        let cal = calibrate(
+            &Stub {
+                fires_on: vec!["hit"],
+            },
+            &[case("hit", true, &["verbatim-fallback"], node("hit"))],
+            Vec::new(),
+        );
+        let text = render(
+            &cal,
+            &SetSize {
+                seed: 7,
+                sampled: 30,
+                judged: 28,
+                evaluable: 12,
+            },
+        );
+        assert!(text.contains("in the seed-7 audit"), "{text}");
+        assert!(!text.contains("seed-2"), "{text}");
     }
 
     #[test]
@@ -1220,6 +1266,7 @@ mod tests {
 
     fn set_size() -> SetSize {
         SetSize {
+            seed: 2,
             sampled: 94,
             judged: 86,
             evaluable: 71,

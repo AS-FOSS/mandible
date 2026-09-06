@@ -15,6 +15,7 @@ use super::*;
 /// (spec §13.1b).
 fn caveat(set: &SetSize, unclassified: usize) -> String {
     let SetSize {
+        seed,
         sampled,
         judged,
         evaluable,
@@ -22,11 +23,12 @@ fn caveat(set: &SetSize, unclassified: usize) -> String {
     format!(
         "CALIBRATION IS AGAINST DERIVED LABELS OVER A BOUNDED SAMPLE — NOT GROUND TRUTH ABOUT \
          THE FLEET.\n  * the verdicts are human: {judged} judged tools out of {sampled} sampled \
-         in the seed-2 audit (the rest were skipped, and a skip judges nothing either way). The \
-         defect-family labels on them are a MACHINE READING of each reviewer's note plus the \
+         in the seed-{seed} audit (the rest were skipped, and a skip judges nothing either way). \
+         The defect-family labels on them are a MACHINE READING of each reviewer's note plus the \
          fixture evidence (`families_derived = true`) — a weaker claim than the verdict it sits \
-         on\n  * {sampled} tools is roughly 4% of PATH. Passing here means a detector works on \
-         these tools; it says nothing about whether its fleet-wide count is right\n  * \
+         on\n  * {sampled} tools is a bounded sample of PATH, and the fleet count lives in the \
+         coverage scoreboard. Passing here means a detector works on these tools; it says nothing \
+         about whether its fleet-wide count is right\n  * \
          {evaluable} of the {judged} have a replayable fixture. The rest are evaluated by nobody \
          and are listed as not-evaluable rather than quietly dropped\n  * {unclassified} judged \
          defect(s) carry no family label at all, so no family's calibration here can be complete"
@@ -40,6 +42,9 @@ fn caveat(set: &SetSize, unclassified: usize) -> String {
 /// leave a reader to assume the missing one.
 #[derive(Clone, Copy)]
 pub struct SetSize {
+    /// Which audit seed the verdicts come from, so the report names the
+    /// manifest it read rather than one fixed seed.
+    pub seed: u64,
     /// Entries in the manifest, skips included.
     pub sampled: usize,
     /// Entries with a `wrong`/`incomplete`/`correct` verdict — the ones a
@@ -64,12 +69,13 @@ pub fn render(cal: &Calibration, set: &SetSize) -> String {
     s.push_str("\n\n");
 
     if cal.family.is_none() {
-        s.push_str(
+        s.push_str(&format!(
             "NOT CALIBRATABLE against this set: this detector generalizes no defect family any \
-             reviewer in the seed-2 audit recorded, so these tools can neither confirm nor refute \
-             it. That is a property of the sample, not a defect in the detector — but its \
+             reviewer in the seed-{} audit recorded, so these tools can neither confirm nor \
+             refute it. That is a property of the sample, not a defect in the detector — but its \
              fleet-wide number is not quotable on the strength of anything here.\n",
-        );
+            set.seed
+        ));
         return s;
     }
 

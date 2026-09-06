@@ -1805,6 +1805,55 @@ entry's `tools` field and nothing else. It does not get a new entry.
   member); not gated (the merge half it argues for is invisible to this
   same sweep, so a gate here would ratchet a number the fix cannot move).
 
+### S-103: a command's wrapped description invents a subcommand
+
+- id: S-103
+- looks like: |
+        ls, list                 Print all the versions of packages that are
+                                 installed, as well as their dependencies, in a
+                                 tree-structure
+- tools: pnpm
+- handling: A command's description wraps onto a physical line with no column of
+  its own. The generic layout parser's heading fallback misreads an earlier
+  ragged-indent row as a section heading (see S-104), and the orphaned
+  continuation's own leading word then reads as a fresh subcommand.
+  `scan_ragged_command_run` recognizes the owning row directly, before the
+  heading fallback ever sees it, so the continuation folds into that row's
+  description instead of becoming a node. Fixed. The fix moves 2 tools
+  fleet-wide, below the five-tool bar in AGENTS.md §3.1; shipped as a
+  recorded exception (docs/design.md §16).
+- fleet: 0 after the fix (pnpm's 2 inventions, `tree-structure` and `package`,
+  both gone), 2026-09-03. The `wrapped-command-continuation-as-subcommand`
+  detector's own fleet-wide count is reported, not gated: a full sweep found
+  1 unrelated tool it also fires on, not yet excluded by a declared scope.
+
+### S-104: a short-alias prefix ragged-indents a command table's rows
+
+- id: S-104
+- looks like: |
+        add                  Installs a package and any packages that it depends
+     i, install              Install all dependencies for a project
+    ln, link                 Connect the local project to another one
+- tools: pnpm
+- handling: A command table's rows carry an optional short-alias-comma prefix
+  (`i, install`), which sits at a shallower indent than the unaliased rows
+  around it. The generic layout parser's block scanners key a row-vs-
+  continuation decision on one fixed indent baseline per block, which cannot
+  admit both indents at once: the shallower row never opens a block and is
+  dropped, and the deeper siblings after it get swallowed by the heading
+  fallback (see S-103). `scan_ragged_command_row`/`scan_ragged_command_run`
+  recognize each row directly, one physical line at a time, gated on the
+  document already being in a command-listing context and on a run of 2+
+  such rows in strict adjacency. Fixed. The fix moves 2 tools fleet-wide,
+  below the five-tool bar in AGENTS.md §3.1; shipped as a recorded exception
+  (docs/design.md §16).
+- fleet: 0 after the fix (pnpm's 12 aliased-and-sibling rows all recovered:
+  `i, install`, `ln, link`, `rm, remove`, `unlink`, `up, update`, `ls, list`,
+  `outdated`, `why`, `c, config`, `init`, `publish`, `stage`), 2026-09-03. The
+  `ragged-command-table` detector's own fleet-wide count is reported, not
+  gated: a full sweep found it also fires on 144 tools whose "missing
+  command" is really an unrelated bullet or reference list, not this shape.
+
 ### S-105: one-space description column on a pipe-joined alias row
 
 - id: S-105
@@ -2070,7 +2119,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/comma_glued_option_value.rs`) generalizes this shape
   fleet-wide.
 - fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
-  fix moved 23 tools with zero losses on the same sweep.
+  fix moved 23 tools with zero losses on the same sweep. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`aarch64-linux-gnu-g++-13`), 1 true negative, 2026-09-06.
 
 ### S-117: a spaced single-dash long option with an uppercase flag letter
 
@@ -2078,17 +2129,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -Xassembler <arg>        Pass <arg> on to the assembler.
       -Xpreprocessor <arg>     Pass <arg> on to the preprocessor.
-- tools: gcc, g++, clang and the same compiler family S-116 lists
-- handling: Open defect. `-Xassembler` truncates to `-X` valued `"assembler"`, with `<arg>`
-  left unconsumed. `repair_single_dash_long_options` refuses any token
-  carrying an uppercase letter, its only signal against the GCC/Clang
-  glued-value convention (`-DMACRO`); `-Xassembler`'s flag letter is
-  uppercase, so it reads as that convention even though its value is
-  spaced, not glued. The row's own spacing is already gone by the time
-  that repair runs. `xtask detector`'s `spaced-single-dash-long`
-  (`xtask/src/detector/spaced_single_dash_long.rs`) generalizes this shape
-  fleet-wide.
-- fleet: 40 tools, 381 findings, 2026-09-05.
+- tools: gcc, g++, clang and the same compiler family S-116 lists; mksquashfs, sqfstar
+- handling: `-Xassembler` used to truncate to `-X` valued `"assembler"`, with `<arg>` left
+  unconsumed. `repair_single_dash_long_options` refused any token carrying
+  an uppercase letter, its only signal against the GCC/Clang glued-value
+  convention (`-DMACRO`). `spaced_value_placeholder`
+  (`mandible-extract/src/help_text/sections/repair.rs`) now admits an
+  uppercase-led name when the row keeps its value one space away, angle-
+  or bracket-delimited, never a wider column gap: a wider gap (`ld`'s
+  `-Bgroup`) is indistinguishable from the glued-value convention's own
+  row and stays an honest miss. `xtask detector`'s `spaced-single-dash-long`
+  matches the same one-space bound.
+- fleet: 0 tools, 0 findings, 2026-09-06. Was 40 tools, 381 findings before the
+  detector's own bound was narrowed to match the repair's evidence. The fix moved 25
+  tools, the gcc and clang families plus mksquashfs and sqfstar, with 0 losses on a
+  full-`PATH` sweep. Seed-7 calibration verdict REPAIRED: 0 true positives, 1 false
+  negative (`aarch64-linux-gnu-g++-13`), 1 true negative, all four self-checks held,
+  2026-09-06.
 
 ### S-118: a single-dash spelling that is nothing but a run of `#`
 
@@ -2103,7 +2160,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide.
 - fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
   fix moved the same 23 tools as S-116, in the same commit, with zero
-  losses on the same sweep.
+  losses on the same sweep. Seed-7 calibration (`--seed 7 --fixture-version
+  '*'`) verdict REPAIRED: 0 true positives, 1 false negative
+  (`aarch64-linux-gnu-g++-13`), 1 true negative, 2026-09-06.
 
 ### S-119: a value spec with one bracket nested inside another
 
@@ -2124,7 +2183,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/nested_bracket_value.rs`) generalizes this shape
   fleet-wide.
 - fleet: detector fires on 22 tools, over a 2265-tool sweep, 2026-09-05. The
-  fix moved 22 tools with zero losses on the same sweep.
+  fix moved 22 tools with zero losses on the same sweep. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`pr`), 1 true negative, 2026-09-06.
 
 ### S-120: a docopt bracket row's own trailing choice list
 
@@ -2152,7 +2213,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/choices_after_optional_placeholder.rs`) generalizes
   this shape fleet-wide.
 - fleet: detector fires on 43 tools, over a 2265-tool sweep, 2026-09-05. The
-  fix moved 43 tools with zero losses on the same sweep.
+  fix moved 43 tools with zero losses on the same sweep. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`pvdisplay`), 1 true negative, 2026-09-06.
 ### S-126: unheaded example block folds onto the preceding flag's description
 
 - id: S-126
@@ -2172,6 +2235,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `examples-block-contaminates-last-flag`
   (`xtask/src/detector/examples_block_contaminates_last_flag.rs`) fell
   from 1 tool/1 finding to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+  Seed-7 calibration (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0
+  true positives, 1 false negative (`nfsslower-bpfcc`), 1 true negative,
+  2026-09-06.
 
 ### S-127: positional's own description sits in a block right under the usage line
 
@@ -2192,6 +2258,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `positional-description-block`
   (`xtask/src/detector/positional_description_block.rs`) fell from 1
   tool/2 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+  Seed-7 calibration (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0
+  true positives, 1 false negative (`invoke-rc.d`), 1 true negative,
+  2026-09-06.
 
 ### S-128: usage line's dash-prefixed generic placeholder invents a flag
 
@@ -2213,6 +2282,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/generic_option_placeholder_flag.rs`) fell from 20
   tools/20 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 20 flags
   corrected (18 invented flags dropped, 2 value names repaired), 0 losses.
+  Seed-7 calibration (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0
+  true positives, 1 false negative (`makeconv`), 1 true negative,
+  2026-09-06.
 
 ### S-129: command row's argument placeholder rejects the whole name field
 
@@ -2240,5 +2312,181 @@ entry's `tools` field and nothing else. It does not get a new entry.
   15-tool systemd/util set the fix targets) to 3 tools/12 findings
   fleet-wide in a full-`PATH` sweep, 2026-09-05: 15 tools gained
   subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
-  does not reach; not investigated further this round.
+  does not reach; not investigated further this round. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`systemctl`), 1 true negative, 2026-09-06.
 
+
+### S-130: choices read from the placeholder repeat in the placeholder too
+
+- id: S-130
+- looks like: |
+      [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ]
+      [    --configreport log|vg|lv|pv|pvseg|seg ]
+- tools: the whole lvm2 tool family: lvchange, lvconvert, lvcreate, lvdisplay,
+  lvextend, lvmconfig, lvmdiskscan, lvmsadc, lvmsar, lvreduce, lvremove,
+  lvrename, lvresize, lvs, lvscan, pvchange, pvck, pvcreate, pvdisplay,
+  pvmove, pvremove, pvresize, pvs, pvscan, vgcfgbackup, vgcfgrestore,
+  vgchange, vgck, vgconvert, vgcreate, vgdisplay, vgexport, vgextend,
+  vgimport, vgimportclone, vgmerge, vgmknodes, vgreduce, vgremove,
+  vgrename, vgs, vgscan, vgsplit (43 tools total)
+- handling: Fixed. S-120's own fix attaches a docopt bracket row's trailing
+  `|`-list as `choices` without touching `value_name`, which is right when
+  a bracketed placeholder introduces the list (`--units [Number]`) and
+  wrong when the list stands in for the whole value spec
+  (`--configreport`, `--driverloaded`): the same text then sits in both
+  fields, and the rendered screen prints it twice.
+  `value_name_duplicates_its_own_choices`
+  (`mandible-extract/src/help_text/sections/emit.rs`, mirrored in
+  `usage.rs` for the synopsis path) drops `value_name` when it is nothing
+  but `choices` rejoined with `|`, in the same order. Dropped rather than
+  replaced with a generic placeholder, since `choices` already carries the
+  full enumeration and a placeholder would tell the reader nothing new.
+  `must_not_value_name` (`xtask/src/corpus/mod.rs`), the value-name mirror
+  of `must_not_describe`, asserts it on `corpus/pvdisplay/2.03.16`.
+- fleet: `value-name-duplicates-choices`
+  (`xtask/src/detector/value_name_duplicates_choices.rs`) reads 43 tools /
+  195 findings with the fix reverted and 0/0 with it applied, on the same
+  43-tool lvm2 family, 2026-09-06. Confirmed fleet-wide with a full-`PATH`
+  sweep-diff: 43 tools show a `value_name`-only field change, 0 flags lost,
+  0 flags gained.
+
+### S-131: usage-synopsis flag whose value name holds a space
+
+- id: S-131
+- looks like: |
+      usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]
+- tools: caffeinate, bdftopcf; a full-`PATH` sweep also gave a fuller value
+  name to cargo-deb, e2freefrag, rpc.gssd, ssh-copy-id and
+  xdg-user-dirs-update, and dropped a fabricated positional duplicating a
+  flag's own multi-word value on add-apt-repository, apt-add-repository,
+  asan_symbolize and gdbus-codegen
+- handling: Fixed. A usage bracket group of one flag spelling followed by
+  two or more plain words with nothing else in the group
+  (`usage::multi_word_value_group`) reads the whole run of words as one
+  value name, rather than the generic value reader's first-word-only
+  read; `extract_positionals`'s own token loop tracks the flag's own
+  still-open bracket depth so the second word is never read as an
+  unrelated ALL-CAPS positional. `must_value_name` asserts the whole name
+  survives.
+- fleet: `usage-bracket-group-multiword-value`
+  (`xtask/src/detector/usage_bracket_group_multiword_value.rs`) found 0
+  tools/0 findings in a full-`PATH` sweep of 2319 tools, 2026-09-06 —
+  `caffeinate` is macOS-only and not installed there. `sweep-diff` against
+  the unfixed parser found 10 tools gained or corrected a value name, 0
+  losses. Below the five-tool bar on this box's own sweep; shipped as the
+  maintainer's own named item, issue #135.
+
+### S-132: usage line's trailing bracket group of two or more words
+
+- id: S-132
+- looks like: |
+      usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]
+- tools: caffeinate, bdftopcf
+- handling: Fixed. The primary usage line's own trailing bracket group,
+  when it holds two or more real words (an ellipsis marker never counts
+  as one), something stands between the program name and it, and another
+  group on the line already shows the S-131 shape, becomes one variadic
+  positional (`usage::recover_trailing_multiword_operand`). That last
+  requirement is load-bearing: a full-`PATH` sweep found two false alarms
+  without it, `luksformat`'s `[ mkfs options ]` and `xauth`'s `[command
+  arg ...]`, neither a real fixed operand name. `must_contain_positionals`
+  asserts the two-word name.
+- fleet: `trailing-bracket-group-multiword-operand`
+  (`xtask/src/detector/trailing_bracket_group_multiword_operand.rs`) found
+  0 tools/0 findings in a full-`PATH` sweep of 2319 tools, 2026-09-06 —
+  `caffeinate` is macOS-only and not installed there. `sweep-diff` against
+  the unfixed parser found `bdftopcf` gained its only real positional, 0
+  losses. Below the five-tool bar on this box's own sweep; shipped as the
+  maintainer's own named item, issue #135.
+### S-133: one option's literal choices, one row per value, never folded
+
+- id: S-133
+- looks like: |
+      -tl or --type l   output for little-endian/ASCII charset family
+      -tb or --type b   output for big-endian/ASCII charset family
+      -te or --type e   output for big-endian/EBCDIC charset family
+- tools: icupkg
+- handling: Open defect. `icupkg`'s three rows are one flag, `-t, --type`, with three
+  literal choice values, each keeping its own description. The tree
+  carries them as three separate entities, all spelled `-t`/`--type`,
+  differing only in `value_name` and description, never folded into one
+  flag's `choices`. `docs/shapes.md` S-102 already records a prototype
+  fold that moved only `icupkg` on a full-`PATH` sweep, below the
+  five-tool bar.
+- fleet: `choice-value-rows-unfolded`
+  (`xtask/src/detector/choice_value_rows_unfolded.rs`) reads 8 tools / 12
+  findings on a full-`PATH` sweep of 2319 tools, 2026-09-06, requiring
+  both a short and a long spelling on every row so it never claims
+  single-spelling collisions (S-117's `-Xassembler`/`-Xpreprocessor`
+  family). Read by hand: only `icupkg` (`l`/`b`/`e`) is this shape.
+  The rest are different shapes this detector cannot yet tell apart from
+  it — `iptables`'s `-D`/`--delete` documents the *same* placeholder name
+  (`chain`) on two invocation forms, not distinct choices; `expand`'s
+  `-t`/`--tabs` accepts `N` or `LIST` as two value *types*, the same
+  `pkg-config`-style ambiguity S-120's own handling notes; `-q`/`-qq` and
+  `-t`/`-tt` are S-035's repeated-letter verbosity levels. Folding any of
+  those into `choices` would misrepresent them. True count for this
+  family alone: 1 tool, below the five-tool bar. Ship nothing; the
+  fixture stays `[xfail]`.
+
+### S-134: value-free `or`-joined alias, one-space description gap
+
+- id: S-134
+- looks like: |
+      -c or --copyright include the ICU copyright notice
+- tools: icupkg
+- handling: Open defect. `-c or --copyright`'s row joins two value-free spellings
+  with the word `or`, the same shape `or_joined_alias` (S-099) already
+  reads, but its description starts only one space after `--copyright`,
+  not the two-space or tab gap `or_alias_ends_the_spec` requires before
+  treating the row as fully joined. `-c` keeps the literal word `or` as a
+  fabricated value name and `--copyright` reaches nothing.
+- fleet: `or-joined-alias-single-space-gap`
+  (`xtask/src/detector/or_joined_alias_single_space_gap.rs`) reads 4
+  tools / 4 findings on a full-`PATH` sweep of 2319 tools, 2026-09-06,
+  requiring a genuine double-dash long spelling (never a second short
+  flag in a three-way `or` chain, S-099's own `-h or -? or --help`) and a
+  bare lowercase first description word (never a value, `-m or
+  --match-arch file.o`'s own shape). Below the five-tool bar. Ship
+  nothing; the fixture stays `[xfail]`.
+### S-135: usage line's tab-indented continuation folds in unpunctuated
+
+- id: S-135
+- looks like: |
+      usage: makeconv [-options] files...
+      	read .ucm codepage mapping files and write .cnv files
+- tools: makeconv, genbrk, gencfu, gencnval, gendict, icuexportdata, pkgdata
+- handling: Fixed. `looks_like_unpunctuated_description_continuation`
+  (`mandible-extract/src/help_text/sections/heading.rs`) drops a
+  literal-tab hanging continuation that reads as plain English with no
+  invocation grammar, even with no terminating period —
+  `is_prose_sentence`'s own hanging-indent guard (S-003) requires one.
+  Gated on the literal tab, not indentation alone, so `unzip`'s own
+  genuine, two-space-indented continuation stays untouched. Dropping the
+  fold lets `recover_primary_tail_operands` read the primary entry as
+  one physical line again, recovering `makeconv`'s own `files` tail
+  operand as a side effect. `must_not_contain_usage_text` states the
+  usage half of the defect.
+- fleet: `usage-text-continuation-fold`
+  (`xtask/src/detector/usage_text_continuation_fold.rs`) fell from 7
+  tools/7 findings to 0/0 in a full-`PATH` sweep, 2026-09-06: 7 tools
+  gained a clean usage line and, for makeconv, one recovered positional,
+  0 losses.
+
+### S-136: usage line's `X1 [X2 ...]` tail is one variadic positional
+
+- id: S-136
+- looks like: |
+      Usage: apt-sortpkgs [options] file1 [file2 ...]
+- tools: apt-sortpkgs, apt-extracttemplates, apt-mark
+- handling: Open. `numbered-variadic-usage-tail`
+  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads a usage
+  line's trailing pair where the second name is the first's own name
+  with the next integer, bracketed and ellipsis-marked, and would
+  collapse it into one variadic positional named by the shared stem —
+  narrower than the `multi-operand-usage-tail` ambiguity (S-109) round 6
+  declined, since the numbering is evidence a bare tail lacks.
+- fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
+  below the five-tool floor a fix must clear. Not shipped; the fixture
+  stays xfail with the count in its reason.

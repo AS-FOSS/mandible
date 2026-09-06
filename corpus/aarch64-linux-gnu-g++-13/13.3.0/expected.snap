@@ -1,7 +1,7 @@
-name: gcc
+name: aarch64-linux-gnu-g++-13
 description: 'Options:'
 usage:
-- 'Usage: gcc [options] file...'
+- 'Usage: aarch64-linux-gnu-g++-13 [options] file...'
 flags:
 - spellings:
   - -pass-exit-codes

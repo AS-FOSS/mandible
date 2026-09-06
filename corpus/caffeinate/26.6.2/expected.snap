@@ -1,0 +1,49 @@
+name: caffeinate
+usage:
+- 'usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]'
+positionals:
+- name: command arguments
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -d
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -i
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -s
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -u
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -t
+  value_name: timeout
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -w
+  value_name: Process ID
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

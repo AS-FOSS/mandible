@@ -12,18 +12,17 @@
 # break for flag 'configreport', because I see duplicated placeholders
 # and values. similarly '--driverloaded'".
 #
-# Machine classification: `--configreport` and `--driverloaded` keep the
+# Machine classification: `--configreport` and `--driverloaded` kept the
 # full `|`-list as `value_name` (`log|vg|lv|pv|pvseg|seg`, `y|n`) and also
-# carry it as `choices`, so the rendered screen prints the list twice.
-# `--units [Number]` is not the same defect: its `value_name` is `Number`
-# alone, never the list, so nothing duplicates there. VERIFIED FACT
-# (`cargo run -p xtask -- corpus --show pvdisplay/2.03.16`): all three
-# flags carry the `choices` this fixture's `must_attach_choices` entries
-# assert; only `--configreport` and `--driverloaded` also keep the same
-# list glued onto `value_name`. No contract field can say a value name
-# must NOT contain given text (a `must_not_value_name` field, the value-
-# name mirror of `must_not_describe`, does not exist), so the duplication
-# is recorded here in prose rather than asserted.
+# carried it as `choices`, so the rendered screen printed the list twice.
+# `--units [Number]` was never the same defect: its `value_name` is
+# `Number` alone, never the list, so nothing duplicated there. Fixed
+# (docs/shapes.md S-130): when a flag's own `value_name` is nothing but
+# its `choices` rejoined with `|`, the placeholder came from the same
+# trailing list and is dropped rather than kept twice. Dropped, not
+# replaced with a generic placeholder, since `choices` already carries the
+# full enumeration. `must_not_value_name`, the value-name mirror of
+# `must_not_describe`, asserts it below.
 #
 # POSITIONALS reads `COMMON_OPTIONS`, the synopsis's own placeholder for
 # lvm's shared option block (`[ COMMON_OPTIONS ]`, expanded in "Common
@@ -60,12 +59,19 @@ expected_framework = "generic"
 "--configreport" = ["log", "vg", "lv", "pv", "pvseg", "seg"]
 "--driverloaded" = ["y", "n"]
 
+[contract.must_not_value_name]
+"--configreport" = "log|vg|lv|pv|pvseg|seg"
+"--driverloaded" = "y|n"
+
 # Promoted: a docopt bracket row's own trailing bare `|`-separated list
 # (`flag_rows::trailing_choice_list`, docs/shapes.md S-120) now attaches
 # as `choices` on both paths that read this row (the headed flags block
 # and, for a tool-specific option with no such heading, the synopsis
 # itself). `--units` keeps its own `value_name: Number` unchanged; the
-# choice list is additional structure, not a replacement.
+# choice list is additional structure, not a replacement. `--configreport`
+# and `--driverloaded` have no such bracketed placeholder, so the same
+# trailing list that became `choices` is dropped from `value_name` rather
+# than kept twice (docs/shapes.md S-130).
 #
 # COMMON_OPTIONS is still the synopsis's own placeholder for lvm's shared
 # option block, extracted as the tool's one positional, while the real

@@ -21,7 +21,9 @@
 //! - (b) `[contract]`: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_modifiers`,
-//!   `must_not_contain_flags`, `must_keep_separate`, `must_attach_choices`,
+//!   `must_not_contain_flags`, `must_not_contain_positionals`,
+//!   `must_not_contain_flags`, `must_not_contain_usage_text`,
+//!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe` ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
 //!   both pass fails the run — the bug is fixed, promote it
@@ -37,7 +39,7 @@ use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source,
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -165,6 +167,26 @@ pub(crate) struct ContractMeta {
     /// reported, unlike every positive field above.
     #[serde(default)]
     must_not_contain_flags: Vec<String>,
+    /// Root positional names the tree must **not** carry — the positional
+    /// mirror of `must_not_contain_flags` (issue #135's `caffeinate`
+    /// invented `ID` out of `-w`'s own split value name). Matched by
+    /// [`positional_present`], negated, same scope as
+    /// `must_contain_positionals`: root only, exact name, and a tree with
+    /// no root satisfies this vacuously and is not reported.
+    #[serde(default)]
+    must_not_contain_positionals: Vec<String>,
+    /// Text the tree's `usage` field must **not** carry — the usage-block
+    /// analogue of `must_not_contain_flags`, added because `makeconv`'s
+    /// tab-indented description sentence had no field able to say the
+    /// usage half of its own defect: the sentence folds straight into
+    /// `usage` with no heading, no flag and no positional to name it.
+    ///
+    /// A substring match against every entry of `root.usage`, verbatim
+    /// (no whitespace collapsing — a folded usage line is one physical
+    /// string already). Satisfied vacuously by a tree with no root, the
+    /// same reasoning `must_not_contain_flags` uses.
+    #[serde(default)]
+    must_not_contain_usage_text: Vec<String>,
     /// Spelling groups that must resolve to *distinct* root-flag entities
     /// — the other shape a negative claim can take, guarding against the
     /// alias-run fold merging unrelated flags onto one multi-spelling
@@ -224,6 +246,31 @@ pub(crate) struct ContractMeta {
     /// this vacuously, the same reasoning `must_not_contain_flags` uses.
     #[serde(default)]
     must_not_describe: std::collections::BTreeMap<String, String>,
+    /// A subcommand's own display spelling (`CommandNode::display_name`,
+    /// falling back to its bare `name` when unset), keyed by path the way
+    /// `must_contain_flags_by_path` is keyed. `ar`'s `r` row displays as
+    /// `r[ab][f][u]` (docs/design.md §16: a node whose help repeats an
+    /// ancestor's renders parsed, not repeated).
+    #[serde(default)]
+    must_display_name: std::collections::BTreeMap<String, String>,
+    /// The modifier letters a subcommand accepts
+    /// (`CommandNode::accepted_modifiers`), keyed by path the same way.
+    /// `ar`'s `r` row accepts `a`, `b`, `f`, `u`. A path with no entry here
+    /// asserts nothing about its modifiers, positive or negative.
+    #[serde(default)]
+    must_accept_modifiers: std::collections::BTreeMap<String, Vec<String>>,
+    /// A root flag's value placeholder must NOT contain this text, keyed
+    /// by the flag's own spelling (matched the way `must_value_name`
+    /// matches) — the mirror of `must_value_name`, for a placeholder that
+    /// must not repeat text. Closes the gap `corpus/pvdisplay/2.03.16`
+    /// found: a docopt bracket row's own trailing `|`-list is read as both
+    /// `choices` and, when no bracketed placeholder introduces it,
+    /// `value_name` too, so the rendered screen prints the same list
+    /// twice (docs/shapes.md S-130). A tree with no root, or the flag
+    /// itself absent, satisfies this vacuously, the same reasoning
+    /// `must_not_describe` uses.
+    #[serde(default)]
+    must_not_value_name: std::collections::BTreeMap<String, String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a
@@ -1307,6 +1354,54 @@ must_not_contain_flags = ["{forbidden}"]
         );
     }
 
+    /// `must_not_value_name`, the mirror of `must_value_name` above:
+    /// `pvdisplay`'s own `--configreport` duplicates its choices list as
+    /// `value_name` too (docs/shapes.md S-130). Absent flag and no root
+    /// both satisfy the claim vacuously, the same reasoning
+    /// `must_not_describe` uses.
+    #[test]
+    fn must_not_value_name_flags_a_duplicated_placeholder() {
+        let mut forbidden = std::collections::BTreeMap::new();
+        forbidden.insert(
+            "--configreport".to_string(),
+            "log|vg|lv|pv|pvseg|seg".to_string(),
+        );
+        let contract = ContractMeta {
+            must_not_value_name: forbidden,
+            ..ContractMeta::default()
+        };
+
+        // Flag absent entirely: vacuously satisfied.
+        let root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // The real defect: value_name repeats the choices list verbatim.
+        let mut with_duplicate = root.clone();
+        let mut flag = Entity::flag_long("configreport", Provenance::single(Source::HelpText));
+        flag.value_name = Some("log|vg|lv|pv|pvseg|seg".to_string());
+        with_duplicate.entities.push(flag);
+        assert_eq!(
+            check_contract(&contract, Some(&with_duplicate))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "must_not_value_name[\"--configreport\"]: value name contains \"log|vg|lv|pv|pvseg|seg\", got \"log|vg|lv|pv|pvseg|seg\""
+            ]
+        );
+
+        // The fix: value_name dropped, choices carry the list instead.
+        with_duplicate.entities.last_mut().unwrap().value_name = None;
+        assert!(check_contract(&contract, Some(&with_duplicate)).is_empty());
+
+        // A real, distinct placeholder (`--units [Number]`) never matches.
+        with_duplicate.entities.last_mut().unwrap().value_name = Some("Number".to_string());
+        assert!(check_contract(&contract, Some(&with_duplicate)).is_empty());
+
+        // No root at all: vacuously satisfied, unlike a positive claim.
+        assert!(check_contract(&contract, None).is_empty());
+    }
+
     /// A `must_contain_positionals` entry ending in `...` asserts the
     /// operand is repeatable as well as present. Without the suffix the
     /// same entry says nothing about repetition.
@@ -1596,6 +1691,132 @@ sub = ["--deep", "--nonexistent"]
             report.text.contains("missing-node"),
             "the unresolvable path must be named: {}",
             report.text
+        );
+    }
+
+    /// `sub[xy]` is a command-table row whose own bracket suffix names
+    /// both the accepted-modifier letters and the display spelling
+    /// (`ar`'s `r[ab][f][u]` shape), so this exercises both new
+    /// path-keyed fields against a real extracted tree, not a hand-built
+    /// one.
+    fn bracketed_command_fixture(root: &Path, meta_contract: &str) {
+        let dir = root.join("cmdtool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            &format!(
+                r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cmdtool"
+version = "1.0"
+
+[[capture]]
+argv = ["cmdtool", "--help"]
+stdout = "help.txt"
+
+{meta_contract}
+"#
+            ),
+        );
+        write(
+            &dir.join("help.txt"),
+            "Usage: cmdtool <COMMAND>\n\nCommands:\n  sub[xy]  does a thing\n  plain    does another thing\n",
+        );
+    }
+
+    #[test]
+    fn must_display_name_and_must_accept_modifiers_pass_on_a_real_bracketed_row() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract.must_display_name]\nsub = \"sub[xy]\"\nplain = \"plain\"\n\n\
+             [contract.must_accept_modifiers]\nsub = [\"x\", \"y\"]\n",
+        );
+        let report = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        let checked = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!checked.failed(), "{}", checked.text);
+    }
+
+    #[test]
+    fn must_display_name_names_the_mismatch_and_the_unknown_path() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract.must_display_name]\nsub = \"wrong\"\n\"missing-node\" = \"anything\"\n",
+        );
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("\"wrong\"") && report.text.contains("sub[xy]"),
+            "the expected and actual spellings must both be named: {}",
+            report.text
+        );
+        assert!(
+            report.text.contains("missing-node"),
+            "the unresolvable path must be named: {}",
+            report.text
+        );
+    }
+
+    #[test]
+    fn must_accept_modifiers_names_the_missing_letter() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract.must_accept_modifiers]\nsub = [\"x\", \"z\"]\n",
+        );
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("must_accept_modifiers") && report.text.contains('z'),
+            "the missing letter must be named: {}",
+            report.text
+        );
+    }
+
+    #[test]
+    fn a_dropped_must_display_name_entry_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        bracketed_command_fixture(
+            &baseline.root,
+            "[contract.must_display_name]\nsub = \"sub[xy]\"\n",
+        );
+        bracketed_command_fixture(&current.root, "");
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_display_name") && l.contains("sub")),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn a_dropped_must_accept_modifiers_letter_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        bracketed_command_fixture(
+            &baseline.root,
+            "[contract.must_accept_modifiers]\nsub = [\"x\", \"y\"]\n",
+        );
+        bracketed_command_fixture(
+            &current.root,
+            "[contract.must_accept_modifiers]\nsub = [\"x\"]\n",
+        );
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_accept_modifiers") && l.contains('y')),
+            "{lines:?}"
         );
     }
 
@@ -2576,5 +2797,66 @@ stdout = "help.txt"
             "{}",
             report.text
         );
+    }
+
+    /// The default pattern (`audit-seed2`) has no `*`, so it stays an exact
+    /// match: unchanged behavior for the seed 2/4/5/6 calibrations, which is
+    /// the round-7 brief's own "prove it" requirement.
+    #[test]
+    fn default_pattern_still_matches_only_a_literal_directory_name() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // mytool/1.0, not mytool/audit-seed2
+        let replayed =
+            replay_version_for_tools(&corpus.root, "audit-seed2", None).expect("replay succeeds");
+        assert!(
+            replayed.is_empty(),
+            "an exact pattern must not match mytool/1.0"
+        );
+    }
+
+    /// A seed-7 fixture is named after the tool's own version
+    /// (`corpus/<tool>/<version>/`, `corpus/README.md`), never a shared
+    /// `audit-seedN` label, so `*` is the pattern that resolves each tool
+    /// to its one version directory whatever it is called.
+    #[test]
+    fn star_resolves_a_tools_only_version_directory() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // mytool/1.0
+        let replayed = replay_version_for_tools(&corpus.root, "*", None).expect("replay succeeds");
+        assert_eq!(replayed.len(), 1);
+        assert_eq!(replayed[0].tool, "mytool");
+    }
+
+    /// Two version directories for the same tool both matching the pattern
+    /// is refused by name, never resolved to a silent last-wins pick.
+    #[test]
+    fn ambiguous_match_is_refused_naming_both_directories() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // mytool/1.0
+        let dir = corpus.root.join("mytool/2.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "mytool"
+version = "2.0"
+
+[[capture]]
+argv = ["mytool", "--help"]
+stdout = "help.txt"
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+
+        let msg = match replay_version_for_tools(&corpus.root, "*", None) {
+            Ok(_) => panic!("ambiguous pattern must refuse"),
+            Err(e) => e.to_string(),
+        };
+        assert!(msg.contains("mytool"), "{msg}");
+        assert!(msg.contains("mytool/1.0"), "{msg}");
+        assert!(msg.contains("mytool/2.0"), "{msg}");
     }
 }

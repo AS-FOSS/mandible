@@ -401,7 +401,7 @@ impl Detector for CommaGluedOptionValue {
         "comma-glued-option-value"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("comma-glued-option-value")
     }
     fn describes(&self) -> &'static str {
         "a single-dash spelling directly glued to a comma (`-Wa,<options>`) never reaches the \
@@ -431,7 +431,7 @@ impl Detector for HashInSpelling {
         "hash-in-spelling"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("hash-in-spelling")
     }
     fn describes(&self) -> &'static str {
         "a single-dash spelling that is nothing but a run of `#` (`-###`) never reaches the \
@@ -461,7 +461,7 @@ impl Detector for NestedBracketValue {
         "nested-bracket-value"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("nested-bracket-value")
     }
     fn describes(&self) -> &'static str {
         "a short flag's value spec is one bracket group with a bracket nested inside it \
@@ -492,7 +492,7 @@ impl Detector for ChoicesAfterOptionalPlaceholder {
         "choices-after-optional-placeholder"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("choices-after-optional-placeholder")
     }
     fn describes(&self) -> &'static str {
         "a docopt bracket row's own trailing bare `|`-separated choice list (`pvdisplay`'s own \
@@ -522,7 +522,7 @@ impl Detector for SpacedSingleDashLong {
         "spaced-single-dash-long"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("spaced-single-dash-long")
     }
     fn describes(&self) -> &'static str {
         "an uppercase-led single-dash long option whose value is spaced, not glued \
@@ -552,11 +552,7 @@ impl Detector for CommandRowArgumentPlaceholder {
         "command-row-argument-placeholder"
     }
     fn family(&self) -> Option<&'static str> {
-        // Discovered from the seed-7 `systemctl` fixture, not the seed-2
-        // labelled set this module's calibration runs against — see
-        // `xtask/src/detector/mod.rs`'s module doc on why `None` is the
-        // honest answer rather than the nearest label.
-        None
+        Some("command-row-argument-placeholder")
     }
     fn describes(&self) -> &'static str {
         "under a recognized command heading, a row whose name column is a command name followed \
@@ -586,7 +582,7 @@ impl Detector for ExamplesBlockContaminatesLastFlag {
         "examples-block-contaminates-last-flag"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("examples-block-contaminates-last-flag")
     }
     fn describes(&self) -> &'static str {
         "an unheaded, deeper-indented run of shell-invocation lines right after a flag's own \
@@ -616,7 +612,7 @@ impl Detector for PositionalDescriptionBlock {
         "positional-description-block"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("positional-description-block")
     }
     fn describes(&self) -> &'static str {
         "the usage block is followed by an indented `name - description` block naming each \
@@ -641,7 +637,7 @@ impl Detector for GenericOptionPlaceholderFlag {
         "generic-option-placeholder-flag"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("generic-option-placeholder-flag")
     }
     fn describes(&self) -> &'static str {
         "a usage line's own dash-prefixed generic placeholder (`[-options]`, `[-opts]`) is read \
@@ -681,5 +677,66 @@ impl Detector for DescriptionSubcommandsList {
     }
     fn self_checks(&self) -> Vec<SelfCheck> {
         super::description_subcommands_list::self_checks()
+    }
+}
+
+// Round-7 detectors, atlas ids S-135 and S-136. Neither shape has a
+// labelled seed-2 entry — both were found from the maintainer's later,
+// seed-7 fixture passes (`corpus/makeconv/6.2`, `corpus/apt-sortpkgs/2.8.3`)
+// — so both return `family: None`, the same honest answer round 6's own
+// detectors above give for the same reason.
+
+pub(crate) struct UsageTextContinuationFold;
+
+impl Detector for UsageTextContinuationFold {
+    fn name(&self) -> &'static str {
+        "usage-text-continuation-fold"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own tab-indented, unpunctuated description continuation folds into the \
+         usage text instead of being dropped"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::usage_text_continuation_fold::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} folded into usage {:?}", f.continuation, f.usage))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::usage_text_continuation_fold::self_checks()
+    }
+}
+
+pub(crate) struct NumberedVariadicUsageTail;
+
+impl Detector for NumberedVariadicUsageTail {
+    fn name(&self) -> &'static str {
+        "numbered-variadic-usage-tail"
+    }
+    fn family(&self) -> Option<&'static str> {
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a usage line's own trailing `X1 [X2 ...]` tail — the second name is the first's own \
+         name with the next integer — names one variadic positional the tree does not carry"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::numbered_variadic_usage_tail::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} never became a positional, from the usage line {:?}",
+                    f.positional, f.usage_line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::numbered_variadic_usage_tail::self_checks()
     }
 }

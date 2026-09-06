@@ -37,6 +37,7 @@ mod entry;
 mod flag_rows;
 mod heading;
 mod layout;
+mod multiword;
 mod preamble;
 mod repair;
 mod scan;
@@ -51,6 +52,7 @@ pub use entry::*;
 use flag_rows::*;
 pub use heading::*;
 pub use layout::*;
+use multiword::*;
 use preamble::*;
 use repair::*;
 use scan::*;
@@ -525,7 +527,15 @@ fn scan_usage_section(
             // strictly more indented than the base — du's own
             // trailing sentence sits at the base indent and must keep
             // taking the base-indent fallback below. See S-003.
-            if leading_whitespace(l) > base_indent && is_prose_sentence(trimmed_start) {
+            // `looks_like_unpunctuated_description_continuation` widens
+            // this the same way for a continuation with no terminal
+            // period at all — makeconv's tab-indented description of what
+            // the tool does, which otherwise folds straight into the
+            // usage text. See docs/shapes.md S-135.
+            if leading_whitespace(l) > base_indent
+                && (is_prose_sentence(trimmed_start)
+                    || looks_like_unpunctuated_description_continuation(l))
+            {
                 i += 1;
                 continue;
             }
@@ -730,10 +740,39 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         i = end;
         st.command_mode = true;
         st.in_ignorable_section = false;
+        st.command_group = heading_can_name_a_group(heading).then(|| heading.to_string());
         let (seen, clean) = emit_subcommands(heading, entries, st.result);
         st.total_entries += seen;
         st.clean_entries += clean;
         return i;
+    }
+
+    // A ragged-indent command table (docs/shapes.md S-103, S-104) gets
+    // first refusal here too, not only from `scan_entries`'s own
+    // leftover-row dispatch: pnpm's `Other:` heading opens directly on
+    // an aliased row (`c, config`), so [`bare_block_end`]'s fixed-floor
+    // block never truncates early the way it does for a *later* ragged
+    // row, and the whole section — `c, config`, `init`, `publish`,
+    // `stage` — reaches [`scan_bare_block`] as one block whose baseline
+    // then folds every unaliased sibling into `c, config`'s own
+    // description, which is then dropped whole for failing the name-
+    // shape test (the comma). Gated the same way `allow_dash_separator`
+    // is, so it never fires outside a heading already known to name
+    // commands.
+    if (recognized || st.command_mode) && !is_declared_non_command {
+        let group = heading_can_name_a_group(heading).then(|| heading.to_string());
+        if let Some((end, nodes)) = scan_ragged_command_run(lines, i, group.as_deref()) {
+            i = end;
+            st.command_mode = true;
+            st.in_ignorable_section = false;
+            st.command_group = group;
+            st.total_entries += nodes.len();
+            st.clean_entries += nodes.len();
+            for node in nodes {
+                st.result.try_push_subcommand(node);
+            }
+            return i;
+        }
     }
 
     let (end, entries) = scan_bare_block(lines, i, heading_indent, allow_dash_separator);
@@ -763,6 +802,7 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         if recognized {
             st.in_ignorable_section = false;
         }
+        st.command_group = heading_can_name_a_group(heading).then(|| heading.to_string());
         let (seen, clean) = emit_subcommands(heading, entries, st.result);
         st.total_entries += seen;
         st.clean_entries += clean;
@@ -1009,6 +1049,7 @@ fn emit_heading_block(
             i = end;
             st.command_mode = false;
             st.in_ignorable_section = false;
+            st.command_group = heading_can_name_a_group(heading).then(|| heading.to_string());
             let (seen, clean) = emit_subcommands(heading, entries, st.result);
             st.total_entries += seen;
             st.clean_entries += clean;
@@ -1153,6 +1194,7 @@ fn emit_flush_heading(
             i = end;
             st.command_mode = true;
             st.in_ignorable_section = false;
+            st.command_group = heading_can_name_a_group(heading).then(|| heading.to_string());
             let (seen, clean) = emit_subcommands(heading, entries, st.result);
             st.total_entries += seen;
             st.clean_entries += clean;
@@ -1180,6 +1222,14 @@ struct BodyScan<'a> {
     obscured_ignorable_indent: Option<(usize, bool)>,
     total_entries: usize,
     clean_entries: usize,
+    /// The most recent real heading whose block became subcommands
+    /// (`emit_subcommands`'s own `group` argument, mirrored here), so
+    /// `scan_ragged_command_run`'s directly-emitted nodes carry the same
+    /// group a sibling row reached through the ordinary block scanners
+    /// would. Best-effort only: `None` when no such heading has been seen
+    /// yet, and never consulted by anything but that one call site. See
+    /// docs/shapes.md S-103, S-104.
+    command_group: Option<String>,
 }
 
 fn scan_entries(
@@ -1241,6 +1291,7 @@ fn scan_entries(
         obscured_ignorable_indent,
         total_entries: 0usize,
         clean_entries: 0usize,
+        command_group: None,
     };
     while i < lines.len() {
         let line = lines[i];
@@ -1317,6 +1368,29 @@ fn scan_entries(
                     st.command_mode = false;
                     continue;
                 }
+            }
+        }
+
+        // A run of ragged-indent command-table rows: a short-alias prefix
+        // (`i, install`) ragged-indents some rows against their unaliased
+        // siblings, which defeats every fixed-indent block scanner below
+        // and, left to the heading fallback, invents a command from a
+        // wrapped description. Recognized directly first. Gated on
+        // `st.command_group` too, not just `st.command_mode`, so an
+        // inherited chain with no real command heading behind it
+        // (`mysqlslap`'s flush-left settings table, S-092) never fires.
+        // See docs/shapes.md S-103, S-104; corpus/pnpm/11.22.0.
+        if st.command_mode && st.command_group.is_some() && !st.in_ignorable_section {
+            if let Some((end, nodes)) =
+                scan_ragged_command_run(lines, i, st.command_group.as_deref())
+            {
+                i = end;
+                st.total_entries += nodes.len();
+                st.clean_entries += nodes.len();
+                for node in nodes {
+                    st.result.try_push_subcommand(node);
+                }
+                continue;
             }
         }
 
@@ -1545,7 +1619,7 @@ fn parse_body(
     // repeated-character pass: that pass consumes `-vv` and friends, so
     // by the time this one runs the repeated-character family is already
     // gone from the fingerprint the two detectors share.
-    repair_single_dash_long_options(&mut result.flags, &glued_tokens);
+    repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
     // Last because it can only fill what the two above finished naming:
     // descriptions written as free prose paragraphs, not option-table
     // columns.

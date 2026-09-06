@@ -317,7 +317,7 @@ pub(super) fn primary_synopsis_lines(
 /// ordinary sentence punctuation, never a marker, so the minimum is two. See
 /// S-101 and both call sites, [`extract_positionals`] and
 /// [`recover_primary_tail_operands`].
-fn token_marks_repetition(token: &str) -> bool {
+pub(super) fn token_marks_repetition(token: &str) -> bool {
     let trimmed = token.trim_end_matches([']', ')']);
     trimmed.len() - trimmed.trim_end_matches('.').len() >= 2
 }
@@ -353,16 +353,45 @@ pub(super) fn extract_positionals(
         // corpus/sg_emc_trespass/audit-seed2/help.txt.
         let self_closed_recovery_applies = primary_lines.contains(&line_idx);
         let mut prev_was_self_closed_group = false;
+        // Whether the walk is still inside a value run a bare flag opened
+        // whose own bracket group has not yet closed. A flag's value can
+        // hold more than one bare word (`caffeinate`'s `-w Process ID`),
+        // and every word before that group's own close belongs to the
+        // flag, not to a fresh positional — before this existed, the
+        // second word fell through the ALL-CAPS check below and was
+        // invented as its own positional. See docs/shapes.md S-131.
+        let mut open_flag_value_depth: i32 = 0;
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
+            let opens = token.matches('[').count() as i32;
+            let closes = token.matches(']').count() as i32;
+            let in_open_flag_value = open_flag_value_depth > 0;
             // A flag already carrying its value inline (`--git-dir=<path>`)
             // has an `=` in `cleaned` and does not expect a following
             // token; a bare flag (`-C`, `-Zscript`) does — unless it was
             // already closed as its own complete bracket group, on the
             // one line this refinement is scoped to.
-            let consumed_by_prior_flag = prev_cleaned
-                .is_some_and(|p| p.starts_with('-') && !p.contains('='))
-                && !(self_closed_recovery_applies && prev_was_self_closed_group);
+            let consumed_by_prior_flag = in_open_flag_value
+                || (prev_cleaned.is_some_and(|p| p.starts_with('-') && !p.contains('='))
+                    && !(self_closed_recovery_applies && prev_was_self_closed_group));
+            // A run only ever starts on a *genuine* flag spelling opened
+            // by exactly one bracket (`[-w`) — never on the bare `--`
+            // end-of-options marker nested inside a deeper optional group
+            // (`runuser`'s `[[--] <command>]`), whose own two brackets net
+            // to the same positive depth a real flag's value run would,
+            // and would otherwise swallow the real positional behind it.
+            if cleaned.starts_with('-') && !cleaned.contains('=') && cleaned != "--" && opens <= 1 {
+                open_flag_value_depth = (opens - closes).max(0);
+            } else if cleaned == "|" {
+                // A bare `|` ends the run rather than extending it: the
+                // group is an alternation (`partx`'s `[--nr <n:m> |
+                // <partition>]`), and a token past the pipe is a
+                // different alternative, never more of the flag's own
+                // value.
+                open_flag_value_depth = 0;
+            } else if in_open_flag_value {
+                open_flag_value_depth = (open_flag_value_depth + opens - closes).max(0);
+            }
             prev_cleaned = Some(cleaned);
             prev_was_self_closed_group = token.starts_with('[') && token.ends_with(']');
 
@@ -397,6 +426,12 @@ pub(super) fn extract_positionals(
     if out.is_empty() {
         out.extend(recover_primary_tail_operands(usage_lines, &primary_lines));
     }
+    if out.is_empty() {
+        out.extend(recover_trailing_multiword_operand(
+            usage_lines,
+            &primary_lines,
+        ));
+    }
     out
 }
 
@@ -407,7 +442,7 @@ pub(super) fn extract_positionals(
 /// Char-indexed throughout, never a raw byte slice (AGENTS.md's UTF-8
 /// boundary rule) — a non-ASCII description cannot panic this on a
 /// boundary that isn't a char boundary. See S-041.
-fn cut_before_description_gap(s: &str) -> &str {
+pub(super) fn cut_before_description_gap(s: &str) -> &str {
     let mut run = 0usize;
     let mut run_start = None;
     for (i, c) in s.char_indices() {
@@ -432,7 +467,7 @@ fn cut_before_description_gap(s: &str) -> &str {
 /// optional clause). Unmatched brackets degrade gracefully: once opened, a
 /// group simply runs to the next matching close or the end of the string.
 /// See S-041.
-fn group_synopsis_tokens(s: &str) -> Vec<String> {
+pub(super) fn group_synopsis_tokens(s: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut cur = String::new();
     let mut depth = 0i32;
@@ -840,6 +875,17 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                             if is_dash_prefixed_option_list_placeholder(m) {
                                 continue;
                             }
+                            // A value placeholder holding a space
+                            // (`-w Process ID`) — see
+                            // `multi_word_value_group`, S-131. Handled
+                            // directly rather than through the `flaggy`
+                            // pairing path below, which pairs a short with
+                            // a long spelling and has no notion of a
+                            // multi-word value.
+                            if let Some(spec) = multi_word_value_group(m) {
+                                push_usage_flag(&mut out, spec);
+                                continue;
+                            }
                             flaggy.push(m);
                             continue;
                         }
@@ -1081,6 +1127,15 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
     flag.value_name = spec.value_name;
     flag.value_kind = spec.value_kind;
     flag.choices = spec.choices.into_iter().map(Choice::bare).collect();
+    // The usage-line twin of `emit::value_name_duplicates_its_own_choices`:
+    // a docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
+    // S-120) can be read here too, and with no bracketed placeholder ahead
+    // of it the same list is also what `value_name` holds. Dropped rather
+    // than kept twice. See docs/shapes.md S-130.
+    if super::emit::value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices)
+    {
+        flag.value_name = None;
+    }
     out.push(flag);
 }
 
@@ -1637,10 +1692,10 @@ mod tests {
             .iter()
             .find(|f| f.long() == Some("bbb"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
-        assert_eq!(bbb.value_name.as_deref(), Some("y|n"));
-        // `y|n` is also a bare choice list (docs/shapes.md S-120):
-        // `value_name` keeps the raw text unchanged, and `choices` gains
-        // the same list as separate structure.
+        // `y|n` is also a bare choice list (docs/shapes.md S-120), and here
+        // it is the *whole* value spec, so `value_name` is dropped rather
+        // than kept as a duplicate of `choices` (docs/shapes.md S-130).
+        assert_eq!(bbb.value_name, None);
         assert_eq!(
             bbb.choices
                 .iter()
@@ -1670,6 +1725,10 @@ mod tests {
             .iter()
             .find(|f| f.long() == Some("configreport"))
             .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        // No bracketed placeholder introduces this list, so `value_name`
+        // is dropped rather than kept as a duplicate of `choices`
+        // (docs/shapes.md S-130).
+        assert_eq!(configreport.value_name, None);
         assert_eq!(
             configreport
                 .choices
@@ -1899,7 +1958,10 @@ mod tests {
         let parsed = parse_with_profile(VGCK_HELP, None, Some("vgck"));
         let reportformat = flag_named(&parsed, "reportformat");
         assert_eq!(reportformat.short(), None);
-        assert_eq!(reportformat.value_name.as_deref(), Some("basic|json"));
+        // `basic|json` is also the flag's whole choices list, so
+        // `value_name` is dropped rather than kept as a duplicate
+        // (docs/shapes.md S-130).
+        assert_eq!(reportformat.value_name, None);
     }
 
     #[test]
@@ -1914,7 +1976,9 @@ mod tests {
         assert_eq!(commandprofile.value_name.as_deref(), Some("String"));
 
         let driverloaded = flag_named(&parsed, "driverloaded");
-        assert_eq!(driverloaded.value_name.as_deref(), Some("y|n"));
+        // `y|n` is also the flag's whole choices list, so `value_name` is
+        // dropped rather than kept as a duplicate (docs/shapes.md S-130).
+        assert_eq!(driverloaded.value_name, None);
 
         // 20 flags total: the 18 rows, plus --reportformat from the first
         // stanza's continuation and --updatemetadata from the second
@@ -1975,7 +2039,9 @@ mod tests {
 
         let autobackup = flag_named(&parsed, "autobackup");
         assert_eq!(autobackup.short(), Some('A'));
-        assert_eq!(autobackup.value_name.as_deref(), Some("y|n"));
+        // `y|n` is also the flag's whole choices list, so `value_name` is
+        // dropped rather than kept as a duplicate (docs/shapes.md S-130).
+        assert_eq!(autobackup.value_name, None);
 
         let force = flag_named(&parsed, "force");
         assert_eq!(force.short(), Some('f'));
@@ -2844,6 +2910,133 @@ mod tests {
         // The inverse failure this fixture also guards: the `Arguments:`
         // table's own `--` row must never surface as a positional.
         assert!(parsed.positionals.iter().all(|p| p.primary_name() != "--"));
+    }
+
+    /// `caffeinate`'s own bytes (issue #135, docs/shapes.md S-131/S-132):
+    /// `-w`'s value name holds a space, and the tool's only real
+    /// positional is a trailing two-word bracket group. Neither used to
+    /// recover correctly — the second half of the value name was invented
+    /// as a bogus positional, and the real positional was dropped
+    /// entirely. See corpus/caffeinate/26.6.2.
+    #[test]
+    fn caffeinates_own_bytes_recover_the_multiword_value_and_the_trailing_operand() {
+        let parsed = parse_named(
+            "usage: caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]\n",
+            "caffeinate",
+        );
+        let w = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('w'))
+            .expect("-w");
+        assert_eq!(w.value_name.as_deref(), Some("Process ID"));
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["command arguments"], "{names:?}");
+        assert!(!parsed.positionals[0].required);
+        assert!(parsed.positionals[0].repeatable);
+        assert!(
+            parsed.positionals.iter().all(|p| p.primary_name() != "ID"),
+            "{names:?}"
+        );
+    }
+
+    /// `bdftopcf`'s own bytes, a real fleet specimen of the identical
+    /// split: `-o`'s value name holds a space, and the trailing group
+    /// beside it is the tool's only real positional. See docs/shapes.md
+    /// S-131, S-132.
+    #[test]
+    fn bdftopcfs_own_bytes_recover_the_same_split_caffeinate_has() {
+        let parsed = parse_named(
+            "usage: /usr/bin/bdftopcf [-p#] [-o pcf file] [bdf file]\n",
+            "bdftopcf",
+        );
+        let o = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('o'))
+            .expect("-o");
+        assert_eq!(o.value_name.as_deref(), Some("pcf file"));
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["bdf file"], "{names:?}");
+    }
+
+    /// `luksformat`'s and `xauth`'s own bytes: a trailing two-word bracket
+    /// group that means "pass this program's own extra options/args
+    /// through", not a fixed operand name — a full-`PATH` sweep's own
+    /// false alarm, refused because neither line carries a sibling S-131
+    /// shape. See `recover_trailing_multiword_operand`'s own doc comment.
+    #[test]
+    fn a_generic_options_aside_with_no_sibling_multiword_value_gains_no_positional() {
+        let luksformat = parse_named(
+            "Usage: luksformat [-t <file system>] <device> [ mkfs options ]\n",
+            "luksformat",
+        );
+        assert!(
+            luksformat
+                .positionals
+                .iter()
+                .all(|p| p.primary_name() != "mkfs options"),
+            "{:?}",
+            luksformat.positionals
+        );
+        let xauth = parse_named(
+            "usage:  /usr/bin/xauth [-options ...] [command arg ...]\n",
+            "xauth",
+        );
+        assert!(
+            xauth
+                .positionals
+                .iter()
+                .all(|p| p.primary_name() != "command arg"),
+            "{:?}",
+            xauth.positionals
+        );
+    }
+
+    /// `runuser`'s own bytes: a full-`PATH` sweep's own regression from an
+    /// early draft of the S-131 depth tracking. `[[--] <command>]` nests
+    /// the bare `--` end-of-options marker inside its own bracket, and the
+    /// two extra brackets net to the same positive depth a real flag's
+    /// multi-word value run would, wrongly swallowing the real `command`
+    /// positional behind it.
+    #[test]
+    fn the_bare_end_of_options_marker_never_opens_a_flag_value_run() {
+        let parsed = parse_named(
+            "Usage:\n runuser [options] -u <user> [[--] <command>]\n",
+            "runuser",
+        );
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["command"], "{names:?}");
+    }
+
+    /// `partx`'s own bytes: another full-`PATH` sweep regression from the
+    /// same draft. `[--nr <n:m> | <partition>]` is an alternation, and the
+    /// bare `|` must end a flag's own value run rather than let it swallow
+    /// the alternative positional behind it.
+    #[test]
+    fn a_bare_pipe_ends_a_flag_value_run_rather_than_extending_it() {
+        let parsed = parse_named(
+            "Usage:\n partx [-a|-d|-s|-u] [--nr <n:m> | <partition>] <disk>\n",
+            "partx",
+        );
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["partition", "disk"], "{names:?}");
     }
 
     // --- S-109: a run of two or more trailing operands ---
