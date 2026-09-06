@@ -524,3 +524,49 @@ impl Detector for WrappedCommandContinuation {
         crate::wrapped_command_continuation::self_checks()
     }
 }
+
+/// `command-pattern-table` (`crate::command_pattern_table`, atlas S-141): a
+/// command table's rows are multi-word command *patterns*, not bare
+/// command names, and a parser that reads only the row's leading word
+/// drops the rest of the field — the pattern's own flags, literal words
+/// and placeholders reach nowhere. Generalizes `unparsed-subcommand`;
+/// see `mandible-core/src/audit.rs`'s own comment on that family.
+pub(crate) struct CommandPatternTable;
+
+impl Detector for CommandPatternTable {
+    fn name(&self) -> &'static str {
+        "command-pattern-table"
+    }
+    fn family(&self) -> Option<&'static str> {
+        Some("unparsed-subcommand")
+    }
+    fn describes(&self) -> &'static str {
+        "a command-table row whose name field is two or more words (a leading command name plus \
+         flags, literal words or placeholders), under a recognized command heading, whose exact \
+         pattern is not attested anywhere in the tree"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::command_pattern_table::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "{:?} (name {:?}) missing, from {:?}",
+                    f.pattern, f.name, f.row
+                )
+            })
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "shape F of `unparsed-subcommand` — a multi-word command-pattern table, \
+                    possibly interrupted by centered ALL-CAPS group labels — only; shapes A \
+                    through E are out of reach and not re-declared here since this detector \
+                    never claimed them",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::command_pattern_table::self_checks()
+    }
+}
