@@ -45,16 +45,18 @@ What the command does, in order:
    it, and a check on the pull request refuses a folder that does not match
    the account opening it, so a typo here fails loudly rather than filing
    your work under someone else.
-2. Scans your `PATH` once and freezes what it finds under
-   `audit/submissions/<login>/`. This takes a few minutes and shows its
-   progress. The frozen queue and its bulk captures stay out of git, under
-   `queue-captures/`; they describe your machine, not the project. Evidence
-   files saved beside a verdict are small and they are tracked.
-3. Draws twenty tools with a random seed and prints the seed. The seed names
-   the file (`<seed>.toml`) and is recorded inside it, so we always know which
-   draw a submission came from. `--seed N` and `--sample N` override both.
-   Tools that already have a verdict from anyone, or a fixture under
-   `corpus/`, are left out of the draw; `--include-audited` puts them back.
+2. Draws twenty tool names off your `PATH` with a random seed and prints the
+   seed, before probing anything. The seed names the file (`<seed>.toml`) and
+   is recorded inside it, so we always know which draw a submission came
+   from. `--seed N` and `--sample N` override both the file name and the
+   draw itself. Tools that already have a verdict from anyone, or a fixture
+   under `corpus/`, are left out of the draw; `--include-audited` puts them
+   back.
+3. Probes only the twenty drawn tools, one fresh extraction pass each, and
+   writes them into `audit/submissions/<login>/<seed>.toml`. Your machine and
+   whether the probes ran under namespace containment are recorded in the
+   file's `[meta]` and print in the report header, so a reader can weigh the
+   submission knowing where it came from.
 4. Opens each tool in the normal interface next to its real help text. Press
    `t` to see the raw text, then `c`, `i`, `w` or `s` for correct, incomplete,
    wrong or skip. A note is required for wrong and incomplete. It saves after
@@ -63,8 +65,8 @@ What the command does, in order:
    audit: you judge the screen a user gets. `cargo xtask audit review` and
    `emit` print the parse as text for scripts and machines with no terminal,
    and a verdict formed from that text is not an audit.
-5. Writes `audit/submissions/<login>/<seed>.toml` and, beside it,
-   `<seed>-report.txt`, the same summary `audit report` prints.
+5. Writes, beside the verdict file, `<seed>-report.txt`, the same summary
+   `audit report` prints.
 6. Prints the commands to commit both files on a branch named
    `audit/<login>-<seed>` and open the pull request. Run them yourself: `git
    switch`, `git add`, a signed `git commit`, then `gh pr create`, which

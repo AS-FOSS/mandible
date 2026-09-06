@@ -510,17 +510,18 @@ enum AuditAction {
         draw_seed: u64,
     },
     /// The one-command audit submission flow (CONTRIBUTING.md §2 / README's
-    /// "Contributing" section): prompts for a GitHub login, freezes a
-    /// personal queue under `<dir>/<login>/` excluding already-audited
-    /// tools, draws a random sample, and — once every drawn tool has a
-    /// verdict — writes `<seed>-report.txt` and prints how to finish the
-    /// submission. See `crate::audit_contribute`'s own doc comment for why
-    /// it prints those last commands instead of running them.
+    /// "Contributing" section): prompts for a GitHub login, draws tool
+    /// NAMES off `PATH` excluding already-audited tools, probes only the
+    /// drawn sample, and — once every drawn tool has a verdict — writes
+    /// `<seed>-report.txt` and prints how to finish the submission. No
+    /// full-`PATH` sweep and no namespace containment: see
+    /// `crate::audit_contribute`'s own doc comment for why, and for why it
+    /// prints the finishing `git`/`gh` commands instead of running them.
     Contribute {
         /// Draw this seed instead of one derived from the clock, and reuse
         /// it (rather than resuming whatever unfinished draw is on disk) if
         /// a verdict file for it already exists. Also names the verdict
-        /// file (`<dir>/<login>/<seed>.toml`).
+        /// file (`<dir>/<login>/<seed>.toml`) and seeds the draw itself.
         #[arg(long)]
         seed: Option<u64>,
         /// How many tools to draw.
@@ -542,11 +543,6 @@ enum AuditAction {
         /// The corpus root consulted by the population filter.
         #[arg(long, default_value = "corpus")]
         corpus_dir: PathBuf,
-        /// Same escape hatch as `freeze --allow-uncontained`: only
-        /// consulted the first time a given login's queue is frozen (a
-        /// full-`PATH` sweep).
-        #[arg(long)]
-        allow_uncontained: bool,
     },
 }
 
@@ -702,7 +698,6 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             no_pr,
             dir,
             corpus_dir,
-            allow_uncontained,
         } => {
             let stdin = std::io::stdin();
             let mut input = stdin.lock();
@@ -714,7 +709,6 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
                 sample,
                 include_audited,
                 no_pr,
-                allow_uncontained,
                 &mut input,
                 &mut output,
             )

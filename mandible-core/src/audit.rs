@@ -934,12 +934,33 @@ pub struct AuditFile {
 /// produced it, re-asserted whenever the sample is (re)drawn so a stale
 /// `--sample`/`--seed` combination against an existing file is a loud
 /// error, never a silent merge.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AuditMeta {
     /// The seed the stratified draw used.
     pub seed: u64,
     /// The total sample size requested at draw time.
     pub sample_size: usize,
+    /// The machine the probes ran on, `os-arch` (see [`current_platform`]).
+    /// Issue #102 item 3: a reader of a submitted verdict cannot weigh it
+    /// without knowing what it was captured on. `#[serde(default)]` reads
+    /// an older file, written before this field existed, as an empty
+    /// string rather than failing to parse.
+    #[serde(default)]
+    pub platform: String,
+    /// Whether the probes that produced this file ran under namespace
+    /// containment (`"contained"`) or without it (`"uncontained"`,
+    /// covering both "never attempted" and `--allow-uncontained`). Issue
+    /// #102 item 3, same reasoning as `platform`.
+    #[serde(default)]
+    pub containment: String,
+}
+
+/// The `os-arch` string identifying the machine a probe ran on, e.g.
+/// `linux-x86_64`. Read from `std::env::consts`, compile-time constants —
+/// never a subprocess, so it is safe to call from `xtask/src`
+/// (`no_process_outside_exec.rs`).
+pub fn current_platform() -> String {
+    format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
 }
 
 impl AuditFile {
@@ -1162,6 +1183,7 @@ mod tests {
             meta: AuditMeta {
                 seed: 2,
                 sample_size: 4,
+                ..Default::default()
             },
             entries: vec![
                 entry("noted", Some("wrong"), "real finding"),
@@ -1193,6 +1215,7 @@ mod tests {
             meta: AuditMeta {
                 seed: 7,
                 sample_size: 2,
+                ..Default::default()
             },
             entries: vec![
                 Entry {
@@ -1499,6 +1522,7 @@ k1 = true
             meta: AuditMeta {
                 seed: 2,
                 sample_size: 1,
+                ..Default::default()
             },
             entries: vec![e],
         };
@@ -1683,6 +1707,7 @@ k1 = true
             meta: AuditMeta {
                 seed: 2,
                 sample_size: 4,
+                ..Default::default()
             },
             entries: vec![
                 labelled("tcpdump", "wrong", &["bundled-short-flag"]),

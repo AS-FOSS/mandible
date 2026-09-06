@@ -2564,6 +2564,17 @@ into one loop from a defect found to a regression prevented.
    The detector's fleet count is ratchet-gated at zero going forward, so
    a future regression in that family is visible the moment the count
    leaves zero.
+7. `xtask audit contribute` (CONTRIBUTING.md §2) feeds the audit instrument
+   from a contributor's own machine. It draws tool NAMES off `PATH` first,
+   excluding already-audited tools, with zero probes; only the drawn
+   sample is then probed and classified. Strata are computed from that
+   same probe, after the draw, since nothing can be stratified before
+   anything is probed. This is a bounded, named-list probe, the same risk
+   class as `--tools` and `spot-audit`, so it runs without namespace
+   containment. `AuditMeta::platform` and `AuditMeta::containment` record
+   the machine and containment posture each submitted file was captured
+   under, printed in its report header, so a reader can weigh a submitted
+   verdict knowing where it came from (issue #102 item 3).
 
 **Why.** Summing gains and losses hides exactly the losses that
 motivated building sweep-diff in the first place, which is why the two
@@ -2571,7 +2582,7 @@ totals are always reported separately. [M-21] has a worked example,
 start to finish.
 
 **Implemented in.** `xtask/src/coverage/`, `xtask/src/audit/`,
-`xtask/src/detector/`, `xtask/src/corpus/`.
+`xtask/src/detector/`, `xtask/src/corpus/`, `xtask/src/audit_contribute.rs`.
 
 ---
 

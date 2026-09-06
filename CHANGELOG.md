@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Changed
+
+- `cargo xtask audit contribute` now draws tool names off `PATH` before probing anything, then probes only the drawn sample, instead of freezing and classifying the whole `PATH` first; the submitted verdict file now records the machine and containment posture it was captured under (#102).
+
 ### Fixed
 
 - A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
