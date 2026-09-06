@@ -62,111 +62,61 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             }
         }
 
-        let missing_flags: Vec<&str> = b
-            .must_contain_flags
-            .iter()
-            .filter(|spec| !n.must_contain_flags.iter().any(|s| s == *spec))
-            .map(String::as_str)
-            .collect();
-        if !missing_flags.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_flags (dropped: {})",
-                base.label,
-                missing_flags.join(", ")
-            ));
-        }
-
-        // A negative claim weakens by *losing an entry*, exactly as a
-        // positive one does — the direction of the claim flips, the
-        // direction of its weakening does not. Dropping
-        // `must_not_contain_flags = ["---...---"]` retires the only
-        // statement that the mariadb ruler is a phantom, and would let the
-        // defect return unremarked. Adding an entry tightens, and is never
-        // flagged, same as `must_contain_flags`.
-        let dropped_forbidden: Vec<&str> = b
-            .must_not_contain_flags
-            .iter()
-            .filter(|spec| !n.must_not_contain_flags.iter().any(|s| s == *spec))
-            .map(String::as_str)
-            .collect();
-        if !dropped_forbidden.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_not_contain_flags (dropped: {})",
-                base.label,
-                dropped_forbidden.join(", ")
-            ));
-        }
-
-        let dropped_forbidden_usage_text: Vec<&str> = b
-            .must_not_contain_usage_text
-            .iter()
-            .filter(|spec| !n.must_not_contain_usage_text.iter().any(|s| s == *spec))
-            .map(String::as_str)
-            .collect();
-        if !dropped_forbidden_usage_text.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_not_contain_usage_text (dropped: {})",
-                base.label,
-                dropped_forbidden_usage_text.join(", ")
-            ));
-        }
-
-        let missing_positionals: Vec<&str> = b
-            .must_contain_positionals
-            .iter()
-            .filter(|name| !n.must_contain_positionals.iter().any(|s| s == *name))
-            .map(String::as_str)
-            .collect();
-        if !missing_positionals.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_positionals (dropped: {})",
-                base.label,
-                missing_positionals.join(", ")
-            ));
-        }
-
-        // The positional negative claim, weakens the same way
-        // `must_not_contain_flags` does: losing an entry.
-        let dropped_forbidden_positionals: Vec<&str> = b
-            .must_not_contain_positionals
-            .iter()
-            .filter(|spec| !n.must_not_contain_positionals.iter().any(|s| s == *spec))
-            .map(String::as_str)
-            .collect();
-        if !dropped_forbidden_positionals.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_not_contain_positionals (dropped: {})",
-                base.label,
-                dropped_forbidden_positionals.join(", ")
-            ));
-        }
-
-        let missing_modifiers: Vec<&str> = b
-            .must_contain_modifiers
-            .iter()
-            .filter(|name| !n.must_contain_modifiers.iter().any(|s| s == *name))
-            .map(String::as_str)
-            .collect();
-        if !missing_modifiers.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_modifiers (dropped: {})",
-                base.label,
-                missing_modifiers.join(", ")
-            ));
-        }
-
-        let missing_env_vars: Vec<&str> = b
-            .must_contain_env_vars
-            .iter()
-            .filter(|name| !n.must_contain_env_vars.iter().any(|s| s == *name))
-            .map(String::as_str)
-            .collect();
-        if !missing_env_vars.is_empty() {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {} must_contain_env_vars (dropped: {})",
-                base.label,
-                missing_env_vars.join(", ")
-            ));
+        // Every list-shaped field weakens the same way, by losing an
+        // entry, and a negative claim is no exception: the direction of
+        // the claim flips, the direction of its weakening does not.
+        // Dropping `must_not_contain_flags = ["---...---"]` retires the
+        // only statement that the mariadb ruler is a phantom. Adding an
+        // entry tightens and is never flagged.
+        for (field, base_list, now_list) in [
+            (
+                "must_contain_flags",
+                &b.must_contain_flags,
+                &n.must_contain_flags,
+            ),
+            (
+                "must_not_contain_flags",
+                &b.must_not_contain_flags,
+                &n.must_not_contain_flags,
+            ),
+            (
+                "must_not_contain_usage_text",
+                &b.must_not_contain_usage_text,
+                &n.must_not_contain_usage_text,
+            ),
+            (
+                "must_contain_positionals",
+                &b.must_contain_positionals,
+                &n.must_contain_positionals,
+            ),
+            (
+                "must_not_contain_positionals",
+                &b.must_not_contain_positionals,
+                &n.must_not_contain_positionals,
+            ),
+            (
+                "must_contain_modifiers",
+                &b.must_contain_modifiers,
+                &n.must_contain_modifiers,
+            ),
+            (
+                "must_contain_env_vars",
+                &b.must_contain_env_vars,
+                &n.must_contain_env_vars,
+            ),
+        ] {
+            let dropped: Vec<&str> = base_list
+                .iter()
+                .filter(|entry| !now_list.iter().any(|s| s == *entry))
+                .map(String::as_str)
+                .collect();
+            if !dropped.is_empty() {
+                lines.push(format!(
+                    "CONTRACT WEAKENED: {} {field} (dropped: {})",
+                    base.label,
+                    dropped.join(", ")
+                ));
+            }
         }
 
         for (path, base_specs) in &b.must_contain_flags_by_path {

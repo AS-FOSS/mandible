@@ -683,7 +683,10 @@ fn round6_block_family_counts(
 
 /// The two round-7 family detectors, atlas S-136 and S-137, split out
 /// for the same line-count reason [`round4_family_counts`] is.
-fn round7_usage_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+fn round7_usage_family_counts(
+    raw: &str,
+    root: &CommandNode,
+) -> Vec<(&'static str, usize, Vec<String>)> {
     let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
     let uc = crate::detector::usage_text_continuation_fold::detect(raw, root);
     let nv = crate::detector::numbered_variadic_usage_tail::detect(raw, root);
