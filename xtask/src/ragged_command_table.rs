@@ -90,6 +90,31 @@ fn row_entry(line: &str) -> Option<(String, Option<String>)> {
     split_alias(name_field)
 }
 
+/// The nearest heading above `start`: the first non-blank line shallower
+/// than the run's own indent. A heading naming an ALL-CAPS placeholder
+/// (`Each CONV symbol may be:`, `FORMAT is one of the following:`)
+/// introduces that placeholder's values, which design.md §7 Tier B rule 10
+/// reads as choices, never as commands. The parser reads a ragged run only
+/// inside a command context, so the detector refuses the same text.
+/// Fixture: `corpus/pnpm/11.22.0/`.
+fn under_value_enumeration_heading(lines: &[&str], start: usize) -> bool {
+    let row_indent = leading_whitespace(lines[start]);
+    lines[..start]
+        .iter()
+        .rev()
+        .find(|l| !l.trim().is_empty() && leading_whitespace(l) < row_indent)
+        .is_some_and(|heading| {
+            heading.split_whitespace().any(|word| {
+                let word = word.trim_matches(|c: char| !c.is_alphanumeric());
+                word.chars().count() >= 2
+                    && word.chars().any(|c| c.is_ascii_uppercase())
+                    && word
+                        .chars()
+                        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+            })
+        })
+}
+
 fn tree_has_name(node: &CommandNode, name: &str) -> bool {
     node.subcommands.iter().any(|c| c.name == name)
         || node.subcommands.iter().any(|c| tree_has_name(c, name))
@@ -139,7 +164,7 @@ pub fn detect(raw: &str, root: &CommandNode) -> Report {
             }
             j = k;
         }
-        if run.len() >= MIN_RUN {
+        if run.len() >= MIN_RUN && !under_value_enumeration_heading(&lines, i) {
             for (idx, name, alias) in &run {
                 if !tree_has_name(root, name) {
                     findings.push(Finding {
@@ -232,6 +257,34 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
 
   e  ^E  j  ^N  CR  *  Forward  one line   (or _N lines).
   y  ^Y  k  ^K  ^P  *  Backward one line   (or _N lines).
+"
+            .to_string(),
+            root: tree_with(&[]),
+        },
+        SelfCheck {
+            name: "dd's own conversion symbols, a value list under an ALL-CAPS heading",
+            why: "the false-alarm this gate exists for: the rows have a command table's exact \
+                  shape, and their heading names the `CONV` placeholder whose values they are",
+            expect: Expect::Silent,
+            raw: "\
+Each CONV symbol may be:
+
+  ascii     from EBCDIC to ASCII
+  ebcdic    from ASCII to EBCDIC
+  ibm       from ASCII to alternate EBCDIC
+"
+            .to_string(),
+            root: tree_with(&[]),
+        },
+        SelfCheck {
+            name: "tar's own archive formats, the same shape one indent deeper",
+            why: "same gate, with the heading indented and the rows four spaces in, so the \
+                  refusal does not depend on a flush-left heading",
+            expect: Expect::Silent,
+            raw: " FORMAT is one of the following:
+    gnu                      GNU tar 1.13.x format
+    oldgnu                   GNU format as per tar <= 1.12
+    pax                      POSIX 1003.1-2001 (pax) format
 "
             .to_string(),
             root: tree_with(&[]),
