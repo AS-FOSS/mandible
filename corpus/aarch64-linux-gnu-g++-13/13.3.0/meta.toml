@@ -6,17 +6,14 @@
 # should come back to it after this is fixed."
 #
 # Row by row against `help.txt`:
-#   `-Wa,<options>`, `-Wp,<options>`, `-Wl,<options>` each parse as their
-#   own `Entity` (three entities, spelling "-W", one per row, checked with
-#   `cargo run -p xtask -- corpus --show`), but every entity's spelling is
-#   the single letter "W", so nothing in the tree keeps the three apart by
-#   name; the fold the maintainer saw is a display-time collapse, not a
-#   missing-data one. Only the assembler row's own description survives a
-#   `must_describe` lookup, since that check takes the first entity whose
-#   spelling matches and the assembler row parses first: `-Wp`'s and
-#   `-Wl`'s own text is unreachable by spelling. Same shape for
-#   `-Xassembler`/`-Xpreprocessor`/`-Xlinker`, three entities all spelled
-#   "-X".
+#   VERIFIED FACT (`cargo run -p xtask -- corpus --show`): `-Wa,<options>`,
+#   `-Wp,<options>`, `-Wl,<options>` now parse as three entities correctly
+#   spelled `-Wa`, `-Wp`, `-Wl`, each with its own description; this half
+#   of the maintainer's report no longer reproduces and is not asserted as
+#   broken below. `-Xassembler`, `-Xpreprocessor`, `-Xlinker` still fold to
+#   three entities all spelled `-X`, so nothing in the tree keeps them
+#   apart by name and only the assembler row's description is reachable by
+#   spelling.
 #   `-###` parses as spelling "-#", value name "##": the trailing `#` after
 #   the first two chars is read as the value placeholder instead of part
 #   of the flag's own name.
@@ -35,16 +32,15 @@
 #   NOT be, so this is prose-only: it would need something like a
 #   `must_not_describe_root` field, which does not exist.
 #
-# `flag_present` (`xtask/src/corpus/contract.rs`), the function every
-# flag-shaped `[contract]` field matches through, reads a short spec by
-# its first character only: `-Wa`, `-Wp`, `-Wl` and even `-###` all reduce
-# to "does any single-dash, single-character spelling starting with this
-# one letter exist", so `must_contain_flags` entries in that form are
-# guards that already pass, not the defect. `must_keep_separate` is the
-# field that actually catches this: it resolves each spec to the *first*
-# matching entity's index, and since `-Wa`/`-Wp`/`-Wl` all resolve to
-# index 0 (the assembler row parses first), the check reports them
-# collapsed. Same for the `-X` group.
+# `flag_present` (`xtask/src/corpus/contract.rs`) matches a single-dash
+# spec against a single-dash spelling by exact name equality, not by
+# first character. `-Wa`/`-Wp`/`-Wl` each resolve to their own entity now,
+# so `must_keep_separate = [["-Wa", "-Wp", "-Wl"]]` holds vacuously (no
+# entity collides) rather than catching a fold. The `-X` group's specs
+# (`-Xassembler`, `-Xpreprocessor`, `-Xlinker`) resolve to no entity at
+# all, since the entities are spelled plain `-X`, so that group is
+# vacuous the same way; the defect shows up in `must_describe` and
+# `must_value_name` instead, both reporting the flag absent.
 #
 # `-v --help` reveals more flags. Design §6 admits only one probe per
 # node; a second probe shaped by a flag's own output is not a documented
@@ -72,7 +68,8 @@ expected_framework = "generic"
 # these), kept so a future accidental drop of the row still gets caught.
 must_contain_flags = ["-Wa", "-Wp", "-Wl", "-###"]
 
-# The real assertion: the fold `flag_present`'s own matching rule produces.
+# Both groups pass today, one for real and one vacuously (see comment
+# above): kept so a future fold of either group is still caught.
 must_keep_separate = [
   ["-Wa", "-Wp", "-Wl"],
   ["-Xassembler", "-Xpreprocessor", "-Xlinker"],
@@ -87,15 +84,22 @@ must_keep_separate = [
 "-Wa" = ",<options>"
 "-Wp" = ",<options>"
 "-Wl" = ",<options>"
+# Fail: each spec names the full row spelling ("Xassembler"), but the
+# entity's own spelling is folded to the single letter "X", so no entity
+# matches the spec at all; the value name these rows actually print is
+# "<arg>" (`-Xassembler <arg>`, `-Xpreprocessor <arg>`, `-Xlinker <arg>`).
+"-Xassembler" = "<arg>"
+"-Xpreprocessor" = "<arg>"
+"-Xlinker" = "<arg>"
 
 [contract.must_describe]
-# Passes: the assembler row parses first, so a spelling-matched lookup
-# finds its own description.
+# Passes: -Wa, -Wp and -Wl are each their own entity with their own
+# description now.
 "-Wa" = "assembler"
-# Fail: both resolve to the assembler row's description, which names
-# neither preprocessor nor linker.
 "-Wp" = "preprocessor"
 "-Wl" = "linker"
+# Fail: no entity is spelled "Xassembler", "Xpreprocessor" or "Xlinker";
+# the entities are spelled plain "-X".
 "-Xassembler" = "assembler"
 "-Xpreprocessor" = "preprocessor"
 "-Xlinker" = "linker"
@@ -103,4 +107,4 @@ must_keep_separate = [
 
 [xfail]
 broken = true
-reason = "three distinct -Wa/-Wp/-Wl rows (and three -Xassembler/-Xpreprocessor/-Xlinker rows) all parse with the same single-letter spelling, so must_keep_separate reports them collapsed and must_describe can only ever reach the first row's text; -### parses as spelling '-#' plus value name '##'; the root description is the 'Options:' heading, a heading-bleed with no contract field to name it; -v --help exposes more flags, a second-probe shape design §6 does not admit"
+reason = "three distinct -Xassembler/-Xpreprocessor/-Xlinker rows all fold to the single-letter spelling -X, so must_keep_separate reports them collapsed and must_describe and must_value_name find no entity spelled 'Xassembler', 'Xpreprocessor' or 'Xlinker' at all; -### parses as spelling '-#' plus value name '##'; the root description is the 'Options:' heading, a heading-bleed with no contract field to name it; -v --help exposes more flags, a second-probe shape design §6 does not admit"
