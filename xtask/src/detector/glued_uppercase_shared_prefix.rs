@@ -1,19 +1,13 @@
 //! `glued-uppercase-shared-prefix` (atlas S-139): a single-dash token with
-//! a lowercase-led name carrying an interior uppercase letter, glued
-//! straight to a tab- or column-gapped description with no value at all
-//! (mksquashfs's `-noI`, tab-separated from "do not compress inode
-//! table").
+//! a lowercase-led name carrying an interior uppercase letter, glued to a
+//! tab- or column-gapped description with no value (mksquashfs's `-noI`).
 //!
-//! Not repaired: a candidate discriminator (a name sharing its
-//! lowercase-led prefix with a sibling row) was measured and moved only
-//! `mksquashfs` and `sqfstar`, two tools on a full-`PATH` sweep, below
-//! the five-tool floor AGENTS.md §3.1 requires. This detector stays as
-//! the instrument; the fixture stays `[xfail]` with the count in its
-//! reason. See docs/shapes.md S-139.
+//! Not repaired: a candidate discriminator moved only `mksquashfs` and
+//! `sqfstar`, below the five-tool floor AGENTS.md §3.1 requires. Stays as
+//! the instrument; the fixture stays `[xfail]`. See docs/shapes.md S-139.
 //!
-//! Deliberately not gated on exactly one space, unlike
-//! `spaced-single-dash-long` (atlas S-117): that shape's value sits one
-//! space after the name, this one has no value at all.
+//! Not gated on exactly one space, unlike `spaced-single-dash-long`
+//! (atlas S-117): that shape's value is spaced, this one has none.
 //!
 //! Fixtures: `corpus/mksquashfs/4.6.1/`.
 
