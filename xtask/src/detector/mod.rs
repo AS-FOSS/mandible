@@ -970,6 +970,7 @@ mod tests {
         let text = render(
             &cal,
             &SetSize {
+                seed: 2,
                 sampled: 94,
                 judged: 86,
                 evaluable: 71,
@@ -1035,6 +1036,7 @@ mod tests {
         let text = render(
             &cal,
             &SetSize {
+                seed: 2,
                 sampled: 94,
                 judged: 86,
                 evaluable: 71,
@@ -1059,6 +1061,7 @@ mod tests {
         let text = render(
             &cal,
             &SetSize {
+                seed: 2,
                 sampled: 94,
                 judged: 86,
                 evaluable: 71,
@@ -1067,6 +1070,30 @@ mod tests {
         assert!(text.contains("NOT GROUND TRUTH ABOUT THE FLEET"), "{text}");
         assert!(text.contains("MACHINE READING"), "{text}");
         assert!(text.contains("VERDICT: PASSES"), "{text}");
+    }
+
+    /// The caveat names the seed the run read, so a seed-7 report never
+    /// describes the seed-2 manifest. `xtask/src/detector/render.rs`.
+    #[test]
+    fn the_caveat_names_the_seed_it_was_run_with() {
+        let cal = calibrate(
+            &Stub {
+                fires_on: vec!["hit"],
+            },
+            &[case("hit", true, &["verbatim-fallback"], node("hit"))],
+            Vec::new(),
+        );
+        let text = render(
+            &cal,
+            &SetSize {
+                seed: 7,
+                sampled: 30,
+                judged: 28,
+                evaluable: 12,
+            },
+        );
+        assert!(text.contains("in the seed-7 audit"), "{text}");
+        assert!(!text.contains("seed-2"), "{text}");
     }
 
     #[test]
@@ -1220,6 +1247,7 @@ mod tests {
 
     fn set_size() -> SetSize {
         SetSize {
+            seed: 2,
             sampled: 94,
             judged: 86,
             evaluable: 71,

@@ -78,6 +78,7 @@ pub fn cmd_calibrate(
     let cases = load_cases(&file, corpus_root, fixture_version)?;
     let unclassified: Vec<String> = file.unclassified().map(|e| e.tool.clone()).collect();
     let set = SetSize {
+        seed,
         sampled: file.entries.len(),
         judged: cases.len(),
         evaluable: cases.iter().filter(|c| c.evidence.is_some()).count(),
