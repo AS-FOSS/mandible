@@ -94,13 +94,16 @@ pub struct Calibration {
     pub self_checks: Vec<SelfCheckOutcome>,
 }
 
-/// What a calibration run concluded. Three states, not two.
+/// What a calibration run concluded. Four states, not two.
 ///
 /// The third exists because the bundled-short-flag family was actually
 /// repaired (spec §13.1e, "a fixed family inverts its own calibration"), and
 /// with only two states the harness had to render a healthy detector in the
 /// vocabulary of failure: `recall 0%`, `DOES NOT PASS`, six tools listed as
-/// misses. Every word true, the impression wrong.
+/// misses. Every word true, the impression wrong. The fourth exists for the
+/// same reason: spec §13.1e rule 6 lets a detector generalize no family the
+/// labelled set contains, and that is a property of the sample, never a
+/// failing grade.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Verdict {
     /// Fires on every evaluable labelled tool it claims, and on no tool a
@@ -118,6 +121,13 @@ pub enum Verdict {
     /// cells to get here: recall still reads 0%, and every missed tool is
     /// still counted and still printed by name.
     Repaired,
+    /// This detector generalizes no family the labelled set contains: either
+    /// [`Detector::family`] itself returns `None`, or the family it declares
+    /// has zero labelled members in the seed calibrated against (spec
+    /// §13.1e rule 6). Distinct from [`Verdict::DoesNotPass`] because
+    /// nothing here was demonstrated in either direction — never printed as
+    /// a failure.
+    NotEvaluable,
     /// Anything else — including a family whose calibration has inverted
     /// but whose self-checks did *not* hold, which is the genuinely broken
     /// detector this state must never be confused with.
@@ -177,8 +187,20 @@ impl Calibration {
         // state: firing on a tool a human judged correct is never excused
         // by a declared scope and never excused by a repaired family. This
         // project's standing rule, checked first.
-        if self.family.is_none() || !self.false_alarms.is_empty() {
+        if !self.false_alarms.is_empty() {
             return Verdict::DoesNotPass;
+        }
+        // No labelled member this family could be scored on at all — either
+        // `Detector::family` itself is `None`, or the family it declares has
+        // zero members (true positive, false negative, or an out-of-scope
+        // miss) in this seed. Spec §13.1e rule 6: a legitimate property of
+        // the sample, never a failing grade.
+        if self.family.is_none()
+            || (self.true_positives.is_empty()
+                && self.false_negatives.is_empty()
+                && self.out_of_scope_misses.is_empty())
+        {
+            return Verdict::NotEvaluable;
         }
         if self.false_negatives.is_empty() && !self.true_positives.is_empty() {
             return Verdict::Passes;

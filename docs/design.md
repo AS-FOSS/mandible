@@ -2358,9 +2358,12 @@ quote, and what a family label means.
    already said this parse is wrong. Every cell names its tools.
 6. Not-evaluable is counted, never dropped: a labelled tool with no
    fixture is listed by name. A detector may legitimately generalize no
-   family the labelled set contains (`Detector::family` returns `None`);
-   forcing it onto the nearest family would manufacture a matrix nobody
-   verified.
+   family the labelled set contains (`Detector::family` returns `None`),
+   or generalize a family with zero labelled members in the seed
+   calibrated against; forcing it onto the nearest family would
+   manufacture a matrix nobody verified. Either shape reads as a fourth
+   calibration verdict, `NotEvaluable`, never `DoesNotPass`: nothing was
+   demonstrated in either direction, so nothing failed.
 7. The moment a family's fix lands, its detector's recall on the labelled
    set drops to zero, because those fixtures now parse correctly and the
    labelled set has nothing left to confirm against. What carries the
