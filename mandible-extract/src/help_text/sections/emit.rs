@@ -410,8 +410,17 @@ pub(super) fn emit_subcommands(
         // A trailing colon after the name (cobra's own template convention,
         // e.g. `gh --help`'s `"auth:        Authenticate..."`) is
         // punctuation, never part of the name; strip before the shape
-        // check. Framework-general, not gated on a specific one.
-        let row_spelling = spec_text.trim().trim_end_matches(':').trim();
+        // check. Framework-general, not gated on a specific one. Only when
+        // the name itself is one word: a colon ending a multi-word field
+        // (`xauth`'s own sub-heading fragment `"options are:"`) is a
+        // sentence's own punctuation, and stripping it there would read a
+        // stray introductory phrase as a two-word command pattern
+        // (S-141). See docs/shapes.md S-129, S-141.
+        let trimmed_spec = spec_text.trim();
+        let row_spelling = match trimmed_spec.strip_suffix(':') {
+            Some(bare) if !bare.trim_end().contains(char::is_whitespace) => bare.trim_end(),
+            _ => trimmed_spec,
+        };
         let whole = strip_optional_modifier_suffix(row_spelling);
         if whole.is_empty() {
             continue;
@@ -1649,5 +1658,26 @@ Command:
     #[test]
     fn a_bare_flag_after_a_repeated_tool_name_is_not_a_command_pattern() {
         assert!(!looks_like_operand_placeholder_run("--monitor"));
+    }
+
+    /// A sub-heading fragment ending in a colon (`xauth`'s own "options
+    /// are:" introducing a nested list) must never read as a two-word
+    /// command pattern: the trailing-colon strip is for a single-word
+    /// cobra-style name only, never a multi-word sentence fragment.
+    /// Regression case for a false positive this fix introduced and then
+    /// closed. See docs/shapes.md S-129, S-141.
+    #[test]
+    fn a_multi_word_sentence_fragment_ending_in_a_colon_is_not_a_command_pattern() {
+        let raw = "Command:\n    options are:\n      timeout n    expiration\n";
+        let parsed = parse(raw);
+        assert!(
+            parsed.subcommands.iter().all(|c| c.name != "options"),
+            "{:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
     }
 }
