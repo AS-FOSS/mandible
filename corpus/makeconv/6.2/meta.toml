@@ -2,6 +2,14 @@
 # usage section has some description leaked into it. Hard to detect,
 # fix? or skip?" Machine classification: stratum "ok".
 #
+# Maintainer, later pass: "makeconv: yes usage prose still there and no
+# more options. Additionally i noticed that it might be missing
+# positional: 'files...', verify". Verified: `must_contain_positionals =
+# ["files"]` still fails today, for the reason given below. The usage
+# half, that the usage form must not carry the tab-indented description
+# sentence, has no contract field either; a field shaped like
+# `must_not_contain_usage` would state it.
+#
 # Everything makeconv writes goes to stderr; exit code is 1.
 # `help.stderr.txt`'s first two lines:
 #   usage: makeconv [-options] files...

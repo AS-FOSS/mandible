@@ -8,12 +8,22 @@
 # in the captured bytes (VERIFIED against `help.txt`), so this fixture
 # asserts the 18 letters that are actually there.
 #
-# VERIFIED FACT (`cargo run -p xtask -- corpus --show pvdisplay/2.03.16`):
-# `--units` parses with `value_name: Number` and zero `choices` — the
-# `r|R|h|H|...` list is dropped entirely, not merely unstructured.
-# `--configreport` and `--driverloaded` are a lighter version of the same
-# gap: their pipe lists (`log|vg|lv|pv|pvseg|seg`, `y|n`) survive as raw
-# `value_name` text, but neither attaches any structured `choices` either.
+# Maintainer, later pass: "pvdisplay - see if that units change did not
+# break for flag 'configreport', because I see duplicated placeholders
+# and values. similarly '--driverloaded'".
+#
+# Machine classification: `--configreport` and `--driverloaded` keep the
+# full `|`-list as `value_name` (`log|vg|lv|pv|pvseg|seg`, `y|n`) and also
+# carry it as `choices`, so the rendered screen prints the list twice.
+# `--units [Number]` is not the same defect: its `value_name` is `Number`
+# alone, never the list, so nothing duplicates there. VERIFIED FACT
+# (`cargo run -p xtask -- corpus --show pvdisplay/2.03.16`): all three
+# flags carry the `choices` this fixture's `must_attach_choices` entries
+# assert; only `--configreport` and `--driverloaded` also keep the same
+# list glued onto `value_name`. No contract field can say a value name
+# must NOT contain given text (a `must_not_value_name` field, the value-
+# name mirror of `must_not_describe`, does not exist), so the duplication
+# is recorded here in prose rather than asserted.
 #
 # POSITIONALS reads `COMMON_OPTIONS`, the synopsis's own placeholder for
 # lvm's shared option block (`[ COMMON_OPTIONS ]`, expanded in "Common

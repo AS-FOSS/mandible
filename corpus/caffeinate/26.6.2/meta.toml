@@ -1,0 +1,50 @@
+# From issue #135, macOS only, no local capture is possible on this fleet.
+#
+# Reporter's own words: "The parse invents a positional and drops a real
+# one. Both come from one bracket group." And: "`-w` takes the value
+# `Process ID`. The parse keeps `Process` as the value name and promotes
+# `ID` to a positional. `caffeinate` has no positional named `ID`." And:
+# "`[command arguments...]` is the tool's only real positional. The parse
+# drops it." Machine classification: a value placeholder holding a space,
+# inside a usage-synopsis bracket group, is split at the space; the first
+# half stays the value name and the second half is read as a positional.
+#
+# VERIFIED FACT (`cargo run -p xtask -- corpus --show caffeinate/26.6.2`):
+# the extracted tree carries `-t` with value name `timeout`, `-w` with
+# value name `Process` only, one invented positional spelled `ID`, and no
+# positional for `command arguments...` at all.
+#
+# The issue's third claim, that no positional named `ID` may exist, has no
+# contract field: `must_not_contain_flags` is the only negative claim this
+# corpus can state, and it is scoped to flags. A positional-shaped
+# analogue (`must_not_contain_positionals`) does not exist, so that half
+# is recorded here in prose rather than asserted.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "caffeinate"
+version = "26.6.2"                   # caffeinate prints no version; it
+                                     # ships with macOS 26.6.2 (issue #135)
+platform = "macos-26.6.2-arm64"
+captured_with = "issue #135's own raw text, not a local capture; caffeinate exists only on macOS"
+
+[[capture]]
+argv = ["caffeinate", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-d", "-i", "-s", "-u", "-t", "-w"]
+must_contain_positionals = ["command arguments..."]
+
+[contract.must_value_name]
+"-t" = "timeout"
+"-w" = "Process ID"
+
+[xfail]
+broken = true
+reason = "the -w value name 'Process ID' is split at its own space: 'Process' stays the value name and 'ID' is invented as a positional; the real positional 'command arguments...' is dropped entirely"
