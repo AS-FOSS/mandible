@@ -2490,3 +2490,28 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
   below the five-tool floor a fix must clear. Not shipped; the fixture
   stays xfail with the count in its reason.
+
+### S-141: a command table's rows are multi-word command patterns
+
+- id: S-141
+- looks like: |
+      restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
+      set loglevel <LEVEL>                     sets logging level to <LEVEL>.
+- tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
+  resolvectl, timedatectl, claude
+- handling: Open. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) reads a command-table row's
+  name field as two or more words led by a command-name-shaped token,
+  under a heading naming commands, skipping centered ALL-CAPS group
+  labels a block like fail2ban-client's own carries. Today's grammar
+  reads only the row's leading word and drops the rest of the field;
+  a repeated leading word (`set`, `get`) also loses every row after
+  the first, since the row-splitting grammar has no merge path for a
+  duplicate command name. A fix needs that merge path before it can
+  carry every row's own pattern as a `usage` line under one node.
+- fleet: measured 18 tools/224 findings on a full-`PATH` sweep,
+  2026-09-06, above the five-tool floor. Not shipped; the shared
+  row-splitting grammar this shape touches has no merge path yet for
+  a repeated command name, and a change there needs its own zero-loss
+  sweep-diff before it can land. The fixture stays xfail with the
+  count in its reason.

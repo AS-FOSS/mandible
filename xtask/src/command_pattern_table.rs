@@ -1,23 +1,14 @@
 //! The `command-pattern-table` detector (atlas S-141): a command table's
-//! rows are not command *names* but command *patterns* — a leading word
-//! plus literal words, flag groups and `<PLACEHOLDER>`s (`fail2ban-client`'s
-//! `restart [--unban] [--if-exists] <JAIL>`). A parser that reads a row's
-//! name field as a bare command name recovers the leading word (already
-//! usually present from a plainer sibling row) and drops the rest of the
-//! field outright — the row's own accepted-form information reaches
-//! nowhere.
-//!
-//! Distinct from `command_row_argument_placeholder` (atlas S-129), whose
-//! grammar requires every token after the name to be an ALL-CAPS
-//! placeholder run. This shape's rows mix literal lowercase words
-//! (`set loglevel <LEVEL>`) with placeholders and bracket groups, and the
-//! block itself may carry centered ALL-CAPS group labels
-//! (`fail2ban-client`'s `BASIC`, `JAIL CONTROL`) that must not themselves
-//! be read as rows.
-//!
-//! Fixture: `corpus/fail2ban-client/1.0.2/` (this family's second reason,
-//! reserved id S-141). Not a labelled member of the seed-2 calibration
-//! set — `self_checks` carries the whole evidentiary weight (design.md
+//! rows are command *patterns*, not bare names — a leading word plus
+//! literal words, flag groups and `<PLACEHOLDER>`s (`fail2ban-client`'s
+//! `restart [--unban] [--if-exists] <JAIL>`). A parser reading only the
+//! leading word drops the rest of the field outright. Distinct from
+//! `command_row_argument_placeholder` (S-129), whose grammar requires an
+//! ALL-CAPS-only tail; this shape mixes literal lowercase words with
+//! placeholders, under a block that may carry centered ALL-CAPS group
+//! labels (`BASIC`, `JAIL CONTROL`) that must not read as rows.
+//! Fixture: `corpus/fail2ban-client/1.0.2/`. Not a labelled seed-2
+//! member — `self_checks` carries the evidentiary weight (design.md
 //! §13.1e rule 6).
 
 use mandible_core::{is_command_name_shaped, CommandNode};

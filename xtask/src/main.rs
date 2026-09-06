@@ -1232,39 +1232,7 @@ fn run_coverage(
         regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
-
-        // `command-pattern-table` (`crate::command_pattern_table`, atlas
-        // S-141): reported, not gated. The fixture's own fleet count sits
-        // below AGENTS.md §3.1's five-tool bar, so no parser fix has landed
-        // and there is nothing yet to ratchet at zero.
-        if fresh.command_pattern_tools != previous.command_pattern_tools
-            || fresh.command_pattern_flags != previous.command_pattern_flags
-        {
-            println!(
-                "command-pattern-table findings changed from {} tool(s)/{} pattern(s) to {} \
-                 tool(s)/{} pattern(s) (reported, not gated — below the five-tool bar)",
-                previous.command_pattern_tools,
-                previous.command_pattern_flags,
-                fresh.command_pattern_tools,
-                fresh.command_pattern_flags,
-            );
-        }
-        let command_pattern_detector = detector::find("command-pattern-table")?;
-        let command_pattern_self_checks =
-            detector::run_self_checks(command_pattern_detector.as_ref());
-        println!(
-            "\ncommand-pattern-table: {} tool(s)/{} pattern(s) — REPORTED, NOT GATED.\n{}",
-            fresh.command_pattern_tools,
-            fresh.command_pattern_flags,
-            detector::render_self_checks(&command_pattern_self_checks),
-        );
-        if !detector::self_checks_are_conclusive(&command_pattern_self_checks) {
-            println!(
-                "command-pattern-table's own hand-built evidence no longer holds — its fleet \
-                 number above cannot be read at all until that is fixed."
-            );
-            regressed = true;
-        }
+        regressed |= !detector::check_command_pattern_reported(&previous, &fresh)?;
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");
