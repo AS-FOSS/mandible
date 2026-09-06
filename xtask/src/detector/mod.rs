@@ -1636,6 +1636,8 @@ mod tests {
             "unparsed-command-table",
             "repeated-char-flag",
             "single-dash-long",
+            "invocation-form-head-as-flag-group",
+            "glued-uppercase-shared-prefix",
         ] {
             assert!(
                 find(name).is_ok(),

@@ -1233,10 +1233,8 @@ fn run_coverage(
         regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
 
-        // `glued-uppercase-shared-prefix` (atlas S-139) is not gated here:
-        // the discriminator it measures moved only 2 tools on a full-`PATH`
-        // sweep, below the five-tool floor AGENTS.md §3.1 requires, so no
-        // grammar change shipped and there is nothing to ratchet.
+        // `glued-uppercase-shared-prefix` (atlas S-139) is gated inside
+        // `check_round8_family_ratchets` beside S-137's own family.
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

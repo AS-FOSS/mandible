@@ -371,13 +371,17 @@ pub fn check_scalar_family_ratchet(
     Ok(ratchet.holds())
 }
 
-/// [`check_vim_family_ratchet`] for round 8's own repaired family, atlas
-/// S-137, gated at zero the same way as [`check_round6_family_ratchets`].
+/// [`check_vim_family_ratchet`] for round 8's two repaired families, atlas
+/// S-137 and S-139, gated at zero the same way [`check_round6_family_ratchets`]
+/// is. S-139's own fix moves two tools, below the five-tool bar, and is
+/// recorded as an exception in `docs/design.md` §16.
 pub fn check_round8_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
-    check_vim_family_ratchet("invocation-form-head-as-flag-group", previous, fresh)
+    let forms = check_vim_family_ratchet("invocation-form-head-as-flag-group", previous, fresh)?;
+    let glued = check_vim_family_ratchet("glued-uppercase-shared-prefix", previous, fresh)?;
+    Ok(forms && glued)
 }
 
 /// pnpm's two families (atlas S-103, S-104), fixed in
