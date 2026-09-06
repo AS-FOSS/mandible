@@ -106,6 +106,9 @@ fn adversarial_tree() -> CommandNode {
 fn build_app() -> App {
     let root = adversarial_tree();
     let mut app = App::new("git".to_string(), root);
+    // Stated, never read from the locale: `glyphs::from_env` returns the
+    // ASCII set outside a UTF-8 locale, and these tests assert the rounded one.
+    app.glyphs = mandible_tui::glyphs::UNICODE;
     // Expand root so all adversarial children are visible tree rows.
     app.expand_selected(); // no-op: root already expanded by App::new, kept for clarity
     app.ensure_rows_fresh();
@@ -312,6 +315,7 @@ fn borders_survive_a_node_with_unparsed_raw_help_text() {
         for &height in &[10u16, 24] {
             for focus in [mandible_tui::Focus::Tree, mandible_tui::Focus::Detail] {
                 let mut app = App::new("mystery".to_string(), root.clone());
+                app.glyphs = mandible_tui::glyphs::UNICODE;
                 app.focus = focus;
                 let backend = TestBackend::new(width, height);
                 let mut terminal = Terminal::new(backend).unwrap();
@@ -442,6 +446,7 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
     root.unparsed = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
 
     let mut app = App::new("wide".to_string(), root);
+    app.glyphs = mandible_tui::glyphs::UNICODE;
     app.focus = mandible_tui::Focus::Detail;
     assert!(app.horizontal_scroll_enabled, "default is on");
 
@@ -583,6 +588,7 @@ fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
     root.unparsed = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
 
     let mut app = App::new("wide".to_string(), root);
+    app.glyphs = mandible_tui::glyphs::UNICODE;
     app.focus = mandible_tui::Focus::Tree;
     assert!(app.horizontal_scroll_enabled, "default is on");
 
@@ -660,6 +666,7 @@ fn detail_pane_hscroll_affordance_absent_when_the_config_toggle_is_off() {
     root.usage = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
 
     let mut app = App::new("wide".to_string(), root);
+    app.glyphs = mandible_tui::glyphs::UNICODE;
     app.focus = mandible_tui::Focus::Detail;
     app.horizontal_scroll_enabled = false;
 
