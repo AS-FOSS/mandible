@@ -57,7 +57,7 @@ contributors() {
     gh pr list --repo "$repo" --state merged --limit 200 --json number,title,author,mergedAt \
       -q ".[] | select(.mergedAt > \"${since}\") | select(.author.is_bot | not) | \
           \"\\(.author.login)\\t* @\\(.author.login) — #\\(.number) \\(.title)\"" 2>/dev/null
-    "$here/changelog_section.sh" "$version" | grep -oE '#[0-9]+' | sort -u | tr -d '#' \
+    { "$here/changelog_section.sh" "$version" | grep -oE '#[0-9]+' || true; } | sort -u | tr -d '#' \
       | while read -r n; do
           gh api "repos/${repo}/issues/${n}" \
             -q "select(.pull_request == null) | \

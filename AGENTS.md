@@ -315,7 +315,7 @@ Three rows are about content rather than a path:
 
 | If you change… | You must also… |
 |---|---|
-| Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]` |
+| Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]`, citing the issue as `#N` when one exists: the release body thanks each cited reporter |
 | A measurement that contradicts spec Appendix A | update Appendix A with the new number and its method |
 | A design contract: schema, probe rules, display semantics | amend the governing `docs/design.md` section |
 
