@@ -19,11 +19,17 @@ exit_code = 1
 [contract]
 expected_framework = "generic"
 # Ten rows the tool writes as single-dash long options, each its own
-# spelling. docs/shapes.md S-139.
+# spelling, and the short `-n` it never documents (docs/shapes.md S-139).
+# Both pass now.
 must_contain_flags = [
   "-noI", "-noId", "-noD", "-noF", "-noX",
   "-noInodeCompression", "-noIdTableCompression", "-noDataCompression",
   "-noFragmentCompression", "-noXattrCompression",
 ]
-# All ten used to collapse onto short `-n`, which mksquashfs never documents.
 must_not_contain_flags = ["-n"]
+# The operand the unread synopsis holds (docs/shapes.md S-142). Fails.
+must_contain_positionals = ["FILESYSTEM"]
+
+[xfail]
+broken = true
+reason = "S-139 is fixed and its two assertions pass. S-142 is open: SYNTAX: glued to the program name with no space is never recognized as a usage marker, so the two-line synopsis is read as description prose and no positional is recovered from it. Measured 2 genuine tools for the glued label and 1 for the open-bracket continuation at column zero, both below the five-tool bar, so nothing ships for it."

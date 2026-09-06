@@ -86,6 +86,11 @@ pub(crate) mod usage_bracket_group_multiword_value;
 // Round-8 family detector (issue "lvm2 invocation forms read as section
 // headings", atlas S-137), same direct-`Detector`-impl shape.
 pub(crate) mod invocation_form_head_as_flag_group;
+// Round-8 family detector (atlas S-142's two measurement halves: the
+// usage label glued to the program name, and the open-bracket
+// continuation at column zero), same direct-`Detector`-impl shape.
+pub(crate) mod usage_label_glued_to_program_name;
+pub(crate) mod usage_open_bracket_continues_at_column_zero;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -722,6 +727,10 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(GluedUppercaseSharedPrefix),
         Box::new(description_continuation_dash_flag::RawContinuationShape),
         Box::new(description_continuation_dash_flag::BareQuoteValue),
+        Box::new(usage_label_glued_to_program_name::UsageLabelGluedToProgramName),
+        Box::new(
+            usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
+        ),
     ]
 }
 

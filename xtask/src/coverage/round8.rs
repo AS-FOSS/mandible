@@ -1,6 +1,6 @@
-//! The round-8 family detectors, atlas S-137, S-139 and S-140. Split
-//! into their own file for the same line-count reason `score.rs`'s own
-//! round functions are.
+//! The round-8 family detectors, atlas S-137, S-139, S-140 and S-142.
+//! Split into their own file for the same line-count reason `score.rs`'s
+//! own round functions are.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
@@ -16,6 +16,8 @@ pub(super) fn round8_family_counts(
         .hits(&evidence);
     let gu = crate::detector::glued_uppercase_shared_prefix::detect(raw, root);
     let dc = crate::detector::description_continuation_dash_flag::detect(raw, root);
+    let lg = crate::detector::usage_label_glued_to_program_name::detect(raw, root);
+    let ob = crate::detector::usage_open_bracket_continues_at_column_zero::detect(raw);
     vec![
         (
             "invocation-form-head-as-flag-group",
@@ -60,6 +62,29 @@ pub(super) fn round8_family_counts(
                     format!(
                         "{:?} carries a bare quote character as its value",
                         f.spelling
+                    )
+                })
+                .collect(),
+        ),
+        (
+            "usage-label-glued-to-program-name",
+            lg.finding_count(),
+            lg.findings
+                .iter()
+                .take(cap)
+                .map(|f| format!("{:?} glued to the program name, from {:?}", f.label, f.line))
+                .collect(),
+        ),
+        (
+            "usage-open-bracket-continues-at-column-zero",
+            ob.finding_count(),
+            ob.findings
+                .iter()
+                .take(cap)
+                .map(|f| {
+                    format!(
+                        "open bracket carried from {:?} into {:?}",
+                        f.first_line, f.continuation
                     )
                 })
                 .collect(),
