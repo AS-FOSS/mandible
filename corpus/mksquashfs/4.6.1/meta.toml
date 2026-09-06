@@ -1,0 +1,46 @@
+# Maintainer's own words: the parsed usage "does not look clean" (docs/
+# shapes.md S-142). Two physical lines: `SYNTAX:mksquashfs source1 source2
+# ...  FILESYSTEM [OPTIONS] [-e list of` / `exclude dirs/files]`. `SYNTAX:`
+# is glued to the program name with no space, a label `starts_with_usage_
+# prefix` never recognizes, so the whole two-line block is read as leading
+# description prose rather than usage. The second line also continues an
+# open `[` group at column zero.
+#
+# Measured fleet-wide (2026-09-06, xtask detector coverage --tools <full
+# PATH>, 2323 tools): `usage-label-glued-to-program-name` reads 8 tools /
+# 8 findings raw, but 6 of those 8 are `http`/`https` doc-URL false
+# positives whose path basename happens to equal the tool's own name
+# (`https://github.com/liske/needrestart` glued to `needrestart`); the two
+# genuine hits are this tool and its sibling `sqfstar`, both squashfs-tools.
+# `usage-open-bracket-continues-at-column-zero` reads 2 tools / 2 findings
+# raw, one of which is an ANSI-SGI-escape false positive (a colored banner
+# whose `\e[38;2;...m` sequences contain a literal unmatched `[`); the one
+# genuine hit is this tool alone, since `sqfstar`'s own synopsis is short
+# enough not to wrap at capture width. Both real counts are below the
+# five-tool bar (AGENTS.md §3.1). No fix ships; both detectors stay
+# registered as measurement instruments (`xtask/src/detector/usage_label_
+# glued_to_program_name.rs`, `xtask/src/detector/usage_open_bracket_
+# continues_at_column_zero.rs`).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "mksquashfs"
+version = "4.6.1"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.7.0"
+
+[[capture]]
+argv = ["mksquashfs", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["FILESYSTEM"]
+
+[xfail]
+broken = true
+reason = "SYNTAX: glued to the program name with no space is never recognized as a usage marker, so the whole two-line synopsis is read as description prose instead of usage, and no positional is ever recovered from it; below the five-tool fix bar (docs/shapes.md S-142)"

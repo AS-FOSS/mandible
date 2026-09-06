@@ -2490,3 +2490,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
   below the five-tool floor a fix must clear. Not shipped; the fixture
   stays xfail with the count in its reason.
+
+### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
+
+- id: S-142
+- looks like: |
+      SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
+      exclude dirs/files]
+- tools: mksquashfs, sqfstar
+- handling: Open, two shapes. `SYNTAX:` glues straight to the program name with no
+  space, a spelling `starts_with_usage_prefix` never matches, so the whole
+  two-line block reads as leading description prose and no positional is
+  recovered. The second line also continues an unclosed `[` group at
+  column zero, a shape today's continuation rule misses since it only
+  reads a continuation's own first character, never a depth carried over
+  from the line above.
+- fleet: `usage-label-glued-to-program-name`
+  (`xtask/src/detector/usage_label_glued_to_program_name.rs`) reads 8
+  tools/8 findings raw on a full-`PATH` sweep of 2323 tools, 2026-09-06;
+  6 are `http`/`https` doc-URL false positives whose path basename
+  coincides with the tool's own name, leaving 2 genuine hits (both
+  squashfs-tools). `usage-open-bracket-continues-at-column-zero`
+  (`xtask/src/detector/usage_open_bracket_continues_at_column_zero.rs`)
+  reads 2 tools/2 findings raw; one is an ANSI-escape false positive from
+  a colored banner, leaving 1 genuine hit. Both real counts are below the
+  five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
+  both counts in its reason.
