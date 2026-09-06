@@ -210,6 +210,8 @@ fn row(tool: &str, flags: usize, pct_flags_with_text: Option<f64>, status: &'sta
         wrapped_command_samples: Vec::new(),
         command_pattern_count: 0,
         command_pattern_samples: Vec::new(),
+        centered_label_baseline_count: 0,
+        centered_label_baseline_samples: Vec::new(),
         status,
         fingerprint: fingerprint::ToolFingerprint::default(),
     }

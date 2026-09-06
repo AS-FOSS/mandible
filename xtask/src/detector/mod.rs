@@ -732,6 +732,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(
             usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
         ),
+        Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
+        Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
     ]
 }
 

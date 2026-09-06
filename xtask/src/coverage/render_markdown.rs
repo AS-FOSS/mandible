@@ -147,6 +147,16 @@ fn command_pattern_sample_section_markdown(rows: &[Row]) -> String {
     )
 }
 
+/// Markdown twin of [`centered_label_baseline_sample_lines_text`].
+fn centered_label_baseline_sample_section_markdown(rows: &[Row]) -> String {
+    sample_section_markdown(
+        rows.iter()
+            .flat_map(|r| r.centered_label_baseline_samples.iter()),
+        "\n**Centered-label-baseline findings** (sample — see \
+         `xtask/src/centered_label_baseline.rs`):\n\n| sample |\n|---|\n",
+    )
+}
+
 /// The shared body of the two markdown sections above.
 fn sample_section_markdown<'a>(samples: impl Iterator<Item = &'a String>, heading: &str) -> String {
     let samples: Vec<&String> = samples.take(SPLIT_SAMPLE_LIMIT).collect();
@@ -343,6 +353,13 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         aggregate.command_pattern_tools, aggregate.command_pattern_flags,
     ));
     out.push_str(&format!(
+        "**Centered-label-baseline findings:** {} tool(s) with a shallower row, right after a \
+         centered ALL-CAPS group label, whose leading word never reached the tree as a \
+         subcommand (atlas S-149), {} row(s) fleet-wide — see \
+         `xtask/src/centered_label_baseline.rs`.\n\n",
+        aggregate.centered_label_baseline_tools, aggregate.centered_label_baseline_flags,
+    ));
+    out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,
         aggregate.total,
@@ -367,6 +384,7 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&ragged_command_sample_section_markdown(rows));
     out.push_str(&wrapped_command_sample_section_markdown(rows));
     out.push_str(&command_pattern_sample_section_markdown(rows));
+    out.push_str(&centered_label_baseline_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by
     // whatever recombines shards. Without it a sharded markdown run could
