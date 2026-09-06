@@ -28,6 +28,9 @@ must_contain_flags = ["--mirrorlog", "--type", "--extents"]
 must_not_contain_usage_text = ["[ --type linear ] (implied)"]
 must_usage_forms_min = 17
 must_not_contain_flag_group_prefixes = ["lvcreate", "Lvcreate"]
+# COMMON_OPTIONS is a placeholder for the two shared option blocks, never
+# an operand. It used to reach the tree as a root positional.
+must_not_contain_positionals = ["COMMON_OPTIONS"]
 
 [contract.must_attach_choices]
 "--mirrorlog" = ["core", "disk"]
