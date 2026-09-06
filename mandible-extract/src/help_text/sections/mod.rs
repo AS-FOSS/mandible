@@ -472,8 +472,9 @@ fn scan_usage_section(
             i += 1;
             continue;
         }
-        let is_marker =
-            starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
+        let is_marker = starts_with_usage_prefix(trimmed_start)
+            || starts_with_or_marker(trimmed_start)
+            || tool_name.is_some_and(|name| starts_with_glued_usage_label(trimmed_start, name));
         let is_own_name = tool_name.is_some_and(|name| {
             starts_with_tool_name(trimmed_start, name)
                 || starts_with_tool_name_spelled_differently(trimmed_start, name)
@@ -543,7 +544,25 @@ fn scan_usage_section(
             // is unsigned, so this also covers "equal to"), indentation
             // alone can't distinguish a genuine continuation (lsof) from
             // the block having ended (du) — fall back to content shape.
-            if leading_whitespace(l) <= base_indent && !looks_like_usage_fragment(trimmed_start) {
+            // S-142: also continue when the previous physical usage line
+            // left a `[` group open and this column-zero line is neither a
+            // heading nor a flag row (`exclude dirs/files]` after
+            // `SYNTAX:... [-e list of`).
+            let open_bracket_continues = usage_lines.last().is_some_and(|prev| {
+                let bal = prev.chars().fold(0i32, |acc, c| match c {
+                    '[' => acc + 1,
+                    ']' => acc - 1,
+                    _ => acc,
+                });
+                bal > 0
+                    && !trimmed_start.starts_with('-')
+                    && !(trimmed_start.ends_with(':')
+                        && !trimmed_start.contains(['[', ']', '<', '>', '{', '}']))
+            });
+            if leading_whitespace(l) <= base_indent
+                && !looks_like_usage_fragment(trimmed_start)
+                && !open_bracket_continues
+            {
                 break;
             }
         }
@@ -1507,7 +1526,9 @@ fn parse_body(
     let labelled_usage_start = lines.iter().position(|l| {
         let t = l.trim_start();
         starts_with_usage_prefix(t)
-            || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+            || tool_name.is_some_and(|name| {
+                starts_with_name_prefixed_usage(t, name) || starts_with_glued_usage_label(t, name)
+            })
     });
     let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
         tool_name.and_then(|name| {

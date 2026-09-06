@@ -27,9 +27,10 @@ must_contain_flags = [
   "-noFragmentCompression", "-noXattrCompression",
 ]
 must_not_contain_flags = ["-n"]
-# The operand the unread synopsis holds (docs/shapes.md S-142). Fails.
+# The operand recovered from the S-142 synopsis (SYNTAX: glued + wrap).
 must_contain_positionals = ["FILESYSTEM"]
 
 [xfail]
 broken = true
-reason = "S-139 is fixed and its two assertions pass. S-142 is open: SYNTAX: glued to the program name with no space is never recognized as a usage marker, so the two-line synopsis is read as description prose and no positional is recovered from it. Measured 2 genuine tools for the glued label and 1 for the open-bracket continuation at column zero, both below the five-tool bar, so nothing ships for it."
+reason = "S-142 parser support landed (glued SYNTAX: label + open-bracket column-zero continuation). Fixture still xfail until `xtask corpus --bless` regenerates the expected snap for mksquashfs 4.6.1; must_contain_positionals FILESYSTEM should then pass."
+

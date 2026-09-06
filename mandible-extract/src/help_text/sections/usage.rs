@@ -16,6 +16,59 @@ pub fn starts_with_usage_prefix(t: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// True when `t` opens with an alphabetic usage label glued straight to
+/// the tool's own name: `SYNTAX:mksquashfs source1 ...` (no space after
+/// the colon). Distinct from [`starts_with_usage_prefix`], which only
+/// matches the literal `usage:` spelling. Labels already recognized as
+/// `usage` / `or` are left to those predicates so they are never counted
+/// twice. See docs/shapes.md S-142.
+pub fn starts_with_glued_usage_label(t: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let Some(colon_idx) = t.find(':') else {
+        return false;
+    };
+    let label = &t[..colon_idx];
+    if label.len() < 2 || label.len() > 20 || !label.chars().all(|c| c.is_ascii_alphabetic()) {
+        return false;
+    }
+    if label.eq_ignore_ascii_case("usage") || label.eq_ignore_ascii_case("or") {
+        return false;
+    }
+    // Doc URLs whose path basename equals the tool name (`https://…/mksquashfs`)
+    // must not count as a glued usage label (shapes.md S-142 fleet FPs).
+    if label.eq_ignore_ascii_case("http") || label.eq_ignore_ascii_case("https") {
+        return false;
+    }
+    let Some(after) = t.get(colon_idx + 1..) else {
+        return false;
+    };
+    if after.is_empty() || after.starts_with(char::is_whitespace) {
+        return false;
+    }
+    if after.starts_with("//") {
+        return false;
+    }
+    let first_token = after.split_whitespace().next().unwrap_or(after);
+    // `See:https://example.com/tool` — label is not http(s), but the token is a URL.
+    if first_token.starts_with("http://")
+        || first_token.starts_with("https://")
+        || first_token.contains("://")
+    {
+        return false;
+    }
+    let basename = first_token.rsplit('/').next().unwrap_or(first_token);
+    let Some(rest) = basename.strip_prefix(name) else {
+        return false;
+    };
+    rest.is_empty()
+        || !(rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphanumeric() || c == '_'))
+}
+
 /// True if `t` starts with `"or:"`, case-insensitively — GNU coreutils'
 /// marker for a genuine *alternative* invocation form, distinct from a
 /// wrapped continuation of the form above it. Without it, joining every
@@ -1272,6 +1325,47 @@ mod tests {
     /// jar's `Examples:` block chains several real flags on one line with
     /// no brackets, structurally indistinguishable from a bare stanza
     /// head. See S-071.
+
+    #[test]
+    fn glued_syntax_label_matches_mksquashfs() {
+        assert!(starts_with_glued_usage_label(
+            "SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS]",
+            "mksquashfs"
+        ));
+    }
+
+    #[test]
+    fn glued_usage_label_is_left_to_starts_with_usage_prefix() {
+        assert!(!starts_with_glued_usage_label("Usage:mksquashfs source1", "mksquashfs"));
+        assert!(starts_with_usage_prefix("Usage:mksquashfs source1"));
+    }
+
+    #[test]
+    fn glued_label_to_unrelated_word_is_silent() {
+        assert!(!starts_with_glued_usage_label("NOTE:something unrelated", "mksquashfs"));
+    }
+
+    #[test]
+    fn glued_label_with_space_after_colon_is_silent() {
+        assert!(!starts_with_glued_usage_label("SYNTAX: mksquashfs source1", "mksquashfs"));
+    }
+
+    #[test]
+    fn https_url_ending_in_tool_name_is_silent() {
+        assert!(!starts_with_glued_usage_label(
+            "https://example.com/mksquashfs",
+            "mksquashfs"
+        ));
+    }
+
+    #[test]
+    fn see_https_url_glued_after_label_is_silent() {
+        assert!(!starts_with_glued_usage_label(
+            "See:https://example.com/mksquashfs",
+            "mksquashfs"
+        ));
+    }
+
     #[test]
     fn jars_chained_example_invocation_is_never_read_as_a_stanza_head() {
         let help = "jar creates an archive for classes and resources, and can manipulate or\n\

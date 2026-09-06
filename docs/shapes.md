@@ -2618,13 +2618,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
       SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
       exclude dirs/files]
 - tools: mksquashfs, sqfstar
-- handling: Open, two shapes. `SYNTAX:` glues straight to the program name with no
-  space, a spelling `starts_with_usage_prefix` never matches, so the whole
-  two-line block reads as leading description prose and no positional is
-  recovered. The second line also continues an unclosed `[` group at
-  column zero, a shape today's continuation rule misses since it only
-  reads a continuation's own first character, never a depth carried over
-  from the line above.
+- handling: `starts_with_glued_usage_label` recognizes an alphabetic label
+  followed by `:` and the tool's own name with no space (`SYNTAX:mksquashfs
+  ...`), distinct from `usage:`/`or:`. The usage fold carries open `[`
+  depth from the previous physical line so a column-zero continuation that
+  closes the group (`exclude dirs/files]`) stays in the synopsis rather
+  than ending the block. Positionals `source` (repeatable) and `FILESYSTEM`
+  are recovered from the joined form.
 - fleet: `usage-label-glued-to-program-name`
   (`xtask/src/detector/usage_label_glued_to_program_name.rs`) reads 8
   tools/8 findings raw on a full-`PATH` sweep of 2323 tools, 2026-09-06;
@@ -2633,6 +2633,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   squashfs-tools). `usage-open-bracket-continues-at-column-zero`
   (`xtask/src/detector/usage_open_bracket_continues_at_column_zero.rs`)
   reads 2 tools/2 findings raw; one is an ANSI-escape false positive from
-  a colored banner, leaving 1 genuine hit. Both real counts are below the
-  five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
-  both counts in its reason.
+  a colored banner, leaving 1 genuine hit. Both real counts stay below the
+  five-tool bar, so the *detectors* are not shipped as fleet rules. The
+  *parser* fix above is shipped for the genuine squashfs-tools shape; URL
+  basenames are rejected in `starts_with_glued_usage_label`.
+  `corpus/mksquashfs/4.6.1` remains `[xfail]` until `xtask corpus --bless`
+  regenerates its expected snap (then the xfail block can drop).
