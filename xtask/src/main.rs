@@ -11,6 +11,7 @@ mod alternation;
 mod audit;
 mod audit_contribute;
 mod bundling;
+mod centered_label_baseline;
 mod command_pattern_table;
 mod commandtable;
 mod corpus;
@@ -1235,6 +1236,23 @@ fn run_coverage(
         regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_command_pattern_reported(&previous, &fresh)?;
         regressed |= !detector::check_round9_family_ratchets(&previous, &fresh)?;
+
+        // `centered-label-baseline-tree` (atlas S-149): the tree artifact
+        // fixed by `bare_block_end`'s own baseline repair
+        // (`mandible-extract/src/help_text/sections/scan.rs`). Gated at a
+        // literal zero the same way `table_ratchet` above is — the
+        // shape's raw precondition (`centered-label-baseline-shape`) is
+        // not gated here, since the shape itself occurs in a document's
+        // bytes forever, fix or no fix; only the tree artifact clears.
+        let centered_label_ratchet = detector::ratchet_at_zero(
+            detector::find("centered-label-baseline-tree")?.as_ref(),
+            fresh.centered_label_baseline_tools,
+            0,
+        );
+        println!("\n{}", centered_label_ratchet.report());
+        if !centered_label_ratchet.holds() {
+            regressed = true;
+        }
 
         // `glued-uppercase-shared-prefix` (atlas S-139) is gated inside
         // `check_round8_family_ratchets` beside S-137's own family.

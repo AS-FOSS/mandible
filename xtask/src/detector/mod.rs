@@ -738,6 +738,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         ),
         Box::new(lowdown_bullet_command_row::LowdownBulletCommandRow),
         Box::new(lowdown_bullet_option_row::LowdownBulletOptionRow),
+        Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
+        Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
     ]
 }
 

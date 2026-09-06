@@ -224,6 +224,15 @@ pub(super) struct Row {
     /// A few of this row's own findings, pre-formatted, mirroring
     /// [`Self::wrapped_command_samples`].
     pub(super) command_pattern_samples: Vec<String>,
+    /// [`crate::centered_label_baseline::detect_tree`]'s own measurement:
+    /// count of this tool's shallower rows, right after a centered ALL-CAPS
+    /// group label, whose leading word never reached the tree as a
+    /// subcommand (atlas S-149). Ratchet-gated at zero once the
+    /// `bare_block_end` baseline fix ships.
+    pub(super) centered_label_baseline_count: usize,
+    /// A few of this row's own findings, pre-formatted, mirroring
+    /// [`Self::command_pattern_samples`].
+    pub(super) centered_label_baseline_samples: Vec<String>,
     pub(super) status: &'static str,
     /// This tool's field-level fingerprint (WS2 part 2,
     /// [`crate::transition`]'s per-tool diff): enough for `sweep-diff` to
@@ -373,6 +382,7 @@ pub(super) fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&ragged_command_sample_lines_text(rows));
     out.push_str(&wrapped_command_sample_lines_text(rows));
     out.push_str(&command_pattern_sample_lines_text(rows));
+    out.push_str(&centered_label_baseline_sample_lines_text(rows));
     out.push_str(&fingerprint_lines(rows));
     out
 }
@@ -641,6 +651,16 @@ fn command_pattern_sample_lines_text(rows: &[Row]) -> String {
     sample_lines_text(
         rows.iter().flat_map(|r| r.command_pattern_samples.iter()),
         "# command-pattern-table findings (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for
+/// [`crate::centered_label_baseline`].
+fn centered_label_baseline_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter()
+            .flat_map(|r| r.centered_label_baseline_samples.iter()),
+        "# centered-label-baseline findings (sample — judge the false-positive rate yourself):\n",
     )
 }
 

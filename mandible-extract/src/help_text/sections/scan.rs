@@ -23,6 +23,31 @@ pub(super) fn scan_bare_block<'a>(
     (end, split_entries(&lines[start..end], allow_dash_separator))
 }
 
+/// Shallowest indent a centered group label is read at. A flush-left
+/// section heading (`gh`'s own `CORE COMMANDS`, `HELP TOPICS`, indent 0)
+/// is spaced ASCII-uppercase words too, but it is the heading that already
+/// governs a block, never a label interrupting one — cobra's own real
+/// command table would otherwise vanish under this rule, one heading at a
+/// time. `fail2ban-client`'s own labels sit at column 45; this floor only
+/// needs to clear a genuine flush-left heading's indent of 0. See
+/// docs/shapes.md S-149.
+const MIN_CENTERED_LABEL_INDENT: usize = 8;
+
+/// A line whose only content is spaced ASCII-uppercase words, indented at
+/// least [`MIN_CENTERED_LABEL_INDENT`] — a centered group label (`BASIC`,
+/// `JAIL CONTROL`), never a row of the block it opens or interrupts.
+/// Mirrors `xtask/src/command_pattern_table.rs`'s own `is_group_label`,
+/// kept as an independent copy since that crate cannot import this one.
+/// See docs/shapes.md S-149.
+pub(super) fn is_centered_group_label(trimmed: &str, indent: usize) -> bool {
+    indent >= MIN_CENTERED_LABEL_INDENT
+        && !trimmed.is_empty()
+        && trimmed.chars().count() <= 40
+        && trimmed
+            .split_whitespace()
+            .all(|w| w.chars().all(|c| c.is_ascii_uppercase()))
+}
+
 /// Find the end of a bare-word block starting at `lines[start]`: the
 /// block runs until a non-blank line dedents below its own baseline
 /// indent **or a flag row resumes**, whichever comes first. Shared by
@@ -34,11 +59,36 @@ pub(super) fn scan_bare_block<'a>(
 /// row therefore ends the block; the caller resumes its main loop at that
 /// line and reads it as a flags block instead. See docs/shapes.md S-033
 /// and corpus/sg_dd/audit-seed2, corpus/tar/1.35.
+///
+/// The block's baseline indent is never taken from a centered ALL-CAPS
+/// group label opening it (`fail2ban-client`'s `Command:` section prints
+/// `BASIC` centered at column 45 with every row beneath it at column 4):
+/// such a label sits far deeper than every real row, so taking the
+/// baseline from it would dedent on the very first real row and end the
+/// block before reading one. The baseline is instead the first non-blank,
+/// non-label line's own indent; every centered label is then treated as
+/// interruption, not baseline-setting, wherever it occurs in the block.
+/// See docs/shapes.md S-149.
 pub(super) fn bare_block_end(lines: &[&str], start: usize) -> usize {
+    let mut baseline_at = start;
+    while baseline_at < lines.len()
+        && (lines[baseline_at].trim().is_empty()
+            || is_centered_group_label(lines[baseline_at].trim(), leading_whitespace(lines[baseline_at])))
+    {
+        baseline_at += 1;
+    }
+    let entry_indent = if baseline_at < lines.len() {
+        leading_whitespace(lines[baseline_at])
+    } else {
+        leading_whitespace(lines[start])
+    };
     let mut i = start;
-    let entry_indent = leading_whitespace(lines[start]);
     while i < lines.len() {
         if lines[i].trim().is_empty() {
+            i += 1;
+            continue;
+        }
+        if is_centered_group_label(lines[i].trim(), leading_whitespace(lines[i])) {
             i += 1;
             continue;
         }
