@@ -74,6 +74,11 @@ pub(crate) mod bare_or_usage_separator;
 pub(crate) mod same_spelling_fold_loss;
 pub(crate) mod usage_spelling_duplicates_table_row;
 
+// Round-7 family detectors (issue #135's own two shapes, atlas S-131 and
+// S-132), same direct-`Detector`-impl shape as the round-5 modules above.
+pub(crate) mod trailing_bracket_group_multiword_operand;
+pub(crate) mod usage_bracket_group_multiword_value;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -701,6 +706,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(value_name_duplicates_choices::ValueNameDuplicatesChoices),
         Box::new(choice_value_rows_unfolded::ChoiceValueRowsUnfolded),
         Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),
+        Box::new(usage_bracket_group_multiword_value::UsageBracketGroupMultiwordValue),
+        Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
     ]
 }
 

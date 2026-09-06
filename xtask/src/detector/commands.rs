@@ -317,10 +317,10 @@ pub fn check_round5_family_ratchets(
 }
 
 /// [`check_vim_family_ratchet`] for every family this round repaired and
-/// gated at zero, atlas S-116 to S-120 and S-126 to S-128, `true` only if
-/// every one holds. `description-subcommands-list`, S-114, stays open
-/// and is not listed. One call site for the whole batch, so `main.rs`
-/// gains one line rather than one per family.
+/// gated at zero, atlas S-116 to S-120, S-126 to S-128, S-131 and S-132,
+/// `true` only if every one holds. `description-subcommands-list`, S-114,
+/// stays open and is not listed. One call site for the whole batch, so
+/// `main.rs` gains one line rather than one per family.
 pub fn check_round6_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
@@ -335,6 +335,8 @@ pub fn check_round6_family_ratchets(
         "examples-block-contaminates-last-flag",
         "positional-description-block",
         "generic-option-placeholder-flag",
+        "usage-bracket-group-multiword-value",
+        "trailing-bracket-group-multiword-operand",
     ] {
         if !check_vim_family_ratchet(name, previous, fresh)? {
             all_hold = false;

@@ -111,6 +111,22 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
             ));
         }
 
+        // The positional negative claim, weakens the same way
+        // `must_not_contain_flags` does: losing an entry.
+        let dropped_forbidden_positionals: Vec<&str> = b
+            .must_not_contain_positionals
+            .iter()
+            .filter(|spec| !n.must_not_contain_positionals.iter().any(|s| s == *spec))
+            .map(String::as_str)
+            .collect();
+        if !dropped_forbidden_positionals.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {} must_not_contain_positionals (dropped: {})",
+                base.label,
+                dropped_forbidden_positionals.join(", ")
+            ));
+        }
+
         let missing_modifiers: Vec<&str> = b
             .must_contain_modifiers
             .iter()
@@ -333,8 +349,9 @@ pub(crate) fn check_contract(
 /// report reads the same shape whether the failure is "wrong tree" or "no
 /// tree".
 ///
-/// `must_not_contain_flags` and `must_keep_separate` are deliberately
-/// absent from this list. Every field above is a positive claim, which a
+/// `must_not_contain_flags`, `must_not_contain_positionals` and
+/// `must_keep_separate` are deliberately absent from this list. Every
+/// field above is a positive claim, which a
 /// missing tree trivially breaks — "the tool has --paginate" cannot hold
 /// of no tree. A negative claim is the opposite: "no root flag is spelled
 /// X" is *satisfied* by a tree with no flags at all, so reporting it here
@@ -481,6 +498,24 @@ fn check_contract_scalar_fields(
         failures.push(ContractFailure(format!(
             "must_not_contain_flags: present {}",
             present_forbidden.join(", ")
+        )));
+    }
+
+    // The positional mirror of the negative claim above: an operand the
+    // parser invented that the tool has no such name for
+    // (`corpus/caffeinate/26.6.2`'s `ID`, split off `-w`'s own value name
+    // `Process ID`). Same matcher as `must_contain_positionals`, negated,
+    // root only.
+    let present_forbidden_positionals: Vec<&str> = contract
+        .must_not_contain_positionals
+        .iter()
+        .filter(|spec| positional_present(root, spec))
+        .map(|s| s.as_str())
+        .collect();
+    if !present_forbidden_positionals.is_empty() {
+        failures.push(ContractFailure(format!(
+            "must_not_contain_positionals: present {}",
+            present_forbidden_positionals.join(", ")
         )));
     }
 
