@@ -1,0 +1,33 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nix"
+version = "2.95.2-lix"
+platform = "nixos-24.11-x86_64"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["nix", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 30
+must_contain_flags = [
+  "--debug", "--print-build-logs", "-L", "--quiet", "--verbose", "-v",
+  "--help", "--offline", "--option", "--refresh", "--version",
+]
+
+[contract.must_value_name]
+"--option" = "value"
+
+[contract.must_describe]
+"--debug" = "Set the logging verbosity level to 'debug'"
+"--option" = "Set the Lix configuration setting"
+
+[xfail]
+broken = true
+reason = "lowdown man-page rendering: 30 nix `nix <word> - description` bullet\nrows under `... commands:` labels, and 9 `-flag description` bullet rows\nunder `Options`, all render as prose. The reporter's own `mandible\n--doctor nix` read 1 node and 0 flags. The reporter's paste is not\nbyte-exact: a GitHub issue textarea drops trailing whitespace on\nrendering, so this fixture's help.txt is instead the reporter's own\n`mandible --report` output, which preserves it."
+issue = "https://github.com/AS-FOSS/mandible/issues/138"
