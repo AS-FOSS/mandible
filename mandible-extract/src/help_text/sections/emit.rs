@@ -303,82 +303,74 @@ pub(super) fn emit_env_vars(
     (seen, seen)
 }
 
-/// True when `token` is entirely wrapped in one bracket pair, `[...]` or
-/// `<...>` — an optional-syntax group (`[--unban]`, `[UNIT...]`) or a
-/// placeholder (`<JAIL>`, `<LEVEL>`), read opaque without inspecting what
-/// is inside. The wrapper itself is the evidence this is command-pattern
-/// syntax rather than prose: real dropped descriptions essentially never
-/// wrap a whole word in a literal bracket or angle-bracket pair. See
-/// docs/shapes.md S-141.
-fn is_bracket_or_angle_wrapped(token: &str) -> bool {
-    let bytes = token.as_bytes();
-    bytes.len() >= 2
-        && ((bytes[0] == b'[' && bytes[bytes.len() - 1] == b']')
-            || (bytes[0] == b'<' && bytes[bytes.len() - 1] == b'>'))
-}
-
-/// True when every whitespace-delimited word of `token` (brackets, dots and
-/// `|` stripped first, `=` splitting each word further) is uppercase-led —
-/// the strict placeholder shape a bare metavariable run has (`UNIT`,
-/// `PATTERN...`, `PROPERTY=VALUE...`). See docs/shapes.md S-129.
-fn is_uppercase_placeholder_token(token: &str) -> bool {
-    let cleaned: String = token
-        .chars()
-        .map(|c| if matches!(c, '.' | '|') { ' ' } else { c })
-        .collect();
-    let mut any = false;
-    for word in cleaned.split_whitespace().flat_map(|w| w.split('=')) {
-        if word.is_empty() {
-            continue;
-        }
-        any = true;
-        let mut chars = word.chars();
-        match chars.next() {
-            Some(c) if c.is_ascii_uppercase() => {}
-            _ => return false,
-        }
-        if !chars.all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') {
-            return false;
-        }
+/// True if `word` is uppercase-led: an uppercase letter, then only
+/// uppercase letters, digits or `_` — the strict placeholder shape a bare
+/// metavariable has (`UNIT`, `PROPERTY`, `VALUE`). See docs/shapes.md
+/// S-129.
+fn is_uppercase_word(word: &str) -> bool {
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_uppercase() => {}
+        _ => return false,
     }
-    any
+    chars.all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
-/// True when `rest` is nothing but command-pattern syntax: a run of
-/// whitespace-delimited tokens, each one either an uppercase metavariable
-/// ([`is_uppercase_placeholder_token`]), a whole bracket- or angle-wrapped
-/// group ([`is_bracket_or_angle_wrapped`], opaque — `[--unban]`,
-/// `[UNIT...]`, `<JAIL>`), a dash-led flag spelling ([`is_flag_shaped`],
-/// `--all`), or — only in the very first position — a bare literal
-/// lowercase word that is itself [`is_command_name_shaped`] (`set
-/// loglevel <LEVEL>`'s `loglevel`, fail2ban-client's own second word of a
-/// multi-word command). An ordinary dropped description reads nothing
-/// like this: real prose is a run of several free lowercase words with no
-/// brackets, angle brackets or dash-led tokens, and fails on the second
-/// word, so this never launders the single-space-description-column
-/// defect into a fabricated operand. See docs/shapes.md S-129, S-141.
+/// True when `rest` is nothing but command-pattern syntax, never a
+/// dropped description. Each whitespace-delimited token of `rest` is
+/// tested on its own:
+///
+/// - The very first token may be a bare literal lowercase word that is
+///   itself [`is_command_name_shaped`] (`set loglevel <LEVEL>`'s
+///   `loglevel`, fail2ban-client's own second word of a multi-word
+///   command) — never a later one, so a genuine multi-word dropped
+///   description still fails on its second free word.
+/// - Otherwise the token, with `[`, `]`, `<`, `>`, `.` and `|` replaced by
+///   spaces and each resulting word further split on `=`, must be nothing
+///   but uppercase-led words (`UNIT`, `PATTERN...`, `PROPERTY=VALUE...`,
+///   `<JAIL>`, `[SIGNATURE [ARGUMENT...]]`'s own two halves read as one
+///   placeholder each) — or nothing at all once cleaned, a token of pure
+///   bracket/dot/pipe punctuation (`...`, a lone `[`/`]`).
+/// - A token that carried a `[`/`]`/`<`/`>` wrapper and still isn't
+///   uppercase after cleaning may be a dash-led flag spelling instead
+///   (`[--unban]`'s own `--unban`, `restart`'s row). A *bare* dash-led
+///   token with no such wrapper (`ethtool --monitor`, a worked usage
+///   example naming the tool itself) is never accepted this way: real
+///   prose never wraps a word in brackets or angle brackets, but a tool's
+///   own invocation line can and does put a real flag right after its own
+///   name with nothing else to distinguish the two shapes.
+///
+/// See docs/shapes.md S-129, S-141.
 fn looks_like_operand_placeholder_run(rest: &str) -> bool {
     let mut any = false;
     for (idx, token) in rest.split_whitespace().enumerate() {
         any = true;
-        if is_bracket_or_angle_wrapped(token) || is_flag_shaped(token) {
-            continue;
-        }
         if idx == 0 && is_command_name_shaped(token) {
             continue;
         }
-        if !token.is_empty() && token.chars().all(|c| matches!(c, '.' | '|')) {
-            // Pure `.`/`|` punctuation between placeholders (`...`, a bare
-            // `|` separator on its own) — never itself a word, so never
-            // prose. Deliberately narrower than "no alphanumeric": a bare
-            // `--` (the getopt option terminator) has no alnum either but
-            // is not this shape, and must keep failing below so a worked
-            // example's own invocation (`trash -- -foo`) is still refused.
+        let bracketed = token.chars().any(|c| matches!(c, '[' | ']' | '<' | '>'));
+        let cleaned: String = token
+            .chars()
+            .map(|c| {
+                if matches!(c, '[' | ']' | '<' | '>' | '.' | '|') {
+                    ' '
+                } else {
+                    c
+                }
+            })
+            .collect();
+        let words: Vec<&str> = cleaned
+            .split_whitespace()
+            .flat_map(|w| w.split('='))
+            .filter(|w| !w.is_empty())
+            .collect();
+        if words.is_empty() || words.iter().all(|w| is_uppercase_word(w)) {
             continue;
         }
-        if !is_uppercase_placeholder_token(token) {
-            return false;
+        if bracketed && is_flag_shaped(cleaned.trim()) {
+            continue;
         }
+        return false;
     }
     any
 }
@@ -1623,11 +1615,11 @@ Command:
             ]
         );
 
+        // `unban --all`'s own bare, unbracketed `--all` is a documented
+        // miss: only `unban <IP> ... <IP>` contributes usage, but `unban`
+        // itself still exists.
         let unban = find("unban");
-        assert_eq!(
-            unban.usage,
-            vec![Text::sanitize("--all"), Text::sanitize("<IP> ... <IP>")]
-        );
+        assert_eq!(unban.usage, vec![Text::sanitize("<IP> ... <IP>")]);
 
         let set = find("set");
         assert_eq!(set.usage, vec![Text::sanitize("loglevel <LEVEL>")]);
@@ -1645,5 +1637,17 @@ Command:
         assert!(!looks_like_operand_placeholder_run(
             "the configuration without restarting"
         ));
+    }
+
+    /// A worked usage-example line naming the tool's own root name
+    /// followed by one of its bare, unbracketed flags (`ethtool
+    /// --monitor`) must never read as that tool naming a subcommand of
+    /// itself: `--monitor` carries no bracket or angle-bracket wrapper, so
+    /// the dash-led-flag fallback must not admit it. Regression case for a
+    /// false positive this fix introduced and then closed. See
+    /// docs/shapes.md S-129, S-141.
+    #[test]
+    fn a_bare_flag_after_a_repeated_tool_name_is_not_a_command_pattern() {
+        assert!(!looks_like_operand_placeholder_run("--monitor"));
     }
 }

@@ -135,7 +135,9 @@ fn tree_attests(node: &CommandNode, name: &str, pattern: &str) -> bool {
     node.subcommands.iter().any(|c| {
         (c.name == name
             && (c.display_name.as_deref() == Some(pattern)
-                || c.usage.iter().any(|u| u.as_str() == pattern || Some(u.as_str()) == tail)))
+                || c.usage
+                    .iter()
+                    .any(|u| u.as_str() == pattern || Some(u.as_str()) == tail)))
             || tree_attests(c, name, pattern)
     })
 }
