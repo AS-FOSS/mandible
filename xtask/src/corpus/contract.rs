@@ -264,6 +264,34 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    // `must_display_name`: same rule as `must_describe` above — a string
+    // value has no natural stronger/weaker ordering, so only its outright
+    // removal is reported.
+    for path in b.must_display_name.keys() {
+        if !n.must_display_name.contains_key(path) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_display_name[{path:?}] (assertion removed)"
+            ));
+        }
+    }
+
+    // `must_accept_modifiers`: same shape as `must_contain_flags_by_path` —
+    // a dropped letter under an existing path weakens it.
+    for (path, base_letters) in &b.must_accept_modifiers {
+        let now_letters = n.must_accept_modifiers.get(path);
+        let missing: Vec<&str> = base_letters
+            .iter()
+            .filter(|letter| !now_letters.is_some_and(|ls| ls.iter().any(|l| l == *letter)))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_accept_modifiers[{path:?}] (dropped: {})",
+                missing.join(", ")
+            ));
+        }
+    }
+
     lines
 }
 
@@ -360,6 +388,16 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     if !contract.must_describe_positional.is_empty() {
         failures.push(ContractFailure(
             "must_describe_positional: no root produced".into(),
+        ));
+    }
+    if !contract.must_display_name.is_empty() {
+        failures.push(ContractFailure(
+            "must_display_name: no root produced".into(),
+        ));
+    }
+    if !contract.must_accept_modifiers.is_empty() {
+        failures.push(ContractFailure(
+            "must_accept_modifiers: no root produced".into(),
         ));
     }
     // `must_not_describe`, like `must_not_contain_flags`, is a negative
@@ -630,7 +668,57 @@ fn check_contract_collection_fields(
     }
 
     failures.extend(check_must_value_name(contract, root));
+    failures.extend(check_must_display_name_and_modifiers(contract, root));
 
+    failures
+}
+
+/// `must_display_name`/`must_accept_modifiers`: a subcommand's own source
+/// spelling and accepted-modifier letters, both keyed by path the way
+/// `must_contain_flags_by_path` is.
+fn check_must_display_name_and_modifiers(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (path, expected_name) in &contract.must_display_name {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_display_name: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let actual = node.display_name.as_deref().unwrap_or(node.name.as_str());
+        if actual != expected_name {
+            failures.push(ContractFailure(format!(
+                "must_display_name[{path:?}]: expected {expected_name:?}, got {actual:?}"
+            )));
+        }
+    }
+    for (path, expected_letters) in &contract.must_accept_modifiers {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_accept_modifiers: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let missing: Vec<&str> = expected_letters
+            .iter()
+            .filter(|letter| {
+                !node
+                    .accepted_modifiers
+                    .iter()
+                    .any(|m| m.to_string() == **letter)
+            })
+            .map(|s| s.as_str())
+            .collect();
+        if !missing.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_accept_modifiers[{path:?}]: missing {}",
+                missing.join(", ")
+            )));
+        }
+    }
     failures
 }
 

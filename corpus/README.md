@@ -170,6 +170,17 @@ restore = ["--source", "--staged"]
 [contract.must_value_name]
 "-V" = "fname"
 
+# A subcommand's own display spelling, keyed by path the same way
+# `must_contain_flags_by_path` is. `ar`'s `r` row displays as `r[ab][f][u]`
+# even though the parsed node's own name is bare `r`.
+[contract.must_display_name]
+r = "r[ab][f][u]"
+
+# The modifier letters a subcommand accepts, keyed by path the same way.
+# `ar`'s `r` row accepts `a`, `b`, `f` and `u`.
+[contract.must_accept_modifiers]
+r = ["a", "b", "f", "u"]
+
 # Which dimensions of the tree a human actually verified before blessing
 # this fixture. Optional; see "What `--bless` does and does not assert"
 # below for the values and why an absent field means *no* scope, never
@@ -301,6 +312,49 @@ exist and its rendered description must contain this text as a substring
 corpus` fails when the positional is absent, or when its description does
 not contain the text. A fixture that produces no root fails this exactly
 as it fails `must_contain_positionals`.
+
+### A subcommand's own source spelling: `must_display_name`
+
+A command-table row can document a subcommand together with the
+modifiers it accepts glued onto the same row (`ar`'s `r[ab][f][u]`), and
+the shape test that recognizes the command name rejects the bracketed
+form outright (spec §7 Tier B rule 3) — the node's own `name` is the bare
+letter, `r`. The commands pane still shows the row as the tool printed
+it, in `CommandNode::display_name` (docs/design.md §16, "a node whose
+help repeats an ancestor's renders parsed, not repeated").
+
+```toml
+[contract.must_display_name]
+r = "r[ab][f][u]"
+```
+
+Keyed by path the same way `must_contain_flags_by_path` is. The named
+node's `display_name`, or its bare `name` when `display_name` is unset,
+must equal this text exactly. `cargo xtask corpus` fails when no node
+exists at the path, or when the spelling differs, naming both. A fixture
+that produces no root fails this exactly as it fails
+`must_contain_flags_by_path`.
+
+### A subcommand's own accepted modifiers: `must_accept_modifiers`
+
+The same command-table row documents which single-letter modifiers that
+subcommand accepts (`ar`'s `r[ab][f][u]` accepts `a`, `b`, `f`, `u`),
+recovered into `CommandNode::accepted_modifiers`. `must_contain_modifiers`
+only ever asserts the root's own modifier list; nothing asserted a
+subcommand's own accepted set until now.
+
+```toml
+[contract.must_accept_modifiers]
+r = ["a", "b", "f", "u"]
+```
+
+Keyed by path the same way `must_contain_flags_by_path` is. Every listed
+letter must be in the named node's `accepted_modifiers`; `cargo xtask
+corpus` fails naming whichever letters are missing. A path with no entry
+here asserts nothing about its modifiers, positive or negative — a
+subcommand documented with no modifiers at all (`ar`'s `d`, `p`, `s`)
+needs no entry. A fixture that produces no root fails this exactly as it
+fails `must_contain_flags_by_path`.
 
 ### Stating that a description carries text it must not: `must_not_describe`
 
@@ -534,8 +588,9 @@ corpus directory and prints a prominent `CONTRACT WEAKENED: <fixture> <field>`
 line for each field that got weaker (lowered `min_status`/`min_subcommands`,
 a dropped `must_contain_flags`/`must_contain_flags_by_path`/
 `must_contain_positionals`/`must_not_contain_flags`/`must_keep_separate`/
-`must_attach_choices` entry, a removed `must_describe` entry, a fixture
-newly marked `[xfail]`, or a fixture missing entirely) — reported, never
+`must_attach_choices`/`must_accept_modifiers` entry, a removed
+`must_describe`/`must_display_name` entry, a fixture newly marked
+`[xfail]`, or a fixture missing entirely) — reported, never
 gated, since weakening a contract deliberately is still legal (the lifecycle
 rules above). This binary **has no git access and never will** — the
 workspace-wide `no_process_outside_exec` test forbids `std::process` outside

@@ -39,25 +39,8 @@
 # Under both rulings, the target shape for `ar`'s subcommand nodes: the
 # display name keeps the source spelling (`r[ab][f][u]`, not bare `r`), and
 # the node carries an accepted-modifier list (`d`, `p`, `s` carry none).
-#
-# Contract-field question: no field in `xtask/src/corpus/contract.rs`
-# asserts a subcommand's display name or a per-subcommand modifier list
-# today. `must_contain_modifiers` (`check_contract_collection_fields`)
-# checks only `root.modifiers()`, the root's own modifier list, never a
-# subcommand's. `must_contain_flags_by_path` asserts a subcommand's flags
-# by path, but no analogous field exists for a subcommand's modifiers or
-# its display name. `CommandNode` (`mandible-core/src/node.rs`) itself
-# carries no per-subcommand accepted-modifier field yet, so this is a data
-# model gap, not only a contract gap. The fixture stays green and is not
-# flipped to xfail: every assertion `[contract]` can state today already
-# passes, and an xfail whose every assertion passes is reported as
-# demanding promotion, which would break the gate. Two fields would close
-# this once the data model carries the modifier list: a
-# `must_subcommand_display_name` field, keyed by subcommand name, asserting
-# the source spelling shown in the commands pane, and a
-# `must_subcommand_modifiers` field, keyed by subcommand path, asserting
-# its accepted-modifier letters the way `must_contain_flags_by_path` does
-# for flags.
+# Asserted below by `must_display_name` and `must_accept_modifiers`
+# (`xtask/src/corpus/contract.rs`, `corpus/README.md`).
 
 [bless]
 provenance = "agent"
@@ -100,3 +83,23 @@ must_contain_modifiers = [
 # The first usage line's four trailing operands, dropped entirely. See the
 # header comment above.
 must_contain_positionals = ["member-name", "count", "archive-file", "file"]
+
+# Each bracket-carrying command row's own source spelling, kept for
+# display (see the header comment above). `d`, `p` and `s` carry no
+# brackets and are not asserted here: their display name is their bare
+# name, which every other field already exercises.
+[contract.must_display_name]
+m = "m[ab]"
+q = "q[f]"
+r = "r[ab][f][u]"
+t = "t[O][v]"
+x = "x[o]"
+
+# The accepted-modifier letters each command row documents. `d`, `p` and
+# `s` accept none, so nothing is asserted for them.
+[contract.must_accept_modifiers]
+m = ["a", "b"]
+q = ["f"]
+r = ["a", "b", "f", "u"]
+t = ["O", "v"]
+x = ["o"]

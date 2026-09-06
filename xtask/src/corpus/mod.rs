@@ -224,6 +224,19 @@ pub(crate) struct ContractMeta {
     /// this vacuously, the same reasoning `must_not_contain_flags` uses.
     #[serde(default)]
     must_not_describe: std::collections::BTreeMap<String, String>,
+    /// A subcommand's own display spelling (`CommandNode::display_name`,
+    /// falling back to its bare `name` when unset), keyed by path the way
+    /// `must_contain_flags_by_path` is keyed. `ar`'s `r` row displays as
+    /// `r[ab][f][u]` (docs/design.md §16: a node whose help repeats an
+    /// ancestor's renders parsed, not repeated).
+    #[serde(default)]
+    must_display_name: std::collections::BTreeMap<String, String>,
+    /// The modifier letters a subcommand accepts
+    /// (`CommandNode::accepted_modifiers`), keyed by path the same way.
+    /// `ar`'s `r` row accepts `a`, `b`, `f`, `u`. A path with no entry here
+    /// asserts nothing about its modifiers, positive or negative.
+    #[serde(default)]
+    must_accept_modifiers: std::collections::BTreeMap<String, Vec<String>>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a
@@ -1596,6 +1609,132 @@ sub = ["--deep", "--nonexistent"]
             report.text.contains("missing-node"),
             "the unresolvable path must be named: {}",
             report.text
+        );
+    }
+
+    /// `sub[xy]` is a command-table row whose own bracket suffix names
+    /// both the accepted-modifier letters and the display spelling
+    /// (`ar`'s `r[ab][f][u]` shape), so this exercises both new
+    /// path-keyed fields against a real extracted tree, not a hand-built
+    /// one.
+    fn bracketed_command_fixture(root: &Path, meta_contract: &str) {
+        let dir = root.join("cmdtool/1.0");
+        write(
+            &dir.join("meta.toml"),
+            &format!(
+                r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cmdtool"
+version = "1.0"
+
+[[capture]]
+argv = ["cmdtool", "--help"]
+stdout = "help.txt"
+
+{meta_contract}
+"#
+            ),
+        );
+        write(
+            &dir.join("help.txt"),
+            "Usage: cmdtool <COMMAND>\n\nCommands:\n  sub[xy]  does a thing\n  plain    does another thing\n",
+        );
+    }
+
+    #[test]
+    fn must_display_name_and_must_accept_modifiers_pass_on_a_real_bracketed_row() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract.must_display_name]\nsub = \"sub[xy]\"\nplain = \"plain\"\n\n\
+             [contract.must_accept_modifiers]\nsub = [\"x\", \"y\"]\n",
+        );
+        let report = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        let checked = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!checked.failed(), "{}", checked.text);
+    }
+
+    #[test]
+    fn must_display_name_names_the_mismatch_and_the_unknown_path() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract.must_display_name]\nsub = \"wrong\"\n\"missing-node\" = \"anything\"\n",
+        );
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("\"wrong\"") && report.text.contains("sub[xy]"),
+            "the expected and actual spellings must both be named: {}",
+            report.text
+        );
+        assert!(
+            report.text.contains("missing-node"),
+            "the unresolvable path must be named: {}",
+            report.text
+        );
+    }
+
+    #[test]
+    fn must_accept_modifiers_names_the_missing_letter() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract.must_accept_modifiers]\nsub = [\"x\", \"z\"]\n",
+        );
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("must_accept_modifiers") && report.text.contains('z'),
+            "the missing letter must be named: {}",
+            report.text
+        );
+    }
+
+    #[test]
+    fn a_dropped_must_display_name_entry_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        bracketed_command_fixture(
+            &baseline.root,
+            "[contract.must_display_name]\nsub = \"sub[xy]\"\n",
+        );
+        bracketed_command_fixture(&current.root, "");
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_display_name") && l.contains("sub")),
+            "{lines:?}"
+        );
+    }
+
+    #[test]
+    fn a_dropped_must_accept_modifiers_letter_is_flagged() {
+        let baseline = setup();
+        let current = setup();
+        bracketed_command_fixture(
+            &baseline.root,
+            "[contract.must_accept_modifiers]\nsub = [\"x\", \"y\"]\n",
+        );
+        bracketed_command_fixture(
+            &current.root,
+            "[contract.must_accept_modifiers]\nsub = [\"x\"]\n",
+        );
+        let base_fixtures = discover_fixtures(&baseline.root).unwrap();
+        let cur_fixtures = discover_fixtures(&current.root).unwrap();
+        let lines = contract_weakened_lines(&cur_fixtures, &base_fixtures);
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("must_accept_modifiers") && l.contains('y')),
+            "{lines:?}"
         );
     }
 
