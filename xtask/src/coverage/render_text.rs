@@ -216,6 +216,14 @@ pub(super) struct Row {
     /// A few of this row's own findings, pre-formatted, mirroring
     /// [`Self::ragged_command_samples`].
     pub(super) wrapped_command_samples: Vec<String>,
+    /// [`crate::command_pattern_table`]'s own measurement: count of this
+    /// tool's multi-word command-pattern rows whose exact pattern never
+    /// reached the tree (atlas S-141). See `mandible-core/src/audit.rs`'s
+    /// `unparsed-subcommand` comment.
+    pub(super) command_pattern_count: usize,
+    /// A few of this row's own findings, pre-formatted, mirroring
+    /// [`Self::wrapped_command_samples`].
+    pub(super) command_pattern_samples: Vec<String>,
     pub(super) status: &'static str,
     /// This tool's field-level fingerprint (WS2 part 2,
     /// [`crate::transition`]'s per-tool diff): enough for `sweep-diff` to
@@ -364,6 +372,7 @@ pub(super) fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&vim_family_sample_lines_text(rows));
     out.push_str(&ragged_command_sample_lines_text(rows));
     out.push_str(&wrapped_command_sample_lines_text(rows));
+    out.push_str(&command_pattern_sample_lines_text(rows));
     out.push_str(&fingerprint_lines(rows));
     out
 }
@@ -623,6 +632,15 @@ fn wrapped_command_sample_lines_text(rows: &[Row]) -> String {
         rows.iter().flat_map(|r| r.wrapped_command_samples.iter()),
         "# wrapped-command-continuation-as-subcommand findings (sample — judge the false-positive \
          rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for
+/// [`crate::command_pattern_table`].
+fn command_pattern_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter().flat_map(|r| r.command_pattern_samples.iter()),
+        "# command-pattern-table findings (sample — judge the false-positive rate yourself):\n",
     )
 }
 

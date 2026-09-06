@@ -7,6 +7,7 @@ use super::render_text::truncate_col;
 use super::Row;
 use crate::alternation;
 use crate::bundling;
+use crate::command_pattern_table;
 use crate::detector::{Detector, ToolEvidence};
 use crate::existence;
 use crate::misattribution::{self, RecordingProbe};
@@ -200,6 +201,8 @@ pub(super) fn score_one(tool: &str) -> Row {
         wrapped_command_count,
         wrapped_command_samples,
     ) = ragged_family_detector_counts(probe.root_help_text(), result.root.as_ref());
+    let (command_pattern_count, command_pattern_samples) =
+        command_pattern_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -236,6 +239,8 @@ pub(super) fn score_one(tool: &str) -> Row {
         ragged_command_samples,
         wrapped_command_count,
         wrapped_command_samples,
+        command_pattern_count,
+        command_pattern_samples,
         status: status.label,
         fingerprint: build_fingerprint(result.root.as_ref()),
     }
@@ -848,6 +853,36 @@ fn format_wrapped_command_sample(finding: &wrapped_command_continuation::Finding
         "{:?} fabricated from the line {:?}",
         finding.name, finding.line
     )
+}
+
+/// One command-pattern-table finding, rendered as a single audit-section
+/// line.
+fn format_command_pattern_sample(finding: &command_pattern_table::Finding) -> String {
+    format!(
+        "{:?} (name {:?}) missing, from {:?}",
+        finding.pattern, finding.name, finding.row
+    )
+}
+
+/// [`command_pattern_table::detect`], run over one tool's already-captured
+/// text and tree — same zero-additional-probe reasoning as
+/// [`ragged_family_detector_counts`], kept as its own function since this
+/// family has no sibling to share a tuple return with.
+fn command_pattern_counts(raw: Option<String>, root: Option<&CommandNode>) -> (usize, Vec<String>) {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return (0, Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return (0, Vec::new());
+    }
+    let report = command_pattern_table::detect(&raw, root);
+    let samples = report
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_command_pattern_sample)
+        .collect();
+    (report.finding_count(), samples)
 }
 
 /// [`ragged_command_table::detect`] and

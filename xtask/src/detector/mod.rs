@@ -716,6 +716,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(DescriptionSubcommandsList),
         Box::new(RaggedCommandTable),
         Box::new(WrappedCommandContinuation),
+        Box::new(CommandPatternTable),
         Box::new(value_name_duplicates_choices::ValueNameDuplicatesChoices),
         Box::new(choice_value_rows_unfolded::ChoiceValueRowsUnfolded),
         Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),

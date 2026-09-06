@@ -303,53 +303,75 @@ pub(super) fn emit_env_vars(
     (seen, seen)
 }
 
-/// True when `rest` is nothing but argument placeholders: uppercase
-/// metavariables (`UNIT`, `PATTERN`), optionally bracketed (`[UNIT...]`),
-/// `...`-repeated, `|`-alternated (`PATTERN...|PID...`), or
-/// `NAME=VALUE`-shaped (`PROPERTY=VALUE...`) — one or more words, every one
-/// of them uppercase-led. An ordinary dropped description reads nothing
-/// like this: real prose carries at least one lowercase word and fails
-/// here immediately, so this never launders the single-space-description-
-/// column defect into a fabricated operand. See docs/shapes.md S-129.
+/// True if `word` is uppercase-led: an uppercase letter, then only
+/// uppercase letters, digits or `_` — the strict placeholder shape a bare
+/// metavariable has (`UNIT`, `PROPERTY`, `VALUE`). See docs/shapes.md
+/// S-129.
+fn is_uppercase_word(word: &str) -> bool {
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_uppercase() => {}
+        _ => return false,
+    }
+    chars.all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// True when `rest` is nothing but command-pattern syntax, never a dropped
+/// description. Per whitespace-delimited token: the first token alone may
+/// be a bare [`is_command_name_shaped`] word (`set loglevel <LEVEL>`'s
+/// `loglevel`); otherwise, cleaned of `[`, `]`, `<`, `>`, `.`, `|` and
+/// split on `=`, every word must be uppercase-led (`UNIT`,
+/// `[SIGNATURE [ARGUMENT...]]`'s own two halves) or nothing (`...`); a
+/// token that carried a bracket/angle wrapper and still isn't uppercase
+/// may instead be a dash-led flag (`[--unban]`), but a *bare* dash token
+/// with no wrapper (`ethtool --monitor`, a worked usage example) never
+/// passes this way — real prose never wraps a word in brackets. See
+/// docs/shapes.md S-129, S-141.
 fn looks_like_operand_placeholder_run(rest: &str) -> bool {
-    let cleaned: String = rest
-        .chars()
-        .map(|c| {
-            if matches!(c, '[' | ']' | '.' | '|') {
-                ' '
-            } else {
-                c
-            }
-        })
-        .collect();
     let mut any = false;
-    for word in cleaned.split_whitespace().flat_map(|w| w.split('=')) {
-        if word.is_empty() {
+    for (idx, token) in rest.split_whitespace().enumerate() {
+        any = true;
+        if idx == 0 && is_command_name_shaped(token) {
             continue;
         }
-        any = true;
-        let mut chars = word.chars();
-        match chars.next() {
-            Some(c) if c.is_ascii_uppercase() => {}
-            _ => return false,
+        let bracketed = token.chars().any(|c| matches!(c, '[' | ']' | '<' | '>'));
+        let cleaned: String = token
+            .chars()
+            .map(|c| {
+                if matches!(c, '[' | ']' | '<' | '>' | '.' | '|') {
+                    ' '
+                } else {
+                    c
+                }
+            })
+            .collect();
+        let words: Vec<&str> = cleaned
+            .split_whitespace()
+            .flat_map(|w| w.split('='))
+            .filter(|w| !w.is_empty())
+            .collect();
+        if words.is_empty() || words.iter().all(|w| is_uppercase_word(w)) {
+            continue;
         }
-        if !chars.all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_') {
-            return false;
+        if bracketed && is_flag_shaped(cleaned.trim()) {
+            continue;
         }
+        return false;
     }
     any
 }
 
 /// `trimmed`'s leading token as a command name, with everything after it
 /// kept as the node's own `usage` — `systemctl`'s `list-units
-/// [PATTERN...]`, `start UNIT...`, `set-property UNIT PROPERTY=VALUE...`.
-/// `None` unless the leading token is itself [`is_command_name_shaped`]
-/// and everything after it is nothing but placeholders
-/// ([`looks_like_operand_placeholder_run`]) — a lowercase continuation
-/// word is a dropped description, never an operand, and must not be
-/// swallowed here. `docs/design.md` §7 Tier B rule 7 still applies to the
-/// name alone; only the name is checked against it, never the operand
-/// text. See docs/shapes.md S-129.
+/// [PATTERN...]`, `start UNIT...`, `set-property UNIT PROPERTY=VALUE...`,
+/// and fail2ban-client's own `set loglevel <LEVEL>`, `restart [--unban]
+/// [--if-exists] <JAIL>`. `None` unless the leading token is itself
+/// [`is_command_name_shaped`] and everything after it is nothing but
+/// command-pattern syntax ([`looks_like_operand_placeholder_run`]) — an
+/// ordinary dropped description is a run of free lowercase words and must
+/// not be swallowed here. `docs/design.md` §7 Tier B rule 7 still applies
+/// to the name alone; only the name is checked against it, never the
+/// operand text. See docs/shapes.md S-129, S-141.
 fn command_name_with_operand_placeholders(trimmed: &str) -> Option<(&str, &str)> {
     let (first, rest) = trimmed.split_once(char::is_whitespace)?;
     let name = strip_optional_modifier_suffix(first);
@@ -374,8 +396,17 @@ pub(super) fn emit_subcommands(
         // A trailing colon after the name (cobra's own template convention,
         // e.g. `gh --help`'s `"auth:        Authenticate..."`) is
         // punctuation, never part of the name; strip before the shape
-        // check. Framework-general, not gated on a specific one.
-        let row_spelling = spec_text.trim().trim_end_matches(':').trim();
+        // check. Framework-general, not gated on a specific one. Only when
+        // the name itself is one word: a colon ending a multi-word field
+        // (`xauth`'s own sub-heading fragment `"options are:"`) is a
+        // sentence's own punctuation, and stripping it there would read a
+        // stray introductory phrase as a two-word command pattern
+        // (S-141). See docs/shapes.md S-129, S-141.
+        let trimmed_spec = spec_text.trim();
+        let row_spelling = match trimmed_spec.strip_suffix(':') {
+            Some(bare) if !bare.trim_end().contains(char::is_whitespace) => bare.trim_end(),
+            _ => trimmed_spec,
+        };
         let whole = strip_optional_modifier_suffix(row_spelling);
         if whole.is_empty() {
             continue;
@@ -1497,5 +1528,142 @@ mod tests {
                 "{plain}'s own spelling equals its name, so display_name stays unset"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod command_pattern_table_tests {
+    use super::*;
+
+    /// fail2ban-client's own row shapes (docs/shapes.md S-141), minus the
+    /// centered `BASIC`/`LOGGING` group labels: those break
+    /// `bare_block_end`'s own block-baseline computation (a block's first
+    /// line sets its floor, and a centered label sits far deeper than the
+    /// rows beneath it), a distinct, pre-existing defect this fix does not
+    /// touch. Proves `command_name_with_operand_placeholders` and
+    /// `try_push_subcommand`'s merge path in isolation from that defect and
+    /// from the fixture's own unrelated `--with-time` corruption.
+    const COMMAND_PATTERNS: &str = "\
+Usage: fail2ban-client [OPTIONS] <COMMAND>
+
+Command:
+    start                                    starts the server and the jails
+    restart                                  restarts the server
+    restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
+                                             for 'reload --restart ... <JAIL>')
+    reload [--restart] [--unban] [--all]     reloads the configuration without
+                                             restarting of the server, the
+                                             option '--restart' activates
+    reload [--restart] [--unban] [--if-exists] <JAIL>
+                                             reloads the jail <JAIL>, or
+                                             restarts it (if option '--restart'
+                                             specified)
+    unban --all                              unbans all IP addresses (in all
+                                             jails and database)
+    unban <IP> ... <IP>                      unbans <IP> (in all jails and
+                                             database)
+    set loglevel <LEVEL>                     sets logging level to <LEVEL>.
+                                             Levels: CRITICAL, ERROR, WARNING
+    get loglevel                             gets the logging level
+";
+
+    /// Every one of the fixture's own reason-paragraph-2 patterns
+    /// (`set loglevel <LEVEL>`, `get loglevel`, `start`, `reload`, `unban`)
+    /// recovers a node, and a repeated leading word (`set`/`get`/`reload`/
+    /// `unban`) merges every row's own pattern onto one node's `usage`
+    /// instead of dropping every row past the first. See docs/shapes.md
+    /// S-141.
+    #[test]
+    fn multi_word_command_patterns_merge_onto_one_node_per_leading_word() {
+        let parsed = parse(COMMAND_PATTERNS);
+        let find = |name: &str| {
+            parsed
+                .subcommands
+                .iter()
+                .find(|c| c.name == name)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "{name:?} not recovered among {:?}",
+                        parsed
+                            .subcommands
+                            .iter()
+                            .map(|c| &c.name)
+                            .collect::<Vec<_>>()
+                    )
+                })
+        };
+
+        assert_eq!(find("start").usage, Vec::<Text>::new());
+
+        let restart = find("restart");
+        assert_eq!(
+            restart.usage,
+            vec![Text::sanitize("[--unban] [--if-exists] <JAIL>")]
+        );
+
+        let reload = find("reload");
+        assert_eq!(
+            reload.usage,
+            vec![
+                Text::sanitize("[--restart] [--unban] [--all]"),
+                Text::sanitize("[--restart] [--unban] [--if-exists] <JAIL>"),
+            ]
+        );
+
+        // `unban --all`'s own bare, unbracketed `--all` is a documented
+        // miss: only `unban <IP> ... <IP>` contributes usage, but `unban`
+        // itself still exists.
+        let unban = find("unban");
+        assert_eq!(unban.usage, vec![Text::sanitize("<IP> ... <IP>")]);
+
+        let set = find("set");
+        assert_eq!(set.usage, vec![Text::sanitize("loglevel <LEVEL>")]);
+
+        let get = find("get");
+        assert_eq!(get.usage, vec![Text::sanitize("loglevel")]);
+    }
+
+    /// An ordinary dropped-description continuation (several free lowercase
+    /// words, no brackets, no angle brackets, no dash-led token) still
+    /// fails: only the pattern's own literal second word is admitted bare,
+    /// never a whole run of prose. See docs/shapes.md S-129.
+    #[test]
+    fn a_multi_word_dropped_description_is_still_refused() {
+        assert!(!looks_like_operand_placeholder_run(
+            "the configuration without restarting"
+        ));
+    }
+
+    /// A worked usage-example line naming the tool's own root name
+    /// followed by one of its bare, unbracketed flags (`ethtool
+    /// --monitor`) must never read as that tool naming a subcommand of
+    /// itself: `--monitor` carries no bracket or angle-bracket wrapper, so
+    /// the dash-led-flag fallback must not admit it. Regression case for a
+    /// false positive this fix introduced and then closed. See
+    /// docs/shapes.md S-129, S-141.
+    #[test]
+    fn a_bare_flag_after_a_repeated_tool_name_is_not_a_command_pattern() {
+        assert!(!looks_like_operand_placeholder_run("--monitor"));
+    }
+
+    /// A sub-heading fragment ending in a colon (`xauth`'s own "options
+    /// are:" introducing a nested list) must never read as a two-word
+    /// command pattern: the trailing-colon strip is for a single-word
+    /// cobra-style name only, never a multi-word sentence fragment.
+    /// Regression case for a false positive this fix introduced and then
+    /// closed. See docs/shapes.md S-129, S-141.
+    #[test]
+    fn a_multi_word_sentence_fragment_ending_in_a_colon_is_not_a_command_pattern() {
+        let raw = "Command:\n    options are:\n      timeout n    expiration\n";
+        let parsed = parse(raw);
+        assert!(
+            parsed.subcommands.iter().all(|c| c.name != "options"),
+            "{:?}",
+            parsed
+                .subcommands
+                .iter()
+                .map(|c| &c.name)
+                .collect::<Vec<_>>()
+        );
     }
 }

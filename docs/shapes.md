@@ -2605,3 +2605,37 @@ entry's `tools` field and nothing else. It does not get a new entry.
   a colored banner, leaving 1 genuine hit. Both real counts are below the
   five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
   both counts in its reason.
+### S-141: a command table's rows are multi-word command patterns
+
+- id: S-141
+- looks like: |
+      restart [--unban] [--if-exists] <JAIL>   restarts the jail <JAIL> (alias
+      set loglevel <LEVEL>                     sets logging level to <LEVEL>.
+- tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
+  resolvectl, timedatectl, claude
+- handling: Fixed. `command_name_with_operand_placeholders`'s tail test now
+  reads each token on its own: a bracket- or angle-wrapped group
+  (`[--unban]`, `<JAIL>`, `[SIGNATURE [ARGUMENT...]]`'s own two halves)
+  cleans the same way an uppercase metavariable does, a dash-led flag
+  spelling counts only once it carried such a wrapper (a bare one, with
+  none, is a worked usage example naming the tool itself, never accepted),
+  and the pattern's own literal second word (`loglevel` in `set loglevel
+  <LEVEL>`) is admitted bare only in the leading position. The trailing
+  colon `emit_subcommands` already stripped as cobra's single-word
+  template convention is now stripped only for a genuinely single-word
+  name, so a sentence fragment ending in a colon (`xauth`'s own "options
+  are:") keeps its colon and fails the shape test instead of reading as a
+  fabricated two-word command. `try_push_subcommand` merges a repeated
+  leading word's own usage line onto the already-accepted node instead of
+  dropping every row past the first. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) still measures the residue: a
+  centered ALL-CAPS group label as a block's own first line defeats
+  `bare_block_end`'s baseline before any row is reached (fail2ban-client),
+  and a handful of tools (`gprofng`, `mountstats`, `swift-init`) whose own
+  worked-example or sub-heading text repeats a bare name-shaped word gain
+  one spurious node each, all on tools with zero correctly-parsed
+  subcommands either side of this fix.
+- fleet: 18 tools/224 findings fell to 12 tools/126 findings on a
+  full-`PATH` sweep, 2026-09-06, zero sweep-diff losses (flag-count and
+  subcommand removals both zero). Not gated at zero: the residue above
+  keeps a nonzero count.
