@@ -1,19 +1,11 @@
 //! `description-continuation-dash-flag` (atlas S-140): a two-column row's
 //! own wrapped description continues onto a physical line that opens, at
 //! that row's own description column, with a dash-led token
-//! (`fail2ban-client`'s `get <JAIL> banip [<SEP>|--with-time] ... the
-//! option '` wraps onto `--with-time' (printing the times`). The generic
-//! layout engine's heading fallback misreads the row above as a section
-//! heading and the continuation itself as a fresh flag row, valued at the
-//! trailing quote.
-//!
-//! Two independently measured halves, kept as separate [`Detector`]s
-//! since one can occur without the other: [`RawContinuationShape`] reads
-//! only `raw` (the structural signal — a continuation aligned on a real
-//! description column, opening with a dash) and [`BareQuoteValue`] reads
-//! only `root` (the tree artifact this shape produces — a flag whose
-//! value is nothing but a single quote character). `family()` is `None`
-//! for both: no seed-2/4/5/6/7 audit tool carries this shape.
+//! (`fail2ban-client`'s `--with-time'` continuation). Two halves, kept as
+//! separate [`Detector`]s since one can occur without the other:
+//! [`RawContinuationShape`] reads only `raw`, [`BareQuoteValue`] reads
+//! only `root` (a flag valued at a bare quote). `family()` is `None` for
+//! both: no seed-2/4/5/6/7 audit tool carries this shape.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{CommandNode, Entity, Provenance, Source};
