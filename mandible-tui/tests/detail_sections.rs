@@ -94,6 +94,9 @@ fn node_with_every_section() -> CommandNode {
 
 fn app_for(node: CommandNode) -> App {
     let mut app = App::new("tool".to_string(), node);
+    // Stated, never read from the locale: `glyphs::from_env` returns the
+    // ASCII set outside a UTF-8 locale, and these tests assert the rounded one.
+    app.glyphs = mandible_tui::glyphs::UNICODE;
     app.focus = mandible_tui::Focus::Detail;
     app
 }

@@ -3767,7 +3767,10 @@ mod tests {
         root.usage = vec![Text::sanitize_preserving_layout(
             "Usage: sg_luns [--alpha] [--brief] [--decode] [--hex] [--inhex=FN] [--lu_cong] [--maxlen=LEN] [--quiet] [--raw] [--readonly] [--select=SR] [--verbose] [--version] [DEVICE]",
         )];
-        let app = App::new("sg_luns".to_string(), root);
+        let mut app = App::new("sg_luns".to_string(), root);
+        // Stated, never read from the locale: `glyphs::from_env` returns the
+        // ASCII set outside a UTF-8 locale, and this test assumes the rounded one.
+        app.glyphs = crate::glyphs::UNICODE;
 
         let buffer = frame_of(&app);
         let rows: Vec<String> = (0..buffer.area.height)

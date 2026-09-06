@@ -26,6 +26,9 @@ fn notice_app(notice: &str) -> App {
     root.children_filled = true;
 
     let mut app = App::new("apt-ftparchive".to_string(), root);
+    // Stated, never read from the locale: `glyphs::from_env` returns the
+    // ASCII set outside a UTF-8 locale, and these tests assert the rounded one.
+    app.glyphs = mandible_tui::glyphs::UNICODE;
     app.ensure_rows_fresh();
     app.move_down();
     assert_eq!(
