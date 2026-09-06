@@ -2242,3 +2242,37 @@ entry's `tools` field and nothing else. It does not get a new entry.
   subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
   does not reach; not investigated further this round.
 
+
+### S-130: choices read from the placeholder repeat in the placeholder too
+
+- id: S-130
+- looks like: |
+      [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ]
+      [    --configreport log|vg|lv|pv|pvseg|seg ]
+- tools: the whole lvm2 tool family: lvchange, lvconvert, lvcreate, lvdisplay,
+  lvextend, lvmconfig, lvmdiskscan, lvmsadc, lvmsar, lvreduce, lvremove,
+  lvrename, lvresize, lvs, lvscan, pvchange, pvck, pvcreate, pvdisplay,
+  pvmove, pvremove, pvresize, pvs, pvscan, vgcfgbackup, vgcfgrestore,
+  vgchange, vgck, vgconvert, vgcreate, vgdisplay, vgexport, vgextend,
+  vgimport, vgimportclone, vgmerge, vgmknodes, vgreduce, vgremove,
+  vgrename, vgs, vgscan, vgsplit (43 tools total)
+- handling: Fixed. S-120's own fix attaches a docopt bracket row's trailing
+  `|`-list as `choices` without touching `value_name`, which is right when
+  a bracketed placeholder introduces the list (`--units [Number]`) and
+  wrong when the list stands in for the whole value spec
+  (`--configreport`, `--driverloaded`): the same text then sits in both
+  fields, and the rendered screen prints it twice.
+  `value_name_duplicates_its_own_choices`
+  (`mandible-extract/src/help_text/sections/emit.rs`, mirrored in
+  `usage.rs` for the synopsis path) drops `value_name` when it is nothing
+  but `choices` rejoined with `|`, in the same order. Dropped rather than
+  replaced with a generic placeholder, since `choices` already carries the
+  full enumeration and a placeholder would tell the reader nothing new.
+  `must_not_value_name` (`xtask/src/corpus/mod.rs`), the value-name mirror
+  of `must_not_describe`, asserts it on `corpus/pvdisplay/2.03.16`.
+- fleet: `value-name-duplicates-choices`
+  (`xtask/src/detector/value_name_duplicates_choices.rs`) reads 43 tools /
+  195 findings with the fix reverted and 0/0 with it applied, on the same
+  43-tool lvm2 family, 2026-09-06. Confirmed fleet-wide with a full-`PATH`
+  sweep-diff: 43 tools show a `value_name`-only field change, 0 flags lost,
+  0 flags gained.

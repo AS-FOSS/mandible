@@ -224,6 +224,18 @@ pub(crate) struct ContractMeta {
     /// this vacuously, the same reasoning `must_not_contain_flags` uses.
     #[serde(default)]
     must_not_describe: std::collections::BTreeMap<String, String>,
+    /// A root flag's value placeholder must NOT contain this text, keyed
+    /// by the flag's own spelling (matched the way `must_value_name`
+    /// matches) — the mirror of `must_value_name`, for a placeholder that
+    /// must not repeat text. Closes the gap `corpus/pvdisplay/2.03.16`
+    /// found: a docopt bracket row's own trailing `|`-list is read as both
+    /// `choices` and, when no bracketed placeholder introduces it,
+    /// `value_name` too, so the rendered screen prints the same list
+    /// twice (docs/shapes.md S-130). A tree with no root, or the flag
+    /// itself absent, satisfies this vacuously, the same reasoning
+    /// `must_not_describe` uses.
+    #[serde(default)]
+    must_not_value_name: std::collections::BTreeMap<String, String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a
@@ -1305,6 +1317,54 @@ must_not_contain_flags = ["{forbidden}"]
                 .collect::<Vec<_>>(),
             vec!["must_value_name: no root produced"]
         );
+    }
+
+    /// `must_not_value_name`, the mirror of `must_value_name` above:
+    /// `pvdisplay`'s own `--configreport` duplicates its choices list as
+    /// `value_name` too (docs/shapes.md S-130). Absent flag and no root
+    /// both satisfy the claim vacuously, the same reasoning
+    /// `must_not_describe` uses.
+    #[test]
+    fn must_not_value_name_flags_a_duplicated_placeholder() {
+        let mut forbidden = std::collections::BTreeMap::new();
+        forbidden.insert(
+            "--configreport".to_string(),
+            "log|vg|lv|pv|pvseg|seg".to_string(),
+        );
+        let contract = ContractMeta {
+            must_not_value_name: forbidden,
+            ..ContractMeta::default()
+        };
+
+        // Flag absent entirely: vacuously satisfied.
+        let root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+
+        // The real defect: value_name repeats the choices list verbatim.
+        let mut with_duplicate = root.clone();
+        let mut flag = Entity::flag_long("configreport", Provenance::single(Source::HelpText));
+        flag.value_name = Some("log|vg|lv|pv|pvseg|seg".to_string());
+        with_duplicate.entities.push(flag);
+        assert_eq!(
+            check_contract(&contract, Some(&with_duplicate))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "must_not_value_name[\"--configreport\"]: value name contains \"log|vg|lv|pv|pvseg|seg\", got \"log|vg|lv|pv|pvseg|seg\""
+            ]
+        );
+
+        // The fix: value_name dropped, choices carry the list instead.
+        with_duplicate.entities.last_mut().unwrap().value_name = None;
+        assert!(check_contract(&contract, Some(&with_duplicate)).is_empty());
+
+        // A real, distinct placeholder (`--units [Number]`) never matches.
+        with_duplicate.entities.last_mut().unwrap().value_name = Some("Number".to_string());
+        assert!(check_contract(&contract, Some(&with_duplicate)).is_empty());
+
+        // No root at all: vacuously satisfied, unlike a positive claim.
+        assert!(check_contract(&contract, None).is_empty());
     }
 
     /// A `must_contain_positionals` entry ending in `...` asserts the

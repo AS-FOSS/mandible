@@ -245,6 +245,16 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    // `must_not_value_name`: a negative claim, weakens by losing an entry
+    // — same reasoning `must_not_describe` above already carries.
+    for flag in b.must_not_value_name.keys() {
+        if !n.must_not_value_name.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_not_value_name[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
     // `must_describe_positional`: same rule as `must_describe` above.
     for name in b.must_describe_positional.keys() {
         if !n.must_describe_positional.contains_key(name) {
@@ -630,6 +640,7 @@ fn check_contract_collection_fields(
     }
 
     failures.extend(check_must_value_name(contract, root));
+    failures.extend(check_must_not_value_name(contract, root));
 
     failures
 }
@@ -664,6 +675,30 @@ fn check_must_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec<Con
             failures.push(ContractFailure(format!(
                 "must_value_name[{flag_spec:?}]: expected a value name containing {expected:?}, got {seen:?}"
             )));
+        }
+    }
+    failures
+}
+
+/// `must_not_value_name`: a flag's value placeholder must NOT carry the
+/// given text, the mirror of `check_must_value_name` above. Scans EVERY
+/// matching entity, same reason: one spelling can head two rows. Silent
+/// when the flag itself is absent, the same reasoning `must_not_describe`
+/// uses. See docs/shapes.md S-130.
+fn check_must_not_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (flag_spec, forbidden_text) in &contract.must_not_value_name {
+        let forbidden = collapse_whitespace(forbidden_text);
+        for entity in root
+            .flags()
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+        {
+            let actual = collapse_whitespace(entity.value_name.as_deref().unwrap_or(""));
+            if actual.contains(&forbidden) {
+                failures.push(ContractFailure(format!(
+                    "must_not_value_name[{flag_spec:?}]: value name contains {forbidden:?}, got {actual:?}"
+                )));
+            }
         }
     }
     failures

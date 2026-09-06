@@ -64,6 +64,26 @@ pub(super) fn emit_flags_block(
     (seen, clean)
 }
 
+/// True when `value_name` is nothing but `choices`' own names rejoined
+/// with `|`, in the same order — the docopt bracket row shape
+/// (`trailing_choice_list`, S-120) attached both from the identical
+/// trailing text. `--units [Number]`'s own `value_name` (`Number`) never
+/// matches, since it names none of `--units`'s choice values. See
+/// docs/shapes.md S-130.
+pub(super) fn value_name_duplicates_its_own_choices(
+    value_name: Option<&str>,
+    choices: &[Choice],
+) -> bool {
+    let Some(value_name) = value_name else {
+        return false;
+    };
+    if choices.is_empty() {
+        return false;
+    }
+    let rebuilt: Vec<&str> = value_name.split('|').collect();
+    rebuilt.len() == choices.len() && rebuilt.iter().zip(choices).all(|(v, c)| *v == c.name)
+}
+
 /// Turn recovered flag rows into `ParsedHelp` entries. `is_plus_sigil`
 /// (same length as `entries`, or empty to mean "none") reads `true` at
 /// index `n` to route that entry through [`parse_plus_sigil_spec`]
@@ -129,6 +149,18 @@ pub(super) fn emit_flags_with(
                 description: desc.map(|d| Text::sanitize(&d)),
             })
             .collect();
+        // A docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
+        // S-120) already carries every value as `choices`; when no bracketed
+        // placeholder introduced it (`--configreport log|vg|lv|pv|pvseg|seg`,
+        // unlike `--units [Number]r|R|...`), the same list is *also* what
+        // grammar read as `value_name`, so the rendered screen prints it
+        // twice. Dropped rather than replaced with a generic placeholder,
+        // since `choices` already carries the full enumeration and a
+        // placeholder here would tell the reader nothing new. See
+        // docs/shapes.md S-130.
+        if value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices) {
+            flag.value_name = None;
+        }
         out.flags.push(flag);
     }
     (seen, clean)

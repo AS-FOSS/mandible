@@ -74,7 +74,6 @@ flags:
     - help-text
 - spellings:
   - --driverloaded
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -178,7 +177,6 @@ flags:
     - help-text-synopsis
 - spellings:
   - --reportformat
-  value_name: basic|json
   value_kind: Required
   choices:
   - basic

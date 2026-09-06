@@ -321,6 +321,27 @@ substring, matched the way `must_describe` matches. Satisfied vacuously
 when the flag is absent or the fixture produces no root, the same
 reasoning `must_not_contain_flags` uses.
 
+### Stating that a value name carries text it must not: `must_not_value_name`
+
+`must_value_name`'s substring check cannot say a placeholder is
+*duplicated*: `pvdisplay`'s `--configreport` reads its choices straight
+off a docopt bracket row's own trailing `|`-list, and the same list also
+survives as `value_name`, so the rendered screen prints it twice
+(docs/shapes.md S-130). `must_value_name` still passes, since the
+placeholder does contain the text it names; nothing said it must not
+carry more.
+
+```toml
+[contract.must_not_value_name]
+"--configreport" = "log|vg|lv|pv|pvseg|seg"
+```
+
+The named flag's `value_name` must NOT contain this text as a substring,
+matched the way `must_value_name` matches: every entity carrying that
+spelling is checked, substring comparison after collapsing whitespace on
+both sides. Satisfied vacuously when the flag is absent or the fixture
+produces no root, the same reasoning `must_not_describe` uses.
+
 ### What `--bless` does and does not assert: `verdict_scope`
 
 `--bless` freezes the *entire* tree into `expected.snap` — node summaries,

@@ -60,6 +60,7 @@ pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
+pub(crate) mod value_name_duplicates_choices;
 
 // Round-5 family detectors (three parser families: same-spelling-fold-loss,
 // bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
@@ -693,6 +694,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(PositionalDescriptionBlock),
         Box::new(GenericOptionPlaceholderFlag),
         Box::new(DescriptionSubcommandsList),
+        Box::new(value_name_duplicates_choices::ValueNameDuplicatesChoices),
     ]
 }
 

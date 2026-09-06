@@ -78,7 +78,6 @@ flags:
     - help-text
 - spellings:
   - --driverloaded
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -154,7 +153,6 @@ flags:
 - spellings:
   - -A
   - --autobackup
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -171,7 +169,6 @@ flags:
 - spellings:
   - -Z
   - --zero
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -203,7 +200,6 @@ flags:
     - help-text-synopsis
 - spellings:
   - --pvmetadatacopies
-  value_name: 0|1|2
   value_kind: Required
   choices:
   - '0'
@@ -214,7 +210,6 @@ flags:
     - help-text-synopsis
 - spellings:
   - --metadataignore
-  value_name: y|n
   value_kind: Required
   choices:
   - y
@@ -238,7 +233,6 @@ flags:
     - help-text-synopsis
 - spellings:
   - --reportformat
-  value_name: basic|json
   value_kind: Required
   choices:
   - basic

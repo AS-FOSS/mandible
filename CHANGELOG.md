@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A docopt bracket row's own trailing choice list no longer repeats as the flag's value name too, so `mandible pvdisplay`'s `--configreport` and `--driverloaded` show their choices once instead of twice (docs/shapes.md S-130).
+
 ## [0.7.0] - 2026-09-05
 
 ### Added
