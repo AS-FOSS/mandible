@@ -1,0 +1,20 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fail2ban-client"
+version = "1.0.2"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); Fail2Ban v1.0.2"
+
+[[capture]]
+argv = ["fail2ban-client", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_not_contain_flags = ["--with-time"]
+
+[xfail]
+broken = true
+reason = "1. A description continuation line that begins with a dash is read as a flag row. Line 229 ends with ' and line 230 begins with --with-time' at the description column, so the tree carries a flag --with-time valued ', and the row above it is promoted to a section heading. No root flag group starts with Get <JAIL>. 2. The Command: section is a table of multi-word command patterns (set loglevel <LEVEL>, get <JAIL> banip [<SEP>|--with-time], reload [--restart] [--unban] <JAIL>) under centered ALL-CAPS labels (BASIC, LOGGING, DATABASE, JAIL CONTROL and seven more). 95 rows in the raw text. The tree carries 10 subcommand rows today, most of them mid-line word fragments (server, dictionary, removed, info, addresses) rather than real command names. The command patterns set loglevel, get loglevel, start, reload and unban must be represented; none of them are in the tree today."
