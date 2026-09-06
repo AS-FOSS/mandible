@@ -2,10 +2,12 @@
 # classification: stratum "ok".
 #
 # `help.txt`'s usage line is `apt-sortpkgs [options] file1 [file2 ...]`.
-# The parsed tree has no POSITIONALS section at all: `file1` and `file2`
-# are dropped entirely, even though both are named in the tool's own
-# usage line and nowhere else needs recovering (apt-sortpkgs documents no
-# separate positional-argument block).
+# Ruling: `X1 [X2 ...]` names one variadic positional, `file`, not two
+# operands `file1` and `file2`. The parsed tree has no POSITIONALS section
+# at all: `file`, the real recovered name, is dropped entirely, even
+# though it is named in the tool's own usage line and nowhere else needs
+# recovering (apt-sortpkgs documents no separate positional-argument
+# block).
 #
 # Round 6 checked this against `recover_primary_tail_operands`
 # (`mandible-extract/src/help_text/sections/usage.rs`), the
@@ -36,8 +38,8 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
-must_contain_positionals = ["file1", "file2"]
+must_contain_positionals = ["file..."]
 
 [xfail]
 broken = true
-reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names two positionals, file1 and file2, but the parsed tree has no POSITIONALS section at all"
+reason = "usage line 'apt-sortpkgs [options] file1 [file2 ...]' names one variadic positional, file..., but the parsed tree has no POSITIONALS section at all"
