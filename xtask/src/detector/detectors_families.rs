@@ -401,7 +401,7 @@ impl Detector for CommaGluedOptionValue {
         "comma-glued-option-value"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("comma-glued-option-value")
     }
     fn describes(&self) -> &'static str {
         "a single-dash spelling directly glued to a comma (`-Wa,<options>`) never reaches the \
@@ -431,7 +431,7 @@ impl Detector for HashInSpelling {
         "hash-in-spelling"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("hash-in-spelling")
     }
     fn describes(&self) -> &'static str {
         "a single-dash spelling that is nothing but a run of `#` (`-###`) never reaches the \
@@ -461,7 +461,7 @@ impl Detector for NestedBracketValue {
         "nested-bracket-value"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("nested-bracket-value")
     }
     fn describes(&self) -> &'static str {
         "a short flag's value spec is one bracket group with a bracket nested inside it \
@@ -492,7 +492,7 @@ impl Detector for ChoicesAfterOptionalPlaceholder {
         "choices-after-optional-placeholder"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("choices-after-optional-placeholder")
     }
     fn describes(&self) -> &'static str {
         "a docopt bracket row's own trailing bare `|`-separated choice list (`pvdisplay`'s own \
@@ -522,7 +522,7 @@ impl Detector for SpacedSingleDashLong {
         "spaced-single-dash-long"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("spaced-single-dash-long")
     }
     fn describes(&self) -> &'static str {
         "an uppercase-led single-dash long option whose value is spaced, not glued \
@@ -552,11 +552,7 @@ impl Detector for CommandRowArgumentPlaceholder {
         "command-row-argument-placeholder"
     }
     fn family(&self) -> Option<&'static str> {
-        // Discovered from the seed-7 `systemctl` fixture, not the seed-2
-        // labelled set this module's calibration runs against — see
-        // `xtask/src/detector/mod.rs`'s module doc on why `None` is the
-        // honest answer rather than the nearest label.
-        None
+        Some("command-row-argument-placeholder")
     }
     fn describes(&self) -> &'static str {
         "under a recognized command heading, a row whose name column is a command name followed \
@@ -586,7 +582,7 @@ impl Detector for ExamplesBlockContaminatesLastFlag {
         "examples-block-contaminates-last-flag"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("examples-block-contaminates-last-flag")
     }
     fn describes(&self) -> &'static str {
         "an unheaded, deeper-indented run of shell-invocation lines right after a flag's own \
@@ -616,7 +612,7 @@ impl Detector for PositionalDescriptionBlock {
         "positional-description-block"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("positional-description-block")
     }
     fn describes(&self) -> &'static str {
         "the usage block is followed by an indented `name - description` block naming each \
@@ -641,7 +637,7 @@ impl Detector for GenericOptionPlaceholderFlag {
         "generic-option-placeholder-flag"
     }
     fn family(&self) -> Option<&'static str> {
-        None
+        Some("generic-option-placeholder-flag")
     }
     fn describes(&self) -> &'static str {
         "a usage line's own dash-prefixed generic placeholder (`[-options]`, `[-opts]`) is read \

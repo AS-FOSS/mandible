@@ -37,7 +37,7 @@ use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source,
 use mandible_extract::exec::{ExecOutput, Transcript};
 use mandible_extract::{default_tiers_with_probe, ResolvedTool, Runner};
 use serde::Deserialize;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -2576,5 +2576,66 @@ stdout = "help.txt"
             "{}",
             report.text
         );
+    }
+
+    /// The default pattern (`audit-seed2`) has no `*`, so it stays an exact
+    /// match: unchanged behavior for the seed 2/4/5/6 calibrations, which is
+    /// the round-7 brief's own "prove it" requirement.
+    #[test]
+    fn default_pattern_still_matches_only_a_literal_directory_name() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // mytool/1.0, not mytool/audit-seed2
+        let replayed =
+            replay_version_for_tools(&corpus.root, "audit-seed2", None).expect("replay succeeds");
+        assert!(
+            replayed.is_empty(),
+            "an exact pattern must not match mytool/1.0"
+        );
+    }
+
+    /// A seed-7 fixture is named after the tool's own version
+    /// (`corpus/<tool>/<version>/`, `corpus/README.md`), never a shared
+    /// `audit-seedN` label, so `*` is the pattern that resolves each tool
+    /// to its one version directory whatever it is called.
+    #[test]
+    fn star_resolves_a_tools_only_version_directory() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // mytool/1.0
+        let replayed = replay_version_for_tools(&corpus.root, "*", None).expect("replay succeeds");
+        assert_eq!(replayed.len(), 1);
+        assert_eq!(replayed[0].tool, "mytool");
+    }
+
+    /// Two version directories for the same tool both matching the pattern
+    /// is refused by name, never resolved to a silent last-wins pick.
+    #[test]
+    fn ambiguous_match_is_refused_naming_both_directories() {
+        let corpus = setup();
+        green_fixture(&corpus.root); // mytool/1.0
+        let dir = corpus.root.join("mytool/2.0");
+        write(
+            &dir.join("meta.toml"),
+            r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "mytool"
+version = "2.0"
+
+[[capture]]
+argv = ["mytool", "--help"]
+stdout = "help.txt"
+"#,
+        );
+        write(&dir.join("help.txt"), MYTOOL_HELP);
+
+        let msg = match replay_version_for_tools(&corpus.root, "*", None) {
+            Ok(_) => panic!("ambiguous pattern must refuse"),
+            Err(e) => e.to_string(),
+        };
+        assert!(msg.contains("mytool"), "{msg}");
+        assert!(msg.contains("mytool/1.0"), "{msg}");
+        assert!(msg.contains("mytool/2.0"), "{msg}");
     }
 }

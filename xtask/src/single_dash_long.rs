@@ -707,12 +707,12 @@ mod tests {
     /// the fix lives in, so deleting the fix fails here, immediately, with
     /// the tool and token named.
     ///
-    /// Zero subprocesses — `corpus::replay_version` is the same frozen-bytes
+    /// Zero subprocesses — `corpus::replay_version_for_tools` is the same frozen-bytes
     /// replay `detector::calibrate` uses.
     #[test]
     fn the_real_parser_leaves_no_split_in_any_audited_fixture() {
         let corpus_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus");
-        let replayed = crate::corpus::replay_version(&corpus_root, "audit-seed2")
+        let replayed = crate::corpus::replay_version_for_tools(&corpus_root, "audit-seed2", None)
             .expect("real corpus replays");
         assert!(
             replayed.len() > 20,
@@ -745,7 +745,7 @@ mod tests {
     #[test]
     fn qemus_long_options_and_its_valued_shorts_both_survive_the_repair() {
         let corpus_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus");
-        let replayed = crate::corpus::replay_version(&corpus_root, "audit-seed2")
+        let replayed = crate::corpus::replay_version_for_tools(&corpus_root, "audit-seed2", None)
             .expect("real corpus replays");
         let qemu = replayed
             .iter()

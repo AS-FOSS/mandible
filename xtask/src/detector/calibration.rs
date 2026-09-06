@@ -191,18 +191,26 @@ impl Calibration {
 }
 
 /// Load every judged audit entry as a [`Case`], replaying its
-/// `corpus/<tool>/<fixture_version>/` fixture when one exists.
+/// `corpus/<tool>/<fixture_version pattern>/` fixture when one exists.
 ///
 /// Validates the manifest's family labels first ([`AuditFile::validate_families`]),
 /// so a mistyped family fails here rather than quietly shrinking a cell.
+///
+/// Restricts [`corpus::replay_version_for_tools`] to the manifest's own
+/// tools, so a version-directory collision on some tool this manifest never
+/// mentions (`corpus/README.md`'s `curl/8.5.0` plus `curl/8.5.0-all`) cannot
+/// block a calibration run that never asked about it. A pattern broad
+/// enough to name a real ambiguity among the manifest's own tools is still
+/// refused, by name, exactly as before.
 pub fn load_cases(
     audit_file: &AuditFile,
     corpus_root: &Path,
     fixture_version: &str,
 ) -> anyhow::Result<Vec<Case>> {
     audit_file.validate_families()?;
+    let wanted: BTreeSet<String> = audit_file.entries.iter().map(|e| e.tool.clone()).collect();
     let mut replayed: BTreeMap<String, ReplayedCase> = BTreeMap::new();
-    for fixture in corpus::replay_version(corpus_root, fixture_version)? {
+    for fixture in corpus::replay_version_for_tools(corpus_root, fixture_version, Some(&wanted))? {
         if let Some(root) = fixture.root {
             replayed.insert(
                 fixture.tool,

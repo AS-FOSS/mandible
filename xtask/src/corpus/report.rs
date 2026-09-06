@@ -1,4 +1,4 @@
-//! The public `CorpusReport`/`ReplayedFixture` types and the `replay_version`/`show_fixture` entry points.
+//! The public `CorpusReport`/`ReplayedFixture` types and the `replay_version_for_tools`/`show_fixture` entry points.
 use super::*;
 
 /// The outcome of a full corpus run.
@@ -40,21 +40,84 @@ pub struct ReplayedFixture {
     pub root: Option<CommandNode>,
 }
 
-/// Replay every fixture whose directory name is `version` (e.g.
-/// `audit-seed2`) and hand back what each one parsed to.
+/// Match a fixture-version pattern against one directory name. `*` means
+/// "any sequence, including empty"; every other byte matches literally, so
+/// a pattern with no `*` is an exact match (`audit-seed2` unchanged). `*`
+/// also names "a tool's own version directory" for a seed-7 fixture, whose
+/// directory is the tool's own version, not a shared `audit-seedN` name;
+/// see [`replay_version_for_tools`] for how ambiguity is refused.
+fn version_pattern_matches(pattern: &str, name: &str) -> bool {
+    fn go(p: &[u8], t: &[u8]) -> bool {
+        match p.first() {
+            None => t.is_empty(),
+            Some(b'*') => go(&p[1..], t) || (!t.is_empty() && go(p, &t[1..])),
+            Some(c) => t.first() == Some(c) && go(&p[1..], &t[1..]),
+        }
+    }
+    go(pattern.as_bytes(), name.as_bytes())
+}
+
+/// Replay every fixture whose version directory matches `pattern` (a glob,
+/// see [`version_pattern_matches`]), considering only tools named in
+/// `tools` (every tool under `corpus_root` when `None`). Zero subprocesses,
+/// exactly like [`run`]; a fixture with no usable help capture is skipped
+/// rather than yielded with an empty `raw`.
 ///
-/// Zero subprocesses, exactly like [`run`]: this is the same frozen-bytes
-/// replay the corpus suite performs, exposed so `crate::detector` can run a
-/// detector over the audited tools without a `PATH` sweep. Fixtures that
-/// carry no usable help capture are skipped rather than yielded with an
-/// empty `raw`, so a caller cannot mistake "nothing was captured" for "the
-/// tool's help text is empty".
-pub fn replay_version(corpus_root: &Path, version: &str) -> anyhow::Result<Vec<ReplayedFixture>> {
-    let mut out = Vec::new();
-    for fixture in discover_fixtures(corpus_root)? {
-        if !fixture.label.ends_with(&format!("/{version}")) {
+/// Ambiguity is refused by name: if `pattern` matches more than one version
+/// directory under one tool, this errors naming the tool and every
+/// directory matched, never picking the last one silently. `tools` narrows
+/// which directories are considered, so a naming collision on some other
+/// tool (`curl/8.5.0` and `curl/8.5.0-all` both legitimately exist) never
+/// blocks a calibration run that never named that tool.
+pub fn replay_version_for_tools(
+    corpus_root: &Path,
+    pattern: &str,
+    tools: Option<&BTreeSet<String>>,
+) -> anyhow::Result<Vec<ReplayedFixture>> {
+    let fixtures = discover_fixtures(corpus_root)?;
+    let mut by_tool: BTreeMap<&str, Vec<&Fixture>> = BTreeMap::new();
+    for fixture in &fixtures {
+        if tools.is_some_and(|tools| !tools.contains(fixture.tool_name())) {
             continue;
         }
+        let version = fixture
+            .label
+            .rsplit_once('/')
+            .map_or(fixture.label.as_str(), |(_, v)| v);
+        if version_pattern_matches(pattern, version) {
+            by_tool
+                .entry(fixture.tool_name())
+                .or_default()
+                .push(fixture);
+        }
+    }
+
+    let ambiguous: Vec<String> = by_tool
+        .iter()
+        .filter(|(_, matches)| matches.len() > 1)
+        .map(|(tool, matches)| {
+            format!(
+                "{tool:?} ({})",
+                matches
+                    .iter()
+                    .map(|f| f.label.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        })
+        .collect();
+    if !ambiguous.is_empty() {
+        anyhow::bail!(
+            "fixture-version pattern {pattern:?} matches more than one directory for {} \
+             tool(s): {}. Narrow the pattern.",
+            ambiguous.len(),
+            ambiguous.join("; ")
+        );
+    }
+
+    let mut out = Vec::new();
+    for matches in by_tool.into_values() {
+        let fixture = matches[0];
         let transcript = fixture.build_transcript()?;
         let mut recordings = HashMap::new();
         for capture in &fixture.meta.captures {
@@ -168,4 +231,30 @@ pub fn show_fixture(corpus_root: &Path, pattern: &str) -> anyhow::Result<()> {
         None => println!("(no tier produced a root node)"),
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod pattern_tests {
+    use super::*;
+
+    #[test]
+    fn exact_pattern_matches_only_itself() {
+        assert!(version_pattern_matches("audit-seed2", "audit-seed2"));
+        assert!(!version_pattern_matches("audit-seed2", "audit-seed20"));
+        assert!(!version_pattern_matches("audit-seed2", "2.03.16"));
+    }
+
+    #[test]
+    fn star_matches_any_name() {
+        assert!(version_pattern_matches("*", "2.03.16"));
+        assert!(version_pattern_matches("*", "audit-seed2"));
+        assert!(version_pattern_matches("*", ""));
+    }
+
+    #[test]
+    fn prefix_glob_matches_a_family_of_names() {
+        assert!(version_pattern_matches("audit-seed*", "audit-seed2"));
+        assert!(version_pattern_matches("audit-seed*", "audit-seed7"));
+        assert!(!version_pattern_matches("audit-seed*", "2.03.16"));
+    }
 }

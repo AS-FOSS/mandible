@@ -2070,7 +2070,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/comma_glued_option_value.rs`) generalizes this shape
   fleet-wide.
 - fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
-  fix moved 23 tools with zero losses on the same sweep.
+  fix moved 23 tools with zero losses on the same sweep. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`aarch64-linux-gnu-g++-13`), 1 true negative, 2026-09-06.
 
 ### S-117: a spaced single-dash long option with an uppercase flag letter
 
@@ -2088,7 +2090,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   that repair runs. `xtask detector`'s `spaced-single-dash-long`
   (`xtask/src/detector/spaced_single_dash_long.rs`) generalizes this shape
   fleet-wide.
-- fleet: 40 tools, 381 findings, 2026-09-05.
+- fleet: 40 tools, 381 findings, 2026-09-05. Seed-7 calibration (`--seed 7
+  --fixture-version '*'`) verdict PASSES: 1 true positive
+  (`aarch64-linux-gnu-g++-13`), 0 false negatives, 1 true negative, 2026-09-06.
 
 ### S-118: a single-dash spelling that is nothing but a run of `#`
 
@@ -2103,7 +2107,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide.
 - fleet: detector fires on 23 tools, over a 2265-tool sweep, 2026-09-05. The
   fix moved the same 23 tools as S-116, in the same commit, with zero
-  losses on the same sweep.
+  losses on the same sweep. Seed-7 calibration (`--seed 7 --fixture-version
+  '*'`) verdict REPAIRED: 0 true positives, 1 false negative
+  (`aarch64-linux-gnu-g++-13`), 1 true negative, 2026-09-06.
 
 ### S-119: a value spec with one bracket nested inside another
 
@@ -2124,7 +2130,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/nested_bracket_value.rs`) generalizes this shape
   fleet-wide.
 - fleet: detector fires on 22 tools, over a 2265-tool sweep, 2026-09-05. The
-  fix moved 22 tools with zero losses on the same sweep.
+  fix moved 22 tools with zero losses on the same sweep. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`pr`), 1 true negative, 2026-09-06.
 
 ### S-120: a docopt bracket row's own trailing choice list
 
@@ -2152,7 +2160,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/choices_after_optional_placeholder.rs`) generalizes
   this shape fleet-wide.
 - fleet: detector fires on 43 tools, over a 2265-tool sweep, 2026-09-05. The
-  fix moved 43 tools with zero losses on the same sweep.
+  fix moved 43 tools with zero losses on the same sweep. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`pvdisplay`), 1 true negative, 2026-09-06.
 ### S-126: unheaded example block folds onto the preceding flag's description
 
 - id: S-126
@@ -2172,6 +2182,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `examples-block-contaminates-last-flag`
   (`xtask/src/detector/examples_block_contaminates_last_flag.rs`) fell
   from 1 tool/1 finding to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+  Seed-7 calibration (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0
+  true positives, 1 false negative (`nfsslower-bpfcc`), 1 true negative,
+  2026-09-06.
 
 ### S-127: positional's own description sits in a block right under the usage line
 
@@ -2192,6 +2205,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `positional-description-block`
   (`xtask/src/detector/positional_description_block.rs`) fell from 1
   tool/2 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 0 losses.
+  Seed-7 calibration (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0
+  true positives, 1 false negative (`invoke-rc.d`), 1 true negative,
+  2026-09-06.
 
 ### S-128: usage line's dash-prefixed generic placeholder invents a flag
 
@@ -2213,6 +2229,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/generic_option_placeholder_flag.rs`) fell from 20
   tools/20 findings to 0/0 in a full-`PATH` sweep, 2026-09-05: 20 flags
   corrected (18 invented flags dropped, 2 value names repaired), 0 losses.
+  Seed-7 calibration (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0
+  true positives, 1 false negative (`makeconv`), 1 true negative,
+  2026-09-06.
 
 ### S-129: command row's argument placeholder rejects the whole name field
 
@@ -2240,5 +2259,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   15-tool systemd/util set the fix targets) to 3 tools/12 findings
   fleet-wide in a full-`PATH` sweep, 2026-09-05: 15 tools gained
   subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
-  does not reach; not investigated further this round.
+  does not reach; not investigated further this round. Seed-7 calibration
+  (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
+  false negative (`systemctl`), 1 true negative, 2026-09-06.
 

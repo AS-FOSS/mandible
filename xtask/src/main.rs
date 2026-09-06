@@ -253,9 +253,15 @@ enum DetectorAction {
         /// The corpus root holding the audited tools' fixtures.
         #[arg(long, default_value = "corpus")]
         corpus_dir: PathBuf,
-        /// The fixture directory name to replay under each tool — the
-        /// audit's own staged fixtures live at
-        /// `corpus/<tool>/audit-seed2/`.
+        /// A glob matched against each tool's version directory name (`*`
+        /// is "any sequence"; anything else must match literally, so the
+        /// default stays an exact match). The seed 2/4/5/6 audits stage
+        /// fixtures at a shared name (`corpus/<tool>/audit-seed2/`); the
+        /// seed-7 audit names each directory after the tool's own version
+        /// (`corpus/pvdisplay/2.03.16/`), so `*` is the pattern that picks
+        /// out a tool's one version directory whatever it is called. A
+        /// pattern matching more than one directory for the same tool is
+        /// refused, naming every directory it matched.
         #[arg(long, default_value = "audit-seed2")]
         fixture_version: String,
     },
