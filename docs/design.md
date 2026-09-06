@@ -353,7 +353,6 @@ pub struct CommandNode {
     pub entities: Vec<Entity>,
     pub subcommands: Vec<CommandNode>,
     pub examples: Vec<Example>,
-    pub hidden: bool,
     pub deprecated: Option<Text>,       // Some(reason) when deprecated
     /// True when this node's children are known-complete. False means the
     /// subtree has not been extracted yet (see §5, lazy extraction).
@@ -393,7 +392,7 @@ pub struct Entity {
     pub env_var: Option<String>,
     pub provenance: Provenance,
     // ... plus the flags carried over from the type this replaced:
-    // repeatable, required, hidden, deprecated, inherited, default.
+    // repeatable, required, deprecated, inherited, default.
 }
 
 pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
