@@ -341,3 +341,55 @@ pub fn check_round6_family_ratchets(
     }
     Ok(all_hold)
 }
+
+/// One family's fleet count, ratcheted at zero, for a family whose
+/// `(tools, flags)` pair lives in its own two [`crate::coverage::Aggregate`]
+/// fields rather than in `vim_family`'s generic list. Same shape and
+/// reasoning as [`check_vim_family_ratchet`]; kept separate because that
+/// one is keyed on the `vim_family` field this family predates. Gated
+/// against a literal `0`, not `previous`, because the checked-in scoreboard
+/// is editable, so a commit reintroducing a defect would otherwise raise
+/// its own baseline.
+pub fn check_scalar_family_ratchet(
+    name: &'static str,
+    prev_tools: usize,
+    prev_flags: usize,
+    fresh_tools: usize,
+    fresh_flags: usize,
+) -> anyhow::Result<bool> {
+    if fresh_tools != prev_tools || fresh_flags != prev_flags {
+        println!(
+            "{name} findings changed from {prev_tools} tool(s)/{prev_flags} flag(s) to \
+             {fresh_tools} tool(s)/{fresh_flags} flag(s)",
+        );
+    }
+    let ratchet = ratchet_at_zero(find(name)?.as_ref(), fresh_tools, fresh_flags);
+    println!("\n{}", ratchet.report());
+    Ok(ratchet.holds())
+}
+
+/// pnpm's two families (atlas S-103, S-104), fixed in
+/// `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted at
+/// zero the same way as `single-dash-long`: the fix moves two tools
+/// fleet-wide, below the five-tool bar in AGENTS.md §3.1, recorded as a
+/// maintainer exception in `docs/design.md` §16.
+pub fn check_ragged_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let ragged = check_scalar_family_ratchet(
+        "ragged-command-table",
+        previous.ragged_command_tools,
+        previous.ragged_command_flags,
+        fresh.ragged_command_tools,
+        fresh.ragged_command_flags,
+    )?;
+    let wrapped = check_scalar_family_ratchet(
+        "wrapped-command-continuation-as-subcommand",
+        previous.wrapped_command_tools,
+        previous.wrapped_command_flags,
+        fresh.wrapped_command_tools,
+        fresh.wrapped_command_flags,
+    )?;
+    Ok(ragged && wrapped)
+}
