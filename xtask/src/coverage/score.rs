@@ -487,7 +487,22 @@ fn vim_family_counts(
     counts.extend(round6_block_family_counts(&raw, root));
     counts.extend(round7_family_counts(&raw, root));
     counts.extend(round7_usage_family_counts(&raw, root));
+    counts.extend(round8_family_counts(&raw, root));
     counts
+}
+
+/// The round-8 family detector, atlas S-137, split out for the same
+/// line-count reason [`round4_family_counts`] is.
+fn round8_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let evidence = ToolEvidence { raw, root };
+    let ih = crate::detector::invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup
+        .hits(&evidence);
+    vec![(
+        "invocation-form-head-as-flag-group",
+        ih.len(),
+        ih.into_iter().take(cap).collect(),
+    )]
 }
 
 /// The round-7 family detectors, atlas S-130 to S-134: `pvdisplay`'s

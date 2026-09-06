@@ -1231,6 +1231,7 @@ fn run_coverage(
         regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

@@ -371,6 +371,15 @@ pub fn check_scalar_family_ratchet(
     Ok(ratchet.holds())
 }
 
+/// [`check_vim_family_ratchet`] for round 8's own repaired family, atlas
+/// S-137, gated at zero the same way as [`check_round6_family_ratchets`].
+pub fn check_round8_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    check_vim_family_ratchet("invocation-form-head-as-flag-group", previous, fresh)
+}
+
 /// pnpm's two families (atlas S-103, S-104), fixed in
 /// `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted at
 /// zero the same way as `single-dash-long`: the fix moves two tools

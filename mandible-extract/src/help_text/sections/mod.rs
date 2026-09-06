@@ -872,7 +872,7 @@ fn emit_heading_block(
     let stanza_label = if st.in_ignorable_section {
         None
     } else {
-        stanza_description_above(lines, heading_idx, tool_name).map(str::to_string)
+        stanza_description_above(lines, heading_idx, tool_name)
     };
     if stanza_label.is_some() && st.result.usage.len() < MAX_RECOVERED_ENTRIES {
         st.result.usage.push(heading.clone());
@@ -1664,6 +1664,54 @@ fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `lvcreate --help`'s own bytes, byte-exact: every invocation form
+    /// reaches `usage` as its own alternative, and the tab-indented option
+    /// rows beneath each form carry that form's own prose sentence as
+    /// their group, not an invented heading built from the invocation line
+    /// itself. See docs/shapes.md S-137.
+    #[test]
+    fn lvcreate_invocation_forms_each_reach_usage_and_keep_their_own_prose_group() {
+        let parsed = parse_named(LVCREATE_HELP, "lvcreate");
+        assert!(
+            parsed.usage.len() > 10,
+            "expected many invocation forms in usage, got {:?}",
+            parsed.usage
+        );
+        assert!(
+            parsed
+                .flags
+                .iter()
+                .all(|f| !f.group.as_deref().is_some_and(|g| g.starts_with("lvcreate"))),
+            "a flag group was built from the invocation line itself: {:?}",
+            parsed.flags
+        );
+        let mirrorlog = flag_named(&parsed, "mirrorlog");
+        assert_eq!(
+            mirrorlog.group.as_deref(),
+            Some("Create a raid1 or mirror LV.")
+        );
+        // The three-physical-line cachevol/cachedevice form: the prose
+        // above it wraps, and the whole sentence, joined, becomes the
+        // group — nowhere else could it land, and it must not vanish.
+        let cachesize = parsed
+            .flags
+            .iter()
+            .find(|f| {
+                f.long() == Some("cachesize")
+                    && f.group
+                        .as_deref()
+                        .is_some_and(|g| g.contains("cachevol created from"))
+            })
+            .unwrap_or_else(|| panic!("flags: {:?}", parsed.flags));
+        assert_eq!(
+            cachesize.group.as_deref(),
+            Some(
+                "Create a new LV, then attach a cachevol created from the specified cache \
+                 device, which converts the new LV to type cache."
+            )
+        );
+    }
 
     // --- compute_confidence's one-row-sample fallback -------------------
 

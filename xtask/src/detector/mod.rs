@@ -81,6 +81,10 @@ pub(crate) mod usage_spelling_duplicates_table_row;
 pub(crate) mod trailing_bracket_group_multiword_operand;
 pub(crate) mod usage_bracket_group_multiword_value;
 
+// Round-8 family detector (issue "lvm2 invocation forms read as section
+// headings", atlas S-137), same direct-`Detector`-impl shape.
+pub(crate) mod invocation_form_head_as_flag_group;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -712,6 +716,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
+        Box::new(invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup),
     ]
 }
 
