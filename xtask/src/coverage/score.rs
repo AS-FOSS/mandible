@@ -487,7 +487,30 @@ fn vim_family_counts(
     counts.extend(round6_block_family_counts(&raw, root));
     counts.extend(round7_family_counts(&raw, root));
     counts.extend(round7_usage_family_counts(&raw, root));
+    counts.extend(round8_family_counts(&raw, root));
     counts
+}
+
+/// The round-8 family detector, atlas S-139: mksquashfs's glued
+/// interior-uppercase name (`-noI`). Split out for the same line-count
+/// reason [`round4_family_counts`] is.
+fn round8_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+    let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
+    let gu = crate::detector::glued_uppercase_shared_prefix::detect(raw, root);
+    vec![(
+        "glued-uppercase-shared-prefix",
+        gu.finding_count(),
+        gu.findings
+            .iter()
+            .take(cap)
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect(),
+    )]
 }
 
 /// The round-7 family detectors, atlas S-130 to S-134: `pvdisplay`'s

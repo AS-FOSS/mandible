@@ -65,6 +65,7 @@ pub(crate) mod usage_alternative_or_prefix;
 pub(crate) mod usage_program_word_mismatch;
 pub(crate) mod usage_text_continuation_fold;
 pub(crate) mod value_name_duplicates_choices;
+pub(crate) mod glued_uppercase_shared_prefix;
 
 // Round-5 family detectors (three parser families: same-spelling-fold-loss,
 // bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
@@ -712,6 +713,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
+        Box::new(GluedUppercaseSharedPrefix),
     ]
 }
 
