@@ -32,6 +32,7 @@ use mandible_core::{
 };
 
 mod backfill;
+mod bullets;
 mod emit;
 mod entry;
 mod flag_rows;
@@ -47,6 +48,7 @@ mod test_support;
 mod usage;
 
 use backfill::*;
+use bullets::*;
 pub use emit::*;
 pub use entry::*;
 use flag_rows::*;
@@ -284,6 +286,14 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    // lowdown's man-page-like rendering (nix/Lix, issue #138) writes
+    // every entry, command or option alike, as a `·`-led bullet row and
+    // sometimes wraps a group label across two physical lines. Rewritten
+    // away here, once, for the same reason the escape strip above runs
+    // first: every later measurement (heading text, indentation, column
+    // gaps) must see the plain row, not the decorated one. See docs/shapes.md
+    // S-143, S-144.
+    let raw = rewrite_lowdown_bullets(&raw, tool_name);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it. Doing it here, once, keeps the recovered
@@ -789,6 +799,13 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         return i;
     }
 
+    // A lone sub-label with no rows of its own (`mksquashfs`'s `gzip
+    // (default)`): its own rows sit deeper than it, so no branch below
+    // looks past it into them. Captured before `entries` moves, used
+    // only once the swallow names nothing real. See S-146.
+    let sole_label =
+        (entries.len() == 1 && entries[0].1.trim().is_empty()).then(|| entries[0].0.to_string());
+
     if recognized || st.command_mode {
         st.command_mode = true;
         // Only `recognized` (this exact heading's own text says
@@ -803,16 +820,62 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
             st.in_ignorable_section = false;
         }
         st.command_group = heading_can_name_a_group(heading).then(|| heading.to_string());
+        let before = st.result.subcommands.len();
         let (seen, clean) = emit_subcommands(heading, entries, st.result);
         st.total_entries += seen;
         st.clean_entries += clean;
+        if st.result.subcommands.len() == before {
+            set_pending_bare_label(st, sole_label, lines, i);
+        }
     } else {
         st.command_mode = false;
+        set_pending_bare_label(st, sole_label, lines, i);
         let (seen, clean) = emit_choices(heading, entries, st.result);
         st.total_entries += seen;
         st.clean_entries += clean;
     }
     i
+}
+
+/// Remember `label` as [`BodyScan::pending_bare_label`] when it is a
+/// plausible group name, this document isn't mid-suppressed section, and
+/// the row right after it starts a table that actually describes its
+/// rows. Rejects a label ending in a space before its own colon
+/// (`"OPTIONS :"`, `split_shared_heading_row`'s own BNF splitting,
+/// S-042, never human-written). See S-146.
+fn set_pending_bare_label(st: &mut BodyScan, label: Option<String>, lines: &[&str], next: usize) {
+    if let Some(label) = label {
+        if !st.in_ignorable_section
+            && heading_can_name_a_group(&label)
+            && !label.trim_end().ends_with(" :")
+            && pending_label_names_a_real_table(lines, next)
+        {
+            st.pending_bare_label = Some(label);
+        }
+    }
+}
+
+/// True when the row at `lines[idx]` is flag-shaped and documents a real
+/// description, on its own line (a column gap) or on a deeper-indented
+/// line beneath it — tells a genuine option table (`mksquashfs`'s own
+/// compressor rows) apart from a flat, undescribed value list (`tar`'s
+/// own "*This* tar defaults to:" line and its neighbor). O(1) only: a
+/// full block scan here, once per heading candidate, is the quadratic
+/// trap AGENTS.md §3 warns against. See docs/shapes.md S-146.
+fn pending_label_names_a_real_table(lines: &[&str], idx: usize) -> bool {
+    let Some(line) = lines.get(idx) else {
+        return false;
+    };
+    if !looks_like_flag_start(line.trim_start()) {
+        return false;
+    }
+    if find_description_gap(line).is_some() {
+        return true;
+    }
+    let indent = leading_whitespace(line);
+    lines
+        .get(idx + 1)
+        .is_some_and(|next| !next.trim().is_empty() && leading_whitespace(next) > indent)
 }
 
 /// The read-only inputs every body-scan branch needs.
@@ -1208,6 +1271,19 @@ fn emit_flush_heading(
     // themselves), remember that. See S-070.
     if command_mode_seed(heading, profile) {
         st.command_mode = true;
+    } else if !st.in_ignorable_section
+        && heading_can_name_a_group(heading)
+        && find_description_gap(h.line).is_none()
+        && pending_label_names_a_real_table(lines, heading_idx + 1)
+    {
+        // A flush heading whose own rows sit at its own column rather
+        // than indented under it (`mksquashfs`'s ten `Xxx options:`
+        // headings): remembered so the row right after still gets a
+        // group from the headingless flags-block shortcut. The gap
+        // check guards the heading line itself: `nm`'s own `@FILE  Read
+        // options from FILE` row is not flag-shaped, so it reaches here
+        // looking like a heading, but it is a real row. See S-146.
+        st.pending_bare_label = Some(heading.clone());
     }
     // Rewind to just past the original line and continue scanning
     // it as its own candidate.
@@ -1230,6 +1306,11 @@ struct BodyScan<'a> {
     /// yet, and never consulted by anything but that one call site. See
     /// docs/shapes.md S-103, S-104.
     command_group: Option<String>,
+    /// A heading, or a bare sub-label swallowed as a heading's own lone
+    /// entry, that named no rows of its own (`mksquashfs`'s flush `Xxx
+    /// options:` headings, its `gzip (default)` sub-label). Taken by the
+    /// very next loop iteration whether or not it is used. See S-146.
+    pending_bare_label: Option<String>,
 }
 
 fn scan_entries(
@@ -1292,6 +1373,7 @@ fn scan_entries(
         total_entries: 0usize,
         clean_entries: 0usize,
         command_group: None,
+        pending_bare_label: None,
     };
     while i < lines.len() {
         let line = lines[i];
@@ -1308,6 +1390,12 @@ fn scan_entries(
                 continue;
             }
         }
+        // A label that named no rows of its own, set one line ago by
+        // either a flush heading's own rewind or a bare single-entry
+        // swallow (S-146). Taken (cleared) here whether or not this row
+        // turns out to be the headingless flags block it was set for, so
+        // a label can never survive to name some later, unrelated block.
+        let pending_group = st.pending_bare_label.take();
         // Headingless flags block: sed has no Options: heading at all; the
         // current line already looks like a flag entry, so it is scanned
         // in place. See S-052.
@@ -1336,7 +1424,7 @@ fn scan_entries(
                 scan_flags_block(lines, i, heading_is_bnf);
             i = end;
             let (seen, clean) = emit_flags_block(
-                None,
+                pending_group,
                 entries,
                 packed,
                 &is_plus_sigil,

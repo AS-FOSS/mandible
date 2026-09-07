@@ -25,7 +25,8 @@
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
 //!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe`, `must_usage_forms_min`,
-//!   `must_not_contain_flag_group_prefixes`, `must_flag_group`
+//!   `must_not_contain_flag_group_prefixes`, `must_flag_group`,
+//!   `must_describe_subcommand`, `must_subcommand_group`
 //!   ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
 //!   both pass fails the run — the bug is fixed, promote it
@@ -48,8 +49,10 @@ use std::time::{Duration, Instant};
 
 mod contract;
 mod markdown;
+mod refill_contract;
 mod report;
 mod runner;
+mod subcommand;
 mod summary;
 
 pub(crate) use contract::*;
@@ -304,6 +307,36 @@ pub(crate) struct ContractMeta {
     /// `must_not_describe` uses.
     #[serde(default)]
     must_not_value_name: std::collections::BTreeMap<String, String>,
+    /// A subcommand's own rendered description (`CommandNode::summary`)
+    /// must contain this text, keyed by path the way
+    /// `must_contain_flags_by_path` is keyed. `must_describe` walks only
+    /// `root.flags()`, so nothing before this field could assert a
+    /// subcommand's own one-line summary — nix's own `nix help - show
+    /// help about nix or a particular subcommand` (docs/shapes.md
+    /// S-143). Substring match after collapsing whitespace, the same
+    /// rule `must_describe` uses.
+    #[serde(default)]
+    must_describe_subcommand: std::collections::BTreeMap<String, String>,
+    /// A subcommand's own `CommandNode::group`, keyed by path the same
+    /// way `must_flag_group` is keyed by spelling. The expected text is
+    /// matched against `group` exactly (no substring, no whitespace
+    /// collapsing, `must_flag_group`'s own reasoning), except the empty
+    /// string, which instead asserts the node carries no group at all.
+    /// nix's own command table groups each subcommand under a `...
+    /// commands:` label (docs/shapes.md S-143), and nothing before this
+    /// field could check which label a subcommand actually landed under.
+    #[serde(default)]
+    must_subcommand_group: std::collections::BTreeMap<String, String>,
+    /// Every substring a root flag's value name must carry after this
+    /// fixture's root is refilled the way the running app refills it
+    /// (`Warmer::submit_root_fill`, always merging `existing` against a
+    /// fresh reprobe). Keyed by the flag's own spelling. `must_value_name`
+    /// alone cannot state this: it passes off the raw, unrefilled tree,
+    /// where a multi-form tool's forms are still separate entities each
+    /// already naming their own value. See `refill_contract.rs` and
+    /// docs/shapes.md S-147.
+    #[serde(default)]
+    must_value_names_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a

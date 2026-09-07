@@ -10,6 +10,15 @@
 //! No seed-2/4/5/6 labelled tool carries this shape, so
 //! [`Detector::family`] returns `None` — spec §13.1e rule 6.
 
+// Round 9 widens the question to a value two same-identity entities both
+// genuinely take, but name differently: `lvcreate`'s `--type` reaches the
+// tree once per invocation form (docs/shapes.md S-137), each form naming a
+// different literal value, and a fold that picks one form's name over
+// another's drops every name but one — docs/shapes.md S-147.
+// `mandible_core::merge::merge_entity_bucket` now unions every name
+// instead; the widened `value_name_disagrees` below is what lets the
+// fleet count measure that.
+
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{CommandNode, Dashes, Entity, EntityKind, Provenance, Source, Text, ValueKind};
 
@@ -38,12 +47,29 @@ fn identity_key(e: &Entity) -> Option<(EntityKind, String)> {
 }
 
 /// True when `a` and `b` are the shape this detector claims: same identity
-/// key (checked by the caller), and either a difference in whether they
-/// take a value at all, or two different documented descriptions.
+/// key (checked by the caller), and any of — a difference in whether they
+/// take a value at all, two different documented descriptions, or (both
+/// genuinely taking a value) two different literal value names.
 fn disagrees(a: &Entity, b: &Entity) -> bool {
     let value_disagrees = (a.value_kind == ValueKind::None) != (b.value_kind == ValueKind::None);
     let desc_disagrees = matches!((&a.description, &b.description), (Some(x), Some(y)) if x != y);
-    value_disagrees || desc_disagrees
+    value_disagrees || desc_disagrees || value_name_disagrees(a, b)
+}
+
+/// The `lvcreate` half of the shape (docs/shapes.md S-147): both entities
+/// really do take a value — neither is `ValueKind::None` — so
+/// [`disagrees`]'s own `value_disagrees` stays silent, yet the literal
+/// name each names differs. Covers the asymmetric case too, where one
+/// form's name was folded away entirely because it duplicated that form's
+/// own `choices` (S-130's `value_name_duplicates_its_own_choices`, the
+/// shape of `--type raid1|mirror`): `None` there still names no value, so
+/// a single-winner pick would drop it exactly as it drops a plain
+/// mismatch.
+fn value_name_disagrees(a: &Entity, b: &Entity) -> bool {
+    if a.value_kind == ValueKind::None || b.value_kind == ValueKind::None {
+        return false;
+    }
+    a.value_name.as_deref() != b.value_name.as_deref()
 }
 
 pub struct SameSpellingFoldLoss;
@@ -183,6 +209,67 @@ impl Detector for SameSpellingFoldLoss {
                 expect: Expect::Silent,
                 raw: String::new(),
                 root: node_with(vec![bare_plus(), bare_plus()]),
+            },
+            SelfCheck {
+                name: "lvcreate's own bytes: --type linear, --type striped, \
+                       --type raid1|mirror (docs/shapes.md S-147)",
+                why: "the new defect: three entities share the `--type` spelling, all three \
+                      genuinely take a value, so the old value-kind check stays silent, but each \
+                      names (or, for the choices form, fails to name) a different literal value",
+                expect: Expect::Fires(1),
+                raw: String::new(),
+                root: node_with(vec![
+                    {
+                        let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+                        e.value_kind = ValueKind::Required;
+                        e.value_name = Some("linear".to_string());
+                        e.group = Some("Create a linear LV.".to_string());
+                        e
+                    },
+                    {
+                        let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+                        e.value_kind = ValueKind::Required;
+                        e.value_name = Some("striped".to_string());
+                        e.group = Some("Create a striped LV.".to_string());
+                        e
+                    },
+                    {
+                        let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+                        e.value_kind = ValueKind::Required;
+                        // S-130's own fix drops `value_name` here, since it is
+                        // nothing but `choices` rejoined with `|`.
+                        e.choices = vec![
+                            mandible_core::Choice::bare("raid1"),
+                            mandible_core::Choice::bare("mirror"),
+                        ];
+                        e.group = Some("Create a raid1 or mirror LV.".to_string());
+                        e
+                    },
+                ]),
+            },
+            SelfCheck {
+                name: "two required entities sharing a spelling that name the same value",
+                why: "every ordinary tool re-probed twice (docs/shapes.md's own root-refill \
+                      shape) reaches this bucket with duplicate, agreeing rows — the value-name \
+                      question must stay silent when the name genuinely agrees",
+                expect: Expect::Silent,
+                raw: String::new(),
+                root: node_with(vec![
+                    {
+                        let mut e =
+                            Entity::flag_long("output", Provenance::single(Source::HelpText));
+                        e.value_kind = ValueKind::Required;
+                        e.value_name = Some("FILE".to_string());
+                        e
+                    },
+                    {
+                        let mut e =
+                            Entity::flag_long("output", Provenance::single(Source::HelpText));
+                        e.value_kind = ValueKind::Required;
+                        e.value_name = Some("FILE".to_string());
+                        e
+                    },
+                ]),
             },
         ]
     }

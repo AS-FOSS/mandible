@@ -361,12 +361,15 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     // no other source can have seen the same flag spelled the other way.
     let negatable = bucket.iter().any(|f| f.negatable());
     let single_dash = bucket.iter().any(|f| f.single_dash());
-    let value_name = pick_option(
-        bucket
-            .iter()
-            .map(|f| (&f.provenance, f.value_name.as_ref())),
-        Axis::Structural,
-    );
+    // Union, not pick-one (docs/shapes.md S-147). `lvcreate` reaches this
+    // bucket once per invocation form, each naming a different literal
+    // value for `--type` (`linear`, `striped`, `raid10`, ...): a
+    // highest-authority single winner rendered one form's value name
+    // beside another form's `choices`, silently dropping every other
+    // form's name. Every distinct name across the whole bucket survives,
+    // in first-appearance order, joined the same way `choices` already
+    // joins for display (spec §9.2, "values: raid1, mirror").
+    let value_name = union_value_names(bucket.iter().map(|f| f.value_name.as_deref()));
     let value_kind = bucket
         .iter()
         .map(|f| f.value_kind)
@@ -552,6 +555,26 @@ where
         }
     }
     best.map(|(_, v)| v.clone()).unwrap_or_default()
+}
+
+/// Union every distinct non-empty `value_name` across one identity bucket,
+/// in first-appearance order, joined by `", "` (spec §9.2's own join for
+/// `choices`). Unlike [`pick_option`], authority plays no part here: two
+/// invocation forms of one flag can each name a real, different literal
+/// value, and a single winner would silently drop the rest (docs/shapes.md
+/// S-147). `None` when the bucket names none at all.
+fn union_value_names<'a, I: IntoIterator<Item = Option<&'a str>>>(names: I) -> Option<String> {
+    let mut seen: Vec<&str> = Vec::new();
+    for name in names.into_iter().flatten() {
+        if !seen.contains(&name) {
+            seen.push(name);
+        }
+    }
+    if seen.is_empty() {
+        None
+    } else {
+        Some(seen.join(", "))
+    }
 }
 
 fn best_index<'a, I>(provenances: I, axis: Axis) -> usize
@@ -1276,5 +1299,45 @@ mod tests {
             1,
             "the positional is not absorbed into the flag's bucket"
         );
+    }
+
+    /// docs/shapes.md S-147: `lvcreate` reaches the merge bucket once per
+    /// invocation form, and three of its forms each name a different
+    /// literal value for `--type`. A single-winner pick rendered one
+    /// form's value name (`linear`) while a later fold attached another
+    /// form's `choices` (`raid1`, `mirror`) to the same row, silently
+    /// dropping `striped`. Every distinct name must survive.
+    #[test]
+    fn merge_unions_value_names_from_several_invocation_forms() {
+        fn type_flag(value_name: &str) -> Entity {
+            let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+            e.value_kind = ValueKind::Required;
+            e.value_name = Some(value_name.to_string());
+            e
+        }
+        let bucket = vec![
+            type_flag("linear"),
+            type_flag("striped"),
+            type_flag("raid10"),
+        ];
+        let merged = merge_entity_bucket(bucket);
+        assert_eq!(
+            merged.value_name.as_deref(),
+            Some("linear, striped, raid10")
+        );
+    }
+
+    /// The ordinary case — every form names the same value — must not
+    /// start repeating itself.
+    #[test]
+    fn merge_does_not_repeat_a_value_name_every_form_agrees_on() {
+        fn type_flag() -> Entity {
+            let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+            e.value_kind = ValueKind::Required;
+            e.value_name = Some("TYPE".to_string());
+            e
+        }
+        let merged = merge_entity_bucket(vec![type_flag(), type_flag()]);
+        assert_eq!(merged.value_name.as_deref(), Some("TYPE"));
     }
 }
