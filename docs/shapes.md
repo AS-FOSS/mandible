@@ -2534,27 +2534,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -noId			do not compress the uid/gid table (implied by -noI)
       -noD			do not compress data blocks
 - tools: mksquashfs, sqfstar
-- handling: Fixed. `-noI` used to truncate to short `-n` valued `"oI"`.
-  `repair_single_dash_long_options`
-  (`mandible-extract/src/help_text/sections/repair.rs`) refused any
-  reconstructed token carrying an uppercase letter, its only signal
-  against the GCC/Clang glued-value convention (`-DMACRO`).
-  `shares_lowercase_prefix_with_sibling` admits a token whose swallowed
-  name shares its lowercase-led prefix with another row's own swallowed
-  name in the same table (`-noI`, `-noId`, `-noD`, `-noF`, `-noX` all
-  share `"no"`). The glued-value convention documents one flag letter per
-  macro or feature, so no sibling row there shares a two-letter lowercase
-  prefix with it. `xtask detector`'s `glued-uppercase-shared-prefix`
-  (`xtask/src/detector/glued_uppercase_shared_prefix.rs`) generalizes
-  the shape fleet-wide.
-- fleet: the fix moved 2 tools, mksquashfs and sqfstar, 10 flags each,
-  with 0 losses on a full-`PATH` sweep, 2026-09-06. `unsquashfs` and
-  `sqfscat` document no `-no*` row of this shape. Two tools is below the
-  five-tool floor AGENTS.md §3.1 sets, and it shipped as a named
-  exception recorded in `docs/design.md` §16. `corpus/mksquashfs/4.6.1`
-  is promoted out of `[xfail]`. No labelled member of this family exists
-  in any audit seed; the detector's four self-checks are the only
-  standing evidence.
+- handling: Fixed, then superseded. `-noI` used to truncate to short `-n` valued
+  `"oI"`. `shares_lowercase_prefix_with_sibling` first admitted a token whose
+  swallowed name shared its lowercase-led prefix with a sibling row's own
+  (`-noI`/`-noId`/`-noD`/`-noF`/`-noX` all sharing `"no"`), but it still refused
+  `-pf`, `-ef` and every uppercase-led boolean row (`-Xhelp`, `-Xhc`). Round 9
+  deleted that function outright and replaced it with the table-level rule
+  S-145: every S-139 table also passes the table test, so nothing is lost.
+  `xtask detector`'s `glued-uppercase-shared-prefix`
+  (`xtask/src/detector/glued_uppercase_shared_prefix.rs`) is kept as standing
+  evidence that the outcome still holds; `single-dash-long-table` is the
+  fleet-wide instrument now.
+- fleet: superseded by S-145, 2026-09-07. Previously: the fix moved 2 tools,
+  mksquashfs and sqfstar, 10 flags each, with 0 losses on a full-`PATH` sweep,
+  2026-09-06.
 ### S-140: a description continuation line that begins with a dash
 
 - id: S-140
@@ -2681,29 +2674,77 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `-L` alias, `--verbose` keeps its `-v` alias, and `--option` carries
   value name `<name value>` with its full description, all in the same
   fixture's zero-loss sweep-diff.
-### S-149: a centered ALL-CAPS group label sets a bare-word block's baseline
 
-- id: S-149
+### S-145: a single-dash-long table with no double-dash row anywhere
+
+- id: S-145
 - looks like: |
-                                               BASIC
-      start                                    starts the server and the jails
-- tools: fail2ban-client
-- handling: Fixed. `bare_block_end` took a bare-word block's baseline indent
-  from its own first line; a centered ALL-CAPS group label opening the block
-  sits far deeper than every real row, so the first real row dedented below
-  it and the block ended unread. The baseline now skips a leading label (and
-  every later one) instead. `split_entries` also skips a label rather than
-  folding it into a neighboring entry's description. A dash-led wrapped
-  continuation (S-140) could then defeat the block's own flag-row-resume
-  rule; `is_wrapped_prose_continuation` now gates that check too.
-- fleet: A full-`PATH` sweep of 2323 tools moved one tool, fail2ban-client:
-  22 flags to 21 (the fabricated `--with-time`, S-140, gone), 11 subcommand
-  nodes to 11 (5 fabricated fragments replaced by 5 real names). Zero flag or
-  subcommand losses anywhere else in the fleet; zero gains anywhere else.
-  `centered-label-baseline-tree` reads 4 tools/12 findings post-fix, reported
-  not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
-  name rule, not this fix), the rest are false alarms on text that merely
-  resembles a label followed by a row. 2026-09-07.
+      -pf <pseudo-file>	add list of pseudo file definitions from <pseudo-file>
+      -Xhelp			print compressor options for selected compressor
+      -mem <size>		use <size> physical memory for caches
+- tools: mksquashfs, sqfstar
+- handling: A table whose rows are column-0 `-word` spellings, tab- or column-gap
+  separated from their descriptions, with at least two rows carrying an
+  unambiguous, uniformly-lowercase multi-character name and no `--long`
+  row anywhere, admits every row's full token as the spelling, whatever
+  its length and whatever its case
+  (`help_text::sections::repair::repair_single_dash_long_options`). Fixes
+  `-pf`/`-ef` (a one-character swallowed tail, below the ordinary
+  two-character floor) and `-Xhelp`/`-Xhc`/`-Xbcj`/`-Xstrategy`
+  (an uppercase-led name, refused by the ordinary case gate). The same
+  repair now reads a tab-separated value placeholder regardless of case,
+  so `-mem`, `-comp` and `-mkfs-time` keep their own value name instead
+  of losing it. Replaces S-139's narrower sibling rule, which only
+  covered a shared lowercase prefix. The two-row floor and the
+  unambiguous-evidence requirement exist because a single ambiguous row
+  (a short flag glued to a capitalized description word) cannot tell a
+  table from a coincidence on its own; a bundled-short-flag document
+  (digit- or case-mixed clusters) is excluded the same way.
+- fleet: `single-dash-long-table` (`xtask/src/detector/single_dash_long_table.rs`)
+  reads 14 tools/21 raw findings on a full-`PATH` sweep of 2323 tools, 2026-09-07,
+  after the fix: unsquashfs, xkill, xev, setfont and others in the same
+  single-dash convention still carry an unfixed member (`-rNUM`, `-Idirectory`,
+  `-ll`, `-ps`, below the per-document evidence floor this fix requires), a
+  documented lower bound rather than a further fix this round. The fix itself
+  moved 2 tools, mksquashfs and sqfstar, plus recovered whole spellings and
+  value names fleet-wide on unsquashfs, Xvfb, xkill, xev, xdpyinfo, xkbcomp,
+  xkbevd, xkbprint, xlsatoms, xwininfo, screen, setfont, sg_map, jinfo, jdb,
+  jrunscript, perlbug, perlthanks, ckbcomp, containerd-shim-runc-v2,
+  javax2jakarta, llvm-libtool-darwin-18, llvm-lipo-18 and winpr-makecert,
+  0 losses on a full-`PATH` sweep-diff of 2269 tools, 2026-09-07. All four
+  self-checks hold. No labelled member of this family exists in any audit
+  seed; the self-checks are the only standing evidence.
+
+### S-146: a flush heading or bare sub-label names no group
+
+- id: S-146
+- looks like: |
+      Filesystem compression options:
+      -b <block_size>		set data block to <block_size>
+      Compressors available and compressor specific options:
+      	gzip (default)
+      	  -Xcompression-level <compression-level>
+- tools: mksquashfs, sqfstar
+- handling: A heading whose own rows sit at its own column, not indented under it,
+  reached the headingless flags-block shortcut with no group at all,
+  because that shortcut hardcoded `None`. A bare sub-label swallowed as a
+  heading's own lone, undescribed entry (`gzip (default)` under
+  `Compressors available and compressor specific options:`) was silently
+  dropped the same way, since the label's own rows sit deeper than it and
+  no scanner looked past a non-flag row into deeper indentation.
+  `BodyScan::pending_bare_label` remembers either shape's own text and
+  hands it to the very next headingless flags block as its group,
+  gated on the label reading as a plausible group name, the row right
+  after it showing a real column gap or a deeper-indented continuation
+  (never a flat, undescribed value list), and never a label ending in a
+  space directly before its own colon (a `:=` BNF production's own
+  splitting artifact, never human-written). mksquashfs's ten `Xxx
+  options:` headings and its five compressor sub-labels (`gzip`
+  included, in source order) all now carry a group; `-Xcompression-level`
+  is kept as one entry per compressor, the merge step's own concern.
+- fleet: not separately counted; folds into every S-145 table's own count,
+  and the fleet-wide sweep-diff below covers both parts of this fix
+  together.
 
 ### S-147: a same-spelling merge picks one invocation form's value name
 
@@ -2752,3 +2793,27 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/option_table_multiword_value_name.rs`) reads 1
   tool / 1 finding on a full-`PATH` sweep of 2269 tools, 2026-09-07. Below
   the five-tool bar; not fixed this round.
+
+### S-149: a centered ALL-CAPS group label sets a bare-word block's baseline
+
+- id: S-149
+- looks like: |
+                                               BASIC
+      start                                    starts the server and the jails
+- tools: fail2ban-client
+- handling: Fixed. `bare_block_end` took a bare-word block's baseline indent
+  from its own first line; a centered ALL-CAPS group label opening the block
+  sits far deeper than every real row, so the first real row dedented below
+  it and the block ended unread. The baseline now skips a leading label (and
+  every later one) instead. `split_entries` also skips a label rather than
+  folding it into a neighboring entry's description. A dash-led wrapped
+  continuation (S-140) could then defeat the block's own flag-row-resume
+  rule; `is_wrapped_prose_continuation` now gates that check too.
+- fleet: A full-`PATH` sweep of 2323 tools moved one tool, fail2ban-client:
+  22 flags to 21 (the fabricated `--with-time`, S-140, gone), 11 subcommand
+  nodes to 11 (5 fabricated fragments replaced by 5 real names). Zero flag or
+  subcommand losses anywhere else in the fleet; zero gains anywhere else.
+  `centered-label-baseline-tree` reads 4 tools/12 findings post-fix, reported
+  not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
+  name rule, not this fix), the rest are false alarms on text that merely
+  resembles a label followed by a row. 2026-09-07.

@@ -20,6 +20,9 @@ once it reaches a published 0.1.0 release.
 - A single-dash long option carrying an interior uppercase letter keeps its whole name when a sibling row in the same table shares its lowercase prefix, so `mandible mksquashfs` shows `-noI` and its nine siblings instead of ten rows reading `-n` (docs/shapes.md S-139).
 - lowdown's man-page-like `--help` rendering now parses its bullet-marked commands and options instead of rendering verbatim, recovering all 30 subcommands and 9 flags of `mandible nix`, including a `/`-joined alias and a multi-word value name (#138, docs/shapes.md S-143, S-144).
 - A flag documented once per invocation form now keeps every form's own value name instead of one form's name beside another's choices, so `mandible lvcreate`'s `--type` shows `linear, striped, raid10, snapshot, thin` beside its `raid1, mirror` choices (docs/shapes.md S-147).
+- A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one (docs/shapes.md S-145).
+- A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them (docs/shapes.md S-145).
+- A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names (docs/shapes.md S-146).
 
 ## [0.7.0] - 2026-09-05
 

@@ -12,6 +12,7 @@ usage:
 flags:
 - spellings:
   - --no-defaults
+  group: 'These options must be given before any others:'
   description: Do not read any defaults file
   provenance:
     sources:
@@ -20,6 +21,7 @@ flags:
   - --defaults-file
   value_name: '...'
   value_kind: Required
+  group: 'These options must be given before any others:'
   description: Read only this configuration file, do not read the standard system-wide and user-specific files
   provenance:
     sources:
@@ -28,6 +30,7 @@ flags:
   - --defaults-extra-file
   value_name: '...'
   value_kind: Required
+  group: 'These options must be given before any others:'
   description: Read this configuration file in addition to the standard system-wide and user-specific files
   provenance:
     sources:

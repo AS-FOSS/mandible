@@ -10,12 +10,14 @@ usage:
 flags:
 - spellings:
   - --print-defaults
+  group: 'The following options may be given as the first argument:'
   description: Print the program argument list and exit.
   provenance:
     sources:
     - help-text
 - spellings:
   - --no-defaults
+  group: 'The following options may be given as the first argument:'
   description: Don't read default options from any option file.
   provenance:
     sources:
@@ -24,6 +26,7 @@ flags:
   - --defaults-file
   value_name: '#'
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: 'Only read default options from the given file #.'
   provenance:
     sources:
@@ -32,6 +35,7 @@ flags:
   - --defaults-extra-file
   value_name: '#'
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Read this file after the global files are read.
   provenance:
     sources:
@@ -40,6 +44,7 @@ flags:
   - --defaults-group-suffix
   value_name: '#'
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: 'Additionally read default groups with # appended as a suffix.'
   provenance:
     sources:
@@ -47,6 +52,7 @@ flags:
 - spellings:
   - -A
   - --all-databases
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check all the databases. This is the same as --databases with all databases selected.
   provenance:
     sources:
@@ -54,6 +60,7 @@ flags:
 - spellings:
   - -a
   - --analyze
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Analyze given tables.
   provenance:
     sources:
@@ -61,12 +68,14 @@ flags:
 - spellings:
   - '-1'
   - --all-in-1
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Instead of issuing one query for each table, use one query per database, naming all tables in the database in a comma-separated list.
   provenance:
     sources:
     - help-text
 - spellings:
   - --auto-repair
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: If a checked table is corrupted, automatically fix it. Repairing will be done after all tables have been checked, if corrupted ones were found.
   provenance:
     sources:
@@ -75,6 +84,7 @@ flags:
   - --character-sets-dir
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Directory for character set files.
   provenance:
     sources:
@@ -82,6 +92,7 @@ flags:
 - spellings:
   - -c
   - --check
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check table for errors.
   provenance:
     sources:
@@ -89,6 +100,7 @@ flags:
 - spellings:
   - -C
   - --check-only-changed
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check only tables that have changed since last check or haven't been closed properly.
   provenance:
     sources:
@@ -96,12 +108,14 @@ flags:
 - spellings:
   - -g
   - --check-upgrade
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check tables for version-dependent changes. May be used with --auto-repair to correct tables requiring version-dependent updates.
   provenance:
     sources:
     - help-text
 - spellings:
   - --compress
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Use compression in server/client protocol.
   provenance:
     sources:
@@ -109,6 +123,7 @@ flags:
 - spellings:
   - -B
   - --databases
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check several databases. Note the difference in usage; in this case no tables are given. All name arguments are regarded as database names.
   provenance:
     sources:
@@ -118,18 +133,21 @@ flags:
   - --debug
   value_name: '#'
   value_kind: Optional
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: This is a non-debug version. Catch this and exit.
   provenance:
     sources:
     - help-text
 - spellings:
   - --debug-check
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check memory and open file usage at exit.
   provenance:
     sources:
     - help-text
 - spellings:
   - --debug-info
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Print some debug info at exit.
   provenance:
     sources:
@@ -138,6 +156,7 @@ flags:
   - --default-character-set
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Set the default character set.
   provenance:
     sources:
@@ -146,6 +165,7 @@ flags:
   - --default-auth
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Default authentication client-side plugin to use.
   provenance:
     sources:
@@ -153,18 +173,21 @@ flags:
 - spellings:
   - -F
   - --fast
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Check only tables that haven't been closed properly.
   provenance:
     sources:
     - help-text
 - spellings:
   - --fix-db-names
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Fix database names.
   provenance:
     sources:
     - help-text
 - spellings:
   - --fix-table-names
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Fix table names.
   provenance:
     sources:
@@ -172,6 +195,7 @@ flags:
 - spellings:
   - -f
   - --force
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Continue even if we get an SQL error.
   provenance:
     sources:
@@ -179,12 +203,14 @@ flags:
 - spellings:
   - -e
   - --extended
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: If you are using this option with CHECK TABLE, it will ensure that the table is 100 percent consistent, but will take a long time. If you are using this option with REPAIR TABLE, it will force using old slow repair with keycache method, instead of much faster repair by sorting.
   provenance:
     sources:
     - help-text
 - spellings:
   - --flush
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Flush each table after check. This is useful if you don't want to have the checked tables take up space in the caches after the check
   provenance:
     sources:
@@ -192,6 +218,7 @@ flags:
 - spellings:
   - -?
   - --help
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Display this help message and exit.
   provenance:
     sources:
@@ -201,6 +228,7 @@ flags:
   - --host
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Connect to host.
   provenance:
     sources:
@@ -208,12 +236,14 @@ flags:
 - spellings:
   - -m
   - --medium-check
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Faster than extended-check, but only finds 99.99 percent of all errors. Should be good enough for most cases.
   provenance:
     sources:
     - help-text
 - spellings:
   - --write-binlog
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Log ANALYZE, OPTIMIZE and REPAIR TABLE commands. Use --skip-write-binlog when commands should not be sent to replication slaves. (Defaults to on; use --skip-write-binlog to disable.)
   provenance:
     sources:
@@ -221,6 +251,7 @@ flags:
 - spellings:
   - -o
   - --optimize
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Optimize table.
   provenance:
     sources:
@@ -230,6 +261,7 @@ flags:
   - --password
   value_name: name
   value_kind: Optional
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Password to use when connecting to server. If password is not given, it's solicited on the tty.
   provenance:
     sources:
@@ -237,6 +269,7 @@ flags:
 - spellings:
   - -Z
   - --persistent
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: When using ANALYZE TABLE use the PERSISTENT FOR ALL option.
   provenance:
     sources:
@@ -245,6 +278,7 @@ flags:
   - --plugin-dir
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Directory for client-side plugins.
   provenance:
     sources:
@@ -254,6 +288,7 @@ flags:
   - --port
   value_name: '#'
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Port number to use for connection or 0 for default to, in order of preference, my.cnf, $MYSQL_TCP_PORT, /etc/services, built-in default (3306).
   provenance:
     sources:
@@ -262,6 +297,7 @@ flags:
   - --protocol
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: The protocol to use for connection (tcp, socket, pipe).
   provenance:
     sources:
@@ -269,6 +305,7 @@ flags:
 - spellings:
   - -q
   - --quick
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: If you are using this option with CHECK TABLE, it prevents the check from scanning the rows to check for wrong links. This is the fastest check. If you are using this option with REPAIR TABLE, it will try to repair only the index tree. This is the fastest repair method for a table.
   provenance:
     sources:
@@ -276,6 +313,7 @@ flags:
 - spellings:
   - -r
   - --repair
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Can fix almost anything except unique keys that aren't unique.
   provenance:
     sources:
@@ -283,6 +321,7 @@ flags:
 - spellings:
   - -s
   - --silent
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Print only error messages.
   provenance:
     sources:
@@ -291,6 +330,7 @@ flags:
   - --skip-database
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Don't process the database specified as argument
   provenance:
     sources:
@@ -300,12 +340,14 @@ flags:
   - --socket
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: The socket file to use for connection.
   provenance:
     sources:
     - help-text
 - spellings:
   - --ssl
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Enable SSL for connection (automatically enabled with other flags). (Defaults to on; use --skip-ssl to disable.)
   provenance:
     sources:
@@ -314,6 +356,7 @@ flags:
   - --ssl-ca
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: CA file in PEM format (check OpenSSL docs, implies --ssl).
   provenance:
     sources:
@@ -322,6 +365,7 @@ flags:
   - --ssl-capath
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: CA directory (check OpenSSL docs, implies --ssl).
   provenance:
     sources:
@@ -330,6 +374,7 @@ flags:
   - --ssl-cert
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: X509 cert in PEM format (implies --ssl).
   provenance:
     sources:
@@ -338,6 +383,7 @@ flags:
   - --ssl-cipher
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: SSL cipher to use (implies --ssl).
   provenance:
     sources:
@@ -346,6 +392,7 @@ flags:
   - --ssl-key
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: X509 key in PEM format (implies --ssl).
   provenance:
     sources:
@@ -354,6 +401,7 @@ flags:
   - --ssl-crl
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Certificate revocation list (implies --ssl).
   provenance:
     sources:
@@ -362,6 +410,7 @@ flags:
   - --ssl-crlpath
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Certificate revocation list path (implies --ssl).
   provenance:
     sources:
@@ -370,24 +419,28 @@ flags:
   - --tls-version
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: TLS protocol version for secure connection.
   provenance:
     sources:
     - help-text
 - spellings:
   - --ssl-verify-server-cert
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Verify server's certificate to prevent man-in-the-middle attacks
   provenance:
     sources:
     - help-text
 - spellings:
   - --tables
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Overrides option --databases (-B).
   provenance:
     sources:
     - help-text
 - spellings:
   - --use-frm
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: When used with REPAIR, get table structure from .frm file, so the table can be repaired even if .MYI header is corrupted.
   provenance:
     sources:
@@ -397,6 +450,7 @@ flags:
   - --user
   value_name: name
   value_kind: Required
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: User for login if not current user.
   provenance:
     sources:
@@ -404,6 +458,7 @@ flags:
 - spellings:
   - -v
   - --verbose
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Print info about the various stages; Using it 3 times will print out all CHECK, RENAME and ALTER TABLE during the check phase.
   provenance:
     sources:
@@ -411,6 +466,7 @@ flags:
 - spellings:
   - -V
   - --version
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Output version information and exit.
   provenance:
     sources:
@@ -419,12 +475,14 @@ flags:
   - --process-views
   value_name: name
   value_kind: Optional
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: 'Perform the requested operation (check or repair) on views. One of: NO, YES (correct the checksum, if necessary, add the mariadb-version field), UPGRADE (run from mariadb-upgrade), UPGRADE_FROM_MYSQL (same as YES and toggle the algorithm MERGE<->TEMPTABLE.'
   provenance:
     sources:
     - help-text
 - spellings:
   - --process-tables
+  group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Perform the requested operation on tables. (Defaults to on; use --skip-process-tables to disable.)
   provenance:
     sources:

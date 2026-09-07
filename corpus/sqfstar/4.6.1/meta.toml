@@ -1,0 +1,41 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sqfstar"
+version = "4.6.1"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); squashfs-tools 4.6.1-1build1"
+
+# sqfstar writes its whole response to stderr and stdout is empty.
+# `help.txt` is committed empty, the shape `corpus/jinfo/17.0.20` uses,
+# since `[[capture]].stdout` is a required field.
+[[capture]]
+argv = ["sqfstar", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+# The single-dash-long table rule (docs/shapes.md S-145): these used to
+# split at their second letter, sharing mksquashfs's own shape.
+must_contain_flags = ["-pf", "-ef", "-Xhelp", "-Xhc", "-Xbcj"]
+# The operand the unread synopsis holds (docs/shapes.md S-142). Fails.
+must_contain_positionals = ["FILESYSTEM"]
+
+[contract.must_value_name]
+"-mem" = "<size>"
+"-comp" = "<comp>"
+"-mkfs-time" = "<time>"
+
+# One row under a flush `Xxx options:` heading and one under two of the
+# compressor sub-labels, gzip included (docs/shapes.md S-146).
+[contract.must_flag_group]
+"-noI" = "Filesystem compression options:"
+"-Xhc" = "lz4"
+"-Xwindow-size" = "gzip (default)"
+
+[xfail]
+broken = true
+reason = "S-142 is open: SYNTAX: glued to the program name with no space is never recognized as a usage marker, so the synopsis is read as description prose and no positional is recovered from it. Below the five-tool bar per mksquashfs's own measurement, so nothing ships for it here either."

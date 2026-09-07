@@ -36,6 +36,7 @@ flags:
     - help-text
 - spellings:
   - -L
+  group: 'Print help / information / capabilities:'
   description: show license
   provenance:
     sources:
@@ -45,6 +46,7 @@ flags:
   - --help
   value_name: topic
   value_kind: Required
+  group: 'Print help / information / capabilities:'
   description: show help
   provenance:
     sources:
@@ -53,6 +55,7 @@ flags:
   - -?
   value_name: topic
   value_kind: Required
+  group: 'Print help / information / capabilities:'
   description: show help
   provenance:
     sources:
@@ -61,126 +64,147 @@ flags:
   - -help
   value_name: topic
   value_kind: Required
+  group: 'Print help / information / capabilities:'
   description: show help
   provenance:
     sources:
     - help-text
 - spellings:
   - -version
+  group: 'Print help / information / capabilities:'
   description: show version
   provenance:
     sources:
     - help-text
 - spellings:
   - -buildconf
+  group: 'Print help / information / capabilities:'
   description: show build configuration
   provenance:
     sources:
     - help-text
 - spellings:
   - -formats
+  group: 'Print help / information / capabilities:'
   description: show available formats
   provenance:
     sources:
     - help-text
 - spellings:
   - -muxers
+  group: 'Print help / information / capabilities:'
   description: show available muxers
   provenance:
     sources:
     - help-text
 - spellings:
   - -demuxers
+  group: 'Print help / information / capabilities:'
   description: show available demuxers
   provenance:
     sources:
     - help-text
 - spellings:
   - -devices
+  group: 'Print help / information / capabilities:'
   description: show available devices
   provenance:
     sources:
     - help-text
 - spellings:
   - -codecs
+  group: 'Print help / information / capabilities:'
   description: show available codecs
   provenance:
     sources:
     - help-text
 - spellings:
   - -decoders
+  group: 'Print help / information / capabilities:'
   description: show available decoders
   provenance:
     sources:
     - help-text
 - spellings:
   - -encoders
+  group: 'Print help / information / capabilities:'
   description: show available encoders
   provenance:
     sources:
     - help-text
 - spellings:
   - -bsfs
+  group: 'Print help / information / capabilities:'
   description: show available bit stream filters
   provenance:
     sources:
     - help-text
 - spellings:
   - -protocols
+  group: 'Print help / information / capabilities:'
   description: show available protocols
   provenance:
     sources:
     - help-text
 - spellings:
   - -filters
+  group: 'Print help / information / capabilities:'
   description: show available filters
   provenance:
     sources:
     - help-text
 - spellings:
   - -pix_fmts
+  group: 'Print help / information / capabilities:'
   description: show available pixel formats
   provenance:
     sources:
     - help-text
 - spellings:
   - -layouts
+  group: 'Print help / information / capabilities:'
   description: show standard channel layouts
   provenance:
     sources:
     - help-text
 - spellings:
   - -sample_fmts
+  group: 'Print help / information / capabilities:'
   description: show available audio sample formats
   provenance:
     sources:
     - help-text
 - spellings:
   - -dispositions
+  group: 'Print help / information / capabilities:'
   description: show available stream dispositions
   provenance:
     sources:
     - help-text
 - spellings:
   - -colors
+  group: 'Print help / information / capabilities:'
   description: show available color names
   provenance:
     sources:
     - help-text
 - spellings:
   - -sources
+  group: 'Print help / information / capabilities:'
   description: list sources of the input device
   provenance:
     sources:
     - help-text
 - spellings:
   - -sinks
+  group: 'Print help / information / capabilities:'
   description: list sinks of the output device
   provenance:
     sources:
     - help-text
 - spellings:
   - -hwaccels
+  group: 'Print help / information / capabilities:'
   description: show available HW acceleration methods
   provenance:
     sources:
@@ -189,6 +213,7 @@ flags:
   - -loglevel
   value_name: loglevel
   value_kind: Required
+  group: 'Global options (affect whole program instead of just one file):'
   description: set logging level
   provenance:
     sources:
@@ -197,60 +222,70 @@ flags:
   - -v
   value_name: loglevel
   value_kind: Required
+  group: 'Global options (affect whole program instead of just one file):'
   description: set logging level
   provenance:
     sources:
     - help-text
 - spellings:
   - -report
+  group: 'Global options (affect whole program instead of just one file):'
   description: generate a report
   provenance:
     sources:
     - help-text
 - spellings:
   - -max_alloc
+  group: 'Global options (affect whole program instead of just one file):'
   description: set maximum size of a single allocated block
   provenance:
     sources:
     - help-text
 - spellings:
   - -y
+  group: 'Global options (affect whole program instead of just one file):'
   description: overwrite output files
   provenance:
     sources:
     - help-text
 - spellings:
   - -n
+  group: 'Global options (affect whole program instead of just one file):'
   description: never overwrite output files
   provenance:
     sources:
     - help-text
 - spellings:
   - -ignore_unknown
+  group: 'Global options (affect whole program instead of just one file):'
   description: Ignore unknown stream types
   provenance:
     sources:
     - help-text
 - spellings:
   - -filter_threads
+  group: 'Global options (affect whole program instead of just one file):'
   description: number of non-complex filter threads
   provenance:
     sources:
     - help-text
 - spellings:
   - -filter_complex_threads
+  group: 'Global options (affect whole program instead of just one file):'
   description: number of threads for -filter_complex
   provenance:
     sources:
     - help-text
 - spellings:
   - -stats
+  group: 'Global options (affect whole program instead of just one file):'
   description: print progress report during encoding
   provenance:
     sources:
     - help-text
 - spellings:
   - -max_error_rate
+  group: 'Global options (affect whole program instead of just one file):'
   description: 'ratio of decoding errors (0.0: no errors, 1.0: 100% errors) above which ffmpeg returns an error instead of success.'
   provenance:
     sources:
@@ -259,6 +294,7 @@ flags:
   - -f
   value_name: fmt
   value_kind: Required
+  group: 'Per-file main options:'
   description: force format
   provenance:
     sources:
@@ -267,6 +303,7 @@ flags:
   - -c
   value_name: codec
   value_kind: Required
+  group: 'Per-file main options:'
   description: codec name
   provenance:
     sources:
@@ -275,18 +312,21 @@ flags:
   - -codec
   value_name: codec
   value_kind: Required
+  group: 'Per-file main options:'
   description: codec name
   provenance:
     sources:
     - help-text
 - spellings:
   - -pre
+  group: 'Per-file main options:'
   description: preset name
   provenance:
     sources:
     - help-text
 - spellings:
   - -map_metadata
+  group: 'Per-file main options:'
   description: set metadata information of outfile from infile
   provenance:
     sources:
@@ -295,6 +335,7 @@ flags:
   - -t
   value_name: duration
   value_kind: Required
+  group: 'Per-file main options:'
   description: record or transcode "duration" seconds of audio/video
   provenance:
     sources:
@@ -303,6 +344,7 @@ flags:
   - -t
   value_name: o
   value_kind: Required
+  group: 'Per-file main options:'
   description: record or transcode stop time
   provenance:
     sources:
@@ -311,6 +353,7 @@ flags:
   - -f
   value_name: s
   value_kind: Required
+  group: 'Per-file main options:'
   description: set the limit file size in bytes
   provenance:
     sources:
@@ -319,90 +362,105 @@ flags:
   - -s
   value_name: s
   value_kind: Required
+  group: 'Per-file main options:'
   description: set the start time offset
   provenance:
     sources:
     - help-text
 - spellings:
   - -sseof
+  group: 'Per-file main options:'
   description: set the start time offset relative to EOF
   provenance:
     sources:
     - help-text
 - spellings:
   - -seek_timestamp
+  group: 'Per-file main options:'
   description: enable/disable seeking by timestamp with -ss
   provenance:
     sources:
     - help-text
 - spellings:
   - -timestamp
+  group: 'Per-file main options:'
   description: set the recording timestamp ('now' to set the current time)
   provenance:
     sources:
     - help-text
 - spellings:
   - -metadata
+  group: 'Per-file main options:'
   description: add metadata
   provenance:
     sources:
     - help-text
 - spellings:
   - -program
+  group: 'Per-file main options:'
   description: add program with specified streams
   provenance:
     sources:
     - help-text
 - spellings:
   - -target
+  group: 'Per-file main options:'
   description: specify target file type ("vcd", "svcd", "dvd", "dv" or "dv50" with optional prefixes "pal-", "ntsc-" or "film-")
   provenance:
     sources:
     - help-text
 - spellings:
   - -apad
+  group: 'Per-file main options:'
   description: audio pad
   provenance:
     sources:
     - help-text
 - spellings:
   - -frames
+  group: 'Per-file main options:'
   description: set the number of frames to output
   provenance:
     sources:
     - help-text
 - spellings:
   - -filter
+  group: 'Per-file main options:'
   description: set stream filtergraph
   provenance:
     sources:
     - help-text
 - spellings:
   - -filter_script
+  group: 'Per-file main options:'
   description: read stream filtergraph description from a file
   provenance:
     sources:
     - help-text
 - spellings:
   - -reinit_filter
+  group: 'Per-file main options:'
   description: reinit filtergraph on input parameter changes
   provenance:
     sources:
     - help-text
 - spellings:
   - -discard
+  group: 'Per-file main options:'
   description: discard
   provenance:
     sources:
     - help-text
 - spellings:
   - -disposition
+  group: 'Per-file main options:'
   description: disposition
   provenance:
     sources:
     - help-text
 - spellings:
   - -vframes
+  group: 'Video options:'
   description: set the number of video frames to output
   provenance:
     sources:
@@ -411,12 +469,14 @@ flags:
   - -r
   value_name: rate
   value_kind: Required
+  group: 'Video options:'
   description: set frame rate (Hz value, fraction or abbreviation)
   provenance:
     sources:
     - help-text
 - spellings:
   - -fpsmax
+  group: 'Video options:'
   description: set max frame rate (Hz value, fraction or abbreviation)
   provenance:
     sources:
@@ -425,30 +485,35 @@ flags:
   - -s
   value_name: size
   value_kind: Required
+  group: 'Video options:'
   description: set frame size (WxH or abbreviation)
   provenance:
     sources:
     - help-text
 - spellings:
   - -aspect
+  group: 'Video options:'
   description: set aspect ratio (4:3, 16:9 or 1.3333, 1.7777)
   provenance:
     sources:
     - help-text
 - spellings:
   - -display_rotation
+  group: 'Video options:'
   description: set pure counter-clockwise rotation in degrees for stream(s)
   provenance:
     sources:
     - help-text
 - spellings:
   - -display_hflip
+  group: 'Video options:'
   description: set display horizontal flip for stream(s) (overrides any display rotation if it is not set)
   provenance:
     sources:
     - help-text
 - spellings:
   - -display_vflip
+  group: 'Video options:'
   description: set display vertical flip for stream(s) (overrides any display rotation if it is not set)
   provenance:
     sources:
@@ -457,24 +522,28 @@ flags:
   - -v
   value_name: n
   value_kind: Required
+  group: 'Video options:'
   description: disable video
   provenance:
     sources:
     - help-text
 - spellings:
   - -vcodec
+  group: 'Video options:'
   description: force video codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
 - spellings:
   - -timecode
+  group: 'Video options:'
   description: set initial TimeCode value.
   provenance:
     sources:
     - help-text
 - spellings:
   - -pass
+  group: 'Video options:'
   description: select the pass number (1 to 3)
   provenance:
     sources:
@@ -483,6 +552,7 @@ flags:
   - -v
   value_name: f
   value_kind: Required
+  group: 'Video options:'
   description: set video filters
   provenance:
     sources:
@@ -491,6 +561,7 @@ flags:
   - -b
   value_name: bitrate
   value_kind: Required
+  group: 'Video options:'
   description: video bitrate (please use -b:v)
   provenance:
     sources:
@@ -499,12 +570,14 @@ flags:
   - -d
   value_name: n
   value_kind: Required
+  group: 'Video options:'
   description: disable data
   provenance:
     sources:
     - help-text
 - spellings:
   - -aframes
+  group: 'Audio options:'
   description: set the number of audio frames to output
   provenance:
     sources:
@@ -513,6 +586,7 @@ flags:
   - -a
   value_name: q
   value_kind: Required
+  group: 'Audio options:'
   description: set audio quality (codec-specific)
   provenance:
     sources:
@@ -521,6 +595,7 @@ flags:
   - -a
   value_name: r
   value_kind: Required
+  group: 'Audio options:'
   description: set audio sampling rate (in Hz)
   provenance:
     sources:
@@ -529,6 +604,7 @@ flags:
   - -a
   value_name: c
   value_kind: Required
+  group: 'Audio options:'
   description: set number of audio channels
   provenance:
     sources:
@@ -537,12 +613,14 @@ flags:
   - -a
   value_name: n
   value_kind: Required
+  group: 'Audio options:'
   description: disable audio
   provenance:
     sources:
     - help-text
 - spellings:
   - -acodec
+  group: 'Audio options:'
   description: force audio codec ('copy' to copy stream)
   provenance:
     sources:
@@ -551,6 +629,7 @@ flags:
   - -a
   value_name: b
   value_kind: Required
+  group: 'Audio options:'
   description: audio bitrate (please use -b:a)
   provenance:
     sources:
@@ -559,6 +638,7 @@ flags:
   - -a
   value_name: f
   value_kind: Required
+  group: 'Audio options:'
   description: set audio filters
   provenance:
     sources:
@@ -567,6 +647,7 @@ flags:
   - -s
   value_name: size
   value_kind: Required
+  group: 'Subtitle options:'
   description: set frame size (WxH or abbreviation)
   provenance:
     sources:
@@ -575,36 +656,42 @@ flags:
   - -s
   value_name: n
   value_kind: Required
+  group: 'Subtitle options:'
   description: disable subtitle
   provenance:
     sources:
     - help-text
 - spellings:
   - -scodec
+  group: 'Subtitle options:'
   description: force subtitle codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
 - spellings:
   - -stag
+  group: 'Subtitle options:'
   description: force subtitle tag/fourcc
   provenance:
     sources:
     - help-text
 - spellings:
   - -fix_sub_duration
+  group: 'Subtitle options:'
   description: fix subtitles duration
   provenance:
     sources:
     - help-text
 - spellings:
   - -canvas_size
+  group: 'Subtitle options:'
   description: set canvas size (WxH or abbreviation)
   provenance:
     sources:
     - help-text
 - spellings:
   - -spre
+  group: 'Subtitle options:'
   description: set the subtitle options to the indicated preset
   provenance:
     sources:

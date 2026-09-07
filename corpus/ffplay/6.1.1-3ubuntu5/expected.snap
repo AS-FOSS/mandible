@@ -5,6 +5,7 @@ usage:
 flags:
 - spellings:
   - -L
+  group: 'Main options:'
   description: show license
   provenance:
     sources:
@@ -14,6 +15,7 @@ flags:
   - --help
   value_name: topic
   value_kind: Required
+  group: 'Main options:'
   description: show help
   provenance:
     sources:
@@ -22,6 +24,7 @@ flags:
   - -?
   value_name: topic
   value_kind: Required
+  group: 'Main options:'
   description: show help
   provenance:
     sources:
@@ -30,108 +33,126 @@ flags:
   - -help
   value_name: topic
   value_kind: Required
+  group: 'Main options:'
   description: show help
   provenance:
     sources:
     - help-text
 - spellings:
   - -version
+  group: 'Main options:'
   description: show version
   provenance:
     sources:
     - help-text
 - spellings:
   - -buildconf
+  group: 'Main options:'
   description: show build configuration
   provenance:
     sources:
     - help-text
 - spellings:
   - -formats
+  group: 'Main options:'
   description: show available formats
   provenance:
     sources:
     - help-text
 - spellings:
   - -muxers
+  group: 'Main options:'
   description: show available muxers
   provenance:
     sources:
     - help-text
 - spellings:
   - -demuxers
+  group: 'Main options:'
   description: show available demuxers
   provenance:
     sources:
     - help-text
 - spellings:
   - -devices
+  group: 'Main options:'
   description: show available devices
   provenance:
     sources:
     - help-text
 - spellings:
   - -codecs
+  group: 'Main options:'
   description: show available codecs
   provenance:
     sources:
     - help-text
 - spellings:
   - -decoders
+  group: 'Main options:'
   description: show available decoders
   provenance:
     sources:
     - help-text
 - spellings:
   - -encoders
+  group: 'Main options:'
   description: show available encoders
   provenance:
     sources:
     - help-text
 - spellings:
   - -bsfs
+  group: 'Main options:'
   description: show available bit stream filters
   provenance:
     sources:
     - help-text
 - spellings:
   - -protocols
+  group: 'Main options:'
   description: show available protocols
   provenance:
     sources:
     - help-text
 - spellings:
   - -filters
+  group: 'Main options:'
   description: show available filters
   provenance:
     sources:
     - help-text
 - spellings:
   - -pix_fmts
+  group: 'Main options:'
   description: show available pixel formats
   provenance:
     sources:
     - help-text
 - spellings:
   - -layouts
+  group: 'Main options:'
   description: show standard channel layouts
   provenance:
     sources:
     - help-text
 - spellings:
   - -sample_fmts
+  group: 'Main options:'
   description: show available audio sample formats
   provenance:
     sources:
     - help-text
 - spellings:
   - -dispositions
+  group: 'Main options:'
   description: show available stream dispositions
   provenance:
     sources:
     - help-text
 - spellings:
   - -colors
+  group: 'Main options:'
   description: show available color names
   provenance:
     sources:
@@ -140,6 +161,7 @@ flags:
   - -loglevel
   value_name: loglevel
   value_kind: Required
+  group: 'Main options:'
   description: set logging level
   provenance:
     sources:
@@ -148,30 +170,35 @@ flags:
   - -v
   value_name: loglevel
   value_kind: Required
+  group: 'Main options:'
   description: set logging level
   provenance:
     sources:
     - help-text
 - spellings:
   - -report
+  group: 'Main options:'
   description: generate a report
   provenance:
     sources:
     - help-text
 - spellings:
   - -max_alloc
+  group: 'Main options:'
   description: set maximum size of a single allocated block
   provenance:
     sources:
     - help-text
 - spellings:
   - -sources
+  group: 'Main options:'
   description: list sources of the input device
   provenance:
     sources:
     - help-text
 - spellings:
   - -sinks
+  group: 'Main options:'
   description: list sinks of the output device
   provenance:
     sources:
@@ -180,6 +207,7 @@ flags:
   - -x
   value_name: width
   value_kind: Required
+  group: 'Main options:'
   description: force displayed width
   provenance:
     sources:
@@ -188,6 +216,7 @@ flags:
   - -y
   value_name: height
   value_kind: Required
+  group: 'Main options:'
   description: force displayed height
   provenance:
     sources:
@@ -196,6 +225,7 @@ flags:
   - -f
   value_name: s
   value_kind: Required
+  group: 'Main options:'
   description: force full screen
   provenance:
     sources:
@@ -204,6 +234,7 @@ flags:
   - -a
   value_name: n
   value_kind: Required
+  group: 'Main options:'
   description: disable audio
   provenance:
     sources:
@@ -212,6 +243,7 @@ flags:
   - -v
   value_name: n
   value_kind: Required
+  group: 'Main options:'
   description: disable video
   provenance:
     sources:
@@ -220,6 +252,7 @@ flags:
   - -s
   value_name: n
   value_kind: Required
+  group: 'Main options:'
   description: disable subtitling
   provenance:
     sources:
@@ -228,6 +261,7 @@ flags:
   - -s
   value_name: s
   value_kind: Required
+  group: 'Main options:'
   description: seek to a given position in seconds
   provenance:
     sources:
@@ -236,42 +270,49 @@ flags:
   - -t
   value_name: duration
   value_kind: Required
+  group: 'Main options:'
   description: play "duration" seconds of audio/video
   provenance:
     sources:
     - help-text
 - spellings:
   - -bytes
+  group: 'Main options:'
   description: seek by bytes 0=off 1=on -1=auto
   provenance:
     sources:
     - help-text
 - spellings:
   - -seek_interval
+  group: 'Main options:'
   description: set seek interval for left/right keys, in seconds
   provenance:
     sources:
     - help-text
 - spellings:
   - -nodisp
+  group: 'Main options:'
   description: disable graphical display
   provenance:
     sources:
     - help-text
 - spellings:
   - -noborder
+  group: 'Main options:'
   description: borderless window
   provenance:
     sources:
     - help-text
 - spellings:
   - -alwaysontop
+  group: 'Main options:'
   description: window always on top
   provenance:
     sources:
     - help-text
 - spellings:
   - -volume
+  group: 'Main options:'
   description: set startup volume 0=min 100=max
   provenance:
     sources:
@@ -280,12 +321,14 @@ flags:
   - -f
   value_name: fmt
   value_kind: Required
+  group: 'Main options:'
   description: force format
   provenance:
     sources:
     - help-text
 - spellings:
   - -window_title
+  group: 'Main options:'
   description: set window title
   provenance:
     sources:
@@ -294,12 +337,14 @@ flags:
   - -a
   value_name: f
   value_kind: Required
+  group: 'Main options:'
   description: set audio filters
   provenance:
     sources:
     - help-text
 - spellings:
   - -showmode
+  group: 'Main options:'
   description: select show mode (0 = video, 1 = waves, 2 = RDFT)
   provenance:
     sources:
@@ -308,137 +353,160 @@ flags:
   - -i
   value_name: input_file
   value_kind: Required
+  group: 'Main options:'
   description: read specified file
   provenance:
     sources:
     - help-text
 - spellings:
   - -codec
+  group: 'Main options:'
   description: force decoder
   provenance:
     sources:
     - help-text
 - spellings:
   - -autorotate
+  group: 'Main options:'
   description: automatically rotate video
   provenance:
     sources:
     - help-text
 - spellings:
   - -cpuflags
+  group: 'Advanced options:'
   description: force specific cpu flags
   provenance:
     sources:
     - help-text
 - spellings:
   - -cpucount
+  group: 'Advanced options:'
   description: force specific cpu count
   provenance:
     sources:
     - help-text
 - spellings:
   - -hide_banner
+  group: 'Advanced options:'
   description: do not show program banner
   provenance:
     sources:
     - help-text
 - spellings:
   - -ast
+  group: 'Advanced options:'
   description: select desired audio stream
   provenance:
     sources:
     - help-text
 - spellings:
   - -vst
+  group: 'Advanced options:'
   description: select desired video stream
   provenance:
     sources:
     - help-text
 - spellings:
   - -sst
+  group: 'Advanced options:'
   description: select desired subtitle stream
   provenance:
     sources:
     - help-text
 - spellings:
   - -stats
+  group: 'Advanced options:'
   description: show status
   provenance:
     sources:
     - help-text
 - spellings:
   - -fast
+  group: 'Advanced options:'
   description: non spec compliant optimizations
   provenance:
     sources:
     - help-text
 - spellings:
   - -genpts
+  group: 'Advanced options:'
   description: generate pts
   provenance:
     sources:
     - help-text
 - spellings:
   - -drp
+  group: 'Advanced options:'
   description: let decoder reorder pts 0=off 1=on -1=auto
   provenance:
     sources:
     - help-text
 - spellings:
   - -lowres
+  group: 'Advanced options:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -sync
+  group: 'Advanced options:'
   description: set audio-video sync. type (type=audio/video/ext)
   provenance:
     sources:
     - help-text
 - spellings:
   - -autoexit
+  group: 'Advanced options:'
   description: exit at the end
   provenance:
     sources:
     - help-text
 - spellings:
   - -exitonkeydown
+  group: 'Advanced options:'
   description: exit on key down
   provenance:
     sources:
     - help-text
 - spellings:
   - -exitonmousedown
+  group: 'Advanced options:'
   description: exit on mouse down
   provenance:
     sources:
     - help-text
 - spellings:
   - -loop
+  group: 'Advanced options:'
   description: set number of times the playback shall be looped
   provenance:
     sources:
     - help-text
 - spellings:
   - -framedrop
+  group: 'Advanced options:'
   description: drop frames when cpu is too slow
   provenance:
     sources:
     - help-text
 - spellings:
   - -infbuf
+  group: 'Advanced options:'
   description: don't limit the input buffer size (useful with realtime streams)
   provenance:
     sources:
     - help-text
 - spellings:
   - -left
+  group: 'Advanced options:'
   description: set the x position for the left of the window
   provenance:
     sources:
     - help-text
 - spellings:
   - -top
+  group: 'Advanced options:'
   description: set the y position for the top of the window
   provenance:
     sources:
@@ -447,42 +515,49 @@ flags:
   - -v
   value_name: f
   value_kind: Required
+  group: 'Advanced options:'
   description: set video filters
   provenance:
     sources:
     - help-text
 - spellings:
   - -rdftspeed
+  group: 'Advanced options:'
   description: rdft speed
   provenance:
     sources:
     - help-text
 - spellings:
   - -acodec
+  group: 'Advanced options:'
   description: force audio decoder
   provenance:
     sources:
     - help-text
 - spellings:
   - -scodec
+  group: 'Advanced options:'
   description: force subtitle decoder
   provenance:
     sources:
     - help-text
 - spellings:
   - -vcodec
+  group: 'Advanced options:'
   description: force video decoder
   provenance:
     sources:
     - help-text
 - spellings:
   - -find_stream_info
+  group: 'Advanced options:'
   description: read and decode the streams to fill missing information with heuristics
   provenance:
     sources:
     - help-text
 - spellings:
   - -filter_threads
+  group: 'Advanced options:'
   description: number of filter threads per graph
   provenance:
     sources:

@@ -61,6 +61,7 @@ pub(crate) mod numbered_variadic_usage_tail;
 pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
 pub(crate) mod positional_description_block;
+pub(crate) mod single_dash_long_table;
 pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
@@ -735,6 +736,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(NumberedVariadicUsageTail),
         Box::new(invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup),
         Box::new(GluedUppercaseSharedPrefix),
+        Box::new(SingleDashLongTable),
         Box::new(description_continuation_dash_flag::RawContinuationShape),
         Box::new(description_continuation_dash_flag::BareQuoteValue),
         Box::new(usage_label_glued_to_program_name::UsageLabelGluedToProgramName),
