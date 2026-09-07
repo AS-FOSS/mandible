@@ -2667,3 +2667,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   refill, so its flag-count `sweep-diff` reads identical on this branch;
   the gain is confirmed instead by the corpus contract (fails before the
   fix, passes after) and by `mandible lvcreate`'s own rendered screen.
+
+### S-148: an option-table row's value name repeats across several words
+
+- id: S-148
+- looks like: |
+      --annotate WHAT KEY VALUE WHAT KEY VALUE WHAT KEY VALUE
+                            Add annotation (may be used several times)
+- tools: gdbus-codegen
+- handling: Open defect, the option-table sibling of S-131. `gdbus-codegen`'s
+  block-derived option-table reader wins over the usage-derived one for a
+  flag documented in both places (`help_text/sections/mod.rs`'s "let the
+  described version win"), and its own multi-word metavar row keeps only
+  the first word, `WHAT`, rather than the whole repeated run.
+- fleet: `option-table-multiword-value-name`
+  (`xtask/src/detector/option_table_multiword_value_name.rs`) reads 1
+  tool / 1 finding on a full-`PATH` sweep of 2269 tools, 2026-09-07. Below
+  the five-tool bar; not fixed this round.

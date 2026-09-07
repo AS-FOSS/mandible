@@ -92,6 +92,11 @@ pub(crate) mod invocation_form_head_as_flag_group;
 pub(crate) mod usage_label_glued_to_program_name;
 pub(crate) mod usage_open_bracket_continues_at_column_zero;
 
+// Round-9 family detector (atlas S-148, the option-table sibling of
+// S-131), same direct-`Detector`-impl shape. Count only this round — no
+// parser change ships for it.
+pub(crate) mod option_table_multiword_value_name;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -732,6 +737,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(
             usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
         ),
+        Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
     ]
 }
 
