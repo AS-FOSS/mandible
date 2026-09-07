@@ -32,6 +32,7 @@ use mandible_core::{
 };
 
 mod backfill;
+mod bullets;
 mod emit;
 mod entry;
 mod flag_rows;
@@ -47,6 +48,7 @@ mod test_support;
 mod usage;
 
 use backfill::*;
+use bullets::*;
 pub use emit::*;
 pub use entry::*;
 use flag_rows::*;
@@ -284,6 +286,14 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    // lowdown's man-page-like rendering (nix/Lix, issue #138) writes
+    // every entry, command or option alike, as a `·`-led bullet row and
+    // sometimes wraps a group label across two physical lines. Rewritten
+    // away here, once, for the same reason the escape strip above runs
+    // first: every later measurement (heading text, indentation, column
+    // gaps) must see the plain row, not the decorated one. See docs/shapes.md
+    // S-143, S-144.
+    let raw = rewrite_lowdown_bullets(&raw, tool_name);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it. Doing it here, once, keeps the recovered

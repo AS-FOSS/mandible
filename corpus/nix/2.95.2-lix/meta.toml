@@ -7,6 +7,9 @@ version = "2.95.2-lix"
 platform = "nixos-x86_64, kernel 6.18.39-NixOS"
 captured_with = "mandible 0.6.1"
 
+# The reporter's paste is not byte-exact: a GitHub issue textarea drops
+# trailing whitespace on rendering, so help.txt is instead the reporter's
+# own mandible --report output, which preserves it.
 [[capture]]
 argv = ["nix", "--help"]
 stdout = "help.txt"
@@ -19,15 +22,23 @@ must_contain_flags = [
   "--debug", "--print-build-logs", "-L", "--quiet", "--verbose", "-v",
   "--help", "--offline", "--option", "--refresh", "--version",
 ]
+verdict_scope = ["flags", "subcommands"]
 
 [contract.must_value_name]
-"--option" = "value"
+"--option" = "name value"
 
 [contract.must_describe]
 "--debug" = "Set the logging verbosity level to 'debug'"
-"--option" = "Set the Lix configuration setting"
+"--option" = "Set the Lix configuration setting name to value"
 
-[xfail]
-broken = true
-reason = "lowdown man-page rendering: 30 `nix <word> - description` bullet rows under `... commands:` labels, and 9 `-flag description` bullet rows under `Options`, all render as prose. mandible --doctor nix read 1 node and 0 flags on the reporter's box. The reporter's paste is not byte-exact: a GitHub issue textarea drops trailing whitespace on rendering, so this fixture's help.txt is instead the reporter's own mandible --report output, which preserves it."
-issue = "https://github.com/AS-FOSS/mandible/issues/138"
+[contract.must_describe_subcommand]
+help = "show help about nix or a particular subcommand"
+config = "manipulate the Lix configuration"
+doctor = "check your system for potential problems"
+
+[contract.must_subcommand_group]
+help = "Help commands:"
+build = "Main commands:"
+bundle = "Infrequently used commands:"
+config = "Utility/scripting commands:"
+doctor = "Commands for upgrading or troubleshooting your Nix installation:"

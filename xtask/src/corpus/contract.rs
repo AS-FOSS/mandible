@@ -291,6 +291,8 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    lines.extend(subcommand::contract_weakened_lines(label, b, n));
+
     // `must_accept_modifiers`: same shape as `must_contain_flags_by_path` —
     // a dropped letter under an existing path weakens it.
     for (path, base_letters) in &b.must_accept_modifiers {
@@ -425,6 +427,7 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
             "must_accept_modifiers: no root produced".into(),
         ));
     }
+    failures.extend(subcommand::missing_root_failures(contract));
     // `must_not_describe`, like `must_not_contain_flags`, is a negative
     // claim satisfied vacuously by no tree at all — omitted here for the
     // same reason `check_contract_missing_root`'s own doc comment gives.
@@ -762,9 +765,12 @@ fn check_contract_collection_fields(
     }
 
     failures.extend(check_must_value_name(contract, root));
-    failures.extend(check_must_display_name_and_modifiers(contract, root));
+    failures.extend(subcommand::check_must_display_name_and_modifiers(
+        contract, root,
+    ));
     failures.extend(check_must_not_value_name(contract, root));
     failures.extend(check_must_flag_group(contract, root));
+    failures.extend(subcommand::check_all(contract, root));
 
     failures
 }
@@ -809,55 +815,6 @@ fn check_must_flag_group(contract: &ContractMeta, root: &CommandNode) -> Vec<Con
             failures.push(ContractFailure(format!(
                 "must_flag_group[{flag_spec:?}]: expected group {expected_display}, got {}",
                 actual.join(", ")
-            )));
-        }
-    }
-    failures
-}
-
-/// `must_display_name`/`must_accept_modifiers`: a subcommand's own source
-/// spelling and accepted-modifier letters, both keyed by path the way
-/// `must_contain_flags_by_path` is.
-fn check_must_display_name_and_modifiers(
-    contract: &ContractMeta,
-    root: &CommandNode,
-) -> Vec<ContractFailure> {
-    let mut failures = Vec::new();
-    for (path, expected_name) in &contract.must_display_name {
-        let Some(node) = find_node_by_path(root, path) else {
-            failures.push(ContractFailure(format!(
-                "must_display_name: no node at path {path:?}"
-            )));
-            continue;
-        };
-        let actual = node.display_name.as_deref().unwrap_or(node.name.as_str());
-        if actual != expected_name {
-            failures.push(ContractFailure(format!(
-                "must_display_name[{path:?}]: expected {expected_name:?}, got {actual:?}"
-            )));
-        }
-    }
-    for (path, expected_letters) in &contract.must_accept_modifiers {
-        let Some(node) = find_node_by_path(root, path) else {
-            failures.push(ContractFailure(format!(
-                "must_accept_modifiers: no node at path {path:?}"
-            )));
-            continue;
-        };
-        let missing: Vec<&str> = expected_letters
-            .iter()
-            .filter(|letter| {
-                !node
-                    .accepted_modifiers
-                    .iter()
-                    .any(|m| m.to_string() == **letter)
-            })
-            .map(|s| s.as_str())
-            .collect();
-        if !missing.is_empty() {
-            failures.push(ContractFailure(format!(
-                "must_accept_modifiers[{path:?}]: missing {}",
-                missing.join(", ")
             )));
         }
     }
@@ -941,7 +898,7 @@ fn positional_present(root: &CommandNode, spec: &str) -> bool {
 /// same walk [`mandible_core::noderef::resolve`] does for the TUI's own
 /// addressing, reimplemented narrowly here rather than pulled in because
 /// this only ever needs a name match, never alias resolution.
-fn find_node_by_path<'a>(root: &'a CommandNode, path: &str) -> Option<&'a CommandNode> {
+pub(super) fn find_node_by_path<'a>(root: &'a CommandNode, path: &str) -> Option<&'a CommandNode> {
     let mut node = root;
     for segment in path.split_whitespace() {
         node = node.subcommands.iter().find(|c| c.name == segment)?;
@@ -1040,7 +997,7 @@ fn resolve_flag_entity(node: &CommandNode, spec: &str) -> Option<usize> {
 
 /// Truncate `s` to at most `max` chars for a readable failure message,
 /// appending `"..."` when truncated.
-fn truncate_for_display(s: &str, max: usize) -> String {
+pub(super) fn truncate_for_display(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
     } else {
@@ -1052,6 +1009,6 @@ fn truncate_for_display(s: &str, max: usize) -> String {
 /// Collapse runs of whitespace to a single space and trim the ends —
 /// `must_describe`'s comparison rule, applied to both sides, since a
 /// description wraps and a fixture author's TOML value may too.
-fn collapse_whitespace(s: &str) -> String {
+pub(super) fn collapse_whitespace(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
 }

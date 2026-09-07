@@ -1,0 +1,288 @@
+name: nix
+description: If a fileish starts with flake:, the rest of the argument is interpreted as a flakeref (see nix flake --help or man nix3-flake), which requires the "flakes" experimental feature to be enabled. This is is not quite the same as specifying a flake output attrpath. It does not access the flake directly and does not even consider the existence of flake.nix, but instead fetches it as if it is not a flake at all and imports the unpacked directory. In other words, it assumes that the flake has a default.nix file, and then interprets the attribute path relative to what default.nix evaluates to.
+usage:
+- nix [option...] subcommand
+flags:
+- spellings:
+  - --debug
+  group: 'Logging-related options:'
+  description: Set the logging verbosity level to 'debug'.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --print-build-logs
+  - -L
+  group: 'Logging-related options:'
+  description: Print full build logs on standard error.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet
+  group: 'Logging-related options:'
+  description: Decrease the logging verbosity level.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  group: 'Logging-related options:'
+  description: Increase the logging verbosity level.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  group: 'Miscellaneous global options:'
+  description: Show usage information.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --offline
+  group: 'Miscellaneous global options:'
+  description: Disable substituters and consider all previously downloaded files up-to-date.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --option
+  value_name: <name value>
+  value_kind: Required
+  group: 'Miscellaneous global options:'
+  description: Set the Lix configuration setting name to value (overriding nix.conf).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --refresh
+  group: 'Miscellaneous global options:'
+  description: Consider all previously downloaded files out-of-date.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Miscellaneous global options:'
+  description: Show version information.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: help
+  summary: show help about nix or a particular subcommand
+  group: 'Help commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: help-stores
+  summary: show help about store types and their settings
+  group: 'Help commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: build
+  summary: build a derivation or fetch a store path
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: develop
+  summary: run a bash shell that provides the build environment of a derivation
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: flake
+  summary: manage Nix flakes
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: profile
+  summary: manage Nix profiles
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: run
+  summary: run a Nix application
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: search
+  summary: search for packages
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: shell
+  summary: run a shell in which the specified packages are available
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: repl
+  summary: start an interactive environment for evaluating Nix expressions
+  group: 'Main commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bundle
+  summary: bundle an application so that it works outside of the Nix store
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: copy
+  summary: copy paths between Nix stores
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: edit
+  summary: open the Nix expression of a Nix package in $EDITOR
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: eval
+  summary: evaluate a Nix expression
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fmt
+  summary: reformat your code in the standard style
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log
+  summary: show the build log of the specified packages or paths, if available
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: path-info
+  summary: query information about store paths
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: registry
+  summary: manage the flake registry
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: why-depends
+  summary: show why a package has another package in its closure
+  group: 'Infrequently used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: config
+  summary: manipulate the Lix configuration
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: daemon
+  summary: daemon to perform store operations on behalf of non-root clients
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: derivation
+  summary: Work with derivations, Nix's notion of a build plan.
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hash
+  summary: compute and convert cryptographic hashes
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: key
+  summary: generate and convert Nix signing keys
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: nar
+  summary: create or inspect NAR files
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: print-dev-env
+  summary: print shell code that can be sourced by bash to reproduce the build environment of a derivation
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: realisation
+  summary: manipulate a Nix realisation
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: store
+  summary: manipulate a Nix store
+  group: 'Utility/scripting commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: doctor
+  summary: check your system for potential problems and print a PASS or FAIL for each check
+  group: 'Commands for upgrading or troubleshooting your Nix installation:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: upgrade-nix
+  summary: upgrade Nix to the stable version declared in Nixpkgs
+  group: 'Commands for upgrading or troubleshooting your Nix installation:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

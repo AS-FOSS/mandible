@@ -466,6 +466,50 @@ subcommand documented with no modifiers at all (`ar`'s `d`, `p`, `s`)
 needs no entry. A fixture that produces no root fails this exactly as it
 fails `must_contain_flags_by_path`.
 
+### A subcommand's own description: `must_describe_subcommand`
+
+`must_describe` walks only `root.flags()`, so nothing before this field
+could assert a subcommand's own rendered description the way nix's
+`nix help - show help about nix or a particular subcommand` documents
+one, keyed by path the way `must_contain_flags_by_path` is (docs/shapes.md
+S-143).
+
+```toml
+[contract.must_describe_subcommand]
+help = "show help about nix or a particular subcommand"
+```
+
+The named node's `CommandNode::summary` must contain this text as a
+substring, matched the way `must_describe` matches: whitespace collapsed
+to a single space on both sides, case-sensitive. `cargo xtask corpus`
+fails when no node exists at the path, or when the summary does not
+contain the text, naming what was expected and what the summary actually
+is. A fixture that produces no root fails this exactly as it fails
+`must_contain_flags_by_path`.
+
+### A subcommand's own group: `must_subcommand_group`
+
+The subcommand mirror of `must_flag_group`: a subcommand's own
+`CommandNode::group` must equal specific text, keyed by path the way
+`must_contain_flags_by_path` is. nix's own command table groups every
+subcommand under a `... commands:` label (docs/shapes.md S-143), and
+nothing before this field could check which label a subcommand actually
+landed under.
+
+```toml
+[contract.must_subcommand_group]
+help = "Help commands:"
+build = "Main commands:"
+```
+
+The expected text is matched against `CommandNode::group` exactly — no
+substring, no whitespace collapsing, `must_flag_group`'s own reasoning —
+except the empty string, which instead asserts the node carries no group
+at all. `cargo xtask corpus` fails when no node exists at the path, or
+when no matching group is found, naming what was expected and what the
+node actually carries. A fixture that produces no root fails this
+exactly as it fails `must_display_name`.
+
 ### Stating that a description carries text it must not: `must_not_describe`
 
 `must_describe`'s substring check cannot say a description is
