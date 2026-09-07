@@ -16,8 +16,9 @@ pub(super) fn round9_family_counts(
     let evidence = ToolEvidence { raw, root };
     let cmd = crate::detector::lowdown_bullet_command_row::LowdownBulletCommandRow.hits(&evidence);
     let opt = crate::detector::lowdown_bullet_option_row::LowdownBulletOptionRow.hits(&evidence);
-    let annotate = crate::detector::option_table_multiword_value_name::OptionTableMultiwordValueName
-        .hits(&evidence);
+    let annotate =
+        crate::detector::option_table_multiword_value_name::OptionTableMultiwordValueName
+            .hits(&evidence);
     vec![
         (
             "lowdown-bullet-command-row",
