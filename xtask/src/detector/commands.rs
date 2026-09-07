@@ -384,6 +384,20 @@ pub fn check_round8_family_ratchets(
     Ok(forms && glued)
 }
 
+/// [`check_vim_family_ratchet`] for round 9's two repaired families, atlas
+/// S-143 and S-144 (issue #138), gated at zero the same way
+/// [`check_round8_family_ratchets`] is. Neither family has a measured
+/// fleet member on this box (no nix, no Lix installed); both are shipped
+/// as a gated exception, recorded in `docs/design.md` §16.
+pub fn check_round9_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let cmd = check_vim_family_ratchet("lowdown-bullet-command-row", previous, fresh)?;
+    let opt = check_vim_family_ratchet("lowdown-bullet-option-row", previous, fresh)?;
+    Ok(cmd && opt)
+}
+
 /// pnpm's two families (atlas S-103, S-104), fixed in
 /// `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted at
 /// zero the same way as `single-dash-long`: the fix moves two tools

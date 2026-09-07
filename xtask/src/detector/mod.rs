@@ -91,6 +91,10 @@ pub(crate) mod invocation_form_head_as_flag_group;
 // continuation at column zero), same direct-`Detector`-impl shape.
 pub(crate) mod usage_label_glued_to_program_name;
 pub(crate) mod usage_open_bracket_continues_at_column_zero;
+// Round-9 family detectors (issue #138's own two shapes, atlas S-143 and
+// S-144), same direct-`Detector`-impl shape.
+pub(crate) mod lowdown_bullet_command_row;
+pub(crate) mod lowdown_bullet_option_row;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -732,6 +736,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(
             usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
         ),
+        Box::new(lowdown_bullet_command_row::LowdownBulletCommandRow),
+        Box::new(lowdown_bullet_option_row::LowdownBulletOptionRow),
     ]
 }
 

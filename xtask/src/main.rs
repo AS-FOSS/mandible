@@ -1234,6 +1234,7 @@ fn run_coverage(
         regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_command_pattern_reported(&previous, &fresh)?;
+        regressed |= !detector::check_round9_family_ratchets(&previous, &fresh)?;
 
         // `glued-uppercase-shared-prefix` (atlas S-139) is gated inside
         // `check_round8_family_ratchets` beside S-137's own family.
