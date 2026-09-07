@@ -8,8 +8,18 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Changed
+
+- `cargo xtask audit contribute` now draws tool names off `PATH` before probing anything, then probes only the drawn sample, instead of freezing and classifying the whole `PATH` first; the submitted verdict file now records the machine and containment posture it was captured under (#102).
+
+### Removed
+
+- The `.` hidden/deprecated toggle is gone, with the `show_hidden` state and the override tier's `hidden` field it depended on; a deprecated flag now always renders with its `(deprecated)` tag.
+
 ### Fixed
 
+- `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.
+- `xtask detector calibrate` now prints `NOT EVALUABLE` instead of `DOES NOT PASS` for a detector whose family has zero labelled members in the audit seed, so a legitimate gap in the sample is no longer reported as a failing detector.
 - A bare-word block opening on a centered ALL-CAPS group label no longer ends before reading a single real row beneath it (`mandible fail2ban-client`, docs/shapes.md S-149).
 - A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
 - A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`, docs/shapes.md S-117).

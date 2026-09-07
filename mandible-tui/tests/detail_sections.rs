@@ -244,9 +244,7 @@ fn positionals_are_inset_by_two_columns_and_the_flag_sections_stay_flush() {
 }
 
 /// Counts are the section's own entity count, and they follow what is
-/// actually rendered rather than what the node holds: a hidden flag is
-/// suppressed by default (spec §9), so counting it would advertise rows
-/// the reader cannot see.
+/// actually rendered.
 #[test]
 fn section_headers_carry_the_count_of_what_they_render() {
     let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
@@ -257,15 +255,9 @@ fn section_headers_carry_the_count_of_what_they_render() {
             "does something",
         ));
     }
-    let mut hidden = entity(EntityKind::Flag, Spelling::long("secret"), "internal");
-    hidden.hidden = true;
-    node.entities.push(hidden);
 
     let joined = detail_rows(&app_for(node), 90, 30).join("\n");
-    assert!(
-        joined.contains("FLAGS (3)"),
-        "the count must exclude the hidden flag:\n{joined}"
-    );
+    assert!(joined.contains("FLAGS (3)"), "{joined}");
 }
 
 /// Spec §9.3: the gaps down the page are the container hierarchy made

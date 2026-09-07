@@ -353,7 +353,6 @@ pub struct CommandNode {
     pub entities: Vec<Entity>,
     pub subcommands: Vec<CommandNode>,
     pub examples: Vec<Example>,
-    pub hidden: bool,
     pub deprecated: Option<Text>,       // Some(reason) when deprecated
     /// True when this node's children are known-complete. False means the
     /// subtree has not been extracted yet (see §5, lazy extraction).
@@ -393,7 +392,7 @@ pub struct Entity {
     pub env_var: Option<String>,
     pub provenance: Provenance,
     // ... plus the flags carried over from the type this replaced:
-    // repeatable, required, hidden, deprecated, inherited, default.
+    // repeatable, required, deprecated, inherited, default.
 }
 
 pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
@@ -1595,8 +1594,10 @@ pane.
 5. The flattened row list is cached and invalidated on expand/collapse,
    search change, or lazy fill, never rebuilt per keypress.
 6. The detail pane groups flags by `Flag::group`, with inherited flags in a
-   final dimmed "Inherited" group, and hidden/deprecated flags suppressed
-   unless toggled with `.`.
+   final dimmed "Inherited" group. A deprecated flag always renders, tagged
+   with its reason (§9.2). There is no hidden-flag concept: nothing but a
+   removed user-override field ever set one, so the toggle that showed it
+   was removed with it.
 7. Scroll state is per-pane; the wheel scrolls the pane under the cursor.
 8. The parsed view and the raw view each keep their own scroll position,
    vertical and horizontal. `t` restores the exact position the view being
@@ -2358,9 +2359,12 @@ quote, and what a family label means.
    already said this parse is wrong. Every cell names its tools.
 6. Not-evaluable is counted, never dropped: a labelled tool with no
    fixture is listed by name. A detector may legitimately generalize no
-   family the labelled set contains (`Detector::family` returns `None`);
-   forcing it onto the nearest family would manufacture a matrix nobody
-   verified.
+   family the labelled set contains (`Detector::family` returns `None`),
+   or generalize a family with zero labelled members in the seed
+   calibrated against; forcing it onto the nearest family would
+   manufacture a matrix nobody verified. Either shape reads as a fourth
+   calibration verdict, `NotEvaluable`, never `DoesNotPass`: nothing was
+   demonstrated in either direction, so nothing failed.
 7. The moment a family's fix lands, its detector's recall on the labelled
    set drops to zero, because those fixtures now parse correctly and the
    labelled set has nothing left to confirm against. What carries the
@@ -2564,6 +2568,17 @@ into one loop from a defect found to a regression prevented.
    The detector's fleet count is ratchet-gated at zero going forward, so
    a future regression in that family is visible the moment the count
    leaves zero.
+7. `xtask audit contribute` (CONTRIBUTING.md §2) feeds the audit instrument
+   from a contributor's own machine. It draws tool NAMES off `PATH` first,
+   excluding already-audited tools, with zero probes; only the drawn
+   sample is then probed and classified. Strata are computed from that
+   same probe, after the draw, since nothing can be stratified before
+   anything is probed. This is a bounded, named-list probe, the same risk
+   class as `--tools` and `spot-audit`, so it runs without namespace
+   containment. `AuditMeta::platform` and `AuditMeta::containment` record
+   the machine and containment posture each submitted file was captured
+   under, printed in its report header, so a reader can weigh a submitted
+   verdict knowing where it came from (issue #102 item 3).
 
 **Why.** Summing gains and losses hides exactly the losses that
 motivated building sweep-diff in the first place, which is why the two
@@ -2571,7 +2586,7 @@ totals are always reported separately. [M-21] has a worked example,
 start to finish.
 
 **Implemented in.** `xtask/src/coverage/`, `xtask/src/audit/`,
-`xtask/src/detector/`, `xtask/src/corpus/`.
+`xtask/src/detector/`, `xtask/src/corpus/`, `xtask/src/audit_contribute.rs`.
 
 ---
 
@@ -2817,6 +2832,13 @@ instead of `-noI`. The gcc and clang glued-value convention stays
 byte-identical, which is the whole safety argument for the
 discriminator.
 
+**The hidden-flag toggle is removed (2026-09-07).** The maintainer ruled it
+"unnecessary, useless surface to maintain." Nothing but the user-override
+tier ever set `Entity::hidden` or `CommandNode::hidden`, so both fields, the
+`.` key, and `App::show_hidden` are gone rather than kept dark. A deprecated
+flag now always renders with its `(deprecated)` tag, the same as it did
+while the toggle was on. `docs/shapes.md` carries no entry, since removing a
+control is not a parser family.
 **The lowdown bullet-row fix ships with zero measured fleet tools
 (2026-09-07).** `rewrite_lowdown_bullets` (docs/shapes.md S-143, S-144,
 issue #138) has no fleet member on this box: no nix, no Lix, and no

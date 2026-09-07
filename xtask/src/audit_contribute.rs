@@ -1,49 +1,52 @@
 //! `xtask audit contribute`: the one-command audit submission flow described
 //! in `CONTRIBUTING.md` §2 ("Audit mandible against your own tools").
 //!
-//! `xtask/src` cannot spawn a subprocess (`no_process_outside_exec.rs`
-//! forbids `std::process` outside `mandible-extract/src/exec/`, spec
-//! §6/§8), so this command does everything that is plain file I/O — the
-//! freeze, the draw, review resumability, writing `<seed>.toml` and
-//! `<seed>-report.txt` — and for the two steps that are actually git/gh
-//! operations, [`suggest_login`] and [`finish_submission`], it prints what
-//! it cannot run: no prefilled login prompt, and the contributor runs the
-//! printed `git switch`/`git add`/`git commit`/`gh pr create` commands
-//! themselves, with a chance to review them first.
+//! The draw reads tool NAMES off `PATH` first and probes nothing: [`draw`]
+//! excludes already-audited names ([`audited_tools`]), then seeded-shuffles
+//! the rest and takes `--sample` of them, with zero subprocess spawned.
+//! Only the drawn names are then classified, one fresh extraction pass
+//! each, the same probe [`crate::audit::classify_one`] performs for `xtask
+//! audit sample`/`spot-audit`. There is no full-`PATH` freeze here and
+//! nothing to stratify beforehand — a stratum is a property of a probed
+//! tool, and nothing is probed until after the draw. The per-stratum
+//! summary this command prints (mirroring `xtask audit sample`'s own) is
+//! computed from that same probe, after the fact, since a bounded sample's
+//! worth of classification is cheap: no separate frozen-population pass
+//! earns its keep for a `--sample` of tens of tools.
+//!
+//! `xtask/src` cannot spawn a subprocess itself
+//! (`no_process_outside_exec.rs` forbids `std::process` outside
+//! `mandible-extract/src/exec/`, spec §6/§8); every probe here goes
+//! through `mandible_extract::Runner`, which does. This command otherwise
+//! does plain file I/O — the draw, review resumability, writing
+//! `<seed>.toml` and `<seed>-report.txt` — and for the two steps that are
+//! actually git/gh operations, [`suggest_login`] and [`finish_submission`],
+//! it prints what it cannot run: no prefilled login prompt, and the
+//! contributor runs the printed `git switch`/`git add`/`git commit`/`gh pr
+//! create` commands themselves, with a chance to review them first.
 //!
 //! Same reasoning for step 4 (`mandible --review <seed> --audit-dir <dir>`,
 //! needs a real tty, spec/AGENTS §3.2): [`cmd_contribute`] prints the
 //! command and returns when a draw has pending entries, relying on
 //! CONTRIBUTING.md §2's resumability promise — a bare rerun finds the
 //! unfinished seed and continues from wherever review left it.
+//!
+//! **No namespace containment.** The old full-`PATH` freeze probed every
+//! executable on `PATH` sight-unseen, which is what earned it the same
+//! containment-or-refuse gate `xtask coverage`'s own full sweep uses. This
+//! flow only ever probes a bounded `--sample`-sized list, the same risk
+//! class `xtask audit sample` (drawing from an already-frozen queue) and
+//! `xtask audit spot-audit` (drawing from a named `--promoted` list) are
+//! already in without containment. `AuditMeta::containment` records
+//! `"uncontained"` for every file this command writes accordingly.
 
-use crate::audit::{classify_one_with_recordings, render_report, Classified};
-use crate::queue::{
-    captures_dir, population_hash, queue_path, save_queue, shuffle_stratify, today_iso8601,
-    write_captures_for_tool, Queue, QueueMeta,
-};
-use crate::rng::fnv1a64;
-use crate::{finish_sweep_guard, sweep_guard};
-use mandible_core::audit::{load, verdict_path, AuditFile};
-use mandible_extract::exec::ExecOutput;
-use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
-use std::io::{BufRead, IsTerminal, Write};
+use crate::audit::{classify_one, entry_from_classified, render_report};
+use crate::coverage::unique_executables_on_path;
+use mandible_core::audit::{current_platform, load, save, verdict_path, AuditFile, AuditMeta};
+use std::collections::{BTreeMap, HashSet};
+use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-
-/// Carries the already-prompted-for login across the containment re-exec a
-/// full-`PATH` freeze goes through (`unshare` re-execs this binary with
-/// the same argv and environment). That re-exec restarts `main()` from
-/// scratch, which would otherwise call [`prompt_login`] a second time
-/// against a `stdin` already consumed by the first prompt, since the
-/// fresh process image remembers nothing read from a pipe. Set right
-/// before [`crate::sweep_guard`] is called and checked at the top of
-/// [`cmd_contribute`], the same pattern `containment`'s own
-/// `SCOREBOARD_FD_ENV_VAR` uses to survive the same re-exec.
-const CONTRIBUTE_LOGIN_ENV_VAR: &str = "XTASK_CONTRIBUTE_LOGIN";
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A GitHub login is validated against this shape everywhere it is read —
 /// typed at the prompt here, or read back out of a folder name by
@@ -110,11 +113,11 @@ fn seed_from_clock() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    // Masked to the non-negative i64 range for the same reason
-    // `freeze_for_contribute`'s own seed is: this becomes `AuditMeta::seed`,
-    // which round-trips through TOML's signed-64-bit integer type, and an
-    // unmasked FNV-1a hash is out of range about half the time.
-    fnv1a64(&nanos.to_le_bytes()) & 0x7fff_ffff_ffff_ffff
+    // Masked to the non-negative i64 range: this becomes both
+    // `AuditMeta::seed` and [`draw`]'s shuffle seed, and `AuditMeta` round-
+    // trips through TOML's signed-64-bit integer type — an unmasked
+    // FNV-1a hash is out of range about half the time.
+    crate::rng::fnv1a64(&nanos.to_le_bytes()) & 0x7fff_ffff_ffff_ffff
 }
 
 /// A verdict file's name is always `<digits>.toml` — `queue.toml` and
@@ -188,156 +191,107 @@ pub(crate) fn audited_tools(
     Ok(audited)
 }
 
-/// Print a progress line to stderr: `\r`-overwritten in place under a tty,
-/// one plain line per update otherwise (brief's own requirement — a CI log
-/// or a piped run must never see carriage-return noise).
-fn print_progress(done: usize, total: usize, elapsed: Duration, tty: bool) {
-    let msg = format!(
-        "classifying tools: {done}/{total} ({}s elapsed)",
-        elapsed.as_secs()
-    );
-    if tty {
-        // Padded so a shorter later message fully overwrites a longer
-        // earlier one on the same line.
-        eprint!("\r{msg:<72}");
-        let _ = std::io::stderr().flush();
-    } else {
-        eprintln!("{msg}");
-    }
-}
-
-/// [`crate::audit::classify_all_with_recordings`], with a live progress
-/// indicator on stderr while the parallel classification runs (spec: done
-/// count, total, and elapsed time). The classification itself is unchanged
-/// — this only adds a ticking reporter thread around the same
-/// `par_iter().map(classify_one_with_recordings)` shape.
-fn classify_with_progress(
-    tools: &[String],
-) -> Vec<(String, Classified, HashMap<Vec<String>, ExecOutput>)> {
-    let total = tools.len();
-    let done = Arc::new(AtomicUsize::new(0));
-    let stop = Arc::new(AtomicBool::new(false));
-    let start = Instant::now();
-    let tty = std::io::stderr().is_terminal();
-
-    let progress_thread = {
-        let done = Arc::clone(&done);
-        let stop = Arc::clone(&stop);
-        std::thread::spawn(move || {
-            let mut last_reported = usize::MAX;
-            loop {
-                let now_done = done.load(Ordering::Relaxed);
-                if tty {
-                    print_progress(now_done, total, start.elapsed(), true);
-                } else if now_done != last_reported {
-                    print_progress(now_done, total, start.elapsed(), false);
-                    last_reported = now_done;
-                }
-                if stop.load(Ordering::Relaxed) {
-                    break;
-                }
-                std::thread::sleep(Duration::from_millis(200));
-            }
-        })
-    };
-
-    let results: Vec<_> = tools
-        .par_iter()
-        .map(|t| {
-            let (classified, recordings) = classify_one_with_recordings(t);
-            done.fetch_add(1, Ordering::Relaxed);
-            (t.clone(), classified, recordings)
-        })
-        .collect();
-
-    stop.store(true, Ordering::Relaxed);
-    let _ = progress_thread.join();
-    print_progress(total, total, start.elapsed(), tty);
-    if tty {
-        eprintln!();
-    }
-    results
-}
-
-/// Step 2 of CONTRIBUTING.md §2: freeze `<dir>/queue.toml` (only ever
-/// called when it does not already exist — [`cmd_contribute`] checks that),
-/// scanning `PATH` once, excluding already-audited tools first
-/// ([`audited_tools`], before the shuffle, never as a skip during the
-/// cursor walk), and reporting live progress on stderr.
-fn freeze_for_contribute(
+/// Step 2 of CONTRIBUTING.md §2, redesigned: draw `sample` tool NAMES off
+/// `PATH` (no probe, no full sweep — this module's own doc comment), then
+/// probe and classify only the drawn tools, writing/merging them into
+/// `<dir>/<seed>.toml`. Only ever called when that file does not already
+/// exist ([`cmd_contribute`] checks that). Returns how many tools were
+/// drawn.
+///
+/// The stratum table this prints is computed from the same probe that
+/// built each entry — no second pass, and nothing to report for the
+/// un-probed rest of `PATH`, since a stratum is only known once a tool has
+/// actually been probed.
+#[allow(clippy::too_many_arguments)]
+fn draw(
     dir: &Path,
     submissions_root: &Path,
     corpus_root: &Path,
     login: &str,
+    seed: u64,
+    sample: usize,
     include_audited: bool,
     output: &mut impl Write,
-) -> anyhow::Result<()> {
-    let full_population = crate::coverage::unique_executables_on_path();
+) -> anyhow::Result<usize> {
+    let full_population = unique_executables_on_path();
     let audited = if include_audited {
         HashSet::new()
     } else {
         audited_tools(submissions_root, corpus_root)?
     };
-    let population: Vec<String> = full_population
+    let mut population: Vec<String> = full_population
         .into_iter()
         .filter(|t| !audited.contains(t))
         .collect();
     if population.is_empty() {
         anyhow::bail!(
-            "no tools left to freeze after excluding {} already-audited tool(s) — pass \
-             --include-audited to draw from them anyway",
+            "no tools left to draw from after excluding {} already-audited tool(s) on PATH — \
+             pass --include-audited to draw from them anyway",
             audited.len()
         );
     }
 
+    // The draw's only randomness: a seeded shuffle of tool NAMES, nothing
+    // probed yet. `seed` also names the verdict file, so `--seed N`
+    // reproduces the exact same draw.
+    crate::rng::seeded_shuffle(&mut population, seed);
+    let take_n = sample.min(population.len());
+    let drawn: Vec<String> = population.into_iter().take(take_n).collect();
     writeln!(
         output,
-        "classifying {} tool(s) on PATH for {login} ({} already-audited tool(s) excluded)...",
-        population.len(),
+        "drew {} tool(s) from PATH for {login} ({} already-audited tool(s) excluded)",
+        drawn.len(),
         audited.len(),
     )?;
-    let classified = classify_with_progress(&population);
-
-    let cdir = captures_dir(dir);
-    std::fs::create_dir_all(&cdir)
-        .map_err(|e| anyhow::anyhow!("creating {}: {e}", cdir.display()))?;
-    for (tool, _classified, recordings) in &classified {
-        write_captures_for_tool(&cdir, tool, recordings)?;
+    if drawn.len() < sample {
+        writeln!(
+            output,
+            "note: only {} tool(s) were available to draw ({sample} requested)",
+            drawn.len(),
+        )?;
     }
 
-    let pairs: Vec<(String, String)> = classified
-        .iter()
-        .map(|(tool, c, _)| (tool.clone(), c.stratum.to_string()))
-        .collect();
-    // The shuffle-stratification seed only decides queue order, never which
-    // tools are in it; deriving it from the login keeps a re-freeze of the
-    // same folder stable rather than picking a fresh order every time.
-    // Masked to the non-negative i64 range: `QueueMeta::seed` round-trips
-    // through TOML, whose only integer type is a signed 64-bit — an
-    // unmasked FNV-1a hash exceeds `i64::MAX` about half the time and
-    // failed exactly that way the first time this ran for real
-    // ("out-of-range value for u64 type" from the `toml` crate).
-    let freeze_seed = fnv1a64(login.as_bytes()) & 0x7fff_ffff_ffff_ffff;
-    let entries = shuffle_stratify(&pairs, freeze_seed);
+    let mut entries = Vec::with_capacity(drawn.len());
+    let mut by_stratum: BTreeMap<String, usize> = BTreeMap::new();
+    for tool in &drawn {
+        let classified = classify_one(tool);
+        *by_stratum
+            .entry(classified.stratum.to_string())
+            .or_insert(0) += 1;
+        entries.push(entry_from_classified(tool.clone(), &classified, None));
+    }
 
-    let qpath = queue_path(dir);
-    let queue = Queue {
-        meta: QueueMeta {
-            freeze_date: today_iso8601(),
-            population_hash: population_hash(&population),
-            seed: freeze_seed,
-            cursor: 0,
-        },
-        entries,
+    let vpath = verdict_path(dir, seed);
+    let mut file = if vpath.is_file() {
+        load(&vpath)?
+    } else {
+        AuditFile {
+            meta: AuditMeta {
+                seed,
+                sample_size: sample,
+                platform: current_platform(),
+                containment: "uncontained".to_string(),
+            },
+            entries: Vec::new(),
+        }
     };
-    save_queue(&qpath, &queue)?;
-    writeln!(
-        output,
-        "froze {} tool(s) into {}",
-        queue.entries.len(),
-        qpath.display(),
-    )?;
-    Ok(())
+    let existing_tools: HashSet<String> = file.entries.iter().map(|e| e.tool.clone()).collect();
+    let mut added = 0usize;
+    for entry in entries {
+        if !existing_tools.contains(&entry.tool) {
+            file.entries.push(entry);
+            added += 1;
+        }
+    }
+    file.entries.sort_by(|a, b| a.tool.cmp(&b.tool));
+    save(&vpath, &file)?;
+
+    writeln!(output, "stratum            count")?;
+    for (stratum, count) in &by_stratum {
+        writeln!(output, "{stratum:<18} {count:>6}")?;
+    }
+    writeln!(output, "{added} tool(s) written to {}", vpath.display())?;
+    Ok(drawn.len())
 }
 
 /// This login's own unfinished draw, if it has one: the smallest seed among
@@ -421,47 +375,11 @@ pub fn cmd_contribute(
     sample: usize,
     include_audited: bool,
     no_pr: bool,
-    allow_uncontained: bool,
     input: &mut impl BufRead,
     output: &mut impl Write,
 ) -> anyhow::Result<()> {
-    // A contained freeze re-execs this whole binary from `main()` (see
-    // `CONTRIBUTE_LOGIN_ENV_VAR`'s doc comment) — the second time through,
-    // the login is already resolved and must not be re-prompted for
-    // against a `stdin` that was already drained by the first prompt.
-    let login = match std::env::var(CONTRIBUTE_LOGIN_ENV_VAR) {
-        Ok(login) if is_valid_login(&login) => login,
-        _ => prompt_login(input, output)?,
-    };
+    let login = prompt_login(input, output)?;
     let dir: PathBuf = submissions_root.join(&login);
-
-    let qpath = queue_path(&dir);
-    if qpath.is_file() {
-        writeln!(
-            output,
-            "queue already frozen at {} — reusing it",
-            qpath.display()
-        )?;
-    } else {
-        // Freezing (no `--tools`) is an unbounded PATH sweep, so it gets
-        // the same namespace containment + canary guard every other
-        // full-PATH sweep in this crate goes through (`xtask audit
-        // freeze`, `xtask coverage`) — which, on a host where namespaces
-        // are available, means this whole process is about to be replaced
-        // by a re-exec'd copy of itself (see `CONTRIBUTE_LOGIN_ENV_VAR`).
-        std::env::set_var(CONTRIBUTE_LOGIN_ENV_VAR, &login);
-        let canaries = sweep_guard(true, allow_uncontained, None)?;
-        let freeze_result = freeze_for_contribute(
-            &dir,
-            submissions_root,
-            corpus_root,
-            &login,
-            include_audited,
-            output,
-        );
-        finish_sweep_guard(canaries)?;
-        freeze_result?;
-    }
 
     let seed = match seed {
         Some(s) => s,
@@ -477,11 +395,20 @@ pub fn cmd_contribute(
             None => seed_from_clock(),
         },
     };
+    writeln!(output, "Seed {seed}")?;
 
     let vpath = verdict_path(&dir, seed);
     if !vpath.is_file() {
-        let drawn = crate::queue::cmd_sample(seed, sample, &dir, &[])?;
-        writeln!(output, "Seed {seed} → {drawn} tool(s) drawn")?;
+        draw(
+            &dir,
+            submissions_root,
+            corpus_root,
+            &login,
+            seed,
+            sample,
+            include_audited,
+            output,
+        )?;
     }
 
     let file = load(&vpath)?;

@@ -231,6 +231,21 @@ fn verdict_text(cal: &Calibration) -> String {
                 .filter(|o| o.expect == Expect::Silent)
                 .count(),
         ),
+        Verdict::NotEvaluable => format!(
+            "VERDICT: NOT EVALUABLE against this set — this is a property of the seed, not a \
+             failing grade (spec §13.1e rule 6). {}\n  Its fleet-wide count is still not \
+             quotable: nothing here confirms or refutes it either way.\n",
+            if cal.family.is_none() {
+                "This detector generalizes no defect family any reviewer in this audit \
+                 recorded."
+                    .to_string()
+            } else {
+                format!(
+                    "Its family, {}, has zero labelled member(s) in this seed.",
+                    cal.family.unwrap_or("(unknown)")
+                )
+            }
+        ),
         Verdict::DoesNotPass if cal.calibration_inverted() => format!(
             "{RED}VERDICT: DOES NOT PASS calibration — and this is the dangerous shape, not the \
              ordinary one.{RESET}\n  Nothing labelled fires any more, which would be consistent \

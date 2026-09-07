@@ -891,6 +891,25 @@ mod tests {
         );
     }
 
+    /// The bug spec §13.1e rule 6 exists to name: `Stub`'s family
+    /// (`verbatim-fallback`) has zero labelled members in this seed — every
+    /// case here is labelled with a different family — so nothing confirms
+    /// or refutes the detector. That must read `NotEvaluable`, never
+    /// `DoesNotPass`: a detector cannot fail a test it was never given.
+    #[test]
+    fn a_family_with_zero_labelled_members_is_not_evaluable_not_a_failure() {
+        let cases = vec![case("other", true, &["dropped-alias"], node("other"))];
+        let cal = calibrate(&Stub { fires_on: vec![] }, &cases, Vec::new());
+        assert!(cal.true_positives.is_empty());
+        assert!(cal.false_negatives.is_empty());
+        assert!(cal.out_of_scope_misses.is_empty());
+        assert_eq!(cal.verdict(), Verdict::NotEvaluable);
+
+        let text = render(&cal, &set_size());
+        assert!(text.contains("VERDICT: NOT EVALUABLE"), "{text}");
+        assert!(!text.contains("DOES NOT PASS"), "{text}");
+    }
+
     /// Firing on a tool judged defective *of another family* is its own
     /// cell. Counting it as a false alarm would understate a detector that
     /// found a real second defect; counting it as a true positive would

@@ -43,8 +43,6 @@ pub struct CommandNode {
     pub subcommands: Vec<CommandNode>,
     /// Worked examples.
     pub examples: Vec<Example>,
-    /// True if this command should be hidden from the tree by default.
-    pub hidden: bool,
     /// `Some(reason)` when this command is deprecated.
     pub deprecated: Option<Text>,
     /// True when this node's `subcommands` list is known-complete. False
@@ -256,7 +254,6 @@ impl CommandNode {
             entities: Vec::new(),
             subcommands: Vec::new(),
             examples: Vec::new(),
-            hidden: false,
             deprecated: None,
             children_filled: false,
             group: None,
