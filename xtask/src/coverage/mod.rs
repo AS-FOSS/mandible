@@ -10,6 +10,7 @@ mod aggregate;
 mod fingerprint;
 mod render_markdown;
 mod render_text;
+mod round7;
 mod round8;
 mod round9;
 mod score;

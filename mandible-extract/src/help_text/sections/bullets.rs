@@ -76,19 +76,10 @@ fn is_plain_word(word: &str) -> bool {
     !word.is_empty() && word.chars().all(|c| c.is_ascii_alphanumeric())
 }
 
-/// A heading wrapped across two physical lines at the same indent —
-/// nix's own `"Commands for upgrading or troubleshooting your Nix"` /
-/// `"installation:"`. Joins them into one line with a single space, so
-/// every later heading test (`mentions_commands_word`,
-/// `is_recognized_command_heading`) reads one label instead of two
-/// fragments. Deliberately narrow, since a two-line join risks folding
-/// unrelated prose: the first line must carry no colon and be plain
-/// alphanumeric words only (no docopt notation, no punctuation but
-/// spaces), the second must sit at the very same indent, end in `:` with
-/// nothing but plain words before it, and the JOINED label must itself
-/// name a command section — the one shape this rule exists for. Returns
-/// `None` for every other two-line run, including an ordinary prose
-/// paragraph that happens to end its second line in a colon.
+/// Joins a heading wrapped across two physical lines at one indent, so
+/// later heading tests read one label. Both lines must hold plain words
+/// only, and the joined label must itself name a command section.
+/// corpus/nix/2.95.2-lix. docs/shapes.md S-143.
 fn join_wrapped_heading_line<'a>(first: &'a str, second: &'a str) -> Option<String> {
     let first_indent = first.len() - first.trim_start().len();
     let first_trim = first.trim();
