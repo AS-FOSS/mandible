@@ -506,6 +506,37 @@ spelling is checked, substring comparison after collapsing whitespace on
 both sides. Satisfied vacuously when the flag is absent or the fixture
 produces no root, the same reasoning `must_not_describe` uses.
 
+### A value name after the real app's own root refill: `must_value_names_after_root_refill`
+
+`must_value_name` is satisfied by *any* entity carrying the spelling, on
+the raw, unrefilled tree — which is exactly why it cannot see `lvcreate`'s
+own defect (docs/shapes.md S-147). `--type` reaches that tree once per
+invocation form (`linear`, `striped`, the choices `raid1`/`mirror`, ...),
+each form still its own entity, each already naming its own value: the
+positive claim passes trivially before any fold has even happened. The
+loss only exists once the same node is folded, and every running session
+folds it: `mandible::background::Warmer::submit_root_fill` always merges
+the already-extracted root against a fresh reprobe as soon as the TUI
+opens, and `Runner::fill_node`'s own contract ("`existing` is always
+included as a candidate") is what pools every same-spelling entity into
+one bucket for `mandible_core::merge::merge_entity_bucket` to fold.
+
+```toml
+[contract.must_value_names_after_root_refill]
+"--type" = ["linear", "striped", "raid10", "snapshot", "thin"]
+```
+
+`cargo xtask corpus` simulates that exact refill — `merge_nodes` over two
+clones of this fixture's own root, the same "existing plus a fresh
+reprobe of the same source" shape `fill_node` always produces — and
+checks the named flag's *merged* `value_name` for every listed substring
+(matched the way `must_value_name` matches: substring, both sides
+whitespace-collapsed). `cargo xtask corpus` fails when the flag is absent
+from the refilled tree, or when the merged value name is missing any
+listed substring, naming what was expected and what survived instead. A
+fixture that produces no root fails this exactly as it fails
+`must_value_name`.
+
 ### What `--bless` does and does not assert: `verdict_scope`
 
 `--bless` freezes the *entire* tree into `expected.snap` — node summaries,

@@ -48,6 +48,7 @@ use std::time::{Duration, Instant};
 
 mod contract;
 mod markdown;
+mod refill_contract;
 mod report;
 mod runner;
 mod summary;
@@ -304,6 +305,16 @@ pub(crate) struct ContractMeta {
     /// `must_not_describe` uses.
     #[serde(default)]
     must_not_value_name: std::collections::BTreeMap<String, String>,
+    /// Every substring a root flag's value name must carry after this
+    /// fixture's root is refilled the way the running app refills it
+    /// (`Warmer::submit_root_fill`, always merging `existing` against a
+    /// fresh reprobe). Keyed by the flag's own spelling. `must_value_name`
+    /// alone cannot state this: it passes off the raw, unrefilled tree,
+    /// where a multi-form tool's forms are still separate entities each
+    /// already naming their own value. See `refill_contract.rs` and
+    /// docs/shapes.md S-147.
+    #[serde(default)]
+    must_value_names_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a

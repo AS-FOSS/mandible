@@ -17,6 +17,7 @@ once it reaches a published 0.1.0 release.
 - A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-135).
 - Every invocation form lvm2 documents now reaches usage as its own alternative, keeping the prose sentence above it as its option group instead of inventing a heading from the form's own usage line (`mandible lvcreate`, docs/shapes.md S-137).
 - A single-dash long option carrying an interior uppercase letter keeps its whole name when a sibling row in the same table shares its lowercase prefix, so `mandible mksquashfs` shows `-noI` and its nine siblings instead of ten rows reading `-n` (docs/shapes.md S-139).
+- A flag documented once per invocation form now keeps every form's own value name instead of one form's name beside another's choices, so `mandible lvcreate`'s `--type` shows `linear, striped, raid10, snapshot, thin` beside its `raid1, mirror` choices (docs/shapes.md S-147).
 
 ## [0.7.0] - 2026-09-05
 

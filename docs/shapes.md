@@ -2636,3 +2636,34 @@ entry's `tools` field and nothing else. It does not get a new entry.
   a colored banner, leaving 1 genuine hit. Both real counts are below the
   five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
   both counts in its reason.
+
+### S-147: a same-spelling merge picks one invocation form's value name
+
+- id: S-147
+- looks like: |
+      [ --type linear ] (implied)
+      [ --type striped ] (implied)
+      [ --type raid1|mirror ] (implied)
+- tools: lvcreate; a merge-step fix, so any tool whose node reaches
+  `mandible_core::merge::merge_entity_bucket` with a same-spelling,
+  same-value-kind bucket naming different literal values is covered
+- handling: Fixed. `lvcreate` reaches this bucket once per invocation
+  form, each form naming its own value for `--type`. `merge_entity_bucket`
+  picked one form's `value_name` by authority, so the rendered row showed
+  `--type linear` beside the `raid1`/`mirror` form's own `choices`,
+  dropping `striped`, `raid10`, `snapshot` and `thin` outright. It now
+  unions every distinct value name across the bucket, in first-appearance
+  order, joined the way `choices` already joins for display. Maintainer-
+  absent default, recorded in docs/design.md §16. `must_value_name` passes
+  vacuously on the raw, unrefilled tree; `must_value_names_after_root_refill`
+  (`corpus/README.md`) simulates the real app's own root refill and is the
+  field that actually states the claim.
+- fleet: `same-spelling-fold-loss`
+  (`xtask/src/detector/same_spelling_fold_loss.rs`), widened to also flag
+  two same-identity entities that both take a value but name it
+  differently, reads 233-234 tools / 720-721 findings on a full-`PATH`
+  sweep of 2269 tools, 2026-09-07 (up from 184/635 before the widening).
+  The coverage sweep never simulates the app's own background root
+  refill, so its flag-count `sweep-diff` reads identical on this branch;
+  the gain is confirmed instead by the corpus contract (fails before the
+  fix, passes after) and by `mandible lvcreate`'s own rendered screen.
