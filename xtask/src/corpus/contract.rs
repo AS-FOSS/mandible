@@ -226,6 +226,7 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
             ));
         }
     }
+    lines.extend(super::refill_contract::weakened_lines(label, b, n));
     for spec in b.must_contain_positionals.iter() {
         let Some(base) = spec.strip_suffix("...") else {
             continue;
@@ -942,7 +943,7 @@ fn flag_present(node: &CommandNode, spec: &str) -> bool {
 /// so [`resolve_flag_entity`] can find *which* entity a spelling resolves
 /// to (for `must_keep_separate`) rather than only whether any entity
 /// matches.
-fn entity_matches_flag_spec(entity: &Entity, spec: &str) -> bool {
+pub(super) fn entity_matches_flag_spec(entity: &Entity, spec: &str) -> bool {
     // The bare end-of-options marker: `spec.strip_prefix("--")` below
     // would read `"--"` as a long spelling with an empty name, which no
     // real entity can ever have — checked first so a contract can state

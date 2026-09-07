@@ -96,6 +96,11 @@ pub(crate) mod usage_open_bracket_continues_at_column_zero;
 pub(crate) mod lowdown_bullet_command_row;
 pub(crate) mod lowdown_bullet_option_row;
 
+// Round-9 family detector (atlas S-148, the option-table sibling of
+// S-131), same direct-`Detector`-impl shape. Count only this round — no
+// parser change ships for it.
+pub(crate) mod option_table_multiword_value_name;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -740,6 +745,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(lowdown_bullet_option_row::LowdownBulletOptionRow),
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
+        Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
     ]
 }
 
