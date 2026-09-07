@@ -10,6 +10,7 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- A bare-word block opening on a centered ALL-CAPS group label no longer ends before reading a single real row beneath it (`mandible fail2ban-client`, docs/shapes.md S-149).
 - `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.
 - A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
 - A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`, docs/shapes.md S-117).

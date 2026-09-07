@@ -147,6 +147,35 @@ fn command_pattern_sample_section_markdown(rows: &[Row]) -> String {
     )
 }
 
+/// The one-paragraph-per-family prose block for the four command-table
+/// detectors (S-104/S-103/S-141/S-149), factored out of
+/// [`render_markdown`] to stay under its own line ceiling (AGENTS.md §2).
+fn command_table_family_prose_markdown(aggregate: &Aggregate) -> String {
+    format!(
+        "**Ragged-command-table findings:** {} tool(s) whose ragged-indent command-table row \
+         never reached the tree (atlas S-104, `unparsed-subcommand` shape E), {} command(s) \
+         fleet-wide — see `xtask/src/ragged_command_table.rs`.\n\n\
+         **Wrapped-command-continuation-as-subcommand findings:** {} tool(s) with a fabricated \
+         subcommand from a bare continuation line (atlas S-103), {} command(s) fleet-wide — see \
+         `xtask/src/wrapped_command_continuation.rs`.\n\n\
+         **Command-pattern-table findings:** {} tool(s) with a multi-word command-pattern row \
+         whose exact pattern never reached the tree (atlas S-141, `unparsed-subcommand` shape \
+         F), {} pattern(s) fleet-wide — see `xtask/src/command_pattern_table.rs`.\n\n\
+         **Centered-label-baseline findings:** {} tool(s) with a shallower row, right after a \
+         centered ALL-CAPS group label, whose leading word never reached the tree as a \
+         subcommand (atlas S-149), {} row(s) fleet-wide — see \
+         `xtask/src/centered_label_baseline.rs`.\n\n",
+        aggregate.ragged_command_tools,
+        aggregate.ragged_command_flags,
+        aggregate.wrapped_command_tools,
+        aggregate.wrapped_command_flags,
+        aggregate.command_pattern_tools,
+        aggregate.command_pattern_flags,
+        aggregate.centered_label_baseline_tools,
+        aggregate.centered_label_baseline_flags,
+    )
+}
+
 /// Markdown twin of [`centered_label_baseline_sample_lines_text`].
 fn centered_label_baseline_sample_section_markdown(rows: &[Row]) -> String {
     sample_section_markdown(
@@ -334,31 +363,7 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
         }
         out.push('\n');
     }
-    out.push_str(&format!(
-        "**Ragged-command-table findings:** {} tool(s) whose ragged-indent command-table row \
-         never reached the tree (atlas S-104, `unparsed-subcommand` shape E), {} command(s) \
-         fleet-wide — see `xtask/src/ragged_command_table.rs`.\n\n",
-        aggregate.ragged_command_tools, aggregate.ragged_command_flags,
-    ));
-    out.push_str(&format!(
-        "**Wrapped-command-continuation-as-subcommand findings:** {} tool(s) with a fabricated \
-         subcommand from a bare continuation line (atlas S-103), {} command(s) fleet-wide — see \
-         `xtask/src/wrapped_command_continuation.rs`.\n\n",
-        aggregate.wrapped_command_tools, aggregate.wrapped_command_flags,
-    ));
-    out.push_str(&format!(
-        "**Command-pattern-table findings:** {} tool(s) with a multi-word command-pattern row \
-         whose exact pattern never reached the tree (atlas S-141, `unparsed-subcommand` shape \
-         F), {} pattern(s) fleet-wide — see `xtask/src/command_pattern_table.rs`.\n\n",
-        aggregate.command_pattern_tools, aggregate.command_pattern_flags,
-    ));
-    out.push_str(&format!(
-        "**Centered-label-baseline findings:** {} tool(s) with a shallower row, right after a \
-         centered ALL-CAPS group label, whose leading word never reached the tree as a \
-         subcommand (atlas S-149), {} row(s) fleet-wide — see \
-         `xtask/src/centered_label_baseline.rs`.\n\n",
-        aggregate.centered_label_baseline_tools, aggregate.centered_label_baseline_flags,
-    ));
+    out.push_str(&command_table_family_prose_markdown(aggregate));
     out.push_str(&format!(
         "**Framework detection:** {}/{} tools ({:.1}%).\n",
         aggregate.framework_detected_count,

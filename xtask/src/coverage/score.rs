@@ -204,7 +204,7 @@ pub(super) fn score_one(tool: &str) -> Row {
     let (command_pattern_count, command_pattern_samples) =
         command_pattern_counts(probe.root_help_text(), result.root.as_ref());
     let (centered_label_baseline_count, centered_label_baseline_samples) =
-        centered_label_baseline_counts(probe.root_help_text(), result.root.as_ref());
+        crate::centered_label_baseline::score_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -891,35 +891,6 @@ fn command_pattern_counts(raw: Option<String>, root: Option<&CommandNode>) -> (u
 
 /// One centered-label-baseline finding, rendered as a single audit-section
 /// line.
-fn format_centered_label_baseline_sample(
-    finding: &crate::centered_label_baseline::MissingFinding,
-) -> String {
-    format!("{:?} missing, from {:?}", finding.name, finding.row)
-}
-
-/// [`crate::centered_label_baseline::detect_tree`], run over one tool's
-/// already-captured text and tree — same zero-additional-probe reasoning as
-/// [`command_pattern_counts`].
-fn centered_label_baseline_counts(
-    raw: Option<String>,
-    root: Option<&CommandNode>,
-) -> (usize, Vec<String>) {
-    let (Some(raw), Some(root)) = (raw, root) else {
-        return (0, Vec::new());
-    };
-    if raw.trim().is_empty() {
-        return (0, Vec::new());
-    }
-    let report = crate::centered_label_baseline::detect_tree(&raw, root);
-    let samples = report
-        .findings
-        .iter()
-        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
-        .map(format_centered_label_baseline_sample)
-        .collect();
-    (report.finding_count(), samples)
-}
-
 /// [`ragged_command_table::detect`] and
 /// [`wrapped_command_continuation::detect`], run over one tool's already-
 /// captured text and tree — split out of [`score_one`] for the same

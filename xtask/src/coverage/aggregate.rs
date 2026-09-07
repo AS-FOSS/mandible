@@ -294,10 +294,8 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
         .iter()
         .filter(|r| r.centered_label_baseline_count > 0)
         .count();
-    let centered_label_baseline_flags: usize = rows
-        .iter()
-        .map(|r| r.centered_label_baseline_count)
-        .sum();
+    let centered_label_baseline_flags: usize =
+        rows.iter().map(|r| r.centered_label_baseline_count).sum();
 
     let mut framework_counts: BTreeMap<String, usize> = BTreeMap::new();
     for row in rows {
