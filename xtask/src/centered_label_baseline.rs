@@ -1,18 +1,12 @@
 //! The `centered-label-baseline` detector (atlas S-149): a bare-word
 //! block opens on a centered ALL-CAPS group label indented past every row
-//! beneath it (`fail2ban-client`'s `Command:` section prints `BASIC`
-//! centered at column 45 with every row beneath it at column 4). The
-//! parser's own `bare_block_end`
-//! (`mandible-extract/src/help_text/sections/scan.rs`) used to take a
-//! bare-word block's baseline indent from its own first content line, so a
-//! block opening on such a label dedented on the very first real row and
-//! ended before reading one. Two halves, kept separate like
-//! `description_continuation_dash_flag`'s: [`LabelPrecedesShallowerLine`]
-//! reads only `raw` (the shape exists in the document forever, fix or no
-//! fix); [`MissingRowAfterLabel`] reads `root` too (the tree artifact the
-//! unfixed parser produces, which clears once the baseline is repaired).
-//! `family()` is `None` for both: no seed-2/4/5/6/7 audit tool carries
-//! this shape labelled. Fixture: `corpus/fail2ban-client/1.0.2/`.
+//! beneath it (fail2ban-client's `BASIC` at column 45, rows at column 4).
+//! `bare_block_end` used to take its baseline from that first line, so
+//! the block dedented on the very first real row and ended unread. Two
+//! halves, like `description_continuation_dash_flag`'s:
+//! [`LabelPrecedesShallowerLine`] reads only `raw`; [`MissingRowAfterLabel`]
+//! reads `root` too and clears once the baseline is repaired. `family()`
+//! is `None` for both. Fixture: `corpus/fail2ban-client/1.0.2/`.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::{is_command_name_shaped, CommandNode, Provenance, Source};
@@ -108,6 +102,12 @@ impl TreeReport {
     }
 }
 
+/// Cap on how many of one tool's own findings the coverage scoreboard
+/// carries as samples — mirrors `xtask/src/coverage/score.rs`'s own
+/// `FAMILY_DETECTOR_SAMPLES_PER_ROW`, which that module cannot expose
+/// here (`pub(super)`, scoped to `coverage`).
+const SCORE_SAMPLES_PER_ROW: usize = 3;
+
 pub fn detect_tree(raw: &str, root: &CommandNode) -> TreeReport {
     let mut findings = Vec::new();
     for finding in detect_shape(raw).findings {
@@ -125,6 +125,27 @@ pub fn detect_tree(raw: &str, root: &CommandNode) -> TreeReport {
         }
     }
     TreeReport { findings }
+}
+
+/// [`detect_tree`], run over one tool's already-captured text and tree —
+/// the zero-additional-probe reasoning `xtask/src/coverage/score.rs`'s
+/// other family-detector counts share. Returns the finding count and up
+/// to [`SCORE_SAMPLES_PER_ROW`] pre-formatted samples for the scoreboard.
+pub fn score_counts(raw: Option<String>, root: Option<&CommandNode>) -> (usize, Vec<String>) {
+    let (Some(raw), Some(root)) = (raw, root) else {
+        return (0, Vec::new());
+    };
+    if raw.trim().is_empty() {
+        return (0, Vec::new());
+    }
+    let report = detect_tree(&raw, root);
+    let samples = report
+        .findings
+        .iter()
+        .take(SCORE_SAMPLES_PER_ROW)
+        .map(|f| format!("{:?} missing, from {:?}", f.name, f.row))
+        .collect();
+    (report.finding_count(), samples)
 }
 
 pub struct LabelPrecedesShallowerLine;
@@ -215,14 +236,13 @@ Options:
                        INFO
 ";
 
-/// A centered label followed by another centered label (a block with two
-/// adjacent group headings and no rows at all between them) must not fire:
-/// the second line is itself a label, not a row.
+/// A centered label followed by another centered label, with nothing at
+/// all after them, must not fire: the line right after each label is
+/// either itself a label (not a row) or past the end of the document.
 const LABEL_FOLLOWED_BY_LABEL: &str = "\
 Command:
                                              BASIC
                                              LOGGING
-    start                                    starts the server and the jails
 ";
 
 fn shape_self_checks() -> Vec<SelfCheck> {
@@ -245,9 +265,10 @@ fn shape_self_checks() -> Vec<SelfCheck> {
             root: node("fail2ban-client"),
         },
         SelfCheck {
-            name: "two adjacent centered labels with no row between them",
-            why: "the line right after a label must itself be a real row, not another label — \
-                  two group headings in a row with nothing between them is not this shape",
+            name: "two adjacent centered labels with nothing after them",
+            why: "the line right after a label must itself be a real row, not another label and \
+                  not the end of the document — two group headings back to back, with no row \
+                  following either one, is not this shape",
             expect: Expect::Silent,
             raw: LABEL_FOLLOWED_BY_LABEL.to_string(),
             root: node("fail2ban-client"),

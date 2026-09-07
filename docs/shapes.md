@@ -2588,28 +2588,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
       set loglevel <LEVEL>                     sets logging level to <LEVEL>.
 - tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
   resolvectl, timedatectl
-- handling: Open. A prototype read each token of a row's own name field
-  separately, so a bracket- or angle-wrapped group (`[--unban]`,
-  `<JAIL>`) cleaned the way an uppercase metavariable does, and
-  `try_push_subcommand` merged a repeated leading word's usage onto the
-  node already accepted instead of dropping every row past the first. It
-  is not shipped. On rendered screens it changed nothing for busctl,
-  hostnamectl, localectl, networkctl, resolvectl or timedatectl, which
-  already carry their commands, and it took fail2ban-client from eleven
-  fabricated command rows to twenty, adding `logtarget`, `persistent`,
-  `of`, `list`, `files`, `filter`, `for`, `back` and `failures`, each a
-  word cut out of a wrapped description. A flag-count sweep-diff cannot
-  see that, since the rows it adds are subcommands.
-  The blocker underneath is named now. A centered ALL-CAPS group label as
-  a block's own first line defeats `bare_block_end`'s baseline indent
-  before any real row is reached, so no row of fail2ban-client's table
-  can be read whatever the name rule does. `command-pattern-table`
+- handling: Open. Two prototypes were built and refused: reading each token of
+  a row's own name field separately fabricated nine command rows on
+  fail2ban-client (`logtarget`, `persistent`, `of`, `list`, `files`, `filter`,
+  `for`, `back`, `failures`), each a word cut out of a wrapped description. The
+  `bare_block_end` baseline blocker underneath is fixed now (S-149): every row
+  of fail2ban-client's `Command:` table is read, and its 10 single-word
+  commands recover cleanly with no fabrication. The name rule itself, one node
+  per distinct leading word with each row's own pattern appended to that
+  node's `usage` list, is not shipped: `emit_subcommands` still drops any row
+  whose name field is not a single command-name-shaped word or a bare-word
+  plus an ALL-CAPS-only placeholder run, so `set`, `get`, `add`, `unban` and
+  `reload` recover no node at all. `command-pattern-table`
   (`xtask/src/command_pattern_table.rs`) stays as the instrument.
 - fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
-  fail2ban-client holds 85 of them and 84 were read by hand and are
-  genuine. Above the five-tool bar, and still waiting on the
-  `bare_block_end` baseline defect. Nothing shipped; the fixture stays
-  xfail with the count in its reason.
+  fail2ban-client holds 85 of them and 84 were read by hand and are genuine.
+  Above the five-tool bar. Not shipped; the fixture's `min_subcommands = 14`
+  floor documents the gap, currently 10.
 
 ### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
 
@@ -2686,3 +2681,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `-L` alias, `--verbose` keeps its `-v` alias, and `--option` carries
   value name `<name value>` with its full description, all in the same
   fixture's zero-loss sweep-diff.
+### S-149: a centered ALL-CAPS group label sets a bare-word block's baseline
+
+- id: S-149
+- looks like: |
+                                               BASIC
+      start                                    starts the server and the jails
+- tools: fail2ban-client
+- handling: Fixed. `bare_block_end` took a bare-word block's baseline indent
+  from its own first line; a centered ALL-CAPS group label opening the block
+  sits far deeper than every real row, so the first real row dedented below
+  it and the block ended unread. The baseline now skips a leading label (and
+  every later one) instead. `split_entries` also skips a label rather than
+  folding it into a neighboring entry's description. A dash-led wrapped
+  continuation (S-140) could then defeat the block's own flag-row-resume
+  rule; `is_wrapped_prose_continuation` now gates that check too.
+- fleet: `centered-label-baseline-tree` (`xtask/src/centered_label_baseline.rs`)
+  gated at zero. Fleet counts pending a full sweep.
