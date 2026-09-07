@@ -2817,6 +2817,18 @@ instead of `-noI`. The gcc and clang glued-value convention stays
 byte-identical, which is the whole safety argument for the
 discriminator.
 
+**The lowdown bullet-row fix ships with zero measured fleet tools
+(2026-09-07).** `rewrite_lowdown_bullets` (docs/shapes.md S-143, S-144,
+issue #138) has no fleet member on this box: no nix, no Lix, and no
+other lowdown-rendered tool is on `PATH`. It ships anyway, the way round
+7 shipped caffeinate at zero measured tools, gated on three conditions
+holding together: the fixture promotes out of `[xfail]` with every
+subcommand and flag verified by hand against the raw capture, a
+full-`PATH` sweep-diff shows zero flag and subcommand losses, and the
+five named control tools' rendered screens stay byte-identical. Both
+detectors are ratcheted at zero fleet-wide the same way a repaired
+family above the bar is.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until

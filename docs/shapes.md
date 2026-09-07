@@ -2636,3 +2636,53 @@ entry's `tools` field and nothing else. It does not get a new entry.
   a colored banner, leaving 1 genuine hit. Both real counts are below the
   five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
   both counts in its reason.
+### S-143: a lowdown bullet row names a subcommand
+
+- id: S-143
+- looks like: |
+      Main commands:
+
+        · nix build - build a derivation or fetch a store
+          path
+- tools: nix (2.95.2-lix, Lix); no fleet member on this box
+- handling: Fixed. lowdown's man-page-like renderer marks every entry
+  with a `·` bullet, indented past the group heading, continuation lines
+  indented past the bullet's own text. `rewrite_lowdown_bullets`
+  (`mandible-extract/src/help_text/sections/bullets.rs`) strips the
+  marker before layout analysis, and strips a leading `"<tool name> "`
+  prefix from a command row, so the generic engine reads the rest as an
+  ordinary `name - description` row. A group label lowdown wraps across
+  two physical lines (`"Commands for upgrading or troubleshooting your
+  Nix" / "installation:"`) is joined the same pass, gated on the joined
+  label naming a command section.
+- fleet: no nix, no Lix and no other lowdown-rendered tool is on this
+  box's `PATH`; measured 0 tools on a full-`PATH` sweep, 2026-09-07.
+  Shipped as a gated exception (docs/design.md §16): the fixture
+  promotes out of `[xfail]`, all 30 subcommands and 9 flags recovered
+  with correct groups and descriptions, and a full-`PATH` sweep-diff
+  shows zero losses.
+
+### S-144: a lowdown bullet row names an option
+
+- id: S-144
+- looks like: |
+      · --print-build-logs / -L Print full build logs on
+        standard error.
+
+      · --option name value Set the Lix configuration
+        setting name to value (overriding nix.conf).
+- tools: nix (2.95.2-lix, Lix); no fleet member on this box
+- handling: Fixed. Two repairs, both scoped to a row this parser already
+  knows came from a lowdown bullet marker. A `/`-joined second spelling
+  with a space on each side is rewritten to the ordinary comma-joined
+  alias the flag grammar already reads. A run of one or more lowercase
+  bare-word value names sitting between the spelling/alias run and the
+  description's sentence start is wrapped in `<...>`, the same
+  angle-bracket value notation `find_placeholder_boundary_gap` already
+  reads. Both live in `bullets.rs` beside S-143's own repair.
+- fleet: no fleet member on this box; measured 0 tools on the same
+  full-`PATH` sweep, 2026-09-07. Shipped as a gated exception
+  (docs/design.md §16) alongside S-143: `--print-build-logs` keeps its
+  `-L` alias, `--verbose` keeps its `-v` alias, and `--option` carries
+  value name `<name value>` with its full description, all in the same
+  fixture's zero-loss sweep-diff.
