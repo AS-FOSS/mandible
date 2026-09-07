@@ -11,6 +11,7 @@ mod fingerprint;
 mod render_markdown;
 mod render_text;
 mod round8;
+mod round9;
 mod score;
 
 use aggregate::compute_aggregate;

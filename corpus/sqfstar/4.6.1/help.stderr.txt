@@ -1,0 +1,237 @@
+SYNTAX:sqfstar [OPTIONS] FILESYSTEM [list of exclude dirs/files]
+
+Filesystem compression options:
+-b <block_size>		set data block to <block_size>.  Default 128 Kbytes.
+			Optionally a suffix of K or M can be given to specify
+			Kbytes or Mbytes respectively
+-comp <comp>		select <comp> compression
+			Compressors available:
+				gzip (default)
+				lzo
+				lz4
+				xz
+				zstd
+				lzma
+-noI			do not compress inode table
+-noId			do not compress the uid/gid table (implied by -noI)
+-noD			do not compress data blocks
+-noF			do not compress fragment blocks
+-noX			do not compress extended attributes
+-no-compression		do not compress any of the data or metadata.  This is
+			equivalent to specifying -noI -noD -noF and -noX
+
+Filesystem build options:
+-reproducible		build filesystems that are reproducible (default)
+-not-reproducible	build filesystems that are not reproducible
+-mkfs-time <time>	set filesystem creation timestamp to <time>. <time> can
+			be an unsigned 32-bit int indicating seconds since the
+			epoch (1970-01-01) or a string value which is passed to
+			the "date" command to parse. Any string value which the
+			date command recognises can be used such as "now",
+			"last week", or "Wed Feb 15 21:02:39 GMT 2023"
+-all-time <time>	set all file timestamps to <time>. <time> can be an
+			unsigned 32-bit int indicating seconds since the epoch
+			(1970-01-01) or a string value which is passed to the
+			"date" command to parse. Any string value which the date
+			command recognises can be used such as "now", "last
+			week", or "Wed Feb 15 21:02:39 GMT 2023"
+-root-time <time>	set root directory time to <time>. <time> can be an
+			unsigned 32-bit int indicating seconds since the epoch
+			(1970-01-01) or a string value which is passed to the
+			"date" command to parse. Any string value which the date
+			command recognises can be used such as "now", "last
+			week", or "Wed Feb 15 21:02:39 GMT 2023"
+-root-mode <mode>	set root directory permissions to octal <mode>
+-root-uid <value>	set root directory owner to specified <value>,
+			<value> can be either an integer uid or user name
+-root-gid <value>	set root directory group to specified <value>,
+			<value> can be either an integer gid or group name
+-all-root		make all files owned by root
+-force-uid <value>	set all file uids to specified <value>, <value> can be
+			either an integer uid or user name
+-force-gid <value>	set all file gids to specified <value>, <value> can be
+			either an integer gid or group name
+-default-mode <mode>	tar files often do not store permissions for
+			intermediate directories.  This option sets the default
+			directory permissions to octal <mode>, rather than 0755.
+			This also sets the root inode mode
+-default-uid <uid>	tar files often do not store uids for intermediate
+			directories.  This option sets the default directory
+			owner to <uid>, rather than the user running Sqfstar.
+			This also sets the root inode uid
+-default-gid <gid>	tar files often do not store gids for intermediate
+			directories.  This option sets the default directory
+			group to <gid>, rather than the group of the user
+			running Sqfstar.  This also sets the root inode gid
+-pseudo-override	make pseudo file uids and gids override -all-root,
+			-force-uid and -force-gid options
+-exports		make the filesystem exportable via NFS
+-no-sparse		do not detect sparse files
+-no-fragments		do not use fragments
+-no-tailends		do not pack tail ends into fragments
+-no-duplicates		do not perform duplicate checking
+-no-hardlinks		do not hardlink files, instead store duplicates
+
+Filesystem filter options:
+-p <pseudo-definition>	add pseudo file definition.  The definition should
+			be quoted
+-pf <pseudo-file>	add list of pseudo file definitions.  Pseudo file
+			definitions in pseudo-files should not be quoted
+-ef <exclude_file>	list of exclude dirs/files.  One per line
+-regex			allow POSIX regular expressions to be used in exclude
+			dirs/files
+-ignore-zeros		allow tar files to be concatenated together and fed to
+			Sqfstar.  Normally a tarfile has two consecutive 512
+			byte blocks filled with zeros which means EOF and
+			Sqfstar will stop reading after the first tar file on
+			encountering them. This option makes Sqfstar ignore the
+			zero filled blocks
+
+Filesystem extended attribute (xattrs) options:
+-no-xattrs		do not store extended attributes
+-xattrs			store extended attributes (default)
+-xattrs-exclude <regex>	exclude any xattr names matching <regex>.  <regex> is a
+			POSIX regular expression, e.g. -xattrs-exclude '^user.'
+			excludes xattrs from the user namespace
+-xattrs-include <regex>	include any xattr names matching <regex>.  <regex> is a
+			POSIX regular expression, e.g. -xattrs-include '^user.'
+			includes xattrs from the user namespace
+-xattrs-add <name=val>	add the xattr <name> with <val> to files.  If an
+			user xattr it will be added to regular files and
+			directories (see man 7 xattr).  Otherwise it will be
+			added to all files.  <val> by default will be treated as
+			binary (i.e. an uninterpreted byte sequence), but it can
+			be prefixed with 0s, where it will be treated as base64
+			encoded, or prefixed with 0x, where val will be treated
+			as hexidecimal.  Additionally it can be prefixed with
+			0t where this encoding is similar to binary encoding,
+			except backslashes are specially treated, and a
+			backslash followed by 3 octal digits can be used to
+			encode any ASCII character, which obviously can be used
+			to encode control codes.  The option can be repeated
+			multiple times to add multiple xattrs
+
+Sqfstar runtime options:
+-version		print version, licence and copyright message
+-force			force Sqfstar to write to block device or file
+-exit-on-error		treat normally ignored errors as fatal
+-quiet			no verbose output
+-info			print files written to filesystem
+-no-progress		do not display the progress bar
+-progress		display progress bar when using the -info option
+-percentage		display a percentage rather than the full progress bar.
+			Can be used with dialog --gauge etc.
+-throttle <percentage>	throttle the I/O input rate by the given percentage.
+			This can be used to reduce the I/O and CPU consumption
+			of Sqfstar
+-limit <percentage>	limit the I/O input rate to the given percentage.
+			This can be used to reduce the I/O and CPU consumption
+			of Sqfstar (alternative to -throttle)
+-processors <number>	use <number> processors.  By default will use number of
+			processors available
+-mem <size>		use <size> physical memory for caches.  Use K, M or G to
+			specify Kbytes, Mbytes or Gbytes respectively
+-mem-percent <percent>	use <percent> physical memory for caches.  Default 25%
+-mem-default		print default memory usage in Mbytes
+
+Expert options (these may make the filesystem unmountable):
+-nopad			do not pad filesystem to a multiple of 4K
+-offset <offset>	skip <offset> bytes at the beginning of FILESYSTEM.
+			Optionally a suffix of K, M or G can be given to specify
+			Kbytes, Mbytes or Gbytes respectively.
+			Default 0 bytes
+-o <offset>		synonym for -offset
+
+Miscellaneous options:
+-fstime <time>		alternative name for mkfs-time
+-root-owned		alternative name for -all-root
+-noInodeCompression	alternative name for -noI
+-noIdTableCompression	alternative name for -noId
+-noDataCompression	alternative name for -noD
+-noFragmentCompression	alternative name for -noF
+-noXattrCompression	alternative name for -noX
+
+-help			output this options text to stdout
+-h			output this options text to stdout
+
+-Xhelp			print compressor options for selected compressor
+
+Pseudo file definition format:
+"filename d mode uid gid"		create a directory
+"filename m mode uid gid"		modify filename
+"filename b mode uid gid major minor"	create a block device
+"filename c mode uid gid major minor"	create a character device
+"filename f mode uid gid command"	create file from stdout of command
+"filename s mode uid gid symlink"	create a symbolic link
+"filename i mode uid gid [s|f]"		create a socket (s) or FIFO (f)
+"filename x name=val"			create an extended attribute
+"filename l linkname"			create a hard-link to linkname
+"filename L pseudo_filename"		same, but link to pseudo file
+"filename D time mode uid gid"		create a directory with timestamp time
+"filename M time mode uid gid"		modify a file with timestamp time
+"filename B time mode uid gid major minor"
+					create block device with timestamp time
+"filename C time mode uid gid major minor"
+					create char device with timestamp time
+"filename F time mode uid gid command"	create file with timestamp time
+"filename S time mode uid gid symlink"	create symlink with timestamp time
+"filename I time mode uid gid [s|f]"	create socket/fifo with timestamp time
+
+Compressors available and compressor specific options:
+	gzip (default)
+	  -Xcompression-level <compression-level>
+		<compression-level> should be 1 .. 9 (default 9)
+	  -Xwindow-size <window-size>
+		<window-size> should be 8 .. 15 (default 15)
+	  -Xstrategy strategy1,strategy2,...,strategyN
+		Compress using strategy1,strategy2,...,strategyN in turn
+		and choose the best compression.
+		Available strategies: default, filtered, huffman_only,
+		run_length_encoded and fixed
+	lzo
+	  -Xalgorithm <algorithm>
+		Where <algorithm> is one of:
+			lzo1x_1
+			lzo1x_1_11
+			lzo1x_1_12
+			lzo1x_1_15
+			lzo1x_999 (default)
+	  -Xcompression-level <compression-level>
+		<compression-level> should be 1 .. 9 (default 8)
+		Only applies to lzo1x_999 algorithm
+	lz4
+	  -Xhc
+		Compress using LZ4 High Compression
+	xz
+	  -Xbcj filter1,filter2,...,filterN
+		Compress using filter1,filter2,...,filterN in turn
+		(in addition to no filter), and choose the best compression.
+		Available filters: x86, arm, armthumb, powerpc, sparc, ia64
+	  -Xdict-size <dict-size>
+		Use <dict-size> as the XZ dictionary size.  The dictionary size
+		can be specified as a percentage of the block size, or as an
+		absolute value.  The dictionary size must be less than or equal
+		to the block size and 8192 bytes or larger.  It must also be
+		storable in the xz header as either 2^n or as 2^n+2^(n+1).
+		Example dict-sizes are 75%, 50%, 37.5%, 25%, or 32K, 16K, 8K
+		etc.
+	zstd
+	  -Xcompression-level <compression-level>
+		<compression-level> should be 1 .. 22 (default 15)
+	lzma
+	  (no options) (deprecated - no kernel support)
+
+Environment:
+SOURCE_DATE_EPOCH	If set, this is used as the filesystem creation
+			timestamp.  Also any file timestamps which are
+			after SOURCE_DATE_EPOCH will be clamped to
+			SOURCE_DATE_EPOCH.  See
+			https://reproducible-builds.org/docs/source-date-epoch/
+			for more information
+
+See also:
+The README for the Squashfs-tools 4.6.1 release, describing the new features can be
+read here https://github.com/plougher/squashfs-tools/blob/master/README-4.6.1
+
+The Squashfs-tools USAGE guide can be read here
+https://github.com/plougher/squashfs-tools/blob/master/USAGE-4.6

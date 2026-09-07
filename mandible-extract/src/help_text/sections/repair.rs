@@ -212,14 +212,18 @@ pub(super) const MIN_SWALLOWED_NAME_CHARS: usize = 2;
 /// reconstructed token (name and glued value) occurs glued and
 /// delimited in the raw text ([`token_occurs_glued`]).
 ///
-/// The two exceptions to uniform lowercase: a value spaced one column
-/// after the name ([`spaced_value_placeholder`], `-Xassembler <arg>`,
-/// atlas S-117), and mksquashfs's shape, a name whose lowercase-led
-/// prefix is shared by another row's own swallowed name in the same
-/// table ([`shares_lowercase_prefix_with_sibling`], `-noI`/`-noId`/
-/// `-noD` all sharing `"no"`, atlas S-139) — the glued-value
-/// convention documents one flag letter per macro or feature, so no
-/// sibling row there shares a two-letter lowercase prefix with it.
+/// The exceptions to uniform lowercase: a value spaced one column after
+/// the name ([`spaced_value_placeholder`], `-Xassembler <arg>`, atlas
+/// S-117), and any row belonging to a single-dash-long table
+/// ([`single_dash_long_table`], atlas S-145) — a table whose rows are
+/// column-0 `-word` spellings and which carries no `--long` row
+/// anywhere, so the GCC/Clang glued-value convention (which always
+/// documents `--help`/`--version` somewhere) can never qualify. A table
+/// row is admitted whatever its length and whatever its case, replacing
+/// the narrower S-139 rule that only shared tables were on this row's
+/// own lowercase-led prefix with a sibling (`-noI`/`-noId`/`-noD` all
+/// sharing `"no"`): every S-139 table also passes the table test, so
+/// nothing is lost by the wider rule replacing the narrower one.
 ///
 /// A glued `=value` half (`dbiprof`'s `-number=N`) is split at the `=`
 /// and, when present, kept on the resulting flag (`-foffload` stays
@@ -244,11 +248,11 @@ pub(super) fn repair_single_dash_long_options(
     glued_tokens: &GluedTokenIndex<'_>,
     raw: &str,
 ) {
-    // Snapshot every row's own swallowed name before any row is rewritten,
-    // so the sibling-prefix check below reads the same table the document
-    // wrote rather than one this loop has partly repaired already.
-    let siblings: Vec<Option<String>> = flags.iter().map(swallowed_name_token).collect();
-    for (index, flag) in flags.iter_mut().enumerate() {
+    // Computed once: whether this document's own option rows ever
+    // introduce a row with `--`. See [`single_dash_long_table`].
+    let lines: Vec<&str> = raw.lines().collect();
+    let table_rule_applies = single_dash_long_table(&lines);
+    for flag in flags.iter_mut() {
         // 1. Option-table-sourced, never synopsis.
         if !flag.provenance.sources.contains(&Source::HelpText)
             || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
@@ -268,10 +272,6 @@ pub(super) fn repair_single_dash_long_options(
         let Some((name_tail, glued_value)) = split_glued_value(tail) else {
             continue;
         };
-        // 4. Enough *name* to be a name rather than a character argument.
-        if name_tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
-            continue;
-        }
         // 3. The name half is option-name-shaped.
         if !is_option_name_tail(name_tail) {
             continue;
@@ -281,23 +281,28 @@ pub(super) fn repair_single_dash_long_options(
             continue;
         }
         let name_token = format!("-{short}{name_tail}");
-        // 5. Uniformly lowercase, or one of two narrower exceptions: the
-        //    row's own spacing shows the value is spaced rather than glued
-        //    (`-Xassembler <arg>`, atlas S-117), or another row in this
-        //    same table swallows a name sharing this one's lowercase-led
-        //    prefix (`-noI`/`-noId`/`-noD`, atlas S-139). Both stay exactly
-        //    as strict as plain lowercase against the GCC/Clang glued-value
-        //    convention (`-DMACRO`): that convention's row never carries a
-        //    spaced placeholder after the swallowed name, and never shares
-        //    a two-letter lowercase prefix with a sibling row.
+        // A single-dash-long table admits its own row whatever its
+        // length and whatever its case (S-145); every other row still
+        // needs enough *name* to be a name rather than a character
+        // argument (4), since outside a table a one-character tail is
+        // genuinely ambiguous (`rpcgen`'s `-Ss`, `xxd`'s `-ps`).
+        let table_row = table_rule_applies && is_table_leading_token(&lines, &name_token);
+        if !table_row && name_tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+            continue;
+        }
+        // 5. Uniformly lowercase, a table row (S-145), or the narrower
+        //    exception: the row's own spacing shows the value is spaced
+        //    rather than glued (`-Xassembler <arg>`, atlas S-117).
+        //    `spaced_value_placeholder` reads the whole document per
+        //    call, so it is gated the same as the case check below:
+        //    never run for a uniformly lowercase name outside a table,
+        //    the bulk of the fleet. A table row's own lowercase name
+        //    (`-mem <size>`, `-comp <comp>`) still reads it.
         let uniformly_lowercase = token_is_uniformly_lowercase(&name_token);
-        let spaced_value = (!uniformly_lowercase)
+        let spaced_value = (table_row || !uniformly_lowercase)
             .then(|| spaced_value_placeholder(raw, &name_token))
             .flatten();
-        let shared_prefix = !uniformly_lowercase
-            && spaced_value.is_none()
-            && shares_lowercase_prefix_with_sibling(&name_token, index, &siblings);
-        if !uniformly_lowercase && spaced_value.is_none() && !shared_prefix {
+        if !table_row && !uniformly_lowercase && spaced_value.is_none() {
             continue;
         }
         // 7. Whole token occurs glued and delimited in the raw text. Last
@@ -331,69 +336,107 @@ pub(super) fn repair_single_dash_long_options(
     }
 }
 
-/// [`repair_single_dash_long_options`]'s conditions 1 through 4, applied
-/// to one flag with no side effect, so the sibling snapshot it builds and
-/// each iteration's own check read the exact same rule. Returns the
-/// swallowed name token, dash included (`"-noI"`), or `None` when this
-/// flag is not a candidate at all — a row already carrying a long name,
-/// a boolean, a one-character tail, or a tail that is not
-/// option-name-shaped never enters the sibling comparison.
-fn swallowed_name_token(flag: &Entity) -> Option<String> {
-    if !flag.provenance.sources.contains(&Source::HelpText)
-        || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
-    {
-        return None;
+/// Fewest table-shaped single-dash rows a document must carry before
+/// [`single_dash_long_table`] trusts it. Two, not one: a single such row
+/// carries no evidence that the *document's own convention* is
+/// multi-character single-dash names rather than a short flag followed
+/// by a capitalized description word that happens to read the same way
+/// (`-Xoption      Enable the option.`, indistinguishable from `-Xhelp`
+/// by shape alone). A second row is what the whole table argument rests
+/// on: mksquashfs's own `-Xhelp` sits beside `-Xcompression-level`,
+/// `-Xstrategy` and others, none of them ambiguous. Same figure as
+/// [`MIN_ATTESTED_SECTION_FLAGS`]'s own "more than a coincidence" floor.
+const MIN_TABLE_ROWS: usize = 2;
+
+/// True when a document's own option rows never introduce a `--` row
+/// (checked against each physical line's own leading token, so a stray
+/// `--` in prose is never mistaken for one — mksquashfs's own "Can be
+/// used with dialog --gauge etc."), and at least [`MIN_TABLE_ROWS`] rows
+/// are also [`row_is_table_shaped`] and carry an unambiguous, uniformly
+/// lowercase multi-character name (`-comp`, `-mkfs-time`). Neither a
+/// colon-glued convention (`sg_emc_trespass`'s own `-hr:`, no gap
+/// anywhere) nor a bundled-short-flag document (`-2CDlNuVv`) nor a
+/// single ambiguous row counting as its own evidence (`-Zscript`) ever
+/// qualifies; only an already-unambiguous row may vouch for the
+/// document. See [`is_table_leading_token`].
+fn single_dash_long_table(lines: &[&str]) -> bool {
+    let mut table_rows = 0usize;
+    for (idx, line) in lines.iter().enumerate() {
+        let trimmed = line.trim_start();
+        let Some(rest) = trimmed.strip_prefix('-') else {
+            continue;
+        };
+        let Some(first) = rest.chars().next() else {
+            continue;
+        };
+        if first == '-' {
+            // A leading `--word` row disqualifies the whole document.
+            if rest[1..].starts_with(|c: char| c.is_alphanumeric()) {
+                return false;
+            }
+            continue;
+        }
+        if is_unambiguous_long_name(rest) && row_is_table_shaped(lines, idx) {
+            table_rows += 1;
+        }
     }
-    let short = flag.short()?;
-    if flag.long().is_some() || flag.value_kind != ValueKind::Required {
-        return None;
-    }
-    let tail = flag.value_name.as_deref()?;
-    let (name_tail, _) = split_glued_value(tail)?;
-    if name_tail.chars().count() < MIN_SWALLOWED_NAME_CHARS || !is_option_name_tail(name_tail) {
-        return None;
-    }
-    Some(format!("-{short}{name_tail}"))
+    table_rows >= MIN_TABLE_ROWS
 }
 
-/// The lowercase-only run at the very start of `name` (dash already
-/// stripped), stopping at the first character that is not an ASCII
-/// lowercase letter: `"noI"` -> `"no"`, `"DMACRO"` -> `""`, `"oOUTFILE"`
-/// -> `"o"`.
-fn lowercase_prefix(name: &str) -> &str {
-    let end = name
-        .char_indices()
-        .find(|&(_, c)| !c.is_ascii_lowercase())
-        .map_or(name.len(), |(i, _)| i);
-    &name[..end]
+/// True when `rest` (a row's own text, dash already stripped) opens with
+/// a name at least two characters long, every one of them a lowercase
+/// letter, digit, hyphen or underscore — a spelling no reasonable
+/// document would also use for the GCC/Clang glued-value convention or a
+/// bundled-short-flag cluster, so it counts as real evidence of a
+/// single-dash-long-naming document on its own. See
+/// [`single_dash_long_table`].
+fn is_unambiguous_long_name(rest: &str) -> bool {
+    let name: String = rest.chars().take_while(|c| is_word_char(*c)).collect();
+    name.chars().count() >= MIN_SWALLOWED_NAME_CHARS
+        && name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
 }
 
-/// True when some *other* row's own swallowed name ([`swallowed_name_token`],
-/// taken from `siblings`, one entry per flag in table order) shares
-/// `name_token`'s lowercase-led prefix, at least
-/// [`MIN_SWALLOWED_NAME_CHARS`] letters of it. mksquashfs's `-noI`,
-/// `-noId`, `-noD`, `-noF` and `-noX` all share `"no"` this way; the
-/// GCC/Clang glued-value convention documents one flag letter per macro
-/// or feature, so no sibling row there shares a prefix this long with
-/// it. See docs/shapes.md S-139.
-fn shares_lowercase_prefix_with_sibling(
-    name_token: &str,
-    self_index: usize,
-    siblings: &[Option<String>],
-) -> bool {
-    let Some(bare) = name_token.strip_prefix('-') else {
+/// True when the row at `lines[idx]` shows a genuine table gap between
+/// its own spelling and its description: a tab or a run of two or more
+/// spaces somewhere past the name on the same line (`-pf <pseudo-file>`
+/// tab-`add list...`), or nothing at all on this line because the real
+/// description sits on a more-indented line directly beneath it
+/// (`-Xhc`'s own next line, `Compress using LZ4 High Compression`). A
+/// colon-glued row whose remaining text is single-spaced prose, with no
+/// gap on this line and no deeper continuation, never qualifies. See
+/// docs/shapes.md S-145.
+fn row_is_table_shaped(lines: &[&str], idx: usize) -> bool {
+    let line = lines[idx];
+    let trimmed = line.trim_start();
+    let Some(rest) = trimmed.strip_prefix('-') else {
         return false;
     };
-    let prefix = lowercase_prefix(bare);
-    if prefix.chars().count() < MIN_SWALLOWED_NAME_CHARS {
-        return false;
+    let name_len = rest.chars().take_while(|c| is_word_char(*c)).count();
+    let after: String = rest.chars().skip(name_len).collect();
+    if after.contains('\t') || after.contains("  ") {
+        return true;
     }
-    siblings.iter().enumerate().any(|(i, other)| {
-        i != self_index
-            && other.as_deref().is_some_and(|tok| {
-                tok.strip_prefix('-')
-                    .is_some_and(|bare| lowercase_prefix(bare) == prefix)
-            })
+    let indent = leading_whitespace(line);
+    lines
+        .get(idx + 1)
+        .is_some_and(|next| !next.trim().is_empty() && leading_whitespace(next) > indent)
+}
+
+/// True when some physical line's leading token (after trimming
+/// indentation) is exactly `name_token`, word-bounded, on a row
+/// [`row_is_table_shaped`] trusts — the row a single-dash-long table's
+/// own rewrite is trusted to have read, rather than a fragment recovered
+/// from elsewhere in the line.
+fn is_table_leading_token(lines: &[&str], name_token: &str) -> bool {
+    lines.iter().enumerate().any(|(idx, line)| {
+        let trimmed = line.trim_start();
+        trimmed
+            .strip_prefix(name_token)
+            .is_some_and(|after| !after.chars().next().is_some_and(is_word_char))
+            && row_is_table_shaped(lines, idx)
     })
 }
 

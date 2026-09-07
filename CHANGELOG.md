@@ -17,6 +17,9 @@ once it reaches a published 0.1.0 release.
 - A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-135).
 - Every invocation form lvm2 documents now reaches usage as its own alternative, keeping the prose sentence above it as its option group instead of inventing a heading from the form's own usage line (`mandible lvcreate`, docs/shapes.md S-137).
 - A single-dash long option carrying an interior uppercase letter keeps its whole name when a sibling row in the same table shares its lowercase prefix, so `mandible mksquashfs` shows `-noI` and its nine siblings instead of ten rows reading `-n` (docs/shapes.md S-139).
+- A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one (docs/shapes.md S-145).
+- A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them (docs/shapes.md S-145).
+- A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names (docs/shapes.md S-146).
 
 ## [0.7.0] - 2026-09-05
 
