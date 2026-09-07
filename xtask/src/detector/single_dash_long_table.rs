@@ -1,24 +1,13 @@
 //! `single-dash-long-table` (atlas S-145): a document whose option rows
-//! are all single-dash long spellings, tab- or column-gap separated from
-//! their own descriptions, and which carries no `--long` row anywhere.
-//! Every such row's full token is admitted as the spelling, whatever its
-//! length and whatever its case
-//! (`help_text::sections::repair::repair_single_dash_long_options`).
-//!
-//! Twin of the parser's own table test: a document with no leading
-//! `--word` row anywhere qualifies as a table, and every row whose
-//! leading token is a single-dash `-word` name is a member. The
-//! GCC/Clang glued-value convention (`-DMACRO`) always documents
-//! `--help`/`--version` somewhere, which is the whole safety argument
-//! for admitting a qualifying table's rows without the usual two-
-//! character floor or lowercase-only gate.
-//!
-//! Replaces `glued-uppercase-shared-prefix` (S-139) and widens
-//! `spaced-single-dash-long` (S-117) for any tool whose document
-//! qualifies as a table: both those rules are now special cases the
-//! table rule subsumes.
-//!
+//! are single-dash long spellings, tab- or column-gap separated from
+//! their descriptions, carrying no `--long` row anywhere.
 //! Fixtures: `corpus/mksquashfs/4.6.1/`, `corpus/sqfstar/4.6.1/`.
+
+// A qualifying table admits every `-word` row's full token, with no
+// two-character floor and no lowercase-only gate. The GCC and Clang
+// glued-value convention always documents a `--long` row somewhere, so
+// its own tables never qualify. That is the whole safety argument.
+// This rule subsumes S-139 and widens S-117 for a qualifying document.
 
 use mandible_core::CommandNode;
 
