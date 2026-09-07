@@ -6,17 +6,16 @@
 //! WHAT KEY VALUE`, description wrapped below it) — a value placeholder
 //! that itself holds several words, on a table row rather than inside a
 //! usage-line bracket group.
-//!
-//! Unlike S-131, this is **count only, no fix shipped this round** (round
-//! 9's own A5 brief): the block-derived option-table reader wins over the
-//! usage-derived one for a flag documented in both places
-//! (`help_text/sections/mod.rs`'s own "let the described version win"),
-//! so `--annotate` keeps only its first metavar word (`WHAT`) even though
-//! `usage-bracket-group-multiword-value` already reads the fuller value
-//! out of the usage line for a flag with no table row of its own.
-//!
-//! No seed-2/4/5/6 labelled tool carries this shape, so
-//! [`Detector::family`] returns `None` (spec §13.1e rule 6).
+
+// Count only, no fix shipped this round (the A5 brief): the block-
+// derived option-table reader wins over the usage-derived one for a
+// flag documented in both places (`help_text/sections/mod.rs`'s own
+// "let the described version win"), so `--annotate` keeps only its
+// first metavar word (`WHAT`) even though `usage-bracket-group-
+// multiword-value` already reads the fuller value out of the usage
+// line for a flag with no table row of its own. No seed-2/4/5/6
+// labelled tool carries this shape, so `Detector::family` returns
+// `None` (spec §13.1e rule 6).
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::CommandNode;
