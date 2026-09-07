@@ -6,14 +6,15 @@
 //! (`mandible::background::Warmer::submit_root_fill`, which hands
 //! `fill_node` the already-extracted root as `existing` alongside a fresh
 //! reprobe) by running `mandible_core::merge_nodes` over two clones of a
-//! fixture's own root — the same "existing plus a fresh reprobe from the
-//! same source" shape `Runner::fill_node`'s own contract always produces.
-//! Every listed substring must then appear in the named flag's merged
-//! `value_name` (matched the way `must_value_name` matches: substring,
-//! whitespace-collapsed on both sides). See docs/shapes.md S-147:
-//! `mandible_core::merge::merge_entity_bucket` unions every distinct
-//! value name across the bucket instead of picking one, and this is the
-//! only field that can see the union actually happened.
+//! fixture's own root — the same "existing plus a fresh reprobe" shape
+//! `Runner::fill_node`'s own contract always produces.
+
+// Every listed substring must then appear in the named flag's merged
+// `value_name` (matched the way `must_value_name` matches: substring,
+// whitespace-collapsed on both sides). See docs/shapes.md S-147:
+// `merge_entity_bucket` unions every distinct value name across the
+// bucket instead of picking one, and this is the only field that can
+// see the union actually happened.
 
 use super::contract::{collapse_whitespace, entity_matches_flag_spec, ContractFailure};
 use super::ContractMeta;
