@@ -112,6 +112,12 @@ is the only home for shape narrative. A tool that exhibits a known shape adds
 its name to that entry's `tools` field and nothing else. It does not earn a new
 entry, a new comment, or a paragraph in the spec.
 
+Cite a shape by its id. A CHANGELOG entry, a fixture's `[xfail]` reason, and
+an issue title lead with it in brackets, `[S-117] ...`, so a reader can scan
+for it and a contributor has one form to copy. Code comments and the atlas
+itself use the bare `S-117`. Released CHANGELOG sections keep whatever form
+they shipped with.
+
 ### 3.4 A known defect is a fixture
 
 A parser defect you have reproduced becomes an `[xfail]` corpus fixture with
@@ -315,7 +321,7 @@ Three rows are about content rather than a path:
 
 | If you change… | You must also… |
 |---|---|
-| Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]`, citing the issue as `#N` when one exists: the release body thanks each cited reporter |
+| Anything a user of a release would notice | add one single-line entry under CHANGELOG `## [Unreleased]`, led by `[S-NNN]` when a shape is involved (§3.3) and citing the issue as `#N` when one exists: the release body thanks each cited reporter |
 | A measurement that contradicts spec Appendix A | update Appendix A with the new number and its method |
 | A design contract: schema, probe rules, display semantics | amend the governing `docs/design.md` section |
 
