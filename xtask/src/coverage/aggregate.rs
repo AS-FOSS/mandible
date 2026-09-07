@@ -205,7 +205,9 @@ pub struct Aggregate {
     /// [`crate::centered_label_baseline::detect_tree`] finding — a
     /// shallower row right after a centered ALL-CAPS group label whose
     /// leading word never reached the tree as a subcommand (atlas S-149).
-    /// Ratchet-gated at zero once the `bare_block_end` baseline fix ships.
+    /// The `bare_block_end` baseline defect this was built for is fixed;
+    /// reported, not gated, since the detector's own shape is broader
+    /// than that one cause (see `check_centered_label_baseline_reported`).
     pub centered_label_baseline_tools: usize,
     /// Real rows lost to that shape, fleet-wide — one per finding.
     pub centered_label_baseline_flags: usize,

@@ -227,8 +227,7 @@ pub(super) struct Row {
     /// [`crate::centered_label_baseline::detect_tree`]'s own measurement:
     /// count of this tool's shallower rows, right after a centered ALL-CAPS
     /// group label, whose leading word never reached the tree as a
-    /// subcommand (atlas S-149). Ratchet-gated at zero once the
-    /// `bare_block_end` baseline fix ships.
+    /// subcommand (atlas S-149). Reported, not gated.
     pub(super) centered_label_baseline_count: usize,
     /// A few of this row's own findings, pre-formatted, mirroring
     /// [`Self::command_pattern_samples`].
