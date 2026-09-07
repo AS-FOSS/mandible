@@ -449,3 +449,46 @@ pub fn check_command_pattern_reported(
     }
     Ok(true)
 }
+
+/// `centered-label-baseline-tree` (atlas S-149): reported, not gated. The
+/// `bare_block_end` baseline defect this detector was built for is fixed
+/// (fail2ban-client's own `start`/`restart`/... rows all recover), but the
+/// detector's own row-after-a-label shape is broader than that one cause:
+/// it still fires on fail2ban-client's own separate, undocumented name-rule
+/// gap (`set`, `add`, S-141) and on unrelated text elsewhere that merely
+/// looks like a label followed by a row. A literal-zero ratchet would gate
+/// on a number this detector was never built to reach; report it instead,
+/// the same way `command-pattern-table`'s does above.
+pub fn check_centered_label_baseline_reported(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    if fresh.centered_label_baseline_tools != previous.centered_label_baseline_tools
+        || fresh.centered_label_baseline_flags != previous.centered_label_baseline_flags
+    {
+        println!(
+            "centered-label-baseline-tree findings changed from {} tool(s)/{} finding(s) to {} \
+             tool(s)/{} finding(s) (reported, not gated)",
+            previous.centered_label_baseline_tools,
+            previous.centered_label_baseline_flags,
+            fresh.centered_label_baseline_tools,
+            fresh.centered_label_baseline_flags,
+        );
+    }
+    let detector = find("centered-label-baseline-tree")?;
+    let self_checks = run_self_checks(detector.as_ref());
+    println!(
+        "\ncentered-label-baseline-tree: {} tool(s)/{} finding(s) — REPORTED, NOT GATED.\n{}",
+        fresh.centered_label_baseline_tools,
+        fresh.centered_label_baseline_flags,
+        render_self_checks(&self_checks),
+    );
+    if !self_checks_are_conclusive(&self_checks) {
+        println!(
+            "centered-label-baseline-tree's own hand-built evidence no longer holds — its \
+             fleet number above cannot be read at all until that is fixed."
+        );
+        return Ok(false);
+    }
+    Ok(true)
+}

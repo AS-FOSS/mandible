@@ -2647,5 +2647,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   folding it into a neighboring entry's description. A dash-led wrapped
   continuation (S-140) could then defeat the block's own flag-row-resume
   rule; `is_wrapped_prose_continuation` now gates that check too.
-- fleet: `centered-label-baseline-tree` (`xtask/src/centered_label_baseline.rs`)
-  gated at zero. Fleet counts pending a full sweep.
+- fleet: A full-`PATH` sweep of 2323 tools moved one tool, fail2ban-client:
+  22 flags to 21 (the fabricated `--with-time`, S-140, gone), 11 subcommand
+  nodes to 11 (5 fabricated fragments replaced by 5 real names). Zero flag or
+  subcommand losses anywhere else in the fleet; zero gains anywhere else.
+  `centered-label-baseline-tree` reads 4 tools/12 findings post-fix, reported
+  not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
+  name rule, not this fix), the rest are false alarms on text that merely
+  resembles a label followed by a row. 2026-09-07.
