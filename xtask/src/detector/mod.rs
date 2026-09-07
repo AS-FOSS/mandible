@@ -61,6 +61,7 @@ pub(crate) mod numbered_variadic_usage_tail;
 pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
 pub(crate) mod positional_description_block;
+pub(crate) mod single_dash_long_table;
 pub(crate) mod spaced_single_dash_long;
 pub(crate) mod underscore_in_long_option;
 pub(crate) mod usage_alternative_or_prefix;
@@ -91,6 +92,15 @@ pub(crate) mod invocation_form_head_as_flag_group;
 // continuation at column zero), same direct-`Detector`-impl shape.
 pub(crate) mod usage_label_glued_to_program_name;
 pub(crate) mod usage_open_bracket_continues_at_column_zero;
+// Round-9 family detectors (issue #138's own two shapes, atlas S-143 and
+// S-144), same direct-`Detector`-impl shape.
+pub(crate) mod lowdown_bullet_command_row;
+pub(crate) mod lowdown_bullet_option_row;
+
+// Round-9 family detector (atlas S-148, the option-table sibling of
+// S-131), same direct-`Detector`-impl shape. Count only this round — no
+// parser change ships for it.
+pub(crate) mod option_table_multiword_value_name;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -726,12 +736,18 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(NumberedVariadicUsageTail),
         Box::new(invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup),
         Box::new(GluedUppercaseSharedPrefix),
+        Box::new(SingleDashLongTable),
         Box::new(description_continuation_dash_flag::RawContinuationShape),
         Box::new(description_continuation_dash_flag::BareQuoteValue),
         Box::new(usage_label_glued_to_program_name::UsageLabelGluedToProgramName),
         Box::new(
             usage_open_bracket_continues_at_column_zero::UsageOpenBracketContinuesAtColumnZero,
         ),
+        Box::new(lowdown_bullet_command_row::LowdownBulletCommandRow),
+        Box::new(lowdown_bullet_option_row::LowdownBulletOptionRow),
+        Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
+        Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
+        Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
     ]
 }
 

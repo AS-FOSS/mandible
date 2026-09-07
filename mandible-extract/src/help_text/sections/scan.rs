@@ -23,22 +23,64 @@ pub(super) fn scan_bare_block<'a>(
     (end, split_entries(&lines[start..end], allow_dash_separator))
 }
 
+/// Shallowest indent a centered group label is read at. A flush-left
+/// section heading (`gh`'s own `CORE COMMANDS`, `HELP TOPICS`, indent 0)
+/// is spaced ASCII-uppercase words too, but it is the heading that already
+/// governs a block, never a label interrupting one — cobra's own real
+/// command table would otherwise vanish under this rule, one heading at a
+/// time. `fail2ban-client`'s own labels sit at column 45; this floor only
+/// needs to clear a genuine flush-left heading's indent of 0. See
+/// docs/shapes.md S-149.
+const MIN_CENTERED_LABEL_INDENT: usize = 8;
+
+/// A line whose only content is spaced ASCII-uppercase words, indented at
+/// least [`MIN_CENTERED_LABEL_INDENT`] — a centered group label (`BASIC`,
+/// `JAIL CONTROL`), never a row of the block it opens or interrupts.
+/// Mirrors `xtask/src/command_pattern_table.rs`'s own `is_group_label`,
+/// kept as an independent copy since that crate cannot import this one.
+/// See docs/shapes.md S-149.
+pub(super) fn is_centered_group_label(trimmed: &str, indent: usize) -> bool {
+    indent >= MIN_CENTERED_LABEL_INDENT
+        && !trimmed.is_empty()
+        && trimmed.chars().count() <= 40
+        && trimmed
+            .split_whitespace()
+            .all(|w| w.chars().all(|c| c.is_ascii_uppercase()))
+}
+
 /// Find the end of a bare-word block starting at `lines[start]`: the
 /// block runs until a non-blank line dedents below its own baseline
-/// indent **or a flag row resumes**, whichever comes first. Shared by
-/// [`scan_bare_block`] and [`scan_argparse_subparsers`].
+/// indent, or a flag row resumes, whichever comes first — the caller
+/// then reads it as a flags block. See docs/shapes.md S-033 and
+/// corpus/sg_dd/audit-seed2, corpus/tar/1.35.
 ///
-/// A bare-word block (e.g. an enum of values) can sit *inside* an options
-/// table at an indent the table then resumes at, so dedent alone never
-/// ends it and the resumed flag rows get consumed as fake choices. A flag
-/// row therefore ends the block; the caller resumes its main loop at that
-/// line and reads it as a flags block instead. See docs/shapes.md S-033
-/// and corpus/sg_dd/audit-seed2, corpus/tar/1.35.
+/// The baseline is never a centered ALL-CAPS label's own indent
+/// (fail2ban-client's `BASIC` at column 45, rows at column 4): it is the
+/// first non-blank, non-label line's indent, and a label anywhere in the
+/// block interrupts without ending it. See docs/shapes.md S-149.
 pub(super) fn bare_block_end(lines: &[&str], start: usize) -> usize {
+    let mut baseline_at = start;
+    while baseline_at < lines.len()
+        && (lines[baseline_at].trim().is_empty()
+            || is_centered_group_label(
+                lines[baseline_at].trim(),
+                leading_whitespace(lines[baseline_at]),
+            ))
+    {
+        baseline_at += 1;
+    }
+    let entry_indent = if baseline_at < lines.len() {
+        leading_whitespace(lines[baseline_at])
+    } else {
+        leading_whitespace(lines[start])
+    };
     let mut i = start;
-    let entry_indent = leading_whitespace(lines[start]);
     while i < lines.len() {
         if lines[i].trim().is_empty() {
+            i += 1;
+            continue;
+        }
+        if is_centered_group_label(lines[i].trim(), leading_whitespace(lines[i])) {
             i += 1;
             continue;
         }
@@ -47,8 +89,18 @@ pub(super) fn bare_block_end(lines: &[&str], start: usize) -> usize {
         }
         // Never the first line: `flags_block_start` has already had first
         // refusal on it, so reaching here means it is not a flag row —
-        // and a zero-length block would loop forever.
-        if i > start && looks_like_flag_start(lines[i].trim_start()) {
+        // and a zero-length block would loop forever. A dash-led line
+        // that is really a wrapped-prose continuation of the entry above
+        // it (S-027's own test, `is_wrapped_prose_continuation`) is not a
+        // resumed flags row and must not end the block early — S-140's
+        // fail2ban-client `--with-time'` continuation is exactly this
+        // shape, and ending the block on it would hand the rest of a
+        // real command table to a fallback that reads it as one
+        // wrapped-prose paragraph. See docs/shapes.md S-149.
+        if i > start
+            && looks_like_flag_start(lines[i].trim_start())
+            && !is_wrapped_prose_continuation(lines, i)
+        {
             break;
         }
         i += 1;

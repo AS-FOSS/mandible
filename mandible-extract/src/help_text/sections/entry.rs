@@ -47,6 +47,14 @@ pub(super) fn split_entries<'a>(
         if line.trim().is_empty() {
             continue;
         }
+        // A centered ALL-CAPS group label (`bare_block_end`'s own doc
+        // comment, docs/shapes.md S-149) is neither a new entry nor a
+        // continuation of one: it names no entity of its own, and folding
+        // it into whichever entry preceded it would plant label text
+        // inside that entry's description.
+        if is_centered_group_label(line.trim(), leading_whitespace(line)) {
+            continue;
+        }
         let indent = leading_whitespace(line);
         let is_new_entry = indent <= baseline + 1;
         if is_new_entry {

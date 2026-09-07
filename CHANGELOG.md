@@ -20,6 +20,7 @@ once it reaches a published 0.1.0 release.
 
 - `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.
 - `xtask detector calibrate` now prints `NOT EVALUABLE` instead of `DOES NOT PASS` for a detector whose family has zero labelled members in the audit seed, so a legitimate gap in the sample is no longer reported as a failing detector.
+- A bare-word block opening on a centered ALL-CAPS group label no longer ends before reading a single real row beneath it (`mandible fail2ban-client`, docs/shapes.md S-149).
 - A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`, docs/shapes.md S-103, S-104).
 - A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`, docs/shapes.md S-117).
 - A docopt bracket row's own trailing choice list no longer repeats as the flag's value name too, so `mandible pvdisplay`'s `--configreport` and `--driverloaded` show their choices once instead of twice (docs/shapes.md S-130).
@@ -27,6 +28,11 @@ once it reaches a published 0.1.0 release.
 - A usage line's own tab-indented, unpunctuated continuation sentence no longer folds into the usage text, letting the trailing positional it was blocking reach the tree (`mandible makeconv`, docs/shapes.md S-135).
 - Every invocation form lvm2 documents now reaches usage as its own alternative, keeping the prose sentence above it as its option group instead of inventing a heading from the form's own usage line (`mandible lvcreate`, docs/shapes.md S-137).
 - A single-dash long option carrying an interior uppercase letter keeps its whole name when a sibling row in the same table shares its lowercase prefix, so `mandible mksquashfs` shows `-noI` and its nine siblings instead of ten rows reading `-n` (docs/shapes.md S-139).
+- lowdown's man-page-like `--help` rendering now parses its bullet-marked commands and options instead of rendering verbatim, recovering all 30 subcommands and 9 flags of `mandible nix`, including a `/`-joined alias and a multi-word value name (#138, docs/shapes.md S-143, S-144).
+- A flag documented once per invocation form now keeps every form's own value name instead of one form's name beside another's choices, so `mandible lvcreate`'s `--type` shows `linear, striped, raid10, snapshot, thin` beside its `raid1, mirror` choices (docs/shapes.md S-147).
+- A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one (docs/shapes.md S-145).
+- A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them (docs/shapes.md S-145).
+- A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names (docs/shapes.md S-146).
 
 ## [0.7.0] - 2026-09-05
 

@@ -2839,6 +2839,34 @@ tier ever set `Entity::hidden` or `CommandNode::hidden`, so both fields, the
 flag now always renders with its `(deprecated)` tag, the same as it did
 while the toggle was on. `docs/shapes.md` carries no entry, since removing a
 control is not a parser family.
+**The lowdown bullet-row fix ships with zero measured fleet tools
+(2026-09-07).** `rewrite_lowdown_bullets` (docs/shapes.md S-143, S-144,
+issue #138) has no fleet member on this box: no nix, no Lix, and no
+other lowdown-rendered tool is on `PATH`. It ships anyway, the way round
+7 shipped caffeinate at zero measured tools, gated on three conditions
+holding together: the fixture promotes out of `[xfail]` with every
+subcommand and flag verified by hand against the raw capture, a
+full-`PATH` sweep-diff shows zero flag and subcommand losses, and the
+five named control tools' rendered screens stay byte-identical. Both
+detectors are ratcheted at zero fleet-wide the same way a repaired
+family above the bar is.
+**A same-spelling merge unions its value names, a maintainer-absent default
+(2026-09-07).** `lvcreate`'s `--type` reaches one merge bucket once per
+lvm2 invocation form, each form naming a different literal value
+(`linear`, `striped`, the choices `raid1`/`mirror`). `merge_entity_bucket`
+used to pick one form's name by authority, so the rendered row showed
+`--type linear` beside `raid1`/`mirror`'s own choices, dropping every
+other form's name. Taken without the maintainer present, since the
+maintainer is away this round: the merge now unions every distinct value
+name across the bucket, in first-appearance order, joined the same way
+`choices` already joins for display (`--type linear, striped, raid10,
+snapshot, thin`). The alternative considered and not taken is one
+rendered row per distinct value spec, matching `split_disagreeing_rows`'s
+own treatment of a value-kind or description disagreement (docs/shapes.md
+S-102) — declined because a union keeps every same-spelling flag on the
+row a reader expects it on, while a per-form split would multiply
+`--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
+2.03.16`. Docs/shapes.md S-147.
 
 ### Deferred, with the reason each is not simply undone
 

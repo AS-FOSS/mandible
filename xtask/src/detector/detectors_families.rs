@@ -578,6 +578,38 @@ impl Detector for GluedUppercaseSharedPrefix {
     }
 }
 
+pub(crate) struct SingleDashLongTable;
+
+impl Detector for SingleDashLongTable {
+    fn name(&self) -> &'static str {
+        "single-dash-long-table"
+    }
+    fn family(&self) -> Option<&'static str> {
+        // No audit seed carries a labelled member of this family (spec
+        // §13.1e rule 6): calibration has nothing to generalize against.
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "in a document whose option rows are all single-dash long spellings with no `--long` \
+         row anywhere, a row's full token reaches the tree truncated to its flag letter"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::single_dash_long_table::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| {
+                format!(
+                    "-{} never became its own spelling, from {:?}",
+                    f.name, f.line
+                )
+            })
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::single_dash_long_table::self_checks()
+    }
+}
+
 pub(crate) struct CommandRowArgumentPlaceholder;
 
 impl Detector for CommandRowArgumentPlaceholder {

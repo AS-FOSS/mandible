@@ -10,7 +10,9 @@ mod aggregate;
 mod fingerprint;
 mod render_markdown;
 mod render_text;
+mod round7;
 mod round8;
+mod round9;
 mod score;
 
 use aggregate::compute_aggregate;
@@ -210,6 +212,8 @@ fn row(tool: &str, flags: usize, pct_flags_with_text: Option<f64>, status: &'sta
         wrapped_command_samples: Vec::new(),
         command_pattern_count: 0,
         command_pattern_samples: Vec::new(),
+        centered_label_baseline_count: 0,
+        centered_label_baseline_samples: Vec::new(),
         status,
         fingerprint: fingerprint::ToolFingerprint::default(),
     }
