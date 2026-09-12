@@ -103,11 +103,15 @@ pub(super) fn recover_trailing_multiword_operand(
     let Some(line) = usage_lines.get(line_idx) else {
         return Vec::new();
     };
+    // See the sibling comment in `recover_primary_tail_operands`: a bare
+    // usage label (S-150) may already be gone by the time this line
+    // reaches `usage_lines`, so a missing `usage:` falls back to the
+    // whole line rather than refusing.
     let lower = line.to_ascii_lowercase();
-    let Some(idx) = lower.find("usage:") else {
-        return Vec::new();
+    let after: &str = match lower.find("usage:") {
+        Some(idx) => &line[idx + "usage:".len()..],
+        None => line.as_str(),
     };
-    let after = &line[idx + "usage:".len()..];
     let before_desc = cut_before_description_gap(after);
     let groups = group_synopsis_tokens(before_desc.trim());
     // The program name, at least one group ahead of the trailing one, and

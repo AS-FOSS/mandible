@@ -39,6 +39,55 @@ pub fn is_bare_or_form_separator(t: &str) -> bool {
     t.trim().trim_end_matches(':').eq_ignore_ascii_case("or")
 }
 
+/// True if `t`, trimmed, is a short label ending in the word `usage`
+/// (case-insensitive), a colon, and nothing else — `perlthanks`'s
+/// `Advanced usage:`, distinct from the literal `usage:`
+/// [`starts_with_usage_prefix`] alone matches. At most three words, every
+/// one plain ASCII alphabetic, so a sentence that merely ends near the
+/// word `usage` never qualifies. See S-151, `corpus/perlthanks`.
+pub fn starts_with_extended_usage_label(t: &str) -> bool {
+    let Some(head) = t.trim().strip_suffix(':') else {
+        return false;
+    };
+    let words: Vec<&str> = head.split_whitespace().collect();
+    if words.is_empty() || words.len() > 3 {
+        return false;
+    }
+    if !words
+        .last()
+        .expect("checked non-empty above")
+        .eq_ignore_ascii_case("usage")
+    {
+        return false;
+    }
+    words
+        .iter()
+        .all(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphabetic()))
+}
+
+/// True if `t`, trimmed, is only a usage label with nothing after it on
+/// the same line: the literal `usage:`/`or:` markers with an empty
+/// remainder, or [`starts_with_extended_usage_label`]'s generalized form
+/// (which by construction carries no remainder either). `fdisk`'s bare
+/// `Usage:` line is this shape; the two real forms sit on the lines below
+/// it. See S-150.
+pub fn is_bare_usage_label(t: &str) -> bool {
+    let trimmed = t.trim();
+    if starts_with_usage_prefix(trimmed) {
+        return trimmed
+            .get(6..)
+            .map(|rest| rest.trim().is_empty())
+            .unwrap_or(true);
+    }
+    if starts_with_or_marker(trimmed) {
+        return trimmed
+            .get(3..)
+            .map(|rest| rest.trim().is_empty())
+            .unwrap_or(true);
+    }
+    starts_with_extended_usage_label(trimmed)
+}
+
 /// True if `t` (already trimmed of leading whitespace) begins with `name`
 /// at a word boundary. Lets a tool that repeats its own name across lines
 /// with no `or:`/`usage:` marker read as two entries rather than one
@@ -546,11 +595,15 @@ fn recover_primary_tail_operands(
     let Some(line) = usage_lines.get(line_idx) else {
         return Vec::new();
     };
+    // A bare usage label contributes no entry of its own (S-150), so the
+    // primary line no longer carries a literal `usage:` prefix once one
+    // was dropped — fall back to the whole line so the program name is
+    // still `groups[0]` to remove below.
     let lower = line.to_ascii_lowercase();
-    let Some(idx) = lower.find("usage:") else {
-        return Vec::new();
+    let after: &str = match lower.find("usage:") {
+        Some(idx) => &line[idx + "usage:".len()..],
+        None => line.as_str(),
     };
-    let after = &line[idx + "usage:".len()..];
     let before_desc = cut_before_description_gap(after);
     let mut groups = group_synopsis_tokens(before_desc.trim());
     if groups.len() < 2 {

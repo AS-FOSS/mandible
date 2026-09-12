@@ -326,13 +326,25 @@ fn scan_usage_section(
 ) -> UsageScan {
     let mut i = start;
     let base_indent = leading_whitespace(lines[i]);
-    usage_lines.push(lines[i].trim().to_string());
-    let mut usage_entries = vec![lines[i].trim().to_string()];
+    let seed_trimmed = lines[i].trim().to_string();
+    usage_lines.push(seed_trimmed.clone());
+    // A usage label alone on its own line ("Usage:" with nothing after
+    // it) contributes no form of its own — the real forms sit on the
+    // lines below it. See S-150.
+    let seed_is_bare = is_bare_usage_label(&seed_trimmed);
+    let mut usage_entries: Vec<String> = if seed_is_bare {
+        Vec::new()
+    } else {
+        vec![seed_trimmed.clone()]
+    };
     // Parallel to `usage_lines`: which `usage_entries` index each
     // physical line was folded into — a wrapped entry (sg_sanitize's
     // five-line synopsis) spans several lines but is one entry, and
-    // [`primary_synopsis_lines`] needs every one of them.
-    let mut line_entry_index = vec![0usize];
+    // [`primary_synopsis_lines`] needs every one of them. `usize::MAX`
+    // marks a physical line that opened no entry of its own — a bare
+    // usage label, or (rarely) a stray continuation before any entry has
+    // started — so it can never coincide with a real entry index.
+    let mut line_entry_index: Vec<usize> = vec![if seed_is_bare { usize::MAX } else { 0usize }];
     // Running depth of an open parenthesized alternation group (LVM's
     // "any one is required" convention), tracked only for an
     // unlabelled synopsis: a member row routinely opens with `-`
@@ -352,6 +364,16 @@ fn scan_usage_section(
     // evidence of its own. See `is_bare_or_form_separator`.
     let mut force_new_entry_after_separator = false;
     i += 1;
+    if seed_is_bare {
+        // A bare label may sit on its own physical line with its forms a
+        // blank line further down (`perlthanks`'s `Advanced usage:`, a
+        // blank line, then its two forms) — skip past the gap rather than
+        // ending the block on it, since a bare label already contributed
+        // no content to lose. See S-151, corpus/perlthanks.
+        while i < lines.len() && lines[i].trim().is_empty() {
+            i += 1;
+        }
+    }
     while i < lines.len() {
         let l = lines[i];
         if l.trim().is_empty() {
@@ -565,6 +587,7 @@ fn scan_usage_section(
             // the display form carries it; `usage_lines` stays trimmed
             // since it reads tokens, never columns.
             usage_entries.push(l.trim_end().to_string());
+            line_entry_index.push(usage_entries.len() - 1);
         } else if let Some(last) = usage_entries.last_mut() {
             // The backslash is the join, the same way a single space
             // is elsewhere: without dropping it, the displayed
@@ -577,8 +600,19 @@ fn scan_usage_section(
             }
             last.push(' ');
             last.push_str(&trimmed);
+            line_entry_index.push(usage_entries.len() - 1);
+        } else {
+            // No entry has opened yet — only reachable right after a bare
+            // usage label whose very next line fails the own-name/marker
+            // test (bpftrace's own wrapper scripts, `killsnoop.bt` and
+            // siblings, share one generic `USAGE:` block that never
+            // repeats the wrapper's own name). The label already
+            // contributed no text of its own (S-150); this line becomes
+            // the first real form rather than being dropped, which would
+            // lose it outright (AGENTS.md §3.9).
+            usage_entries.push(trimmed.clone());
+            line_entry_index.push(usage_entries.len() - 1);
         }
-        line_entry_index.push(usage_entries.len() - 1);
         i += 1;
     }
     // Scoped to a labelled block, never an unlabelled synopsis
@@ -1596,6 +1630,7 @@ fn parse_body(
         let t = l.trim_start();
         starts_with_usage_prefix(t)
             || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+            || starts_with_extended_usage_label(t)
     });
     let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
         tool_name.and_then(|name| {

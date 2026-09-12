@@ -751,10 +751,49 @@ fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
         // an exact match. Replace that word with the node's own name
         // instead of leaving it and prepending, which would double it.
         format!("{}{name}{}", &text[..start], &text[end..])
+    } else if let Some((start, end)) = foreign_program_word_span(&text) {
+        // The form's own leading word is a program name, just not this
+        // node's own spelling or stem (`gcc-ranlib-13`'s own form opens
+        // with `/usr/bin/ranlib`) — the word in a usage line's program
+        // position is the program, whatever it is spelled (docs/design.md
+        // §16), so it is replaced exactly as [`usage_naming_span`]'s own
+        // match is. See S-151.
+        format!("{}{name}{}", &text[..start], &text[end..])
     } else {
         format!("{name} {text}")
     };
     (column, text)
+}
+
+/// The byte span of `text`'s own very first token, when it reads as a
+/// program name rather than this node's own name or stem: lowercase-led,
+/// no bracket, no angle, not ALL-CAPS, and made only of letters, digits,
+/// `.`, `-`, `_`, `+` or `/`. Deliberately only the first token, never the
+/// whole leading run [`usage_naming_span`] scans — `lldb-server`'s own
+/// form `g[dbserver] [options]` carries a subcommand in that position, and
+/// its embedded bracket already fails the character-set test below, so
+/// this never touches it. See S-151.
+fn foreign_program_word_span(text: &str) -> Option<(usize, usize)> {
+    let first = text.split_whitespace().next()?;
+    if looks_like_option_or_placeholder(first) {
+        return None;
+    }
+    // "Lowercase-led": the token's own first *alphabetic* character is
+    // lowercase, checked past any leading path separators so an absolute
+    // path (`/usr/bin/ranlib`) still qualifies. Excludes a titlecase prose
+    // word (`Generate`) that slipped past the option/placeholder check.
+    let first_alpha = first.chars().find(|c| c.is_alphabetic())?;
+    if !first_alpha.is_ascii_lowercase() {
+        return None;
+    }
+    if !first
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '_' | '+' | '/'))
+    {
+        return None;
+    }
+    let start = text.find(first)?;
+    Some((start, start + first.len()))
 }
 
 /// The byte length of a leading `or:`/`or ` continuation marker, or `0`.

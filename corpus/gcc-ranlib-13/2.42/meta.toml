@@ -1,0 +1,22 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "gcc-ranlib-13"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); GNU Binutils for Ubuntu 2.42"
+
+[[capture]]
+argv = ["gcc-ranlib-13", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_usage_forms_min = 1
+must_contain_flags = ["--plugin", "-D", "-U", "-t"]
+must_contain_positionals = ["archive"]
+
+[xfail]
+broken = true
+reason = "[S-152] the usage form's own trailing prose (no terminating period) folds into the usage text with no field to hold it separately; open, xfail with count in the note."
