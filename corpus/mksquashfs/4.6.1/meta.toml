@@ -31,8 +31,13 @@ must_contain_flags = [
   "-pf", "-ef", "-Xhelp", "-Xstrategy", "-Xhc", "-Xbcj",
 ]
 must_not_contain_flags = ["-n"]
-# The operand the unread synopsis holds (docs/shapes.md S-142). Fails.
+# [S-142] FILESYSTEM, once the glued `SYNTAX:` label and the column-zero
+# open-bracket continuation are both read. `source1 source2 ...` sits
+# between the program name and FILESYSTEM rather than at the line's own
+# tail, a shape `recover_primary_tail_operands` does not reach; it stays
+# an unrecovered positional, noted rather than asserted here.
 must_contain_positionals = ["FILESYSTEM"]
+must_usage_forms_min = 1
 
 # Tab-separated value placeholders the table rule keeps (docs/shapes.md
 # S-145): `-b <block_size>`'s own kind, now also read off a swallowed
@@ -61,7 +66,3 @@ must_contain_positionals = ["FILESYSTEM"]
 "-Xhc" = "lz4"
 "-Xbcj" = "xz"
 "-Xcompression-level" = "zstd"
-
-[xfail]
-broken = true
-reason = "S-139 and S-145 are fixed and every assertion above passes. S-142 is open: SYNTAX: glued to the program name with no space is never recognized as a usage marker, so the two-line synopsis is read as description prose and no positional is recovered from it. Measured 2 genuine tools for the glued label and 1 for the open-bracket continuation at column zero, both below the five-tool bar, so nothing ships for it."

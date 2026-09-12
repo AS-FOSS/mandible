@@ -88,6 +88,52 @@ pub fn is_bare_usage_label(t: &str) -> bool {
     starts_with_extended_usage_label(trimmed)
 }
 
+/// True when `t`, trimmed, opens with an alphabetic label of 2 to 20
+/// characters, a colon, and immediately (no space) the tool's own `name`
+/// at a word boundary — `mksquashfs`'s `SYNTAX:mksquashfs source1 ...`.
+/// Distinct from the two already-recognized markers (`usage:`, `or:`),
+/// which are matched regardless of what follows; a label glued straight
+/// to unrelated text, or to the name with a space, does not qualify.
+/// Mirrors `xtask`'s `usage_label_glued_to_program_name` detector, kept as
+/// an independent copy per this crate's convention of never depending on
+/// `xtask`. Returns the byte offset in `t` where the tool's own name
+/// begins, so the caller can drop the label. See S-142, issue #143.
+pub fn label_glued_to_tool_name(t: &str, name: &str) -> Option<usize> {
+    if name.is_empty() {
+        return None;
+    }
+    let colon_idx = t.find(':')?;
+    let label = &t[..colon_idx];
+    if label.len() < 2 || label.len() > 20 || !label.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    if label.eq_ignore_ascii_case("usage") || label.eq_ignore_ascii_case("or") {
+        return None;
+    }
+    let after_idx = colon_idx + 1;
+    let after = t.get(after_idx..)?;
+    if after.is_empty() || after.starts_with(char::is_whitespace) {
+        return None;
+    }
+    // A URL scheme (`https://github.com/ajeetdsouza/zoxide`) glues its own
+    // colon straight to a `//` authority, and its path's own basename
+    // routinely coincides with the tool's own name (a homepage on the
+    // tool's own domain) — the false positive S-142's own atlas entry
+    // names. Never a usage label.
+    if after.starts_with("//") {
+        return None;
+    }
+    let first_token = after.split_whitespace().next().unwrap_or(after);
+    let basename = first_token.rsplit('/').next().unwrap_or(first_token);
+    let rest = basename.strip_prefix(name)?;
+    let boundary_ok = rest.is_empty()
+        || !rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphanumeric() || c == '_');
+    boundary_ok.then_some(after_idx)
+}
+
 /// True if `t` (already trimmed of leading whitespace) begins with `name`
 /// at a word boundary. Lets a tool that repeats its own name across lines
 /// with no `or:`/`usage:` marker read as two entries rather than one
@@ -224,6 +270,19 @@ pub(super) fn looks_like_stanza_continuation_head(lines: &[&str], idx: usize, na
 /// S-037.
 pub(super) fn looks_like_usage_fragment(t: &str) -> bool {
     matches!(t.as_bytes().first(), Some(b'[') | Some(b'<') | Some(b'{'))
+}
+
+/// Net `[`/`]` balance of one physical line: positive means more opens
+/// than closes, so the group is still open at the line's end. Used to
+/// carry an unclosed group's depth across a line break, since a
+/// continuation's own first character alone cannot say a bracket opened
+/// earlier is still pending. See S-142, issue #143.
+pub(super) fn bracket_depth_delta(t: &str) -> i32 {
+    t.chars().fold(0i32, |acc, c| match c {
+        '[' => acc + 1,
+        ']' => acc - 1,
+        _ => acc,
+    })
 }
 
 /// Recover the mode-selecting flag a stanza head line itself names

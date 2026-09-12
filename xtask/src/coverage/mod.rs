@@ -13,6 +13,7 @@ mod render_text;
 mod round7;
 mod round8;
 mod round9;
+mod round10;
 mod score;
 
 use aggregate::compute_aggregate;
