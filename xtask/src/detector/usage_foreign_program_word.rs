@@ -1,19 +1,8 @@
-//! `usage-foreign-program-word` (atlas S-151): a usage form's own leading
-//! word is a program name, spelled neither as the node's own name nor its
-//! dotted stem (`gcc-ranlib-13`'s own form opening `/usr/bin/ranlib`).
-//! S-108's `usage-program-word-mismatch` already generalizes the
-//! already-handled case (the word IS the node under a different
-//! spelling); this detector counts the remaining, previously unhandled
-//! case the detail pane's `foreign_program_word_span` now repairs by
-//! replacement.
-//!
-//! Reimplements the renderer's own rule rather than importing it (`xtask`
-//! does not depend on `mandible-tui`), the same convention
-//! `usage_program_word_mismatch` already follows. Reported, not gated: the
-//! fix is a render-layer substitution, so the raw usage text — and this
-//! detector's own tree-level count of it — never changes once the tool is
-//! repaired, the same reason `usage-program-word-mismatch` itself is
-//! reported rather than ratcheted at zero.
+//! `usage-foreign-program-word` (atlas S-151): a usage form's leading word
+//! is a program name spelled neither as the node's own name nor its dotted
+//! stem (`gcc-ranlib-13`'s form opens `/usr/bin/ranlib`). S-108 counts the
+//! already-handled case; this counts the rest. Reported, not gated: the fix
+//! is a render-layer substitution, so the raw text never changes.
 //!
 //! Fixtures: `corpus/gcc-ranlib-13/2.42/`.
 
@@ -130,7 +119,12 @@ impl crate::detector::Detector for UsageForeignProgramWord {
         detect(evidence.raw, evidence.root)
             .findings
             .into_iter()
-            .map(|f| format!("{:?} never became the node's own name, from {:?}", f.token, f.line))
+            .map(|f| {
+                format!(
+                    "{:?} never became the node's own name, from {:?}",
+                    f.token, f.line
+                )
+            })
             .collect()
     }
 

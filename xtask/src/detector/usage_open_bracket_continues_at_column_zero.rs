@@ -1,16 +1,9 @@
-//! `usage-open-bracket-continues-at-column-zero` (atlas S-142): the
-//! document's opening physical line ends with a square-bracket group
-//! still open, and the very next physical line continues it at column
-//! zero rather than being indented under it (`mksquashfs`'s
-//! `SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list
-//! of` / `exclude dirs/files]`). Distinct from
-//! [`crate::detector::usage_label_glued_to_program_name`]: that shape is
-//! about the label, this one is about where the bracket group closes.
-//! Reads the tree too: a fixed tree already carries a usage entry
-//! containing the continuation's own words joined onto the first line, so
-//! a repaired tool no longer counts (issue #143). Fixtures:
-//! `corpus/mksquashfs/4.6.1`, `corpus/sqfstar/4.6.1`. No seed-labelled
-//! tool carries this shape, so [`Detector::family`] returns `None`.
+//! `usage-open-bracket-continues-at-column-zero` (atlas S-142): the opening
+//! line ends with a square-bracket group still open and the next line
+//! continues it at column zero (`mksquashfs`'s `[-e list of` / `exclude
+//! dirs/files]`). Reads the tree too, so a repaired tool stops counting.
+//!
+//! Fixtures: `corpus/mksquashfs/4.6.1`, `corpus/sqfstar/4.6.1`. Issue #143.
 
 use crate::detector::{Detector, Expect, SelfCheck, ToolEvidence};
 use mandible_core::CommandNode;

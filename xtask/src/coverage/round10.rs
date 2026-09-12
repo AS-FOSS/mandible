@@ -29,7 +29,12 @@ pub(super) fn round10_family_counts(
                 .findings
                 .iter()
                 .take(cap)
-                .map(|f| format!("{:?} never became the node's own name, from {:?}", f.token, f.line))
+                .map(|f| {
+                    format!(
+                        "{:?} never became the node's own name, from {:?}",
+                        f.token, f.line
+                    )
+                })
                 .collect(),
         ),
     ]

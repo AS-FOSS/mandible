@@ -1,6 +1,5 @@
 name: gdk-pixbuf-thumbnailer
 usage:
-- 'Usage:'
 - '  gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images'
 positionals:
 - name: INPUT FILE

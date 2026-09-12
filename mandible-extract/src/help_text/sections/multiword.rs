@@ -305,11 +305,14 @@ pub(super) fn recover_primary_tail_operands(
     let Some(line) = usage_lines.get(line_idx) else {
         return Vec::new();
     };
+    // The label is optional. A tool that prints `Usage:` alone on its own
+    // line leaves the primary form carrying no label at all (S-150), and
+    // requiring one here refused every such form.
     let lower = line.to_ascii_lowercase();
-    let Some(idx) = lower.find("usage:") else {
-        return Vec::new();
+    let after = match lower.find("usage:") {
+        Some(idx) => &line[idx + "usage:".len()..],
+        None => line.as_str(),
     };
-    let after = &line[idx + "usage:".len()..];
     let before_desc = cut_before_description_gap(after);
     let mut groups = group_synopsis_tokens(before_desc.trim());
     if groups.len() < 2 {
