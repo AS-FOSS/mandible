@@ -102,6 +102,10 @@ pub(crate) mod lowdown_bullet_option_row;
 // parser change ships for it.
 pub(crate) mod option_table_multiword_value_name;
 
+// Round-10 family detector (atlas S-166, W6's header-declared
+// three-column option table), same direct-`Detector`-impl shape.
+pub(crate) mod header_declared_env_column;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -748,6 +752,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
+        Box::new(header_declared_env_column::HeaderDeclaredEnvColumn),
     ]
 }
 

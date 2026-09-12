@@ -303,6 +303,44 @@ pub(super) fn emit_env_vars(
     (seen, seen)
 }
 
+/// Emit a header-declared three-column option table's rows as flags
+/// (docs/shapes.md S-166). The middle column becomes [`Entity::env_var`],
+/// the flag's own cross-reference to the variable that row names for it
+/// (spec §4.5) — never folded into `description`, and never a standalone
+/// [`EntityKind::EnvVar`] item, since this is a per-row relation a named
+/// column header states, not a variable documented as an item in its own
+/// right.
+pub(super) fn emit_three_column_env_table(
+    group: Option<String>,
+    rows: Vec<ThreeColumnRow>,
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let mut seen = 0usize;
+    let mut clean = 0usize;
+    for (argument, env_var, description) in rows {
+        if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        seen += 1;
+        let spec = three_column_argument_spec(&argument);
+        if spec.spellings.is_empty() {
+            continue;
+        }
+        if spec.fully_consumed {
+            clean += 1;
+        }
+        let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+        flag.spellings = spec.spellings;
+        flag.value_name = spec.value_name;
+        flag.value_kind = spec.value_kind;
+        flag.group = group.clone();
+        flag.description = non_empty_text(&description);
+        flag.env_var = env_var;
+        out.flags.push(flag);
+    }
+    (seen, clean)
+}
+
 /// True when `rest` is nothing but argument placeholders: uppercase
 /// metavariables (`UNIT`, `PATTERN`), optionally bracketed (`[UNIT...]`),
 /// `...`-repeated, `|`-alternated (`PATTERN...|PID...`), or

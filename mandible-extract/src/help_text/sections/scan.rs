@@ -888,6 +888,143 @@ pub(super) fn scan_env_var_table(lines: &[&str], start: usize) -> Option<(usize,
     (rows.len() >= MIN_ENV_VAR_TABLE_ROWS).then_some((i, rows))
 }
 
+/// A header-declared three-column option table's own row, read at the
+/// header's own offsets: the argument field (a flag spec, parsed the
+/// ordinary way), the environment variable that row names for it (empty
+/// when the row names none), and the description. See docs/shapes.md
+/// S-166.
+pub(super) type ThreeColumnRow = (String, Option<String>, String);
+
+fn is_argument_column_label(cell: &str) -> bool {
+    matches!(
+        cell.trim().to_lowercase().as_str(),
+        "argument" | "arguments" | "option" | "options" | "flag" | "flags"
+    )
+}
+
+/// Env-var column labels, compared with hyphens and spaces removed so
+/// `Env-variable`, `Env variable` and `Environment Variable` all match the
+/// same shape rather than three separate literals.
+fn is_env_var_column_label(cell: &str) -> bool {
+    let compact: String = cell
+        .trim()
+        .to_lowercase()
+        .chars()
+        .filter(|c| !matches!(c, '-' | ' '))
+        .collect();
+    matches!(
+        compact.as_str(),
+        "envvariable" | "environmentvariable" | "envvar"
+    )
+}
+
+fn is_description_column_label(cell: &str) -> bool {
+    cell.trim().eq_ignore_ascii_case("description")
+}
+
+/// Column offsets a three-column option table declares for itself on its
+/// own header row (`Argument  Env-variable  Description`, qemu's own
+/// `--help`): byte offsets of the env-var and description columns. A
+/// named column header is stronger evidence than a heading (docs/design.md
+/// §7 Tier B rule 16), so every row under it is read at these exact
+/// offsets rather than by the generic single-gap description split, which
+/// otherwise glues the middle column onto the description. See
+/// docs/shapes.md S-166.
+pub(super) fn three_column_env_table_header(line: &str) -> Option<(usize, usize)> {
+    let cols = split_columns(line);
+    let [c0, c1, c2]: [&str; 3] = cols.try_into().ok()?;
+    if !is_argument_column_label(c0)
+        || !is_env_var_column_label(c1)
+        || !is_description_column_label(c2)
+    {
+        return None;
+    }
+    let env_col = line.find(c1)?;
+    let desc_col = line[env_col..].find(c2)? + env_col;
+    Some((env_col, desc_col))
+}
+
+/// [`parse_flag_spec`] reads a multi-char single-dash name plus a spaced
+/// bare word as a short flag with a glued value (`-cpu model` becomes
+/// `-c` valued `"pu"`), and the post-pass that untangles this elsewhere
+/// only recovers a bracket-delimited spaced value, dropping a bare word
+/// like `model`. Widening that post-pass regressed `dbiprof` fleet-wide,
+/// so this instead reads two tokens straight off a header-declared
+/// table's own row, whose boundary is already fixed by the header's own
+/// offsets: a single-dash name (2+ chars) then a lowercase-led bare word
+/// (an optional `[...]` suffix stays glued). See docs/shapes.md S-166.
+pub(super) fn three_column_argument_spec(argument: &str) -> FlagSpec {
+    let mut words = argument.split_whitespace();
+    if let (Some(name_tok), Some(value_tok), None) = (words.next(), words.next(), words.next()) {
+        if let Some(name) = name_tok
+            .strip_prefix('-')
+            .filter(|n| n.len() > 1 && !n.starts_with('-'))
+        {
+            let mut chars = value_tok.chars();
+            let starts_lowercase = chars.next().is_some_and(|c| c.is_ascii_lowercase());
+            if starts_lowercase
+                && chars.all(|c| {
+                    c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '[' | ']' | ',' | '.')
+                })
+            {
+                return FlagSpec {
+                    spellings: vec![Spelling::single_dash(name)],
+                    value_name: Some(value_tok.to_string()),
+                    value_kind: ValueKind::Required,
+                    fully_consumed: true,
+                    ..FlagSpec::default()
+                };
+            }
+        }
+    }
+    parse_flag_spec(argument)
+}
+
+/// Split one row of a header-declared three-column option table at the
+/// header's own offsets. A row shorter than `env_col`/`desc_col` (`-h`
+/// with no env var and a short description) reads the missing columns as
+/// empty rather than panicking off a byte boundary — `get` never a raw
+/// index (AGENTS.md §2). See docs/shapes.md S-166.
+fn split_three_column_row(line: &str, env_col: usize, desc_col: usize) -> ThreeColumnRow {
+    let argument = line.get(..env_col).unwrap_or(line).trim().to_string();
+    let env_var = line
+        .get(env_col..desc_col)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    let description = line.get(desc_col..).unwrap_or("").trim().to_string();
+    (argument, env_var, description)
+}
+
+/// Scan the rows of a header-declared three-column option table,
+/// immediately after its own header row. Stops at the first blank line or
+/// the first row whose argument field does not open with a dash — the
+/// table's own column structure ends there, so qemu's own trailing prose
+/// about `-E`/`-U` (`examples-block-contaminates-last-flag`'s own family)
+/// is never read as a further row. See docs/shapes.md S-166.
+pub(super) fn scan_three_column_env_table(
+    lines: &[&str],
+    start: usize,
+    env_col: usize,
+    desc_col: usize,
+) -> (usize, Vec<ThreeColumnRow>) {
+    let mut rows = Vec::new();
+    let mut i = start;
+    while i < lines.len() {
+        let line = lines[i];
+        if line.trim().is_empty() {
+            break;
+        }
+        let row = split_three_column_row(line, env_col, desc_col);
+        if !row.0.starts_with('-') {
+            break;
+        }
+        i += 1;
+        rows.push(row);
+    }
+    (i, rows)
+}
+
 #[cfg(test)]
 mod modifier_tests {
     use super::*;

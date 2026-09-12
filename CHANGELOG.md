@@ -33,6 +33,7 @@ once it reaches a published 0.1.0 release.
 - [S-145] A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one.
 - [S-145] A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
+- [S-166] A header row that names its own columns as `Argument`, `Env-variable` and `Description` is now read at those exact offsets, so `mandible qemu-riscv64-static` and the rest of the `qemu-*-static` fleet show a clean description and each flag's own environment variable instead of the two glued together, keep `-cpu` and `-dfilter`'s own value names, and no longer invent an `-E` row from the prose paragraph below the table.
 
 ## [0.7.0] - 2026-09-05
 
