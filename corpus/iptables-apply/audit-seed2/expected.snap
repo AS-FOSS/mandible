@@ -45,6 +45,13 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - -t
+  value_name: timeout
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

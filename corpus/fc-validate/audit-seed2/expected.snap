@@ -47,6 +47,20 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - -i
+  value_name: index
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --index
+  value_name: index
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

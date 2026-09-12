@@ -116,6 +116,13 @@ flags:
     sources:
     - help-text-synopsis
 - spellings:
+  - -f
+  value_name: keyfile
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -P
   value_name: old_passphrase
   value_kind: Required
@@ -139,6 +146,13 @@ flags:
     - help-text-synopsis
 - spellings:
   - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  value_name: passphrase
+  value_kind: Required
   provenance:
     sources:
     - help-text-synopsis
@@ -215,6 +229,13 @@ flags:
     sources:
     - help-text-synopsis
 - spellings:
+  - -M
+  value_name: screen
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -I
   value_name: certificate_identity
   value_kind: Required
@@ -231,6 +252,13 @@ flags:
 - spellings:
   - -h
   value_name: U
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -n
+  value_name: principals
   value_kind: Required
   provenance:
     sources:
@@ -277,6 +305,34 @@ flags:
 - spellings:
   - -Y
   value_name: find-principals
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Y
+  value_name: match-principals
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Y
+  value_name: check-novalidate
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Y
+  value_name: sign
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Y
+  value_name: verify
   value_kind: Required
   provenance:
     sources:

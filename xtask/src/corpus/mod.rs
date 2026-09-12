@@ -337,6 +337,20 @@ pub(crate) struct ContractMeta {
     /// docs/shapes.md S-147.
     #[serde(default)]
     must_value_names_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
+    /// Every value a root flag's `choices` must carry after this
+    /// fixture's root is refilled the same way
+    /// `must_value_names_after_root_refill` simulates. Keyed by the
+    /// flag's own spelling. `must_attach_choices` alone cannot state this
+    /// claim for a same-spelling merge bucket: it walks the raw,
+    /// unrefilled tree, where `--type`'s several invocation forms are
+    /// still separate entities and `.find()` sees only the first one's
+    /// own (possibly empty) `choices`. S-147 follow-up (ruled 2026-09-07
+    /// "queue", docs/design.md §16): a bucket whose forms disagree about
+    /// a value name unions every literal one into `choices`, and this is
+    /// the only field that can see the union actually happened. See
+    /// `refill_contract.rs`.
+    #[serde(default)]
+    must_choices_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a

@@ -198,6 +198,13 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --section
+  value_name: manext
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text

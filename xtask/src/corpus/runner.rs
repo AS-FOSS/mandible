@@ -271,6 +271,10 @@ fn run_fixtures(
                 root.as_ref(),
             ),
         );
+        contract_failures.extend(super::refill_contract::check_must_choices_after_root_refill(
+            &fixture.meta.contract,
+            root.as_ref(),
+        ));
         let is_xfail = fixture.meta.xfail.as_ref().is_some_and(|x| x.broken);
 
         // A missing `expected.snap` is legal only for a fixture still

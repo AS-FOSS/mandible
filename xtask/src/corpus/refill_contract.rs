@@ -60,20 +60,8 @@ pub(crate) fn check_must_value_names_after_root_refill(
     if contract.must_value_names_after_root_refill.is_empty() {
         return failures;
     }
-    let Some(root) = root else {
-        failures.push(ContractFailure(
-            "must_value_names_after_root_refill: no root produced".into(),
-        ));
+    let Some(refilled) = refill(root, &mut failures, "must_value_names_after_root_refill") else {
         return failures;
-    };
-    let refilled = match mandible_core::merge_nodes(vec![root.clone(), root.clone()]) {
-        Ok(node) => node,
-        Err(e) => {
-            failures.push(ContractFailure(format!(
-                "must_value_names_after_root_refill: simulated refill failed: {e}"
-            )));
-            return failures;
-        }
     };
     for (flag_spec, expected_substrings) in &contract.must_value_names_after_root_refill {
         match refilled
@@ -100,4 +88,103 @@ pub(crate) fn check_must_value_names_after_root_refill(
         }
     }
     failures
+}
+
+/// `must_choices_after_root_refill`'s own `CONTRACT WEAKENED` lines, the
+/// twin of [`weakened_lines`] above for the `choices` half of S-147's
+/// follow-up ruling.
+pub(crate) fn choices_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> Vec<String> {
+    let mut lines = Vec::new();
+    for (flag, base_names) in &b.must_choices_after_root_refill {
+        match n.must_choices_after_root_refill.get(flag) {
+            None => lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_choices_after_root_refill[{flag:?}] \
+                 (assertion removed)"
+            )),
+            Some(now_names) => {
+                for name in base_names {
+                    if !now_names.contains(name) {
+                        lines.push(format!(
+                            "CONTRACT WEAKENED: {label} \
+                             must_choices_after_root_refill[{flag:?}] ({name:?} dropped)"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    lines
+}
+
+/// The `choices` twin of [`check_must_value_names_after_root_refill`]:
+/// asserts every named literal survives in the refilled flag's `choices`
+/// list, not its `value_name`. S-147's own follow-up ruling (2026-09-07
+/// "queue") moves a same-spelling bucket's disagreeing literal values
+/// out of `value_name` and into one unioned `choices` list, and
+/// `must_attach_choices` alone cannot see that union: it walks the raw,
+/// unrefilled tree, where `.find()` sees only the first invocation
+/// form's own, usually-empty `choices`.
+pub(crate) fn check_must_choices_after_root_refill(
+    contract: &ContractMeta,
+    root: Option<&CommandNode>,
+) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    if contract.must_choices_after_root_refill.is_empty() {
+        return failures;
+    }
+    let Some(refilled) = refill(root, &mut failures, "must_choices_after_root_refill") else {
+        return failures;
+    };
+    for (flag_spec, expected_choices) in &contract.must_choices_after_root_refill {
+        match refilled
+            .flags()
+            .find(|f| entity_matches_flag_spec(f, flag_spec))
+        {
+            None => failures.push(ContractFailure(format!(
+                "must_choices_after_root_refill[{flag_spec:?}]: flag not present after refill"
+            ))),
+            Some(entity) => {
+                let missing: Vec<&str> = expected_choices
+                    .iter()
+                    .filter(|c| !entity.choices.iter().any(|ch| &ch.name == *c))
+                    .map(|s| s.as_str())
+                    .collect();
+                if !missing.is_empty() {
+                    failures.push(ContractFailure(format!(
+                        "must_choices_after_root_refill[{flag_spec:?}]: expected the merged \
+                         choices to include {missing:?}, got {:?}",
+                        entity
+                            .choices
+                            .iter()
+                            .map(|c| c.name.as_str())
+                            .collect::<Vec<_>>()
+                    )));
+                }
+            }
+        }
+    }
+    failures
+}
+
+/// Shared "no root"/"simulated refill failed" handling for both refill
+/// checks above, keyed by the caller's own contract-field name so each
+/// failure still names the field it belongs to.
+fn refill(
+    root: Option<&CommandNode>,
+    failures: &mut Vec<ContractFailure>,
+    field: &str,
+) -> Option<CommandNode> {
+    let Some(root) = root else {
+        failures.push(ContractFailure(format!("{field}: no root produced")));
+        return None;
+    };
+    match mandible_core::merge_nodes(vec![root.clone(), root.clone()]) {
+        Ok(node) => Some(node),
+        Err(e) => {
+            failures.push(ContractFailure(format!(
+                "{field}: simulated refill failed: {e}"
+            )));
+            None
+        }
+    }
 }

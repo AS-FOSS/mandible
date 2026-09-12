@@ -27,8 +27,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, Choice, CommandNode, Dashes, Entity, EntityKind,
-    Provenance, Source, Spelling, Text, ValueKind,
+    is_command_name_shaped, is_literal_choice_value, strip_escapes, Choice, CommandNode, Dashes,
+    Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
 };
 
 mod backfill;
@@ -941,7 +941,15 @@ fn emit_heading_block(
         st.result.usage.push(heading.clone());
     }
     if !st.in_ignorable_section {
-        if let Some(mut flag) = recover_stanza_head_flag(heading, tool_name) {
+        // A head naming exactly one flag is `recover_stanza_head_flag`'s
+        // own shape; a head naming a leading flag's own literal value
+        // plus further required flags (`lvcreate --type raid -L|--size
+        // Size[m|UNIT] VG`) is not, so the fallback only runs when the
+        // first recognizer stays silent, never both, since either would
+        // otherwise recover the same leading flag twice. See S-147.
+        let recovered = recover_stanza_head_flag(heading, tool_name)
+            .or_else(|| recover_stanza_head_leading_flag_value(heading, tool_name));
+        if let Some(mut flag) = recovered {
             if let Some(label) = stanza_label.clone() {
                 flag.group = Some(label);
             }
@@ -1720,13 +1728,20 @@ fn parse_body(
             if result.flags.len() >= MAX_RECOVERED_ENTRIES {
                 break;
             }
-            if !flag_spelling_already_present(&flag, &result.flags) {
+            if !flag_spelling_already_present(&flag, &result.flags)
+                || usage_flag_names_a_new_literal_value(&flag, &result.flags)
+            {
                 result.flags.push(flag);
             }
             // else: this spelling already names a flag the block scan
             // recovered, so the usage-derived, always-undescribed
             // duplicate is not added. "Let the described version win"
             // taken literally: the existing entry is never touched.
+            // `usage_flag_names_a_new_literal_value` is the one exception
+            // (S-147): a real, distinct literal value still gets added
+            // for `merge_entity_bucket` to union later, rather than
+            // silently replaced by whichever entity happened to land
+            // first.
         }
     }
 
