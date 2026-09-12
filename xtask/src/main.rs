@@ -37,6 +37,7 @@ mod status;
 mod tail_operand;
 mod transition;
 mod usage_only_value_name;
+mod usage_optional_word_table;
 mod wrapped_command_continuation;
 mod wrapped_prose;
 

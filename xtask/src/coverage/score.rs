@@ -172,18 +172,14 @@ pub(super) fn score_one(tool: &str) -> Row {
             }
             _ => (0, Vec::new()),
         };
-    // Fourth read of the same already-fetched capture, still zero probes
-    // — `crate::commandtable`'s shape is visible in the text the sweep
-    // already has, exactly like the three detectors above.
+    // Fourth read of the same capture, zero probes — `crate::commandtable`.
     let command_table_count = match (probe.root_help_text(), result.root.as_ref()) {
         (Some(raw), Some(root)) if !raw.trim().is_empty() => {
             crate::commandtable::detect(&raw, root).missing.len()
         }
         _ => 0,
     };
-    // The two remaining families of the three that share the `short &&
-    // !long && value_name` fingerprint, read off the same capture on the
-    // same pass and costing the same zero additional subprocess spawns —
+    // The other two of the three `short && !long && value_name` families —
     // see `split_family_counts`.
     let (
         single_dash_split_count,
@@ -200,10 +196,7 @@ pub(super) fn score_one(tool: &str) -> Row {
         wrapped_command_count,
         wrapped_command_samples,
     ) = ragged_family_detector_counts(probe.root_help_text(), result.root.as_ref());
-    let (command_pattern_count, command_pattern_samples) =
-        command_pattern_counts(probe.root_help_text(), result.root.as_ref());
-    let (centered_label_baseline_count, centered_label_baseline_samples) =
-        crate::centered_label_baseline::score_counts(probe.root_help_text(), result.root.as_ref());
+    let pattern_word = command_table_family_counts(probe.root_help_text(), result.root.as_ref());
     Row {
         tool: tool.to_string(),
         tiers: tiers_label,
@@ -240,10 +233,12 @@ pub(super) fn score_one(tool: &str) -> Row {
         ragged_command_samples,
         wrapped_command_count,
         wrapped_command_samples,
-        command_pattern_count,
-        command_pattern_samples,
-        centered_label_baseline_count,
-        centered_label_baseline_samples,
+        command_pattern_count: pattern_word.command_pattern_count,
+        command_pattern_samples: pattern_word.command_pattern_samples,
+        usage_optional_word_count: pattern_word.usage_optional_word_count,
+        usage_optional_word_samples: pattern_word.usage_optional_word_samples,
+        centered_label_baseline_count: pattern_word.centered_label_baseline_count,
+        centered_label_baseline_samples: pattern_word.centered_label_baseline_samples,
         status: status.label,
         fingerprint: build_fingerprint(result.root.as_ref()),
     }
@@ -785,25 +780,68 @@ fn format_command_pattern_sample(finding: &command_pattern_table::Finding) -> St
     )
 }
 
-/// [`command_pattern_table::detect`], run over one tool's already-captured
-/// text and tree — same zero-additional-probe reasoning as
-/// [`ragged_family_detector_counts`], kept as its own function since this
-/// family has no sibling to share a tuple return with.
-fn command_pattern_counts(raw: Option<String>, root: Option<&CommandNode>) -> (usize, Vec<String>) {
+/// One usage-optional-word-table finding, rendered as a single
+/// audit-section line.
+fn format_usage_optional_word_sample(
+    finding: &crate::usage_optional_word_table::Finding,
+) -> String {
+    format!("{:?} (name {:?}) missing", finding.display, finding.name)
+}
+
+/// [`command_table_family_counts`]'s return: one `(count, samples)` pair
+/// per command-table-shaped family it bundles, named rather than
+/// positional so its call site in [`score_one`] stays a single short
+/// binding instead of a multi-line tuple destructure (AGENTS.md §2's line
+/// ceiling).
+#[derive(Default)]
+struct CommandTableFamilyCounts {
+    command_pattern_count: usize,
+    command_pattern_samples: Vec<String>,
+    usage_optional_word_count: usize,
+    usage_optional_word_samples: Vec<String>,
+    centered_label_baseline_count: usize,
+    centered_label_baseline_samples: Vec<String>,
+}
+
+/// [`command_pattern_table::detect`], [`crate::usage_optional_word_table::detect`]
+/// and [`crate::centered_label_baseline::score_counts`], run over one
+/// tool's already-captured text and tree — same zero-additional-probe
+/// reasoning as [`ragged_family_detector_counts`], bundled into one struct
+/// return for the same line-count reason as that function.
+fn command_table_family_counts(
+    raw: Option<String>,
+    root: Option<&CommandNode>,
+) -> CommandTableFamilyCounts {
     let (Some(raw), Some(root)) = (raw, root) else {
-        return (0, Vec::new());
+        return CommandTableFamilyCounts::default();
     };
     if raw.trim().is_empty() {
-        return (0, Vec::new());
+        return CommandTableFamilyCounts::default();
     }
-    let report = command_pattern_table::detect(&raw, root);
-    let samples = report
+    let pattern_report = command_pattern_table::detect(&raw, root);
+    let pattern_samples = pattern_report
         .findings
         .iter()
         .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
         .map(format_command_pattern_sample)
         .collect();
-    (report.finding_count(), samples)
+    let word_report = crate::usage_optional_word_table::detect(&raw, root);
+    let word_samples = word_report
+        .findings
+        .iter()
+        .take(FAMILY_DETECTOR_SAMPLES_PER_ROW)
+        .map(format_usage_optional_word_sample)
+        .collect();
+    let (centered_label_baseline_count, centered_label_baseline_samples) =
+        crate::centered_label_baseline::score_counts(Some(raw), Some(root));
+    CommandTableFamilyCounts {
+        command_pattern_count: pattern_report.finding_count(),
+        command_pattern_samples: pattern_samples,
+        usage_optional_word_count: word_report.finding_count(),
+        usage_optional_word_samples: word_samples,
+        centered_label_baseline_count,
+        centered_label_baseline_samples,
+    }
 }
 
 /// One centered-label-baseline finding, rendered as a single audit-section

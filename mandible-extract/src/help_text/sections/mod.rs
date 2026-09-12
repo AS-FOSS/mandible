@@ -46,6 +46,7 @@ mod spelling;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_optional_word;
 
 use backfill::*;
 use bullets::*;
@@ -62,6 +63,7 @@ use spelling::*;
 #[cfg(test)]
 use test_support::*;
 pub use usage::*;
+use usage_optional_word::scan_usage_optional_word_table;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
@@ -1657,7 +1659,21 @@ fn parse_body(
         None
     };
     let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
-    if let Some(start) = usage_start {
+    // A bare `Usage:` heading (nothing else on that line) whose following
+    // rows each repeat the tool's own name plus one command word with an
+    // optional-abbreviation suffix (`lldb-server`'s `v[ersion]`) names
+    // subcommands, not usage forms. Tried before the ordinary usage scan
+    // so it never gets a chance to fold these rows into `result.usage`
+    // instead. See docs/shapes.md S-167.
+    let optional_word_table = labelled_usage_start.and_then(|start| {
+        tool_name.and_then(|name| scan_usage_optional_word_table(&lines, start, name))
+    });
+    if let Some((end, nodes)) = optional_word_table {
+        i = end;
+        for node in nodes {
+            result.try_push_subcommand(node);
+        }
+    } else if let Some(start) = usage_start {
         let scan = scan_usage_section(
             &lines,
             start,

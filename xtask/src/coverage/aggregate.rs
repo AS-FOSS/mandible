@@ -211,6 +211,13 @@ pub struct Aggregate {
     pub centered_label_baseline_tools: usize,
     /// Real rows lost to that shape, fleet-wide — one per finding.
     pub centered_label_baseline_flags: usize,
+    /// Tools with at least one [`crate::usage_optional_word_table`]
+    /// finding — a bare `Usage:` block's row abbreviating a subcommand
+    /// with a bracket suffix (`v[ersion]`), missing from the tree (atlas
+    /// S-167).
+    pub usage_optional_word_tools: usize,
+    /// Abbreviated words lost to that shape, fleet-wide — one per finding.
+    pub usage_optional_word_flags: usize,
 }
 
 /// Compute aggregate stats over `rows`.
@@ -292,6 +299,11 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
     let wrapped_command_flags: usize = rows.iter().map(|r| r.wrapped_command_count).sum();
     let command_pattern_tools = rows.iter().filter(|r| r.command_pattern_count > 0).count();
     let command_pattern_flags: usize = rows.iter().map(|r| r.command_pattern_count).sum();
+    let usage_optional_word_tools = rows
+        .iter()
+        .filter(|r| r.usage_optional_word_count > 0)
+        .count();
+    let usage_optional_word_flags: usize = rows.iter().map(|r| r.usage_optional_word_count).sum();
     let centered_label_baseline_tools = rows
         .iter()
         .filter(|r| r.centered_label_baseline_count > 0)
@@ -344,6 +356,8 @@ pub(super) fn compute_aggregate(rows: &[Row]) -> Aggregate {
         wrapped_command_flags,
         command_pattern_tools,
         command_pattern_flags,
+        usage_optional_word_tools,
+        usage_optional_word_flags,
         centered_label_baseline_tools,
         centered_label_baseline_flags,
     }
@@ -408,7 +422,7 @@ pub(super) fn detection_rate_pct(aggregate: &Aggregate) -> f64 {
 /// `coverage-scoreboard.txt`).
 pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
     format!(
-        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} ragged_command_tools={} ragged_command_flags={} wrapped_command_tools={} wrapped_command_flags={} command_pattern_tools={} command_pattern_flags={} centered_label_baseline_tools={} centered_label_baseline_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
+        "# aggregate: pct_flags_with_text={:.2} no_tier_count={} suspicious_count={} verbatim_count={} incomplete_count={} man_shaped_count={} zero_flag_ok_count={} misattribution_suspect_tools={} misattribution_column_aligned_tools={} existence_fabrication_tools={} bundle_collapse_tools={} bundle_destroyed_flags={} alternation_defect_tools={} alternation_defect_flags={} command_table_tools={} single_dash_split_tools={} single_dash_split_flags={} repeated_char_tools={} repeated_char_flags={} wrapped_prose_tools={} wrapped_prose_flags={} tail_operand_tools={} tail_operand_flags={} vim_family={} ragged_command_tools={} ragged_command_flags={} wrapped_command_tools={} wrapped_command_flags={} command_pattern_tools={} command_pattern_flags={} usage_optional_word_tools={} usage_optional_word_flags={} centered_label_baseline_tools={} centered_label_baseline_flags={} total={} described_flags={:.4} describable_flags={:.4} total_flags={}\n",
         aggregate.pct_flags_with_text,
         aggregate.no_tier_count,
         aggregate.suspicious_count,
@@ -439,6 +453,8 @@ pub(super) fn aggregate_footer_line(aggregate: &Aggregate) -> String {
         aggregate.wrapped_command_flags,
         aggregate.command_pattern_tools,
         aggregate.command_pattern_flags,
+        aggregate.usage_optional_word_tools,
+        aggregate.usage_optional_word_flags,
         aggregate.centered_label_baseline_tools,
         aggregate.centered_label_baseline_flags,
         aggregate.total,
@@ -611,6 +627,11 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // no such key.
     let mut centered_label_baseline_tools = 0usize;
     let mut centered_label_baseline_flags = 0usize;
+    // Same reasoning again, brand new field (round 10): a scoreboard
+    // written before the usage-optional-word-table detector existed
+    // carries no such key.
+    let mut usage_optional_word_tools = 0usize;
+    let mut usage_optional_word_flags = 0usize;
     for field in line.trim_start_matches("# aggregate:").split_whitespace() {
         let (key, value) = field.split_once('=')?;
         match key {
@@ -659,6 +680,12 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
             "wrapped_command_flags" => wrapped_command_flags = value.parse::<usize>().ok()?,
             "command_pattern_tools" => command_pattern_tools = value.parse::<usize>().ok()?,
             "command_pattern_flags" => command_pattern_flags = value.parse::<usize>().ok()?,
+            "usage_optional_word_tools" => {
+                usage_optional_word_tools = value.parse::<usize>().ok()?
+            }
+            "usage_optional_word_flags" => {
+                usage_optional_word_flags = value.parse::<usize>().ok()?
+            }
             "centered_label_baseline_tools" => {
                 centered_label_baseline_tools = value.parse::<usize>().ok()?
             }
@@ -709,6 +736,8 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
         wrapped_command_flags,
         command_pattern_tools,
         command_pattern_flags,
+        usage_optional_word_tools,
+        usage_optional_word_flags,
         centered_label_baseline_tools,
         centered_label_baseline_flags,
     })

@@ -1,0 +1,30 @@
+# S-167: a bare `Usage:` heading's rows repeat the tool's own name plus
+# one subcommand word abbreviated with a bracket suffix. `version`,
+# `gdbserver` and `platform` recover as subcommand nodes, never usage
+# forms, each keeping its source spelling in `must_display_name` and
+# staying invocation-attested only, so no probe follows (docs/design.md
+# §16). The help text sits entirely on stderr; stdout is empty.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lldb-server"
+version = "18.1.3"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.7.0"
+
+[[capture]]
+argv = ["lldb-server", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 3
+
+[contract.must_display_name]
+version = "v[ersion]"
+gdbserver = "g[dbserver]"
+platform = "p[latform]"

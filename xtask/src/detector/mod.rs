@@ -748,6 +748,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
+        Box::new(UsageOptionalWordTable),
     ]
 }
 
