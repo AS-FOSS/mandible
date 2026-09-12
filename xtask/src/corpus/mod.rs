@@ -23,6 +23,7 @@
 //!   `must_contain_positionals`, `must_contain_modifiers`,
 //!   `must_not_contain_flags`, `must_not_contain_positionals`,
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
+//!   `must_not_describe_root`,
 //!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe`, `must_usage_forms_min`,
 //!   `must_not_contain_flag_group_prefixes`, `must_flag_group`,
@@ -199,6 +200,19 @@ pub(crate) struct ContractMeta {
     /// same reasoning `must_not_contain_flags` uses.
     #[serde(default)]
     must_not_contain_usage_text: Vec<String>,
+    /// Text the root's own `description` must **not** carry — the root-level
+    /// analogue of `must_not_describe`, which only ever checks a *flag's*
+    /// description. `Xvfb`'s leading option-rejection diagnostic
+    /// (`Unrecognized option: --help`) used to fuse into the root
+    /// description alongside its whole eighty-row option table; nothing
+    /// before this field could state that the diagnostic itself must not
+    /// survive into the tree. Substring match after collapsing runs of
+    /// whitespace to a single space on both sides, the same rule
+    /// `must_describe` uses. Satisfied vacuously by a tree with no root or
+    /// no description at all, the same reasoning `must_not_contain_flags`
+    /// uses. See docs/shapes.md S-162.
+    #[serde(default)]
+    must_not_describe_root: Vec<String>,
     /// Spellings no root flag's own `group` may **start with** — the
     /// group-label mirror of `must_not_contain_flags`, added for
     /// `lvcreate`'s own shape (docs/shapes.md S-137): the unfixed parser

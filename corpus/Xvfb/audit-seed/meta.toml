@@ -1,0 +1,32 @@
+# Xvfb rejects `--help`, prints a leading diagnostic line, then a headingless
+# table of over eighty option rows with no recognized heading at all. Three
+# defects share one specimen: the leading diagnostic (S-162), `+word` and
+# `+/-name`/`[+-]name` rows (S-163), and the headingless table landing in the
+# root description (S-165).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "Xvfb"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "frozen capture, round 10 W5"
+
+[[capture]]
+argv = ["Xvfb", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+# The F4/S-162 half is fixed: the leading diagnostic no longer survives
+# into the root description. This assertion is what makes that checkable;
+# the fixture stays [xfail] below because the headingless option table
+# (S-165) and the `+word`/`+/-name` rows (S-163) still land as prose in
+# that same description.
+must_not_describe_root = ["Unrecognized option", "disable access control restrictions"]
+
+[xfail]
+broken = true
+reason = "a headingless option table lands in the root description as prose (S-165); +word and +/-name rows are unrecovered (S-163)"

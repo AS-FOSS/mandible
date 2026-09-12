@@ -2817,3 +2817,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-162: a leading diagnostic line inside the chosen document
+
+- id: S-162
+- looks like: |
+      /usr/bin/fuser: Invalid option --help
+      Usage: fuser [-fIMuvw] [-a|-s] [-4|-6] [-c|-m|-n SPACE]
+- tools: fuser, Xvfb, nfsidmap
+- handling: Fixed (the diagnostic-drop half). A tool that refuses `--help` often
+  prints one option-rejection line first, then its document anyway. The
+  chosen stream's own first non-empty line is dropped before any layout
+  analysis when it names an option-rejection (`invalid`/`unrecognized`/
+  `unknown`/`illegal option`, case-insensitive), optionally preceded by the
+  program's own name or path and `": "`. No later line is ever dropped this
+  way. A `<program>: ` prefix glued in front of a usage label
+  (`nfsidmap: Usage: ...`) is stripped the same way, wherever it sits, not
+  only on the first line. Same hazard class as S-029 and S-091: a diagnostic
+  preamble merged into the document is how banner text becomes fabricated
+  structure.
+- fleet: `leading-diagnostic-line` (`xtask/src/detector/leading_diagnostic_line.rs`)
+  is family `None`: no DEFECT_FAMILIES label covers this shape, so its
+  calibration reads NOT EVALUABLE rather than a score. Self-checks hold
+  (5/5). Raw-shape grep count: 197 tools / 198 findings for the leading
+  diagnostic over both streams; the detector reads the tree's chosen stream
+  only, and that count is an upper bound, not this family's own fleet
+  count. 2026-09-12.

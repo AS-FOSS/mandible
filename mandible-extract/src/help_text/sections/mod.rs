@@ -286,6 +286,14 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    // A leading option-rejection diagnostic (`fuser`'s `Invalid option
+    // --help`, `Xvfb`'s `Unrecognized option: --help`, `nfsidmap`'s
+    // `invalid option -- '-'`) is the tool's own complaint about the probe,
+    // not part of its document, and merging it into the root description or
+    // a heading is the same S-029/S-091 hazard a banner line already is
+    // (spec §7 Tier B rule 11's Why paragraph). Dropped once, here, before
+    // any layout analysis sees it. See docs/shapes.md S-162.
+    let raw = strip_leading_diagnostic_line(&raw);
     // lowdown's man-page-like rendering (nix/Lix, issue #138) writes
     // every entry, command or option alike, as a `·`-led bullet row and
     // sometimes wraps a group label across two physical lines. Rewritten
@@ -326,8 +334,12 @@ fn scan_usage_section(
 ) -> UsageScan {
     let mut i = start;
     let base_indent = leading_whitespace(lines[i]);
-    usage_lines.push(lines[i].trim().to_string());
-    let mut usage_entries = vec![lines[i].trim().to_string()];
+    // Drop a `<program>: ` prefix in front of this line's own usage label
+    // (S-162): the C fprintf idiom's diagnostic prefix, never the label
+    // itself.
+    let head = strip_name_prefixed_usage_label(lines[i], tool_name);
+    usage_lines.push(head.clone());
+    let mut usage_entries = vec![head];
     // Parallel to `usage_lines`: which `usage_entries` index each
     // physical line was folded into — a wrapped entry (sg_sanitize's
     // five-line synopsis) spans several lines but is one entry, and

@@ -100,6 +100,11 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
                 &n.must_not_contain_flag_group_prefixes,
             ),
             (
+                "must_not_describe_root",
+                &b.must_not_describe_root,
+                &n.must_not_describe_root,
+            ),
+            (
                 "must_contain_positionals",
                 &b.must_contain_positionals,
                 &n.must_contain_positionals,
@@ -435,6 +440,35 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     failures
 }
 
+/// The root-level mirror of `must_not_describe`: text the root's own
+/// `description` must not carry. Whitespace-collapsed substring match,
+/// `must_describe`'s own rule (a real description wraps). Built for
+/// `Xvfb`'s leading option-rejection diagnostic, which used to fuse into
+/// the root description alongside its whole option table. See
+/// docs/shapes.md S-162.
+fn check_must_not_describe_root(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let Some(description) = root.description.as_ref().map(|t| t.as_str()) else {
+        return Vec::new();
+    };
+    let description_collapsed = collapse_whitespace(description);
+    let present: Vec<&str> = contract
+        .must_not_describe_root
+        .iter()
+        .filter(|text| description_collapsed.contains(&collapse_whitespace(text)))
+        .map(|s| s.as_str())
+        .collect();
+    if present.is_empty() {
+        return Vec::new();
+    }
+    vec![ContractFailure(format!(
+        "must_not_describe_root: present {}",
+        present.join(", ")
+    ))]
+}
+
 /// The scalar `[contract]` fields: `expected_framework`, `min_status`,
 /// `min_subcommands`, `must_contain_flags`, `must_not_contain_flags`.
 fn check_contract_scalar_fields(
@@ -550,6 +584,8 @@ fn check_contract_scalar_fields(
             present_usage_text.join(", ")
         )));
     }
+
+    failures.extend(check_must_not_describe_root(contract, root));
 
     // The group-label mirror of the negative claim above: no root flag's
     // own `group` may start with one of these spellings — the invented

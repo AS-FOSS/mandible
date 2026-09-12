@@ -88,6 +88,25 @@ pub fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
         .is_some_and(starts_with_usage_prefix)
 }
 
+/// Drop the `<program>: ` prefix [`starts_with_name_prefixed_usage`]
+/// recognizes, wherever it sits in front of a usage label — not only the
+/// document's first line. `nfsidmap`'s C `fprintf(stderr, "%s: Usage:
+/// ...", argv[0])` idiom keeps that prefix glued to its own usage line
+/// rendered; the diagnostic prefix is not the label, and a reader wants the
+/// label. Returns `t` trimmed and unchanged when the prefix isn't present.
+/// See docs/shapes.md S-162 and S-001.
+pub(super) fn strip_name_prefixed_usage_label(t: &str, tool_name: Option<&str>) -> String {
+    let trimmed = t.trim();
+    if let Some(name) = tool_name {
+        if starts_with_name_prefixed_usage(trimmed, name) {
+            // `starts_with_name_prefixed_usage` already confirmed `trimmed`
+            // opens with exactly `"{name}: "`.
+            return trimmed[name.len() + 2..].to_string();
+        }
+    }
+    trimmed.to_string()
+}
+
 /// True if `t` opens with `name` at a word boundary and its remainder
 /// reads as usage-synopsis grammar rather than prose — the unlabelled
 /// synopsis convention (`wpa_cli --help` opens `wpa_cli [-p<path>]
