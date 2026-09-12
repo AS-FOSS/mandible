@@ -300,11 +300,11 @@ pub(super) fn extract_positionals(
         // See docs/shapes.md S-154.
         let mut bare_group_active = false;
         let mut bare_group_depth: i32 = 0;
-        // (raw token, cleaned word) pairs, raw kept so the per-word
-        // fallback below can compute `required` and repeatability exactly
-        // the way the lone-word ALL-CAPS branch does for the same token.
+        // (raw token, cleaned word) pairs, raw kept so
+        // `finalize_bare_bracket_group` can compute `required` and
+        // repeatability exactly the way the lone-word ALL-CAPS branch
+        // below does for the same token.
         let mut bare_group_words: Vec<(String, String)> = Vec::new();
-        let mut bare_group_all_caps = true;
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
             let opens = token.matches('[').count() as i32;
@@ -343,69 +343,22 @@ pub(super) fn extract_positionals(
                 continue;
             }
             // A bracket group opened by a bare ALL-CAPS word that does not
-            // close on the same token collapses to one multi-word operand,
-            // rather than one positional per word inside it, once every
-            // word in the group reads ALL-CAPS and none is an option-list
-            // placeholder (`udevadm`'s `[COMMAND OPTIONS]` and
-            // `aa-features-abi`'s `[OUTPUT OPTIONS]` name further flags,
-            // not a second operand). When the group does not qualify, it
-            // falls back to exactly the per-token reading a lone-word
-            // bracket already gets below — every ALL-CAPS, non-placeholder
-            // word inside becomes its own positional, `COMMAND` kept and
-            // `OPTIONS` declined — so this rule only adds a reading, never
-            // removes the one already there. See docs/shapes.md S-154.
+            // close on the same token collapses to one multi-word operand
+            // (`finalize_bare_bracket_group`), rather than one positional
+            // per word inside it. See docs/shapes.md S-154.
             if bare_group_active {
                 bare_group_depth += opens - closes;
                 if !cleaned.is_empty() {
-                    let word_all_caps =
-                        cleaned.chars().all(|c| c.is_uppercase() || c == '_') && cleaned.len() > 1;
-                    bare_group_all_caps &= word_all_caps && !is_option_list_placeholder(cleaned);
                     bare_group_words.push((token.to_string(), cleaned.to_string()));
                 }
                 if bare_group_depth <= 0 {
-                    if bare_group_words.len() >= 2 && bare_group_all_caps {
-                        let name = bare_group_words
-                            .iter()
-                            .map(|(_, w)| w.as_str())
-                            .collect::<Vec<_>>()
-                            .join(" ");
-                        if seen.insert(name.clone()) {
-                            let mut positional =
-                                Entity::positional(name, Provenance::single(Source::HelpText));
-                            positional.required = false;
-                            positional.repeatable = token_marks_repetition(token);
-                            out.push(positional);
-                        }
-                    } else {
-                        // The exact per-word reading the lone-word ALL-CAPS
-                        // branch below already gives each of these tokens —
-                        // this group merely batched several of them behind
-                        // one bracket. `required`/repeatable are computed
-                        // from each word's own raw token, matching that
-                        // branch exactly, so this fallback changes nothing
-                        // a reader could see.
-                        for (raw, word) in &bare_group_words {
-                            let word_all_caps = word.chars().all(|c| c.is_uppercase() || c == '_')
-                                && word.len() > 1;
-                            if word_all_caps
-                                && !is_option_list_placeholder(word)
-                                && seen.insert(word.clone())
-                            {
-                                let required =
-                                    !raw.contains('[') && !line.contains(&format!("[{raw}"));
-                                let mut positional = Entity::positional(
-                                    word.clone(),
-                                    Provenance::single(Source::HelpText),
-                                );
-                                positional.required = required;
-                                positional.repeatable = token_marks_repetition(raw);
-                                out.push(positional);
-                            }
+                    for p in finalize_bare_bracket_group(&bare_group_words, line) {
+                        if seen.insert(p.primary_name().to_string()) {
+                            out.push(p);
                         }
                     }
                     bare_group_active = false;
                     bare_group_words.clear();
-                    bare_group_all_caps = true;
                 }
                 continue;
             }
@@ -418,7 +371,6 @@ pub(super) fn extract_positionals(
                 bare_group_active = true;
                 bare_group_depth = opens - closes;
                 bare_group_words = vec![(token.to_string(), cleaned.to_string())];
-                bare_group_all_caps = true;
                 continue;
             }
             let (name, variadic) = if let Some(stripped) = cleaned.strip_prefix('<') {
@@ -552,7 +504,7 @@ fn is_clean_flag_group(stripped: &str) -> bool {
 /// [`is_option_list_placeholder`] itself, whose single-word check this
 /// subsumes. See S-041's earlier-context gate in
 /// [`recover_primary_tail_operands`].
-fn ends_with_option_list_placeholder(stripped: &str) -> bool {
+pub(super) fn ends_with_option_list_placeholder(stripped: &str) -> bool {
     stripped
         .split_whitespace()
         .next_back()
@@ -569,7 +521,7 @@ fn ends_with_option_list_placeholder(stripped: &str) -> bool {
 /// discriminator: ALL-CAPS is already this parser's own metavar
 /// convention. See `ars_own_flag_cluster_and_metavar_license_the_recovered_run`
 /// and docs/shapes.md S-153.
-fn is_understood_flag_context(stripped: &str) -> bool {
+pub(super) fn is_understood_flag_context(stripped: &str) -> bool {
     if is_clean_flag_group(stripped) {
         return true;
     }
@@ -595,7 +547,7 @@ fn is_understood_flag_context(stripped: &str) -> bool {
 /// its first word (`true`'s `[ignored command line arguments]` must not
 /// read `ignored` as an operand). See S-041 and
 /// [`recover_primary_tail_operands`].
-fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
+pub(super) fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
     let stripped = group.trim_matches(|c| c == '[' || c == ']');
     let mut words = stripped.split_whitespace();
     let raw_word = words.next()?;
@@ -623,173 +575,6 @@ fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
     }
     let required = !group.starts_with('[');
     Some((word.to_string(), required, marker_repeat || inline_repeat))
-}
-
-/// The primary synopsis's own trailing run of operands — atlas S-041
-/// (one operand) generalized to a run of two or more, promoted from
-/// `xtask`'s `unparsed-tail-operand` detector (`xtask/src/tail_operand.rs`).
-/// The token loop above only ever promotes a `<value>` or an `ALL-CAPS`
-/// metavariable; a usage line's own trailing operands (`file`,
-/// `[member-name] [count] archive-file file...`) are neither shape and
-/// went unrecovered even though the synopsis plainly names them. Fires
-/// only when the loop above found nothing, and only for a
-/// one-physical-line primary entry ([`primary_synopsis_lines`]) — a
-/// wrapped synopsis is a harder shape this does not attempt. Each refusal
-/// is documented at its own check, deliberately stricter than the
-/// detector it promotes.
-fn recover_primary_tail_operands(
-    usage_lines: &[String],
-    primary_lines: &std::collections::HashSet<usize>,
-) -> Vec<Entity> {
-    let line_idx = match primary_lines.len() {
-        1 => match primary_lines.iter().next() {
-            Some(&i) => i,
-            None => return Vec::new(),
-        },
-        _ => return Vec::new(),
-    };
-    let Some(line) = usage_lines.get(line_idx) else {
-        return Vec::new();
-    };
-    let lower = line.to_ascii_lowercase();
-    let Some(idx) = lower.find("usage:") else {
-        return Vec::new();
-    };
-    let after = &line[idx + "usage:".len()..];
-    let before_desc = cut_before_description_gap(after);
-    let mut groups = group_synopsis_tokens(before_desc.trim());
-    if groups.len() < 2 {
-        return Vec::new();
-    }
-    groups.remove(0); // the program name itself
-
-    // Walk backward from the tail, collecting a run of operand-shaped
-    // groups in reverse source order. A separate ellipsis-only group
-    // (lessecho's bare `file ...`) marks the *next* group popped — the
-    // operand immediately before it in source order — repeatable, same
-    // as a dots suffix glued straight onto a word. See S-101. The fourth
-    // field is true only for a brace-alternation operand
-    // ([`parse_brace_alternation_group`], S-153's `cache_repair` shape);
-    // the fifth is true only once [`collapse_numbered_variadic_tail`] has
-    // replaced a numbered pair with its own single repeatable operand
-    // (S-136), never set here.
-    let mut collected: Vec<(String, bool, bool, bool, bool)> = Vec::new();
-    let mut pending_repeat = false;
-    while let Some(last) = groups.last() {
-        let bare = last.trim_matches(|c| c == '[' || c == ']');
-        if !bare.is_empty() && bare.chars().all(|c| c == '.') {
-            pending_repeat = true;
-            groups.pop();
-            continue;
-        }
-        if let Some((word, required, marker_repeat)) = parse_operand_group(last) {
-            collected.push((
-                word,
-                required,
-                marker_repeat || pending_repeat,
-                false,
-                false,
-            ));
-            pending_repeat = false;
-            groups.pop();
-            continue;
-        }
-        let Some((name, required)) = parse_brace_alternation_group(last) else {
-            break;
-        };
-        collected.push((name, required, pending_repeat, true, false));
-        pending_repeat = false;
-        groups.pop();
-    }
-    if collected.is_empty() {
-        return Vec::new();
-    }
-    collected.reverse(); // restore source order
-
-    // A trailing `X1 [X2 ...]` pair (S-136, issue #141) collapses to one
-    // repeatable operand named by the shared stem before either guard
-    // below runs, since the numbering is itself the evidence that removes
-    // both ambiguities: `apt-extracttemplates` has no earlier group at
-    // all, and `apt-sortpkgs`'s lone `[options]` is the same shape the
-    // "`[options] command`" guard would otherwise decline.
-    if collected.len() >= 2 {
-        let tail = collected.len() - 2;
-        if let Some(collapsed) =
-            collapse_numbered_variadic_tail(&collected[tail], &collected[tail + 1])
-        {
-            collected.truncate(tail);
-            collected.push(collapsed);
-        }
-    }
-
-    // At least one real group must stand between the program name and the
-    // run: a lone bracket group right after the program name (`true`'s
-    // `Usage: true [ignored command line arguments]`) is prose describing
-    // the tool's forgiving argument handling, not a flag list licensing a
-    // trailing operand, and [`parse_operand_group`] must not read its
-    // first word as one. A numbered-variadic tail is exempt: its own
-    // numbering already licenses it with no earlier group at all
-    // (`apt-extracttemplates`).
-    if groups.is_empty() && !collected.iter().all(|c| c.4) {
-        return Vec::new();
-    }
-    // Every group ahead of the run must read as either an option-list
-    // placeholder or a plain flag spelling — `apt-ftparchive`'s lone
-    // `[options]`, or `bashbug`/`lessecho`'s real flag lists. A group
-    // carrying more than a plain flag spelling — an explicit value word
-    // (`-d xy`), a brace-value placeholder (`-b{blocksize}[KMG]`), or a
-    // nested alternation (`[-c|-C] cmd`) — is grammar this rule declines
-    // to reason about, even when the run itself looks clean, and refuses
-    // the whole line rather than guess a boundary.
-    let mut earlier_all_placeholder = true;
-    for earlier in &groups {
-        let earlier_stripped = earlier.trim_matches(|c| c == '[' || c == ']');
-        if ends_with_option_list_placeholder(earlier_stripped) {
-            continue;
-        }
-        // `is_understood_flag_context`'s own leniency (an angle-bracket
-        // metavar pair, a glued no-whitespace cluster) only ever licenses
-        // a *bracketed* group: `btrfs-select-super`'s bare, unbracketed
-        // `-s number dev` glues a required value onto `-s` with no
-        // brackets anywhere on the line, and a bare flag token cannot be
-        // told apart from a genuinely boolean one without that notation —
-        // the same ambiguity `-d xy` carries inside a bracket. See
-        // `a_bare_unbracketed_flag_never_licenses_the_run_behind_it`.
-        if earlier.starts_with('[') && is_understood_flag_context(earlier_stripped) {
-            earlier_all_placeholder = false;
-            continue;
-        }
-        return Vec::new();
-    }
-    // `[options] command`'s shape: a lone placeholder group ahead of a
-    // bare, required first operand reads as easily as "provide a
-    // subcommand" as "provide an operand" — see the doc comment above.
-    // Only the earliest operand in the run sits directly behind the
-    // ambiguous context, so only its own required-ness is checked. A
-    // brace alternation or a numbered-variadic tail is exempt: neither
-    // notation can be mistaken for a bare subcommand name.
-    if earlier_all_placeholder && collected[0].1 && !collected[0].3 && !collected[0].4 {
-        return Vec::new();
-    }
-    collected
-        .into_iter()
-        .map(|(word, required, repeatable, is_brace, _is_numbered)| {
-            let mut positional =
-                Entity::positional(word.clone(), Provenance::single(Source::HelpText));
-            positional.required = required;
-            positional.repeatable = repeatable;
-            // A brace alternation's own members become the positional's
-            // `choices`, when the IR carries choices on a positional (it
-            // does — `Entity::choices` is not flag-only). The name keeps
-            // its source spelling regardless, per S-097's own rule.
-            if is_brace {
-                if let Some(members) = brace_alternation_members(&word) {
-                    positional.choices = members.into_iter().map(Choice::bare).collect();
-                }
-            }
-            positional
-        })
-        .collect()
 }
 
 /// After the usage block, some tools describe each named positional on a
