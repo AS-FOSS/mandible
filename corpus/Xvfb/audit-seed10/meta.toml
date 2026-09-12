@@ -20,6 +20,11 @@ exit_code = 1
 expected_framework = "generic"
 must_contain_flags = ["-audit", "-auth", "-fp", "-help"]
 
+# `[+-]accessx`'s own description must never name a flag group. It does
+# today, which is what keeps this fixture `[xfail]`; S-163 and S-165 on the
+# document-shape branch are the fix.
+must_not_contain_flag_group_prefixes = ["enable/disable accessx"]
+
 # Bare-word single-dash-long-table values (docs/shapes.md S-157): each
 # used to read as a boolean, its value name silently dropped, absorbed
 # into the row's own description column.
@@ -27,3 +32,14 @@ must_contain_flags = ["-audit", "-auth", "-fp", "-help"]
 "-audit" = "int"
 "-auth" = "file"
 "-fp" = "string"
+
+[xfail]
+broken = true
+reason = """
+S-157 recovers the bare-word value names this contract asserts (`-audit int`,
+`-auth file`, `-fp string`), and the tree is still wrong in two ways this rule
+does not reach. `[+-]accessx`'s own description becomes a fabricated flag group,
+and the `+word` rows reach nothing. Both need S-163 and S-165, which live on the
+document-shape branch. The contract fields above already state what must hold
+once all three land.
+"""

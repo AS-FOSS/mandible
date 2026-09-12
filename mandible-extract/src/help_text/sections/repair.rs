@@ -523,6 +523,15 @@ fn spaced_bare_word_value(lines: &[&str], name_token: &str) -> Option<(String, V
             return None;
         }
         let value = after.split_whitespace().next()?;
+        // A row separates its value from its description by a real column
+        // gap; prose that merely names a spelling does not. mksquashfs's
+        // `-one-file-system-x` describes itself as "-one-file-system
+        // option except ...", which donated the fabricated value `option`
+        // to `-one-file-system` itself before this check existed.
+        let rest = &after[value.len()..];
+        if !rest.is_empty() && !rest.starts_with(['\t']) && !rest.starts_with("  ") {
+            return None;
+        }
         value
             .chars()
             .next()

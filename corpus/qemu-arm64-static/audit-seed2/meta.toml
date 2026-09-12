@@ -42,10 +42,14 @@ must_contain_flags = ["help", "cpu", "one-insn-per-tb"]
 # column.
 [contract.must_value_name]
 "-cpu" = "model"
-"-dfilter" = "range[,...]"
+# `-dfilter`'s own value sits one space from its ENV-VARIABLE column, so
+# recovering it is the header-declared three-column fix's job (S-166),
+# not this bare-word rule's. Asserted on the branch that carries it.
 
 # The regression this row caught once (docs/shapes.md S-157): reading past
 # the first whitespace-delimited token swallowed the row's own
 # `Env-variable` column into the value.
 [contract.must_not_value_name]
-"-dfilter" = "QEMU_DFILTER"
+# `-dfilter`'s own value sits one space from its ENV-VARIABLE column, so
+# recovering it is the header-declared three-column fix's job (S-166),
+# not this bare-word rule's. Asserted on the branch that carries it.

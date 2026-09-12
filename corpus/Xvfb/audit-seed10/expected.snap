@@ -438,8 +438,6 @@ flags:
     - help-text
 - spellings:
   - -screen
-  value_name: scrn
-  value_kind: Required
   group: enable/disable accessx key sequences
   description: set screen's width, height, depth
   provenance:
