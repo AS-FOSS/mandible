@@ -20,7 +20,7 @@ exit_code = 1
 expected_framework = "generic"
 # The single-dash-long table rule (docs/shapes.md S-145): these used to
 # split at their second letter, sharing mksquashfs's own shape.
-must_contain_flags = ["-pf", "-ef", "-Xhelp", "-Xhc", "-Xbcj"]
+must_contain_flags = ["-pf", "-ef", "-Xhelp", "-Xhc", "-Xbcj", "-Xstrategy"]
 # The operand the unread synopsis holds (docs/shapes.md S-142). Fails.
 must_contain_positionals = ["FILESYSTEM"]
 
@@ -28,6 +28,9 @@ must_contain_positionals = ["FILESYSTEM"]
 "-mem" = "<size>"
 "-comp" = "<comp>"
 "-mkfs-time" = "<time>"
+# Bare-word, comma-separated value lists (docs/shapes.md S-157).
+"-Xstrategy" = "strategy1,strategy2,...,strategyN"
+"-Xbcj" = "filter1,filter2,...,filterN"
 
 # One row under a flush `Xxx options:` heading and one under two of the
 # compressor sub-labels, gzip included (docs/shapes.md S-146).

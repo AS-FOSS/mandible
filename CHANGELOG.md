@@ -33,6 +33,7 @@ once it reaches a published 0.1.0 release.
 - [S-145] A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one.
 - [S-145] A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
+- [S-157] A single-dash long option's bare-word value name inside a no-double-dash table now survives instead of reading as the first word of the description, so `mandible Xvfb` shows `-audit int` and `-fp string`, and `mandible mksquashfs`/`mandible sqfstar` show `-Xstrategy` and `-Xbcj` with their comma-separated value lists.
 
 ## [0.7.0] - 2026-09-05
 

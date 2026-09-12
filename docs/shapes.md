@@ -2817,3 +2817,48 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-157: a bare-word value placeholder after a single-dash-long spelling
+
+- id: S-157
+- looks like: |
+      -Xstrategy strategy1,...,strategyN	compression strategy    mksquashfs
+      -audit int             set audit trail level            Xvfb
+- tools: Xvfb, mksquashfs, sqfstar, ckbcomp, containerd-shim-runc-v2,
+  docker-proxy, lshw, screen, sqlite3, xdpyinfo, xev, xkill, xlsatoms,
+  ldattach, pod2usage, and the whole qemu-*-static family (42 tools)
+- handling: Fixed, inside the single-dash-long table only (S-145's own
+  gate: a document whose option rows are column-0 `-word` spellings with
+  no `--long` row anywhere). `spaced_bare_word_value`
+  (`mandible-extract/src/help_text/sections/repair.rs`) reads the one
+  whitespace-delimited token after a table row's own single space as the
+  value name, whatever its case, keeping a comma-separated run whole
+  (`strategy1,...,strategyN`). Reading past that first token is refused:
+  `qemu-arm64-static`'s own ragged three-column table
+  (`Argument`/`Env-variable`/`Description`) separates `-dfilter`'s value
+  from its `QEMU_DFILTER` column by only one more space, so a wider
+  gap-based cut would swallow the next column into the value. The search
+  is scoped to the row identified as the flag's own leading token, never
+  any later occurrence of the same text in another row's description
+  (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
+  `-match` in prose and must not donate it a fabricated value). The
+  table gate is the whole safety argument: `gcc`, `clang` and the `ld`
+  family all carry `-DMACRO` glued values beside a real `--help` row, so
+  their own tables never qualify.
+- fleet: `spaced-bare-word-table-value`
+  (`xtask/src/detector/spaced_bare_word_table_value.rs`) reads 9
+  tools/12 findings on a full-`PATH` sweep of 2269 tools, 2026-09-12,
+  each a table row the per-document evidence floor still refuses (a
+  glued repeated-character shape, or a run the S-145 table gate itself
+  excludes) — a documented lower bound, not a further fix this round.
+  No labelled member of this family exists in any audit seed; the four
+  self-checks are the only standing evidence. The fix itself moved 57
+  tools with 0 flag-count and 0 subcommand-count losses on the same
+  sweep-diff: `Xvfb`, `mksquashfs` and `sqfstar` gain their own named
+  rows; the qemu family (42 tools) recovers `-cpu`'s and `-dfilter`'s
+  value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
+  `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
+  `containerd-shim-runc-v2` and `docker-proxy` each recover at least
+  one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
+  `sg_map` stay byte-identical.

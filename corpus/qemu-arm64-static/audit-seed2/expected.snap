@@ -40,6 +40,8 @@ flags:
     - help-text
 - spellings:
   - -cpu
+  value_name: model
+  value_kind: Required
   description: QEMU_CPU select CPU (-cpu help for list)
   provenance:
     sources:
@@ -102,6 +104,8 @@ flags:
     - help-text
 - spellings:
   - -dfilter
+  value_name: range[,...]
+  value_kind: Required
   description: filter logging based on address range
   provenance:
     sources:
