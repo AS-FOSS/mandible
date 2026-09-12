@@ -188,20 +188,14 @@ pub struct Choice {
     pub description: Option<Text>,
 }
 
-/// Whether `value_name` reads as one clean literal enumerated value
-/// (`"raid1"`, `"thin-pool"`) rather than a placeholder name (`"Number"`,
-/// `"VG"`) or a grammar fragment glued onto a neighboring flag
-/// (`blkid`'s `"[--match-tag"`, a docopt value spec restated whole,
-/// `"y|n"`). The rule the S-147 follow-up ruling states (2026-09-07
-/// queue, `docs/design.md` §16): a capitalised token is a placeholder
-/// name and stays out of a merged `choices` list. Narrowed to one word of
-/// lowercase ASCII letters, digits and hyphens: any other punctuation
-/// (`|`, `[`, `<`, a leading dash) means this token is notation, not an
-/// enumerated member, and letting it through would union a restated value
-/// spec into `choices` alongside the real values it already restates.
-/// Shared by `merge::merge_entity_bucket` (bucket-wide reclassification)
-/// and `mandible_extract`'s stanza-head literal-value recovery, so both
-/// sides of the merge agree on one rule.
+/// Whether `value_name` is one clean literal enumerated value (`"raid1"`,
+/// `"thin-pool"`), not a placeholder (`"Number"`) or notation glued onto
+/// a neighboring flag (`blkid`'s `"[--match-tag"`, a restated value spec
+/// `"y|n"`). docs/design.md §16's S-147 follow-up: a capitalised token
+/// stays out of a merged `choices` list. One word of lowercase ASCII
+/// letters, digits and hyphens only; any other punctuation is notation,
+/// not an enumerated member. Shared by `merge::merge_entity_bucket` and
+/// `mandible_extract`'s stanza-head recovery, so both agree on one rule.
 pub fn is_literal_choice_value(value_name: &str) -> bool {
     !value_name.is_empty()
         && value_name

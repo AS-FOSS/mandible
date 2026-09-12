@@ -2756,17 +2756,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: lvcreate; a merge-step fix, so any tool whose node reaches
   `mandible_core::merge::merge_entity_bucket` with a same-spelling,
   same-value-kind bucket naming different literal values is covered
-- handling: Fixed. `lvcreate` reaches this bucket once per invocation
-  form, each form naming its own value for `--type`. `merge_entity_bucket`
-  picked one form's `value_name` by authority, so the rendered row showed
-  `--type linear` beside the `raid1`/`mirror` form's own `choices`,
-  dropping `striped`, `raid10`, `snapshot` and `thin` outright. It now
-  unions every distinct value name across the bucket, in first-appearance
-  order, joined the way `choices` already joins for display. Maintainer-
-  absent default, recorded in docs/design.md §16. `must_value_name` passes
+- handling: Fixed, twice. `lvcreate` reaches this bucket once per
+  invocation form, each form naming its own value for `--type`.
+  `merge_entity_bucket` picked one form's `value_name` by authority, so
+  the rendered row showed `--type linear` beside the `raid1`/`mirror`
+  form's own `choices`, dropping `striped`, `raid10`, `snapshot` and
+  `thin` outright. A first fix unioned every distinct value name into
+  `value_name` itself; ruled confusing (docs/design.md §16) since one
+  flag then showed two lists. The bucket now renders one placeholder and
+  one unioned `choices` list: every
+  literal lowercase value, from a form's own `value_name` and from any
+  `choices` it already carried, joins `choices`; a capitalised token
+  stays the placeholder name; no placeholder is fabricated when every
+  form named a literal. `mandible_extract`'s stanza-head recovery also
+  now reads a leading flag's own bare usage-form value (`--type raid`,
+  not just the bracketed `[ --type x ]` rows), so `--type` now carries
+  thirteen values, not five. `must_value_name`/`must_attach_choices` pass
   vacuously on the raw, unrefilled tree; `must_value_names_after_root_refill`
-  (`corpus/README.md`) simulates the real app's own root refill and is the
-  field that actually states the claim.
+  and `must_choices_after_root_refill` (`corpus/README.md`) simulate the
+  real app's own root refill and are the fields that actually state the
+  claim.
 - fleet: `same-spelling-fold-loss`
   (`xtask/src/detector/same_spelling_fold_loss.rs`), widened to also flag
   two same-identity entities that both take a value but name it

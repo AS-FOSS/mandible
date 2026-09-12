@@ -344,8 +344,8 @@ pub(crate) struct ContractMeta {
     /// claim for a same-spelling merge bucket: it walks the raw,
     /// unrefilled tree, where `--type`'s several invocation forms are
     /// still separate entities and `.find()` sees only the first one's
-    /// own (possibly empty) `choices`. S-147 follow-up (ruled 2026-09-07
-    /// "queue", docs/design.md §16): a bucket whose forms disagree about
+    /// own (possibly empty) `choices`. S-147 follow-up
+    /// (docs/design.md §16): a bucket whose forms disagree about
     /// a value name unions every literal one into `choices`, and this is
     /// the only field that can see the union actually happened. See
     /// `refill_contract.rs`.

@@ -93,7 +93,11 @@ pub(crate) fn check_must_value_names_after_root_refill(
 /// `must_choices_after_root_refill`'s own `CONTRACT WEAKENED` lines, the
 /// twin of [`weakened_lines`] above for the `choices` half of S-147's
 /// follow-up ruling.
-pub(crate) fn choices_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> Vec<String> {
+pub(crate) fn choices_weakened_lines(
+    label: &str,
+    b: &ContractMeta,
+    n: &ContractMeta,
+) -> Vec<String> {
     let mut lines = Vec::new();
     for (flag, base_names) in &b.must_choices_after_root_refill {
         match n.must_choices_after_root_refill.get(flag) {
@@ -118,8 +122,8 @@ pub(crate) fn choices_weakened_lines(label: &str, b: &ContractMeta, n: &Contract
 
 /// The `choices` twin of [`check_must_value_names_after_root_refill`]:
 /// asserts every named literal survives in the refilled flag's `choices`
-/// list, not its `value_name`. S-147's own follow-up ruling (2026-09-07
-/// "queue") moves a same-spelling bucket's disagreeing literal values
+/// list, not its `value_name`. S-147's own follow-up ruling
+/// (docs/design.md §16) moves a same-spelling bucket's disagreeing literal values
 /// out of `value_name` and into one unioned `choices` list, and
 /// `must_attach_choices` alone cannot see that union: it walks the raw,
 /// unrefilled tree, where `.find()` sees only the first invocation

@@ -214,27 +214,13 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
 /// bare literal value and further required flags follow on the same line
 /// — `lvcreate --type raid -L|--size Size[m|UNIT] VG`, where
 /// [`looks_like_stanza_head_flag`] refuses because `-L|--size` reads as a
-/// second flag token. [`recover_stanza_head_flag`] only ever recovers a
-/// head naming exactly one flag; this recovers just the leading flag and
-/// its literal value, leaving the line's other flags to whichever path
-/// already documents them (an option table, or their own bracket row).
-///
-/// Gated to a literal, lowercase value ([`is_literal_choice_value`]) so
-/// this never fabricates a placeholder from a positional operand a
-/// stanza head happens to write next to its own flag (`VG`, `Size[m|
-/// UNIT]`) — only an enumerated literal like `raid`/`thin-pool` qualifies.
-/// `merge::merge_entity_bucket` folds every literal value this and
-/// [`recover_stanza_head_flag`]'s bracket-row siblings recover into one
-/// `choices` list. See docs/shapes.md S-147.
-///
-/// Gated to [`is_literal_choice_value`] — one word of lowercase ASCII
-/// letters, digits and hyphens, nothing else, the shape `raid1`/
-/// `thin-pool` carry. Refused for any docopt notation glued onto the word
-/// (`blkid`'s `[--match-tag`, a bracketed *reference* to a further flag
-/// on the same head, not a value at all): a bracket, angle bracket, pipe
-/// or leading dash means this token is punctuation the generic value walk
-/// must not mistake for an enumerated literal. See docs/shapes.md S-089,
-/// S-147.
+/// second flag token. Recovers just the leading flag and its literal
+/// value; the line's other flags are documented elsewhere. Gated to
+/// [`is_literal_choice_value`] so a positional operand (`VG`, `Size[m|
+/// UNIT]`) or glued docopt notation (`blkid`'s `[--match-tag`) is never
+/// mistaken for one. `merge::merge_entity_bucket` folds every literal
+/// value this and [`recover_stanza_head_flag`]'s bracket-row siblings
+/// recover into one `choices` list. See docs/shapes.md S-089, S-147.
 pub(super) fn recover_stanza_head_leading_flag_value(
     heading: &str,
     tool_name: Option<&str>,
@@ -257,7 +243,10 @@ pub(super) fn recover_stanza_head_leading_flag_value(
     if spec.spellings.is_empty() {
         return None;
     }
-    let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpTextSynopsis));
+    let mut flag = Entity::new(
+        EntityKind::Flag,
+        Provenance::single(Source::HelpTextSynopsis),
+    );
     flag.spellings = spec.spellings;
     flag.value_name = Some(value_tok.to_string());
     flag.value_kind = ValueKind::Required;
@@ -1062,54 +1051,6 @@ pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Enti
                     && s.name.chars().next() == candidate.short())
         })
     })
-}
-
-/// True when `candidate` names a real, literal value distinct from every
-/// existing entity that already shares its spelling — the S-147 shape,
-/// not the ordinary duplicate [`flag_spelling_already_present`] exists to
-/// drop. `lvchange`'s `-M|--persistent` reaches this: a stanza head
-/// (`recover_stanza_head_leading_flag_value`) names it `y`, an unrelated
-/// paren-alternation row names it `n`; without this check the stanza
-/// head's own entity, already in `result.flags` by the time the usage
-/// scan runs, would make `flag_spelling_already_present` drop `n`
-/// outright, replacing a value that used to render with a different one
-/// instead of letting both reach `merge_entity_bucket`'s own union.
-///
-/// Refused when any existing same-spelling entity is a plain boolean
-/// (`ValueKind::None`): `ssh-keygen`'s own `-F hostname [-lv] [...]`
-/// bundles `-lv` into two boolean switches (`-l`, `-v`), and without this
-/// guard a value-attaching heuristic elsewhere in this same document can
-/// glue a stray literal onto `-l`'s spelling, which this override would
-/// then wrongly admit as a second, "disagreeing" form instead of the
-/// fabrication it is. A flag documented as boolean anywhere never also
-/// gets a literal value here.
-///
-/// Also refused when any existing same-spelling entity carries an
-/// abbreviation-bracket spelling (`Spelling::abbrev`): `ip`'s own
-/// `-b[atch] [filename]` is one single-dash long option abbreviated to
-/// its first letter, already recovered correctly elsewhere as `-b[atch]`
-/// with value `filename`. A later, unrelated pass in this same document
-/// reads the bracket's own inner text as if `-b` took a bare value
-/// `atch`, and without this guard that misparse would be admitted as a
-/// second, "disagreeing" form rather than refused as the same flag read
-/// twice. See docs/shapes.md S-147.
-pub(super) fn usage_flag_names_a_new_literal_value(candidate: &Entity, existing: &[Entity]) -> bool {
-    let Some(name) = candidate.value_name.as_deref() else {
-        return false;
-    };
-    if !is_literal_choice_value(name) {
-        return false;
-    }
-    let mut same_spelling = existing
-        .iter()
-        .filter(|f| flag_spelling_already_present(candidate, std::slice::from_ref(f)))
-        .peekable();
-    same_spelling.peek().is_some()
-        && same_spelling.all(|f| {
-            f.value_name.as_deref() != Some(name)
-                && f.value_kind != ValueKind::None
-                && !f.spellings.iter().any(|s| s.abbrev.is_some())
-        })
 }
 
 /// Push the flag(s) one synopsis token names: either a bundle of

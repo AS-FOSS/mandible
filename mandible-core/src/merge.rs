@@ -333,38 +333,21 @@ fn entity_identity(e: &Entity) -> (EntityKind, String) {
     (e.kind, key)
 }
 
-fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
-    if bucket.len() == 1 {
-        return bucket.pop().expect("len checked");
-    }
-
-    // The spelling halves are resolved **independently**, exactly as they
-    // were when they were four separate `Flag` fields, and only then
-    // reassembled into a `spellings` vec. Picking a whole `Spelling` by
-    // authority instead would silently couple them: a high-authority
-    // source that omits the `[no-]` a lower-authority one documented would
-    // start erasing the negatability, which no field-level rule here has
-    // ever done.
-    let short = bucket.iter().find_map(|f| f.short());
-    let long_name = pick_option(
-        bucket
-            .iter()
-            .map(|f| (&f.provenance, f.long_spelling().map(|s| &s.name))),
-        Axis::Structural,
-    );
-    // One dash or two, and negatability, are facts about how the tool
-    // spells this option: a single source that saw it is enough, because
-    // no other source can have seen the same flag spelled the other way.
-    let negatable = bucket.iter().any(|f| f.negatable());
-    let single_dash = bucket.iter().any(|f| f.single_dash());
-    // Every distinct `value_name` the bucket's forms carry, in
-    // first-appearance order. Computed before the fields it gates so
-    // every branch below can share it; a bucket with zero or one
-    // distinct name is the ordinary case and never reaches either
-    // disagreement branch.
+/// Resolve a bucket's merged `value_name` and `choices` together
+/// (docs/design.md §16's S-147 follow-up). Split out of
+/// [`merge_entity_bucket`] to stay under `clippy::too_many_lines`.
+///
+/// Every distinct `value_name` the bucket's forms carry decides which of
+/// three shapes applies: zero or one distinct name is ordinary (no
+/// disagreement); every name literal (`is_literal_choice_value`) is
+/// `--type`'s own shape, one placeholder plus one unioned `choices`; a
+/// mix of a real placeholder with something else (`tar`'s `--rsh-command
+/// COMMAND` beside its own default `/usr/bin/rsh`) keeps the
+/// union-into-`value_name` behavior S-147 already shipped fleet-wide.
+fn resolve_value_name_and_choices(bucket: &[Entity]) -> (Option<String>, Vec<Choice>) {
     let distinct_value_names: Vec<&str> = {
         let mut v: Vec<&str> = Vec::new();
-        for f in &bucket {
+        for f in bucket {
             if let Some(name) = f.value_name.as_deref() {
                 if !v.contains(&name) {
                     v.push(name);
@@ -374,39 +357,21 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
         v
     };
     let has_any_choices = bucket.iter().any(|f| !f.choices.is_empty());
-    // S-147's own follow-up (ruled 2026-09-07 "queue", docs/design.md §16)
-    // narrows what used to be one blanket rule into two: a bucket whose
-    // *every* distinct name is a literal enumerated value (`is_literal_
-    // choice_value`) is `--type`'s own shape and gets the new one-
-    // placeholder, one-unioned-choices treatment; a bucket that mixes a
-    // real placeholder name with something else (`tar`'s `--rsh-command
-    // COMMAND` beside its own default `/usr/bin/rsh`, `gcc`'s `--format
-    // FORMAT` beside its own default `gnu`) is not `--type`'s shape and
-    // must keep the union-into-`value_name` behavior S-147 already
-    // shipped fleet-wide, unchanged, or a control tool's row moves for a
-    // ruling that was never about it.
     let all_literal_disagreement = distinct_value_names.len() > 1
-        && distinct_value_names.iter().all(|n| is_literal_choice_value(n));
+        && distinct_value_names
+            .iter()
+            .all(|n| is_literal_choice_value(n));
     let single_literal_beside_choices = distinct_value_names.len() == 1
         && has_any_choices
         && is_literal_choice_value(distinct_value_names[0]);
-    let (value_name, choices) = if all_literal_disagreement || single_literal_beside_choices {
-        // One placeholder, one unioned choice list. `lvcreate` reaches
-        // this bucket once per invocation form, each naming its own
-        // literal value for `--type` (`linear`, `striped`, `raid10`,
-        // ...) — a highest-authority single winner used to render one
-        // form's value name beside another form's `choices`, silently
-        // dropping every other form's name. Every distinct literal
-        // value across the whole bucket, from a form's own `value_name`
-        // and from any `choices` it already carries, unions into one
-        // `choices` list, in first-appearance order, joined the same way
-        // `choices` already joins for display (spec §9.2, "values:
-        // raid1, mirror"). Every name here is already known literal
-        // (both branches above require it), so `value_name` is always
-        // `None` — never fabricated from the flag's own spelling.
+    if all_literal_disagreement || single_literal_beside_choices {
+        // One placeholder, one unioned choice list, first-appearance
+        // order, joined the way `choices` already joins for display
+        // (spec §9.2, "values: raid1, mirror"). Every name here is known
+        // literal, so `value_name` stays `None` — never fabricated.
         let mut choices: Vec<Choice> = Vec::new();
         let mut choice_names: Vec<&str> = Vec::new();
-        for f in &bucket {
+        for f in bucket {
             if let Some(name) = f.value_name.as_deref() {
                 if is_literal_choice_value(name) && !choice_names.contains(&name) {
                     choice_names.push(name);
@@ -438,7 +403,9 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
         // nothing to disagree about. Exactly the pre-S147 resolution.
         (
             pick_option(
-                bucket.iter().map(|f| (&f.provenance, f.value_name.as_ref())),
+                bucket
+                    .iter()
+                    .map(|f| (&f.provenance, f.value_name.as_ref())),
                 Axis::Structural,
             ),
             pick_vec(
@@ -446,7 +413,34 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
                 Axis::Prose,
             ),
         )
-    };
+    }
+}
+
+fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
+    if bucket.len() == 1 {
+        return bucket.pop().expect("len checked");
+    }
+
+    // The spelling halves are resolved **independently**, exactly as they
+    // were when they were four separate `Flag` fields, and only then
+    // reassembled into a `spellings` vec. Picking a whole `Spelling` by
+    // authority instead would silently couple them: a high-authority
+    // source that omits the `[no-]` a lower-authority one documented would
+    // start erasing the negatability, which no field-level rule here has
+    // ever done.
+    let short = bucket.iter().find_map(|f| f.short());
+    let long_name = pick_option(
+        bucket
+            .iter()
+            .map(|f| (&f.provenance, f.long_spelling().map(|s| &s.name))),
+        Axis::Structural,
+    );
+    // One dash or two, and negatability, are facts about how the tool
+    // spells this option: a single source that saw it is enough, because
+    // no other source can have seen the same flag spelled the other way.
+    let negatable = bucket.iter().any(|f| f.negatable());
+    let single_dash = bucket.iter().any(|f| f.single_dash());
+    let (value_name, choices) = resolve_value_name_and_choices(&bucket);
     let value_kind = bucket
         .iter()
         .map(|f| f.value_kind)
@@ -1331,7 +1325,7 @@ mod tests {
         );
     }
 
-    /// docs/shapes.md S-147 follow-up (ruled 2026-09-07 "queue"): `lvcreate`
+    /// docs/shapes.md S-147 follow-up: `lvcreate`
     /// reaches the merge bucket once per invocation form, and three of its
     /// forms each name a different literal value for `--type`. A
     /// single-winner pick used to render one form's value name (`linear`)
