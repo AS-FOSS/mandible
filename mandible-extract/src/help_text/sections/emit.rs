@@ -112,37 +112,14 @@ fn is_purely_numeric(member: &str) -> bool {
     !member.is_empty() && member.chars().all(|c| c.is_ascii_digit())
 }
 
-/// A value spec that is one delimited alternation of literal members, with
-/// no other token inside the delimiter, is that entity's `choices`
-/// (S-155): `--compression=(xz|none|auto)`, `--crate-type
-/// <bin|lib|rlib|...>`, `-l {c,java,ruby,tcl}`. Three admissions, and
-/// nothing wider:
+/// A value spec that is one delimited alternation of literal members is
+/// that entity's `choices`, not its placeholder (S-155). Three
+/// admissions: a paren group at any member count, a brace group only on
+/// an argparse document, and an angle group at three or more members or
+/// at two purely numeric ones. A two-member word alternation
+/// (`<number|name>`) is a metavar pair and stays refused.
 ///
-/// 1. Brace, split on `,`, any member count, gated to `is_argparse`:
-///    argparse's own `choices=` is a language-level declaration the
-///    framework prints only when set, not a prose convention, and no
-///    other convention in the capture set uses `{` as a value delimiter
-///    (checked in `xtask`'s calibration).
-/// 2. Paren, split on `|`, any member count: grub-mkimage's own form, and
-///    no convention in the capture set uses parens for a metavar
-///    alternation either.
-/// 3. Angle, split on `|`, at least three members, or exactly two when
-///    both are purely numeric (`<0|1>`, a digit is never a metavar name).
-///    A two-member angle alternation of words is refused: curl's own
-///    `-b, --cookie <data|filename>`, `setpriv`'s `--ruid <uid|user>` and
-///    `start-stop-daemon`'s `-u, --user <username|uid>` are the identical
-///    shape and are not choice lists — each names the value's TYPE (a
-///    literal string, or a path; a numeric id, or a name), and a reader
-///    picks neither word literally the way `xz`/`none`/`auto` are picked.
-///    Nothing about the shape alone tells the two apart below three
-///    members, so missing beats invented there (docs/shapes.md S-005's
-///    own rule); the refused two-member word case is a stated, counted
-///    lower bound, not a silent gap.
-///
-/// `None` when a member fails [`is_literal_choice_member`] (a metavar or
-/// a flag alternation like fuser's `[-c|-m|-n SPACE]`, already excluded
-/// since `[...]` is not one of the three delimiters read here) or when
-/// anything but a flat list sits inside the delimiter.
+/// Fixtures: `corpus/grub-mkimage/2.12`, `corpus/rustc/1.97.1`.
 fn alternation_choices(value_name: &str, is_argparse: bool) -> Option<Vec<String>> {
     let (inner, sep, angle) = if let Some(inner) = value_name
         .strip_prefix('(')

@@ -337,7 +337,7 @@ fn strip_or_alias_separator(rest: &str) -> Option<&str> {
 /// both continue after a single space, so neither is a row joining two
 /// spellings. See docs/shapes.md S-099.
 fn or_alias_ends_the_spec(after: &str) -> bool {
-    or_alias_ends_at_column_boundary(after) || or_alias_ends_via_bare_description_word(after)
+    or_alias_ends_at_column_boundary(after)
 }
 
 /// [`or_alias_ends_the_spec`]'s original evidence: a real column gap (tab
@@ -352,24 +352,6 @@ fn or_alias_ends_at_column_boundary(after: &str) -> bool {
     chained
         .strip_prefix("or")
         .is_some_and(|t| t.starts_with([' ', '\t']))
-}
-
-/// Issue #142/S-134: a genuine `--long` spelling followed by one space and
-/// a bare lowercase description word ends the spec too (`icupkg`'s `-c or
-/// --copyright include the ICU copyright notice`). A value word carrying
-/// anything but lowercase letters (`-m or --match-arch file.o`'s own
-/// `file.o`) is excluded by the same test. Kept separate from
-/// [`or_alias_ends_at_column_boundary`] because [`strip_or_alias_separator`]
-/// needs to know *which* evidence fired: this one also means no value can
-/// follow, since nothing marks a real column boundary here.
-fn or_alias_ends_via_bare_description_word(after: &str) -> bool {
-    let token_len = after.find([' ', '\t', ',', '|']).unwrap_or(after.len());
-    let token = &after[..token_len];
-    let tail = &after[token_len..];
-    token.starts_with("--") && tail.starts_with(' ') && !tail.starts_with("  ") && {
-        let word = tail[1..].split_whitespace().next().unwrap_or("");
-        !word.is_empty() && word.chars().all(|c| c.is_ascii_lowercase())
-    }
 }
 
 /// True when `before_separator` ends in a finished value placeholder — a

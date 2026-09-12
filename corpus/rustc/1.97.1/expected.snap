@@ -33,8 +33,8 @@ flags:
     - help-text
 - spellings:
   - -L
-  value_name: <KIND>=
-  value_kind: Optional
+  value_name: '[<KIND>=]<PATH>'
+  value_kind: Required
   description: 'Add a directory to the library search path. The optional KIND can be one of <dependency|crate|native|framework|all> (default: all).'
   provenance:
     sources:
@@ -85,7 +85,7 @@ flags:
     - help-text
 - spellings:
   - --emit
-  value_name: <TYPE>
+  value_name: <TYPE>[=<FILE>]
   value_kind: Required
   description: 'Comma separated list of types of output for the compiler to emit. Each TYPE has the default FILE name: * asm - CRATE_NAME.s * llvm-bc - CRATE_NAME.bc * dep-info - CRATE_NAME.d * link - (platform and crate-type dependent) * llvm-ir - CRATE_NAME.ll * metadata - libCRATE_NAME.rmeta * mir - CRATE_NAME.mir * obj - CRATE_NAME.o * thin-link-bitcode - CRATE_NAME.indexing.o'
   provenance:
@@ -93,7 +93,7 @@ flags:
     - help-text
 - spellings:
   - --print
-  value_name: <INFO>
+  value_name: <INFO>[=<FILE>]
   value_kind: Required
   description: Compiler information to print on stdout (or to a file) INFO may be one of <all-target-specs-json|backend-has-mnemonic|backend-has-zstd|calling-conventions|cfg|check-cfg|code-models|crate-name|crate-root-lint-levels|deployment-target|file-names|host-tuple|link-args|native-static-libs|relocation-models|split-debuginfo|stack-protector-strategies|supported-crate-types|sysroot|target-cpus|target-features|target-libdir|target-list|target-spec-json|target-spec-json-schema|tls-models>.
   provenance:
@@ -204,7 +204,7 @@ flags:
 - spellings:
   - -C
   - --codegen
-  value_name: <OPT>
+  value_name: <OPT>[=<VALUE>]
   value_kind: Required
   description: Set a codegen option
   provenance:

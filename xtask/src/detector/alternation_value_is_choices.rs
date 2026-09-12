@@ -1,17 +1,9 @@
 //! `alternation-value-is-choices` (atlas S-155): a value spec that is one
-//! delimited alternation of two or more literal values —
-//! `--compression=(xz|none|auto)`, `--crate-type
-//! <bin|lib|rlib|dylib|cdylib|staticlib|proc-macro>`, `-l
-//! {c,java,ruby,tcl}` — renders as an opaque placeholder holding the
-//! whole list instead of the flag's own `choices`.
+//! delimited alternation of literal values, which reached the tree as one
+//! opaque placeholder instead of the flag's own choices.
 //!
-//! Reimplements the shape rather than importing
-//! `help_text::sections::emit`'s own private `alternation_choices` — the
-//! same oracle-independence choice `choices_after_optional_placeholder`
-//! already makes (corpus/README.md).
-//!
-//! Fixtures: `corpus/grub-mkimage/2.12/`, `corpus/rustc/1.97.1/`,
-//! `corpus/tclobjnew-bpfcc/0.29.1/`.
+//! Fixtures: `corpus/grub-mkimage/2.12`, `corpus/rustc/1.97.1`,
+//! `corpus/tclobjnew-bpfcc/0.29.1`.
 
 use mandible_core::CommandNode;
 
@@ -52,21 +44,11 @@ fn is_purely_numeric(member: &str) -> bool {
     !member.is_empty() && member.chars().all(|c| c.is_ascii_digit())
 }
 
-/// The first delimited alternation candidate on `line`: a paren group
-/// split on `|` (any member count — grub-mkimage's own form, and no
-/// convention in the capture set uses parens for a metavar alternation);
-/// only when `is_argparse`, a brace group split on `,` (any count —
-/// argparse's `choices=` is a language-level declaration and carries no
-/// such ambiguity); or an angle group split on `|`, admitted only at
-/// three or more members, or exactly two when both are purely numeric
-/// (`<0|1>`). A two-member angle alternation of words is refused: curl's
-/// own `-b, --cookie <data|filename>`, `setpriv`'s `--ruid <uid|user>`
-/// and `start-stop-daemon`'s `-u, --user <username|uid>` are the
-/// identical shape and are value-TYPE descriptions, not choice lists.
-/// `None` when no such group's content is a flat list of literal members
-/// — a real distinct placeholder (`--units [Number]`, excluded since `[`
-/// is not one of the three delimiters read here), a single member
-/// (`<platform>`), or a metavar/flag member.
+/// The first delimited alternation candidate on `line`: a paren group at
+/// any member count, a brace group only on an argparse document, or an
+/// angle group at three or more members, or two purely numeric ones. A
+/// two-member word alternation (`<number|name>`) is a metavar pair, not a
+/// choice set, and stays refused. See S-155.
 fn candidate(line: &str, is_argparse: bool) -> Option<(char, Vec<String>)> {
     let delimiters: &[(char, char, char, bool)] = if is_argparse {
         &[

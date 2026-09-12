@@ -1,24 +1,8 @@
 //! `description-tail-enumerates-choices` (atlas S-156): a flag description
-//! whose continuation opens a labelled list (`available formats:`,
-//! `possible values:`, `one of:`, `valid values:`) and then runs
-//! comma-separated literal values to the end of the description is that
-//! flag's own `choices`, not prose (`grub-mkimage`'s own `--format`).
+//! whose tail opens a labelled list and then runs comma-separated literal
+//! values to the end, which belong in the flag's own choices.
 //!
-//! Reads the already-folded `Entity::description` off the tree rather
-//! than raw lines: continuation folding already joined the wrapped
-//! physical lines into one string by the time either the real parser or
-//! this detector sees it, so re-scanning raw text would only duplicate
-//! that folding. The same tree-reading choice `value-name-duplicates-
-//! choices` already makes.
-//!
-//! Gated hard, since eating real prose is the risk here: the label must
-//! be the LAST such label in the description, every member after it must
-//! match `^[a-z0-9][a-z0-9_.+-]*$`, there must be at least three members,
-//! and the run must reach the end of the description with nothing after
-//! it.
-//!
-//! Fixture: `corpus/grub-mkimage/2.12/` (xfail — see the fleet count
-//! below; this shipped as measurement only this round).
+//! Fixture: `corpus/grub-mkimage/2.12`. Counted only, below the bar.
 
 use mandible_core::CommandNode;
 

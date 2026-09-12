@@ -2449,7 +2449,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag in a three-way `or` chain, S-099's own `-h or -? or --help`) and a
   bare lowercase first description word (never a value, `-m or
   --match-arch file.o`'s own shape). Below the five-tool bar. Ship
-  nothing; the fixture stays `[xfail]`.
+  nothing; the fixture stays `[xfail]`. A relaxation was built and refused: ending
+  the spelling run at a `--long` followed by one space and a bare lowercase
+  word joined `-c, --copyright` but still gave it the fabricated value name
+  `include`, so it failed its own acceptance test, and it fused `pod2man`'s
+  `--lquote` and `--rquote` into one entity, the shape `must_keep_separate`
+  exists to forbid. Narrowing it to value-free spellings did not stop the
+  fusion. Refused rather than shipped (issue #142).
 ### S-135: usage line's tab-indented continuation folds in unpunctuated
 
 - id: S-135

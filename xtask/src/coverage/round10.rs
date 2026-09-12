@@ -1,11 +1,6 @@
-//! The round-10 family detectors, atlas S-155 and S-156. S-155 is an
-//! alternation value name becoming choices; fixed. S-156 is a
-//! description tail enumerating choices; counted only, below the
-//! five-tool bar. Split into its own file for the same line-count reason
-//! `round7.rs`, `round8.rs` and `round9.rs` are.
-
-use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
-//! The round-10 family detectors, atlas S-157 upward.
+//! The round-10 family detectors, atlas S-155 upward. Split into its own
+//! file for the same line-count reason `round7.rs`, `round8.rs` and
+//! `round9.rs` are.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
@@ -18,6 +13,13 @@ pub(super) fn round10_family_counts(
     let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
     let alt = crate::detector::alternation_value_is_choices::detect(raw, root);
     let tail = crate::detector::description_tail_enumerates_choices::detect(raw, root);
+    let evidence = ToolEvidence { raw, root };
+    let sbw =
+        crate::detector::spaced_bare_word_table_value::SpacedBareWordTableValue.hits(&evidence);
+    let gbar = crate::detector::glued_bracket_angle_run::GluedBracketAngleRun.hits(&evidence);
+    let sjab = crate::detector::slash_joined_alias_outside_bullet::SlashJoinedAliasOutsideBullet
+        .hits(&evidence);
+    let csa = crate::detector::comma_swallowed_alias::CommaSwallowedAlias.hits(&evidence);
     vec![
         (
             "alternation-value-is-choices",
@@ -46,14 +48,7 @@ pub(super) fn round10_family_counts(
                     )
                 })
                 .collect(),
-    let evidence = ToolEvidence { raw, root };
-    let sbw =
-        crate::detector::spaced_bare_word_table_value::SpacedBareWordTableValue.hits(&evidence);
-    let gbar = crate::detector::glued_bracket_angle_run::GluedBracketAngleRun.hits(&evidence);
-    let sjab = crate::detector::slash_joined_alias_outside_bullet::SlashJoinedAliasOutsideBullet
-        .hits(&evidence);
-    let csa = crate::detector::comma_swallowed_alias::CommaSwallowedAlias.hits(&evidence);
-    vec![
+        ),
         (
             "spaced-bare-word-table-value",
             sbw.len(),
