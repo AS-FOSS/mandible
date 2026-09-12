@@ -39,6 +39,7 @@ pub(super) fn emit_flags_block(
     packed: bool,
     is_plus_sigil: &[bool],
     argfile_entry: Option<FlagRowEntry>,
+    is_argparse: bool,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let (mut seen, mut clean) = if packed {
@@ -50,11 +51,16 @@ pub(super) fn emit_flags_block(
             out,
         );
         let plus_seen = plus_sigil.len();
-        let (_, plus_clean) =
-            emit_flags_with(group.clone(), plus_sigil, &vec![true; plus_seen], out);
+        let (_, plus_clean) = emit_flags_with(
+            group.clone(),
+            plus_sigil,
+            &vec![true; plus_seen],
+            is_argparse,
+            out,
+        );
         (ordinary_seen + plus_seen, ordinary_seen + plus_clean)
     } else {
-        emit_flags_with(group.clone(), entries, is_plus_sigil, out)
+        emit_flags_with(group.clone(), entries, is_plus_sigil, is_argparse, out)
     };
     if let Some(entry) = argfile_entry {
         seen += 1;
@@ -84,6 +90,73 @@ pub(super) fn value_name_duplicates_its_own_choices(
     rebuilt.len() == choices.len() && rebuilt.iter().zip(choices).all(|(v, c)| *v == c.name)
 }
 
+/// True when `member` is a literal value rather than a metavar: it opens
+/// with a lowercase letter or digit and carries nothing but lowercase
+/// letters, digits, `_`, `.`, `+` or `-` after that. A capitalized token
+/// (lvm2's `Number`) or one holding whitespace (fuser's `-n SPACE`) fails
+/// this and keeps the value_name untouched. See docs/shapes.md S-155.
+fn is_literal_choice_member(member: &str) -> bool {
+    let mut chars = member.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_lowercase() || first.is_ascii_digit())
+        && chars.all(|c| {
+            c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '_' | '.' | '+' | '-')
+        })
+}
+
+/// A value spec that is one delimited alternation of literal members, with
+/// no other token inside the delimiter, is that entity's `choices`
+/// (S-155): `--compression=(xz|none|auto)`, `--crate-type
+/// <bin|lib|rlib|...>`, `-l {c,java,ruby,tcl}`. Angle and paren forms
+/// split on `|` and require at least three members: curl's own `-b,
+/// --cookie <data|filename>` is the same two-member angle shape and is
+/// not a choice list at all, but an either/or description of the value's
+/// TYPE (a literal data string, or a path) — a reader picks neither word
+/// literally the way `xz`/`none`/`auto` are picked. Nothing about the
+/// shape alone tells the two apart below three members, so missing beats
+/// invented there (docs/shapes.md S-005's own rule). Brace splits on `,`,
+/// requires only two, and is gated to `is_argparse`: argparse's own
+/// `choices=` is a language-level declaration, not a prose convention, so
+/// it carries no such ambiguity, and no other convention in the capture
+/// set uses `{` as a value delimiter (checked in `xtask`'s calibration).
+/// `None` when a member fails [`is_literal_choice_member`] (a metavar or
+/// a flag alternation like fuser's `[-c|-m|-n SPACE]`, already excluded
+/// since `[...]` is not one of the three delimiters read here) or when
+/// anything but a flat list sits inside the delimiter.
+fn alternation_choices(value_name: &str, is_argparse: bool) -> Option<Vec<String>> {
+    let (inner, sep, min_members) = if let Some(inner) = value_name
+        .strip_prefix('<')
+        .and_then(|v| v.strip_suffix('>'))
+    {
+        (inner, '|', 3)
+    } else if let Some(inner) = value_name
+        .strip_prefix('(')
+        .and_then(|v| v.strip_suffix(')'))
+    {
+        (inner, '|', 3)
+    } else if is_argparse {
+        (
+            value_name
+                .strip_prefix('{')
+                .and_then(|v| v.strip_suffix('}'))?,
+            ',',
+            2,
+        )
+    } else {
+        return None;
+    };
+    if inner.is_empty() || inner.contains(['<', '>', '(', ')', '{', '}', '[', ']']) {
+        return None;
+    }
+    let members: Vec<&str> = inner.split(sep).collect();
+    if members.len() < min_members || !members.iter().all(|m| is_literal_choice_member(m)) {
+        return None;
+    }
+    Some(members.into_iter().map(str::to_string).collect())
+}
+
 /// Turn recovered flag rows into `ParsedHelp` entries. `is_plus_sigil`
 /// (same length as `entries`, or empty to mean "none") reads `true` at
 /// index `n` to route that entry through [`parse_plus_sigil_spec`]
@@ -91,11 +164,13 @@ pub(super) fn value_name_duplicates_its_own_choices(
 /// [`scan_flags_block`]'s neighbor-gated `+`/`+<placeholder>` row
 /// (S-095) — every other entry, from every other caller, always reads
 /// `false` here and gets the ordinary grammar, which stays deaf to a bare
-/// `+` (see `try_bare_sigil`'s own doc comment).
+/// `+` (see `try_bare_sigil`'s own doc comment). `is_argparse` gates the
+/// brace form of S-155's alternation-choices rule.
 pub(super) fn emit_flags_with(
     group: Option<String>,
     entries: Vec<FlagRowEntry>,
     is_plus_sigil: &[bool],
+    is_argparse: bool,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let mut seen = 0usize;
@@ -120,15 +195,25 @@ pub(super) fn emit_flags_with(
         }
         let mut description = desc_text;
         if let Some(broken) = spec.value_name.clone() {
-            if let Some(repair) = repair_parenthetical_value(&spec_text, &broken) {
-                spec.value_name = repair.value_name;
-                spec.value_kind = repair.value_kind;
-                if let Some(qualifier) = repair.qualifier_text {
-                    description = if description.trim().is_empty() {
-                        qualifier
-                    } else {
-                        format!("{qualifier} {description}")
-                    };
+            // A paren-delimited alternation of literal values
+            // (`--compression=(xz|none|auto)`, S-155) reads as `xz|none|auto`
+            // (single "word", no space) — precisely the shape
+            // `repair_parenthetical_value` otherwise treats as a bare
+            // single-word value and strips its parens from. Read as
+            // choices first and skip the repair entirely when it matches,
+            // so the parens survive into the later `alternation_choices`
+            // check below rather than being stripped out from under it.
+            if alternation_choices(&broken, is_argparse).is_none() {
+                if let Some(repair) = repair_parenthetical_value(&spec_text, &broken) {
+                    spec.value_name = repair.value_name;
+                    spec.value_kind = repair.value_kind;
+                    if let Some(qualifier) = repair.qualifier_text {
+                        description = if description.trim().is_empty() {
+                            qualifier
+                        } else {
+                            format!("{qualifier} {description}")
+                        };
+                    }
                 }
             }
         }
@@ -149,6 +234,24 @@ pub(super) fn emit_flags_with(
                 description: desc.map(|d| Text::sanitize(&d)),
             })
             .collect();
+        // A value spec that is nothing but one delimited alternation of
+        // literal values is that entity's `choices` (S-155): the reader
+        // could not otherwise see that these are the only values, and
+        // search could not match one. Scoped to when no other source
+        // already populated `choices` — a sub-row or clap's own
+        // `[possible values: …]` outranks a bare reading of the
+        // placeholder text.
+        if flag.choices.is_empty() {
+            if let Some(value_name) = flag.value_name.as_deref() {
+                if let Some(members) = alternation_choices(value_name, is_argparse) {
+                    flag.choices = members.into_iter().map(Choice::bare).collect();
+                    // S-130: the choices came from the placeholder text
+                    // itself, so value_name must not repeat them — there
+                    // is no separate generic placeholder here to keep.
+                    flag.value_name = None;
+                }
+            }
+        }
         // A docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
         // S-120) already carries every value as `choices`; when no bracketed
         // placeholder introduced it (`--configreport log|vg|lv|pv|pvseg|seg`,

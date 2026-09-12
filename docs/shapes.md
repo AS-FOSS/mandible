@@ -2817,3 +2817,77 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-155: an alternation value name becomes choices
+
+- id: S-155
+- looks like: |
+      -C, --compression=(xz|none|auto)          grub-mkimage
+          --crate-type <bin|lib|rlib|dylib|cdylib|staticlib|proc-macro>
+          --edition <2015|2018|2021|2024|future>                        rustc
+        -l {c,java,ruby,tcl}, --language {c,java,ruby,tcl}   tclobjnew-bpfcc
+- tools: grub-mkimage, grub-mkstandalone, rustc, tclobjnew-bpfcc,
+  javaflow-bpfcc, rubyobjnew-bpfcc, curl (brace/angle forms only where a
+  choice reading holds — see the false-positive note below) and
+  everywhere else the shape occurs on a full-`PATH` sweep (PLACEHOLDER_TOOLS
+  moved, PLACEHOLDER_FINDINGS findings)
+- handling: Fixed. A value spec that is one delimited alternation of
+  literal members, with no other token inside the delimiter, is that
+  entity's `choices` (`help_text::sections::emit::alternation_choices`).
+  Angle and paren forms split on `|` and require at least three members;
+  brace splits on `,`, requires only two, and is gated to the argparse
+  profile (`FrameworkProfile::argparse_subparser_quirk`, reused rather
+  than adding a nineteenth profile field), since argparse's own
+  `choices=` is a language-level declaration and no other convention in
+  the capture set uses `{` as a value delimiter (checked by grep over
+  `audit/queue-captures/*/0.std*`). The three-member floor on angle/paren
+  exists because curl's own `-b, --cookie <data|filename>` is the
+  identical two-member angle shape and is not a choice list: it describes
+  the value's TYPE (a literal string, or a path), and a reader does not
+  type `data` or `filename` themselves the way `xz`/`none`/`auto` are
+  typed literally. Nothing about the shape alone tells the two apart
+  below three members, so missing beats invented there (S-005's rule). A
+  member must match `^[a-z0-9][a-z0-9_.+-]*$`; a capitalized token
+  (lvm2's `Number`) or one holding whitespace (fuser's `-n SPACE`, inside
+  a `[...]` group this rule never opens) stays part of the placeholder.
+  Once choices are read from the placeholder itself, S-130's own rule
+  applies and `value_name` is dropped rather than kept twice. Scoped to
+  the option-table path (`emit_flags_with`); the usage-synopsis path is
+  untouched this round. `must_attach_choices`/`must_not_value_name` state
+  the claim.
+- fleet: `alternation-value-is-choices` reads 0 labelled members in the
+  seed-7 audit (`NOT EVALUABLE`, both self-check directions held, 8
+  cases). Raw-shape count 26 tools/45 findings (angle/paren) and 44
+  tools/62 findings (brace), 2026-09-12. Tree-level, full-`PATH` sweep:
+  PLACEHOLDER_TREE_BEFORE tools before the fix, PLACEHOLDER_TREE_AFTER
+  after. `sweep-diff`: PLACEHOLDER_FLAG_GAINS flag gains,
+  PLACEHOLDER_FLAG_LOSSES flag losses, PLACEHOLDER_SUB_GAINS subcommand
+  gains, PLACEHOLDER_SUB_LOSSES subcommand losses. Also moved `fzf`'s
+  `--color=COLSPEC`'s `(dark|light|16|bw)` and cryptsetup's `token
+  <add|remove|import|export>`, neither named in the brief.
+
+### S-156: a description tail that enumerates the values
+
+- id: S-156
+- looks like: |
+      -O, --format=FORMAT        generate an image in FORMAT
+                                 available formats: i386-coreboot, i386-multiboot,
+                                 i386-pc, i386-xen_pvh, i386-pc-eltorito,
+- tools: grub-mkimage
+- handling: Open defect, counted only. A flag description whose
+  continuation opens a labelled list (`available formats:`, `possible
+  values:`, `one of:`, `valid values:`) and then runs comma-separated
+  literal values to the end of the description would become that
+  entity's `choices`, with the label and list leaving the description.
+  Gated hard: the label must be the last such label in the description,
+  every member after it must match `^[a-z0-9][a-z0-9_.+-]*$`, there must
+  be at least three members, and the run must reach the end of the
+  description with nothing after it.
+- fleet: `description-tail-enumerates-choices` reads 0 labelled members
+  in the seed-7 audit (`NOT EVALUABLE`, both self-check directions held,
+  5 cases). A grep over `audit/queue-captures/*/0.std*` for the four
+  labels names 35 tools; the tree-level rule, checked against a
+  36-tool sample built from that grep plus `rustc` and
+  `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
+  five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
+  `[xfail]` for `--format`'s own description. 2026-09-12.

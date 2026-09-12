@@ -1,0 +1,257 @@
+name: rustc
+usage:
+- 'Usage: rustc [OPTIONS] INPUT'
+positionals:
+- name: INPUT
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: Display this message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cfg
+  value_name: <SPEC>
+  value_kind: Required
+  description: Configure the compilation environment. SPEC supports the syntax `<NAME>[="<VALUE>"]`.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --check-cfg
+  value_name: <SPEC>
+  value_kind: Required
+  description: Provide list of expected cfgs for checking
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  value_name: <KIND>=
+  value_kind: Optional
+  description: 'Add a directory to the library search path. The optional KIND can be one of <dependency|crate|native|framework|all> (default: all).'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  value_name: <KIND>[:<MODIFIERS>
+  value_kind: Optional
+  description: 'Link the generated crate(s) to the specified native library NAME. The optional KIND can be one of <static|framework|dylib> (default: dylib). Optional comma separated MODIFIERS <bundle|verbatim|whole-archive|as-needed> may be specified each with a prefix of either ''+'' to enable or ''-'' to disable.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --crate-type
+  value_kind: Required
+  choices:
+  - bin
+  - lib
+  - rlib
+  - dylib
+  - cdylib
+  - staticlib
+  - proc-macro
+  description: Comma separated list of types of crates for the compiler to emit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --crate-name
+  value_name: <NAME>
+  value_kind: Required
+  description: Specify the name of the crate being built
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --edition
+  value_kind: Required
+  choices:
+  - '2015'
+  - '2018'
+  - '2021'
+  - '2024'
+  - future
+  description: Specify which edition of the compiler to use when compiling code. The default is 2015 and the latest stable edition is 2024.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --emit
+  value_name: <TYPE>
+  value_kind: Required
+  description: 'Comma separated list of types of output for the compiler to emit. Each TYPE has the default FILE name: * asm - CRATE_NAME.s * llvm-bc - CRATE_NAME.bc * dep-info - CRATE_NAME.d * link - (platform and crate-type dependent) * llvm-ir - CRATE_NAME.ll * metadata - libCRATE_NAME.rmeta * mir - CRATE_NAME.mir * obj - CRATE_NAME.o * thin-link-bitcode - CRATE_NAME.indexing.o'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --print
+  value_name: <INFO>
+  value_kind: Required
+  description: Compiler information to print on stdout (or to a file) INFO may be one of <all-target-specs-json|backend-has-mnemonic|backend-has-zstd|calling-conventions|cfg|check-cfg|code-models|crate-name|crate-root-lint-levels|deployment-target|file-names|host-tuple|link-args|native-static-libs|relocation-models|split-debuginfo|stack-protector-strategies|supported-crate-types|sysroot|target-cpus|target-features|target-libdir|target-list|target-spec-json|target-spec-json-schema|tls-models>.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  description: Equivalent to -C debuginfo=2
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  description: Equivalent to -C opt-level=3
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: <FILENAME>
+  value_kind: Required
+  description: Write output to FILENAME
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --out-dir
+  value_name: <DIR>
+  value_kind: Required
+  description: Write output to compiler-chosen filename in DIR
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --explain
+  value_name: <OPT>
+  value_kind: Required
+  description: Provide a detailed explanation of an error message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --test
+  description: Build a test harness
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --target
+  value_name: <TARGET>
+  value_kind: Required
+  description: Target tuple for which the code is compiled
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --allow
+  value_name: <LINT>
+  value_kind: Required
+  description: Set lint allowed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --warn
+  value_name: <LINT>
+  value_kind: Required
+  description: Set lint warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --force-warn
+  value_name: <LINT>
+  value_kind: Required
+  description: Set lint force-warn
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --deny
+  value_name: <LINT>
+  value_kind: Required
+  description: Set lint denied
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --forbid
+  value_name: <LINT>
+  value_kind: Required
+  description: Set lint forbidden
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cap-lints
+  value_name: <LEVEL>
+  value_kind: Required
+  description: Set the most restrictive lint level. More restrictive lints are capped at this level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --codegen
+  value_name: <OPT>
+  value_kind: Required
+  description: Set a codegen option
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Print version info and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Use verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  value_name: help
+  value_kind: Required
+  group: 'Additional help:'
+  description: Print codegen options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  value_name: help
+  value_kind: Required
+  group: 'Additional help:'
+  description: Print 'lint' options and default settings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -v
+  group: 'Additional help:'
+  description: Print the full set of options rustc accepts
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

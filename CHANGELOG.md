@@ -18,6 +18,7 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- [S-155] A value spec written as one delimited alternation of literal values (`--compression=(xz|none|auto)`, `--crate-type <bin|lib|...>`, argparse's own `{c,java,ruby,tcl}`) now attaches as that flag's choices, instead of rendering as one opaque placeholder (`mandible grub-mkimage`, `mandible rustc`, `mandible tclobjnew-bpfcc`).
 - `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.
 - `xtask detector calibrate` now prints `NOT EVALUABLE` instead of `DOES NOT PASS` for a detector whose family has zero labelled members in the audit seed, so a legitimate gap in the sample is no longer reported as a failing detector.
 - [S-149] A bare-word block opening on a centered ALL-CAPS group label no longer ends before reading a single real row beneath it (`mandible fail2ban-client`).

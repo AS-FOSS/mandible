@@ -1090,6 +1090,11 @@ fn emit_heading_block(
             packed,
             &is_plus_sigil,
             argfile_entry,
+            // `argparse_subparser_quirk` is set only for `Framework::Argparse`
+            // (see profile.rs), so it doubles here as "this tool is
+            // argparse" for S-155's brace-alternation gate, with no new
+            // profile field needed.
+            profile.is_some_and(|p| p.argparse_subparser_quirk),
             st.result,
         );
         st.total_entries += seen;
@@ -1429,6 +1434,7 @@ fn scan_entries(
                 packed,
                 &is_plus_sigil,
                 argfile_entry,
+                profile.is_some_and(|p| p.argparse_subparser_quirk),
                 st.result,
             );
             st.total_entries += seen;
