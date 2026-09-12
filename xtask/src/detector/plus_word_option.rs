@@ -1,23 +1,31 @@
 //! `plus-word-option` (atlas S-163): a `+word` option row (`+bs`, `+i`,
 //! `+s`) — a letter-led run after the sigil, distinct from S-095's own
 //! `plus-prefixed-option` (bare `+`/`+<placeholder>` only) — reaches no
-//! entity in the tree. Requires indentation, the same evidence
-//! `mandible_core::family_row::leading_token` and the parser's own
-//! `scan_flags_block` both require, so an unindented specimen (`Xvfb`'s
-//! own column-0 rows) is out of this family's reach until S-165's
-//! headingless-table defect is fixed.
-//!
-//! A separate detector rather than a widening of `plus-prefixed-option`:
-//! that family is already `REPAIRED` and ratchet-gated at zero
-//! (docs/shapes.md S-095), so folding a still-open shape into it would
-//! break the gate on tools this fix has not reached. Mirrors
-//! `mandible_extract::help_text::sections::flag_rows::is_claimed_plus_token`'s
-//! `+word` arm, checked independently here since a detector reads only
-//! `raw`+`root`.
+//! entity in the tree. Reads a row with [`leading_token_any_indent`], a
+//! local copy of `family_row::leading_token` without its indentation
+//! requirement: a headingless table (S-165) carries none at all. A
+//! separate detector rather than a widening of `plus-prefixed-option`,
+//! which is already `REPAIRED` and gated at zero (S-095). Mirrors
+//! `mandible_extract`'s own `is_claimed_plus_token`, checked
+//! independently since a detector reads only `raw`+`root`.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
-use crate::family_row::{leading_token, opens_description_column};
+use crate::family_row::opens_description_column;
 use mandible_core::{CommandNode, Provenance, Source};
+
+/// [`crate::family_row::leading_token`] without its `trimmed == line`
+/// indentation requirement — see this module's own doc comment for why
+/// this family needs that, unlike the four detectors that share the
+/// original.
+fn leading_token_any_indent(line: &str) -> Option<(&str, &str)> {
+    let trimmed = line.trim_start();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let token = trimmed.split_whitespace().next()?;
+    let rest = &trimmed[token.len()..];
+    Some((token, rest))
+}
 
 /// True when `token` is a `+word` spelling this family claims: `+`
 /// followed by a run opening with a letter, every later character
@@ -29,9 +37,7 @@ fn is_plus_word_token(token: &str) -> bool {
     };
     let mut chars = rest.chars();
     match chars.next() {
-        Some(c) if c.is_ascii_alphabetic() => {
-            chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
-        }
+        Some(c) if c.is_ascii_alphabetic() => chars.all(|c| c.is_ascii_alphanumeric() || c == '-'),
         _ => false,
     }
 }
@@ -44,7 +50,7 @@ fn tree_has_spelling(root: &CommandNode, token: &str) -> bool {
 /// True when `line`'s own leading token is flag-shaped evidence: a real
 /// `-`-prefixed flag, or this same family's own `+word` claim.
 fn is_flag_shaped_neighbor(line: &str) -> bool {
-    let Some((token, _)) = leading_token(line) else {
+    let Some((token, _)) = leading_token_any_indent(line) else {
         return false;
     };
     let token = token.trim_end_matches(',');
@@ -87,7 +93,7 @@ impl Detector for PlusWordOption {
         let mut findings = Vec::new();
         let lines: Vec<&str> = evidence.raw.lines().collect();
         for (i, line) in lines.iter().enumerate() {
-            let Some((token, rest)) = leading_token(line) else {
+            let Some((token, rest)) = leading_token_any_indent(line) else {
                 continue;
             };
             let token = token.trim_end_matches(',');
@@ -127,14 +133,18 @@ impl Detector for PlusWordOption {
         let fzf_raw = "    -i                     Case-insensitive match (default: smart-case \
                         match)\n    +i                     Case-sensitive match\n"
             .to_string();
-        // `Xvfb`'s own row shape (multi-letter, `-word` neighbor) at its
-        // own indent (two spaces) — column 0, `Xvfb`'s real indentation,
-        // carries no evidence at all for `leading_token` (S-165's own
-        // headingless-table defect, not this family's to fix).
+        // The multi-letter shape at a real indent (two spaces).
         let indented_multiletter_raw = "  -br                  create root window with black \
                                           background\n  +bs                  enable any backing \
                                           store support\n  -bs                  disable any \
                                           backing store support\n"
+            .to_string();
+        // `Xvfb`'s own row shape verbatim: no indentation at all (S-165's
+        // headingless table), which `leading_token_any_indent` now reads.
+        let column_zero_raw = "-br                    create root window with black \
+                                background\n+bs                    enable any backing store \
+                                support\n-bs                    disable any backing store \
+                                support\n"
             .to_string();
 
         vec![
@@ -165,6 +175,21 @@ impl Detector for PlusWordOption {
                 why: "once recovered, the same raw row goes silent",
                 expect: Expect::Silent,
                 raw: indented_multiletter_raw,
+                root: node_with_flags("Xvfb", vec![plus_word_flag("bs")]),
+            },
+            SelfCheck {
+                name: "Xvfb's own column-0 row, no indentation at all",
+                why: "a headingless table (S-165) carries no leading whitespace, and this \
+                      family must still see it",
+                expect: Expect::Fires(1),
+                raw: column_zero_raw.clone(),
+                root: node_with_flags("Xvfb", vec![]),
+            },
+            SelfCheck {
+                name: "the same column-0 row recovered as its own spelling",
+                why: "once recovered, the same raw row goes silent regardless of indentation",
+                expect: Expect::Silent,
+                raw: column_zero_raw,
                 root: node_with_flags("Xvfb", vec![plus_word_flag("bs")]),
             },
             SelfCheck {

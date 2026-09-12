@@ -3,7 +3,6 @@ description: 'The following options are specific to just the language Ada:'
 flags:
 - spellings:
   - -fdump-scos
-  group: 'The following options are specific to just the language Ada:'
   description: '[available in Ada]'
   provenance:
     sources:

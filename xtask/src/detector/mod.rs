@@ -49,19 +49,22 @@ pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
 pub(crate) mod description_continuation_dash_flag;
+pub(crate) mod description_reused_as_group_label;
 pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
 pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
+pub(crate) mod headingless_table_in_root_description;
 pub(crate) mod leading_diagnostic_line;
-pub(crate) mod plus_word_option;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
 pub(crate) mod numbered_variadic_usage_tail;
 pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
+pub(crate) mod plus_minus_alternation_option;
+pub(crate) mod plus_word_option;
 pub(crate) mod positional_description_block;
 pub(crate) mod single_dash_long_table;
 pub(crate) mod spaced_single_dash_long;
@@ -752,6 +755,9 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
         Box::new(leading_diagnostic_line::LeadingDiagnosticLine),
         Box::new(plus_word_option::PlusWordOption),
+        Box::new(plus_minus_alternation_option::PlusMinusAlternationOption),
+        Box::new(description_reused_as_group_label::DescriptionReusedAsGroupLabel),
+        Box::new(headingless_table_in_root_description::HeadinglessTableInRootDescription),
     ]
 }
 

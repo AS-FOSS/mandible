@@ -2843,3 +2843,109 @@ entry's `tools` field and nothing else. It does not get a new entry.
   diagnostic over both streams; the detector reads the tree's chosen stream
   only, and that count is an upper bound, not this family's own fleet
   count. 2026-09-12.
+
+### S-163: `+word`, `+/-name` and `[+-]name` option rows
+
+- id: S-163
+- looks like: |
+      +bs                    enable any backing store support
+      -bs                    disable any backing store support
+      +/-render		   turn on/off RENDER extension support(default on)
+      [+-]accessx [ timeout [ ttb [ tpo [ ctrls ]]]] enable/disable accessx
+- tools: Xvfb, fzf, lsof
+- handling: Fixed. Three rules. (1) A `+word` row — a letter-led run after
+  the sigil (`+bs`, `+byteswappedclients`) — is admitted beside a
+  flag-shaped neighbor (`has_flag_shaped_plus_neighbor`), the same evidence
+  bare `+`/`+<placeholder>` already required (S-095), extended to a whole
+  word. That neighbor check no longer requires the neighbor row itself to
+  carry leading whitespace: a headingless table (S-165) sits flush at
+  column 0, and `+bs`'s own neighbor `-bs` does too. The gate this rides on
+  (`scan_flags_block`'s own "indented, or already inside an open block"
+  test) is widened the same way, so a `+word` row is admitted at column 0
+  once a real entry has already opened the block. (2) `+/-word`, `-/+word`,
+  `[+-]word` and `[-+]word` each expand to two entities, `+word` and
+  `-word`, sharing the row's own description and any trailing value spec
+  verbatim. (3) Neither rule fires where the sigil is not the row's own
+  leading token: `xxd`'s `-s [+][-]seek` opens with `-s`, and stays
+  refused, matching S-097's own counter-case.
+- fleet: `plus-word-option` (`xtask/src/detector/plus_word_option.rs`, rule 1)
+  and `plus-minus-alternation-option`
+  (`xtask/src/detector/plus_minus_alternation_option.rs`, rules 2/3) are
+  both family `None`, so calibration against the seed-7 labelled set reads
+  NOT EVALUABLE for each. Self-checks hold (7/7 and 7/7). Raw-shape count:
+  3 tools / 7 findings for `+word` (Xvfb, fzf, lsof), 1 tool / 2 findings
+  for `+/-name` (Xvfb); both are upper bounds, not the tree-level count.
+  Full-`PATH` sweep-diff of 2269 tools against `origin/main` 0b30c15,
+  2026-09-12: 0 flags lost anywhere, 11 flags gained across 2 tools —
+  Xvfb 69 to 78 (+bs, +byteswappedclients, +iglx, +xinerama, +extension,
+  +render, +accessx, -accessx), fzf 63 to 65 (+i, `+s, --no-sort`). Every
+  gain checked against the tool's own `--help` text.
+
+### S-164: the root description reused as a flag group's own label
+
+- id: S-164
+- looks like: |
+      usage: fc-scan [-bcVh] ... font-file...
+      Scan font files and directories, and print resulting pattern(s)
+
+        -b, --brief            display font pattern briefly
+- tools: fc-scan, fc-validate, grub-macbless, lto-dump, Xvfb
+- handling: Fixed. A sentence directly above a flags block, with no
+  recognized heading word, is read two ways at once: once as the node's
+  own root `description` (the leading-prose rule), and a second time as
+  that block's own group label (`set_pending_bare_label`'s flush-heading
+  shortcut, S-146, and the "recognized heading" flags-block path's
+  `meaningful_flag_group` fallback). A label equal, verbatim (trimmed), to
+  the root description is now refused at both sites: a sentence already
+  spent as the description is not available a second time as a group.
+  `gcc-ranlib-13`'s own `The options are` label is unaffected, since its
+  text differs from the description.
+- fleet: `description-reused-as-group-label`
+  (`xtask/src/detector/description_reused_as_group_label.rs`) is family
+  `None`, so calibration reads NOT EVALUABLE. Self-checks hold (4/4).
+  `fc-scan` and `grub-macbless` are the maintainer-named specimens;
+  `fc-validate` and `lto-dump` are pre-existing, previously-`ok` corpus
+  fixtures the fix also silently repaired (both re-blessed, group lines
+  removed, nothing else changed). Full-`PATH` sweep-diff of 2269 tools
+  against `origin/main` 0b30c15, 2026-09-12: 0 flag/subcommand losses. The
+  detector itself still reads 2 tools / 2 findings fleet-wide after this
+  fix (`"where possible options include:"`, `"where options include:"`),
+  a different pair of tools this round's brief did not name; left as a
+  future finding, not chased here.
+
+### S-165: a headingless table lands in the root description
+
+- id: S-165
+- looks like: |
+      Unrecognized option: --help
+      use: X [:<display>] [option]
+      -a #                   default pointer acceleration (factor)
+      -ac                    disable access control restrictions
+- tools: Xvfb
+- handling: Fixed. `extract_description`'s own bound
+  (`leading_prose_bound`) is a blank-line search with no notion of a
+  flags block at all; with no recognized `usage:` line and no blank line
+  anywhere in the document, it returns the whole document, so a
+  headingless table's rows land in the description as well as being
+  independently recovered by `scan_entries`. Narrowly bounded: only when
+  no blank line exists at all and no usage line was recognized does the
+  description scan now also stop at the first line
+  `starts_attested_headingless_flag_block` (S-052's own recognizer)
+  accepts as a real option row, so an ordinary document's already-correct,
+  cheap bound pays nothing extra. Xvfb's own `use: X [:<display>]
+  [option]` line, an unusual `use:` label rather than `usage:`, is the
+  root cause `flags_block_start` never reaches on its own. This is the
+  same specimen S-164 fixes the group-duplication half of; landing this
+  fix first is what let S-163's `+word` and alternation rows reach column
+  0 at all.
+- fleet: `headingless-table-in-root-description`
+  (`xtask/src/detector/headingless_table_in_root_description.rs`) is
+  family `None`, so calibration reads NOT EVALUABLE. Self-checks hold
+  (4/4). One tool, below the five-tool bar, maintainer-named (carried
+  item 23). Full-`PATH` sweep-diff of 2269 tools against `origin/main`
+  0b30c15, 2026-09-12: 0 flag/subcommand losses anywhere. The detector's
+  own word-boundary heuristic still reads 30 tools fleet-wide after this
+  fix — a broader symptom (a description repeating several of its own
+  tree's flag spellings) than the narrow structural cause this fix
+  closes (no blank line anywhere, no recognized usage line); left as a
+  future finding, not chased here.

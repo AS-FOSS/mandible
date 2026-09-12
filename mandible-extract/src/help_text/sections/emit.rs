@@ -11,20 +11,29 @@ use super::*;
 /// [`parse_plus_sigil_spec`]'s grammar, and would otherwise keep the
 /// literal `+`/`+<lnum>` text as a bare "spelling". See docs/shapes.md
 /// S-095.
+/// Three-way now, not two: a packed block's own alternation-sigil rows
+/// (S-163) need the same detour around [`emit_packed_flags`] a plus-sigil
+/// row does, for the identical reason — that reader assumes a
+/// `-wholename` shape [`parse_plus_sigil_spec`]/
+/// [`parse_plus_minus_alternation_spec`] never produce.
 fn partition_plus_sigil_entries(
     entries: Vec<FlagRowEntry>,
     is_plus_sigil: &[bool],
-) -> (Vec<FlagRowEntry>, Vec<FlagRowEntry>) {
+    is_alternation: &[bool],
+) -> (Vec<FlagRowEntry>, Vec<FlagRowEntry>, Vec<FlagRowEntry>) {
     let mut ordinary = Vec::new();
     let mut plus_sigil = Vec::new();
+    let mut alternation = Vec::new();
     for (idx, entry) in entries.into_iter().enumerate() {
-        if is_plus_sigil.get(idx).copied().unwrap_or(false) {
+        if is_alternation.get(idx).copied().unwrap_or(false) {
+            alternation.push(entry);
+        } else if is_plus_sigil.get(idx).copied().unwrap_or(false) {
             plus_sigil.push(entry);
         } else {
             ordinary.push(entry);
         }
     }
-    (ordinary, plus_sigil)
+    (ordinary, plus_sigil, alternation)
 }
 
 /// Emit everything one [`scan_flags_block`] call recovered — the packed
@@ -38,11 +47,13 @@ pub(super) fn emit_flags_block(
     entries: Vec<FlagRowEntry>,
     packed: bool,
     is_plus_sigil: &[bool],
+    is_alternation: &[bool],
     argfile_entry: Option<FlagRowEntry>,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let (mut seen, mut clean) = if packed {
-        let (ordinary, plus_sigil) = partition_plus_sigil_entries(entries, is_plus_sigil);
+        let (ordinary, plus_sigil, alternation) =
+            partition_plus_sigil_entries(entries, is_plus_sigil, is_alternation);
         let ordinary_seen = ordinary.len();
         emit_packed_flags(
             group.clone(),
@@ -50,11 +61,27 @@ pub(super) fn emit_flags_block(
             out,
         );
         let plus_seen = plus_sigil.len();
-        let (_, plus_clean) =
-            emit_flags_with(group.clone(), plus_sigil, &vec![true; plus_seen], out);
-        (ordinary_seen + plus_seen, ordinary_seen + plus_clean)
+        let (_, plus_clean) = emit_flags_with(
+            group.clone(),
+            plus_sigil,
+            &vec![true; plus_seen],
+            &vec![false; plus_seen],
+            out,
+        );
+        let alt_seen = alternation.len();
+        let (_, alt_clean) = emit_flags_with(
+            group.clone(),
+            alternation,
+            &vec![false; alt_seen],
+            &vec![true; alt_seen],
+            out,
+        );
+        (
+            ordinary_seen + plus_seen + alt_seen,
+            ordinary_seen + plus_clean + alt_clean,
+        )
     } else {
-        emit_flags_with(group.clone(), entries, is_plus_sigil, out)
+        emit_flags_with(group.clone(), entries, is_plus_sigil, is_alternation, out)
     };
     if let Some(entry) = argfile_entry {
         seen += 1;
@@ -96,6 +123,7 @@ pub(super) fn emit_flags_with(
     group: Option<String>,
     entries: Vec<FlagRowEntry>,
     is_plus_sigil: &[bool],
+    is_alternation: &[bool],
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
     let mut seen = 0usize;
@@ -105,6 +133,24 @@ pub(super) fn emit_flags_with(
             break;
         }
         seen += 1;
+        // The alternation-sigil row (S-163) expands to two entities,
+        // `+word` and `-word`, both sharing this row's own description
+        // and choices — built directly from the two `FlagSpec`s rather
+        // than through the loop's single-`spec` path below, since one
+        // source row producing two entities is the one shape this loop
+        // otherwise never has.
+        if is_alternation.get(idx).copied().unwrap_or(false) {
+            if let Some((plus_spec, minus_spec)) = parse_plus_minus_alternation_spec(&spec_text) {
+                clean += 1;
+                for spec in [plus_spec, minus_spec] {
+                    if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+                        break;
+                    }
+                    push_flag_entity(spec, &desc_text, &choice_names, group.clone(), out);
+                }
+            }
+            continue;
+        }
         let mut spec = if is_plus_sigil.get(idx).copied().unwrap_or(false) {
             parse_plus_sigil_spec(&spec_text)
         } else {
@@ -132,38 +178,52 @@ pub(super) fn emit_flags_with(
                 }
             }
         }
-        let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
-        flag.spellings = spec.spellings;
-        flag.value_name = spec.value_name;
-        flag.value_kind = spec.value_kind;
-        flag.group = group.clone();
-        flag.description = non_empty_text(&description);
-        // Sub-rows nested directly under this flag's own row (llvm-ar's
-        // bare `=value` shape and ffmpeg/ffplay's described AVOption shape,
-        // see `choices_sub_row_value`/`choice_description_sub_row`) share
-        // this same `choices` field with clap's `[possible values: …]`.
-        flag.choices = choice_names
-            .into_iter()
-            .map(|(name, desc)| Choice {
-                name,
-                description: desc.map(|d| Text::sanitize(&d)),
-            })
-            .collect();
-        // A docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
-        // S-120) already carries every value as `choices`; when no bracketed
-        // placeholder introduced it (`--configreport log|vg|lv|pv|pvseg|seg`,
-        // unlike `--units [Number]r|R|...`), the same list is *also* what
-        // grammar read as `value_name`, so the rendered screen prints it
-        // twice. Dropped rather than replaced with a generic placeholder,
-        // since `choices` already carries the full enumeration and a
-        // placeholder here would tell the reader nothing new. See
-        // docs/shapes.md S-130.
-        if value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices) {
-            flag.value_name = None;
-        }
-        out.flags.push(flag);
+        push_flag_entity(spec, &description, &choice_names, group.clone(), out);
     }
     (seen, clean)
+}
+
+/// Build and push one [`Entity`] from an already-parsed [`FlagSpec`],
+/// shared by the ordinary/plus-sigil path above and the alternation-sigil
+/// row's two-entity expansion — the exact steps every flag entity needs
+/// regardless of which spec produced it. See docs/shapes.md S-163.
+fn push_flag_entity(
+    spec: FlagSpec,
+    description: &str,
+    choice_names: &[(String, Option<String>)],
+    group: Option<String>,
+    out: &mut ParsedHelp,
+) {
+    let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+    flag.spellings = spec.spellings;
+    flag.value_name = spec.value_name;
+    flag.value_kind = spec.value_kind;
+    flag.group = group;
+    flag.description = non_empty_text(description);
+    // Sub-rows nested directly under this flag's own row (llvm-ar's
+    // bare `=value` shape and ffmpeg/ffplay's described AVOption shape,
+    // see `choices_sub_row_value`/`choice_description_sub_row`) share
+    // this same `choices` field with clap's `[possible values: …]`.
+    flag.choices = choice_names
+        .iter()
+        .map(|(name, desc)| Choice {
+            name: name.clone(),
+            description: desc.clone().map(|d| Text::sanitize(&d)),
+        })
+        .collect();
+    // A docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
+    // S-120) already carries every value as `choices`; when no bracketed
+    // placeholder introduced it (`--configreport log|vg|lv|pv|pvseg|seg`,
+    // unlike `--units [Number]r|R|...`), the same list is *also* what
+    // grammar read as `value_name`, so the rendered screen prints it
+    // twice. Dropped rather than replaced with a generic placeholder,
+    // since `choices` already carries the full enumeration and a
+    // placeholder here would tell the reader nothing new. See
+    // docs/shapes.md S-130.
+    if value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices) {
+        flag.value_name = None;
+    }
+    out.flags.push(flag);
 }
 
 /// Emit the argfile sigil flag [`super::flag_rows::argfile_row_value_name`]

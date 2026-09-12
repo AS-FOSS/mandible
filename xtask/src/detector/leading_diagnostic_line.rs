@@ -22,15 +22,18 @@ fn looks_like_option_rejection(line: &str) -> bool {
         return false;
     }
     let body = match trimmed.split_once(": ") {
-        Some((prefix, rest)) if !prefix.is_empty() && !prefix.contains(char::is_whitespace) => {
-            rest
-        }
+        Some((prefix, rest)) if !prefix.is_empty() && !prefix.contains(char::is_whitespace) => rest,
         _ => trimmed,
     };
     let lower = body.to_ascii_lowercase();
-    ["invalid option", "unrecognized option", "unknown option", "illegal option"]
-        .iter()
-        .any(|kw| lower.starts_with(kw))
+    [
+        "invalid option",
+        "unrecognized option",
+        "unknown option",
+        "illegal option",
+    ]
+    .iter()
+    .any(|kw| lower.starts_with(kw))
 }
 
 /// `raw`'s own first non-empty physical line, or `None` for an empty

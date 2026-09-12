@@ -34,6 +34,9 @@ once it reaches a published 0.1.0 release.
 - [S-145] A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
 - [S-162] A leading option-rejection diagnostic no longer fuses into the root description, so `mandible fuser` and `mandible nfsidmap` show their real description and usage instead of the tool's own complaint about the probe.
+- [S-163] A `+word` option row and a `+/-name`/`[+-]name` alternation row now reach the tree, the second expanding to its own `+name` and `-name` entities, so `mandible fzf` keeps `+i` and `+s, --no-sort` with the rest of its `Search` group, and `mandible Xvfb` recovers every `+`-prefixed row.
+- [S-164] A root flag group that only repeated the node's own description verbatim is dropped now, so `mandible fc-scan`, `mandible fc-validate`, `mandible grub-macbless` and `mandible lto-dump` no longer show the same sentence twice.
+- [S-165] A headingless option table no longer duplicates into the root description, so `mandible Xvfb` shows its real description once and its whole flag table instead of the same text rendered twice.
 
 ## [0.7.0] - 2026-09-05
 

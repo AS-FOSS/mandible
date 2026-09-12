@@ -25,3 +25,7 @@ expected_framework = "generic"
 min_status = "ok"
 min_subcommands = 0
 must_contain_flags = ["--index", "--lang", "--verbose", "--version", "--help"]
+# The root description ("Validate font files and print result") no longer
+# doubles as every flag's own group (docs/shapes.md S-164).
+[contract.must_flag_group]
+"--index" = ""

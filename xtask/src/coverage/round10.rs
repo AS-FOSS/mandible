@@ -1,6 +1,8 @@
 //! Round-10 family detectors. Atlas S-162: a leading option-rejection
 //! diagnostic line fused into the root description. S-163: a `+word`
-//! option row.
+//! option row, and a `+/-word`/`[+-]word` alternation-sigil row. S-164: a
+//! root flag group that repeats the root description verbatim. S-165: a
+//! headingless option table duplicated into the root description.
 
 use crate::detector::{Detector, ToolEvidence};
 use mandible_core::CommandNode;
@@ -14,6 +16,14 @@ pub(super) fn round10_family_counts(
     let leading_diagnostic =
         crate::detector::leading_diagnostic_line::LeadingDiagnosticLine.hits(&evidence);
     let plus_word = crate::detector::plus_word_option::PlusWordOption.hits(&evidence);
+    let plus_minus_alternation =
+        crate::detector::plus_minus_alternation_option::PlusMinusAlternationOption.hits(&evidence);
+    let description_reused_as_group =
+        crate::detector::description_reused_as_group_label::DescriptionReusedAsGroupLabel
+            .hits(&evidence);
+    let headingless_table_in_description =
+        crate::detector::headingless_table_in_root_description::HeadinglessTableInRootDescription
+            .hits(&evidence);
     vec![
         (
             "leading-diagnostic-line",
@@ -24,6 +34,24 @@ pub(super) fn round10_family_counts(
             "plus-word-option",
             plus_word.len(),
             plus_word.into_iter().take(cap).collect(),
+        ),
+        (
+            "plus-minus-alternation-option",
+            plus_minus_alternation.len(),
+            plus_minus_alternation.into_iter().take(cap).collect(),
+        ),
+        (
+            "description-reused-as-group-label",
+            description_reused_as_group.len(),
+            description_reused_as_group.into_iter().take(cap).collect(),
+        ),
+        (
+            "headingless-table-in-root-description",
+            headingless_table_in_description.len(),
+            headingless_table_in_description
+                .into_iter()
+                .take(cap)
+                .collect(),
         ),
     ]
 }

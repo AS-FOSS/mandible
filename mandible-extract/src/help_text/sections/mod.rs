@@ -210,7 +210,7 @@ fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
     // at least two independently parsed rows plus the heading vocabulary
     // above is the minimum evidence to reopen a same-indent section. See
     // S-071.
-    let (_, entries, _, _, _) = scan_flags_block(lines, flags_start, false);
+    let (_, entries, _, _, _, _) = scan_flags_block(lines, flags_start, false);
     entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
@@ -860,11 +860,27 @@ fn set_pending_bare_label(st: &mut BodyScan, label: Option<String>, lines: &[&st
         if !st.in_ignorable_section
             && heading_can_name_a_group(&label)
             && !label.trim_end().ends_with(" :")
+            && !text_is_already_root_description(&label, st.result)
             && pending_label_names_a_real_table(lines, next)
         {
             st.pending_bare_label = Some(label);
         }
     }
+}
+
+/// True when `text` is, verbatim (trimmed), the node's own root
+/// `description` — already decided by [`extract_description`] before
+/// this body scan runs. A sentence already spent as the root description
+/// is not available a second time as a group label (S-164): Xvfb's own
+/// `use: X [:<display>] [option]` line is both, and a group repeating the
+/// description word for word is never new information (AGENTS.md §3.9's
+/// own reasoning, applied to a label instead of a dropped row). See
+/// docs/shapes.md S-164.
+fn text_is_already_root_description(text: &str, result: &ParsedHelp) -> bool {
+    result
+        .description
+        .as_deref()
+        .is_some_and(|d| d.trim() == text.trim())
 }
 
 /// True when the row at `lines[idx]` is flag-shaped and documents a real
@@ -1078,7 +1094,7 @@ fn emit_heading_block(
         // `split_shared_heading_rows`'s doc comment for why the BNF
         // fact is keyed on the row rather than the heading beside it.
         let heading_is_bnf = bnf_row_lines.contains(&flags_start);
-        let (end, entries, packed, argfile_entry, is_plus_sigil) =
+        let (end, entries, packed, argfile_entry, is_plus_sigil, is_alternation) =
             scan_flags_block(lines, flags_start, heading_is_bnf);
         i = end;
         if is_ignorable_heading(heading) {
@@ -1093,14 +1109,22 @@ fn emit_heading_block(
         // as the group's label, and only there — every other block
         // still takes `meaningful_flag_group`'s answer unchanged. See
         // S-012.
+        //
+        // A label equal, verbatim, to the root description is refused
+        // (S-164): `grub-macbless`'s own `Mac-style bless on HFS or
+        // HFS+` is both its description and this block's own would-be
+        // heading, and a group repeating the description word for word
+        // names nothing new.
         let group = stanza_label
             .clone()
-            .or_else(|| meaningful_flag_group(heading.clone()));
+            .or_else(|| meaningful_flag_group(heading.clone()))
+            .filter(|g| !text_is_already_root_description(g, st.result));
         let (seen, clean) = emit_flags_block(
             group,
             entries,
             packed,
             &is_plus_sigil,
+            &is_alternation,
             argfile_entry,
             st.result,
         );
@@ -1286,6 +1310,7 @@ fn emit_flush_heading(
     } else if !st.in_ignorable_section
         && heading_can_name_a_group(heading)
         && find_description_gap(h.line).is_none()
+        && !text_is_already_root_description(heading, st.result)
         && pending_label_names_a_real_table(lines, heading_idx + 1)
     {
         // A flush heading whose own rows sit at its own column rather
@@ -1294,7 +1319,10 @@ fn emit_flush_heading(
         // group from the headingless flags-block shortcut. The gap
         // check guards the heading line itself: `nm`'s own `@FILE  Read
         // options from FILE` row is not flag-shaped, so it reaches here
-        // looking like a heading, but it is a real row. See S-146.
+        // looking like a heading, but it is a real row. See S-146. A
+        // line already spent as the root description is refused here
+        // instead (S-164): Xvfb's own `use: X [:<display>] [option]` is
+        // both its description and this shape's own heading candidate.
         st.pending_bare_label = Some(heading.clone());
     }
     // Rewind to just past the original line and continue scanning
@@ -1432,7 +1460,7 @@ fn scan_entries(
             // revisited as a heading — dcb and vdpa's `OPTIONS` row.
             // See S-042, noted as `bnf_row_lines`.
             let heading_is_bnf = bnf_row_lines.contains(&i);
-            let (end, entries, packed, argfile_entry, is_plus_sigil) =
+            let (end, entries, packed, argfile_entry, is_plus_sigil, is_alternation) =
                 scan_flags_block(lines, i, heading_is_bnf);
             i = end;
             let (seen, clean) = emit_flags_block(
@@ -1440,6 +1468,7 @@ fn scan_entries(
                 entries,
                 packed,
                 &is_plus_sigil,
+                &is_alternation,
                 argfile_entry,
                 st.result,
             );
@@ -1696,7 +1725,23 @@ fn parse_body(
     // iteration made this function quadratic, found via the coverage
     // harness (spec §13.1) parsing a degenerate input in minutes instead
     // of milliseconds.
-    let description_bound = i.max(leading_prose_bound(&lines));
+    let prose_bound = leading_prose_bound(&lines);
+    let mut description_bound = i.max(prose_bound);
+    // A headingless table with no blank line ahead of it and no
+    // recognized usage line (Xvfb's `use: X [:<display>] [option]`, not
+    // `usage:`) reaches `leading_prose_bound`'s whole-document fallback
+    // untouched, so its option rows land in the description as well as
+    // being independently recovered by `scan_entries` below — the same
+    // text rendered twice. Consulted only in that narrow case (no blank
+    // line anywhere, no usage line), so an ordinary document's already-
+    // correct, cheap bound pays nothing extra. See docs/shapes.md S-165.
+    if usage_start.is_none() && prose_bound == lines.len() {
+        if let Some(flag_start) =
+            (i..lines.len()).find(|&j| starts_attested_headingless_flag_block(&lines, j))
+        {
+            description_bound = description_bound.min(flag_start);
+        }
+    }
     if let Some(description) = extract_description(&lines, description_bound, usage_start, i) {
         result.description = Some(description);
     }

@@ -526,7 +526,7 @@ pub(super) fn starts_attested_headingless_flag_block(lines: &[&str], idx: usize)
     {
         return false;
     }
-    let (_, entries, _, _, _) = scan_flags_block(lines, idx, false);
+    let (_, entries, _, _, _, _) = scan_flags_block(lines, idx, false);
     entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
