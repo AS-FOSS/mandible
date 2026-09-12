@@ -114,7 +114,10 @@ impl crate::detector::Detector for DescriptionTailEnumeratesChoices {
     }
 
     fn family(&self) -> Option<&'static str> {
-        Some("description-tail-enumerates-choices")
+        // No seed-7 labelled tool carries this shape (calibration verdict
+        // NOT EVALUABLE), so there is no closed `DEFECT_FAMILIES` entry to
+        // claim. See docs/shapes.md S-156.
+        None
     }
 
     fn describes(&self) -> &'static str {

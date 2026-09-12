@@ -106,52 +106,74 @@ fn is_literal_choice_member(member: &str) -> bool {
         })
 }
 
+/// True when `member` is nothing but ASCII digits — a digit run is never a
+/// metavar name (`<0|1>`), unlike a word (`<data|filename>`).
+fn is_purely_numeric(member: &str) -> bool {
+    !member.is_empty() && member.chars().all(|c| c.is_ascii_digit())
+}
+
 /// A value spec that is one delimited alternation of literal members, with
 /// no other token inside the delimiter, is that entity's `choices`
 /// (S-155): `--compression=(xz|none|auto)`, `--crate-type
-/// <bin|lib|rlib|...>`, `-l {c,java,ruby,tcl}`. Angle and paren forms
-/// split on `|` and require at least three members: curl's own `-b,
-/// --cookie <data|filename>` is the same two-member angle shape and is
-/// not a choice list at all, but an either/or description of the value's
-/// TYPE (a literal data string, or a path) — a reader picks neither word
-/// literally the way `xz`/`none`/`auto` are picked. Nothing about the
-/// shape alone tells the two apart below three members, so missing beats
-/// invented there (docs/shapes.md S-005's own rule). Brace splits on `,`,
-/// requires only two, and is gated to `is_argparse`: argparse's own
-/// `choices=` is a language-level declaration, not a prose convention, so
-/// it carries no such ambiguity, and no other convention in the capture
-/// set uses `{` as a value delimiter (checked in `xtask`'s calibration).
+/// <bin|lib|rlib|...>`, `-l {c,java,ruby,tcl}`. Three admissions, and
+/// nothing wider:
+///
+/// 1. Brace, split on `,`, any member count, gated to `is_argparse`:
+///    argparse's own `choices=` is a language-level declaration the
+///    framework prints only when set, not a prose convention, and no
+///    other convention in the capture set uses `{` as a value delimiter
+///    (checked in `xtask`'s calibration).
+/// 2. Paren, split on `|`, any member count: grub-mkimage's own form, and
+///    no convention in the capture set uses parens for a metavar
+///    alternation either.
+/// 3. Angle, split on `|`, at least three members, or exactly two when
+///    both are purely numeric (`<0|1>`, a digit is never a metavar name).
+///    A two-member angle alternation of words is refused: curl's own
+///    `-b, --cookie <data|filename>`, `setpriv`'s `--ruid <uid|user>` and
+///    `start-stop-daemon`'s `-u, --user <username|uid>` are the identical
+///    shape and are not choice lists — each names the value's TYPE (a
+///    literal string, or a path; a numeric id, or a name), and a reader
+///    picks neither word literally the way `xz`/`none`/`auto` are picked.
+///    Nothing about the shape alone tells the two apart below three
+///    members, so missing beats invented there (docs/shapes.md S-005's
+///    own rule); the refused two-member word case is a stated, counted
+///    lower bound, not a silent gap.
+///
 /// `None` when a member fails [`is_literal_choice_member`] (a metavar or
 /// a flag alternation like fuser's `[-c|-m|-n SPACE]`, already excluded
 /// since `[...]` is not one of the three delimiters read here) or when
 /// anything but a flat list sits inside the delimiter.
 fn alternation_choices(value_name: &str, is_argparse: bool) -> Option<Vec<String>> {
-    let (inner, sep, min_members) = if let Some(inner) = value_name
-        .strip_prefix('<')
-        .and_then(|v| v.strip_suffix('>'))
-    {
-        (inner, '|', 3)
-    } else if let Some(inner) = value_name
+    let (inner, sep, angle) = if let Some(inner) = value_name
         .strip_prefix('(')
         .and_then(|v| v.strip_suffix(')'))
     {
-        (inner, '|', 3)
+        (inner, '|', false)
     } else if is_argparse {
-        (
-            value_name
-                .strip_prefix('{')
-                .and_then(|v| v.strip_suffix('}'))?,
-            ',',
-            2,
-        )
+        let inner = value_name
+            .strip_prefix('{')
+            .and_then(|v| v.strip_suffix('}'))?;
+        (inner, ',', false)
     } else {
-        return None;
+        let inner = value_name
+            .strip_prefix('<')
+            .and_then(|v| v.strip_suffix('>'))?;
+        (inner, '|', true)
     };
     if inner.is_empty() || inner.contains(['<', '>', '(', ')', '{', '}', '[', ']']) {
         return None;
     }
     let members: Vec<&str> = inner.split(sep).collect();
-    if members.len() < min_members || !members.iter().all(|m| is_literal_choice_member(m)) {
+    if !members.iter().all(|m| is_literal_choice_member(m)) {
+        return None;
+    }
+    if angle
+        && members.len() < 3
+        && !(members.len() == 2 && members.iter().all(|m| is_purely_numeric(m)))
+    {
+        return None;
+    }
+    if members.len() < 2 {
         return None;
     }
     Some(members.into_iter().map(str::to_string).collect())

@@ -47,24 +47,37 @@ fn is_literal_choice_member(member: &str) -> bool {
         })
 }
 
-/// The first delimited alternation candidate on `line`: an angle or paren
-/// group split on `|` (at least three members — curl's own `-b, --cookie
-/// <data|filename>` is the identical two-member angle shape and is an
-/// either/or value-TYPE description, not a choice list; missing beats
-/// invented below three), or, only when `is_argparse`, a brace group
-/// split on `,` (at least two — argparse's `choices=` is a language-level
-/// declaration and carries no such ambiguity). `None` when no such
-/// group's content is a flat list of literal members — a real distinct
-/// placeholder (`--units [Number]`, excluded since `[` is not one of the
-/// three delimiters read here), a single member (`<platform>`), or a
-/// metavar/flag member.
+/// True when `member` is nothing but ASCII digits — never a metavar name.
+fn is_purely_numeric(member: &str) -> bool {
+    !member.is_empty() && member.chars().all(|c| c.is_ascii_digit())
+}
+
+/// The first delimited alternation candidate on `line`: a paren group
+/// split on `|` (any member count — grub-mkimage's own form, and no
+/// convention in the capture set uses parens for a metavar alternation);
+/// only when `is_argparse`, a brace group split on `,` (any count —
+/// argparse's `choices=` is a language-level declaration and carries no
+/// such ambiguity); or an angle group split on `|`, admitted only at
+/// three or more members, or exactly two when both are purely numeric
+/// (`<0|1>`). A two-member angle alternation of words is refused: curl's
+/// own `-b, --cookie <data|filename>`, `setpriv`'s `--ruid <uid|user>`
+/// and `start-stop-daemon`'s `-u, --user <username|uid>` are the
+/// identical shape and are value-TYPE descriptions, not choice lists.
+/// `None` when no such group's content is a flat list of literal members
+/// — a real distinct placeholder (`--units [Number]`, excluded since `[`
+/// is not one of the three delimiters read here), a single member
+/// (`<platform>`), or a metavar/flag member.
 fn candidate(line: &str, is_argparse: bool) -> Option<(char, Vec<String>)> {
-    let delimiters: &[(char, char, char, usize)] = if is_argparse {
-        &[('<', '>', '|', 3), ('(', ')', '|', 3), ('{', '}', ',', 2)]
+    let delimiters: &[(char, char, char, bool)] = if is_argparse {
+        &[
+            ('(', ')', '|', false),
+            ('{', '}', ',', false),
+            ('<', '>', '|', true),
+        ]
     } else {
-        &[('<', '>', '|', 3), ('(', ')', '|', 3)]
+        &[('(', ')', '|', false), ('<', '>', '|', true)]
     };
-    for &(open, close, sep, min_members) in delimiters {
+    for &(open, close, sep, angle) in delimiters {
         let Some(start) = line.find(open) else {
             continue;
         };
@@ -77,7 +90,13 @@ fn candidate(line: &str, is_argparse: bool) -> Option<(char, Vec<String>)> {
             continue;
         }
         let members: Vec<&str> = inner.split(sep).collect();
-        if members.len() < min_members || !members.iter().all(|m| is_literal_choice_member(m)) {
+        if members.len() < 2 || !members.iter().all(|m| is_literal_choice_member(m)) {
+            continue;
+        }
+        if angle
+            && members.len() < 3
+            && !(members.len() == 2 && members.iter().all(|m| is_purely_numeric(m)))
+        {
             continue;
         }
         return Some((open, members.into_iter().map(str::to_string).collect()));
@@ -118,7 +137,10 @@ impl crate::detector::Detector for AlternationValueIsChoices {
     }
 
     fn family(&self) -> Option<&'static str> {
-        Some("alternation-value-is-choices")
+        // No seed-7 labelled tool carries this shape (calibration verdict
+        // NOT EVALUABLE), so there is no closed `DEFECT_FAMILIES` entry to
+        // claim. See docs/shapes.md S-155.
+        None
     }
 
     fn describes(&self) -> &'static str {
@@ -235,7 +257,37 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
                   `xz`/`none`/`auto` — so it must never be claimed",
             expect: Expect::Silent,
             raw: "  -b, --cookie <data|filename> Send cookies from string/file\n".to_string(),
-            root: node_with("curl", vec![flag_with("cookie", Some("<data|filename>"), &[])]),
+            root: node_with(
+                "curl",
+                vec![flag_with("cookie", Some("<data|filename>"), &[])],
+            ),
+        },
+        SelfCheck {
+            name: "setpriv's own `--ruid <uid|user>`, the identical two-member word shape",
+            why: "the same value-TYPE ambiguity as curl's cookie flag, on a different tool — \
+                  must never be claimed",
+            expect: Expect::Silent,
+            raw: "      --ruid <uid|user>       set real user ID\n".to_string(),
+            root: node_with("setpriv", vec![flag_with("ruid", Some("<uid|user>"), &[])]),
+        },
+        SelfCheck {
+            name: "start-stop-daemon's own `-u, --user <username|uid>`",
+            why: "the same value-TYPE ambiguity a third time — must never be claimed",
+            expect: Expect::Silent,
+            raw: "  -u, --user <username|uid>   match only processes owned by this user\n"
+                .to_string(),
+            root: node_with(
+                "start-stop-daemon",
+                vec![flag_with("user", Some("<username|uid>"), &[])],
+            ),
+        },
+        SelfCheck {
+            name: "a two-member purely-numeric angle alternation (`<0|1>`)",
+            why: "a digit run is never a metavar name, so the two-member floor that guards \
+                  against curl's shape must not apply here",
+            expect: Expect::Fires(1),
+            raw: "  -c, --compress=<0|1|2>   compress data before writing\n".to_string(),
+            root: node_with("jlink", vec![flag_with("compress", Some("<0|1>"), &[])]),
         },
         SelfCheck {
             name: "lvm2's own `--units [Number]r|R|h|...`, a real distinct placeholder",
