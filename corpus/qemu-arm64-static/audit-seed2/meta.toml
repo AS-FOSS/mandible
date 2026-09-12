@@ -34,3 +34,18 @@ expected_framework = "generic"
 # by nothing but a space, and `expected.snap` freezes every one of them
 # unchanged.
 must_contain_flags = ["help", "cpu", "one-insn-per-tb"]
+
+# `-cpu` and `-dfilter`'s own bare-word value names (docs/shapes.md
+# S-157): the single-dash-long-table rule now also reads a value with no
+# bracket or angle delimiter, one whitespace-delimited token past the
+# name, never swallowing this ragged table's third (`Env-variable`)
+# column.
+[contract.must_value_name]
+"-cpu" = "model"
+"-dfilter" = "range[,...]"
+
+# The regression this row caught once (docs/shapes.md S-157): reading past
+# the first whitespace-delimited token swallowed the row's own
+# `Env-variable` column into the value.
+[contract.must_not_value_name]
+"-dfilter" = "QEMU_DFILTER"

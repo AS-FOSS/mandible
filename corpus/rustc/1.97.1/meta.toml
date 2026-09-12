@@ -3,6 +3,11 @@
 # alternation of literal values in the value position. Both rendered as an
 # opaque placeholder holding the whole list; the fix reads each as its
 # flag's own `choices` instead. See docs/shapes.md S-155.
+#
+# [S-158] `-L [<KIND>=]<PATH>`, `--emit <TYPE>[=<FILE>]` and
+# `-C <OPT>[=<VALUE>]` each glue a bracket-optional group onto a required
+# angle placeholder. Each used to keep only the group that opens the run
+# and lose the other half. See docs/shapes.md S-158.
 
 [bless]
 provenance = "agent"
@@ -26,6 +31,7 @@ expected_framework = "generic"           # `--doctor rustc` against the live
                                          # falls to "generic" — the value
                                          # this contract must assert
 min_status = "ok"
+must_contain_flags = ["L", "l", "emit", "C"]
 
 [contract.must_attach_choices]
 "--crate-type" = ["bin", "lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"]
@@ -34,3 +40,8 @@ min_status = "ok"
 [contract.must_not_value_name]
 "--crate-type" = "bin|lib|rlib|dylib|cdylib|staticlib|proc-macro"
 "--edition" = "2015|2018|2021|2024|future"
+
+[contract.must_value_name]
+"-L" = "[<KIND>=]<PATH>"
+"--emit" = "<TYPE>[=<FILE>]"
+"-C" = "<OPT>[=<VALUE>]"

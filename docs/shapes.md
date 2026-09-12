@@ -2891,3 +2891,86 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
   five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
   `[xfail]` for `--format`'s own description. 2026-09-12.
+### S-157: a bare-word value placeholder after a single-dash-long spelling
+
+- id: S-157
+- looks like: |
+      -Xstrategy strategy1,...,strategyN	compression strategy    mksquashfs
+      -audit int             set audit trail level            Xvfb
+- tools: Xvfb, mksquashfs, sqfstar, ckbcomp, containerd-shim-runc-v2,
+  docker-proxy, lshw, screen, sqlite3, xdpyinfo, xev, xkill, xlsatoms,
+  ldattach, pod2usage, and the whole qemu-*-static family (42 tools)
+- handling: Fixed, inside the single-dash-long table only (S-145's own
+  gate: a document whose option rows are column-0 `-word` spellings with
+  no `--long` row anywhere). `spaced_bare_word_value`
+  (`mandible-extract/src/help_text/sections/repair.rs`) reads the one
+  whitespace-delimited token after a table row's own single space as the
+  value name, whatever its case, keeping a comma-separated run whole
+  (`strategy1,...,strategyN`). Reading past that first token is refused:
+  `qemu-arm64-static`'s own ragged three-column table
+  (`Argument`/`Env-variable`/`Description`) separates `-dfilter`'s value
+  from its `QEMU_DFILTER` column by only one more space, so a wider
+  gap-based cut would swallow the next column into the value. The search
+  is scoped to the row identified as the flag's own leading token, never
+  any later occurrence of the same text in another row's description
+  (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
+  `-match` in prose and must not donate it a fabricated value). The
+  table gate is the whole safety argument: `gcc`, `clang` and the `ld`
+  family all carry `-DMACRO` glued values beside a real `--help` row, so
+  their own tables never qualify.
+- fleet: `spaced-bare-word-table-value`
+  (`xtask/src/detector/spaced_bare_word_table_value.rs`) reads 9
+  tools/12 findings on a full-`PATH` sweep of 2269 tools, 2026-09-12,
+  each a table row the per-document evidence floor still refuses (a
+  glued repeated-character shape, or a run the S-145 table gate itself
+  excludes) — a documented lower bound, not a further fix this round.
+  No labelled member of this family exists in any audit seed; the four
+  self-checks are the only standing evidence. The fix itself moved 57
+  tools with 0 flag-count and 0 subcommand-count losses on the same
+  sweep-diff: `Xvfb`, `mksquashfs` and `sqfstar` gain their own named
+  rows; the qemu family (42 tools) recovers `-cpu`'s and `-dfilter`'s
+  value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
+  `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
+  `containerd-shim-runc-v2` and `docker-proxy` each recover at least
+  one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
+  `sg_map` stay byte-identical.
+
+### S-158: a bracket group glued to an angle placeholder keeps only the group
+
+- id: S-158
+- looks like: |
+      -L [<KIND>=]<PATH>  Add a directory to the library search path.
+          --emit <TYPE>[=<FILE>]
+- tools: rustc, dpkg, dpkg-statoverride, java, jlink, jdeps, jpackage,
+  gp-collect-app, lto-dump, lto-dump-13
+- handling: Fixed in `try_value`
+  (`mandible-extract/src/help_text/grammar.rs`). Extends the S-097
+  ruling ("a value spec written as two or more glued optional groups
+  renders as its own source spelling") to a run that mixes a bracket
+  group and a required angle placeholder: the whole glued run is the
+  value name, source spelling kept, and the value becomes required once
+  the required half joins it. Two symmetric additions: the bracket
+  branch glues one adjacent angle group onto its own close
+  (`take_glued_angle_group`, `-L [<KIND>=]<PATH>`); the bare-token
+  branch glues one adjacent bracket group onto a captured angle
+  placeholder (`take_glued_bracket_group`, `--emit <TYPE>[=<FILE>]`,
+  `dpkg`'s `--force-<thing>[,...]`). A single, never-folded bracket
+  group is normally left bracket-free for the renderer to wrap, so the
+  bracket branch re-wraps it explicitly once a required angle group
+  joins, or the source spelling would read `<KIND>=<PATH>` with the
+  bracket gone.
+- fleet: `glued-bracket-angle-run`
+  (`xtask/src/detector/glued_bracket_angle_run.rs`) reads a raw-shape
+  count of 1 tool (rustc) fleet-wide before this fix, maintainer-named
+  (seed 7). Below the five-tool bar, shipped anyway as a gated exception
+  (docs/design.md §16) because the same sweep-diff that measures S-157
+  covers it: 0 flag-count and 0 subcommand-count losses across 2269
+  tools, 2026-09-12. The fix moved 11 tools: `rustc`'s `-L`, `--emit`
+  and `-C`/`--codegen`; `dpkg` and `dpkg-statoverride`'s
+  `--force-<thing>[,...]` family; `java`, `jlink`, `jdeps`, `jpackage`
+  and `gp-collect-app`'s `--add-modules <name>[,<name>...]` shape;
+  `lto-dump`/`lto-dump-13`'s `-D`. No labelled member of this family
+  exists in any audit seed; the four self-checks are the only standing
+  evidence. `gcc`, `clang`, `aarch64-linux-gnu-g++-13` and the whole
+  nine-control set stay byte-identical.
