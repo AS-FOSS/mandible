@@ -1,21 +1,9 @@
-//! `header-declared-env-column` (atlas S-166): a header-declared three-
-//! column option table (`Argument`/`Env-variable`/`Description`, the
-//! whole `qemu-*-static` fleet) whose own header row names its middle
-//! column as an environment variable. The unfixed parser glues that
-//! column onto the matching flag's description instead of reading it as
-//! the flag's own [`Entity::env_var`] cross-reference (spec §4.5, §7
-//! Tier B rule 16).
+//! `header-declared-env-column` (atlas S-166): a table whose own header row
+//! names its columns `Argument`, `Env-variable` and `Description`, read at
+//! one generic column gap so the variable glued onto the description.
 //!
-//! Independent re-implementation of the header/row shape — no shared
-//! code with `mandible_extract::help_text::sections`, so the detector
-//! cannot agree with the parser by construction.
-//!
-//! The seed-7 audit labels `qemu-riscv64-static` "incomplete" and
-//! describes this exact shape ("a triple column help text ... flags
-//! being an alias of the env vars"), but no `DEFECT_FAMILIES` entry
-//! names it yet and the entry carries no derived family, so
-//! [`Detector::family`] returns `None` (spec §13.1e rule 6) rather than
-//! forcing it onto an unrelated family.
+//! Fixture: `corpus/qemu-riscv64-static/8.2.2`. 42 qemu binaries share one
+//! help template.
 
 use crate::detector::{Detector, Expect, Scope, SelfCheck, ToolEvidence};
 use mandible_core::CommandNode;
