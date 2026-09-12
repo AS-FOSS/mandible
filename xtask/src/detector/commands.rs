@@ -424,44 +424,24 @@ pub fn check_ragged_family_ratchets(
     Ok(ragged && wrapped)
 }
 
-/// `command-pattern-table` (atlas S-141): reported, not gated. A
-/// full-`PATH` sweep clears the five-tool bar (18 tools/224 findings, see
-/// docs/shapes.md S-141), but the shared row-splitting grammar it
-/// touches has no merge path yet for a repeated command name, so no fix
-/// has landed and there is nothing to ratchet at zero. Self-checks still
-/// run and gate, the same way `brace-alternation-flag`'s do above.
+/// `command-pattern-table` (atlas S-141): gated at zero. Round 10's design
+/// pass ships the merge path a repeated command name needed
+/// (`ParsedHelp::merge_or_push_pattern`,
+/// `mandible-extract/src/help_text/sections/{mod,emit}.rs`), so the
+/// fleet-wide count this detector reads is now ratcheted the same way
+/// `check_scalar_family_ratchet`'s other callers are — a future regression
+/// in this family is visible the moment the count leaves zero.
 pub fn check_command_pattern_reported(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
-    if fresh.command_pattern_tools != previous.command_pattern_tools
-        || fresh.command_pattern_flags != previous.command_pattern_flags
-    {
-        println!(
-            "command-pattern-table findings changed from {} tool(s)/{} pattern(s) to {} \
-             tool(s)/{} pattern(s) (reported, not gated)",
-            previous.command_pattern_tools,
-            previous.command_pattern_flags,
-            fresh.command_pattern_tools,
-            fresh.command_pattern_flags,
-        );
-    }
-    let detector = find("command-pattern-table")?;
-    let self_checks = run_self_checks(detector.as_ref());
-    println!(
-        "\ncommand-pattern-table: {} tool(s)/{} pattern(s) — REPORTED, NOT GATED.\n{}",
+    check_scalar_family_ratchet(
+        "command-pattern-table",
+        previous.command_pattern_tools,
+        previous.command_pattern_flags,
         fresh.command_pattern_tools,
         fresh.command_pattern_flags,
-        render_self_checks(&self_checks),
-    );
-    if !self_checks_are_conclusive(&self_checks) {
-        println!(
-            "command-pattern-table's own hand-built evidence no longer holds — its fleet \
-             number above cannot be read at all until that is fixed."
-        );
-        return Ok(false);
-    }
-    Ok(true)
+    )
 }
 
 /// `centered-label-baseline-tree` (atlas S-149): reported, not gated. The

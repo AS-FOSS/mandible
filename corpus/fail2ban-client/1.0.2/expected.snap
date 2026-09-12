@@ -1,0 +1,342 @@
+name: fail2ban-client
+usage:
+- 'Usage: fail2ban-client [OPTIONS] <COMMAND>'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -c
+  - --conf
+  value_name: <DIR>
+  value_kind: Required
+  description: configuration directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --socket
+  value_name: <FILE>
+  value_kind: Required
+  description: socket path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --pidfile
+  value_name: <FILE>
+  value_kind: Required
+  description: pidfile path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pname
+  value_name: <NAME>
+  value_kind: Required
+  description: name of the process (main thread) to identify instance (default fail2ban-server)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --loglevel
+  value_name: <LEVEL>
+  value_kind: Required
+  description: logging level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --logtarget
+  value_name: <TARGET>
+  value_kind: Required
+  description: logging target, use file-name or stdout, stderr, syslog or sysout.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --syslogsocket
+  value_name: auto|<FILE>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: dump configuration. For debugging
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dp
+  - --dump-pretty
+  description: dump the configuration using more human readable representation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --test
+  description: test configuration (can be also specified with start parameters)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  description: interactive mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  description: increase verbosity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  description: decrease verbosity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  description: force execution of the server (remove socket file)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  description: start server in background (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  description: start server in foreground
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --async
+  description: start server in async mode (for internal usage only, don't read configuration)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --timeout
+  description: timeout to wait for the server (for internal usage only, don't read configuration)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --str2sec
+  value_name: <STRING>
+  value_kind: Required
+  description: convert time abbreviation format to seconds
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: display this help message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: print the version (-V returns machine-readable short format)
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: start
+  summary: starts the server and the jails
+  usage:
+  - start <JAIL>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restart
+  summary: restarts the server
+  usage:
+  - restart [--unban] [--if-exists] <JAIL>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reload
+  summary: reloads the configuration without restarting of the server, the option '--restart' activates completely restarting of affected jails, thereby can unban IP addresses (if option '--unban' specified)
+  usage:
+  - reload [--restart] [--unban] [--all]
+  - reload [--restart] [--unban] [--if-exists] <JAIL>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: stop
+  summary: stops all jails and terminate the server
+  usage:
+  - stop <JAIL>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: banned
+  summary: return jails with banned IPs as dictionary
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: status
+  summary: gets the current status of the server
+  usage:
+  - status <JAIL> [FLAVOR]
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: ping
+  summary: tests if the server is alive
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: echo
+  summary: for internal usage, returns back and outputs a given string
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: help
+  summary: return this output
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: version
+  summary: return the server version
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: set
+  summary: 'sets logging level to <LEVEL>. Levels: CRITICAL, ERROR, WARNING, NOTICE, INFO, DEBUG, TRACEDEBUG, HEAVYDEBUG or corresponding numeric value (50-5)'
+  usage:
+  - set loglevel <LEVEL>
+  - set logtarget <TARGET>
+  - set dbfile <FILE>
+  - set dbmaxmatches <INT>
+  - set dbpurgeage <SECONDS>
+  - set <JAIL> addignoreip <IP>
+  - set <JAIL> delignoreip <IP>
+  - set <JAIL> ignorecommand <VALUE>
+  - set <JAIL> ignorecache <VALUE>
+  - set <JAIL> addlogpath <FILE> ['tail']
+  - set <JAIL> dellogpath <FILE>
+  - set <JAIL> logencoding <ENCODING>
+  - set <JAIL> addjournalmatch <MATCH>
+  - set <JAIL> deljournalmatch <MATCH>
+  - set <JAIL> addfailregex <REGEX>
+  - set <JAIL> delfailregex <INDEX>
+  - set <JAIL> addignoreregex <REGEX>
+  - set <JAIL> delignoreregex <INDEX>
+  - set <JAIL> findtime <TIME>
+  - set <JAIL> bantime <TIME>
+  - set <JAIL> datepattern <PATTERN>
+  - set <JAIL> usedns <VALUE>
+  - set <JAIL> maxretry <RETRY>
+  - set <JAIL> maxmatches <INT>
+  - set <JAIL> maxlines <LINES>
+  - set <JAIL> delaction <ACT>
+  - set <JAIL> action <ACT> actionstart <CMD>
+  - set <JAIL> action <ACT> actioncheck <CMD>
+  - set <JAIL> action <ACT> actionban <CMD>
+  - set <JAIL> action <ACT> actionunban <CMD>
+  - set <JAIL> action <ACT> timeout <TIMEOUT>
+  - set <JAIL> action <ACT> <PROPERTY> <VALUE>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: get
+  summary: gets the logging level
+  usage:
+  - get loglevel
+  - get logtarget
+  - get syslogsocket
+  - get dbfile
+  - get dbmaxmatches
+  - get dbpurgeage
+  - get <JAIL> banned
+  - get <JAIL> logpath
+  - get <JAIL> logencoding
+  - get <JAIL> journalmatch
+  - get <JAIL> ignoreself
+  - get <JAIL> ignoreip
+  - get <JAIL> ignorecommand
+  - get <JAIL> failregex
+  - get <JAIL> ignoreregex
+  - get <JAIL> findtime
+  - get <JAIL> bantime
+  - get <JAIL> datepattern
+  - get <JAIL> usedns
+  - get <JAIL> banip [<SEP>|--with-time]
+  - get <JAIL> maxretry
+  - get <JAIL> maxmatches
+  - get <JAIL> maxlines
+  - get <JAIL> actions
+  - get <JAIL> action <ACT> actionstart
+  - get <JAIL> action <ACT> actionstop
+  - get <JAIL> action <ACT> actioncheck
+  - get <JAIL> action <ACT> actionban
+  - get <JAIL> action <ACT> actionunban
+  - get <JAIL> action <ACT> timeout
+  - get <JAIL> actionproperties <ACT>
+  - get <JAIL> actionmethods <ACT>
+  - get <JAIL> action <ACT> <PROPERTY>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: flushlogs
+  summary: flushes the logtarget if a file and reopens it. For log rotation.
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add
+  summary: creates <JAIL> using <BACKEND>
+  usage:
+  - add <JAIL> <BACKEND>
+  group: 'Command:'
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

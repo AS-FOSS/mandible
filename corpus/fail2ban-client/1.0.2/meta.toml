@@ -15,7 +15,10 @@ stdout = "help.txt"
 expected_framework = "generic"
 must_not_contain_flags = ["--with-time"]
 min_subcommands = 14
-
-[xfail]
-broken = true
-reason = "1. Fixed. A description continuation beginning with a dash used to end the Command: bare block early and read as a flag row; bare_block_end now recognizes it as a wrapped-prose continuation (S-027's own test) instead, so no --with-time flag reaches the tree. 2. The Command: section holds 95 rows of multi-word command patterns (set loglevel <LEVEL>, get <JAIL> banip [<SEP>|--with-time], reload [--restart] [--unban] <JAIL>) under ten centered ALL-CAPS group labels. bare_block_end's baseline is fixed (docs/shapes.md S-149), so the block now reads every row cleanly, but emit_subcommands still drops any row whose name field is not a single command-name-shaped word: a bare-word first line recovers (start, restart, stop, banned, status, ping, echo, help, version, flushlogs, 10 nodes), while every set, get, add, unban and reload row is dropped rather than fabricated, since none of them ever has a bare-word-only form. The command-pattern-table detector still reads 18 tools and 224 findings fleet-wide, 85 of them here, above the five-tool bar. The name rule (one command node per distinct leading word, each row's own pattern appended to its usage list) is not yet shipped."
+# docs/shapes.md S-141: round 8's nine fabricated command names, cut from
+# wrapped description lines by the old per-token name rule. None may ever
+# reappear.
+must_not_contain_subcommands = [
+    "logtarget", "persistent", "of", "list", "files",
+    "filter", "for", "back", "failures",
+]

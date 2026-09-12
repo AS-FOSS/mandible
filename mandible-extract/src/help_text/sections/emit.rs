@@ -360,6 +360,71 @@ fn command_name_with_operand_placeholders(trimmed: &str) -> Option<(&str, &str)>
     looks_like_operand_placeholder_run(rest).then_some((name, rest))
 }
 
+/// True when `tok` is one of the four token shapes docs/shapes.md S-141's
+/// design pass admits into a command pattern's tail: a bare command word
+/// ([`is_command_name_shaped`], so `loglevel` in `set loglevel <LEVEL>`
+/// qualifies same as a real subcommand name would), an angle placeholder
+/// (`<JAIL>`), a bracket group (`[--unban]`) — its own contents unchecked,
+/// since the row grammar varies too widely to parse further without
+/// guessing — or an ALL-CAPS metavar. Never confused with
+/// [`looks_like_operand_placeholder_run`] (S-129), which refuses a
+/// lowercase tail word outright; this function is only ever consulted
+/// after that rule has already had first refusal, so the two never
+/// compete for the same row (see [`command_pattern_row`]'s own doc
+/// comment).
+fn is_pattern_tail_token(tok: &str) -> bool {
+    is_command_name_shaped(tok)
+        || (tok.len() > 2 && tok.starts_with('<') && tok.ends_with('>'))
+        || (tok.len() > 2 && tok.starts_with('[') && tok.ends_with(']'))
+        || (!tok.is_empty() && tok.chars().all(|c| c.is_ascii_uppercase() || c == '_'))
+}
+
+/// docs/shapes.md S-141, the design pass's rule 2: `row_spelling`'s own
+/// name field parses as a command PATTERN, not a bare name, only when its
+/// first token is a bare command word and every token after it is
+/// [`is_pattern_tail_token`]-shaped. One token wrong anywhere in the row
+/// refuses the row WHOLE, never partially — a wrapped description
+/// continuation this block's own `split_entries` already folded into the
+/// previous row's description can never reach here as a row of its own,
+/// which is what makes this safe against round 8's nine fabrications
+/// (docs/design.md §16). Tried only after [`is_command_name_shaped`] (the
+/// bare-word case) and [`command_name_with_operand_placeholders`] (S-129's
+/// narrower all-ALL-CAPS-tail case) both refuse the row, so neither rule's
+/// existing behavior — `systemctl`'s screen included — moves at all.
+/// `None` for a single-token row too: that shape is already
+/// [`is_command_name_shaped`]'s own case and must not be double-counted
+/// (docs/shapes.md S-141's own self-check).
+///
+/// Capped at [`MAX_PATTERN_TOKENS`]: fail2ban-client's own `Command:` block
+/// has one row whose single-space description gap (docs/shapes.md S-105)
+/// leaves no column split at all, so `row_spelling` here is the row's name
+/// field glued straight onto its dropped description — `"set <JAIL> action
+/// <ACT> actionstop <CMD> sets the stop command <CMD> of the"`. Every one
+/// of those extra words is itself bare-command-word-shaped (`sets`, `the`,
+/// `of` all match `is_command_name_shaped`), so the per-token check alone
+/// cannot refuse it. Every genuine pattern row in this corpus tops out at
+/// 6 tokens; the cap is set comfortably above that and well below this
+/// glued row's 13.
+const MAX_PATTERN_TOKENS: usize = 8;
+
+fn command_pattern_row(row_spelling: &str) -> Option<&str> {
+    let mut tokens = row_spelling.split_whitespace();
+    let first = tokens.next()?;
+    if !is_command_name_shaped(first) {
+        return None;
+    }
+    let mut has_tail = false;
+    let mut count = 1usize;
+    for tok in tokens {
+        count += 1;
+        if count > MAX_PATTERN_TOKENS || !is_pattern_tail_token(tok) {
+            return None;
+        }
+        has_tail = true;
+    }
+    has_tail.then_some(first)
+}
+
 /// Emit a recognized bare-word block's entries as subcommand stubs (spec
 /// §7 Tier B rules 1 and 3). Entries failing the name-shape test are
 /// dropped, never fabricated. See docs/shapes.md S-013, S-129.
@@ -392,6 +457,17 @@ pub(super) fn emit_subcommands(
             command_name_with_operand_placeholders(row_spelling)
         {
             (name, Some(operand_spec))
+        } else if let Some(name) = command_pattern_row(row_spelling) {
+            // docs/shapes.md S-141: tried only once the two rules above
+            // both refuse the row — an all-ALL-CAPS tail (S-129,
+            // `command_name_with_operand_placeholders`) is left to that
+            // rule alone so a tool it already covers (systemctl) renders
+            // byte-identically; this rule exists for the mixed
+            // lowercase-word-and-placeholder tail that one does not read
+            // (`set loglevel <LEVEL>`).
+            clean += 1;
+            out.merge_or_push_pattern(name, row_spelling, &desc_text, heading);
+            continue;
         } else {
             out.saw_unattributable_content = true;
             continue;

@@ -110,6 +110,11 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
                 &n.must_not_contain_positionals,
             ),
             (
+                "must_not_contain_subcommands",
+                &b.must_not_contain_subcommands,
+                &n.must_not_contain_subcommands,
+            ),
+            (
                 "must_contain_modifiers",
                 &b.must_contain_modifiers,
                 &n.must_contain_modifiers,
@@ -530,6 +535,8 @@ fn check_contract_scalar_fields(
         )));
     }
 
+    failures.extend(check_must_not_contain_subcommands(contract, root));
+
     // The usage-block analogue of the negative claim above: text the
     // tree's own `usage` field must not carry. Verbatim substring match,
     // no whitespace collapsing (`must_describe`'s reasoning does not
@@ -855,6 +862,32 @@ fn check_must_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec<Con
         }
     }
     failures
+}
+
+/// docs/shapes.md S-141: a fabricated subcommand name (round 8's nine,
+/// each a word cut from a wrapped description) the parser must never
+/// reinvent. Same matcher shape as `must_not_contain_positionals`, negated,
+/// root only. Split into its own function to keep
+/// `check_contract_scalar_fields` under its own line ceiling (AGENTS.md
+/// §2).
+fn check_must_not_contain_subcommands(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let present: Vec<&str> = contract
+        .must_not_contain_subcommands
+        .iter()
+        .filter(|name| root.subcommands.iter().any(|c| &c.name == *name))
+        .map(|s| s.as_str())
+        .collect();
+    if present.is_empty() {
+        Vec::new()
+    } else {
+        vec![ContractFailure(format!(
+            "must_not_contain_subcommands: present {}",
+            present.join(", ")
+        ))]
+    }
 }
 
 /// `must_not_value_name`: a flag's value placeholder must NOT carry the

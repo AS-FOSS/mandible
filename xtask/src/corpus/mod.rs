@@ -22,6 +22,7 @@
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_modifiers`,
 //!   `must_not_contain_flags`, `must_not_contain_positionals`,
+//!   `must_not_contain_subcommands`,
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
 //!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe`, `must_usage_forms_min`,
@@ -187,6 +188,18 @@ pub(crate) struct ContractMeta {
     /// no root satisfies this vacuously and is not reported.
     #[serde(default)]
     must_not_contain_positionals: Vec<String>,
+    /// Root subcommand names the tree must **not** carry — the subcommand
+    /// mirror of `must_not_contain_positionals`, added for docs/shapes.md
+    /// S-141: round 8 fabricated nine phantom command nodes
+    /// (`logtarget`, `persistent`, `of`, `list`, `files`, `filter`, `for`,
+    /// `back`, `failures`) out of wrapped description lines, and nothing
+    /// before this field could assert their absence — the existence
+    /// oracle is silent, since every one of the nine occurs literally
+    /// somewhere in the document. Matched on `CommandNode::name`, root
+    /// only. A tree with no root satisfies this vacuously, the same
+    /// reasoning `must_not_contain_flags` uses.
+    #[serde(default)]
+    must_not_contain_subcommands: Vec<String>,
     /// Text the tree's `usage` field must **not** carry — the usage-block
     /// analogue of `must_not_contain_flags`, added because `makeconv`'s
     /// tab-indented description sentence had no field able to say the
@@ -2007,6 +2020,35 @@ stdout = "help.txt"
                 .any(|l| l.contains("must_accept_modifiers") && l.contains('y')),
             "{lines:?}"
         );
+    }
+
+    #[test]
+    fn must_not_contain_subcommands_names_the_fabricated_node_present() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract]\nmust_not_contain_subcommands = [\"plain\"]\n",
+        );
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report.text.contains("must_not_contain_subcommands") && report.text.contains("plain"),
+            "the forbidden, present name must be named: {}",
+            report.text
+        );
+    }
+
+    #[test]
+    fn must_not_contain_subcommands_passes_when_the_name_never_reaches_the_tree() {
+        let corpus = setup();
+        bracketed_command_fixture(
+            &corpus.root,
+            "[contract]\nmust_not_contain_subcommands = [\"ghost\"]\n",
+        );
+        let report = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        let checked = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!checked.failed(), "{}", checked.text);
     }
 
     #[test]
