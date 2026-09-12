@@ -104,6 +104,9 @@ pub(crate) mod option_table_multiword_value_name;
 
 // Round-10 family detectors (issue-fed round, atlas S-157 to S-161), same
 // direct-`Detector`-impl shape.
+pub(crate) mod comma_swallowed_alias;
+pub(crate) mod glued_bracket_angle_run;
+pub(crate) mod slash_joined_alias_outside_bullet;
 pub(crate) mod spaced_bare_word_table_value;
 
 pub(crate) use calibration::*;
@@ -753,6 +756,9 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
         Box::new(spaced_bare_word_table_value::SpacedBareWordTableValue),
+        Box::new(glued_bracket_angle_run::GluedBracketAngleRun),
+        Box::new(slash_joined_alias_outside_bullet::SlashJoinedAliasOutsideBullet),
+        Box::new(comma_swallowed_alias::CommaSwallowedAlias),
     ]
 }
 

@@ -1,0 +1,25 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "rustc"
+version = "1.97.1"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); rustc 1.97.1"
+
+[[capture]]
+argv = ["rustc", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["L", "l", "emit", "C"]
+
+# A value spec that glues a bracket-optional group directly onto a
+# required angle placeholder now keeps the whole run, source spelling
+# kept, instead of losing the half that doesn't open it (docs/shapes.md
+# S-158).
+[contract.must_value_name]
+"-L" = "[<KIND>=]<PATH>"
+"--emit" = "<TYPE>[=<FILE>]"
+"-C" = "<OPT>[=<VALUE>]"

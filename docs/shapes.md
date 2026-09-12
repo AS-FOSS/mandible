@@ -2862,3 +2862,42 @@ entry's `tools` field and nothing else. It does not get a new entry.
   one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
   `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
   `sg_map` stay byte-identical.
+
+### S-158: a bracket group glued to an angle placeholder keeps only the group
+
+- id: S-158
+- looks like: |
+      -L [<KIND>=]<PATH>  Add a directory to the library search path.
+          --emit <TYPE>[=<FILE>]
+- tools: rustc, dpkg, dpkg-statoverride, java, jlink, jdeps, jpackage,
+  gp-collect-app, lto-dump, lto-dump-13
+- handling: Fixed in `try_value`
+  (`mandible-extract/src/help_text/grammar.rs`). Extends the S-097
+  ruling ("a value spec written as two or more glued optional groups
+  renders as its own source spelling") to a run that mixes a bracket
+  group and a required angle placeholder: the whole glued run is the
+  value name, source spelling kept, and the value becomes required once
+  the required half joins it. Two symmetric additions: the bracket
+  branch glues one adjacent angle group onto its own close
+  (`take_glued_angle_group`, `-L [<KIND>=]<PATH>`); the bare-token
+  branch glues one adjacent bracket group onto a captured angle
+  placeholder (`take_glued_bracket_group`, `--emit <TYPE>[=<FILE>]`,
+  `dpkg`'s `--force-<thing>[,...]`). A single, never-folded bracket
+  group is normally left bracket-free for the renderer to wrap, so the
+  bracket branch re-wraps it explicitly once a required angle group
+  joins, or the source spelling would read `<KIND>=<PATH>` with the
+  bracket gone.
+- fleet: `glued-bracket-angle-run`
+  (`xtask/src/detector/glued_bracket_angle_run.rs`) reads a raw-shape
+  count of 1 tool (rustc) fleet-wide before this fix, maintainer-named
+  (seed 7). Below the five-tool bar, shipped anyway as a gated exception
+  (docs/design.md §16) because the same sweep-diff that measures S-157
+  covers it: 0 flag-count and 0 subcommand-count losses across 2269
+  tools, 2026-09-12. The fix moved 11 tools: `rustc`'s `-L`, `--emit`
+  and `-C`/`--codegen`; `dpkg` and `dpkg-statoverride`'s
+  `--force-<thing>[,...]` family; `java`, `jlink`, `jdeps`, `jpackage`
+  and `gp-collect-app`'s `--add-modules <name>[,<name>...]` shape;
+  `lto-dump`/`lto-dump-13`'s `-D`. No labelled member of this family
+  exists in any audit seed; the four self-checks are the only standing
+  evidence. `gcc`, `clang`, `aarch64-linux-gnu-g++-13` and the whole
+  nine-control set stay byte-identical.

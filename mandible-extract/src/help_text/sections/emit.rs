@@ -105,6 +105,11 @@ pub(super) fn emit_flags_with(
             break;
         }
         seen += 1;
+        // S-161: a `/`-joined second spelling (`-W / --warn [LINT]`) reads
+        // as the ordinary comma-joined alias `parse_flag_spec` already
+        // knows, on any option-table row, not only a lowdown bullet's own
+        // (S-144's gated version of the same repair).
+        let spec_text = super::bullets::join_slash_alias(&spec_text);
         let mut spec = if is_plus_sigil.get(idx).copied().unwrap_or(false) {
             parse_plus_sigil_spec(&spec_text)
         } else {

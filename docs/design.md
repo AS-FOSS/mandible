@@ -2868,6 +2868,15 @@ row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
 2.03.16`. Docs/shapes.md S-147.
 
+**A mixed bracket-and-angle glued value spec ships below the five-tool bar
+(2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a
+raw-shape count of 1 tool (`rustc`), maintainer-named from the seed 7 audit.
+Ships anyway: the fix moved 11 tools once measured tree-wide (`rustc`,
+`dpkg`, `dpkg-statoverride`, `java`, `jlink`, `jdeps`, `jpackage`,
+`gp-collect-app`, `lto-dump`, `lto-dump-13`), with 0 flag-count and 0
+subcommand-count losses on a full-`PATH` sweep-diff of 2269 tools, alongside
+S-157's own sweep.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until
