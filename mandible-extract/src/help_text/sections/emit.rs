@@ -379,32 +379,14 @@ fn is_pattern_tail_token(tok: &str) -> bool {
         || (!tok.is_empty() && tok.chars().all(|c| c.is_ascii_uppercase() || c == '_'))
 }
 
-/// docs/shapes.md S-141, the design pass's rule 2: `row_spelling`'s own
-/// name field parses as a command PATTERN, not a bare name, only when its
-/// first token is a bare command word and every token after it is
-/// [`is_pattern_tail_token`]-shaped. One token wrong anywhere in the row
-/// refuses the row WHOLE, never partially — a wrapped description
-/// continuation this block's own `split_entries` already folded into the
-/// previous row's description can never reach here as a row of its own,
-/// which is what makes this safe against round 8's nine fabrications
-/// (docs/design.md §16). Tried only after [`is_command_name_shaped`] (the
-/// bare-word case) and [`command_name_with_operand_placeholders`] (S-129's
-/// narrower all-ALL-CAPS-tail case) both refuse the row, so neither rule's
-/// existing behavior — `systemctl`'s screen included — moves at all.
-/// `None` for a single-token row too: that shape is already
-/// [`is_command_name_shaped`]'s own case and must not be double-counted
-/// (docs/shapes.md S-141's own self-check).
+/// A command table row's name field parses as a PATTERN (S-141) only when
+/// its first token is a bare command word and every later token is
+/// [`is_pattern_tail_token`]-shaped. One wrong token refuses the row whole,
+/// never partially, and the row must begin at the block's own name column:
+/// a wrapped description continuation begins at the description column, so
+/// it can never pass. Round 8 fabricated nine names without that guard.
 ///
-/// Capped at [`MAX_PATTERN_TOKENS`]: fail2ban-client's own `Command:` block
-/// has one row whose single-space description gap (docs/shapes.md S-105)
-/// leaves no column split at all, so `row_spelling` here is the row's name
-/// field glued straight onto its dropped description — `"set <JAIL> action
-/// <ACT> actionstop <CMD> sets the stop command <CMD> of the"`. Every one
-/// of those extra words is itself bare-command-word-shaped (`sets`, `the`,
-/// `of` all match `is_command_name_shaped`), so the per-token check alone
-/// cannot refuse it. Every genuine pattern row in this corpus tops out at
-/// 6 tokens; the cap is set comfortably above that and well below this
-/// glued row's 13.
+/// Fixture: `corpus/fail2ban-client/1.0.2`.
 const MAX_PATTERN_TOKENS: usize = 8;
 
 fn command_pattern_row(row_spelling: &str) -> Option<&str> {
