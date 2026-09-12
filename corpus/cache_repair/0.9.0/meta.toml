@@ -1,0 +1,27 @@
+# docs/shapes.md S-153: the usage line's own tail is a brace alternation,
+# `{device|file}`, naming one required operand. `parse_operand_group`
+# refused the group outright (its first character is `{`, not a lowercase
+# letter), so the tree carried no POSITIONALS section at all. The
+# alternation's members also attach as the positional's own
+# `Entity::choices`, rendered live in the detail pane ("values: device,
+# file"); `must_attach_choices` cannot assert this, since it only ever
+# searches `root.flags()` (`xtask/src/corpus/contract.rs`), so the name
+# alone is what this fixture's contract can state.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cache_repair"
+version = "0.9.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); cache_repair 0.9.0"
+
+[[capture]]
+argv = ["cache_repair", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "usage"]
+expected_framework = "generic"
+must_contain_positionals = ["{device|file}"]

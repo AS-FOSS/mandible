@@ -1,0 +1,66 @@
+name: fc-scan
+description: Scan font files and directories, and print resulting pattern(s)
+usage:
+- 'usage: fc-scan [-bcVh] [-f FORMAT] [-y SYSROOT] [--brief] [--format FORMAT] [--version] [--help] font-file...'
+positionals:
+- name: font-file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -b
+  - --brief
+  group: Scan font files and directories, and print resulting pattern(s)
+  description: display font pattern briefly
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --format
+  value_name: FORMAT
+  value_kind: Required
+  group: Scan font files and directories, and print resulting pattern(s)
+  description: use the given output format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --sysroot
+  value_name: SYSROOT
+  value_kind: Required
+  group: Scan font files and directories, and print resulting pattern(s)
+  description: prepend SYSROOT to all paths for scanning
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: Scan font files and directories, and print resulting pattern(s)
+  description: display font config version and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: Scan font files and directories, and print resulting pattern(s)
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

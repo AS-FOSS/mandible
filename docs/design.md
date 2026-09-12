@@ -2867,6 +2867,17 @@ S-102) — declined because a union keeps every same-spelling flag on the
 row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
 2.03.16`. Docs/shapes.md S-147.
+**The numbered-variadic-tail fix ships below the five-tool bar
+(2026-09-12).** `numbered-variadic-usage-tail` (docs/shapes.md S-136)
+moves 3 tools, apt-sortpkgs, apt-extracttemplates and apt-mark, with zero
+losses on a full-`PATH` sweep. It ships as a recorded exception on the
+same grounds the ragged-command-table and glued-interior-uppercase fixes
+did, named by the maintainer in issue #141 after the shape was handed to
+a contributor and the claim lapsed. Taken without the maintainer present,
+since the maintainer is away this round: issue #141 itself names the
+fixture, the detector and the function to change, so the exception is
+read from that issue rather than decided fresh. The detector is ratcheted
+at zero fleet-wide the same way a repaired family above the bar is.
 
 ### Deferred, with the reason each is not simply undone
 
