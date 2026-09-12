@@ -426,15 +426,28 @@ pub(super) enum FlagsBlockRow<'a> {
 // do not share code).
 
 /// True when `token` is a `+`-prefixed option spelling this family
-/// claims: bare `+`, or `+` followed by a bracketed placeholder
-/// (`+<lnum>`, `+<cmd>`) — never `++` or a token with a real letter
-/// straight after the sigil (`+d`, which [`is_flag_shaped`] already
-/// reads). See docs/shapes.md S-095.
+/// claims: bare `+`, `+` followed by a bracketed placeholder (`+<lnum>`,
+/// `+<cmd>`), or `+word` — a whole run of letters/digits/`-` opening with
+/// a letter (`+bs`, `+byteswappedclients`, `+i`) — never `++` and never a
+/// token whose run is punctuation-only. `looks_like_flag_start` never
+/// reads a `+`-led line as an ordinary entry on its own (no signal tells
+/// it apart from prose that merely starts with `+`), so this is the only
+/// gate a `+word` row ever passes through. See docs/shapes.md S-095,
+/// S-163.
 pub(super) fn is_claimed_plus_token(token: &str) -> bool {
     let Some(rest) = token.strip_prefix('+') else {
         return false;
     };
-    rest.is_empty() || rest.starts_with('<')
+    if rest.is_empty() || rest.starts_with('<') {
+        return true;
+    }
+    let mut chars = rest.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() => {
+            chars.all(|c| c.is_ascii_alphanumeric() || c == '-')
+        }
+        _ => false,
+    }
 }
 
 /// True when `line`'s own leading token is flag-shaped evidence for the
@@ -491,22 +504,49 @@ pub(super) fn parse_plus_sigil_spec(spec_text: &str) -> FlagSpec {
     let Some(rest) = trimmed.strip_prefix('+') else {
         return FlagSpec::default();
     };
-    if !(rest.is_empty() || rest.starts_with('<')) {
-        return FlagSpec::default();
-    }
-    let mut spec = FlagSpec {
-        spellings: vec![Spelling::bare("+")],
-        ..FlagSpec::default()
-    };
     if rest.is_empty() {
-        spec.fully_consumed = true;
+        return FlagSpec {
+            spellings: vec![Spelling::bare("+")],
+            fully_consumed: true,
+            ..FlagSpec::default()
+        };
+    }
+    if rest.starts_with('<') {
+        let mut spec = FlagSpec {
+            spellings: vec![Spelling::bare("+")],
+            ..FlagSpec::default()
+        };
+        let tail = parse_flag_spec(rest);
+        spec.value_name = tail.value_name;
+        spec.value_kind = tail.value_kind;
+        spec.spellings.extend(tail.spellings);
+        spec.fully_consumed = tail.fully_consumed;
         return spec;
     }
-    let tail = parse_flag_spec(rest);
-    spec.value_name = tail.value_name;
-    spec.value_kind = tail.value_kind;
-    spec.spellings.extend(tail.spellings);
-    spec.fully_consumed = tail.fully_consumed;
+    // `+word` (S-163): the whole run is the spelling, verbatim, `+`
+    // included — a second, distinct entity from any `-word` sibling the
+    // table also carries, never a value glued onto a bare `+`.
+    let word_end = rest
+        .char_indices()
+        .find(|(_, c)| !(c.is_ascii_alphanumeric() || *c == '-'))
+        .map_or(rest.len(), |(i, _)| i);
+    if word_end == 0 {
+        return FlagSpec::default();
+    }
+    let word = &rest[..word_end];
+    let after = rest[word_end..].trim_start();
+    let mut spec = FlagSpec {
+        spellings: vec![Spelling::bare(format!("+{word}"))],
+        fully_consumed: after.is_empty(),
+        ..FlagSpec::default()
+    };
+    if !after.is_empty() {
+        let tail = parse_flag_spec(after);
+        spec.value_name = tail.value_name;
+        spec.value_kind = tail.value_kind;
+        spec.spellings.extend(tail.spellings);
+        spec.fully_consumed = tail.fully_consumed;
+    }
     spec
 }
 

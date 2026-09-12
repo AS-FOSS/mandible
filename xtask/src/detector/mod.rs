@@ -56,6 +56,7 @@ pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
 pub(crate) mod leading_diagnostic_line;
+pub(crate) mod plus_word_option;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
 pub(crate) mod numbered_variadic_usage_tail;
@@ -750,6 +751,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
         Box::new(leading_diagnostic_line::LeadingDiagnosticLine),
+        Box::new(plus_word_option::PlusWordOption),
     ]
 }
 
