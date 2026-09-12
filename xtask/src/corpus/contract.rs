@@ -232,6 +232,7 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
     lines.extend(super::refill_contract::weakened_lines(label, b, n));
+    lines.extend(super::refill_contract::choices_weakened_lines(label, b, n));
     for spec in b.must_contain_positionals.iter() {
         let Some(base) = spec.strip_suffix("...") else {
             continue;

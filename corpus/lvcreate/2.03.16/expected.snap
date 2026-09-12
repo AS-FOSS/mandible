@@ -134,6 +134,14 @@ flags:
     sources:
     - help-text
 - spellings:
+  - --type
+  value_name: raid
+  value_kind: Required
+  group: Create a raid LV (a specific raid level must be used, e.g. raid1).
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -l
   - --extents
   value_name: Number[PERCENT]
@@ -316,6 +324,14 @@ flags:
     sources:
     - help-text
 - spellings:
+  - --type
+  value_name: thin-pool
+  value_kind: Required
+  group: Create a thin pool.
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -l
   - --extents
   value_name: Number[PERCENT]
@@ -405,6 +421,14 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --type
+  value_name: cache-pool
+  value_kind: Required
+  group: Create a cache pool.
+  provenance:
+    sources:
+    - help-text-synopsis
 - spellings:
   - -l
   - --extents
@@ -537,12 +561,28 @@ flags:
     sources:
     - help-text
 - spellings:
+  - --type
+  value_name: thin
+  value_kind: Required
+  group: Create a thin LV that is a snapshot of an external origin LV.
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -T
   - --thin
   group: Create a thin LV that is a snapshot of an external origin LV.
   provenance:
     sources:
     - help-text
+- spellings:
+  - --type
+  value_name: vdo
+  value_kind: Required
+  group: Create a LV that returns VDO when used.
+  provenance:
+    sources:
+    - help-text-synopsis
 - spellings:
   - -l
   - --extents
@@ -621,6 +661,14 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --type
+  value_name: cache
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachepool which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text-synopsis
 - spellings:
   - -l
   - --extents
@@ -721,6 +769,14 @@ flags:
     sources:
     - help-text
 - spellings:
+  - --type
+  value_name: cache
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -l
   - --extents
   value_name: Number[PERCENT]
@@ -794,6 +850,14 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --type
+  value_name: cache
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type cache.
+  provenance:
+    sources:
+    - help-text-synopsis
 - spellings:
   - -l
   - --extents
@@ -877,6 +941,14 @@ flags:
     sources:
     - help-text
 - spellings:
+  - --type
+  value_name: writecache
+  value_kind: Required
+  group: Create a new LV, then attach the specified cachevol which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -l
   - --extents
   value_name: Number[PERCENT]
@@ -911,6 +983,14 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - --type
+  value_name: writecache
+  value_kind: Required
+  group: Create a new LV, then attach a cachevol created from the specified cache device, which converts the new LV to type writecache.
+  provenance:
+    sources:
+    - help-text-synopsis
 - spellings:
   - -l
   - --extents

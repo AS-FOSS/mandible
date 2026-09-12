@@ -553,21 +553,21 @@ produces no root, the same reasoning `must_not_describe` uses.
 ### A value name after the real app's own root refill: `must_value_names_after_root_refill`
 
 `must_value_name` is satisfied by *any* entity carrying the spelling, on
-the raw, unrefilled tree — which is exactly why it cannot see `lvcreate`'s
-own defect (docs/shapes.md S-147). `--type` reaches that tree once per
-invocation form (`linear`, `striped`, the choices `raid1`/`mirror`, ...),
-each form still its own entity, each already naming its own value: the
-positive claim passes trivially before any fold has even happened. The
-loss only exists once the same node is folded, and every running session
-folds it: `mandible::background::Warmer::submit_root_fill` always merges
-the already-extracted root against a fresh reprobe as soon as the TUI
-opens, and `Runner::fill_node`'s own contract ("`existing` is always
-included as a candidate") is what pools every same-spelling entity into
-one bucket for `mandible_core::merge::merge_entity_bucket` to fold.
+the raw, unrefilled tree — which is exactly why it cannot see a
+same-spelling merge bucket's own defect (docs/shapes.md S-147). A flag
+whose several invocation forms each name their own value reaches the raw
+tree once per form, each form still its own entity, each already naming
+its own value: the positive claim passes trivially before any fold has
+even happened. The loss only exists once the same node is folded, and
+every running session folds it: `mandible::background::Warmer::submit_root_fill`
+always merges the already-extracted root against a fresh reprobe as soon
+as the TUI opens, and `Runner::fill_node`'s own contract ("`existing` is
+always included as a candidate") is what pools every same-spelling entity
+into one bucket for `mandible_core::merge::merge_entity_bucket` to fold.
 
 ```toml
 [contract.must_value_names_after_root_refill]
-"--type" = ["linear", "striped", "raid10", "snapshot", "thin"]
+"-help" = ["topic"]
 ```
 
 `cargo xtask corpus` simulates that exact refill — `merge_nodes` over two
@@ -580,6 +580,39 @@ from the refilled tree, or when the merged value name is missing any
 listed substring, naming what was expected and what survived instead. A
 fixture that produces no root fails this exactly as it fails
 `must_value_name`.
+
+S-147's own follow-up ruling (2026-09-07 "queue", docs/design.md §16)
+narrowed what this field can still claim about `lvcreate`'s own `--type`:
+a merge bucket whose forms disagree about a *literal* value now unions
+every one of them into `choices` instead, rendering one placeholder
+(`<type>`, or none, never a comma list of literals) beside the union —
+see `must_choices_after_root_refill` below for that half. This field
+still states its own claim correctly for a bucket disagreeing about a
+genuine, capitalised placeholder name.
+
+### Choices after the real app's own root refill: `must_choices_after_root_refill`
+
+The `choices` twin of `must_value_names_after_root_refill`, for the same
+S-147 follow-up: a same-spelling bucket whose forms each name a different
+*literal* value (`linear`, `striped`, `raid10`, ...) unions every one,
+plus any `choices` a bracket-row form already carried, into one list on
+the refilled entity. `must_attach_choices` alone cannot see this: it
+walks the raw, unrefilled tree, where `.find()` sees only the first
+invocation form's own entity and its usually-empty `choices`.
+
+```toml
+[contract.must_choices_after_root_refill]
+"--type" = ["linear", "striped", "raid1", "mirror", "raid", "raid10", "snapshot", "thin-pool", "cache-pool", "thin", "vdo", "cache", "writecache"]
+```
+
+`cargo xtask corpus` simulates the same refill
+`must_value_names_after_root_refill` does and checks the named flag's
+*merged* `choices` for every listed value (matched the way
+`must_attach_choices` matches: exact name, no substring). `cargo xtask
+corpus` fails when the flag is absent from the refilled tree, or when
+the merged choices are missing any listed value, naming what was
+expected and what the merged choices actually held. A fixture that
+produces no root fails this exactly as it fails `must_attach_choices`.
 
 ### What `--bless` does and does not assert: `verdict_scope`
 

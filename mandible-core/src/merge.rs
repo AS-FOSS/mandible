@@ -11,7 +11,7 @@
 //! order wins": attempt order is a cost ordering (spec §7); conflict
 //! resolution is authority (spec §4.4).
 
-use crate::entity::{Dashes, Entity, EntityKind, Spelling};
+use crate::entity::{is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Spelling};
 use crate::node::CommandNode;
 use crate::provenance::{Axis, Provenance};
 use crate::text::Text;
@@ -333,6 +333,89 @@ fn entity_identity(e: &Entity) -> (EntityKind, String) {
     (e.kind, key)
 }
 
+/// Resolve a bucket's merged `value_name` and `choices` together
+/// (docs/design.md §16's S-147 follow-up). Split out of
+/// [`merge_entity_bucket`] to stay under `clippy::too_many_lines`.
+///
+/// Every distinct `value_name` the bucket's forms carry decides which of
+/// three shapes applies: zero or one distinct name is ordinary (no
+/// disagreement); every name literal (`is_literal_choice_value`) is
+/// `--type`'s own shape, one placeholder plus one unioned `choices`; a
+/// mix of a real placeholder with something else (`tar`'s `--rsh-command
+/// COMMAND` beside its own default `/usr/bin/rsh`) keeps the
+/// union-into-`value_name` behavior S-147 already shipped fleet-wide.
+fn resolve_value_name_and_choices(bucket: &[Entity]) -> (Option<String>, Vec<Choice>) {
+    let distinct_value_names: Vec<&str> = {
+        let mut v: Vec<&str> = Vec::new();
+        for f in bucket {
+            if let Some(name) = f.value_name.as_deref() {
+                if !v.contains(&name) {
+                    v.push(name);
+                }
+            }
+        }
+        v
+    };
+    let has_any_choices = bucket.iter().any(|f| !f.choices.is_empty());
+    let all_literal_disagreement = distinct_value_names.len() > 1
+        && distinct_value_names
+            .iter()
+            .all(|n| is_literal_choice_value(n));
+    let single_literal_beside_choices = distinct_value_names.len() == 1
+        && has_any_choices
+        && is_literal_choice_value(distinct_value_names[0]);
+    if all_literal_disagreement || single_literal_beside_choices {
+        // One placeholder, one unioned choice list, first-appearance
+        // order, joined the way `choices` already joins for display
+        // (spec §9.2, "values: raid1, mirror"). Every name here is known
+        // literal, so `value_name` stays `None` — never fabricated.
+        let mut choices: Vec<Choice> = Vec::new();
+        let mut choice_names: Vec<&str> = Vec::new();
+        for f in bucket {
+            if let Some(name) = f.value_name.as_deref() {
+                if is_literal_choice_value(name) && !choice_names.contains(&name) {
+                    choice_names.push(name);
+                    choices.push(Choice::bare(name.to_string()));
+                }
+            }
+            for c in &f.choices {
+                if !choice_names.contains(&c.name.as_str()) {
+                    choice_names.push(&c.name);
+                    choices.push(c.clone());
+                }
+            }
+        }
+        (None, choices)
+    } else if distinct_value_names.len() > 1 {
+        // A mixed disagreement (at least one non-literal name): the
+        // union-into-`value_name` behavior S-147 shipped fleet-wide,
+        // unchanged. `choices` still resolves by authority, as it always
+        // has outside the all-literal shape above.
+        (
+            Some(distinct_value_names.join(", ")),
+            pick_vec(
+                bucket.iter().map(|f| (&f.provenance, &f.choices)),
+                Axis::Prose,
+            ),
+        )
+    } else {
+        // The ordinary case: at most one distinct name, so there is
+        // nothing to disagree about. Exactly the pre-S147 resolution.
+        (
+            pick_option(
+                bucket
+                    .iter()
+                    .map(|f| (&f.provenance, f.value_name.as_ref())),
+                Axis::Structural,
+            ),
+            pick_vec(
+                bucket.iter().map(|f| (&f.provenance, &f.choices)),
+                Axis::Prose,
+            ),
+        )
+    }
+}
+
 fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     if bucket.len() == 1 {
         return bucket.pop().expect("len checked");
@@ -357,15 +440,7 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     // no other source can have seen the same flag spelled the other way.
     let negatable = bucket.iter().any(|f| f.negatable());
     let single_dash = bucket.iter().any(|f| f.single_dash());
-    // Union, not pick-one (docs/shapes.md S-147). `lvcreate` reaches this
-    // bucket once per invocation form, each naming a different literal
-    // value for `--type` (`linear`, `striped`, `raid10`, ...): a
-    // highest-authority single winner rendered one form's value name
-    // beside another form's `choices`, silently dropping every other
-    // form's name. Every distinct name across the whole bucket survives,
-    // in first-appearance order, joined the same way `choices` already
-    // joins for display (spec §9.2, "values: raid1, mirror").
-    let value_name = union_value_names(bucket.iter().map(|f| f.value_name.as_deref()));
+    let (value_name, choices) = resolve_value_name_and_choices(&bucket);
     let value_kind = bucket
         .iter()
         .map(|f| f.value_kind)
@@ -375,10 +450,6 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
             crate::node::ValueKind::Required => 2,
         })
         .unwrap_or(crate::node::ValueKind::None);
-    let choices = pick_vec(
-        bucket.iter().map(|f| (&f.provenance, &f.choices)),
-        Axis::Prose,
-    );
     let repeatable = bucket.iter().any(|f| f.repeatable);
     let required = bucket.iter().any(|f| f.required);
     let deprecated = pick_option(
@@ -549,26 +620,6 @@ where
         }
     }
     best.map(|(_, v)| v.clone()).unwrap_or_default()
-}
-
-/// Union every distinct non-empty `value_name` across one identity bucket,
-/// in first-appearance order, joined by `", "` (spec §9.2's own join for
-/// `choices`). Unlike [`pick_option`], authority plays no part here: two
-/// invocation forms of one flag can each name a real, different literal
-/// value, and a single winner would silently drop the rest (docs/shapes.md
-/// S-147). `None` when the bucket names none at all.
-fn union_value_names<'a, I: IntoIterator<Item = Option<&'a str>>>(names: I) -> Option<String> {
-    let mut seen: Vec<&str> = Vec::new();
-    for name in names.into_iter().flatten() {
-        if !seen.contains(&name) {
-            seen.push(name);
-        }
-    }
-    if seen.is_empty() {
-        None
-    } else {
-        Some(seen.join(", "))
-    }
 }
 
 /// Unify flags that arrived as separate short/long rows from the same
@@ -1274,14 +1325,16 @@ mod tests {
         );
     }
 
-    /// docs/shapes.md S-147: `lvcreate` reaches the merge bucket once per
-    /// invocation form, and three of its forms each name a different
-    /// literal value for `--type`. A single-winner pick rendered one
-    /// form's value name (`linear`) while a later fold attached another
-    /// form's `choices` (`raid1`, `mirror`) to the same row, silently
-    /// dropping `striped`. Every distinct name must survive.
+    /// docs/shapes.md S-147 follow-up: `lvcreate`
+    /// reaches the merge bucket once per invocation form, and three of its
+    /// forms each name a different literal value for `--type`. A
+    /// single-winner pick used to render one form's value name (`linear`)
+    /// while a later fold attached another form's `choices` (`raid1`,
+    /// `mirror`) to the same row, splitting one flag across two lists.
+    /// Every literal value now joins one `choices` list, and no
+    /// placeholder is fabricated when every form named a literal.
     #[test]
-    fn merge_unions_value_names_from_several_invocation_forms() {
+    fn merge_unions_literal_value_names_into_choices_from_several_invocation_forms() {
         fn type_flag(value_name: &str) -> Entity {
             let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
             e.value_kind = ValueKind::Required;
@@ -1294,14 +1347,40 @@ mod tests {
             type_flag("raid10"),
         ];
         let merged = merge_entity_bucket(bucket);
+        assert_eq!(merged.value_name, None);
         assert_eq!(
-            merged.value_name.as_deref(),
-            Some("linear, striped, raid10")
+            merged
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["linear", "striped", "raid10"]
         );
     }
 
-    /// The ordinary case — every form names the same value — must not
-    /// start repeating itself.
+    /// A bucket that disagrees about its value name but is NOT the
+    /// all-literal S-147 follow-up shape (`tar`'s own `--rsh-command
+    /// COMMAND` beside its own default `/usr/bin/rsh`) must keep the
+    /// union-into-`value_name` behavior S-147 already shipped fleet-wide.
+    /// A control-tool row moving on this fix would mean it reached
+    /// further than `--type`.
+    #[test]
+    fn merge_unions_a_mixed_disagreement_into_value_name_unchanged_from_s147() {
+        fn valued(value_name: &str) -> Entity {
+            let mut e = Entity::flag_long("rsh-command", Provenance::single(Source::HelpText));
+            e.value_kind = ValueKind::Required;
+            e.value_name = Some(value_name.to_string());
+            e
+        }
+        let bucket = vec![valued("COMMAND"), valued("/usr/bin/rsh")];
+        let merged = merge_entity_bucket(bucket);
+        assert_eq!(merged.value_name.as_deref(), Some("COMMAND, /usr/bin/rsh"));
+        assert!(merged.choices.is_empty());
+    }
+
+    /// The ordinary case — every form names the same capitalised
+    /// placeholder — must not start repeating itself, and must not be
+    /// misread as a literal choice value.
     #[test]
     fn merge_does_not_repeat_a_value_name_every_form_agrees_on() {
         fn type_flag() -> Entity {
@@ -1312,5 +1391,36 @@ mod tests {
         }
         let merged = merge_entity_bucket(vec![type_flag(), type_flag()]);
         assert_eq!(merged.value_name.as_deref(), Some("TYPE"));
+        assert!(merged.choices.is_empty());
+    }
+
+    /// A bucket that mixes a real bracket-form `choices` list with other
+    /// forms' own literal `value_name`s must union both into one list,
+    /// per docs/shapes.md S-147's follow-up ruling.
+    #[test]
+    fn merge_unions_a_bracket_choices_list_with_other_forms_literal_value_names() {
+        fn valued(value_name: &str) -> Entity {
+            let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+            e.value_kind = ValueKind::Required;
+            e.value_name = Some(value_name.to_string());
+            e
+        }
+        fn choice_row(names: &[&str]) -> Entity {
+            let mut e = Entity::flag_long("type", Provenance::single(Source::HelpText));
+            e.value_kind = ValueKind::Required;
+            e.choices = names.iter().map(|n| Choice::bare(*n)).collect();
+            e
+        }
+        let bucket = vec![valued("linear"), choice_row(&["raid1", "mirror"])];
+        let merged = merge_entity_bucket(bucket);
+        assert_eq!(merged.value_name, None);
+        assert_eq!(
+            merged
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["linear", "raid1", "mirror"]
+        );
     }
 }
