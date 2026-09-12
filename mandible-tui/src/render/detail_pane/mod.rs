@@ -751,7 +751,7 @@ fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
         // an exact match. Replace that word with the node's own name
         // instead of leaving it and prepending, which would double it.
         format!("{}{name}{}", &text[..start], &text[end..])
-    } else if let Some((start, end)) = foreign_program_word_span(&text) {
+    } else if let Some((start, end)) = foreign_program_word_span(&text, &name) {
         // The form's own leading word is a program name, just not this
         // node's own spelling or stem (`gcc-ranlib-13`'s own form opens
         // with `/usr/bin/ranlib`) — the word in a usage line's program
@@ -773,9 +773,16 @@ fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
 /// form `g[dbserver] [options]` carries a subcommand in that position, and
 /// its embedded bracket already fails the character-set test below, so
 /// this never touches it. See S-151.
-fn foreign_program_word_span(text: &str) -> Option<(usize, usize)> {
+fn foreign_program_word_span(text: &str, name: &str) -> Option<(usize, usize)> {
     let first = text.split_whitespace().next()?;
     if looks_like_option_or_placeholder(first) {
+        return None;
+    }
+    // A bare word that CONTAINS the node's own name is a sibling program,
+    // not this one under another spelling (`egrep` under node `grep`), and
+    // replacing it would delete a real word. A path always qualifies: a
+    // usage line's program position cannot hold a sibling's path.
+    if !first.contains('/') && !name.starts_with(first) {
         return None;
     }
     // "Lowercase-led": the token's own first *alphabetic* character is
