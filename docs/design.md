@@ -2879,6 +2879,20 @@ fixture, the detector and the function to change, so the exception is
 read from that issue rather than decided fresh. The detector is ratcheted
 at zero fleet-wide the same way a repaired family above the bar is.
 
+**An optional value renders as its bracketed name, and the `=` is not lost
+(2026-09-13).** Asked of `mandible ls`, "see if it's correct to parse the `=`
+out of the `[=WHEN]` placeholder", the answer is that nothing is parsed out.
+`Entity::spelling` (`mandible-core/src/entity.rs`) renders an optional value as
+`[=VALUE]`, so `--color[=WHEN]` is what search matches and what `y` copies. The
+flag table keeps the spelling and the value in separate columns, so the value
+column shows `[WHEN]` alone, which satisfies S-097's ruling that a value name
+keeps its bracket-preserved source spelling. The earlier case the maintainer
+remembered is S-097's own `-V[N][fname]`, ruled 2026-09-04, and this follows it.
+Taken without the maintainer present: gluing the `=` onto the spelling column
+would move every optional-value row fleet-wide, including the named control
+tools `git` and `tar`, to restore one character that the IR already carries.
+`fdisk`'s `--lock[=<mode>]` is the same shape and the same answer.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until
