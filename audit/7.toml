@@ -1,0 +1,233 @@
+[meta]
+seed = 7
+sample_size = 10
+
+[[entry]]
+tool = "UnicodeNameMappingGenerator-18"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "aa-exec"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "apt-extracttemplates"
+stratum = "ok"
+verdict = "incomplete"
+note = "could use more of the original description, thinkin of making all those descriptions as a footer, since some descriptions are too long and might take a while to scroll, and sometimes it is not even needed to read if you are looking for flags"
+
+[[entry]]
+tool = "byobu-enable"
+stratum = "verbatim"
+verdict = "correct"
+
+[[entry]]
+tool = "cache_repair"
+stratum = "low-confidence"
+verdict = "incomplete"
+note = "should '{device|file}' part be parsed into postional?"
+
+[[entry]]
+tool = "cargo-clippy"
+stratum = "ok"
+verdict = "wrong"
+note = "-W flag mistakenly took '/' as placeholder + did not match with its long form. Maybe"
+k1 = true
+
+[[entry]]
+tool = "col"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dh_installxmlcatalogs"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "diff3"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "dosfslabel"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "fc-scan"
+stratum = "ok"
+verdict = "incomplete"
+note = "see if 'font-file...' should've been the positional"
+
+[[entry]]
+tool = "fdisk"
+stratum = "ok"
+verdict = "wrong"
+note = "the usage section is kinda wrong: the original has 2 examples + their descriptions, but the parsed view has 4 and 2 of the is some word. Moreover, see if '--lock [<mode>]' was correctly parsed from '--lock[+<mode>]'"
+
+[[entry]]
+tool = "fuser"
+stratum = "ok"
+verdict = "wrong"
+note = "bad parse: '-S IGNAL'"
+k1 = true
+
+[[entry]]
+tool = "fzf"
+stratum = "ok"
+verdict = "wrong"
+note = "+i and -i issue, and consequently it broke where the 'Search' section ends"
+
+[[entry]]
+tool = "gcc-ranlib-13"
+stratum = "ok"
+verdict = "wrong"
+note = "see if the usage is correct, seems like it shows double executable"
+
+[[entry]]
+tool = "gdk-pixbuf-thumbnailer"
+stratum = "ok"
+verdict = "incomplete"
+note = 'unconventinal positional, i think, verify if thats indeed a pos. if so what to do with that "Thumbnail images"'
+
+[[entry]]
+tool = "grub-macbless"
+stratum = "ok"
+verdict = "incomplete"
+note = "another case of usage having description, should we consider adding? but how, since the usage itself is usually long"
+
+[[entry]]
+tool = "grub-mkimage"
+stratum = "ok"
+verdict = "wrong"
+note = "--format's description's ending should have been choices instead of prose"
+
+[[entry]]
+tool = "hwe-support-status"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "iscsistart"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "lcf"
+stratum = "ok"
+verdict = "incomplete"
+note = "did we losee positionals here: 'dest_file' and 'src_dir'?"
+
+[[entry]]
+tool = "lldb-argdumper"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "lldb-server"
+stratum = "ok"
+verdict = "wrong"
+note = "new pattern, where subcommands have short and long version. in this case those subcommands do contains '--help', therefore incomplete"
+
+[[entry]]
+tool = "ls"
+stratum = "ok"
+verdict = "wrong"
+note = "one similar example before this. see if it's correct to parse the = out of the '[=WHEN]' placeholder"
+
+[[entry]]
+tool = "lshw"
+stratum = "ok"
+verdict = "wrong"
+note = "not sure where the '-f ormat' came from, rest looks fine"
+k1 = true
+
+[[entry]]
+tool = "lspower"
+stratum = "verbatim"
+verdict = "correct"
+
+[[entry]]
+tool = "nfsidmap"
+stratum = "ok"
+verdict = "incomplete"
+note = """missing "[-t timeout]", also whatever the heck 'key desc' is. positional maybe?"""
+k1 = true
+
+[[entry]]
+tool = "perlthanks"
+stratum = "ok"
+verdict = "wrong"
+note = "missing usage. wrong parse '-o k'"
+k1 = true
+
+[[entry]]
+tool = "pkcheck"
+stratum = "ok"
+verdict = "wrong"
+note = "see if it's necessary to duplicate the usage like that? where did that bare `pkcheck` came from"
+
+[[entry]]
+tool = "pod2text"
+stratum = "ok"
+verdict = "wrong"
+note = "bad parse for '-w, --width=width, -width'"
+
+[[entry]]
+tool = "qemu-riscv64-static"
+stratum = "ok"
+verdict = "incomplete"
+note = "not too sure what to make of this, because this is an example of flags being an alias of the env vars. a triple column help text"
+k1 = true
+
+[[entry]]
+tool = "reset"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "run-one"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "rustc"
+stratum = "ok"
+verdict = "incomplete"
+note = "needs many things. as far as i can see: 1) weird new placeholder patterns, + 2) potentially 'choices' values parsed as placeholders."
+k1 = true
+
+[[entry]]
+tool = "sg_get_lba_status"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "shutdown"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "systemd-delta"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tclobjnew-bpfcc"
+stratum = "ok"
+verdict = "incomplete"
+note = "should we keep the placeholders of -l as is? or move to choices? if yes, then what should even dictate that? how do we know to do that? if too unpredictable then lets just skip, technically correct is better than a little better presentation"
+
+[[entry]]
+tool = "ul"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "uuid-config"
+stratum = "ok"
+verdict = "correct"
