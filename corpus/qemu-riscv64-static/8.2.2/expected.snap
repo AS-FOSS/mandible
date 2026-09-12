@@ -1,7 +1,7 @@
-name: qemu-arm64-static
-description: Linux CPU emulator (compiled for aarch64 emulation)
+name: qemu-riscv64-static
+description: Linux CPU emulator (compiled for riscv64 emulation)
 usage:
-- 'usage: qemu-aarch64 [options] program [arguments...]'
+- 'usage: qemu-riscv64 [options] program [arguments...]'
 flags:
 - spellings:
   - -h

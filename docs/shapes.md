@@ -2949,3 +2949,27 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tree's flag spellings) than the narrow structural cause this fix
   closes (no blank line anywhere, no recognized usage line); left as a
   future finding, not chased here.
+### S-166: header-declared three-column option table, env-variable column
+
+- id: S-166
+- looks like: |
+      Argument             Env-variable         Description
+      -h                                        print this help
+      -g port              QEMU_GDB             wait gdb connection to 'port'
+      -cpu model           QEMU_CPU             select CPU (-cpu help for list)
+- tools: the whole `qemu-*-static` fleet (one help template, 42 tools)
+- handling: A header row whose cells name its own columns is read at the column
+  offsets that header declares, stronger evidence than a heading. The middle
+  column, named as an environment variable, becomes the matching flag's own
+  `Entity::env_var` cross-reference (spec §4.5), never folded into the
+  description. `-cpu` and `-dfilter` also lost their own value name outright;
+  a header-declared table's own argument field is read directly rather than
+  through the general single-dash-long repair, whose bare-word value recovery
+  regressed `dbiprof`'s `-match=K=V` when tried document-wide. A fabricated
+  `-E` row and group, folded in from the prose paragraph below the table,
+  stop appearing once the table is read as ending at the header's own column
+  structure, at the first blank line.
+- fleet: `header-declared-env-column` reads 0 findings post-fix on
+  `qemu-riscv64-static` and `qemu-arm64-static`; raw-shape grep over the
+  seed's own captures reads 42 tools / 42 findings, the whole `qemu-*-static`
+  set, 2026-09-12.

@@ -147,7 +147,14 @@ fn is_ignorable_heading(heading: &str) -> bool {
     // Deliberately not matching "see also": git's own command group
     // headings legitimately carry that phrase as a parenthetical aside.
     let lower = heading.to_lowercase();
-    lower.starts_with("example") || lower.contains("report bugs")
+    // "are equivalent" introduces worked invocation-line comparisons, the
+    // same class as "example" — qemu's own "The following lines are
+    // equivalent:" (docs/shapes.md S-166), whose indented rows repeat a
+    // real flag's own spelling with a different value on each line and
+    // would otherwise read as further, fabricated rows of that flag.
+    lower.starts_with("example")
+        || lower.contains("report bugs")
+        || lower.contains("are equivalent")
 }
 
 /// True when `heading` positively names a section whose rows describe CLI
@@ -1215,6 +1222,27 @@ fn emit_flush_heading(
             st.command_mode = false;
             let (seen, clean) =
                 emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
+    // A header-declared three-column option table (`Argument
+    // Env-variable Description`, the whole `qemu-*-static` fleet):
+    // checked before the word-grid reading below, which would otherwise
+    // read this same header row as a one-row grid and silently discard
+    // it (docs/design.md §7 Tier B rule 16). See docs/shapes.md S-166.
+    if i < lines.len() && leading_whitespace(lines[i]) == heading_indent {
+        if let Some((env_col, desc_col)) = three_column_env_table_header(lines[i]) {
+            let (end, rows) = scan_three_column_env_table(lines, i + 1, env_col, desc_col);
+            i = end;
+            st.in_ignorable_section = false;
+            st.command_mode = false;
+            let (seen, clean) = emit_three_column_env_table(
+                meaningful_flag_group(heading.clone()),
+                rows,
+                st.result,
+            );
             st.total_entries += seen;
             st.clean_entries += clean;
             return i;

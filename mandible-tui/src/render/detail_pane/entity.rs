@@ -244,7 +244,17 @@ pub(super) fn entity_line(
         format!("values: {joined}")
     });
 
-    if description_text.is_none() && values_line.is_none() && !has_choice_descriptions {
+    // A flag's own environment-variable cross-reference (spec §4.5)
+    // renders the same way `values:` does: its own line, two columns past
+    // the description column, never folded into the description text. See
+    // docs/shapes.md S-166.
+    let env_line = flag.env_var.as_ref().map(|v| format!("env: {v}"));
+
+    if description_text.is_none()
+        && values_line.is_none()
+        && env_line.is_none()
+        && !has_choice_descriptions
+    {
         if !head.is_empty() {
             return head;
         }
@@ -318,6 +328,19 @@ pub(super) fn entity_line(
         }
     } else if has_choice_descriptions {
         lines.extend(choice_detail_lines(flag, column, width, color_enabled));
+    }
+
+    if let Some(env_line) = env_line {
+        let env_column = column + 2;
+        let env_width = width.saturating_sub(env_column).max(1);
+        let env_indent = " ".repeat(env_column);
+        let env_style = style::muted(color_enabled);
+        for chunk in wrap_words(&env_line, env_width) {
+            lines.push(Line::from(Span::styled(
+                format!("{env_indent}{chunk}"),
+                env_style,
+            )));
+        }
     }
 
     lines
