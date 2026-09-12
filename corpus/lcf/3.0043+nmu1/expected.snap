@@ -1,0 +1,49 @@
+name: lcf
+description: 'Debian GNU/Linux lcf Revision: 3.00. This is free software; see the GNU General Public Licence for copying conditions. There is NO warranty.'
+usage:
+- 'Usage: lcf  [options] dest_file  src_dir'
+flags:
+- spellings:
+  - -h
+  - --help
+  description: print this message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --src-dir
+  value_name: foo
+  value_kind: Required
+  description: foo Set the src dir (historical md5sums live here)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  value_name: n
+  value_kind: Optional
+  description: '[n] Set the Debug level to N'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-action
+  description: Dry run. No action is actually taken.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Make the script verbose
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

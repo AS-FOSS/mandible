@@ -162,3 +162,75 @@ pub(super) fn recover_trailing_multiword_operand(
     positional.repeatable = repeatable;
     vec![positional]
 }
+
+/// One synopsis group read as a brace alternation naming exactly one
+/// operand, `(name, required)` — `cache_repair`'s `{device|file}`. The
+/// alternation's own source spelling, braces included, is the operand's
+/// name, the same rule S-097 already applies to a glued optional-value
+/// run: decomposing the notation would lose the fact that exactly one of
+/// the members is meant, not all of them in sequence. `None` unless the
+/// group (brackets trimmed) is nothing but one brace run with at least
+/// one `|` inside and no nested brace. See docs/shapes.md S-153.
+pub(super) fn parse_brace_alternation_group(group: &str) -> Option<(String, bool)> {
+    let required = !group.starts_with('[');
+    let stripped = group.trim_matches(|c| c == '[' || c == ']');
+    if !stripped.starts_with('{') || !stripped.ends_with('}') {
+        return None;
+    }
+    let inner = stripped.get(1..stripped.len() - 1)?;
+    if inner.is_empty() || inner.contains(['{', '}']) || !inner.contains('|') {
+        return None;
+    }
+    Some((stripped.to_string(), required))
+}
+
+/// The bar-separated members named inside a brace alternation's own
+/// spelling (`"{device|file}"` -> `["device", "file"]`), for the
+/// resulting positional's `choices` — the same members a reader would
+/// type. `None` when `name` is not that shape, so a caller never has to
+/// re-check what [`parse_brace_alternation_group`] already established.
+pub(super) fn brace_alternation_members(name: &str) -> Option<Vec<String>> {
+    let inner = name.strip_prefix('{')?.strip_suffix('}')?;
+    Some(inner.split('|').map(str::to_string).collect())
+}
+
+/// Split `word`'s own trailing run of ASCII digits off as an integer,
+/// `None` when there is none or the whole word is digits. Local to this
+/// module; `xtask`'s `numbered-variadic-usage-tail` detector keeps its own
+/// independent copy rather than importing this one, by that detector's
+/// own design (it measures the parser, so it must not share code with
+/// it). See docs/shapes.md S-136.
+fn split_trailing_integer(word: &str) -> Option<(&str, u64)> {
+    let digit_count = word.chars().rev().take_while(char::is_ascii_digit).count();
+    if digit_count == 0 || digit_count == word.len() {
+        return None;
+    }
+    let (stem, digits) = word.split_at(word.len() - digit_count);
+    digits.parse::<u64>().ok().map(|n| (stem, n))
+}
+
+/// The recovered run's own trailing two entries, read as `X1 [X2 ...]`
+/// (docs/shapes.md S-136, issue #141): both plain-word operands (never a
+/// brace alternation), the first required and not itself repeatable, the
+/// second optional and repeatable, both sharing an alphabetic stem and
+/// the second's trailing integer exactly the first's own plus one. The
+/// numbering is the evidence a bare two-word tail (S-109) lacks, so this
+/// collapses the pair to one repeatable operand named by the shared stem
+/// — the same shape `[file...]` already produces (S-101) — rather than
+/// two fixed operands.
+pub(super) fn collapse_numbered_variadic_tail(
+    first: &(String, bool, bool, bool, bool),
+    second: &(String, bool, bool, bool, bool),
+) -> Option<(String, bool, bool, bool, bool)> {
+    let (name1, required1, repeat1, brace1, _) = first;
+    let (name2, required2, repeat2, brace2, _) = second;
+    if *brace1 || *brace2 || !*required1 || *repeat1 || *required2 || !*repeat2 {
+        return None;
+    }
+    let (stem1, n1) = split_trailing_integer(name1)?;
+    let (stem2, n2) = split_trailing_integer(name2)?;
+    if stem1.is_empty() || stem1 != stem2 || n2 != n1 + 1 {
+        return None;
+    }
+    Some((stem1.to_string(), true, true, false, true))
+}

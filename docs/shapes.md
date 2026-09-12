@@ -2479,17 +2479,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-136
 - looks like: |
       Usage: apt-sortpkgs [options] file1 [file2 ...]
+      Usage: apt-mark [options] {auto|manual} pkg1 [pkg2 ...]
 - tools: apt-sortpkgs, apt-extracttemplates, apt-mark
-- handling: Open. `numbered-variadic-usage-tail`
-  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads a usage
-  line's trailing pair where the second name is the first's own name
-  with the next integer, bracketed and ellipsis-marked, and would
-  collapse it into one variadic positional named by the shared stem —
-  narrower than the `multi-operand-usage-tail` ambiguity (S-109) round 6
-  declined, since the numbering is evidence a bare tail lacks.
-- fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
-  below the five-tool floor a fix must clear. Not shipped; the fixture
-  stays xfail with the count in its reason.
+- handling: Fixed (issue #141). `recover_primary_tail_operands`
+  (`mandible-extract/src/help_text/sections/usage.rs`) collapses the
+  recovered run's own trailing pair to one repeatable operand, named by
+  the shared stem, when the second name is the first's own name with the
+  next integer, bracketed and ellipsis-marked — narrower than the
+  `multi-operand-usage-tail` ambiguity (S-109) round 6 declined, since the
+  numbering is evidence a bare tail lacks. The collapse is exempt from
+  both the `[options] command` ambiguity guard and the no-earlier-group
+  guard, since the numbering removes the ambiguity either guard exists to
+  catch; `apt-extracttemplates` has no earlier group at all and still
+  collapses. `numbered-variadic-usage-tail`
+  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) generalizes the
+  shape fleet-wide as a local, independent copy of the same grouping and
+  operand parsing, not an import.
+- fleet: 3 tools/3 findings on a full-`PATH` sweep, below the five-tool
+  floor a fix must clear. Shipped anyway as a maintainer-named exception
+  (docs/design.md §16, issue #141): the fixture promotes out of `[xfail]`
+  with a zero-loss sweep-diff and all nine control screens byte-identical.
 
 ### S-137: lvm2 invocation forms read as section headings
 

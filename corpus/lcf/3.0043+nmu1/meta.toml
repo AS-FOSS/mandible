@@ -1,0 +1,32 @@
+# docs/shapes.md S-153: the program name and both operands are padded by
+# two spaces (`"lcf  [options] dest_file  src_dir"`). The description-gap
+# cut treated the first two-space run as a trailing description boundary,
+# so the whole tail after the program name was discarded before the
+# operand walk ever started; the tree carried no POSITIONALS section and
+# the rendered USAGE line was truncated to the bare program name.
+#
+# Fixing the gap width alone does not recover a positional here: the tail
+# `dest_file src_dir` has no numbering (unlike S-136), so the pre-existing
+# `[options] command` ambiguity guard (round 6) still declines it, the
+# same as `psfaddtable`'s multi-word bare tail. This fixture states the
+# real, honest outcome: USAGE reconstructs correctly, POSITIONALS stays
+# empty.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lcf"
+version = "3.0043+nmu1"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); ucf 3.0043+nmu1"
+
+[[capture]]
+argv = ["lcf", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+verdict_scope = ["flags", "usage"]
+expected_framework = "generic"
+must_contain_flags = ["-h", "-s", "-d", "-n", "-v"]
