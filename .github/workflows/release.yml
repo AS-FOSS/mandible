@@ -359,6 +359,8 @@ jobs:
       issues: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -369,11 +371,18 @@ jobs:
       # settled on for 0.5.0, produced by one checked-in script so the exact
       # body can be rendered locally (`scripts/release_notes.sh 0.6.1`) rather
       # than discovered after tagging.
+      # The Contributors section asks GitHub for merged PRs, issue reporters
+      # and the collaborator list, and finds the previous tag in git: it
+      # needs a token and the full tag history, or it silently prints nothing
+      # (0.8.0 shipped without it for exactly that reason).
       - name: Build release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version="${{ inputs.version || github.ref_name }}"
           scripts/release_notes.sh "$version" > release-notes.md
           wc -l release-notes.md
+          grep -q '^### Contributors' release-notes.md || echo "::warning::release notes carry no Contributors section"
 
       - name: Create release
         env:
