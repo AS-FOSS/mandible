@@ -2850,3 +2850,32 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-167: a usage form's leading word carries a bracketed abbreviation suffix
+
+- id: S-167
+- looks like: |
+      Usage:
+        lldb-server v[ersion]
+        lldb-server g[dbserver] [options]
+        lldb-server p[latform] [options]
+- tools: lldb-server, lldb-server-18, gcc-ar, unsquashfs, sqfscat, bridge
+- handling: Fixed. A usage form whose leading word after the program name is
+  a command word with a bracketed optional-abbreviation suffix names a
+  subcommand: the node is named by the whole word with the brackets removed
+  (`gdbserver`), and the source spelling is kept as the display name
+  (`g[dbserver]`), so `mandible lldb-server` shows three commands where it
+  showed none. The nodes are `invocation_attested` and never
+  `heading_attested`, so design §6 rule 0's second gate declines to probe
+  them: a usage form is not a heading, and lldb-server's own `g[dbserver]`
+  starts a server rather than printing help. That is a deliberate choice
+  against probing, recorded because the subcommands do answer `--help`.
+- fleet: `usage-optional-word-table`
+  (`xtask/src/usage_optional_word_table.rs`) named 10 tools/17 findings as a
+  raw shape before the round. What moved on a full-`PATH` sweep of 2323
+  tools, 2026-09-13: 6 subcommands gained across 2 tools, `lldb-server`
+  0 to 3 and `lldb-server-18` 0 to 3, with names `gdbserver`, `platform` and
+  `version`. Zero flag losses, zero flag gains, zero subcommand losses, and
+  all nine named controls byte-identical. Fixture:
+  `corpus/lldb-server/18.1.3`, whose `must_display_name` pins all three
+  source spellings.
