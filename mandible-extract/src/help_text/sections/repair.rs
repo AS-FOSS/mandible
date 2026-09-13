@@ -345,7 +345,9 @@ pub(super) fn repair_single_dash_long_options(
 /// direct proof, never a change to S-145. Never applied to a flag the
 /// usage line itself produced (that would be self-attestation, no new
 /// evidence at all — see `parse_bundled_shorts`'s own `-adhilswfr`).
-/// Atlas S-172. Fixtures: `corpus/fuser/*`.
+/// Refused when the case changes at the split point (`memhog`'s
+/// `[-rNUM]`): a glued value spec, never a longer name. Atlas S-172,
+/// which carries the discriminator. Fixtures: `corpus/fuser/*`.
 pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage_lines: &[String]) {
     for flag in flags.iter_mut() {
         if !flag.provenance.sources.contains(&Source::HelpText)
@@ -361,6 +363,12 @@ pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage
             continue;
         };
         if !is_option_name_tail(tail) || tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+            continue;
+        }
+        // A lowercase flag letter running straight into an uppercase
+        // tail is a glued value spec, not a longer name (`memhog`'s
+        // `-rNUM`); see this function's own doc comment.
+        if short.is_ascii_lowercase() && tail.starts_with(|c: char| c.is_ascii_uppercase()) {
             continue;
         }
         let name = format!("{short}{tail}");
@@ -808,6 +816,44 @@ mod tests {
         // declared a boolean, confirming that condition does the work.
         let parsed = parse("  -n         never overwrite\n  -nn        never ever overwrite\n");
         assert!(flag_named(&parsed, "nn").single_dash());
+    }
+
+    /// `memhog`'s own text: its usage line brackets `[-rNUM]` exactly
+    /// the way `fuser`'s brackets `[-SIGNAL]`, but `-r` valued `NUM` is
+    /// the correct parse and the usage-attested repair must leave it
+    /// alone. The case change at the split point is the whole
+    /// discriminator. See docs/shapes.md S-172.
+    ///
+    /// One deviation from the raw bytes, deliberate: memhog's first line
+    /// opens on its own program name with no `usage:` label, which the
+    /// real pipeline recognizes because it knows the program it ran and
+    /// this bare [`parse`] does not. The label is added so the standalone
+    /// parse reaches the same rule; every other byte is memhog's own.
+    #[test]
+    fn memhogs_glued_uppercase_placeholder_is_never_usage_attested() {
+        let raw = concat!(
+            "usage: memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]\n",
+            "-f mmap is backed by FILE\n",
+            "-rNUM repeat memset NUM times\n",
+            "-H disable transparent hugepages\n",
+        );
+        let parsed = parse(raw);
+        let r = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('r'))
+            .expect("-r must survive as its own short flag");
+        assert_eq!(r.value_name.as_deref(), Some("NUM"));
+        assert_eq!(r.value_kind, ValueKind::Required);
+        assert!(
+            !parsed.flags.iter().any(|f| f.spelling() == "-rNUM"),
+            "-rNUM is a glued value spec, never a spelling: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
     }
 
     /// A spaced value is indistinguishable from a glued one once stored;

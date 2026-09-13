@@ -2842,6 +2842,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   unambiguous single-dash-only row establishes either document as that
   convention). Never claims a bundle of already-known short flags
   (`rpcbind`'s own `-adhilswfr`, left to the bundling family).
+
+  Refused when the case changes at the split point — a lowercase flag
+  letter running straight into an uppercase tail — because that is the
+  GCC/Clang glued-value convention, not a longer name. `memhog`'s usage
+  line brackets `[-rNUM]` exactly the way `fuser`'s brackets `[-SIGNAL]`,
+  and `-r` valued `NUM` is the correct parse, so without this guard the
+  repair destroyed a real value name. `fuser`'s `-SIGNAL` is uppercase
+  throughout and so has no such transition; `lshw`'s `-format` is
+  lowercase throughout. Found by the full-`PATH` sweep and by nothing
+  else: memhog's flag count is 3 either way, so the change lands in the
+  sweep-diff's field-level list and never on the loss bar, and neither
+  fixture tool carries the shape. Fenced by
+  `memhogs_glued_uppercase_placeholder_is_never_usage_attested`
+  (`sections/repair.rs`), memhog having no fixture of its own; that
+  test's doc comment states the one label it adds to memhog's text and
+  why a bare `parse` needs it.
 - fleet: `usage-attested-single-dash-long`
   (`xtask/src/detector/usage_attested_single_dash_long.rs`) measures against
   the parse (a swallowed-value split whose name a usage line independently
