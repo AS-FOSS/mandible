@@ -8,7 +8,7 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
-## [0.8.0] - 2026-09-13
+## [0.8.0] - 2026-09-14
 
 ### Changed
 
