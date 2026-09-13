@@ -27,8 +27,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, Choice, CommandNode, Dashes, Entity, EntityKind,
-    Provenance, Source, Spelling, Text, ValueKind,
+    is_command_name_shaped, is_literal_choice_value, strip_escapes, Choice, CommandNode, Dashes,
+    Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
 };
 
 mod backfill;
@@ -46,6 +46,7 @@ mod spelling;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_optional_word;
 
 use backfill::*;
 use bullets::*;
@@ -62,6 +63,8 @@ use spelling::*;
 #[cfg(test)]
 use test_support::*;
 use usage::*;
+pub use usage_optional_word::reconstruct_abbrev_word;
+use usage_optional_word::scan_usage_optional_word_table;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
@@ -104,6 +107,13 @@ pub struct ParsedHelp {
     /// regex, or was dropped for lack of an owning heading/flag. Surfaced
     /// so `extract_node` can mark the node's provenance as a guess.
     pub saw_unattributable_content: bool,
+    /// Flags recovered by `recover_stanza_head_leading_flag_value`
+    /// specifically, mirrored here (also pushed into `flags`) so the
+    /// usage-block scan's own dedup can tell "a leading-value recovery of
+    /// this shape already named a different literal" apart from any other
+    /// reason a spelling might already be present in `flags`, and relax
+    /// only for that one shape. See docs/shapes.md S-147.
+    leading_value_recoveries: Vec<Entity>,
     /// Names already accepted into `subcommands`, tracked alongside it so
     /// [`ParsedHelp::try_push_subcommand`] can reject duplicates in O(1)
     /// instead of an O(n) scan of `subcommands` per candidate (which would
@@ -155,6 +165,37 @@ fn is_ignorable_heading(heading: &str) -> bool {
     lower.starts_with("example")
         || lower.contains("report bugs")
         || lower.contains("are equivalent")
+}
+
+/// True when `candidate` names a literal value distinct from every one of
+/// `existing`'s entries — meant to be called only with `existing` set to
+/// [`ParsedHelp::leading_value_recoveries`], never the whole document's
+/// flags, so this only ever overrides a duplicate this same leading-value
+/// shape produced. `lvchange`'s `-M|--persistent` is the case: a stanza
+/// head names it `y`, an unrelated paren-alternation row names it `n`;
+/// without this the row scan's own dedup would drop `n` outright,
+/// replacing a value that used to render rather than letting both reach
+/// `merge_entity_bucket`'s union. Refused when the matching recovery is a
+/// plain boolean or carries an abbreviation-bracket spelling — narrower
+/// scoping alone does not rule out a same-shape false positive from
+/// another stanza head. See docs/shapes.md S-147.
+fn usage_flag_names_a_new_literal_value(candidate: &Entity, existing: &[Entity]) -> bool {
+    let Some(name) = candidate.value_name.as_deref() else {
+        return false;
+    };
+    if !is_literal_choice_value(name) {
+        return false;
+    }
+    let mut same_spelling = existing
+        .iter()
+        .filter(|f| flag_spelling_already_present(candidate, std::slice::from_ref(f)))
+        .peekable();
+    same_spelling.peek().is_some()
+        && same_spelling.all(|f| {
+            f.value_name.as_deref() != Some(name)
+                && f.value_kind != ValueKind::None
+                && !f.spellings.iter().any(|s| s.abbrev.is_some())
+        })
 }
 
 /// True when `heading` positively names a section whose rows describe CLI
@@ -1036,6 +1077,43 @@ struct BodyInput<'a> {
     bnf_row_lines: &'a std::collections::HashSet<usize>,
 }
 
+/// Recover the flag a stanza head line names, under the group its own
+/// description sentence gave it. A head naming exactly one flag is
+/// [`recover_stanza_head_flag`]'s shape; a head naming a leading flag's
+/// own literal value plus further required flags (`lvcreate --type raid
+/// -L|--size Size[m|UNIT] VG`) is not, so the fallback runs only when the
+/// first recognizer stays silent, never both, since either would
+/// otherwise recover the same leading flag twice. See docs/shapes.md
+/// S-147.
+fn recover_stanza_head_flags(
+    heading: &str,
+    tool_name: Option<&str>,
+    stanza_label: Option<&str>,
+    st: &mut BodyScan,
+) {
+    if let Some(mut flag) = recover_stanza_head_flag(heading, tool_name) {
+        if let Some(label) = stanza_label {
+            flag.group = Some(label.to_string());
+        }
+        if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
+            st.result.flags.push(flag);
+        }
+    } else if let Some(mut flag) = recover_stanza_head_leading_flag_value(heading, tool_name) {
+        if let Some(label) = stanza_label {
+            flag.group = Some(label.to_string());
+        }
+        if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
+            // Tracked separately from `result.flags` so the usage-block
+            // dedup (`usage_flag_names_a_new_literal_value`) can tell "a
+            // leading-value recovery of this exact shape already named a
+            // different literal" apart from any other reason a spelling
+            // might already be present, and relax only for the former.
+            st.result.leading_value_recoveries.push(flag.clone());
+            st.result.flags.push(flag);
+        }
+    }
+}
+
 /// A heading with content indented beneath it. Each recognized section
 /// shape gets first refusal in turn, and the bare-word block is the
 /// fallback. See docs/shapes.md S-013, S-019 and S-020.
@@ -1090,14 +1168,7 @@ fn emit_heading_block(
         st.result.usage.push(heading.clone());
     }
     if !st.in_ignorable_section {
-        if let Some(mut flag) = recover_stanza_head_flag(heading, tool_name) {
-            if let Some(label) = stanza_label.clone() {
-                flag.group = Some(label);
-            }
-            if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
-                st.result.flags.push(flag);
-            }
-        }
+        recover_stanza_head_flags(heading, tool_name, stanza_label.as_deref(), st);
     }
 
     // A headed command table whose first row sits on the heading's
@@ -1852,7 +1923,21 @@ fn parse_body(
         None
     };
     let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
-    if let Some(start) = usage_start {
+    // A bare `Usage:` heading (nothing else on that line) whose following
+    // rows each repeat the tool's own name plus one command word with an
+    // optional-abbreviation suffix (`lldb-server`'s `v[ersion]`) names
+    // subcommands, not usage forms. Tried before the ordinary usage scan
+    // so it never gets a chance to fold these rows into `result.usage`
+    // instead. See docs/shapes.md S-167.
+    let optional_word_table = labelled_usage_start.and_then(|start| {
+        tool_name.and_then(|name| scan_usage_optional_word_table(&lines, start, name))
+    });
+    if let Some((end, nodes)) = optional_word_table {
+        i = end;
+        for node in nodes {
+            result.try_push_subcommand(node);
+        }
+    } else if let Some(start) = usage_start {
         let scan = scan_usage_section(
             &lines,
             start,
@@ -1931,13 +2016,20 @@ fn parse_body(
             if result.flags.len() >= MAX_RECOVERED_ENTRIES {
                 break;
             }
-            if !flag_spelling_already_present(&flag, &result.flags) {
+            if !flag_spelling_already_present(&flag, &result.flags)
+                || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
+            {
                 result.flags.push(flag);
             }
             // else: this spelling already names a flag the block scan
             // recovered, so the usage-derived, always-undescribed
             // duplicate is not added. "Let the described version win"
             // taken literally: the existing entry is never touched.
+            // `usage_flag_names_a_new_literal_value` is the one exception
+            // (S-147): a real, distinct literal value still gets added
+            // for `merge_entity_bucket` to union later, rather than
+            // silently replaced by whichever entity happened to land
+            // first.
         }
     }
 

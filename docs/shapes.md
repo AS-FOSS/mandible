@@ -2596,23 +2596,47 @@ entry's `tools` field and nothing else. It does not get a new entry.
       set loglevel <LEVEL>                     sets logging level to <LEVEL>.
 - tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
   resolvectl, timedatectl
-- handling: Open. Two prototypes were built and refused: reading each token of
-  a row's own name field separately fabricated nine command rows on
-  fail2ban-client (`logtarget`, `persistent`, `of`, `list`, `files`, `filter`,
-  `for`, `back`, `failures`), each a word cut out of a wrapped description. The
-  `bare_block_end` baseline blocker underneath is fixed now (S-149): every row
-  of fail2ban-client's `Command:` table is read, and its 10 single-word
-  commands recover cleanly with no fabrication. The name rule itself, one node
-  per distinct leading word with each row's own pattern appended to that
-  node's `usage` list, is not shipped: `emit_subcommands` still drops any row
-  whose name field is not a single command-name-shaped word or a bare-word
-  plus an ALL-CAPS-only placeholder run, so `set`, `get`, `add`, `unban` and
-  `reload` recover no node at all. `command-pattern-table`
-  (`xtask/src/command_pattern_table.rs`) stays as the instrument.
+- handling: Open, refused three times. The name rule, one node per distinct
+  leading word with each row's own pattern appended to that node's `usage`
+  list, is NOT shipped: `emit_subcommands` still drops any row whose name
+  field is not a single command-name-shaped word or a bare-word plus an
+  ALL-CAPS-only placeholder run, so on fail2ban-client `set`, `get`, `add`,
+  `unban` and `reload` recover no node at all. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) stays as the instrument, reported and
+  not gated.
+  The three refusals, each with the names it invented, so a fourth attempt has
+  the whole negative list:
+  1. Round 8 read each token of a row's own name field as its own command and
+     fabricated nine nodes on fail2ban-client: `logtarget`, `persistent`,
+     `of`, `list`, `files`, `filter`, `for`, `back`, `failures`. Every one is a
+     word cut out of a WRAPPED DESCRIPTION, not out of a name field.
+  2. Round 9 fixed the block boundary underneath (S-149) and deliberately did
+     not retry the name rule. Every row of fail2ban-client's `Command:` table
+     is read now, and its 10 single-word commands recover cleanly with no
+     fabrication.
+  3. Round 10 built the rule behind a column-identity guard: a candidate row
+     is admitted only when its name field begins at the block's own name
+     column, on the reasoning that a wrapped description continuation begins
+     at the description column by construction. The guard held on
+     fail2ban-client, which gained exactly the four named targets (`add`,
+     `get`, `reload`, `set`), and it FAILED elsewhere, because a prose line
+     and a repeated program name can both begin at the name column. A
+     full-`PATH` sweep-diff named six fabricated nodes on three tools:
+     `options` on xauth, cut from the prose line `options are:`, which is a
+     heading and not a command; `gprofng` on gprofng, the tool's own name cut
+     from rows like `gprofng collect app`; and `attach`, `logs`, `respawn`,
+     `rm` on claude, the first two cut from prose ("attach to an existing",
+     "logs to a specific file path") and the last two matching no row at all.
+     Column identity is a necessary condition and not a sufficient one.
+  The bar for a fourth attempt: a guard that separates a table ROW from a
+  prose line at the same indent, checked on xauth, gprofng and claude by name
+  before any count is reported.
 - fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
   fail2ban-client holds 85 of them and 84 were read by hand and are genuine.
   Above the five-tool bar. Not shipped; the fixture's `min_subcommands = 14`
-  floor documents the gap, currently 10.
+  floor documents the gap, currently 10. Round 10's refused prototype would
+  have taken fail2ban-client to 14, which is why a count alone can never
+  admit this rule: the same build fabricated six nodes on three other tools.
 
 ### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
 
@@ -2801,17 +2825,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: lvcreate; a merge-step fix, so any tool whose node reaches
   `mandible_core::merge::merge_entity_bucket` with a same-spelling,
   same-value-kind bucket naming different literal values is covered
-- handling: Fixed. `lvcreate` reaches this bucket once per invocation
-  form, each form naming its own value for `--type`. `merge_entity_bucket`
-  picked one form's `value_name` by authority, so the rendered row showed
-  `--type linear` beside the `raid1`/`mirror` form's own `choices`,
-  dropping `striped`, `raid10`, `snapshot` and `thin` outright. It now
-  unions every distinct value name across the bucket, in first-appearance
-  order, joined the way `choices` already joins for display. Maintainer-
-  absent default, recorded in docs/design.md §16. `must_value_name` passes
+- handling: Fixed, twice. `lvcreate` reaches this bucket once per
+  invocation form, each form naming its own value for `--type`.
+  `merge_entity_bucket` picked one form's `value_name` by authority, so
+  the rendered row showed `--type linear` beside the `raid1`/`mirror`
+  form's own `choices`, dropping `striped`, `raid10`, `snapshot` and
+  `thin` outright. A first fix unioned every distinct value name into
+  `value_name` itself; ruled confusing (docs/design.md §16) since one
+  flag then showed two lists. The bucket now renders one placeholder and
+  one unioned `choices` list: every
+  literal lowercase value, from a form's own `value_name` and from any
+  `choices` it already carried, joins `choices`; a capitalised token
+  stays the placeholder name; no placeholder is fabricated when every
+  form named a literal. `mandible_extract`'s stanza-head recovery also
+  now reads a leading flag's own bare usage-form value (`--type raid`,
+  not just the bracketed `[ --type x ]` rows), so `--type` now carries
+  thirteen values, not five. `must_value_name`/`must_attach_choices` pass
   vacuously on the raw, unrefilled tree; `must_value_names_after_root_refill`
-  (`corpus/README.md`) simulates the real app's own root refill and is the
-  field that actually states the claim.
+  and `must_choices_after_root_refill` (`corpus/README.md`) simulate the
+  real app's own root refill and are the fields that actually state the
+  claim.
 - fleet: `same-spelling-fold-loss`
   (`xtask/src/detector/same_spelling_fold_loss.rs`), widened to also flag
   two same-identity entities that both take a value but name it
@@ -3100,6 +3133,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
   five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
   `[xfail]` for `--format`'s own description. 2026-09-12.
+
 ### S-157: a bare-word value placeholder after a single-dash-long spelling
 
 - id: S-157
@@ -3428,6 +3462,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tree's flag spellings) than the narrow structural cause this fix
   closes (no blank line anywhere, no recognized usage line); left as a
   future finding, not chased here.
+
 ### S-166: header-declared three-column option table, env-variable column
 
 - id: S-166
@@ -3452,6 +3487,52 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `qemu-riscv64-static` and `qemu-arm64-static`; raw-shape grep over the
   seed's own captures reads 42 tools / 42 findings, the whole `qemu-*-static`
   set, 2026-09-12.
+
+### S-167: a usage form's leading word carries a bracketed abbreviation suffix
+
+- id: S-167
+- looks like: |
+      Usage:
+        lldb-server v[ersion]
+        lldb-server g[dbserver] [options]
+        lldb-server p[latform] [options]
+- tools: lldb-server, lldb-server-18, gcc-ar, unsquashfs, sqfscat, bridge
+- handling: Fixed, revised. A usage form whose leading word
+  after the program name is a command word with a bracketed
+  optional-abbreviation suffix names a subcommand: the node is named by the
+  whole word with the brackets removed (`gdbserver`), and that same whole
+  word is the displayed name — the maintainer rejected showing the
+  bracketed source spelling (`g[dbserver]`) in the tree. The row's own short
+  prefix (`g`) is kept as an alias instead of a display spelling. The nodes
+  are `invocation_attested`, never `heading_attested`, but now also carry a
+  third, narrower attestation bit, `abbrev_probe_attested`, admitted only
+  for a node this exact recognizer produced (design §6 rule 0). That bit
+  alone now clears rule 0's probe gate, so `mandible lldb-server`'s three
+  children are probed with their own full word (`lldb-server gdbserver
+  --help`) and fill their own flags; rule 0's thirteen-program list still
+  wins first and unconditionally, proved by the `exec_policy` shim suite.
+  Confirmed directly: `lldb-server 'g[dbserver]' --help` also answers,
+  byte-identical to `lldb-server gdbserver --help`, because lldb-server
+  matches its subcommand by prefix — the bracketed form is not refused
+  here, but the full word is still the right argv, since it is the word a
+  user would type and the bracket characters have no business in argv.
+  The emitted name is the source token minus its bracket characters and
+  nothing else changed, which is why design §7 Tier B rule 7's existence
+  oracle needed a narrow amendment (§16): `gdbserver` is not a contiguous
+  substring of the raw text, only `g[dbserver]` is, so the oracle now also
+  attests a subcommand name reached this way.
+- fleet: `usage-optional-word-table`
+  (`xtask/src/usage_optional_word_table.rs`) named 10 tools/17 findings as a
+  raw shape before the round. What moved on a full-`PATH` sweep of 2323
+  tools, 2026-09-13: 6 subcommands gained across 2 tools, `lldb-server`
+  0 to 3 and `lldb-server-18` 0 to 3, with names `gdbserver`, `platform` and
+  `version`. Zero flag losses, zero flag gains, zero subcommand losses, and
+  all nine named controls byte-identical. The same-day display/alias/probe
+  amendment above changed no node counts (names, not display forms, gate
+  fleet-wide sweeps), so this count stands unchanged. Fixture:
+  `corpus/lldb-server/18.1.3`, whose `must_display_name` pins all three
+  repaired names; the fixture replays frozen bytes with no subprocess, so
+  it cannot show the probe-filled children a live run produces.
 
 ### S-168: a colon-introduced choice list under a placeholder pair
 

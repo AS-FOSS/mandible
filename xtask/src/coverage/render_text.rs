@@ -224,6 +224,14 @@ pub(super) struct Row {
     /// A few of this row's own findings, pre-formatted, mirroring
     /// [`Self::wrapped_command_samples`].
     pub(super) command_pattern_samples: Vec<String>,
+    /// [`crate::usage_optional_word_table`]'s own measurement: count of
+    /// this tool's bare-`Usage:`-block rows abbreviating a subcommand word
+    /// with a bracket suffix, whose word never reached the tree (atlas
+    /// S-167).
+    pub(super) usage_optional_word_count: usize,
+    /// A few of this row's own findings, pre-formatted, mirroring
+    /// [`Self::command_pattern_samples`].
+    pub(super) usage_optional_word_samples: Vec<String>,
     /// [`crate::centered_label_baseline::detect_tree`]'s own measurement:
     /// count of this tool's shallower rows, right after a centered ALL-CAPS
     /// group label, whose leading word never reached the tree as a
@@ -381,6 +389,7 @@ pub(super) fn render_text(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&ragged_command_sample_lines_text(rows));
     out.push_str(&wrapped_command_sample_lines_text(rows));
     out.push_str(&command_pattern_sample_lines_text(rows));
+    out.push_str(&usage_optional_word_sample_lines_text(rows));
     out.push_str(&centered_label_baseline_sample_lines_text(rows));
     out.push_str(&fingerprint_lines(rows));
     out
@@ -650,6 +659,17 @@ fn command_pattern_sample_lines_text(rows: &[Row]) -> String {
     sample_lines_text(
         rows.iter().flat_map(|r| r.command_pattern_samples.iter()),
         "# command-pattern-table findings (sample — judge the false-positive rate yourself):\n",
+    )
+}
+
+/// Twin of [`single_dash_sample_lines_text`] for
+/// [`crate::usage_optional_word_table`].
+fn usage_optional_word_sample_lines_text(rows: &[Row]) -> String {
+    sample_lines_text(
+        rows.iter()
+            .flat_map(|r| r.usage_optional_word_samples.iter()),
+        "# usage-optional-word-table findings (sample — judge the false-positive rate \
+         yourself):\n",
     )
 }
 

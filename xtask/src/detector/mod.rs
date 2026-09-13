@@ -791,6 +791,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(headingless_table_in_root_description::HeadinglessTableInRootDescription),
         Box::new(header_declared_env_column::HeaderDeclaredEnvColumn),
         Box::new(choice_list_under_placeholder::ChoiceListUnderPlaceholder),
+        Box::new(UsageOptionalWordTable),
     ]
 }
 

@@ -350,6 +350,7 @@ mod tests {
                 &["mytool".to_string()],
                 NodeHints {
                     heading_attested: true,
+                    abbrev_probe_attested: false,
                 },
             )
             .expect("root override should resolve");
@@ -377,6 +378,7 @@ mod tests {
             &["mytool".to_string(), "some-subcommand".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));

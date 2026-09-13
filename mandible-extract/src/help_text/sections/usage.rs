@@ -117,6 +117,49 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
     Some(flag)
 }
 
+/// Recover a stanza head's own *leading* flag when it takes an immediate
+/// bare literal value and further required flags follow on the same line
+/// — `lvcreate --type raid -L|--size Size[m|UNIT] VG`, where
+/// [`looks_like_stanza_head_flag`] refuses because `-L|--size` reads as a
+/// second flag token. Recovers just the leading flag and its literal
+/// value; the line's other flags are documented elsewhere. Gated to
+/// [`is_literal_choice_value`] so a positional operand (`VG`, `Size[m|
+/// UNIT]`) or glued docopt notation (`blkid`'s `[--match-tag`) is never
+/// mistaken for one. `merge::merge_entity_bucket` folds every literal
+/// value this and [`recover_stanza_head_flag`]'s bracket-row siblings
+/// recover into one `choices` list. See docs/shapes.md S-089, S-147.
+pub(super) fn recover_stanza_head_leading_flag_value(
+    heading: &str,
+    tool_name: Option<&str>,
+) -> Option<Entity> {
+    let name = tool_name?;
+    if is_ignorable_heading(heading) || !starts_with_tool_name(heading, name) {
+        return None;
+    }
+    let rest = heading.strip_prefix(name)?.trim_start();
+    let mut words = rest.split_whitespace();
+    let flag_tok = words.next()?;
+    if !is_bare_flag_token(flag_tok) {
+        return None;
+    }
+    let value_tok = words.next()?;
+    if !is_literal_choice_value(value_tok) {
+        return None;
+    }
+    let spec = parse_flag_spec(flag_tok);
+    if spec.spellings.is_empty() {
+        return None;
+    }
+    let mut flag = Entity::new(
+        EntityKind::Flag,
+        Provenance::single(Source::HelpTextSynopsis),
+    );
+    flag.spellings = spec.spellings;
+    flag.value_name = Some(value_tok.to_string());
+    flag.value_kind = ValueKind::Required;
+    Some(flag)
+}
+
 /// Pull placeholder tokens (`<value>`, bare `UPPERCASE` words not preceded
 /// by `-`) out of usage lines as positionals. Best-effort: usage-line
 /// grammar is genuinely varied (docopt-style `[OPTIONS]`, `<required>`,

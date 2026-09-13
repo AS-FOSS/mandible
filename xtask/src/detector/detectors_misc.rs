@@ -570,3 +570,44 @@ impl Detector for CommandPatternTable {
         crate::command_pattern_table::self_checks()
     }
 }
+
+/// `usage-optional-word-table` (`crate::usage_optional_word_table`, atlas
+/// S-167): a bare `Usage:` block's own rows repeat the tool's name plus
+/// one command word abbreviated with a bracket suffix (`lldb-server`'s
+/// `v[ersion]`), which reads as ordinary usage text unless the tree
+/// already carries each word as a subcommand with its source spelling.
+pub(crate) struct UsageOptionalWordTable;
+
+impl Detector for UsageOptionalWordTable {
+    fn name(&self) -> &'static str {
+        "usage-optional-word-table"
+    }
+    fn family(&self) -> Option<&'static str> {
+        // No label in the closed `DEFECT_FAMILIES` set names this specific
+        // shape; docs/design.md §13.1e rule 6 makes that a legitimate
+        // `NotEvaluable` answer rather than a forced nearest match.
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a bare `Usage:` block whose rows repeat the tool's own name plus one command word \
+         abbreviated with a single bracket suffix (`v[ersion]`), missing from the tree as a \
+         subcommand"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        crate::usage_optional_word_table::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("{:?} (name {:?}) missing", f.display, f.name))
+            .collect()
+    }
+    fn scope(&self) -> Scope {
+        Scope {
+            claim: "a bare `Usage:` heading whose rows are `<tool> <word>[<suffix>]`, \
+                    optionally followed by a lone bracket group, only",
+            known_exclusions: &[],
+        }
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        crate::usage_optional_word_table::self_checks()
+    }
+}

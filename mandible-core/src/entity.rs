@@ -188,6 +188,25 @@ pub struct Choice {
     pub description: Option<Text>,
 }
 
+/// Whether `value_name` is one clean literal enumerated value (`"raid1"`,
+/// `"thin-pool"`), not a placeholder (`"Number"`) or notation glued onto
+/// a neighboring flag (`blkid`'s `"[--match-tag"`, a restated value spec
+/// `"y|n"`). docs/design.md §16's S-147 follow-up: a capitalised token
+/// stays out of a merged `choices` list. One word of lowercase ASCII
+/// letters, digits and hyphens only; any other punctuation is notation,
+/// not an enumerated member. Shared by `merge::merge_entity_bucket` and
+/// `mandible_extract`'s stanza-head recovery, so both agree on one rule.
+pub fn is_literal_choice_value(value_name: &str) -> bool {
+    !value_name.is_empty()
+        && value_name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase())
+        && value_name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
 impl Choice {
     /// A choice with no documented description — the common case.
     pub fn bare(name: impl Into<String>) -> Choice {
