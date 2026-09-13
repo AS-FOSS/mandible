@@ -2615,13 +2615,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
       SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
       exclude dirs/files]
 - tools: mksquashfs, sqfstar
-- handling: Open, two shapes. `SYNTAX:` glues straight to the program name with no
-  space, a spelling `starts_with_usage_prefix` never matches, so the whole
-  two-line block reads as leading description prose and no positional is
-  recovered. The second line also continues an unclosed `[` group at
-  column zero, a shape today's continuation rule misses since it only
-  reads a continuation's own first character, never a depth carried over
-  from the line above.
+- handling: Fixed (issue #143), two shapes. `SYNTAX:` glues straight to the
+  program name with no space, so a spelling `starts_with_usage_prefix` never
+  matched and the whole two-line block read as leading description prose with
+  no positional recovered; the label is now split off the program-name token
+  it is glued to. The second line also continues an unclosed `[` group at
+  column zero, which the old continuation rule missed because it read only a
+  continuation's own first character and never a bracket depth carried over
+  from the line above; the depth is carried now. The live binary prints its
+  own absolute path after the label (`SYNTAX:/usr/bin/mksquashfs`) where the
+  issue body quotes `SYNTAX:mksquashfs`, so the rule is written against the
+  label, not against the spelling in the issue.
 - fleet: `usage-label-glued-to-program-name`
   (`xtask/src/detector/usage_label_glued_to_program_name.rs`) reads 8
   tools/8 findings raw on a full-`PATH` sweep of 2323 tools, 2026-09-06;
@@ -2631,8 +2635,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/usage_open_bracket_continues_at_column_zero.rs`)
   reads 2 tools/2 findings raw; one is an ANSI-escape false positive from
   a colored banner, leaving 1 genuine hit. Both real counts are below the
-  five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
-  both counts in its reason.
+  five-tool bar, so this ships as a maintainer-named exception (issue #143,
+  docs/design.md §16): `corpus/mksquashfs/4.6.1` and `corpus/sqfstar/4.6.1`
+  both promote out of `[xfail]`, the full-`PATH` sweep-diff is zero-loss and
+  all nine named controls hold. Post-fix the first detector reads 6 tools/6
+  findings (the six doc-URL false positives, both genuine hits gone) and the
+  second 2 tools/2 findings (the ANSI false positive plus one hit outside
+  squashfs-tools). 2026-09-13.
 ### S-143: a lowdown bullet row names a subcommand
 
 - id: S-143
@@ -2826,3 +2835,132 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-150: a usage label alone on its own line
+
+- id: S-150
+- looks like: |
+      Usage:
+       fdisk [options] <disk>         change partition table
+       fdisk [options] -l [<disk>...] list partition table(s)
+- tools: fdisk, pkcheck, pod2text, gdk-pixbuf-thumbnailer, dmsetup, dmstats,
+  npm, nvim, bpftrace, fsck, pip3, renice, wall, zoxide
+- handling: Fixed, in two places. In extraction, a label alone on its line
+  contributed an entry whose whole content was the literal label text, and
+  that empty entry also consumed the bracketed option run the real form
+  carried underneath; `usage_block` now treats a bare label as a label and
+  reads the lines below it as the forms. In the render layer,
+  `mandible-tui/src/render/detail_pane/usage_form.rs` no longer prints the
+  bare tool name for an entry that has no invocation text of its own. The
+  two halves are separate because the label may be stripped either at parse
+  time or left in the entry text, and a form that loses its label must still
+  be read as the primary synopsis: `recover_primary_tail_operands` therefore
+  treats the `usage:` prefix as optional rather than required, which is the
+  cross-branch regression the integration merge surfaced (`nvim` lost its
+  `file` operand until that was fixed).
+- fleet: `bare-usage-label-form`
+  (`xtask/src/detector/bare_usage_label_form.rs`) reads 0 tools/0 findings
+  post-fix and is ratcheted there. The raw-shape upper bound counted before
+  the round was 300 tools. What actually moved on a full-`PATH` sweep of
+  2323 tools, 2026-09-13: 39 flags GAINED across three tools that nobody had
+  looked at — dmsetup 4 to 29, dmstats 8 to 20, npm 0 to 2 — every one of
+  them documented inside the tool's own bracketed `Usage:` block, plus 25
+  fixtures each losing exactly one usage entry whose content was the literal
+  string `Usage:` or `USAGE:`. Zero subcommand movement, all nine named
+  controls byte-identical.
+
+### S-151: a usage form's leading word is a foreign program name
+
+- id: S-151
+- looks like: |
+      Usage: /usr/bin/ranlib [options] archive
+      Advanced usage:
+      /usr/bin/perlthanks  [-v] [-a address] [-s subject]
+- tools: gcc-ranlib-13, perlthanks, perlbug, qemu-riscv64-static and the
+  qemu-*-static family
+- handling: Fixed at the render layer, so the raw text the `t` pane shows is
+  untouched. A usage form whose leading word names a program other than the
+  node has that word replaced by the node's own name. The rule is NARROW on
+  purpose, and an existing test is the fence: an absolute or relative PATH
+  always qualifies, because a usage line's program position cannot hold a
+  sibling's path, while a BARE word qualifies only when it is a prefix of the
+  node's own name. `perlthanks` also gains a usage section it did not have at
+  all, because a block whose form lines open with an absolute path was not
+  recognized as a usage block. Refused by the narrowing, and named here as a
+  miss rather than left silent: `tclobjnew-bpfcc`'s form opens `uobjnew`,
+  which is neither a path nor a prefix, so `mandible tclobjnew-bpfcc` still
+  renders `tclobjnew-bpfcc uobjnew [-h] ...`. The alternative — replacing any
+  bare word — deletes a real word from the render (`egrep` under node `grep`)
+  and AGENTS.md §3.9 forbids it.
+- fleet: `usage-foreign-program-word`
+  (`xtask/src/detector/usage_foreign_program_word.rs`) reads 253 tools/274
+  findings post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which
+  is the refused remainder: a leading bare word that is neither a path nor a
+  prefix of the node name. Reported, not gated, because the fix is a render
+  substitution and the counted shape is the text, not the tree. Zero flag
+  losses and zero subcommand movement fleet-wide.
+
+### S-152: a usage form carries its own trailing description
+
+- id: S-152
+- looks like: |
+       fdisk [options] <disk>         change partition table
+        gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
+       /usr/bin/ranlib [options] archive
+        Generate an index to speed access to archives
+- tools: fdisk, gcc-ranlib-13, gdk-pixbuf-thumbnailer
+- handling: Open. The prose belongs to the form, not to the invocation, and
+  it renders glued onto the end of the usage line: `mandible fdisk` shows
+  `fdisk [options] <disk> change partition table`. Nothing is lost, so this
+  is a presentation defect rather than an AGENTS.md §3.9 one, which is why it
+  was left when the round ran out of worker time. The cut is ambiguous in
+  both directions — a column gap separates the two on `fdisk`, a single space
+  on `gdk-pixbuf-thumbnailer`, and a whole following line on `gcc-ranlib-13`
+  — so a rule needs all three cases at once or it will eat an operand.
+- fleet: not measured. No detector was built for this shape this round, so
+  there is no number to quote and the three tools above are the whole
+  evidence.
+
+### S-153: a usage line's tail operands never reach the tree
+
+- id: S-153
+- looks like: |
+      Usage: cache_repair [options] {device|file}
+      usage: fc-scan [-bcVh] [-f FORMAT] ... [--help] font-file...
+      Usage: lcf  [options] dest_file  src_dir
+- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf
+- handling: Fixed for the shapes evidence can settle, refused for the rest.
+  A trailing operand run after a bracketed option run now reaches the tree as
+  positionals: a brace alternation naming one operand becomes one positional
+  keeping its source spelling and its members as choices (`{device|file}`), a
+  single ellipsis-marked name becomes one repeatable positional
+  (`font-file...`), and a flag paired with an ALL-CAPS value on the same line
+  no longer ends the walk. The description-gap cut that ran before the walk
+  also used a two-space gap, which truncated a line whose own operands are
+  two-space padded. REFUSED, and this is the honest part: a bare multi-word
+  tail with no numbering and no delimiter (`lcf`'s `dest_file  src_dir`)
+  stays declined by the round-6 `[options] command` ambiguity guard, because
+  nothing in the text says whether the words are two operands or one command
+  plus its argument. `corpus/lcf/3.0043+nmu1` states that outcome instead of
+  asserting a positional it does not get.
+- fleet: a full-`PATH` sweep of 2323 tools, 2026-09-13: `tail_operand_tools`
+  147 to 145, zero flag losses, zero subcommand movement, all nine named
+  controls byte-identical. `multi-operand-usage-tail` (S-109) is unchanged at
+  44 tools/110 findings, which is the ambiguous remainder `lcf` belongs to.
+
+### S-154: a bracketed multi-word operand becomes one positional per word
+
+- id: S-154
+- looks like: |
+        gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
+- tools: gdk-pixbuf-thumbnailer, mknod, sg_format, udevadm, fzf-tmux
+- handling: Fixed. A bracket group holding several words is one operand whose
+  name is the whole run, not one operand per word, so `mandible
+  gdk-pixbuf-thumbnailer` shows two positionals, `INPUT FILE` and `OUTPUT
+  FILE`, where it showed three (`INPUT`, `FILE`, `OUTPUT`) before. The name
+  keeps its source spelling, following S-097's ruling that a glued group is
+  quoted as written.
+- fleet: `trailing-bracket-group-multiword-operand` reads 0 tools/0 findings
+  post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
+  there. Zero flag losses, zero subcommand movement, all nine named controls
+  byte-identical.
