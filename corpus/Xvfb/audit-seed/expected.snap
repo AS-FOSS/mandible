@@ -17,12 +17,16 @@ flags:
     - help-text
 - spellings:
   - -audit
+  value_name: int
+  value_kind: Required
   description: set audit trail level
   provenance:
     sources:
     - help-text
 - spellings:
   - -auth
+  value_name: file
+  value_kind: Required
   description: select authorization file
   provenance:
     sources:
@@ -83,12 +87,16 @@ flags:
     - help-text
 - spellings:
   - -displayfd
+  value_name: fd
+  value_kind: Required
   description: file descriptor to write display number to when ready to connect
   provenance:
     sources:
     - help-text
 - spellings:
   - -dpi
+  value_name: int
+  value_kind: Required
   description: screen resolution in dots per inch
   provenance:
     sources:
@@ -123,6 +131,8 @@ flags:
     - help-text
 - spellings:
   - -fp
+  value_name: string
+  value_kind: Required
   description: default font path
   provenance:
     sources:
@@ -153,18 +163,24 @@ flags:
     - help-text
 - spellings:
   - -ld
+  value_name: int
+  value_kind: Required
   description: limit data space to N Kb
   provenance:
     sources:
     - help-text
 - spellings:
   - -lf
+  value_name: int
+  value_kind: Required
   description: limit number of open files to N
   provenance:
     sources:
     - help-text
 - spellings:
   - -ls
+  value_name: int
+  value_kind: Required
   description: limit stack space to N Kb
   provenance:
     sources:
@@ -177,18 +193,24 @@ flags:
     - help-text
 - spellings:
   - -maxclients
+  value_name: n
+  value_kind: Required
   description: set maximum number of clients (power of two)
   provenance:
     sources:
     - help-text
 - spellings:
   - -nolisten
+  value_name: string
+  value_kind: Required
   description: don't listen on protocol
   provenance:
     sources:
     - help-text
 - spellings:
   - -listen
+  value_name: string
+  value_kind: Required
   description: listen on protocol
   provenance:
     sources:
@@ -263,6 +285,8 @@ flags:
     - help-text
 - spellings:
   - -seat
+  value_name: string
+  value_kind: Required
   description: seat to run on
   provenance:
     sources:
@@ -327,6 +351,8 @@ flags:
     - help-text
 - spellings:
   - -schedInterval
+  value_name: int
+  value_kind: Required
   description: Set scheduler interval in msec
   provenance:
     sources:
@@ -395,6 +421,8 @@ flags:
     - help-text
 - spellings:
   - -query
+  value_name: host-name
+  value_kind: Required
   description: contact named host for XDMCP
   provenance:
     sources:
@@ -415,18 +443,24 @@ flags:
     - help-text
 - spellings:
   - -indirect
+  value_name: host-name
+  value_kind: Required
   description: contact named host for indirect XDMCP
   provenance:
     sources:
     - help-text
 - spellings:
   - -port
+  value_name: port-num
+  value_kind: Required
   description: UDP port number to send messages to
   provenance:
     sources:
     - help-text
 - spellings:
   - -from
+  value_name: local-address
+  value_kind: Required
   description: specify the local address to connect from
   provenance:
     sources:
@@ -439,18 +473,24 @@ flags:
     - help-text
 - spellings:
   - -class
+  value_name: display-class
+  value_kind: Required
   description: specify display class to send in manage
   provenance:
     sources:
     - help-text
 - spellings:
   - -cookie
+  value_name: xdm-auth-bits
+  value_kind: Required
   description: specify the magic cookie for XDMCP
   provenance:
     sources:
     - help-text
 - spellings:
   - -displayID
+  value_name: display-id
+  value_kind: Required
   description: manufacturer display ID for request
   provenance:
     sources:
@@ -502,24 +542,32 @@ flags:
     - help-text
 - spellings:
   - -linebias
+  value_name: n
+  value_kind: Required
   description: adjust thin line pixelization
   provenance:
     sources:
     - help-text
 - spellings:
   - -blackpixel
+  value_name: n
+  value_kind: Required
   description: pixel value for black
   provenance:
     sources:
     - help-text
 - spellings:
   - -whitepixel
+  value_name: n
+  value_kind: Required
   description: pixel value for white
   provenance:
     sources:
     - help-text
 - spellings:
   - -fbdir
+  value_name: directory
+  value_kind: Required
   description: put framebuffers in mmap'ed files in directory
   provenance:
     sources:

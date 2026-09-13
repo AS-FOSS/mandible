@@ -42,16 +42,29 @@ fn partition_plus_sigil_entries(
 /// through, so neither call site repeats the packed/plus-sigil/argfile
 /// three-way split inline. Returns `(seen, clean)` for the caller's own
 /// running totals.
+/// The per-row routing facts [`emit_flags_block`] needs beside the rows:
+/// which entries take [`parse_plus_sigil_spec`]'s grammar (S-095), which
+/// take the alternation-sigil expansion (S-163), and whether the document
+/// is argparse's, which gates S-155's brace form.
+pub(super) struct RowRouting<'a> {
+    pub is_plus_sigil: &'a [bool],
+    pub is_alternation: &'a [bool],
+    pub is_argparse: bool,
+}
+
 pub(super) fn emit_flags_block(
     group: Option<String>,
     entries: Vec<FlagRowEntry>,
     packed: bool,
-    is_plus_sigil: &[bool],
-    is_alternation: &[bool],
+    routing: RowRouting<'_>,
     argfile_entry: Option<FlagRowEntry>,
-    is_argparse: bool,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
+    let RowRouting {
+        is_plus_sigil,
+        is_alternation,
+        is_argparse,
+    } = routing;
     let (mut seen, mut clean) = if packed {
         let (ordinary, plus_sigil, alternation) =
             partition_plus_sigil_entries(entries, is_plus_sigil, is_alternation);
@@ -278,7 +291,14 @@ pub(super) fn emit_flags_with(
                 }
             }
         }
-        push_flag_entity(spec, &description, &choice_names, group.clone(), is_argparse, out);
+        push_flag_entity(
+            spec,
+            &description,
+            &choice_names,
+            group.clone(),
+            is_argparse,
+            out,
+        );
     }
     (seen, clean)
 }

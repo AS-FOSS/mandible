@@ -46,6 +46,7 @@ mod spelling;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_label;
 
 use backfill::*;
 use bullets::*;
@@ -1244,14 +1245,16 @@ fn emit_heading_block(
             group,
             entries,
             packed,
-            &is_plus_sigil,
-            &is_alternation,
+            RowRouting {
+                is_plus_sigil: &is_plus_sigil,
+                is_alternation: &is_alternation,
+                // `argparse_subparser_quirk` is set only for
+                // `Framework::Argparse` (see profile.rs), so it doubles
+                // here as "this tool is argparse" for S-155's
+                // brace-alternation gate, with no new profile field.
+                is_argparse: profile.is_some_and(|p| p.argparse_subparser_quirk),
+            },
             argfile_entry,
-            // `argparse_subparser_quirk` is set only for `Framework::Argparse`
-            // (see profile.rs), so it doubles here as "this tool is
-            // argparse" for S-155's brace-alternation gate, with no new
-            // profile field needed.
-            profile.is_some_and(|p| p.argparse_subparser_quirk),
             st.result,
         );
         st.total_entries += seen;
@@ -1614,10 +1617,12 @@ fn scan_entries(
                 pending_group,
                 entries,
                 packed,
-                &is_plus_sigil,
-                &is_alternation,
+                RowRouting {
+                    is_plus_sigil: &is_plus_sigil,
+                    is_alternation: &is_alternation,
+                    is_argparse: profile.is_some_and(|p| p.argparse_subparser_quirk),
+                },
                 argfile_entry,
-                profile.is_some_and(|p| p.argparse_subparser_quirk),
                 st.result,
             );
             st.total_entries += seen;

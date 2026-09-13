@@ -13,7 +13,6 @@ flags:
 - spellings:
   - -b
   - --brief
-  group: Scan font files and directories, and print resulting pattern(s)
   description: display font pattern briefly
   provenance:
     sources:
@@ -23,7 +22,6 @@ flags:
   - --format
   value_name: FORMAT
   value_kind: Required
-  group: Scan font files and directories, and print resulting pattern(s)
   description: use the given output format
   provenance:
     sources:
@@ -33,7 +31,6 @@ flags:
   - --sysroot
   value_name: SYSROOT
   value_kind: Required
-  group: Scan font files and directories, and print resulting pattern(s)
   description: prepend SYSROOT to all paths for scanning
   provenance:
     sources:
@@ -41,7 +38,6 @@ flags:
 - spellings:
   - -V
   - --version
-  group: Scan font files and directories, and print resulting pattern(s)
   description: display font config version and exit
   provenance:
     sources:
@@ -49,7 +45,6 @@ flags:
 - spellings:
   - -h
   - --help
-  group: Scan font files and directories, and print resulting pattern(s)
   description: display this help and exit
   provenance:
     sources:
