@@ -55,6 +55,7 @@ once it reaches a published 0.1.0 release.
 - [S-167] A `Usage:` line whose leading word carries a bracketed optional-abbreviation suffix (`v[ersion]`, `g[dbserver]`) now reaches the tree as its own subcommand, named and shown by its full word with the short prefix kept as an alias, and probed for its own flags, instead of folding into the usage block (`mandible lldb-server`).
 - [S-169] A command table sitting directly under the root's own usage synopsis, rows never repeating the tool's own name, now recovers as subcommands carrying their own flags and operands instead of fabricated flag groups on the root, so `mandible dmsetup` and `mandible dmstats` show their full command lists.
 - [S-170] A usage-synopsis bracket group whose own value spec is itself entirely option spellings no longer invents a value from it, so `mandible dmsetup`'s `-h, --help` and `-v, --verbose` show no value name instead of `-c|-C|--columns`/`-v|--verbose ...`.
+- [S-172] A single-dash-long token standing alone in a usage line's own bracket keeps its whole spelling now instead of splitting into a short flag plus a fabricated value, so `mandible lshw` shows `-format` and `-options` and `mandible fuser` shows `-SIGNAL` with its real description.
 
 ## [0.7.0] - 2026-09-05
 

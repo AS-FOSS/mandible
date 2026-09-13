@@ -132,6 +132,10 @@ pub(crate) mod choice_list_under_placeholder;
 // usage block, atlas S-169 and S-170), same direct-`Detector`-impl shape.
 pub(crate) mod nested_flag_group_as_value;
 pub(crate) mod usage_command_table;
+// Round-11 family detector (atlas S-172: a usage-line single-dash-long
+// token split into a short flag plus a swallowed value), same detect()/
+// Report + wrapper shape as `single_dash_long_table` above.
+pub(crate) mod usage_attested_single_dash_long;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -798,6 +802,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(UsageOptionalWordTable),
         Box::new(usage_command_table::UsageCommandTable),
         Box::new(nested_flag_group_as_value::NestedFlagGroupAsValue),
+        Box::new(UsageAttestedSingleDashLong),
     ]
 }
 

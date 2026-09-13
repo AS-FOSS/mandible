@@ -1,0 +1,24 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lshw"
+version = "02.19"
+platform = "ubuntu-24.04"
+captured_with = "audit/queue-captures/lshw (seed 7 maintainer audit)"
+
+[[capture]]
+argv = ["lshw", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "BSD-terse"
+# S-172: `-format` and `-options` are each one whole single-dash-long
+# spelling. The unfixed parser split `-format` into `-f` valued `"ormat"`
+# and dropped `-options` entirely as the generic option-list placeholder.
+must_contain_flags = ["-format", "-options", "-version", "-html", "-class"]
+
+[contract.must_not_value_name]
+"-format" = "ormat"

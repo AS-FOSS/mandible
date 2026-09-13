@@ -1,0 +1,26 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fuser"
+version = "23.7"
+platform = "ubuntu-24.04"
+captured_with = "audit/queue-captures/fuser (seed 7 maintainer audit)"
+
+# fuser is on spec section 6 rule 0's thirteen-program list (signals
+# processes): probed only as `fuser --help`, which this build declines
+# and answers on stderr.
+[[capture]]
+argv = ["fuser", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+# S-172: `-SIGNAL` is one whole single-dash-long spelling. The unfixed
+# parser split it into `-S` valued `"IGNAL"`.
+must_contain_flags = ["-SIGNAL", "--all", "--kill", "--namespace"]
+
+[contract.must_not_value_name]
+"-SIGNAL" = "IGNAL"
