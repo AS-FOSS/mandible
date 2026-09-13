@@ -1,0 +1,159 @@
+name: host
+usage:
+- 'Usage: host [-aCdilrTvVw] [-c class] [-N ndots] [-t type] [-W time] [-R number] [-m flag] [-p port] hostname [server]'
+flags:
+- spellings:
+  - -a
+  description: is equivalent to -v -t ANY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  value_name: is
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  value_name: class
+  value_kind: Required
+  description: specifies query class for non-IN data
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  description: compares SOA records on authoritative nameservers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: is equivalent to -v
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  description: lists all hosts in a domain, using AXFR
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  value_name: flag
+  value_kind: Required
+  description: set memory debugging flag (trace|record|usage)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  value_name: ndots
+  value_kind: Required
+  description: changes the number of dots allowed before root lookup is done
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: port
+  value_kind: Required
+  description: specifies the port on the server to query
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  description: disables recursive processing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  value_name: number
+  value_kind: Required
+  description: specifies number of retries for UDP packets
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  value_name: a
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: type
+  value_kind: Required
+  description: specifies the query type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  description: enables TCP/IP mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  value_name: enables
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  description: enables verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  description: print version number and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  description: specifies to wait forever for a reply
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  value_name: time
+  value_kind: Required
+  description: specifies how long to wait for a reply
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  value_name: use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  value_name: use
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true

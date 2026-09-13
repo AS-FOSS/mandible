@@ -1,6 +1,11 @@
 name: dbiprof
 usage:
 - dbiprof [options] [files]
+positionals:
+- name: files
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -number

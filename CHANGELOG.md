@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-176] A single-dash table row with no placeholder column now reads its flag's real value off the tool's own usage line instead of guessing it from the description's first word (`mandible host`, `mandible kpartx`, `mandible numastat`, `mandible savelog`, `mandible memhog`); `mandible memhog` also gains its `size`/`policy`/`nodeset` positionals (S-177) instead of a swallowed root description.
+
 ## [0.8.0] - 2026-09-14
 
 ### Changed
