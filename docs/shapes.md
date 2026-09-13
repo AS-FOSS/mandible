@@ -3963,3 +3963,32 @@ entry's `tools` field and nothing else. It does not get a new entry.
   still passes. `cpio` and `lsusb` have no fixture. 3 tools is a raw-shape
   count, not a full-`PATH` sweep; below the five-tool bar on its own but
   ships alongside a family that already cleared it, docs/design.md §16.
+
+### S-175: a genuinely two-flag repeated-letter coincidence loses its value
+
+- id: S-175
+- looks like: |
+      -c                     turns off key-click
+      -cc int                default color visual class
+- tools: Xvfb
+- handling: Open defect, declined this round. `Xvfb` documents an unrelated
+  bare `-c` boolean ("turns off key-click") on its own row, which is exactly
+  the evidence `repair_repeated_character_flags` (S-035) requires to treat
+  `-cc`'s swallowed value `"c"` as a repeated-verbosity spelling
+  (`documents_bare_boolean`); it rewrites `-cc` to a valueless boolean
+  spelling and `int`, the flag's real value, is dropped outright, not even
+  left in the description. `-c` and `-cc` are two unrelated flags that
+  happen to share the repeated-letter shape by coincidence, the exact
+  ambiguity S-035's own doc comment names as unresolvable by token shape
+  alone (`lessecho`'s genuine `-nn`). `repair_single_dash_long_options`
+  never gets a turn either: its own condition 6 defers any
+  `value_repeats_short` shape to the repeated-character repair. A safe fix
+  needs a second, independent signal that `-cc int` is a real value-taking
+  flag rather than a verbosity level — not found this round. `-deferglyphs
+  [none|all|16]` on the same table (raised alongside `-cc` this round) is
+  not a defect: it already reads its bracket value correctly, recovered by
+  S-145's own round-11 placeholder-gap widening, verified against
+  `mandible Xvfb`.
+- fleet: Not measured fleet-wide; a raw-shape count of 1 tool, Xvfb, is the
+  only evidence this round. Below the five-tool bar. `corpus/Xvfb/audit-seed`
+  does not assert `-cc`, so leaving this open costs no fixture regression.
