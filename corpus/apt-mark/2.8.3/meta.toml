@@ -1,0 +1,25 @@
+# docs/shapes.md S-136, issue #141: the usage line's own tail is
+# `{auto|manual} pkg1 [pkg2 ...]`, a brace alternation followed by a
+# numbered variadic pair. `pkg1`/`pkg2` collapse to one repeatable `pkg`
+# positional the same way `apt-sortpkgs`'s `file1 [file2 ...]` does; the
+# brace alternation ahead of it recovers as its own required operand
+# (docs/shapes.md S-153, `cache_repair`'s shape). Both are new: the old
+# tree carried no POSITIONALS section at all.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "apt-mark"
+version = "2.8.3"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); apt 2.8.3"
+
+[[capture]]
+argv = ["apt-mark", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "subcommands", "usage"]
+expected_framework = "generic"
+must_contain_positionals = ["{auto|manual}", "pkg..."]

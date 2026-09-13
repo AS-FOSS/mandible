@@ -1,6 +1,5 @@
 name: pip3
 usage:
-- 'Usage:'
 - '  pip3 <command> [options]'
 positionals:
 - name: command
@@ -279,7 +278,6 @@ subcommands:
 - name: config
   summary: Manage local and global configuration.
   usage:
-  - 'Usage:'
   - '  pip3 config [<file-option>] list'
   - '  pip3 config [<file-option>] [--editor <editor-path>] edit'
   positionals:

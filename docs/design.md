@@ -2867,6 +2867,31 @@ S-102) — declined because a union keeps every same-spelling flag on the
 row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
 2.03.16`. Docs/shapes.md S-147.
+**The numbered-variadic-tail fix ships below the five-tool bar
+(2026-09-12).** `numbered-variadic-usage-tail` (docs/shapes.md S-136)
+moves 3 tools, apt-sortpkgs, apt-extracttemplates and apt-mark, with zero
+losses on a full-`PATH` sweep. It ships as a recorded exception on the
+same grounds the ragged-command-table and glued-interior-uppercase fixes
+did, named by the maintainer in issue #141 after the shape was handed to
+a contributor and the claim lapsed. Taken without the maintainer present,
+since the maintainer is away this round: issue #141 itself names the
+fixture, the detector and the function to change, so the exception is
+read from that issue rather than decided fresh. The detector is ratcheted
+at zero fleet-wide the same way a repaired family above the bar is.
+
+**An optional value renders as its bracketed name, and the `=` is not lost
+(2026-09-13).** Asked of `mandible ls`, "see if it's correct to parse the `=`
+out of the `[=WHEN]` placeholder", the answer is that nothing is parsed out.
+`Entity::spelling` (`mandible-core/src/entity.rs`) renders an optional value as
+`[=VALUE]`, so `--color[=WHEN]` is what search matches and what `y` copies. The
+flag table keeps the spelling and the value in separate columns, so the value
+column shows `[WHEN]` alone, which satisfies S-097's ruling that a value name
+keeps its bracket-preserved source spelling. The earlier case the maintainer
+remembered is S-097's own `-V[N][fname]`, ruled 2026-09-04, and this follows it.
+Taken without the maintainer present: gluing the `=` onto the spelling column
+would move every optional-value row fleet-wide, including the named control
+tools `git` and `tar`, to restore one character that the IR already carries.
+`fdisk`'s `--lock[=<mode>]` is the same shape and the same answer.
 
 ### Deferred, with the reason each is not simply undone
 

@@ -39,6 +39,101 @@ pub fn is_bare_or_form_separator(t: &str) -> bool {
     t.trim().trim_end_matches(':').eq_ignore_ascii_case("or")
 }
 
+/// True if `t`, trimmed, is a short label ending in the word `usage`
+/// (case-insensitive), a colon, and nothing else — `perlthanks`'s
+/// `Advanced usage:`, distinct from the literal `usage:`
+/// [`starts_with_usage_prefix`] alone matches. At most three words, every
+/// one plain ASCII alphabetic, so a sentence that merely ends near the
+/// word `usage` never qualifies. See S-151, `corpus/perlthanks`.
+pub fn starts_with_extended_usage_label(t: &str) -> bool {
+    let Some(head) = t.trim().strip_suffix(':') else {
+        return false;
+    };
+    let words: Vec<&str> = head.split_whitespace().collect();
+    if words.is_empty() || words.len() > 3 {
+        return false;
+    }
+    if !words
+        .last()
+        .expect("checked non-empty above")
+        .eq_ignore_ascii_case("usage")
+    {
+        return false;
+    }
+    words
+        .iter()
+        .all(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphabetic()))
+}
+
+/// True if `t`, trimmed, is only a usage label with nothing after it on
+/// the same line: the literal `usage:`/`or:` markers with an empty
+/// remainder, or [`starts_with_extended_usage_label`]'s generalized form
+/// (which by construction carries no remainder either). `fdisk`'s bare
+/// `Usage:` line is this shape; the two real forms sit on the lines below
+/// it. See S-150.
+pub fn is_bare_usage_label(t: &str) -> bool {
+    let trimmed = t.trim();
+    if starts_with_usage_prefix(trimmed) {
+        return trimmed
+            .get(6..)
+            .map(|rest| rest.trim().is_empty())
+            .unwrap_or(true);
+    }
+    if starts_with_or_marker(trimmed) {
+        return trimmed
+            .get(3..)
+            .map(|rest| rest.trim().is_empty())
+            .unwrap_or(true);
+    }
+    starts_with_extended_usage_label(trimmed)
+}
+
+/// True when `t`, trimmed, opens with an alphabetic label of 2 to 20
+/// characters, a colon, and immediately (no space) the tool's own `name`
+/// at a word boundary — `mksquashfs`'s `SYNTAX:mksquashfs source1 ...`.
+/// Distinct from the two already-recognized markers (`usage:`, `or:`),
+/// which are matched regardless of what follows; a label glued straight
+/// to unrelated text, or to the name with a space, does not qualify.
+/// Mirrors `xtask`'s `usage_label_glued_to_program_name` detector, kept as
+/// an independent copy per this crate's convention of never depending on
+/// `xtask`. Returns the byte offset in `t` where the tool's own name
+/// begins, so the caller can drop the label. See S-142, issue #143.
+pub fn label_glued_to_tool_name(t: &str, name: &str) -> Option<usize> {
+    if name.is_empty() {
+        return None;
+    }
+    let colon_idx = t.find(':')?;
+    let label = &t[..colon_idx];
+    if label.len() < 2 || label.len() > 20 || !label.chars().all(|c| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    if label.eq_ignore_ascii_case("usage") || label.eq_ignore_ascii_case("or") {
+        return None;
+    }
+    let after_idx = colon_idx + 1;
+    let after = t.get(after_idx..)?;
+    if after.is_empty() || after.starts_with(char::is_whitespace) {
+        return None;
+    }
+    // A URL scheme (`https://github.com/ajeetdsouza/zoxide`) glues its own
+    // colon straight to a `//` authority, and its path's own basename
+    // routinely coincides with the tool's own name (a homepage on the
+    // tool's own domain) — the false positive S-142's own atlas entry
+    // names. Never a usage label.
+    if after.starts_with("//") {
+        return None;
+    }
+    let first_token = after.split_whitespace().next().unwrap_or(after);
+    let basename = first_token.rsplit('/').next().unwrap_or(first_token);
+    let rest = basename.strip_prefix(name)?;
+    let boundary_ok = rest.is_empty()
+        || !rest
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_alphanumeric() || c == '_');
+    boundary_ok.then_some(after_idx)
+}
+
 /// True if `t` (already trimmed of leading whitespace) begins with `name`
 /// at a word boundary. Lets a tool that repeats its own name across lines
 /// with no `or:`/`usage:` marker read as two entries rather than one
@@ -177,6 +272,19 @@ pub(super) fn looks_like_usage_fragment(t: &str) -> bool {
     matches!(t.as_bytes().first(), Some(b'[') | Some(b'<') | Some(b'{'))
 }
 
+/// Net `[`/`]` balance of one physical line: positive means more opens
+/// than closes, so the group is still open at the line's end. Used to
+/// carry an unclosed group's depth across a line break, since a
+/// continuation's own first character alone cannot say a bracket opened
+/// earlier is still pending. See S-142, issue #143.
+pub(super) fn bracket_depth_delta(t: &str) -> i32 {
+    t.chars().fold(0i32, |acc, c| match c {
+        '[' => acc + 1,
+        ']' => acc - 1,
+        _ => acc,
+    })
+}
+
 /// Recover the mode-selecting flag a stanza head line itself names
 /// (`grammar::looks_like_stanza_head_flag`'s shape). `None` for a bare
 /// invocation naming no flag (`vgchange` alone), a heading that isn't the
@@ -293,6 +401,18 @@ pub(super) fn extract_positionals(
         // second word fell through the ALL-CAPS check below and was
         // invented as its own positional. See docs/shapes.md S-131.
         let mut open_flag_value_depth: i32 = 0;
+        // Whether the walk is inside a bracket group that opened on a bare
+        // (non-flag) ALL-CAPS word and has not yet closed: `mknod`'s
+        // `[MAJOR MINOR]` and `gdk-pixbuf-thumbnailer`'s `[INPUT FILE]`
+        // name one multi-word operand each, not one positional per word.
+        // See docs/shapes.md S-154.
+        let mut bare_group_active = false;
+        let mut bare_group_depth: i32 = 0;
+        // (raw token, cleaned word) pairs, raw kept so
+        // `finalize_bare_bracket_group` can compute `required` and
+        // repeatability exactly the way the lone-word ALL-CAPS branch
+        // below does for the same token.
+        let mut bare_group_words: Vec<(String, String)> = Vec::new();
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
             let opens = token.matches('[').count() as i32;
@@ -330,6 +450,37 @@ pub(super) fn extract_positionals(
             if cleaned.starts_with('-') || consumed_by_prior_flag {
                 continue;
             }
+            // A bracket group opened by a bare ALL-CAPS word that does not
+            // close on the same token collapses to one multi-word operand
+            // (`finalize_bare_bracket_group`), rather than one positional
+            // per word inside it. See docs/shapes.md S-154.
+            if bare_group_active {
+                bare_group_depth += opens - closes;
+                if !cleaned.is_empty() {
+                    bare_group_words.push((token.to_string(), cleaned.to_string()));
+                }
+                if bare_group_depth <= 0 {
+                    for p in finalize_bare_bracket_group(&bare_group_words, line) {
+                        if seen.insert(p.primary_name().to_string()) {
+                            out.push(p);
+                        }
+                    }
+                    bare_group_active = false;
+                    bare_group_words.clear();
+                }
+                continue;
+            }
+            if token.starts_with('[')
+                && opens > closes
+                && cleaned.chars().all(|c| c.is_uppercase() || c == '_')
+                && cleaned.len() > 1
+                && !is_option_list_placeholder(cleaned)
+            {
+                bare_group_active = true;
+                bare_group_depth = opens - closes;
+                bare_group_words = vec![(token.to_string(), cleaned.to_string())];
+                continue;
+            }
             let (name, variadic) = if let Some(stripped) = cleaned.strip_prefix('<') {
                 // The *nearest* closing `>`, not the outermost one:
                 // `<name>=<value>` (git's `-c <name>=<value>`, when not
@@ -355,6 +506,18 @@ pub(super) fn extract_positionals(
             out.push(positional);
         }
     }
+    // A numbered pair (`source1 source2 ...`) ahead of further operands the
+    // loop above already found (`mksquashfs`'s own `FILESYSTEM`) is never
+    // reached by the tail-only recovery below, since `out` is no longer
+    // empty by the time it would run. Runs unconditionally and only ever
+    // adds at the front — the pair always precedes whatever the loop above
+    // found, by this function's own "more follows" requirement. See
+    // docs/shapes.md S-171.
+    if let Some(pair) = recover_leading_numbered_pair(usage_lines, &primary_lines) {
+        if !out.iter().any(|e| e.primary_name() == pair.primary_name()) {
+            out.insert(0, pair);
+        }
+    }
     if out.is_empty() {
         out.extend(recover_primary_tail_operands(usage_lines, &primary_lines));
     }
@@ -367,7 +530,17 @@ pub(super) fn extract_positionals(
     out
 }
 
-/// `s` cut at the first run of [`MIN_COLUMN_GAP_SPACES`] or more
+/// The gap width [`cut_before_description_gap`] treats as a description
+/// boundary rather than an operand-column separator. Wider than
+/// [`MIN_COLUMN_GAP_SPACES`] deliberately: `lcf`'s own usage line pads its
+/// program name and its two operands with exactly two spaces each
+/// (`"lcf  [options] dest_file  src_dir"`), which is column alignment
+/// inside the synopsis, not a trailing description — cutting there lost
+/// the whole tail. Three or more spaces stays a real description boundary
+/// (`vim.basic`'s seven-space gap). See docs/shapes.md S-153.
+const TAIL_OPERAND_GAP_SPACES: usize = 3;
+
+/// `s` cut at the first run of [`TAIL_OPERAND_GAP_SPACES`] or more
 /// consecutive spaces — the description-column boundary a usage line's
 /// own inline trailing prose sits behind (`vim.basic`'s `edit specified
 /// file(s)`, right after `[file ..]` on the very same physical line).
@@ -383,7 +556,7 @@ pub(super) fn cut_before_description_gap(s: &str) -> &str {
                 run_start = Some(i);
             }
             run += 1;
-            if run >= MIN_COLUMN_GAP_SPACES {
+            if run >= TAIL_OPERAND_GAP_SPACES {
                 return &s[..run_start.unwrap()];
             }
         } else {
@@ -451,7 +624,7 @@ fn is_clean_flag_group(stripped: &str) -> bool {
 /// [`is_option_list_placeholder`] itself, whose single-word check this
 /// subsumes. See S-041's earlier-context gate in
 /// [`recover_primary_tail_operands`].
-fn ends_with_option_list_placeholder(stripped: &str) -> bool {
+pub(super) fn ends_with_option_list_placeholder(stripped: &str) -> bool {
     stripped
         .split_whitespace()
         .next_back()
@@ -460,14 +633,15 @@ fn ends_with_option_list_placeholder(stripped: &str) -> bool {
 
 /// True when a bracket group ahead of a recovered operand run is grammar
 /// this rule already understands beyond a plain flag spelling
-/// ([`is_clean_flag_group`]): a flag paired with angle-bracket metavars
-/// (`--plugin <name>`), or a glued cluster with no internal whitespace at
-/// all (`ar`'s own `[-]{dmpqrstx}[abcDfilMNoOPsSTuvV]`), which cannot
-/// smuggle in a bare word that might double as an operand — the ambiguity
-/// a bare-word value (`-d xy`, `-f font`) still carries and this rule
-/// declines to reason about. See `a_non_clean_flag_earlier_group_refuses_the_whole_line`
-/// and `ars_own_flag_cluster_and_metavar_license_the_recovered_run`.
-fn is_understood_flag_context(stripped: &str) -> bool {
+/// ([`is_clean_flag_group`]): angle-bracket metavars (`--plugin <name>`),
+/// an ALL-CAPS metavar (`fc-scan`'s `-f FORMAT`), or a glued no-whitespace
+/// cluster (`ar`'s `[-]{dmpqrstx}[abcDfilMNoOPsSTuvV]`) — none can
+/// smuggle in a bare word that might double as an operand, unlike a
+/// *lowercase* bare value (`-d xy`), which stays declined. Case is the
+/// discriminator: ALL-CAPS is already this parser's own metavar
+/// convention. See `ars_own_flag_cluster_and_metavar_license_the_recovered_run`
+/// and docs/shapes.md S-153.
+pub(super) fn is_understood_flag_context(stripped: &str) -> bool {
     if is_clean_flag_group(stripped) {
         return true;
     }
@@ -479,7 +653,10 @@ fn is_understood_flag_context(stripped: &str) -> bool {
         return false;
     };
     is_clean_flag_group(first)
-        && words.all(|w| w.starts_with('<') && w.ends_with('>') && w.len() > 2)
+        && words.all(|w| {
+            (w.starts_with('<') && w.ends_with('>') && w.len() > 2)
+                || (w.chars().all(|c| c.is_uppercase() || c == '_') && w.len() > 1)
+        })
 }
 
 /// One synopsis group, its own outer brackets (if any) still attached, as
@@ -490,7 +667,7 @@ fn is_understood_flag_context(stripped: &str) -> bool {
 /// its first word (`true`'s `[ignored command line arguments]` must not
 /// read `ignored` as an operand). See S-041 and
 /// [`recover_primary_tail_operands`].
-fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
+pub(super) fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
     let stripped = group.trim_matches(|c| c == '[' || c == ']');
     let mut words = stripped.split_whitespace();
     let raw_word = words.next()?;
@@ -518,126 +695,6 @@ fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
     }
     let required = !group.starts_with('[');
     Some((word.to_string(), required, marker_repeat || inline_repeat))
-}
-
-/// The primary synopsis's own trailing run of operands — atlas S-041
-/// (one operand) generalized to a run of two or more, promoted from
-/// `xtask`'s `unparsed-tail-operand` detector (`xtask/src/tail_operand.rs`).
-/// The token loop above only ever promotes a `<value>` or an `ALL-CAPS`
-/// metavariable; a usage line's own trailing operands (`file`,
-/// `[member-name] [count] archive-file file...`) are neither shape and
-/// went unrecovered even though the synopsis plainly names them. Fires
-/// only when the loop above found nothing, and only for a
-/// one-physical-line primary entry ([`primary_synopsis_lines`]) — a
-/// wrapped synopsis is a harder shape this does not attempt. Each refusal
-/// is documented at its own check, deliberately stricter than the
-/// detector it promotes.
-fn recover_primary_tail_operands(
-    usage_lines: &[String],
-    primary_lines: &std::collections::HashSet<usize>,
-) -> Vec<Entity> {
-    let line_idx = match primary_lines.len() {
-        1 => match primary_lines.iter().next() {
-            Some(&i) => i,
-            None => return Vec::new(),
-        },
-        _ => return Vec::new(),
-    };
-    let Some(line) = usage_lines.get(line_idx) else {
-        return Vec::new();
-    };
-    let lower = line.to_ascii_lowercase();
-    let Some(idx) = lower.find("usage:") else {
-        return Vec::new();
-    };
-    let after = &line[idx + "usage:".len()..];
-    let before_desc = cut_before_description_gap(after);
-    let mut groups = group_synopsis_tokens(before_desc.trim());
-    if groups.len() < 2 {
-        return Vec::new();
-    }
-    groups.remove(0); // the program name itself
-
-    // Walk backward from the tail, collecting a run of operand-shaped
-    // groups in reverse source order. A separate ellipsis-only group
-    // (lessecho's bare `file ...`) marks the *next* group popped — the
-    // operand immediately before it in source order — repeatable, same
-    // as a dots suffix glued straight onto a word. See S-101.
-    let mut collected: Vec<(String, bool, bool)> = Vec::new();
-    let mut pending_repeat = false;
-    while let Some(last) = groups.last() {
-        let bare = last.trim_matches(|c| c == '[' || c == ']');
-        if !bare.is_empty() && bare.chars().all(|c| c == '.') {
-            pending_repeat = true;
-            groups.pop();
-            continue;
-        }
-        let Some((word, required, marker_repeat)) = parse_operand_group(last) else {
-            break;
-        };
-        collected.push((word, required, marker_repeat || pending_repeat));
-        pending_repeat = false;
-        groups.pop();
-    }
-    if collected.is_empty() {
-        return Vec::new();
-    }
-    collected.reverse(); // restore source order
-
-    // At least one real group must stand between the program name and the
-    // run: a lone bracket group right after the program name (`true`'s
-    // `Usage: true [ignored command line arguments]`) is prose describing
-    // the tool's forgiving argument handling, not a flag list licensing a
-    // trailing operand, and [`parse_operand_group`] must not read its
-    // first word as one.
-    if groups.is_empty() {
-        return Vec::new();
-    }
-    // Every group ahead of the run must read as either an option-list
-    // placeholder or a plain flag spelling — `apt-ftparchive`'s lone
-    // `[options]`, or `bashbug`/`lessecho`'s real flag lists. A group
-    // carrying more than a plain flag spelling — an explicit value word
-    // (`-d xy`), a brace-value placeholder (`-b{blocksize}[KMG]`), or a
-    // nested alternation (`[-c|-C] cmd`) — is grammar this rule declines
-    // to reason about, even when the run itself looks clean, and refuses
-    // the whole line rather than guess a boundary.
-    let mut earlier_all_placeholder = true;
-    for earlier in &groups {
-        let earlier_stripped = earlier.trim_matches(|c| c == '[' || c == ']');
-        if ends_with_option_list_placeholder(earlier_stripped) {
-            continue;
-        }
-        // `is_understood_flag_context`'s own leniency (an angle-bracket
-        // metavar pair, a glued no-whitespace cluster) only ever licenses
-        // a *bracketed* group: `btrfs-select-super`'s bare, unbracketed
-        // `-s number dev` glues a required value onto `-s` with no
-        // brackets anywhere on the line, and a bare flag token cannot be
-        // told apart from a genuinely boolean one without that notation —
-        // the same ambiguity `-d xy` carries inside a bracket. See
-        // `a_bare_unbracketed_flag_never_licenses_the_run_behind_it`.
-        if earlier.starts_with('[') && is_understood_flag_context(earlier_stripped) {
-            earlier_all_placeholder = false;
-            continue;
-        }
-        return Vec::new();
-    }
-    // `[options] command`'s shape: a lone placeholder group ahead of a
-    // bare, required first operand reads as easily as "provide a
-    // subcommand" as "provide an operand" — see the doc comment above.
-    // Only the earliest operand in the run sits directly behind the
-    // ambiguous context, so only its own required-ness is checked.
-    if earlier_all_placeholder && collected[0].1 {
-        return Vec::new();
-    }
-    collected
-        .into_iter()
-        .map(|(word, required, repeatable)| {
-            let mut positional = Entity::positional(word, Provenance::single(Source::HelpText));
-            positional.required = required;
-            positional.repeatable = repeatable;
-            positional
-        })
-        .collect()
 }
 
 /// After the usage block, some tools describe each named positional on a
@@ -3074,14 +3131,23 @@ mod tests {
         assert_eq!(names, vec!["target"], "{names:?}");
     }
 
-    /// `apt-extracttemplates`-shaped: several bare operands, not a flag
-    /// list plus one trailing operand. `file1` earlier on the line is
-    /// itself bare and non-flag, so the earlier-groups gate must refuse
-    /// the whole line rather than claim `file2`.
+    /// `apt-extracttemplates`'s own shape (docs/shapes.md S-136, issue
+    /// #141): `file1` and `file2` are not two arbitrary bare operands,
+    /// they are the same stem numbered in sequence, which is evidence a
+    /// bare multi-operand tail (S-109, see `psfaddtable` below) lacks.
+    /// The numbering licenses the collapse even with no earlier group at
+    /// all standing between the program name and the run.
     #[test]
-    fn apt_extracttemplates_shaped_multiple_bare_operands_gain_no_positional() {
+    fn apt_extracttemplates_shaped_numbered_tail_collapses_to_one_repeatable_positional() {
         let parsed = parse("Usage: apt-extracttemplates file1 [file2 ...]\n");
-        assert!(parsed.positionals.is_empty(), "{:?}", parsed.positionals);
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["file"], "{:?}", parsed.positionals);
+        assert!(parsed.positionals[0].required);
+        assert!(parsed.positionals[0].repeatable);
     }
 
     /// `psfaddtable`-shaped: the identical several-bare-operands shape

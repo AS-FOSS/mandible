@@ -1,0 +1,78 @@
+name: apt-mark
+description: apt 2.8.3 (arm64)
+usage:
+- 'Usage: apt-mark [options] {auto|manual} pkg1 [pkg2 ...]'
+positionals:
+- name: '{auto|manual}'
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: pkg
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: auto
+  summary: Mark the given packages as automatically installed
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: manual
+  summary: Mark the given packages as manually installed
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: minimize-manual
+  summary: Mark all dependencies of meta packages as automatically installed.
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hold
+  summary: Mark a package as held back
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unhold
+  summary: Unset a package set as held back
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: showauto
+  summary: Print the list of automatically installed packages
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: showmanual
+  summary: Print the list of manually installed packages
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: showhold
+  summary: Print the list of packages on hold
+  group: 'Most used commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

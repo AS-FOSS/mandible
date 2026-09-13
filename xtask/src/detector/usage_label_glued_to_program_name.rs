@@ -1,10 +1,13 @@
-//! `usage-label-glued-to-program-name` (atlas S-142, measurement half):
-//! a usage line's own label sits directly against the program name with
-//! no space (`mksquashfs`'s `SYNTAX:mksquashfs source1 source2 ...`),
-//! any label spelling other than the two already recognized
+//! `usage-label-glued-to-program-name` (atlas S-142): a usage line's own
+//! label sits directly against the program name with no space
+//! (`mksquashfs`'s `SYNTAX:mksquashfs source1 source2 ...`), any label
+//! spelling other than the two already recognized
 //! (`starts_with_usage_prefix`'s `usage:`, `starts_with_or_marker`'s
-//! `or:`). Fixture: `corpus/mksquashfs/4.6.1` (xfail). No seed-labelled
-//! tool carries this shape, so [`Detector::family`] returns `None`.
+//! `or:`). Reads the tree, not just the raw text: a fixed tree already
+//! carries a usage entry opening with the tool's own name, so a repaired
+//! tool no longer counts (issue #143). Fixtures: `corpus/mksquashfs/4.6.1`,
+//! `corpus/sqfstar/4.6.1`. No seed-labelled tool carries this shape, so
+//! [`Detector::family`] returns `None`.
 
 use crate::detector::{Detector, Expect, SelfCheck, ToolEvidence};
 use mandible_core::CommandNode;
@@ -54,10 +57,35 @@ fn opens_with_name(after: &str, name: &str) -> bool {
             .is_some_and(|c| c.is_alphanumeric() || c == '_'))
 }
 
+/// True when some `root.usage` entry already opens with the tool's own
+/// name: the fixed parser's own signature, once the glued label has been
+/// dropped and the line reads as an ordinary usage form. A raw finding
+/// backed by a tree that already shows this is stale — the fix repaired
+/// it — so it must not count. See S-142, issue #143.
+fn tree_already_recognizes(root: &CommandNode, name: &str) -> bool {
+    root.usage
+        .iter()
+        .any(|u| starts_with_word(u.as_str().trim_start(), name))
+}
+
+/// True when `t` opens with `word` at a word boundary.
+fn starts_with_word(t: &str, word: &str) -> bool {
+    if word.is_empty() {
+        return false;
+    }
+    match t.strip_prefix(word) {
+        Some(rest) => rest.is_empty() || rest.starts_with(char::is_whitespace),
+        None => false,
+    }
+}
+
 pub fn detect(raw: &str, root: &CommandNode) -> Report {
     let name = root.name.as_str();
     let mut findings = Vec::new();
     if name.is_empty() {
+        return Report { findings };
+    }
+    if tree_already_recognizes(root, name) {
         return Report { findings };
     }
     for line in raw.lines() {
@@ -176,6 +204,18 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
             expect: Expect::Silent,
             raw: "started at 12:34mksquashfs\n".to_string(),
             root: node_named("mksquashfs"),
+        },
+        SelfCheck {
+            name: "the fixed tree, label already dropped",
+            why: "the repaired parser's own signature: `root.usage` opens with the tool's own \
+                  name once `label_glued_to_tool_name` has stripped the glued label, and a raw \
+                  finding against a tree that already shows this must not count",
+            expect: Expect::Silent,
+            raw: MKSQUASHFS_SYNTAX_LINE.to_string(),
+            root: node_with_usage(
+                "mksquashfs",
+                "mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of exclude dirs/files]",
+            ),
         },
     ]
 }
