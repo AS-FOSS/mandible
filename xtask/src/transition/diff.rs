@@ -229,17 +229,12 @@ struct PerToolFingerprintResult<'a> {
 /// diff plus positional-count delta, both read off the same before/after
 /// fingerprint entries.
 ///
-/// Three states, not two (the defect this match used to have:
-/// `coverage::fingerprint_lines` used to skip a row with no flags and no
-/// subcommands, so a tool that lost every flag produced a line on the
-/// "before" side and none on the "after" side, and fell into the catch-all
-/// below — "unmeasured" — instead of reporting the total loss it actually
-/// was). Now that every row gets a `#fp` line unconditionally, a line is
-/// absent on *both* sides only for a genuinely legacy scoreboard pair;
-/// absent on *one* side only means "no record for this side," read as
-/// empty (`EMPTY_FINGERPRINT`'s own doc comment) so the diff still reports
-/// the present side's flags/subcommands as added or removed rather than
-/// staying silent.
+/// Three states, not two: a line absent on *both* sides means comparison
+/// is impossible (a genuinely legacy scoreboard pair); absent on *one*
+/// side only means "no record for this side," read as empty
+/// (`EMPTY_FINGERPRINT`'s own doc comment) — `coverage::fingerprint_lines`
+/// used to skip an empty row and fall into the impossible case instead,
+/// silently hiding a total flag loss.
 fn per_tool_fingerprint_diff<'a>(
     tool: &'a str,
     before: &'a ParsedScoreboard,

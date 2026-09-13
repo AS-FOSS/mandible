@@ -172,11 +172,11 @@ const FP_ENTRY_SEP: char = ':';
 /// between the first and second `::` is always the kind, however many
 /// times `::` may appear later inside `<spelling>`.
 ///
-/// A V1 id (no kind tag at all) never matches: `splitn` never finds a
+/// A V1 id (no kind tag at all) never matches: `split` never finds a
 /// second `::`, so `nth(1)` on a V1 id is its whole tail rather than a bare
 /// kind name.
 pub(super) fn is_positional_id(id: &str) -> bool {
-    id.splitn(3, "::").nth(1) == Some("Positional")
+    id.split("::").nth(1) == Some("Positional")
 }
 
 /// The pre-generalization `#fp` line prefix — flags only, entity ids with
