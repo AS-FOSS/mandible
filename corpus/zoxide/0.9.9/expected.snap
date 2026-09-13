@@ -1,7 +1,6 @@
 name: zoxide
 description: A smarter cd command for your terminal
 usage:
-- 'Usage:'
 - '  zoxide <COMMAND>'
 positionals:
 - name: COMMAND

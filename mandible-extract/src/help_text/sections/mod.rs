@@ -317,6 +317,116 @@ struct UsageScan {
 
 /// Walk the usage block starting at `start`, folding wrapped continuation
 /// lines into one entry each. See docs/shapes.md S-001 and S-037.
+/// The scan's seeded state, computed from `lines[start]` alone: the block's
+/// own indent, its first entry (empty when the label is bare, S-150), the
+/// parallel line-to-entry index, and any square-bracket depth the seed
+/// line itself leaves open (S-142, issue #143). Split out of
+/// [`scan_usage_section`] to keep that function under the size ceiling.
+struct SeedState {
+    base_indent: usize,
+    usage_entries: Vec<String>,
+    line_entry_index: Vec<usize>,
+    bracket_group_depth: i32,
+    seed_is_bare: bool,
+}
+
+fn seed_usage_scan(
+    lines: &[&str],
+    start: usize,
+    tool_name: Option<&str>,
+    usage_lines: &mut Vec<String>,
+) -> SeedState {
+    let base_indent = leading_whitespace(lines[start]);
+    let seed_trimmed = lines[start].trim().to_string();
+    // A usage label can sit glued directly to the tool's own name with no
+    // space (`mksquashfs`'s `SYNTAX:mksquashfs source1 ...`). Drop the
+    // label before seeding, the same way the render layer already drops a
+    // spaced `usage:`/`or:` label, so the stored entry opens with the
+    // tool's own invocation instead of an unrecognized word. See S-142,
+    // issue #143.
+    let seed_glued_offset =
+        tool_name.and_then(|name| label_glued_to_tool_name(&seed_trimmed, name));
+    let seed_text = match seed_glued_offset {
+        Some(offset) => seed_trimmed[offset..].to_string(),
+        None => seed_trimmed.clone(),
+    };
+    usage_lines.push(seed_text.clone());
+    // A usage label alone on its own line ("Usage:" with nothing after
+    // it) contributes no form of its own — the real forms sit on the
+    // lines below it. See S-150.
+    let seed_is_bare = seed_glued_offset.is_none() && is_bare_usage_label(&seed_trimmed);
+    let usage_entries = if seed_is_bare {
+        Vec::new()
+    } else {
+        vec![seed_text.clone()]
+    };
+    // Parallel to `usage_lines`: which `usage_entries` index each
+    // physical line was folded into — a wrapped entry (sg_sanitize's
+    // five-line synopsis) spans several lines but is one entry, and
+    // [`primary_synopsis_lines`] needs every one of them. `usize::MAX`
+    // marks a physical line that opened no entry of its own — a bare
+    // usage label, or (rarely) a stray continuation before any entry has
+    // started — so it can never coincide with a real entry index.
+    let line_entry_index = vec![if seed_is_bare { usize::MAX } else { 0usize }];
+    // Depth of a square-bracket group still open at the end of the seed
+    // line — `mksquashfs`'s own `[-e list of` never closes before its
+    // line ends, and the continuation `exclude dirs/files]` resumes it at
+    // column zero, a shape the content-shape fallback below cannot see
+    // from the continuation's own first character alone. See S-142,
+    // issue #143.
+    let bracket_group_depth = bracket_depth_delta(&seed_text).max(0);
+    SeedState {
+        base_indent,
+        usage_entries,
+        line_entry_index,
+        bracket_group_depth,
+        seed_is_bare,
+    }
+}
+
+/// Records one physical line already decided to belong to the usage
+/// block: starts a fresh entry, joins the open one, or — reachable only
+/// right after a bare usage label whose very next line fails the
+/// own-name/marker test (bpftrace's own wrapper scripts, `killsnoop.bt`
+/// and siblings, share one generic `USAGE:` block that never repeats the
+/// wrapper's own name) — opens the first entry from this line rather than
+/// dropping it, since the bare label already contributed no text of its
+/// own (S-150) and losing this line outright would violate AGENTS.md
+/// §3.9. Split out of [`scan_usage_section`] to keep that function under
+/// the size ceiling.
+fn record_usage_line(
+    l: &str,
+    starts_new_entry: bool,
+    usage_lines: &mut Vec<String>,
+    usage_entries: &mut Vec<String>,
+    line_entry_index: &mut Vec<usize>,
+) {
+    let trimmed = l.trim().to_string();
+    usage_lines.push(trimmed.clone());
+    if starts_new_entry {
+        // A form keeps the indentation its author gave it (spec §4.1): ip
+        // lines its second form up under the first. Only the display form
+        // carries it; `usage_lines` stays trimmed since it reads tokens,
+        // never columns.
+        usage_entries.push(l.trim_end().to_string());
+    } else if let Some(last) = usage_entries.last_mut() {
+        // The backslash is the join, the same way a single space is
+        // elsewhere: without dropping it, the displayed synopsis reads
+        // `--type <type> \ --id <id>`, a continuation marker stranded
+        // mid-line.
+        if last.ends_with('\\') {
+            last.pop();
+            let trimmed_tail = last.trim_end().len();
+            last.truncate(trimmed_tail);
+        }
+        last.push(' ');
+        last.push_str(&trimmed);
+    } else {
+        usage_entries.push(trimmed);
+    }
+    line_entry_index.push(usage_entries.len() - 1);
+}
+
 fn scan_usage_section(
     lines: &[&str],
     start: usize,
@@ -325,14 +435,13 @@ fn scan_usage_section(
     usage_lines: &mut Vec<String>,
 ) -> UsageScan {
     let mut i = start;
-    let base_indent = leading_whitespace(lines[i]);
-    usage_lines.push(lines[i].trim().to_string());
-    let mut usage_entries = vec![lines[i].trim().to_string()];
-    // Parallel to `usage_lines`: which `usage_entries` index each
-    // physical line was folded into — a wrapped entry (sg_sanitize's
-    // five-line synopsis) spans several lines but is one entry, and
-    // [`primary_synopsis_lines`] needs every one of them.
-    let mut line_entry_index = vec![0usize];
+    let SeedState {
+        base_indent,
+        mut usage_entries,
+        mut line_entry_index,
+        mut bracket_group_depth,
+        seed_is_bare,
+    } = seed_usage_scan(lines, start, tool_name, usage_lines);
     // Running depth of an open parenthesized alternation group (LVM's
     // "any one is required" convention), tracked only for an
     // unlabelled synopsis: a member row routinely opens with `-`
@@ -352,6 +461,16 @@ fn scan_usage_section(
     // evidence of its own. See `is_bare_or_form_separator`.
     let mut force_new_entry_after_separator = false;
     i += 1;
+    if seed_is_bare {
+        // A bare label may sit on its own physical line with its forms a
+        // blank line further down (`perlthanks`'s `Advanced usage:`, a
+        // blank line, then its two forms) — skip past the gap rather than
+        // ending the block on it, since a bare label already contributed
+        // no content to lose. See S-151, corpus/perlthanks.
+        while i < lines.len() && lines[i].trim().is_empty() {
+            i += 1;
+        }
+    }
     while i < lines.len() {
         let l = lines[i];
         if l.trim().is_empty() {
@@ -552,33 +671,29 @@ fn scan_usage_section(
             // Below the base indent (never above it: `leading_whitespace`
             // is unsigned, so this also covers "equal to"), indentation
             // alone can't distinguish a genuine continuation (lsof) from
-            // the block having ended (du) — fall back to content shape.
-            if leading_whitespace(l) <= base_indent && !looks_like_usage_fragment(trimmed_start) {
+            // the block having ended (du) — fall back to content shape,
+            // unless a square-bracket group opened on an earlier line is
+            // still carried into this one at column zero. See S-142,
+            // issue #143.
+            if leading_whitespace(l) <= base_indent
+                && !looks_like_usage_fragment(trimmed_start)
+                && bracket_group_depth <= 0
+            {
                 break;
             }
         }
-        let trimmed = l.trim().to_string();
-        usage_lines.push(trimmed.clone());
-        if starts_new_entry {
-            // A form keeps the indentation its author gave it (spec
-            // §4.1): ip lines its second form up under the first. Only
-            // the display form carries it; `usage_lines` stays trimmed
-            // since it reads tokens, never columns.
-            usage_entries.push(l.trim_end().to_string());
-        } else if let Some(last) = usage_entries.last_mut() {
-            // The backslash is the join, the same way a single space
-            // is elsewhere: without dropping it, the displayed
-            // synopsis reads `--type <type> \ --id <id>`, a
-            // continuation marker stranded mid-line.
-            if last.ends_with('\\') {
-                last.pop();
-                let trimmed_tail = last.trim_end().len();
-                last.truncate(trimmed_tail);
-            }
-            last.push(' ');
-            last.push_str(&trimmed);
-        }
-        line_entry_index.push(usage_entries.len() - 1);
+        bracket_group_depth = if starts_new_entry {
+            bracket_depth_delta(trimmed_start).max(0)
+        } else {
+            (bracket_group_depth + bracket_depth_delta(trimmed_start)).max(0)
+        };
+        record_usage_line(
+            l,
+            starts_new_entry,
+            usage_lines,
+            &mut usage_entries,
+            &mut line_entry_index,
+        );
         i += 1;
     }
     // Scoped to a labelled block, never an unlabelled synopsis
@@ -1602,6 +1717,8 @@ fn parse_body(
         let t = l.trim_start();
         starts_with_usage_prefix(t)
             || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+            || starts_with_extended_usage_label(t)
+            || tool_name.is_some_and(|name| label_glued_to_tool_name(t, name).is_some())
     });
     let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
         tool_name.and_then(|name| {

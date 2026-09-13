@@ -102,6 +102,11 @@ pub(crate) mod lowdown_bullet_option_row;
 // parser change ships for it.
 pub(crate) mod option_table_multiword_value_name;
 
+// Round-10 family detectors (atlas S-150, S-151), same direct-`Detector`-
+// impl shape as the round-8/round-9 modules above.
+pub(crate) mod bare_usage_label_form;
+pub(crate) mod usage_foreign_program_word;
+pub(crate) mod usage_form_trailing_description;
 // Round-10 family detectors (atlas S-155 and S-156).
 pub(crate) mod alternation_value_is_choices;
 pub(crate) mod description_tail_enumerates_choices;
@@ -758,6 +763,9 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
+        Box::new(bare_usage_label_form::BareUsageLabelForm),
+        Box::new(usage_foreign_program_word::UsageForeignProgramWord),
+        Box::new(usage_form_trailing_description::UsageFormTrailingDescription),
         Box::new(alternation_value_is_choices::AlternationValueIsChoices),
         Box::new(description_tail_enumerates_choices::DescriptionTailEnumeratesChoices),
         Box::new(spaced_bare_word_table_value::SpacedBareWordTableValue),

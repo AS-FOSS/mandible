@@ -1,0 +1,16 @@
+name: apt-sortpkgs
+description: apt 2.8.3 (arm64)
+usage:
+- 'Usage: apt-sortpkgs [options] file1 [file2 ...]'
+positionals:
+- name: file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

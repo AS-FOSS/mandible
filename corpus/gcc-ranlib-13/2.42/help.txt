@@ -1,0 +1,12 @@
+Usage: /usr/bin/ranlib [options] archive
+ Generate an index to speed access to archives
+ The options are:
+  @<file>                      Read options from <file>
+  --plugin <name>              Load the specified plugin
+  -D                           Use zero for symbol map timestamp (default)
+  -U                           Use an actual symbol map timestamp
+  -t                           Update the archive's symbol map timestamp
+  -h --help                    Print this help message
+  -v --version                 Print version information
+/usr/bin/ranlib: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin
+Report bugs to <https://sourceware.org/bugzilla/>

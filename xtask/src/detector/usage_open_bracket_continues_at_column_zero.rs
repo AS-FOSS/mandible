@@ -1,13 +1,9 @@
-//! `usage-open-bracket-continues-at-column-zero` (atlas S-142,
-//! measurement half): the document's opening physical line ends with a
-//! square-bracket group still open, and the very next physical line
-//! continues it at column zero rather than being indented under it
-//! (`mksquashfs`'s `SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM
-//! [OPTIONS] [-e list of` / `exclude dirs/files]`). Distinct from
-//! [`crate::detector::usage_label_glued_to_program_name`]: that shape is
-//! about the label, this one is about where the bracket group closes.
-//! Fixture: `corpus/mksquashfs/4.6.1` (xfail). No seed-labelled tool
-//! carries this shape, so [`Detector::family`] returns `None`.
+//! `usage-open-bracket-continues-at-column-zero` (atlas S-142): the opening
+//! line ends with a square-bracket group still open and the next line
+//! continues it at column zero (`mksquashfs`'s `[-e list of` / `exclude
+//! dirs/files]`). Reads the tree too, so a repaired tool stops counting.
+//!
+//! Fixtures: `corpus/mksquashfs/4.6.1`, `corpus/sqfstar/4.6.1`. Issue #143.
 
 use crate::detector::{Detector, Expect, SelfCheck, ToolEvidence};
 use mandible_core::CommandNode;
@@ -54,7 +50,16 @@ fn looks_like_flag_row(line: &str) -> bool {
     line.trim_start().starts_with('-')
 }
 
-pub fn detect(raw: &str) -> Report {
+/// True when some `root.usage` entry already contains the continuation's
+/// own trimmed text: the fixed parser's own signature, the bracket group
+/// joined onto the line that opened it. A raw finding backed by a tree
+/// that already shows this is stale. See S-142, issue #143.
+fn tree_already_joins(root: &CommandNode, continuation: &str) -> bool {
+    let want = continuation.trim();
+    !want.is_empty() && root.usage.iter().any(|u| u.as_str().contains(want))
+}
+
+pub fn detect(raw: &str, root: &CommandNode) -> Report {
     let lines: Vec<&str> = raw.lines().collect();
     let Some(first_idx) = lines.iter().position(|l| !l.trim().is_empty()) else {
         return Report {
@@ -88,6 +93,11 @@ pub fn detect(raw: &str) -> Report {
             findings: Vec::new(),
         };
     }
+    if tree_already_joins(root, next) {
+        return Report {
+            findings: Vec::new(),
+        };
+    }
     Report {
         findings: vec![Finding {
             first_line: first.to_string(),
@@ -113,7 +123,7 @@ impl Detector for UsageOpenBracketContinuesAtColumnZero {
     }
 
     fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
-        detect(evidence.raw)
+        detect(evidence.raw, evidence.root)
             .findings
             .into_iter()
             .map(|f| {
@@ -134,13 +144,19 @@ impl Detector for UsageOpenBracketContinuesAtColumnZero {
 // Self-checks
 // ----------------------------------------------------------------------
 
-use mandible_core::{Provenance, Source};
+use mandible_core::{Provenance, Source, Text};
 
 pub(crate) const MKSQUASHFS_TWO_LINE_SYNTAX: &str =
     "SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of\nexclude dirs/files]\n";
 
 fn node_named(name: &str) -> CommandNode {
     CommandNode::new(name, Provenance::single(Source::HelpText))
+}
+
+fn node_with_usage(name: &str, usage: &str) -> CommandNode {
+    let mut root = node_named(name);
+    root.usage = vec![Text::sanitize(usage)];
+    root
 }
 
 pub(crate) fn self_checks() -> Vec<SelfCheck> {
@@ -197,6 +213,18 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
             expect: Expect::Silent,
             raw: "Usage: prog [-a\n-b  do a thing\n".to_string(),
             root: node_named("prog"),
+        },
+        SelfCheck {
+            name: "the fixed tree, bracket already joined",
+            why: "the repaired parser's own signature: `root.usage` already contains the \
+                  continuation's own words joined onto the first line, and a raw finding \
+                  against a tree that already shows this must not count",
+            expect: Expect::Silent,
+            raw: MKSQUASHFS_TWO_LINE_SYNTAX.to_string(),
+            root: node_with_usage(
+                "mksquashfs",
+                "mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of exclude dirs/files]",
+            ),
         },
     ]
 }
