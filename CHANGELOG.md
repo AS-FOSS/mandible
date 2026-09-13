@@ -21,6 +21,9 @@ once it reaches a published 0.1.0 release.
 - `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.
 - `xtask detector calibrate` now prints `NOT EVALUABLE` instead of `DOES NOT PASS` for a detector whose family has zero labelled members in the audit seed, so a legitimate gap in the sample is no longer reported as a failing detector.
 - [S-149] A bare-word block opening on a centered ALL-CAPS group label no longer ends before reading a single real row beneath it (`mandible fail2ban-client`).
+- [S-173] A description's own `* NAME - VALUE` bullet list no longer splits at its inline dash into two lines per bullet (`mandible rustc`'s `--emit`).
+- [S-174] A value spec with one bracket nested inside another keeps its outer group now even when more of it follows the inner pair's close, generalizing S-119 (`mandible fzf`'s `--listen`, `cpio`, `journalctl`, `lsusb`, `node`/`nodejs`, `rustc`'s `-l`).
+- [S-133] `icupkg`'s `-tl or --type l`/`-tb or --type b`/`-te or --type e` rows fold into one `-t`/`--type` flag with `choices`, each keeping its own description (`mandible icupkg`).
 - [S-103, S-104] A command table's short-alias-comma rows (`i, install`) and the descriptions wrapping off their neighbors no longer drop the whole table or invent commands from wrapped text (`mandible pnpm`).
 - [S-117] A single-dash long option with an uppercase flag letter and a spaced value keeps its full name and value now, instead of truncating to its first letter with the value swallowed (`mandible g++`'s `-Xassembler`, `-Xpreprocessor`, `-Xlinker`).
 - [S-130] A docopt bracket row's own trailing choice list no longer repeats as the flag's value name too, so `mandible pvdisplay`'s `--configreport` and `--driverloaded` show their choices once instead of twice.

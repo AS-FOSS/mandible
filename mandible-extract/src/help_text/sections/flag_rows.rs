@@ -651,7 +651,7 @@ pub(super) fn choice_description_sub_row(trimmed: &str) -> Option<(&str, &str)> 
 /// A bare identifier: letters/digits, `_`/`-`, first character
 /// alphanumeric — the shape a choice value is written in (`r`, `pvseg`,
 /// `shell-escape`), never punctuation alone. See docs/shapes.md S-120.
-fn is_choice_token(token: &str) -> bool {
+pub(super) fn is_choice_token(token: &str) -> bool {
     let mut chars = token.chars();
     chars.next().is_some_and(|c| {
         c.is_ascii_alphanumeric()

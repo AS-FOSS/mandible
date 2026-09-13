@@ -773,6 +773,43 @@ fn nested_bracket_content(s: &str) -> Option<&str> {
     s[content_len..].starts_with(']').then(|| &s[..content_len])
 }
 
+/// [S-174] Generalizes [`nested_bracket_content`] (S-119) to the same
+/// one-nested-pair shape when the outer group carries more text *after*
+/// the inner pair closes, before its own close (`fzf`'s
+/// `--listen[=[ADDR:]PORT]`, rustc's `-l
+/// [<KIND>[:<MODIFIERS>]=]<NAME>...`'s own `[<KIND>[:<MODIFIERS>]=]`).
+/// Depth-tracked rather than anchored to the inner close, but still
+/// refuses a second nested pair or a second level of nesting — the exact
+/// exclusions S-119 already documents (`fzf-tmux`'s
+/// `[WIDTH[%][,HEIGHT[%]]]`). Returns the content up to (not including)
+/// the matching outer `]`.
+fn nested_bracket_content_general(s: &str) -> Option<&str> {
+    let mut depth = 1i32;
+    let mut inner_pairs = 0usize;
+    for (i, c) in s.char_indices() {
+        match c {
+            '[' => {
+                depth += 1;
+                if depth > 2 {
+                    return None;
+                }
+                inner_pairs += 1;
+                if inner_pairs > 1 {
+                    return None;
+                }
+            }
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return (inner_pairs == 1).then(|| &s[..i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 /// A value spec following the flag token(s): `=VALUE`, ` VALUE`,
 /// `[=VALUE]`, `[VALUE]`, `<value>`, or a bare uppercase-ish word. Returns
 /// `(value_name, kind, rest)`.
@@ -811,6 +848,15 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             let after_outer = after_inner
                 .strip_prefix(']')
                 .expect("nested_bracket_content only returns a prefix a `]` follows");
+            return Some((format!("[{content}]"), ValueKind::Optional, after_outer));
+        }
+        // [S-174] The same one-nested-pair shape, but with more of the
+        // outer group after the inner pair closes (`--listen[=[ADDR:]PORT]`).
+        if let Some(content) = nested_bracket_content_general(s) {
+            let after_inner = &s[content.len()..];
+            let after_outer = after_inner
+                .strip_prefix(']')
+                .expect("nested_bracket_content_general only returns a prefix a `]` follows");
             return Some((format!("[{content}]"), ValueKind::Optional, after_outer));
         }
         let name = value_inside_brackets(&mut s).ok()?;
@@ -1498,6 +1544,39 @@ mod tests {
             assert_eq!(spec.value_kind, ValueKind::Optional, "{row}");
             assert!(spec.fully_consumed, "{row}");
         }
+    }
+
+    /// `fzf`'s own `--listen[=[ADDR:]PORT]` row, byte-exact
+    /// (`audit/queue-captures/fzf/0.stdout`). The nested pair (`[ADDR:]`)
+    /// closes with more of the outer group (`PORT`) still to come before
+    /// the outer close — S-119's own matcher stops at the inner close and
+    /// drops the rest; S-174 generalizes it by depth instead. See
+    /// docs/shapes.md S-174.
+    #[test]
+    fn a_nested_bracket_value_with_trailing_text_keeps_the_whole_spec() {
+        let spec = parse_flag_spec("--listen[=[ADDR:]PORT]");
+        assert_eq!(spec.long(), Some("listen"));
+        // The leading `=` is stripped the same way a plain `[=VALUE]`
+        // spec already strips it (`parses_optional_bracketed_value`
+        // above) — this rule only extends how far the bracket matcher
+        // reads, not that convention.
+        assert_eq!(spec.value_name.as_deref(), Some("[[ADDR:]PORT]"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+        assert!(spec.fully_consumed);
+    }
+
+    /// `rustc`'s own `-l [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]` row
+    /// (`audit/queue-captures/rustc/0.stdout`): the same S-174 shape, one
+    /// space before the bracket rather than glued. The outer group
+    /// (`[<KIND>[:<MODIFIERS>]=]`) survives whole; the trailing
+    /// `<NAME>[:<RENAME>]` is a second, later spec fragment and out of
+    /// this rule's scope.
+    #[test]
+    fn a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group() {
+        let spec = parse_flag_spec("-l [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]");
+        assert_eq!(spec.short(), Some('l'));
+        assert_eq!(spec.value_name.as_deref(), Some("[<KIND>[:<MODIFIERS>]=]"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
     }
 
     /// `xxd`'s own `-s [+][-]seek` row, byte-exact. Neither bracket names

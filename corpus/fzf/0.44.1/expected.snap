@@ -506,7 +506,7 @@ flags:
     - help-text
 - spellings:
   - --listen
-  value_name: '[ADDR:'
+  value_name: '[[ADDR:]PORT]'
   value_kind: Optional
   group: Scripting
   description: Start HTTP server to receive actions (POST /) (To allow remote process execution, use --listen-unsafe)
