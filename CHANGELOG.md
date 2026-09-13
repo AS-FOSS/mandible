@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-14
+
 ### Changed
 
 - `cargo xtask audit contribute` now draws tool names off `PATH` before probing anything, then probes only the drawn sample, instead of freezing and classifying the whole `PATH` first; the submitted verdict file now records the machine and containment posture it was captured under (#102).
