@@ -1,0 +1,18 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "perlthanks"
+version = "1.43"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); perl 5.38.2, perlbug 1.43"
+
+[[capture]]
+argv = ["perlthanks", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_usage_forms_min = 2
+must_not_contain_usage_text = ["Advanced usage:"]
+must_contain_flags = ["-v", "-p", "-s"]

@@ -1,0 +1,66 @@
+# dmsetup's `Usage:` block is two shapes at once (docs/shapes.md S-169,
+# S-170): a bare `Usage:` label, a blank line, then the program's own
+# name alone on its line with its global flags on continuation lines
+# (`[--version] [-h|--help [-c|-C|--columns]]`, ...), a blank line, then
+# a tab-indented table of one line per command — `help`, `create`,
+# `remove`, ... — each with its own flags/operands, never repeating
+# `dmsetup`'s own name.
+#
+# Before the fix, `scan_usage_section` ended the usage block at the first
+# blank line after the bare `Usage:` label, so the root's own flags and
+# the whole command table fell through to the generic body scanner,
+# which read the tab-indented command lines as fabricated group labels
+# (`Create <dev_name>`) — S-169. Every command word here is now
+# recovered as its own `invocation_attested` (never `heading_attested`)
+# subcommand, carrying its own flags/operands, with only the root's own
+# global-flags block kept as `root.usage`.
+#
+# `[-h|--help [-c|-C|--columns]]` and `[-v|--verbose [-v|--verbose
+# ...]]` also fed the parser's ordinary `try_value` grammar a bracket
+# group whose entire content is itself option spellings (S-170) — before
+# the fix, `--help`/`--verbose` carried an invented value
+# (`-c|-C|--columns`, `-v|--verbose ...`). Neither carries a value now.
+#
+# Residual, pre-existing and out of scope for S-169/S-170: `create`'s own
+# row glues two flag-alternations with a bare space and no separating
+# pipe or bracket (`-j|--major <major> -m|--minor <minor>`) — a shape
+# `extract_usage_flags` has never handled at the usage-line level. `-j`/
+# `--major` recovers correctly; `-m`/`--minor` does not yet. This was
+# already true of the shared engine before this round; recovering
+# `create` as a real subcommand at all is what newly exposes it here.
+# Not asserted below.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dmsetup"
+version = "1.02.185"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.7.0"
+
+[[capture]]
+argv = ["dmsetup", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 30
+must_contain_flags = ["--version", "--force", "--readonly"]
+verdict_scope = ["flags", "subcommands"]
+
+# S-170: neither carries the nested bracket group of flag spellings as
+# an invented value.
+[contract.must_not_value_name]
+"--help" = "-c"
+"--verbose" = "-v"
+
+[contract.must_contain_flags_by_path]
+create = ["--major", "--uuid"]
+remove = ["--deferred", "--force", "--retry"]
+
+# An ordinary root flag keeps its real value, unaffected by the S-170 fix.
+[contract.must_value_name]
+"--separator" = "separator"

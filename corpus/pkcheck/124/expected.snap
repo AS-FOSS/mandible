@@ -1,0 +1,93 @@
+name: pkcheck
+usage:
+- '  pkcheck [OPTION...]'
+flags:
+- spellings:
+  - -h
+  - --help
+  group: 'Help Options:'
+  description: Show help options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --action-id
+  value_name: ACTION
+  value_kind: Required
+  group: 'Application Options:'
+  description: Check authorization to perform ACTION
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --allow-user-interaction
+  group: 'Application Options:'
+  description: Interact with the user if necessary
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --details
+  value_name: KEY
+  value_kind: Required
+  group: 'Application Options:'
+  description: Add (KEY, VALUE) to information about the action
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-internal-agent
+  group: 'Application Options:'
+  description: Use an internal authentication agent if necessary
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --list-temp
+  group: 'Application Options:'
+  description: List temporary authorizations for current session
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --process
+  value_name: PID[,START_TIME,UID]
+  value_kind: Required
+  group: 'Application Options:'
+  description: Check authorization of specified process
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --revoke-temp
+  group: 'Application Options:'
+  description: Revoke all temporary authorizations for current session
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --system-bus-name
+  value_name: BUS_NAME
+  value_kind: Required
+  group: 'Application Options:'
+  description: Check authorization of owner of BUS_NAME
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Application Options:'
+  description: Show version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

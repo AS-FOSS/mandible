@@ -1,0 +1,22 @@
+# docs/shapes.md S-153: a flag paired with an ALL-CAPS value (`-f FORMAT`,
+# `-y SYSROOT`) ahead of the tail used to refuse the whole usage line, so
+# `font-file...` never reached POSITIONALS at all.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fc-scan"
+version = "2.15.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); fontconfig 2.15.0"
+
+[[capture]]
+argv = ["fc-scan", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "usage"]
+expected_framework = "generic"
+must_contain_positionals = ["font-file..."]
+must_contain_flags = ["-f", "-y", "--brief"]

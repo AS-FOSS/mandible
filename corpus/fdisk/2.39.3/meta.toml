@@ -1,0 +1,18 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fdisk"
+version = "2.39.3"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); util-linux 2.39.3"
+
+[[capture]]
+argv = ["fdisk", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_usage_forms_min = 2
+must_not_contain_usage_text = ["Usage:"]
+must_contain_positionals = ["disk"]

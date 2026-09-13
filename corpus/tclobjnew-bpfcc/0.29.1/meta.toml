@@ -1,0 +1,29 @@
+# [S-155] `-l {c,java,ruby,tcl}, --language {c,java,ruby,tcl}` is
+# argparse's own `{...}` metavar, printed only when `choices=` is set on
+# the argument. It rendered as an opaque placeholder holding the whole
+# list; the fix reads it as `--language`'s own `choices` instead, gated on
+# the argparse profile so no other framework's brace text is read this
+# way. See docs/shapes.md S-155.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "tclobjnew-bpfcc"
+version = "0.29.1"                   # bpfcc-tools 0.29.1+ds-1ubuntu7
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); bpfcc-tools 0.29.1+ds-1ubuntu7"
+
+[[capture]]
+argv = ["tclobjnew-bpfcc", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "argparse"
+min_status = "ok"
+
+[contract.must_attach_choices]
+"--language" = ["c", "java", "ruby", "tcl"]
+
+[contract.must_not_value_name]
+"--language" = "{c,java,ruby,tcl}"

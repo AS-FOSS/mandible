@@ -21,6 +21,7 @@
 //! tests). Spec: §13.1, §13.1b.
 
 use mandible_core::{is_command_name_shaped, CommandNode, Entity, Provenance, Source};
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 /// Whether `flag_char` may not immediately follow (or precede) a candidate
@@ -164,9 +165,12 @@ fn list_row_words(raw: &str) -> HashSet<&str> {
 /// following the tool's own name at the start of a line
 /// ([`tool_name_prefixed_row_words`]). A subcommand name occurring at none
 /// of these is what this module calls fabricated.
-fn attested_name_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
-    let mut set = line_start_words(raw);
-    set.extend(list_row_words(raw));
+fn attested_name_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<Cow<'a, str>> {
+    let mut set: HashSet<Cow<str>> = line_start_words(raw)
+        .into_iter()
+        .map(Cow::Borrowed)
+        .collect();
+    set.extend(list_row_words(raw).into_iter().map(Cow::Borrowed));
     set.extend(tool_name_prefixed_row_words(raw, root_name));
     set
 }
@@ -185,24 +189,54 @@ fn attested_name_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str
 /// Widening-only: can only reduce reports, never hide a real fabrication.
 ///
 /// Fixture: `corpus/btrfs/*/help.txt`. Spec §7 Tier B.
-fn tool_name_prefixed_row_words<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
+///
+/// Also admits the S-167 reconstruction (docs/design.md §7 Tier B rule 7,
+/// §16): a token this position holds may additionally attest the name
+/// [`mandible_extract::help_text::reconstruct_abbrev_word`] recovers from
+/// it (`g[dbserver]` attests `gdbserver`), on top of whatever
+/// [`mandible_extract::help_text::strip_optional_modifier_suffix`] already
+/// attests for S-020's unrelated shape. Additive only, and only at this
+/// same real command-list position — it can only widen what a position
+/// already attested, never invent a new position.
+///
+/// The row's own name may also be spelled differently than `root_name`
+/// (a resolved full path, `/usr/bin/lldb-server`) — the real shape S-167's
+/// own recognizer already tolerates
+/// ([`mandible_extract::help_text::starts_with_tool_name_spelled_differently`]),
+/// so the oracle must recognize the same row it is checking.
+fn tool_name_prefixed_row_words<'a>(raw: &'a str, root_name: &str) -> HashSet<Cow<'a, str>> {
+    use mandible_extract::help_text::{
+        starts_with_tool_name, starts_with_tool_name_spelled_differently,
+    };
+
     let mut out = HashSet::new();
     if root_name.is_empty() {
         return out;
     }
     for line in raw.lines() {
         let trimmed = line.trim_start();
-        let Some(rest) = trimmed.strip_prefix(root_name) else {
+        let Some(first_token) = trimmed.split_whitespace().next() else {
             continue;
         };
-        if !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        let is_own_name = starts_with_tool_name(trimmed, root_name)
+            || starts_with_tool_name_spelled_differently(trimmed, root_name);
+        if !is_own_name {
             continue;
         }
+        // Sliced from `trimmed` itself (not rebuilt), so `rest` stays
+        // borrowed at `'a` regardless of which spelling the row's own
+        // first token used.
+        let rest = &trimmed[first_token.len()..];
         for token in rest.split_whitespace().take(2) {
-            let bare = token.trim_end_matches([':', ',', ';']);
-            let bare = mandible_extract::help_text::strip_optional_modifier_suffix(bare);
+            let punct_trimmed = token.trim_end_matches([':', ',', ';']);
+            if let Some(reconstructed) =
+                mandible_extract::help_text::reconstruct_abbrev_word(punct_trimmed)
+            {
+                out.insert(Cow::Owned(reconstructed));
+            }
+            let bare = mandible_extract::help_text::strip_optional_modifier_suffix(punct_trimmed);
             if is_command_name_shaped(bare) {
-                out.insert(bare);
+                out.insert(Cow::Borrowed(bare));
             } else {
                 break;
             }
@@ -694,7 +728,7 @@ fn walk(
     node: &CommandNode,
     path: &str,
     raw: &str,
-    attested: &HashSet<&str>,
+    attested: &HashSet<Cow<str>>,
     operands: &HashSet<&str>,
     out: &mut Vec<Fabrication>,
 ) {
@@ -1251,6 +1285,79 @@ mod tests {
         assert!(
             !words.contains("chunks"),
             "a description word must never be attested by this rule"
+        );
+    }
+
+    // --- S-167 reconstruction (docs/design.md §7 Tier B rule 7, §16) ---
+
+    const LLDB_SERVER_USAGE_TEXT: &str = "Usage:\n  lldb-server v[ersion]\n  lldb-server g[dbserver] [options]\n  lldb-server p[latform] [options]\nInvoke subcommand for additional help\n";
+
+    /// The regression this whole amendment exists for: `gdbserver` never
+    /// occurs as a contiguous substring of `lldb-server`'s own raw text
+    /// (only `g[dbserver]` does), yet it is the emitted node's real name,
+    /// not an invention. The reconstruction must attest it.
+    #[test]
+    fn tool_name_prefixed_row_words_attests_the_bracket_deleted_reconstruction() {
+        let words = tool_name_prefixed_row_words(LLDB_SERVER_USAGE_TEXT, "lldb-server");
+        assert!(words.contains("gdbserver"));
+        assert!(words.contains("version"));
+        assert!(words.contains("platform"));
+    }
+
+    /// The real captured shape: `lldb-server --help` spells its own rows
+    /// with the resolved full path (`/usr/bin/lldb-server`), never the
+    /// bare name, so the position check must tolerate that spelling too
+    /// or the reconstruction above never even runs against a real probe.
+    #[test]
+    fn tool_name_prefixed_row_words_attests_the_reconstruction_under_a_full_path_spelling() {
+        let raw = "Usage:\n  /usr/bin/lldb-server v[ersion]\n  /usr/bin/lldb-server g[dbserver] [options]\n  /usr/bin/lldb-server p[latform] [options]\nInvoke subcommand for additional help\n";
+        let words = tool_name_prefixed_row_words(raw, "lldb-server");
+        assert!(words.contains("gdbserver"), "{words:?}");
+        assert!(words.contains("version"), "{words:?}");
+        assert!(words.contains("platform"), "{words:?}");
+    }
+
+    /// End-to-end: a tree shaped exactly as the S-167 recognizer builds it
+    /// (full-word names, no fabricated brackets) reports zero fabrications
+    /// against lldb-server's own real bytes.
+    #[test]
+    fn detect_does_not_flag_lldb_servers_real_abbreviated_subcommands() {
+        let mut root = help_text_node("lldb-server");
+        root.subcommands.push(help_text_node("version"));
+        root.subcommands.push(help_text_node("gdbserver"));
+        root.subcommands.push(help_text_node("platform"));
+        let report = detect(LLDB_SERVER_USAGE_TEXT, &root);
+        assert_eq!(
+            report.fabrication_count(),
+            0,
+            "a real S-167 subcommand must not be reported as invented: {:?}",
+            report
+                .fabrications
+                .iter()
+                .map(|f| &f.name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    /// Break-it check (AGENTS.md §3.4): a name that is NOT a bracket-
+    /// deletion of any token in the raw text must still be caught, proving
+    /// the reconstruction widens existence by exactly one narrow shape and
+    /// does not blunt the oracle generally.
+    #[test]
+    fn detect_still_flags_a_name_that_is_not_a_bracket_deletion_of_anything() {
+        let mut root = help_text_node("lldb-server");
+        root.subcommands.push(help_text_node("gdbserver"));
+        root.subcommands.push(help_text_node("totallyfabricated"));
+        let report = detect(LLDB_SERVER_USAGE_TEXT, &root);
+        let names: Vec<&str> = report
+            .fabrications
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["totallyfabricated"],
+            "the genuine invention must still be flagged, and the real one must not be: {names:?}"
         );
     }
 

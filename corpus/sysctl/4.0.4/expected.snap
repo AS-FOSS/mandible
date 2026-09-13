@@ -1,6 +1,5 @@
 name: sysctl
 usage:
-- 'Usage:'
 - ' sysctl [options] [variable[=value] ...]'
 flags:
 - spellings:

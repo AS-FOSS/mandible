@@ -301,7 +301,16 @@ pub(super) fn repair_single_dash_long_options(
         let uniformly_lowercase = token_is_uniformly_lowercase(&name_token);
         let spaced_value = (table_row || !uniformly_lowercase)
             .then(|| spaced_value_placeholder(raw, &name_token))
-            .flatten();
+            .flatten()
+            // A table row's own bare-word placeholder (S-157, `-audit int`,
+            // `-Xstrategy strategy1,...,strategyN`): only inside a table,
+            // where no `--long` row exists to make a bare word ambiguous
+            // with the GCC/Clang glued-value convention's own description.
+            .or_else(|| {
+                table_row
+                    .then(|| spaced_bare_word_value(&lines, &name_token))
+                    .flatten()
+            });
         if !table_row && !uniformly_lowercase && spaced_value.is_none() {
             continue;
         }
@@ -334,6 +343,136 @@ pub(super) fn repair_single_dash_long_options(
             },
         }
     }
+}
+
+/// A table-sourced single-dash-long flag S-145 declines (too few
+/// unambiguous rows to qualify — every long alias here is comma-glued to
+/// its short letter, `fuser`'s own `-a,--all`) is admitted on a third,
+/// independent evidence source: the tool's own usage line, a document
+/// location distinct from the table row itself, spells the exact
+/// reconstructed name as one stand-alone bracketed token (`[-SIGNAL]`) —
+/// direct proof, never a change to S-145. Never applied to a flag the
+/// usage line itself produced (that would be self-attestation, no new
+/// evidence at all — see `parse_bundled_shorts`'s own `-adhilswfr`).
+/// Refused when the case changes at the split point (`memhog`'s
+/// `[-rNUM]`): a glued value spec, never a longer name. Atlas S-172,
+/// which carries the discriminator. Fixtures: `corpus/fuser/*`.
+pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage_lines: &[String]) {
+    for flag in flags.iter_mut() {
+        if !flag.provenance.sources.contains(&Source::HelpText)
+            || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
+        {
+            continue;
+        }
+        let Some(short) = flag.short() else { continue };
+        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
+            continue;
+        }
+        let Some(tail) = flag.value_name.as_deref() else {
+            continue;
+        };
+        if !is_option_name_tail(tail) || tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+            continue;
+        }
+        // A lowercase flag letter running straight into an uppercase
+        // tail is a glued value spec, not a longer name (`memhog`'s
+        // `-rNUM`); see this function's own doc comment.
+        if short.is_ascii_lowercase() && tail.starts_with(|c: char| c.is_ascii_uppercase()) {
+            continue;
+        }
+        let name = format!("{short}{tail}");
+        let needle = format!("-{name}");
+        let attested = usage_lines
+            .iter()
+            .any(|line| usage_line_has_standalone_token(line, &needle));
+        if !attested {
+            continue;
+        }
+        flag.spellings = vec![Spelling::single_dash(&name)];
+        flag.value_name = None;
+        flag.value_kind = ValueKind::None;
+    }
+}
+
+/// A dash-prefixed usage-line word that normally reads as the generic
+/// "any option" placeholder, or a swallowed-value split (`lshw`'s
+/// `-format`), is the tool's own literal flag when the document also
+/// carries a line reading exactly `<word> can be` — `lshw`'s own `format
+/// can be`/`options can be` (atlas S-172). Repairs the matching broken
+/// entry if one exists, else adds a plain, valueless spelling; the block
+/// underneath stays its own flags either way, never folded into `choices`
+/// here. See `docs/shapes.md` S-172.
+pub(super) fn recover_can_be_placeholder_flags(
+    usage_lines: &[String],
+    lines: &[&str],
+    flags: &mut Vec<Entity>,
+) {
+    for line in lines {
+        let trimmed = line.trim();
+        let Some(word) = trimmed.strip_suffix("can be").map(str::trim) else {
+            continue;
+        };
+        if word.is_empty() || !word.chars().all(|c| c.is_ascii_alphanumeric()) {
+            continue;
+        }
+        let name = word.to_ascii_lowercase();
+        let dash_word = format!("-{name}");
+        let attested = usage_lines
+            .iter()
+            .any(|u| usage_line_has_standalone_token(u, &dash_word));
+        if !attested {
+            continue;
+        }
+        if flags.iter().any(|f| {
+            f.spellings
+                .iter()
+                .any(|s| s.dashes == Dashes::Single && s.name == name)
+        }) {
+            continue; // already a clean spelling; nothing to do
+        }
+        let broken = flags.iter_mut().find(|f| {
+            f.long().is_none()
+                && f.value_kind == ValueKind::Required
+                && f.short()
+                    .zip(f.value_name.as_deref())
+                    .is_some_and(|(short, tail)| format!("{short}{tail}") == name)
+        });
+        match broken {
+            Some(flag) => {
+                flag.spellings = vec![Spelling::single_dash(&name)];
+                flag.value_name = None;
+                flag.value_kind = ValueKind::None;
+            }
+            None => {
+                let mut flag = Entity::new(
+                    EntityKind::Flag,
+                    Provenance::single(Source::HelpTextSynopsis),
+                );
+                flag.spellings = vec![Spelling::single_dash(&name)];
+                flags.push(flag);
+            }
+        }
+    }
+}
+
+/// True when `needle` occurs in `line` bounded on both sides by a
+/// bracket, whitespace, or the line's own edge — never glued to another
+/// character, which would mean it is only part of a longer token. See
+/// [`recover_can_be_placeholder_flags`].
+fn usage_line_has_standalone_token(line: &str, needle: &str) -> bool {
+    let is_boundary = |c: char| c.is_whitespace() || c == '[' || c == ']';
+    let mut start = 0usize;
+    while let Some(rel) = line[start..].find(needle) {
+        let idx = start + rel;
+        let before_ok = line[..idx].chars().next_back().is_none_or(is_boundary);
+        let after_idx = idx + needle.len();
+        let after_ok = line[after_idx..].chars().next().is_none_or(is_boundary);
+        if before_ok && after_ok {
+            return true;
+        }
+        start = idx + 1;
+    }
+    false
 }
 
 /// Fewest table-shaped single-dash rows a document must carry before
@@ -419,6 +558,17 @@ fn row_is_table_shaped(lines: &[&str], idx: usize) -> bool {
     if after.contains('\t') || after.contains("  ") {
         return true;
     }
+    // A genuine placeholder (`<...>`/`[...]`) exactly one space after the
+    // name is unambiguous evidence of a real value column even with no
+    // visual gap at all: Xvfb's own headingless table (S-165) never pads
+    // its columns, so `-render [default|mono|gray|color]` never earns the
+    // tab/double-space evidence above on its own row. See docs/shapes.md
+    // S-145.
+    if let Some(stripped) = after.strip_prefix(' ') {
+        if !stripped.starts_with(' ') && (stripped.starts_with('<') || stripped.starts_with('[')) {
+            return true;
+        }
+    }
     let indent = leading_whitespace(line);
     lines
         .get(idx + 1)
@@ -490,6 +640,45 @@ fn placeholder_at(hay: &[char], start: usize) -> Option<(String, ValueKind)> {
         }
         _ => None,
     }
+}
+
+/// The bare-word value name a single-dash-long-table row (S-145) documents
+/// one space after `name_token`, no bracket or angle placeholder —
+/// `-audit int`. Only inside a table (S-145's own gate), since outside one
+/// a bare word is a description's first word (gcc's `-DMACRO` row).
+/// Scoped to `name_token`'s own row (never a later mention in another
+/// row's description — `dbiprof`'s `-match` inside `-case_sensitive`'s own
+/// text). Stops at the first whitespace, so a ragged three-column table
+/// (`qemu-arm64-static`) can't donate its next column, and a comma run
+/// (`strategy1,...,strategyN`) survives whole since it has no space in it.
+/// See docs/shapes.md S-157.
+fn spaced_bare_word_value(lines: &[&str], name_token: &str) -> Option<(String, ValueKind)> {
+    lines.iter().find_map(|line| {
+        let trimmed = line.trim_start();
+        let after = trimmed.strip_prefix(name_token)?;
+        if after.starts_with(is_word_char) {
+            return None;
+        }
+        let after = after.strip_prefix(' ')?;
+        if after.starts_with([' ', '\t', '<', '[']) {
+            return None;
+        }
+        let value = after.split_whitespace().next()?;
+        // A row separates its value from its description by a real column
+        // gap; prose that merely names a spelling does not. mksquashfs's
+        // `-one-file-system-x` describes itself as "-one-file-system
+        // option except ...", which donated the fabricated value `option`
+        // to `-one-file-system` itself before this check existed.
+        let rest = &after[value.len()..];
+        if !rest.is_empty() && !rest.starts_with(['\t']) && !rest.starts_with("  ") {
+            return None;
+        }
+        value
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric())
+            .then(|| (value.to_string(), ValueKind::Required))
+    })
 }
 
 /// Split a swallowed tail into the option-name half and the glued value
@@ -581,6 +770,97 @@ pub(super) fn recover_anchored_values(mut flags: Vec<Entity>, raw: &str) -> Vec<
             recover_run(&mut flags[run_start..run_end], raw);
         }
         run_start = run_end;
+    }
+    flags
+}
+
+/// A `+word` row (`parse_plus_sigil_spec`) reads a bare, unbracketed value
+/// correctly; its `-word` sibling goes through
+/// [`repair_single_dash_long_options`] instead, which only recovers a
+/// bracket/angle or `=`-glued value and drops a bare one. Borrows the
+/// already-correct value from the `+word` side rather than teaching the
+/// ordinary repair to guess at bare words. Never overwrites a `-word` row
+/// that already carries its own value. See docs/shapes.md S-163.
+pub(super) fn borrow_plus_word_value_for_dash_sibling(mut flags: Vec<Entity>) -> Vec<Entity> {
+    let borrowed: Vec<(String, String, ValueKind)> = flags
+        .iter()
+        .filter_map(|f| {
+            if f.spellings.len() != 1 || f.spellings[0].dashes != Dashes::None {
+                return None;
+            }
+            let name = &f.spellings[0].name;
+            let base = name.strip_prefix('+')?;
+            if base.is_empty() {
+                return None;
+            }
+            let value = f.value_name.as_ref()?;
+            Some((base.to_string(), value.clone(), f.value_kind))
+        })
+        .collect();
+    for (base, value, kind) in borrowed {
+        if let Some(sibling) = flags.iter_mut().find(|f| {
+            f.spellings.len() == 1
+                && f.spellings[0].dashes == Dashes::Single
+                && f.spellings[0].name == base
+                && f.value_name.is_none()
+        }) {
+            sibling.value_name = Some(value);
+            sibling.value_kind = kind;
+        }
+    }
+    flags
+}
+
+/// When a `+/-name` alternation row (S-163) expands to a `-word` spelling
+/// an *ordinary* row elsewhere already documents (Xvfb's own `-render`),
+/// the expansion contributes only the spelling the existing row lacks,
+/// never overwriting its value, choices or description. Run last, after
+/// every other repair. Scoped to exactly the words the document's own
+/// alternation rows name, never a general duplicate-spelling merge: `du`'s
+/// `--time`/`--time=WORD` legitimately share one spelling for two forms
+/// elsewhere in the fleet. See docs/shapes.md S-163.
+pub(super) fn resolve_alternation_spelling_collisions(
+    mut flags: Vec<Entity>,
+    raw: &str,
+) -> Vec<Entity> {
+    let alt_words: std::collections::HashSet<String> = raw
+        .lines()
+        .filter_map(|line| {
+            let token = line.split_whitespace().next()?;
+            plus_minus_alternation_word(token).map(str::to_string)
+        })
+        .collect();
+    if alt_words.is_empty() {
+        return flags;
+    }
+    for word in alt_words {
+        let dupes: Vec<usize> = flags
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| {
+                f.spellings.len() == 1
+                    && f.spellings[0].dashes == Dashes::Single
+                    && f.spellings[0].name == word
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if dupes.len() < 2 {
+            continue;
+        }
+        // Prefer the row that already carries a real value or choices —
+        // the pre-existing ordinary row's own value spec — over the
+        // alternation expansion's shared, valueless half. A tie (neither
+        // carries one) keeps the earliest, document-order entry.
+        let keep = dupes
+            .iter()
+            .copied()
+            .find(|&i| flags[i].value_name.is_some() || !flags[i].choices.is_empty())
+            .unwrap_or(dupes[0]);
+        let mut drop: Vec<usize> = dupes.into_iter().filter(|&i| i != keep).collect();
+        drop.sort_unstable_by(|a, b| b.cmp(a));
+        for i in drop {
+            flags.remove(i);
+        }
     }
     flags
 }
@@ -686,6 +966,44 @@ mod tests {
         // declared a boolean, confirming that condition does the work.
         let parsed = parse("  -n         never overwrite\n  -nn        never ever overwrite\n");
         assert!(flag_named(&parsed, "nn").single_dash());
+    }
+
+    /// `memhog`'s own text: its usage line brackets `[-rNUM]` exactly
+    /// the way `fuser`'s brackets `[-SIGNAL]`, but `-r` valued `NUM` is
+    /// the correct parse and the usage-attested repair must leave it
+    /// alone. The case change at the split point is the whole
+    /// discriminator. See docs/shapes.md S-172.
+    ///
+    /// One deviation from the raw bytes, deliberate: memhog's first line
+    /// opens on its own program name with no `usage:` label, which the
+    /// real pipeline recognizes because it knows the program it ran and
+    /// this bare [`parse`] does not. The label is added so the standalone
+    /// parse reaches the same rule; every other byte is memhog's own.
+    #[test]
+    fn memhogs_glued_uppercase_placeholder_is_never_usage_attested() {
+        let raw = concat!(
+            "usage: memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]\n",
+            "-f mmap is backed by FILE\n",
+            "-rNUM repeat memset NUM times\n",
+            "-H disable transparent hugepages\n",
+        );
+        let parsed = parse(raw);
+        let r = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('r'))
+            .expect("-r must survive as its own short flag");
+        assert_eq!(r.value_name.as_deref(), Some("NUM"));
+        assert_eq!(r.value_kind, ValueKind::Required);
+        assert!(
+            !parsed.flags.iter().any(|f| f.spelling() == "-rNUM"),
+            "-rNUM is a glued value spec, never a spelling: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
     }
 
     /// A spaced value is indistinguishable from a glued one once stored;
@@ -814,7 +1132,7 @@ mod tests {
     #[test]
     fn qemus_single_dash_long_options_keep_their_real_names() {
         let parsed = parse(QEMU_TABLE);
-        for name in ["help", "cpu", "one-insn-per-tb", "version"] {
+        for name in ["help", "one-insn-per-tb", "version"] {
             let flag = flag_named(&parsed, name);
             assert!(flag.single_dash(), "-{name} is spelled with one dash");
             assert_eq!(flag.spelling(), format!("-{name}"));
@@ -822,6 +1140,19 @@ mod tests {
             assert_eq!(flag.value_name, None);
             assert_eq!(flag.value_kind, ValueKind::None);
         }
+    }
+
+    /// `-cpu`'s own bare-word value name (S-157): the row's second column
+    /// (`model`) is a real value, one whitespace-delimited token past the
+    /// name, never swallowed into the third (`QEMU_CPU`) column.
+    #[test]
+    fn qemus_bare_word_table_value_is_recovered() {
+        let parsed = parse(QEMU_TABLE);
+        let cpu = flag_named(&parsed, "cpu");
+        assert!(cpu.single_dash());
+        assert_eq!(cpu.short(), None);
+        assert_eq!(cpu.value_name.as_deref(), Some("model"));
+        assert_eq!(cpu.value_kind, ValueKind::Required);
     }
 
     /// `-g port` stores a `value_name` exactly as `-help` stores

@@ -1,0 +1,44 @@
+# docs/shapes.md S-161. Seed 7, maintainer item 1: "-W took / as a
+# placeholder and did not pair with its long form."
+#
+# The four rows of the "Allowing / Denying lints" block join their two
+# spellings with a spaced slash — `-W / --warn [LINT]` — so `-W` takes the
+# literal `/` as its value name and `--warn`, `--allow`, `--deny` and
+# `--forbid` reach the tree nowhere at all. Round 10 lifted the `/`-joining
+# repair out of S-144's lowdown-bullet gate and into the ordinary
+# option-table emit path, which is a real widening with zero fleet losses,
+# and it does NOT reach these rows: this document's rows are read by a
+# different row reader, so the tree is unchanged here and
+# `slash-joined-alias-outside-bullet` still reads 1 tool / 4 findings
+# fleet-wide. This fixture states that, so the gap is a failing contract
+# rather than a silence.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cargo-clippy"
+version = "0.1.97"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); clippy 0.1.97 (8bab26f4f6 2026-07-14)"
+
+[[capture]]
+argv = ["cargo-clippy", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+must_contain_flags = ["--warn", "--allow", "--deny", "--forbid"]
+
+[contract.must_not_value_name]
+"-W" = "/"
+"-A" = "/"
+"-D" = "/"
+"-F" = "/"
+
+[contract.must_describe]
+"-W" = "Set lint warnings"
+
+[xfail]
+broken = true
+reason = "[S-161] the rows `-W / --warn [LINT]` join their two spellings with a spaced slash, so -W takes / as its value name and --warn reaches nothing; the same for -A/--allow, -D/--deny and -F/--forbid. The join repair shipped this round covers the ordinary option-table emit path and does not reach this document's row reader. slash-joined-alias-outside-bullet reads 1 tool / 4 findings fleet-wide, below the five-tool bar; nothing ships for it."

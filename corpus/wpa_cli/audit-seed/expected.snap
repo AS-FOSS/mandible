@@ -1,5 +1,5 @@
 name: wpa_cli
-description: 'wpa_cli: invalid option -- ''-'' commands:'
+description: 'commands:'
 usage:
 - wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] [-a<action file>] [-P<pid file>] [-g<global ctrl>] [-G<ping interval>] [-s<wpa_client_socket_file_path>] [command..]
 flags:

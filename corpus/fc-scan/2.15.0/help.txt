@@ -1,0 +1,8 @@
+usage: fc-scan [-bcVh] [-f FORMAT] [-y SYSROOT] [--brief] [--format FORMAT] [--version] [--help] font-file...
+Scan font files and directories, and print resulting pattern(s)
+
+  -b, --brief            display font pattern briefly
+  -f, --format=FORMAT    use the given output format
+  -y, --sysroot=SYSROOT  prepend SYSROOT to all paths for scanning
+  -V, --version          display font config version and exit
+  -h, --help             display this help and exit

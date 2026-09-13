@@ -38,13 +38,17 @@ must_not_contain_positionals = ["COMMON_OPTIONS"]
 [contract.must_flag_group]
 "--mirrorlog" = "Create a raid1 or mirror LV."
 
-# docs/shapes.md S-147: seven invocation forms all reach the tree spelled
-# `--type`, each naming (or, for the raid1/mirror form's own choices, not
-# naming) a different literal value. `must_value_name` alone cannot state
-# this claim — it passes vacuously off the raw, unrefilled tree, where the
-# forms are still separate entities and each already names its own value.
-# The claim only means something once the same background root-refill the
-# running app always performs (`Warmer::submit_root_fill`) folds them into
-# one bucket, which is what this field simulates.
-[contract.must_value_names_after_root_refill]
-"--type" = ["linear", "striped", "raid10", "snapshot", "thin"]
+# docs/shapes.md S-147 follow-up (ruled 2026-09-07 "queue"): thirteen
+# invocation forms all reach the tree spelled `--type`, each naming a
+# different literal value, either directly (`--type raid`) or via a
+# bracket row's own trailing choice list (`raid1|mirror`).
+# `must_attach_choices` alone cannot state this claim — it walks the raw,
+# unrefilled tree, where `.find()` sees only the first form's own,
+# usually-empty `choices`. The claim only means something once the same
+# background root-refill the running app always performs
+# (`Warmer::submit_root_fill`) folds every form into one bucket, which is
+# what `must_choices_after_root_refill` simulates. No form ever names
+# `--type`'s value with a capitalised token, so the merged flag carries no
+# placeholder at all rather than a fabricated `<type>`.
+[contract.must_choices_after_root_refill]
+"--type" = ["linear", "striped", "raid1", "mirror", "raid", "raid10", "snapshot", "thin-pool", "cache-pool", "thin", "vdo", "cache", "writecache"]

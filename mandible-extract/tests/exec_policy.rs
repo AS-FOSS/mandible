@@ -489,6 +489,7 @@ exit 1
     let path = ["manthing".to_string(), "sub".to_string()];
     let attested = NodeHints {
         heading_attested: true,
+        abbrev_probe_attested: false,
     };
 
     let (raw, flag) = mandible_extract::help_text::raw_help(&tool, &path, attested)
@@ -553,6 +554,7 @@ exit 1
             &["manthing".to_string(), "sub".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         )
         .expect("the shim always answers one of the two probes it's asked for");
@@ -602,6 +604,7 @@ fn never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shape
         &["pkill".to_string(), "sub".to_string()],
         NodeHints {
             heading_attested: true,
+            abbrev_probe_attested: false,
         },
     );
 
@@ -658,6 +661,7 @@ fn non_attested_subcommand_word_is_never_probed_at_all() {
         &["unattested".to_string(), "sub".to_string()],
         NodeHints {
             heading_attested: false,
+            abbrev_probe_attested: false,
         },
     );
 
@@ -710,6 +714,7 @@ exit 1
             &["attested".to_string(), "sub".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         )
         .expect("an attested word's --help probe must still run and succeed");
@@ -720,6 +725,100 @@ exit 1
     );
     let long_flags: Vec<&str> = node.flags().filter_map(|f| f.long()).collect();
     assert!(long_flags.contains(&"amend"), "{long_flags:?}");
+}
+
+/// Spec §6 rule 0's S-167 widening (docs/design.md §16): a node that is
+/// `abbrev_probe_attested` but NOT `heading_attested` must still be
+/// probed with `<word> --help`, proving the new bit is admitted on its own,
+/// not merely tolerated alongside `heading_attested`. Mirrors
+/// `attested_subcommand_word_is_still_probed_with_dash_dash_help` above,
+/// with the two hints swapped.
+#[test]
+fn abbrev_probe_attested_word_is_probed_even_though_not_heading_attested() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = r#"#!/bin/sh
+if [ "$1" = "gdbserver" ] && [ "$2" = "--help" ]; then
+    touch "$0.help_ran"
+    echo "Usage: lldb-server gdbserver [options]"
+    echo ""
+    echo "Options:"
+    echo "  --port <port>  Bind to this port"
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#;
+    let shim = write_named_shim(dir.path(), "lldb-server", script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "lldb-server".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let node = tier
+        .extract_node(
+            &tool,
+            &["lldb-server".to_string(), "gdbserver".to_string()],
+            NodeHints {
+                heading_attested: false,
+                abbrev_probe_attested: true,
+            },
+        )
+        .expect("an abbrev_probe_attested word's --help probe must still run and succeed");
+
+    assert!(
+        dir.path().join("lldb-server.help_ran").exists(),
+        "the --help probe never ran for an abbrev_probe_attested word"
+    );
+    let long_flags: Vec<&str> = node.flags().filter_map(|f| f.long()).collect();
+    assert!(long_flags.contains(&"port"), "{long_flags:?}");
+}
+
+/// Rule 0's thirteen-program list still wins unconditionally over the
+/// S-167 widening: a shim named like a never-probe tool must be refused
+/// even when the deeper word carries `abbrev_probe_attested: true`, the
+/// same "before any spawn" guarantee
+/// `never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shaped`
+/// proves for `heading_attested`. `run_inert`'s chokepoint refuses the
+/// non-`["--help"]` argv before this tier's gate is even consulted, so this
+/// also proves the new bit cannot be used to route around the list.
+#[test]
+fn rule_0_still_refuses_an_abbrev_probe_attested_word_naming_a_never_probe_tool() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(
+        dir.path(),
+        "pkill",
+        "#!/bin/sh\ntouch \"$0.ran\"\necho ran\n",
+    );
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkill".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let result = tier.extract_node(
+        &tool,
+        &["pkill".to_string(), "sub".to_string()],
+        NodeHints {
+            heading_attested: false,
+            abbrev_probe_attested: true,
+        },
+    );
+
+    assert!(
+        matches!(
+            result,
+            Err(ExtractError::Exec(ExecError::RefusedUnsafeTool { .. }))
+        ),
+        "expected the never-probe list to refuse the subcommand `--help` probe outright \
+         regardless of abbrev_probe_attested, got {result:?}"
+    );
+    assert!(
+        !dir.path().join("pkill.ran").exists(),
+        "the never-probe shim was executed at all — refusal did not happen before spawn"
+    );
 }
 
 /// Mirrors `non_attested_subcommand_word_is_never_probed_at_all`, but for
@@ -768,6 +867,7 @@ exit 1
             &["btrfslike".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         )
         .expect("root probe must succeed");
@@ -795,6 +895,7 @@ exit 1
         &["btrfslike".to_string(), "device".to_string()],
         NodeHints {
             heading_attested: device.heading_attested,
+            abbrev_probe_attested: false,
         },
     );
     assert!(
@@ -882,6 +983,7 @@ fn attestation_gate_is_load_bearing_probe_would_have_fired_without_it() {
 fn attested() -> NodeHints {
     NodeHints {
         heading_attested: true,
+        abbrev_probe_attested: false,
     }
 }
 

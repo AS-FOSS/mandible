@@ -1,0 +1,136 @@
+name: perlthanks
+description: |-
+  perlbug version 1.43
+
+  This program is designed to help you generate bug reports (and thank-you notes) about perl5 and the modules which ship with it.
+
+  In most cases, you can just run "/usr/bin/perlthanks" interactively from a command line without any special arguments and follow the prompts.
+usage:
+- /usr/bin/perlthanks  [-v] [-a address] [-s subject] [-b body | -f inpufile ] [ -F outputfile ] [-r returnaddress] [-e editor] [-c adminaddress | -C] [-S] [-t] [-h] [-p patchfile ]
+- /usr/bin/perlthanks  [-v] [-r returnaddress] [-ok | -okay | -nok | -nokay]
+flags:
+- spellings:
+  - -v
+  description: Include Verbose configuration data in the report
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  description: File containing the body of the report. Use this to quickly send a prepared report.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  description: File containing a patch or other text attachment. Separate multiple files with commas.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  description: File to output the resulting report to. Defaults to 'perlthanks.rep'.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  description: Save or send the report without asking for confirmation.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  description: Send the report to this address, instead of saving to a file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  description: Address to send copy of report to. Defaults to 'root@localhost'.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  description: Don't send copy to administrator.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  description: Subject to include with the report. You will be prompted if you don't supply one on the command line.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  description: Body of the report. If not included on the command line, or in a file with -f, you will get a chance to edit the report.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  description: Your return address. The program will ask you to confirm this if you don't give it here.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  description: Editor to use.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  description: Test mode.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  description: Thank-you mode. The target address defaults to 'perl-thanks@perl.org'.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: Data mode. This prints out your configuration data, without mailing anything. You can use this with -v to get more complete data.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ok
+  description: 'Report successful build on this system to perl porters (use alone or with -v). Only use -ok if *everything* was ok: if there were *any* problems at all, use -nok.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -okay
+  description: As -ok but allow report from old builds.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nok
+  description: Report unsuccessful build on this system to perl porters (use alone or with -v). You must describe what went wrong in the body of the report which you will be asked to edit.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nokay
+  description: As -nok but allow report from old builds.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  description: Print this help message.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

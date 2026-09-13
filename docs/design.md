@@ -959,6 +959,17 @@ allowlist below.
    heading evidence strong enough to probe — the two bits are never
    conflated, and this gate reads only `heading_attested`.
 
+   A third, narrower bit, `abbrev_probe_attested`, admits one closed case
+   (§16, docs/shapes.md S-167). It marks a node the usage-optional-
+   abbreviation recognizer produced. That recognizer matches a `Usage:`
+   line whose leading word carries a bracketed optional-abbreviation
+   suffix, for example `lldb-server`'s `g[dbserver]`. This gate now admits
+   a node when `heading_attested` is true or `abbrev_probe_attested` is
+   true. No other recognizer ever sets this bit. `invocation_attested`
+   never implies it; a headingless-invocation-table node still stays
+   declined. Rule 0's thirteen-program list is checked first, and it wins
+   unconditionally before this gate runs at all.
+
 1. **Never invoke a bare binary.** An argv is never empty. Running an
    arbitrary binary with no arguments is how you launch a REPL, block on
    stdin, start a daemon, or trigger a tool whose no-argument default is an
@@ -1287,7 +1298,13 @@ into structured entities.
    qualify; a bare word list under no heading does not.
 7. A candidate name must match `^[a-z][a-z0-9_.-]*$` with no whitespace,
    and every emitted name must occur literally in the tool's own raw text
-   (the existence oracle, §13.1).
+   (the existence oracle, §13.1). One narrow reconstruction is permitted
+   (§16). A subcommand name may also satisfy this rule when it is a raw
+   token with its bracket characters deleted and nothing else changed. No
+   character may be added, removed beyond the brackets, reordered, or
+   changed in case. `g[dbserver]` yields `gdbserver` this way and no other
+   token yields it. This is the only reconstruction rule 7 permits for a
+   subcommand name.
 8. Two evidence classes short of a heading are tracked separately.
    `invocation_attested` marks a row that repeats the tool's own name, or a
    table whose row shape is unambiguous even without a heading.
@@ -1855,30 +1872,36 @@ sections.
    within one flag's list. A tool's own scope-flag columns (ffmpeg's
    `ED.VAS.....`) stay verbatim inside the description; mandible parses no
    meaning out of them.
-8. Capped shared column, per section. Every list section computes its own
+8. A flag's own `env_var` cross-reference (§4.5) renders as its own
+   `env: FOO` line, indented the same two columns past the description
+   column as `values:`, never folded into the description. Distinct from
+   the `ENVIRONMENT` section below: this is one flag's own row-level
+   relation, not a variable documented as an item in its own right
+   (docs/shapes.md S-166).
+9. Capped shared column, per section. Every list section computes its own
    column, fitted to roughly the p90 row width, measured from the pane's
    left edge through the placeholder's end. Every description line in the
    section, first line and continuation alike, begins at that column.
    Never a per-row column, never a global uncapped one. A wrapped entry is
    one logical row for selection and scroll math.
-9. A head that reaches the column pushes its own first line, and only
-   that, never truncated and never moving the column for the section. A
-   head too wide for the pane wraps within the head area, each line at
-   its own spelling's column, description beginning on the line beneath
-   at the shared column.
-10. A narrow pane moves the column, not the layout (§9.1a): clamped down
+10. A head that reaches the column pushes its own first line, and only
+    that, never truncated and never moving the column for the section. A
+    head too wide for the pane wraps within the head area, each line at
+    its own spelling's column, description beginning on the line beneath
+    at the shared column.
+11. A narrow pane moves the column, not the layout (§9.1a): clamped down
     until the description has its 28 columns, never below two past the
     long column. A 90-column terminal's 41-column detail pane clamps the
     column to 13, still holding a short-and-long pair.
-11. POSITIONALS is inset by two columns; the flag-shaped sections are not.
-12. The vertical gaps are the container hierarchy: two blank rows above a
+12. POSITIONALS is inset by two columns; the flag-shaped sections are not.
+13. The vertical gaps are the container hierarchy: two blank rows above a
     section header, one above a ruled group divider, none below either,
     none above the first header on the page. Each count is exact, not a
     minimum, and belongs to the block that opens, never to the one that
     closes.
-13. ENVIRONMENT is display-only: documented vars under an explicit heading
+14. ENVIRONMENT is display-only: documented vars under an explicit heading
     only, no probing, no inferred cross-references (§4.5).
-14. Group dividers are label-first, like the headers above them. A `group`
+15. Group dividers are label-first, like the headers above them. A `group`
     renders once as its label at column 0 followed by a rule to the
     pane's edge, mixed case; rows beneath sit at the section's normal
     margin. Section headers are CAPS with a count, group dividers
@@ -1899,7 +1922,7 @@ sections.
     - A divider that opens its section drops its rule and its blank row,
       rendering its label alone at column 0 directly beneath the header.
       A divider later in the same section keeps both.
-15. Descriptions always wrap. Sections are mandible's own layout, so
+16. Descriptions always wrap. Sections are mandible's own layout, so
     nothing in them is ever clipped or horizontally scrolled. USAGE is
     mandible's own reconstruction too (§9 rule 9) and wraps the same way.
     `[ui] horizontal_scroll` governs only content whose layout is not ours
@@ -2867,6 +2890,98 @@ S-102) — declined because a union keeps every same-spelling flag on the
 row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
 2.03.16`. Docs/shapes.md S-147.
+**The numbered-variadic-tail fix ships below the five-tool bar
+(2026-09-12).** `numbered-variadic-usage-tail` (docs/shapes.md S-136)
+moves 3 tools, apt-sortpkgs, apt-extracttemplates and apt-mark, with zero
+losses on a full-`PATH` sweep. It ships as a recorded exception on the
+same grounds the ragged-command-table and glued-interior-uppercase fixes
+did, named by the maintainer in issue #141 after the shape was handed to
+a contributor and the claim lapsed. Taken without the maintainer present,
+since the maintainer is away this round: issue #141 itself names the
+fixture, the detector and the function to change, so the exception is
+read from that issue rather than decided fresh. The detector is ratcheted
+at zero fleet-wide the same way a repaired family above the bar is.
+
+**An optional value renders as its bracketed name, and the `=` is not lost
+(2026-09-13).** Asked of `mandible ls`, "see if it's correct to parse the `=`
+out of the `[=WHEN]` placeholder", the answer is that nothing is parsed out.
+`Entity::spelling` (`mandible-core/src/entity.rs`) renders an optional value as
+`[=VALUE]`, so `--color[=WHEN]` is what search matches and what `y` copies. The
+flag table keeps the spelling and the value in separate columns, so the value
+column shows `[WHEN]` alone, which satisfies S-097's ruling that a value name
+keeps its bracket-preserved source spelling. The earlier case the maintainer
+remembered is S-097's own `-V[N][fname]`, ruled 2026-09-04, and this follows it.
+Taken without the maintainer present: gluing the `=` onto the spelling column
+would move every optional-value row fleet-wide, including the named control
+tools `git` and `tar`, to restore one character that the IR already carries.
+`fdisk`'s `--lock[=<mode>]` is the same shape and the same answer.
+
+**A mixed bracket-and-angle glued value spec ships below the five-tool bar
+(2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a
+raw-shape count of 1 tool (`rustc`), maintainer-named from the seed 7 audit.
+Ships anyway: the fix moved 11 tools once measured tree-wide (`rustc`,
+`dpkg`, `dpkg-statoverride`, `java`, `jlink`, `jdeps`, `jpackage`,
+`gp-collect-app`, `lto-dump`, `lto-dump-13`), with 0 flag-count and 0
+subcommand-count losses on a full-`PATH` sweep-diff of 2269 tools, alongside
+S-157's own sweep.
+
+**An S-167 node shows its full word, never the bracketed spelling
+(2026-09-13).** Shown `mandible lldb-server` with its three commands
+rendered `v[ersion]`, `g[dbserver]`, `p[latform]`, the maintainer rejected
+keeping the source spelling as the display name. The rule: the node's name
+and displayed form are both the full word (`gdbserver`), and the row's own
+short prefix (`g`) is kept as `CommandNode::aliases` instead, the IR's
+existing alias slot (§4.5). `display_name` is no longer set for this
+shape. A new, narrower attestation bit, `CommandNode::abbrev_probe_attested`
+/ `NodeHints::abbrev_probe_attested`, is set only by this recognizer and
+admits the node to §6 rule 0's probe gate on its own, without touching
+`heading_attested`'s own meaning or admitting `invocation_attested` in
+general. A live `mandible` run now probes each child with its own full
+word (`lldb-server gdbserver --help`) and fills its own flags; rule 0's
+thirteen-program list is checked first and wins unconditionally, proved by
+`mandible-extract/tests/exec_policy.rs`'s
+`abbrev_probe_attested_word_is_probed_even_though_not_heading_attested` and
+`rule_0_still_refuses_an_abbrev_probe_attested_word_naming_a_never_probe_tool`.
+Measured on this box: `lldb-server 'g[dbserver]' --help` answers
+byte-identical to `lldb-server gdbserver --help`, since lldb-server
+matches a subcommand by prefix. The bracketed form is not refused here,
+but the full word is still the right argv, since it is the word a user
+would type and the bracket characters have no business in argv. Fixture:
+`corpus/lldb-server/18.1.3`, a frozen-bytes capture with no subprocess, so
+it shows the repaired root parse but not the probe-filled children a live
+run produces. Docs/shapes.md S-167.
+
+**Rule 7 gets one narrow reconstruction for S-167 (2026-09-13).** S-167's
+own node names (`gdbserver`, `version`, `platform`, unchanged since the
+shape first shipped) never occur as a contiguous substring of
+`lldb-server`'s raw text, only `g[dbserver]` etc. do, confirmed directly:
+`lldb-server --help | grep -c gdbserver` is 0 on this box. A full-`PATH`
+sweep found `existence_fabrication_tools` at 56 on the pre-S-167 baseline
+and 58 once S-167 shipped, the two lldb-server binaries each newly
+reporting 3 fabrications. This predates the display fix directly above;
+naming these nodes by the full word, not the gate widening, is what rule 7
+never accounted for. The ruling: a
+subcommand name also satisfies rule 7 when it is a raw token with its
+bracket characters deleted and nothing else changed, no character added,
+none reordered, no case changed. `mandible-extract::help_text::
+reconstruct_abbrev_word` computes it, re-exported for
+`xtask/src/existence.rs::tool_name_prefixed_row_words`, which inserts the
+reconstructed name alongside its existing modifier-stripped candidate at
+the same already-attested command-list position; the position requirement
+itself is untouched, widened only to also recognize that position under
+the tool's own full-path spelling (`/usr/bin/lldb-server`), the real
+shape a live probe actually captures and the same spelling S-167's own row
+parser already tolerated, which the position check had not. A break-it
+check disabled the reconstruction and confirmed four tests turn red:
+`tool_name_prefixed_row_words_attests_the_bracket_deleted_reconstruction`,
+`tool_name_prefixed_row_words_attests_the_reconstruction_under_a_full_
+path_spelling`, `detect_does_not_flag_lldb_servers_real_abbreviated_
+subcommands`, and `detect_still_flags_a_name_that_is_not_a_bracket_
+deletion_of_anything`, the last of which also pins the negative case, a
+genuinely fabricated name sitting in the same row is still caught.
+Re-measured with `xtask coverage --tools lldb-server,lldb-server-18`
+against the real installed binaries: `existence_fabrication_tools` reads
+0 and `exist` reads 0 for both. Docs/shapes.md S-167.
 
 ### Deferred, with the reason each is not simply undone
 

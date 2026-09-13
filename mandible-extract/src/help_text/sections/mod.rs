@@ -27,8 +27,8 @@ use super::grammar::{
 };
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
-    is_command_name_shaped, strip_escapes, Choice, CommandNode, Dashes, Entity, EntityKind,
-    Provenance, Source, Spelling, Text, ValueKind,
+    is_command_name_shaped, is_literal_choice_value, strip_escapes, Choice, CommandNode, Dashes,
+    Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
 };
 
 mod backfill;
@@ -47,6 +47,8 @@ mod spelling;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_command_table;
+mod usage_optional_word;
 
 use backfill::*;
 use bullets::*;
@@ -63,7 +65,10 @@ use scan::*;
 use spelling::*;
 #[cfg(test)]
 use test_support::*;
-pub use usage::*;
+use usage::*;
+use usage_command_table::*;
+pub use usage_optional_word::reconstruct_abbrev_word;
+use usage_optional_word::scan_usage_optional_word_table;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
@@ -106,6 +111,13 @@ pub struct ParsedHelp {
     /// regex, or was dropped for lack of an owning heading/flag. Surfaced
     /// so `extract_node` can mark the node's provenance as a guess.
     pub saw_unattributable_content: bool,
+    /// Flags recovered by `recover_stanza_head_leading_flag_value`
+    /// specifically, mirrored here (also pushed into `flags`) so the
+    /// usage-block scan's own dedup can tell "a leading-value recovery of
+    /// this shape already named a different literal" apart from any other
+    /// reason a spelling might already be present in `flags`, and relax
+    /// only for that one shape. See docs/shapes.md S-147.
+    leading_value_recoveries: Vec<Entity>,
     /// Names already accepted into `subcommands`, tracked alongside it so
     /// [`ParsedHelp::try_push_subcommand`] can reject duplicates in O(1)
     /// instead of an O(n) scan of `subcommands` per candidate (which would
@@ -149,7 +161,45 @@ fn is_ignorable_heading(heading: &str) -> bool {
     // Deliberately not matching "see also": git's own command group
     // headings legitimately carry that phrase as a parenthetical aside.
     let lower = heading.to_lowercase();
-    lower.starts_with("example") || lower.contains("report bugs")
+    // "are equivalent" introduces worked invocation-line comparisons, the
+    // same class as "example" — qemu's own "The following lines are
+    // equivalent:" (docs/shapes.md S-166), whose indented rows repeat a
+    // real flag's own spelling with a different value on each line and
+    // would otherwise read as further, fabricated rows of that flag.
+    lower.starts_with("example")
+        || lower.contains("report bugs")
+        || lower.contains("are equivalent")
+}
+
+/// True when `candidate` names a literal value distinct from every one of
+/// `existing`'s entries — meant to be called only with `existing` set to
+/// [`ParsedHelp::leading_value_recoveries`], never the whole document's
+/// flags, so this only ever overrides a duplicate this same leading-value
+/// shape produced. `lvchange`'s `-M|--persistent` is the case: a stanza
+/// head names it `y`, an unrelated paren-alternation row names it `n`;
+/// without this the row scan's own dedup would drop `n` outright,
+/// replacing a value that used to render rather than letting both reach
+/// `merge_entity_bucket`'s union. Refused when the matching recovery is a
+/// plain boolean or carries an abbreviation-bracket spelling — narrower
+/// scoping alone does not rule out a same-shape false positive from
+/// another stanza head. See docs/shapes.md S-147.
+fn usage_flag_names_a_new_literal_value(candidate: &Entity, existing: &[Entity]) -> bool {
+    let Some(name) = candidate.value_name.as_deref() else {
+        return false;
+    };
+    if !is_literal_choice_value(name) {
+        return false;
+    }
+    let mut same_spelling = existing
+        .iter()
+        .filter(|f| flag_spelling_already_present(candidate, std::slice::from_ref(f)))
+        .peekable();
+    same_spelling.peek().is_some()
+        && same_spelling.all(|f| {
+            f.value_name.as_deref() != Some(name)
+                && f.value_kind != ValueKind::None
+                && !f.spellings.iter().any(|s| s.abbrev.is_some())
+        })
 }
 
 /// True when `heading` positively names a section whose rows describe CLI
@@ -212,7 +262,7 @@ fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
     // at least two independently parsed rows plus the heading vocabulary
     // above is the minimum evidence to reopen a same-indent section. See
     // S-071.
-    let (_, entries, _, _, _) = scan_flags_block(lines, flags_start, false);
+    let (_, entries, _, _, _, _) = scan_flags_block(lines, flags_start, false);
     entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
@@ -288,6 +338,14 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    // A leading option-rejection diagnostic (`fuser`'s `Invalid option
+    // --help`, `Xvfb`'s `Unrecognized option: --help`, `nfsidmap`'s
+    // `invalid option -- '-'`) is the tool's own complaint about the probe,
+    // not part of its document, and merging it into the root description or
+    // a heading is the same S-029/S-091 hazard a banner line already is
+    // (spec §7 Tier B rule 11's Why paragraph). Dropped once, here, before
+    // any layout analysis sees it. See docs/shapes.md S-162.
+    let raw = strip_leading_diagnostic_line(&raw);
     // lowdown's man-page-like rendering (nix/Lix, issue #138) writes
     // every entry, command or option alike, as a `·`-led bullet row and
     // sometimes wraps a group label across two physical lines. Rewritten
@@ -315,10 +373,247 @@ struct UsageScan {
     next_index: usize,
     entries: Vec<String>,
     positionals: Vec<Entity>,
+    /// True when a bare `Usage:` label (nothing else on its own line) was
+    /// followed by the tool's own name-only line opening its root
+    /// invocation form (dmsetup's shape) — the positional evidence
+    /// [`scan_headingless_usage_command_table`] requires, so that scan is
+    /// only ever tried for documents that actually have this idiom, never
+    /// for an ordinary `Usage: prog [opts]` tool whose body happens to
+    /// start at the same indent as a table row (`ar`'s modifier tables).
+    /// See docs/shapes.md S-169.
+    recovered_bare_root_stanza: bool,
 }
 
 /// Walk the usage block starting at `start`, folding wrapped continuation
 /// lines into one entry each. See docs/shapes.md S-001 and S-037.
+/// The scan's seeded state, computed from `lines[start]` alone: the block's
+/// own indent, its first entry (empty when the label is bare, S-150), the
+/// parallel line-to-entry index, and any square-bracket depth the seed
+/// line itself leaves open (S-142, issue #143). Split out of
+/// [`scan_usage_section`] to keep that function under the size ceiling.
+struct SeedState {
+    base_indent: usize,
+    usage_entries: Vec<String>,
+    line_entry_index: Vec<usize>,
+    bracket_group_depth: i32,
+    seed_is_bare: bool,
+}
+
+fn seed_usage_scan(
+    lines: &[&str],
+    start: usize,
+    tool_name: Option<&str>,
+    usage_lines: &mut Vec<String>,
+) -> SeedState {
+    let base_indent = leading_whitespace(lines[start]);
+    // Drop a `<program>: ` prefix in front of this line's own usage label
+    // (S-162): the C fprintf idiom's diagnostic prefix, never the label
+    // itself.
+    let seed_trimmed = strip_name_prefixed_usage_label(lines[start], tool_name);
+    // A usage label can sit glued directly to the tool's own name with no
+    // space (`mksquashfs`'s `SYNTAX:mksquashfs source1 ...`). Drop the
+    // label before seeding, the same way the render layer already drops a
+    // spaced `usage:`/`or:` label, so the stored entry opens with the
+    // tool's own invocation instead of an unrecognized word. See S-142,
+    // issue #143.
+    let seed_glued_offset =
+        tool_name.and_then(|name| label_glued_to_tool_name(&seed_trimmed, name));
+    let seed_text = match seed_glued_offset {
+        Some(offset) => seed_trimmed[offset..].to_string(),
+        None => seed_trimmed.clone(),
+    };
+    usage_lines.push(seed_text.clone());
+    // A usage label alone on its own line ("Usage:" with nothing after
+    // it) contributes no form of its own — the real forms sit on the
+    // lines below it. See S-150.
+    let seed_is_bare = seed_glued_offset.is_none() && is_bare_usage_label(&seed_trimmed);
+    let usage_entries = if seed_is_bare {
+        Vec::new()
+    } else {
+        vec![seed_text.clone()]
+    };
+    // Parallel to `usage_lines`: which `usage_entries` index each
+    // physical line was folded into — a wrapped entry (sg_sanitize's
+    // five-line synopsis) spans several lines but is one entry, and
+    // [`primary_synopsis_lines`] needs every one of them. `usize::MAX`
+    // marks a physical line that opened no entry of its own — a bare
+    // usage label, or (rarely) a stray continuation before any entry has
+    // started — so it can never coincide with a real entry index.
+    let line_entry_index = vec![if seed_is_bare { usize::MAX } else { 0usize }];
+    // Depth of a square-bracket group still open at the end of the seed
+    // line — `mksquashfs`'s own `[-e list of` never closes before its
+    // line ends, and the continuation `exclude dirs/files]` resumes it at
+    // column zero, a shape the content-shape fallback below cannot see
+    // from the continuation's own first character alone. See S-142,
+    // issue #143.
+    let bracket_group_depth = bracket_depth_delta(&seed_text).max(0);
+    SeedState {
+        base_indent,
+        usage_entries,
+        line_entry_index,
+        bracket_group_depth,
+        seed_is_bare,
+    }
+}
+
+/// Records one physical line already decided to belong to the usage
+/// block: starts a fresh entry, joins the open one, or — reachable only
+/// right after a bare usage label whose very next line fails the
+/// own-name/marker test (bpftrace's own wrapper scripts, `killsnoop.bt`
+/// and siblings, share one generic `USAGE:` block that never repeats the
+/// wrapper's own name) — opens the first entry from this line rather than
+/// dropping it, since the bare label already contributed no text of its
+/// own (S-150) and losing this line outright would violate AGENTS.md
+/// §3.9. Split out of [`scan_usage_section`] to keep that function under
+/// the size ceiling.
+fn record_usage_line(
+    l: &str,
+    starts_new_entry: bool,
+    usage_lines: &mut Vec<String>,
+    usage_entries: &mut Vec<String>,
+    line_entry_index: &mut Vec<usize>,
+) {
+    let trimmed = l.trim().to_string();
+    usage_lines.push(trimmed.clone());
+    if starts_new_entry {
+        // A form keeps the indentation its author gave it (spec §4.1): ip
+        // lines its second form up under the first. Only the display form
+        // carries it; `usage_lines` stays trimmed since it reads tokens,
+        // never columns.
+        usage_entries.push(l.trim_end().to_string());
+    } else if let Some(last) = usage_entries.last_mut() {
+        // The backslash is the join, the same way a single space is
+        // elsewhere: without dropping it, the displayed synopsis reads
+        // `--type <type> \ --id <id>`, a continuation marker stranded
+        // mid-line.
+        if last.ends_with('\\') {
+            last.pop();
+            let trimmed_tail = last.trim_end().len();
+            last.truncate(trimmed_tail);
+        }
+        last.push(' ');
+        last.push_str(&trimmed);
+    } else {
+        usage_entries.push(trimmed);
+    }
+    line_entry_index.push(usage_entries.len() - 1);
+}
+
+/// True when `usage_lines` names nothing yet but the bare `Usage:` marker
+/// itself — the precondition for [`stanza_continuation_head`]'s own
+/// `bare_usage_label_only` gate. See docs/shapes.md S-169.
+fn usage_label_names_nothing_yet(
+    labelled_usage_start: Option<usize>,
+    usage_lines: &[String],
+) -> bool {
+    labelled_usage_start.is_some()
+        && usage_lines.len() == 1
+        && usage_lines[0]
+            .trim_end_matches(':')
+            .eq_ignore_ascii_case("usage")
+}
+
+/// `lines[j]` continues the open usage stanza: either the ordinary
+/// multi-stanza shape ([`looks_like_stanza_continuation_head`]), or — only
+/// when `bare_usage_label_only` — the dmsetup idiom
+/// ([`looks_like_bare_name_then_usage_fragment`]). See docs/shapes.md
+/// S-169.
+fn stanza_continuation_head(
+    lines: &[&str],
+    j: usize,
+    name: &str,
+    bare_usage_label_only: bool,
+) -> bool {
+    j < lines.len()
+        && (looks_like_stanza_continuation_head(lines, j, name)
+            || (bare_usage_label_only && looks_like_bare_name_then_usage_fragment(lines, j, name)))
+}
+
+/// A blank line inside a usage block ends it, except for the one
+/// multi-stanza shape below. Returns the index to resume at, plus whether
+/// the resumed stanza was pulled in under a bare `Usage:` label. `None`
+/// means the block really has ended. Split out of [`scan_usage_section`]
+/// to keep that function under the size ceiling.
+fn continue_usage_block_across_blank(
+    lines: &[&str],
+    i: usize,
+    labelled_usage_start: Option<usize>,
+    tool_name: Option<&str>,
+    usage_lines: &mut Vec<String>,
+    usage_entries: &mut Vec<String>,
+    line_entry_index: &mut Vec<usize>,
+) -> Option<(usize, bool)> {
+    let bare_usage_label_only = usage_label_names_nothing_yet(labelled_usage_start, usage_lines);
+    if labelled_usage_start.is_none() || bare_usage_label_only {
+        if let Some(name) = tool_name {
+            let mut j = i + 1;
+            // Deliberately not `looks_like_unlabeled_synopsis_line`
+            // here: that test alone would also admit corepack's
+            // headingless invocation-table rows (`corepack
+            // enable [--install-directory #0] ...`), demoting a
+            // real subcommand into fabricated usage text. See
+            // S-016.
+            let is_head = |lines: &[&str], j: usize| {
+                stanza_continuation_head(lines, j, name, bare_usage_label_only)
+            };
+            if !is_head(lines, j) {
+                if let Some(next) = lines.get(j) {
+                    let t = next.trim_start();
+                    if !t.is_empty() && is_prose_sentence(t) {
+                        j += 1;
+                    }
+                }
+            }
+            if is_head(lines, j) {
+                let trimmed = lines[j].trim().to_string();
+                usage_lines.push(trimmed.clone());
+                usage_entries.push(trimmed);
+                line_entry_index.push(usage_entries.len() - 1);
+                return Some((j + 1, bare_usage_label_only));
+            }
+        }
+    }
+    None
+}
+
+/// Where the block resumes past a bare usage label's own blank gap, and
+/// whether a stanza was pulled in there. The stanza recognizer gets first
+/// refusal: under a bare `Usage:` the line past the gap may be the tool's
+/// own root invocation form, which is a stanza to record rather than a gap
+/// to step over (`dmsetup`, `dmstats`, S-169). Otherwise the gap is only
+/// skipped, since a bare label contributed no content to lose
+/// (`perlthanks`'s `Advanced usage:`, S-151).
+fn resume_after_bare_label(
+    lines: &[&str],
+    mut i: usize,
+    labelled_usage_start: Option<usize>,
+    tool_name: Option<&str>,
+    usage_lines: &mut Vec<String>,
+    usage_entries: &mut Vec<String>,
+    line_entry_index: &mut Vec<usize>,
+) -> (usize, bool) {
+    // Only a real gap is the recognizer's business: `fdisk` writes its
+    // forms directly under its bare label, and reading past the first one
+    // would drop it.
+    if lines.get(i).is_some_and(|l| l.trim().is_empty()) {
+        if let Some((next, recovered)) = continue_usage_block_across_blank(
+            lines,
+            i,
+            labelled_usage_start,
+            tool_name,
+            usage_lines,
+            usage_entries,
+            line_entry_index,
+        ) {
+            return (next, recovered);
+        }
+    }
+    while i < lines.len() && lines[i].trim().is_empty() {
+        i += 1;
+    }
+    (i, false)
+}
+
 fn scan_usage_section(
     lines: &[&str],
     start: usize,
@@ -327,14 +622,13 @@ fn scan_usage_section(
     usage_lines: &mut Vec<String>,
 ) -> UsageScan {
     let mut i = start;
-    let base_indent = leading_whitespace(lines[i]);
-    usage_lines.push(lines[i].trim().to_string());
-    let mut usage_entries = vec![lines[i].trim().to_string()];
-    // Parallel to `usage_lines`: which `usage_entries` index each
-    // physical line was folded into — a wrapped entry (sg_sanitize's
-    // five-line synopsis) spans several lines but is one entry, and
-    // [`primary_synopsis_lines`] needs every one of them.
-    let mut line_entry_index = vec![0usize];
+    let SeedState {
+        base_indent,
+        mut usage_entries,
+        mut line_entry_index,
+        mut bracket_group_depth,
+        seed_is_bare,
+    } = seed_usage_scan(lines, start, tool_name, usage_lines);
     // Running depth of an open parenthesized alternation group (LVM's
     // "any one is required" convention), tracked only for an
     // unlabelled synopsis: a member row routinely opens with `-`
@@ -353,7 +647,22 @@ fn scan_usage_section(
     // start a fresh usage entry even when it carries no marker or own-name
     // evidence of its own. See `is_bare_or_form_separator`.
     let mut force_new_entry_after_separator = false;
+    // See [`UsageScan::recovered_bare_root_stanza`].
+    let mut recovered_bare_root_stanza = false;
     i += 1;
+    if seed_is_bare {
+        let (next, recovered) = resume_after_bare_label(
+            lines,
+            i,
+            labelled_usage_start,
+            tool_name,
+            usage_lines,
+            &mut usage_entries,
+            &mut line_entry_index,
+        );
+        recovered_bare_root_stanza = recovered;
+        i = next;
+    }
     while i < lines.len() {
         let l = lines[i];
         if l.trim().is_empty() {
@@ -398,35 +707,28 @@ fn scan_usage_section(
             // as a full sentence — the stanza's own description,
             // consumed here so it lands in neither the synopsis nor
             // the tool's description. See S-005.
-            if labelled_usage_start.is_none() {
-                if let Some(name) = tool_name {
-                    let mut j = i + 1;
-                    // Deliberately not `looks_like_unlabeled_synopsis_line`
-                    // here: that test alone would also admit corepack's
-                    // headingless invocation-table rows (`corepack
-                    // enable [--install-directory #0] ...`), demoting a
-                    // real subcommand into fabricated usage text. See
-                    // S-016.
-                    let is_head = |lines: &[&str], j: usize| {
-                        j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
-                    };
-                    if !is_head(lines, j) {
-                        if let Some(next) = lines.get(j) {
-                            let t = next.trim_start();
-                            if !t.is_empty() && is_prose_sentence(t) {
-                                j += 1;
-                            }
-                        }
-                    }
-                    if is_head(lines, j) {
-                        let trimmed = lines[j].trim().to_string();
-                        usage_lines.push(trimmed.clone());
-                        usage_entries.push(trimmed);
-                        line_entry_index.push(usage_entries.len() - 1);
-                        i = j + 1;
-                        continue;
-                    }
+            // dmsetup's own shape: a bare `Usage:` label with nothing else
+            // on its line, a blank line, then the tool's own name heading
+            // its root invocation form — the identical stanza-continuation
+            // shape the unlabelled path already recognizes, just labelled.
+            // Scoped to the label having named nothing yet: once a real
+            // stanza is pulled in this way, further blank lines fall back
+            // to the ordinary labelled rule below. See docs/shapes.md
+            // S-169.
+            if let Some((next, recovered)) = continue_usage_block_across_blank(
+                lines,
+                i,
+                labelled_usage_start,
+                tool_name,
+                usage_lines,
+                &mut usage_entries,
+                &mut line_entry_index,
+            ) {
+                if recovered {
+                    recovered_bare_root_stanza = true;
                 }
+                i = next;
+                continue;
             }
             break;
         }
@@ -554,33 +856,29 @@ fn scan_usage_section(
             // Below the base indent (never above it: `leading_whitespace`
             // is unsigned, so this also covers "equal to"), indentation
             // alone can't distinguish a genuine continuation (lsof) from
-            // the block having ended (du) — fall back to content shape.
-            if leading_whitespace(l) <= base_indent && !looks_like_usage_fragment(trimmed_start) {
+            // the block having ended (du) — fall back to content shape,
+            // unless a square-bracket group opened on an earlier line is
+            // still carried into this one at column zero. See S-142,
+            // issue #143.
+            if leading_whitespace(l) <= base_indent
+                && !looks_like_usage_fragment(trimmed_start)
+                && bracket_group_depth <= 0
+            {
                 break;
             }
         }
-        let trimmed = l.trim().to_string();
-        usage_lines.push(trimmed.clone());
-        if starts_new_entry {
-            // A form keeps the indentation its author gave it (spec
-            // §4.1): ip lines its second form up under the first. Only
-            // the display form carries it; `usage_lines` stays trimmed
-            // since it reads tokens, never columns.
-            usage_entries.push(l.trim_end().to_string());
-        } else if let Some(last) = usage_entries.last_mut() {
-            // The backslash is the join, the same way a single space
-            // is elsewhere: without dropping it, the displayed
-            // synopsis reads `--type <type> \ --id <id>`, a
-            // continuation marker stranded mid-line.
-            if last.ends_with('\\') {
-                last.pop();
-                let trimmed_tail = last.trim_end().len();
-                last.truncate(trimmed_tail);
-            }
-            last.push(' ');
-            last.push_str(&trimmed);
-        }
-        line_entry_index.push(usage_entries.len() - 1);
+        bracket_group_depth = if starts_new_entry {
+            bracket_depth_delta(trimmed_start).max(0)
+        } else {
+            (bracket_group_depth + bracket_depth_delta(trimmed_start)).max(0)
+        };
+        record_usage_line(
+            l,
+            starts_new_entry,
+            usage_lines,
+            &mut usage_entries,
+            &mut line_entry_index,
+        );
         i += 1;
     }
     // Scoped to a labelled block, never an unlabelled synopsis
@@ -597,6 +895,7 @@ fn scan_usage_section(
         next_index: i,
         positionals: extract_positionals(usage_lines, primary_lines),
         entries: usage_entries,
+        recovered_bare_root_stanza,
     }
 }
 
@@ -850,11 +1149,27 @@ fn set_pending_bare_label(st: &mut BodyScan, label: Option<String>, lines: &[&st
         if !st.in_ignorable_section
             && heading_can_name_a_group(&label)
             && !label.trim_end().ends_with(" :")
+            && !text_is_already_root_description(&label, st.result)
             && pending_label_names_a_real_table(lines, next)
         {
             st.pending_bare_label = Some(label);
         }
     }
+}
+
+/// True when `text` is, verbatim (trimmed), the node's own root
+/// `description` — already decided by [`extract_description`] before
+/// this body scan runs. A sentence already spent as the root description
+/// is not available a second time as a group label (S-164): Xvfb's own
+/// `use: X [:<display>] [option]` line is both, and a group repeating the
+/// description word for word is never new information (AGENTS.md §3.9's
+/// own reasoning, applied to a label instead of a dropped row). See
+/// docs/shapes.md S-164.
+fn text_is_already_root_description(text: &str, result: &ParsedHelp) -> bool {
+    result
+        .description
+        .as_deref()
+        .is_some_and(|d| d.trim() == text.trim())
 }
 
 /// True when the row at `lines[idx]` is flag-shaped and documents a real
@@ -887,6 +1202,43 @@ struct BodyInput<'a> {
     usage_lines: &'a [String],
     profile: Option<&'a FrameworkProfile>,
     bnf_row_lines: &'a std::collections::HashSet<usize>,
+}
+
+/// Recover the flag a stanza head line names, under the group its own
+/// description sentence gave it. A head naming exactly one flag is
+/// [`recover_stanza_head_flag`]'s shape; a head naming a leading flag's
+/// own literal value plus further required flags (`lvcreate --type raid
+/// -L|--size Size[m|UNIT] VG`) is not, so the fallback runs only when the
+/// first recognizer stays silent, never both, since either would
+/// otherwise recover the same leading flag twice. See docs/shapes.md
+/// S-147.
+fn recover_stanza_head_flags(
+    heading: &str,
+    tool_name: Option<&str>,
+    stanza_label: Option<&str>,
+    st: &mut BodyScan,
+) {
+    if let Some(mut flag) = recover_stanza_head_flag(heading, tool_name) {
+        if let Some(label) = stanza_label {
+            flag.group = Some(label.to_string());
+        }
+        if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
+            st.result.flags.push(flag);
+        }
+    } else if let Some(mut flag) = recover_stanza_head_leading_flag_value(heading, tool_name) {
+        if let Some(label) = stanza_label {
+            flag.group = Some(label.to_string());
+        }
+        if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
+            // Tracked separately from `result.flags` so the usage-block
+            // dedup (`usage_flag_names_a_new_literal_value`) can tell "a
+            // leading-value recovery of this exact shape already named a
+            // different literal" apart from any other reason a spelling
+            // might already be present, and relax only for the former.
+            st.result.leading_value_recoveries.push(flag.clone());
+            st.result.flags.push(flag);
+        }
+    }
 }
 
 /// A heading with content indented beneath it. Each recognized section
@@ -943,14 +1295,7 @@ fn emit_heading_block(
         st.result.usage.push(heading.clone());
     }
     if !st.in_ignorable_section {
-        if let Some(mut flag) = recover_stanza_head_flag(heading, tool_name) {
-            if let Some(label) = stanza_label.clone() {
-                flag.group = Some(label);
-            }
-            if st.result.flags.len() < MAX_RECOVERED_ENTRIES {
-                st.result.flags.push(flag);
-            }
-        }
+        recover_stanza_head_flags(heading, tool_name, stanza_label.as_deref(), st);
     }
 
     // A headed command table whose first row sits on the heading's
@@ -1068,7 +1413,7 @@ fn emit_heading_block(
         // `split_shared_heading_rows`'s doc comment for why the BNF
         // fact is keyed on the row rather than the heading beside it.
         let heading_is_bnf = bnf_row_lines.contains(&flags_start);
-        let (end, entries, packed, argfile_entry, is_plus_sigil) =
+        let (end, entries, packed, argfile_entry, is_plus_sigil, is_alternation) =
             scan_flags_block(lines, flags_start, heading_is_bnf);
         i = end;
         if is_ignorable_heading(heading) {
@@ -1083,14 +1428,29 @@ fn emit_heading_block(
         // as the group's label, and only there — every other block
         // still takes `meaningful_flag_group`'s answer unchanged. See
         // S-012.
+        //
+        // A label equal, verbatim, to the root description is refused
+        // (S-164): `grub-macbless`'s own `Mac-style bless on HFS or
+        // HFS+` is both its description and this block's own would-be
+        // heading, and a group repeating the description word for word
+        // names nothing new.
         let group = stanza_label
             .clone()
-            .or_else(|| meaningful_flag_group(heading.clone()));
+            .or_else(|| meaningful_flag_group(heading.clone()))
+            .filter(|g| !text_is_already_root_description(g, st.result));
         let (seen, clean) = emit_flags_block(
             group,
             entries,
             packed,
-            &is_plus_sigil,
+            RowRouting {
+                is_plus_sigil: &is_plus_sigil,
+                is_alternation: &is_alternation,
+                // `argparse_subparser_quirk` is set only for
+                // `Framework::Argparse` (see profile.rs), so it doubles
+                // here as "this tool is argparse" for S-155's
+                // brace-alternation gate, with no new profile field.
+                is_argparse: profile.is_some_and(|p| p.argparse_subparser_quirk),
+            },
             argfile_entry,
             st.result,
         );
@@ -1186,6 +1546,27 @@ fn emit_flush_heading(
             return i;
         }
     }
+    // A header-declared three-column option table (`Argument
+    // Env-variable Description`, the whole `qemu-*-static` fleet):
+    // checked before the word-grid reading below, which would otherwise
+    // read this same header row as a one-row grid and silently discard
+    // it (docs/design.md §7 Tier B rule 16). See docs/shapes.md S-166.
+    if i < lines.len() && leading_whitespace(lines[i]) == heading_indent {
+        if let Some((env_col, desc_col)) = three_column_env_table_header(lines[i]) {
+            let (end, rows) = scan_three_column_env_table(lines, i + 1, env_col, desc_col);
+            i = end;
+            st.in_ignorable_section = false;
+            st.command_mode = false;
+            let (seen, clean) = emit_three_column_env_table(
+                meaningful_flag_group(heading.clone()),
+                rows,
+                st.result,
+            );
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
     // Nothing more-indented follows. openssl and BSD-style
     // listings generally present a command list as a same-indent
     // word grid: a heading followed by lines of several bare
@@ -1276,6 +1657,7 @@ fn emit_flush_heading(
     } else if !st.in_ignorable_section
         && heading_can_name_a_group(heading)
         && find_description_gap(h.line).is_none()
+        && !text_is_already_root_description(heading, st.result)
         && pending_label_names_a_real_table(lines, heading_idx + 1)
     {
         // A flush heading whose own rows sit at its own column rather
@@ -1284,7 +1666,10 @@ fn emit_flush_heading(
         // group from the headingless flags-block shortcut. The gap
         // check guards the heading line itself: `nm`'s own `@FILE  Read
         // options from FILE` row is not flag-shaped, so it reaches here
-        // looking like a heading, but it is a real row. See S-146.
+        // looking like a heading, but it is a real row. See S-146. A
+        // line already spent as the root description is refused here
+        // instead (S-164): Xvfb's own `use: X [:<display>] [option]` is
+        // both its description and this shape's own heading candidate.
         st.pending_bare_label = Some(heading.clone());
     }
     // Rewind to just past the original line and continue scanning
@@ -1422,14 +1807,18 @@ fn scan_entries(
             // revisited as a heading — dcb and vdpa's `OPTIONS` row.
             // See S-042, noted as `bnf_row_lines`.
             let heading_is_bnf = bnf_row_lines.contains(&i);
-            let (end, entries, packed, argfile_entry, is_plus_sigil) =
+            let (end, entries, packed, argfile_entry, is_plus_sigil, is_alternation) =
                 scan_flags_block(lines, i, heading_is_bnf);
             i = end;
             let (seen, clean) = emit_flags_block(
                 pending_group,
                 entries,
                 packed,
-                &is_plus_sigil,
+                RowRouting {
+                    is_plus_sigil: &is_plus_sigil,
+                    is_alternation: &is_alternation,
+                    is_argparse: profile.is_some_and(|p| p.argparse_subparser_quirk),
+                },
                 argfile_entry,
                 st.result,
             );
@@ -1598,6 +1987,8 @@ fn parse_body(
         let t = l.trim_start();
         starts_with_usage_prefix(t)
             || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+            || starts_with_extended_usage_label(t)
+            || tool_name.is_some_and(|name| label_glued_to_tool_name(t, name).is_some())
     });
     let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
         tool_name.and_then(|name| {
@@ -1659,7 +2050,21 @@ fn parse_body(
         None
     };
     let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
-    if let Some(start) = usage_start {
+    // A bare `Usage:` heading (nothing else on that line) whose following
+    // rows each repeat the tool's own name plus one command word with an
+    // optional-abbreviation suffix (`lldb-server`'s `v[ersion]`) names
+    // subcommands, not usage forms. Tried before the ordinary usage scan
+    // so it never gets a chance to fold these rows into `result.usage`
+    // instead. See docs/shapes.md S-167.
+    let optional_word_table = labelled_usage_start.and_then(|start| {
+        tool_name.and_then(|name| scan_usage_optional_word_table(&lines, start, name))
+    });
+    if let Some((end, nodes)) = optional_word_table {
+        i = end;
+        for node in nodes {
+            result.try_push_subcommand(node);
+        }
+    } else if let Some(start) = usage_start {
         let scan = scan_usage_section(
             &lines,
             start,
@@ -1670,6 +2075,27 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        // A command table sitting directly under the root's own labelled
+        // usage block, one line per command, rows never repeating the
+        // tool's own name (`dmsetup`'s second block). Gated on
+        // `recovered_bare_root_stanza`, not merely a labelled block, so an
+        // ordinary `Usage: prog [opts]` tool whose body starts at the same
+        // indent as a real table (`ar`'s modifier tables) is never
+        // mistaken for this shape — the position right after the tool's
+        // own *recovered root stanza* is the evidence, not "some usage
+        // block existed somewhere". Every emitted node is
+        // invocation_attested, never heading_attested: a usage block is
+        // not a heading. See docs/shapes.md S-169.
+        if scan.recovered_bare_root_stanza {
+            if let Some((end, nodes)) =
+                scan_headingless_usage_command_table(&lines, i, tool_name, raw)
+            {
+                i = end;
+                for node in nodes {
+                    result.try_push_subcommand(node);
+                }
+            }
+        }
         // A block right under the usage line naming each positional's own
         // description (`invoke-rc.d`'s `basename - Initscript ID...`).
         // Consumed only when every row matches a positional this usage
@@ -1686,7 +2112,23 @@ fn parse_body(
     // iteration made this function quadratic, found via the coverage
     // harness (spec §13.1) parsing a degenerate input in minutes instead
     // of milliseconds.
-    let description_bound = i.max(leading_prose_bound(&lines));
+    let prose_bound = leading_prose_bound(&lines);
+    let mut description_bound = i.max(prose_bound);
+    // A headingless table with no blank line ahead of it and no
+    // recognized usage line (Xvfb's `use: X [:<display>] [option]`, not
+    // `usage:`) reaches `leading_prose_bound`'s whole-document fallback
+    // untouched, so its option rows land in the description as well as
+    // being independently recovered by `scan_entries` below — the same
+    // text rendered twice. Consulted only in that narrow case (no blank
+    // line anywhere, no usage line), so an ordinary document's already-
+    // correct, cheap bound pays nothing extra. See docs/shapes.md S-165.
+    if usage_start.is_none() && prose_bound == lines.len() {
+        if let Some(flag_start) =
+            (i..lines.len()).find(|&j| starts_attested_headingless_flag_block(&lines, j))
+        {
+            description_bound = description_bound.min(flag_start);
+        }
+    }
     if let Some(description) = extract_description(&lines, description_bound, usage_start, i) {
         result.description = Some(description);
     }
@@ -1722,13 +2164,28 @@ fn parse_body(
             if result.flags.len() >= MAX_RECOVERED_ENTRIES {
                 break;
             }
-            if !flag_spelling_already_present(&flag, &result.flags) {
+            if !flag_spelling_already_present(&flag, &result.flags)
+                || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
+            {
                 result.flags.push(flag);
             }
             // else: this spelling already names a flag the block scan
             // recovered, so the usage-derived, always-undescribed
             // duplicate is not added. "Let the described version win"
             // taken literally: the existing entry is never touched.
+            // `usage_flag_names_a_new_literal_value` is the one exception
+            // (S-147): a real, distinct literal value still gets added
+            // for `merge_entity_bucket` to union later, rather than
+            // silently replaced by whichever entity happened to land
+            // first.
+        }
+        // A dash-prefixed usage word normally swallowed as the generic
+        // "any option" placeholder, or a usage-derived flag already
+        // misread as a short flag plus a fabricated value, is repaired or
+        // recovered as its own flag when a `<word> can be` line attests
+        // it names a real one (S-172).
+        if result.flags.len() < MAX_RECOVERED_ENTRIES {
+            recover_can_be_placeholder_flags(&usage_lines, &lines, &mut result.flags);
         }
     }
 
@@ -1744,6 +2201,11 @@ fn parse_body(
     // by the time this one runs the repeated-character family is already
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
+    // A narrower sibling of the repair above, admitted on its own
+    // evidence rather than S-145's table-wide argument (atlas S-172): a
+    // table-derived flag whose reconstructed name the tool's own usage
+    // line spells as one stand-alone bracketed token.
+    repair_usage_attested_single_dash_long(&mut result.flags, &usage_lines);
     // Last because it can only fill what the two above finished naming:
     // descriptions written as free prose paragraphs, not option-table
     // columns.
@@ -1756,6 +2218,15 @@ fn parse_body(
     // [S-133] `-tl or --type l`-style rows: fold into one flag with
     // `choices`, gated on the raw ` or ` row's own literal text.
     fold_or_joined_choice_rows(raw, &mut result.flags);
+    // A `+word` row's own value column (S-163) is borrowed onto its
+    // `-word` sibling when the ordinary repair above could not recover a
+    // bare, unbracketed value (Xvfb's own `+extension name` /
+    // `-extension name`). See docs/shapes.md S-163.
+    result.flags = borrow_plus_word_value_for_dash_sibling(std::mem::take(&mut result.flags));
+    // Last of all: an alternation-sigil row's own expansion (S-163) never
+    // duplicates or overwrites a spelling an ordinary row already
+    // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
+    result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result

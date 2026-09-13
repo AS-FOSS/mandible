@@ -17,7 +17,7 @@ pub(super) fn round8_family_counts(
     let gu = crate::detector::glued_uppercase_shared_prefix::detect(raw, root);
     let dc = crate::detector::description_continuation_dash_flag::detect(raw, root);
     let lg = crate::detector::usage_label_glued_to_program_name::detect(raw, root);
-    let ob = crate::detector::usage_open_bracket_continues_at_column_zero::detect(raw);
+    let ob = crate::detector::usage_open_bracket_continues_at_column_zero::detect(raw, root);
     vec![
         (
             "invocation-form-head-as-flag-group",

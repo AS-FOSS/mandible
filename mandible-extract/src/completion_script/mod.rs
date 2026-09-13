@@ -722,6 +722,7 @@ _mytool "$@"
             &["mytool".to_string(), "sub".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));
@@ -786,6 +787,7 @@ _mytool "$@"
                 &["mytool".to_string()],
                 NodeHints {
                     heading_attested: true,
+                    abbrev_probe_attested: false,
                 },
             )
             .expect("the transcript covers the exact `completion zsh` argv this tier sends");
@@ -817,6 +819,7 @@ _mytool "$@"
             &["mytool".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         );
         assert!(
@@ -902,6 +905,7 @@ _mytool() {
             &["mytool".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         );
         assert!(
@@ -945,6 +949,7 @@ _mytool() {
                 &["mytool".to_string()],
                 NodeHints {
                     heading_attested: true,
+                    abbrev_probe_attested: false,
                 },
             )
             .expect("evidence is present, so the tier must extract as it always did");

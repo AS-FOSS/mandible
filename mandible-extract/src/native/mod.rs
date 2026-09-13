@@ -914,6 +914,7 @@ mod tests {
                 &["cobratool".to_string()],
                 NodeHints {
                     heading_attested: true,
+                    abbrev_probe_attested: false,
                 },
             )
             .expect("detect having succeeded, extract_node must too");
@@ -961,6 +962,7 @@ mod tests {
                 &["cobratool".to_string(), "stop".to_string()],
                 NodeHints {
                     heading_attested: true,
+                    abbrev_probe_attested: false,
                 },
             )
             .expect("detect having succeeded, extract_node must too");

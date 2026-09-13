@@ -1,0 +1,29 @@
+# fuser refuses `--help` (spec §6 rule 0's list) and printed a leading
+# diagnostic line before its real usage and flag table. Fixed:
+# `strip_leading_diagnostic_line` drops the line before any layout
+# analysis. See docs/shapes.md S-162.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "fuser"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "frozen capture, round 10 W5"
+
+[[capture]]
+argv = ["fuser", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_not_describe_root = ["Invalid option", "/usr/bin/fuser:"]
+must_contain_flags = [
+  "-a", "-i", "-I", "-k", "-l", "-m", "-M", "-n",
+  "-s", "-u", "-v", "-w", "-V", "-4", "-6",
+]
+[contract.must_describe]
+"-a" = "display unused files too"

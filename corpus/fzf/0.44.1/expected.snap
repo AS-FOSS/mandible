@@ -26,15 +26,24 @@ flags:
     sources:
     - help-text
 - spellings:
+  - +i
+  group: Search
+  description: Case-sensitive match
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - --scheme
   value_name: SCHEME
   value_kind: Required
+  group: Search
   description: Scoring scheme [default|path|history]
   provenance:
     sources:
     - help-text
 - spellings:
   - --literal
+  group: Search
   description: Do not normalize latin script letters before matching
   provenance:
     sources:
@@ -44,6 +53,7 @@ flags:
   - --nth
   value_name: N[,..]
   value_kind: Required
+  group: Search
   description: Comma-separated list of field index expressions for limiting search scope. Each can be a non-zero integer or a range expression ([BEGIN]..[END]).
   provenance:
     sources:
@@ -52,6 +62,7 @@ flags:
   - --with-nth
   value_name: N[,..]
   value_kind: Required
+  group: Search
   description: Transform the presentation of each line using field index expressions
   provenance:
     sources:
@@ -61,24 +72,36 @@ flags:
   - --delimiter
   value_name: STR
   value_kind: Required
+  group: Search
   description: 'Field delimiter regex (default: AWK-style)'
   provenance:
     sources:
     - help-text
 - spellings:
+  - +s
+  - --no-sort
+  group: Search
+  description: Do not sort the result
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - --track
+  group: Search
   description: Track the current selection when the result is updated
   provenance:
     sources:
     - help-text
 - spellings:
   - --tac
+  group: Search
   description: Reverse the order of the input
   provenance:
     sources:
     - help-text
 - spellings:
   - --disabled
+  group: Search
   description: Do not perform search
   provenance:
     sources:
@@ -87,6 +110,7 @@ flags:
   - --tiebreak
   value_name: CRI[,..]
   value_kind: Required
+  group: Search
   description: 'Comma-separated list of sort criteria to apply when the scores are tied [length|chunk|begin|end|index] (default: length)'
   provenance:
     sources:

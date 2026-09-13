@@ -20,14 +20,18 @@ exit_code = 1
 expected_framework = "generic"
 # The single-dash-long table rule (docs/shapes.md S-145): these used to
 # split at their second letter, sharing mksquashfs's own shape.
-must_contain_flags = ["-pf", "-ef", "-Xhelp", "-Xhc", "-Xbcj"]
-# The operand the unread synopsis holds (docs/shapes.md S-142). Fails.
+must_contain_flags = ["-pf", "-ef", "-Xhelp", "-Xhc", "-Xbcj", "-Xstrategy"]
+# [S-142] the synopsis's own operand, once the glued `SYNTAX:` label is read.
 must_contain_positionals = ["FILESYSTEM"]
+must_usage_forms_min = 1
 
 [contract.must_value_name]
 "-mem" = "<size>"
 "-comp" = "<comp>"
 "-mkfs-time" = "<time>"
+# Bare-word, comma-separated value lists (docs/shapes.md S-157).
+"-Xstrategy" = "strategy1,strategy2,...,strategyN"
+"-Xbcj" = "filter1,filter2,...,filterN"
 
 # One row under a flush `Xxx options:` heading and one under two of the
 # compressor sub-labels, gzip included (docs/shapes.md S-146).
@@ -35,7 +39,3 @@ must_contain_positionals = ["FILESYSTEM"]
 "-noI" = "Filesystem compression options:"
 "-Xhc" = "lz4"
 "-Xwindow-size" = "gzip (default)"
-
-[xfail]
-broken = true
-reason = "S-142 is open: SYNTAX: glued to the program name with no space is never recognized as a usage marker, so the synopsis is read as description prose and no positional is recovered from it. Below the five-tool bar per mksquashfs's own measurement, so nothing ships for it here either."

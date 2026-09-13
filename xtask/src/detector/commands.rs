@@ -398,6 +398,31 @@ pub fn check_round9_family_ratchets(
     Ok(cmd && opt)
 }
 
+/// [`check_vim_family_ratchet`] for round 10's repaired families, atlas
+/// S-150 (a bare usage label seeding an empty form) and S-142's two
+/// halves (issue #143: the glued label and the open-bracket
+/// continuation, both now tree-aware — see
+/// `usage_label_glued_to_program_name` and
+/// `usage_open_bracket_continues_at_column_zero`). Gated at zero the same
+/// way `check_round9_family_ratchets` is. `usage-foreign-program-word`
+/// (S-151's other half) is deliberately absent: it is a render-layer
+/// substitution, so the raw usage text it counts never changes once a
+/// tool is repaired, the same reason `usage-program-word-mismatch` is
+/// reported rather than ratcheted.
+pub fn check_round10_family_ratchets(
+    previous: &crate::coverage::Aggregate,
+    fresh: &crate::coverage::Aggregate,
+) -> anyhow::Result<bool> {
+    let bare = check_vim_family_ratchet("bare-usage-label-form", previous, fresh)?;
+    let glued = check_vim_family_ratchet("usage-label-glued-to-program-name", previous, fresh)?;
+    let bracket = check_vim_family_ratchet(
+        "usage-open-bracket-continues-at-column-zero",
+        previous,
+        fresh,
+    )?;
+    Ok(bare && glued && bracket)
+}
+
 /// pnpm's two families (atlas S-103, S-104), fixed in
 /// `mandible-extract/src/help_text/sections/{mod,scan}.rs`. Ratcheted at
 /// zero the same way as `single-dash-long`: the fix moves two tools

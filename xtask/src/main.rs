@@ -37,6 +37,7 @@ mod status;
 mod tail_operand;
 mod transition;
 mod usage_only_value_name;
+mod usage_optional_word_table;
 mod wrapped_command_continuation;
 mod wrapped_prose;
 
@@ -1230,6 +1231,7 @@ fn run_coverage(
         regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_command_pattern_reported(&previous, &fresh)?;
         regressed |= !detector::check_round9_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_round10_family_ratchets(&previous, &fresh)?;
 
         regressed |= !detector::check_centered_label_baseline_reported(&previous, &fresh)?;
 

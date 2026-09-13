@@ -2480,7 +2480,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag in a three-way `or` chain, S-099's own `-h or -? or --help`) and a
   bare lowercase first description word (never a value, `-m or
   --match-arch file.o`'s own shape). Below the five-tool bar. Ship
-  nothing; the fixture stays `[xfail]`.
+  nothing; the fixture stays `[xfail]`. A relaxation was built and refused: ending
+  the spelling run at a `--long` followed by one space and a bare lowercase
+  word joined `-c, --copyright` but still gave it the fabricated value name
+  `include`, so it failed its own acceptance test, and it fused `pod2man`'s
+  `--lquote` and `--rquote` into one entity, the shape `must_keep_separate`
+  exists to forbid. Narrowing it to value-free spellings did not stop the
+  fusion. Refused rather than shipped (issue #142).
 ### S-135: usage line's tab-indented continuation folds in unpunctuated
 
 - id: S-135
@@ -2510,17 +2516,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-136
 - looks like: |
       Usage: apt-sortpkgs [options] file1 [file2 ...]
+      Usage: apt-mark [options] {auto|manual} pkg1 [pkg2 ...]
 - tools: apt-sortpkgs, apt-extracttemplates, apt-mark
-- handling: Open. `numbered-variadic-usage-tail`
-  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) reads a usage
-  line's trailing pair where the second name is the first's own name
-  with the next integer, bracketed and ellipsis-marked, and would
-  collapse it into one variadic positional named by the shared stem —
-  narrower than the `multi-operand-usage-tail` ambiguity (S-109) round 6
-  declined, since the numbering is evidence a bare tail lacks.
-- fleet: measured 3 tools/3 findings on a full-`PATH` sweep, 2026-09-06,
-  below the five-tool floor a fix must clear. Not shipped; the fixture
-  stays xfail with the count in its reason.
+- handling: Fixed (issue #141). `recover_primary_tail_operands`
+  (`mandible-extract/src/help_text/sections/usage.rs`) collapses the
+  recovered run's own trailing pair to one repeatable operand, named by
+  the shared stem, when the second name is the first's own name with the
+  next integer, bracketed and ellipsis-marked — narrower than the
+  `multi-operand-usage-tail` ambiguity (S-109) round 6 declined, since the
+  numbering is evidence a bare tail lacks. The collapse is exempt from
+  both the `[options] command` ambiguity guard and the no-earlier-group
+  guard, since the numbering removes the ambiguity either guard exists to
+  catch; `apt-extracttemplates` has no earlier group at all and still
+  collapses. `numbered-variadic-usage-tail`
+  (`xtask/src/detector/numbered_variadic_usage_tail.rs`) generalizes the
+  shape fleet-wide as a local, independent copy of the same grouping and
+  operand parsing, not an import.
+- fleet: 3 tools/3 findings on a full-`PATH` sweep, below the five-tool
+  floor a fix must clear. Shipped anyway as a maintainer-named exception
+  (docs/design.md §16, issue #141): the fixture promotes out of `[xfail]`
+  with a zero-loss sweep-diff and all nine control screens byte-identical.
 
 ### S-137: lvm2 invocation forms read as section headings
 
@@ -2612,23 +2627,47 @@ entry's `tools` field and nothing else. It does not get a new entry.
       set loglevel <LEVEL>                     sets logging level to <LEVEL>.
 - tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
   resolvectl, timedatectl
-- handling: Open. Two prototypes were built and refused: reading each token of
-  a row's own name field separately fabricated nine command rows on
-  fail2ban-client (`logtarget`, `persistent`, `of`, `list`, `files`, `filter`,
-  `for`, `back`, `failures`), each a word cut out of a wrapped description. The
-  `bare_block_end` baseline blocker underneath is fixed now (S-149): every row
-  of fail2ban-client's `Command:` table is read, and its 10 single-word
-  commands recover cleanly with no fabrication. The name rule itself, one node
-  per distinct leading word with each row's own pattern appended to that
-  node's `usage` list, is not shipped: `emit_subcommands` still drops any row
-  whose name field is not a single command-name-shaped word or a bare-word
-  plus an ALL-CAPS-only placeholder run, so `set`, `get`, `add`, `unban` and
-  `reload` recover no node at all. `command-pattern-table`
-  (`xtask/src/command_pattern_table.rs`) stays as the instrument.
+- handling: Open, refused three times. The name rule, one node per distinct
+  leading word with each row's own pattern appended to that node's `usage`
+  list, is NOT shipped: `emit_subcommands` still drops any row whose name
+  field is not a single command-name-shaped word or a bare-word plus an
+  ALL-CAPS-only placeholder run, so on fail2ban-client `set`, `get`, `add`,
+  `unban` and `reload` recover no node at all. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) stays as the instrument, reported and
+  not gated.
+  The three refusals, each with the names it invented, so a fourth attempt has
+  the whole negative list:
+  1. Round 8 read each token of a row's own name field as its own command and
+     fabricated nine nodes on fail2ban-client: `logtarget`, `persistent`,
+     `of`, `list`, `files`, `filter`, `for`, `back`, `failures`. Every one is a
+     word cut out of a WRAPPED DESCRIPTION, not out of a name field.
+  2. Round 9 fixed the block boundary underneath (S-149) and deliberately did
+     not retry the name rule. Every row of fail2ban-client's `Command:` table
+     is read now, and its 10 single-word commands recover cleanly with no
+     fabrication.
+  3. Round 10 built the rule behind a column-identity guard: a candidate row
+     is admitted only when its name field begins at the block's own name
+     column, on the reasoning that a wrapped description continuation begins
+     at the description column by construction. The guard held on
+     fail2ban-client, which gained exactly the four named targets (`add`,
+     `get`, `reload`, `set`), and it FAILED elsewhere, because a prose line
+     and a repeated program name can both begin at the name column. A
+     full-`PATH` sweep-diff named six fabricated nodes on three tools:
+     `options` on xauth, cut from the prose line `options are:`, which is a
+     heading and not a command; `gprofng` on gprofng, the tool's own name cut
+     from rows like `gprofng collect app`; and `attach`, `logs`, `respawn`,
+     `rm` on claude, the first two cut from prose ("attach to an existing",
+     "logs to a specific file path") and the last two matching no row at all.
+     Column identity is a necessary condition and not a sufficient one.
+  The bar for a fourth attempt: a guard that separates a table ROW from a
+  prose line at the same indent, checked on xauth, gprofng and claude by name
+  before any count is reported.
 - fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
   fail2ban-client holds 85 of them and 84 were read by hand and are genuine.
   Above the five-tool bar. Not shipped; the fixture's `min_subcommands = 14`
-  floor documents the gap, currently 10.
+  floor documents the gap, currently 10. Round 10's refused prototype would
+  have taken fail2ban-client to 14, which is why a count alone can never
+  admit this rule: the same build fabricated six nodes on three other tools.
 
 ### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
 
@@ -2637,13 +2676,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
       SYNTAX:mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
       exclude dirs/files]
 - tools: mksquashfs, sqfstar
-- handling: Open, two shapes. `SYNTAX:` glues straight to the program name with no
-  space, a spelling `starts_with_usage_prefix` never matches, so the whole
-  two-line block reads as leading description prose and no positional is
-  recovered. The second line also continues an unclosed `[` group at
-  column zero, a shape today's continuation rule misses since it only
-  reads a continuation's own first character, never a depth carried over
-  from the line above.
+- handling: Fixed (issue #143), two shapes. `SYNTAX:` glues straight to the
+  program name with no space, so a spelling `starts_with_usage_prefix` never
+  matched and the whole two-line block read as leading description prose with
+  no positional recovered; the label is now split off the program-name token
+  it is glued to. The second line also continues an unclosed `[` group at
+  column zero, which the old continuation rule missed because it read only a
+  continuation's own first character and never a bracket depth carried over
+  from the line above; the depth is carried now. The live binary prints its
+  own absolute path after the label (`SYNTAX:/usr/bin/mksquashfs`) where the
+  issue body quotes `SYNTAX:mksquashfs`, so the rule is written against the
+  label, not against the spelling in the issue.
 - fleet: `usage-label-glued-to-program-name`
   (`xtask/src/detector/usage_label_glued_to_program_name.rs`) reads 8
   tools/8 findings raw on a full-`PATH` sweep of 2323 tools, 2026-09-06;
@@ -2653,8 +2696,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`xtask/src/detector/usage_open_bracket_continues_at_column_zero.rs`)
   reads 2 tools/2 findings raw; one is an ANSI-escape false positive from
   a colored banner, leaving 1 genuine hit. Both real counts are below the
-  five-tool bar. Not shipped; `corpus/mksquashfs/4.6.1` stays xfail with
-  both counts in its reason.
+  five-tool bar, so this ships as a maintainer-named exception (issue #143,
+  docs/design.md §16): `corpus/mksquashfs/4.6.1` and `corpus/sqfstar/4.6.1`
+  both promote out of `[xfail]`, the full-`PATH` sweep-diff is zero-loss and
+  all nine named controls hold. Post-fix the first detector reads 6 tools/6
+  findings (the six doc-URL false positives, both genuine hits gone) and the
+  second 2 tools/2 findings (the ANSI false positive plus one hit outside
+  squashfs-tools). 2026-09-13.
 ### S-143: a lowdown bullet row names a subcommand
 
 - id: S-143
@@ -2713,7 +2761,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -pf <pseudo-file>	add list of pseudo file definitions from <pseudo-file>
       -Xhelp			print compressor options for selected compressor
       -mem <size>		use <size> physical memory for caches
-- tools: mksquashfs, sqfstar
+- tools: mksquashfs, sqfstar, Xvfb, jdb, jrunscript, llvm-libtool-darwin-18,
+  llvm-lipo-18, screen
 - handling: A table whose rows are column-0 `-word` spellings, tab- or column-gap
   separated from their descriptions, with at least two rows carrying an
   unambiguous, uniformly-lowercase multi-character name and no `--long`
@@ -2730,7 +2779,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
   unambiguous-evidence requirement exist because a single ambiguous row
   (a short flag glued to a capitalized description word) cannot tell a
   table from a coincidence on its own; a bundled-short-flag document
-  (digit- or case-mixed clusters) is excluded the same way.
+  (digit- or case-mixed clusters) is excluded the same way. Round 11:
+  `row_is_table_shaped`'s own gap test (tab or double-space) never fires
+  on a table with no column padding at all — Xvfb's own headingless shape
+  (S-165) — so a row's genuine `<...>`/`[...]` placeholder exactly one
+  space after the name is now admitted as the same evidence
+  (`-render [default|mono|gray|color]`, `-deferglyphs [none|all|16]`,
+  `-multicast [addr [hops]]`), recovering their bracket values without
+  widening the repair to bare, unbracketed words (still out of scope,
+  S-117's own reasoning). The same widening moved five further tools from
+  no value name to the tool's own literal text on a full-`PATH` sweep,
+  every one checked against its own `--help`: `jdb -dbgtrace [flags]`,
+  `jrunscript -encoding <encoding>`, `llvm-libtool-darwin-18 -arch_only
+  <arch_type>`, `llvm-lipo-18 -arch <value>`, `screen -wipe [match]`. All
+  five are gains, none a fabrication. One qualifier: `llvm-lipo-18`'s own
+  raw line is `-arch <value> <value>`, two values, and only the first is
+  recovered — a partial recovery, not a wrong one; the second value is
+  information the IR does not model.
 - fleet: `single-dash-long-table` (`xtask/src/detector/single_dash_long_table.rs`)
   reads 14 tools/21 raw findings on a full-`PATH` sweep of 2323 tools, 2026-09-07,
   after the fix: unsquashfs, xkill, xev, setfont and others in the same
@@ -2743,7 +2808,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   jrunscript, perlbug, perlthanks, ckbcomp, containerd-shim-runc-v2,
   javax2jakarta, llvm-libtool-darwin-18, llvm-lipo-18 and winpr-makecert,
   0 losses on a full-`PATH` sweep-diff of 2269 tools, 2026-09-07. All four
-  self-checks hold. No labelled member of this family exists in any audit
+  self-checks hold. Round 11's own placeholder-gap widening (above) clears
+  the five-tool bar on its own evidence: 6 tools gained a value name —
+  Xvfb, jdb, jrunscript, llvm-libtool-darwin-18, llvm-lipo-18 and screen —
+  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. No labelled
+  member of this family exists in any audit
   seed; the self-checks are the only standing evidence.
 
 ### S-146: a flush heading or bare sub-label names no group
@@ -2787,17 +2856,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: lvcreate; a merge-step fix, so any tool whose node reaches
   `mandible_core::merge::merge_entity_bucket` with a same-spelling,
   same-value-kind bucket naming different literal values is covered
-- handling: Fixed. `lvcreate` reaches this bucket once per invocation
-  form, each form naming its own value for `--type`. `merge_entity_bucket`
-  picked one form's `value_name` by authority, so the rendered row showed
-  `--type linear` beside the `raid1`/`mirror` form's own `choices`,
-  dropping `striped`, `raid10`, `snapshot` and `thin` outright. It now
-  unions every distinct value name across the bucket, in first-appearance
-  order, joined the way `choices` already joins for display. Maintainer-
-  absent default, recorded in docs/design.md §16. `must_value_name` passes
+- handling: Fixed, twice. `lvcreate` reaches this bucket once per
+  invocation form, each form naming its own value for `--type`.
+  `merge_entity_bucket` picked one form's `value_name` by authority, so
+  the rendered row showed `--type linear` beside the `raid1`/`mirror`
+  form's own `choices`, dropping `striped`, `raid10`, `snapshot` and
+  `thin` outright. A first fix unioned every distinct value name into
+  `value_name` itself; ruled confusing (docs/design.md §16) since one
+  flag then showed two lists. The bucket now renders one placeholder and
+  one unioned `choices` list: every
+  literal lowercase value, from a form's own `value_name` and from any
+  `choices` it already carried, joins `choices`; a capitalised token
+  stays the placeholder name; no placeholder is fabricated when every
+  form named a literal. `mandible_extract`'s stanza-head recovery also
+  now reads a leading flag's own bare usage-form value (`--type raid`,
+  not just the bracketed `[ --type x ]` rows), so `--type` now carries
+  thirteen values, not five. `must_value_name`/`must_attach_choices` pass
   vacuously on the raw, unrefilled tree; `must_value_names_after_root_refill`
-  (`corpus/README.md`) simulates the real app's own root refill and is the
-  field that actually states the claim.
+  and `must_choices_after_root_refill` (`corpus/README.md`) simulate the
+  real app's own root refill and are the fields that actually state the
+  claim.
 - fleet: `same-spelling-fold-loss`
   (`xtask/src/detector/same_spelling_fold_loss.rs`), widened to also flag
   two same-identity entities that both take a value but name it
@@ -2848,6 +2926,888 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-150: a usage label alone on its own line
+
+- id: S-150
+- looks like: |
+      Usage:
+       fdisk [options] <disk>         change partition table
+       fdisk [options] -l [<disk>...] list partition table(s)
+- tools: fdisk, pkcheck, pod2text, gdk-pixbuf-thumbnailer, dmsetup, dmstats,
+  npm, nvim, bpftrace, fsck, pip3, renice, wall, zoxide
+- handling: Fixed, in two places. In extraction, a label alone on its line
+  contributed an entry whose whole content was the literal label text, and
+  that empty entry also consumed the bracketed option run the real form
+  carried underneath; `usage_block` now treats a bare label as a label and
+  reads the lines below it as the forms. In the render layer,
+  `mandible-tui/src/render/detail_pane/usage_form.rs` no longer prints the
+  bare tool name for an entry that has no invocation text of its own. The
+  two halves are separate because the label may be stripped either at parse
+  time or left in the entry text, and a form that loses its label must still
+  be read as the primary synopsis: `recover_primary_tail_operands` therefore
+  treats the `usage:` prefix as optional rather than required, which is the
+  cross-branch regression the integration merge surfaced (`nvim` lost its
+  `file` operand until that was fixed).
+- fleet: `bare-usage-label-form`
+  (`xtask/src/detector/bare_usage_label_form.rs`) reads 0 tools/0 findings
+  post-fix and is ratcheted there. The raw-shape upper bound counted before
+  the round was 300 tools. What actually moved on a full-`PATH` sweep of
+  2323 tools, 2026-09-13: 39 flags GAINED across three tools that nobody had
+  looked at — dmsetup 4 to 29, dmstats 8 to 20, npm 0 to 2 — every one of
+  them documented inside the tool's own bracketed `Usage:` block, plus 25
+  fixtures each losing exactly one usage entry whose content was the literal
+  string `Usage:` or `USAGE:`. Zero subcommand movement, all nine named
+  controls byte-identical.
+
+### S-151: a usage form's leading word is a foreign program name
+
+- id: S-151
+- looks like: |
+      Usage: /usr/bin/ranlib [options] archive
+      Advanced usage:
+      /usr/bin/perlthanks  [-v] [-a address] [-s subject]
+- tools: gcc-ranlib-13, perlthanks, perlbug, qemu-riscv64-static and the
+  qemu-*-static family
+- handling: Fixed at the render layer, so the raw text the `t` pane shows is
+  untouched. A usage form whose leading word names a program other than the
+  node has that word replaced by the node's own name. The rule is NARROW on
+  purpose, and an existing test is the fence: an absolute or relative PATH
+  always qualifies, because a usage line's program position cannot hold a
+  sibling's path, while a BARE word qualifies only when it is a prefix of the
+  node's own name. `perlthanks` also gains a usage section it did not have at
+  all, because a block whose form lines open with an absolute path was not
+  recognized as a usage block. Refused by the narrowing, and named here as a
+  miss rather than left silent: `tclobjnew-bpfcc`'s form opens `uobjnew`,
+  which is neither a path nor a prefix, so `mandible tclobjnew-bpfcc` still
+  renders `tclobjnew-bpfcc uobjnew [-h] ...`. The alternative — replacing any
+  bare word — deletes a real word from the render (`egrep` under node `grep`)
+  and AGENTS.md §3.9 forbids it.
+- fleet: `usage-foreign-program-word`
+  (`xtask/src/detector/usage_foreign_program_word.rs`) reads 253 tools/274
+  findings post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which
+  is the refused remainder: a leading bare word that is neither a path nor a
+  prefix of the node name. Reported, not gated, because the fix is a render
+  substitution and the counted shape is the text, not the tree. Zero flag
+  losses and zero subcommand movement fleet-wide.
+
+### S-152: a usage form carries its own trailing description
+
+- id: S-152
+- looks like: |
+       fdisk [options] <disk>         change partition table
+        gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
+       /usr/bin/ranlib [options] archive
+        Generate an index to speed access to archives
+- tools: fdisk, gcc-ranlib-13, gdk-pixbuf-thumbnailer, nvim, vim.basic
+- handling: Open, measured this round. `grub-macbless` was checked and is
+  NOT a member: its own description sits on its own physical line and
+  already renders as its own `DESCRIPTION` section, correctly. The prose
+  belongs to the form, not to the invocation, and it renders glued onto the
+  end of the usage line: `mandible fdisk` shows `fdisk [options] <disk>
+  change partition table`. Nothing is lost, so this is a presentation defect
+  rather than an AGENTS.md §3.9 one. The cut is ambiguous in three different
+  ways at once — a column gap separates the two on `fdisk` and `nvim`, a
+  single space on `gdk-pixbuf-thumbnailer`, and a whole following physical
+  line that still folds in on `gcc-ranlib-13` — so a rule needs all three
+  cases at once or it will eat an operand.
+  PROPOSAL: split the usage form at the point its own trailing run of
+  groups reads as plain prose (no flag, no bracket/angle group, no
+  ALL-CAPS word) rather than synopsis grammar, mirroring
+  `is_prose_sentence`'s own word-count floor; keep the split half as the
+  form's own trailing description rather than discarding it, so nothing
+  currently rendered is lost, only relocated. COST: touches the same usage-
+  form rendering path several other shipped shapes already narrow
+  (S-108/S-151's foreign-program-word substitution, S-150's bare-label
+  fold), so a regression here risks re-breaking several already-fixed
+  tools at once — this needs the widest zero-loss sweep-diff of any item
+  this round, not the narrowest. RISK: the column-gap cut (`fdisk`, `nvim`)
+  and the single-space cut (`gdk-pixbuf-thumbnailer`) need different
+  thresholds to both fire without one eating a real two-word operand name
+  (S-132/S-154's own shape) or a docopt alternation tail.
+- fleet: `usage-form-trailing-description`
+  (`xtask/src/detector/usage_form_trailing_description.rs`) reads 4
+  tools/6 findings on the 162-fixture `corpus/` tree (not a full-`PATH`
+  sweep — the orchestrator owns that lock), 2026-09-13: `fdisk`,
+  `gcc-ranlib-13`, `nvim`, `vim.basic`. This crosses the five-tool floor
+  once `gdk-pixbuf-thumbnailer` (confirmed by hand, not in `corpus/`) is
+  added, but the detector itself does not yet count it: its own
+  description is two words (`Thumbnail images`), below this detector's
+  three-word floor, and both `gdk-pixbuf-thumbnailer`'s and
+  `gcc-ranlib-13`'s descriptions open on a capitalized word, which the
+  detector's plain-prose-word test (lowercase-led, matching
+  `multiword.rs`'s own `plain_word`) refuses — `gcc-ranlib-13` still fires
+  because six of its own seven words are lowercase, but the true fleet is
+  larger than this detector honestly counts. No fix ships this round: the
+  measured count alone does not clear the bar with confidence, and the
+  zero-loss sweep-diff the gate also requires needs the orchestrator's
+  sweep lock. `corpus/fdisk/2.39.3` and `corpus/gcc-ranlib-13/2.42`
+  (existing, passing fixtures) each gained a one-line note pointing at
+  this entry rather than a new `[xfail]` fixture, since both already pass
+  their own contracts and demoting a passing fixture to note a
+  presentation-only gap would be the wrong direction.
+
+### S-153: a usage line's tail operands never reach the tree
+
+- id: S-153
+- looks like: |
+      Usage: cache_repair [options] {device|file}
+      usage: fc-scan [-bcVh] [-f FORMAT] ... [--help] font-file...
+      Usage: lcf  [options] dest_file  src_dir
+- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf
+- handling: Fixed for the shapes evidence can settle, refused for the rest.
+  A trailing operand run after a bracketed option run now reaches the tree as
+  positionals: a brace alternation naming one operand becomes one positional
+  keeping its source spelling and its members as choices (`{device|file}`), a
+  single ellipsis-marked name becomes one repeatable positional
+  (`font-file...`), and a flag paired with an ALL-CAPS value on the same line
+  no longer ends the walk. The description-gap cut that ran before the walk
+  also used a two-space gap, which truncated a line whose own operands are
+  two-space padded. REFUSED, and this is the honest part: a bare multi-word
+  tail with no numbering and no delimiter (`lcf`'s `dest_file  src_dir`)
+  stays declined by the round-6 `[options] command` ambiguity guard, because
+  nothing in the text says whether the words are two operands or one command
+  plus its argument. `corpus/lcf/3.0043+nmu1` states that outcome instead of
+  asserting a positional it does not get.
+- fleet: a full-`PATH` sweep of 2323 tools, 2026-09-13: `tail_operand_tools`
+  147 to 145, zero flag losses, zero subcommand movement, all nine named
+  controls byte-identical. `multi-operand-usage-tail` (S-109) is unchanged at
+  44 tools/110 findings, which is the ambiguous remainder `lcf` belongs to.
+
+### S-154: a bracketed multi-word operand becomes one positional per word
+
+- id: S-154
+- looks like: |
+        gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
+- tools: gdk-pixbuf-thumbnailer, mknod, sg_format, udevadm, fzf-tmux
+- handling: Fixed. A bracket group holding several words is one operand whose
+  name is the whole run, not one operand per word, so `mandible
+  gdk-pixbuf-thumbnailer` shows two positionals, `INPUT FILE` and `OUTPUT
+  FILE`, where it showed three (`INPUT`, `FILE`, `OUTPUT`) before. The name
+  keeps its source spelling, following S-097's ruling that a glued group is
+  quoted as written.
+- fleet: `trailing-bracket-group-multiword-operand` reads 0 tools/0 findings
+  post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
+  there. Zero flag losses, zero subcommand movement, all nine named controls
+  byte-identical.
+
+### S-155: an alternation value name becomes choices
+
+- id: S-155
+- looks like: |
+      -C, --compression=(xz|none|auto)          grub-mkimage
+          --crate-type <bin|lib|rlib|dylib|cdylib|staticlib|proc-macro>
+          --edition <2015|2018|2021|2024|future>                        rustc
+        -l {c,java,ruby,tcl}, --language {c,java,ruby,tcl}   tclobjnew-bpfcc
+- tools: grub-mkimage, grub-mkstandalone, rustc, tclobjnew-bpfcc,
+  javaflow-bpfcc, rubyobjnew-bpfcc, curl (brace/angle forms only where a
+  choice reading holds — see the false-positive note below) and
+  everywhere else the shape occurs on a full-`PATH` sweep (PLACEHOLDER_TOOLS
+  moved, PLACEHOLDER_FINDINGS findings)
+- handling: Fixed. A value spec that is one delimited alternation of
+  literal members, with no other token inside the delimiter, is that
+  entity's `choices` (`help_text::sections::emit::alternation_choices`).
+  Angle and paren forms split on `|` and require at least three members;
+  brace splits on `,`, requires only two, and is gated to the argparse
+  profile (`FrameworkProfile::argparse_subparser_quirk`, reused rather
+  than adding a nineteenth profile field), since argparse's own
+  `choices=` is a language-level declaration and no other convention in
+  the capture set uses `{` as a value delimiter (checked by grep over
+  `audit/queue-captures/*/0.std*`). The three-member floor on angle/paren
+  exists because curl's own `-b, --cookie <data|filename>` is the
+  identical two-member angle shape and is not a choice list: it describes
+  the value's TYPE (a literal string, or a path), and a reader does not
+  type `data` or `filename` themselves the way `xz`/`none`/`auto` are
+  typed literally. Nothing about the shape alone tells the two apart
+  below three members, so missing beats invented there (S-005's rule). A
+  member must match `^[a-z0-9][a-z0-9_.+-]*$`; a capitalized token
+  (lvm2's `Number`) or one holding whitespace (fuser's `-n SPACE`, inside
+  a `[...]` group this rule never opens) stays part of the placeholder.
+  Once choices are read from the placeholder itself, S-130's own rule
+  applies and `value_name` is dropped rather than kept twice. Scoped to
+  the option-table path (`emit_flags_with`); the usage-synopsis path is
+  untouched this round. `must_attach_choices`/`must_not_value_name` state
+  the claim.
+- fleet: `alternation-value-is-choices` reads 0 labelled members in the
+  seed-7 audit (`NOT EVALUABLE`, both self-check directions held, 8
+  cases). Raw-shape count 26 tools/45 findings (angle/paren) and 44
+  tools/62 findings (brace), 2026-09-12. Tree-level, full-`PATH` sweep:
+  PLACEHOLDER_TREE_BEFORE tools before the fix, PLACEHOLDER_TREE_AFTER
+  after. `sweep-diff`: PLACEHOLDER_FLAG_GAINS flag gains,
+  PLACEHOLDER_FLAG_LOSSES flag losses, PLACEHOLDER_SUB_GAINS subcommand
+  gains, PLACEHOLDER_SUB_LOSSES subcommand losses. Also moved `fzf`'s
+  `--color=COLSPEC`'s `(dark|light|16|bw)` and cryptsetup's `token
+  <add|remove|import|export>`, neither named in the brief.
+
+### S-156: a description tail that enumerates the values
+
+- id: S-156
+- looks like: |
+      -O, --format=FORMAT        generate an image in FORMAT
+                                 available formats: i386-coreboot, i386-multiboot,
+                                 i386-pc, i386-xen_pvh, i386-pc-eltorito,
+- tools: grub-mkimage
+- handling: Open defect, counted only. A flag description whose
+  continuation opens a labelled list (`available formats:`, `possible
+  values:`, `one of:`, `valid values:`) and then runs comma-separated
+  literal values to the end of the description would become that
+  entity's `choices`, with the label and list leaving the description.
+  Gated hard: the label must be the last such label in the description,
+  every member after it must match `^[a-z0-9][a-z0-9_.+-]*$`, there must
+  be at least three members, and the run must reach the end of the
+  description with nothing after it.
+- fleet: `description-tail-enumerates-choices` reads 0 labelled members
+  in the seed-7 audit (`NOT EVALUABLE`, both self-check directions held,
+  5 cases). A grep over `audit/queue-captures/*/0.std*` for the four
+  labels names 35 tools; the tree-level rule, checked against a
+  36-tool sample built from that grep plus `rustc` and
+  `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
+  five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
+  `[xfail]` for `--format`'s own description. 2026-09-12.
+
+### S-157: a bare-word value placeholder after a single-dash-long spelling
+
+- id: S-157
+- looks like: |
+      -Xstrategy strategy1,...,strategyN	compression strategy    mksquashfs
+      -audit int             set audit trail level            Xvfb
+- tools: Xvfb, mksquashfs, sqfstar, ckbcomp, containerd-shim-runc-v2,
+  docker-proxy, lshw, screen, sqlite3, xdpyinfo, xev, xkill, xlsatoms,
+  ldattach, pod2usage, and the whole qemu-*-static family (42 tools)
+- handling: Fixed, inside the single-dash-long table only (S-145's own
+  gate: a document whose option rows are column-0 `-word` spellings with
+  no `--long` row anywhere). `spaced_bare_word_value`
+  (`mandible-extract/src/help_text/sections/repair.rs`) reads the one
+  whitespace-delimited token after a table row's own single space as the
+  value name, whatever its case, keeping a comma-separated run whole
+  (`strategy1,...,strategyN`). Reading past that first token is refused:
+  `qemu-arm64-static`'s own ragged three-column table
+  (`Argument`/`Env-variable`/`Description`) separates `-dfilter`'s value
+  from its `QEMU_DFILTER` column by only one more space, so a wider
+  gap-based cut would swallow the next column into the value. The search
+  is scoped to the row identified as the flag's own leading token, never
+  any later occurrence of the same text in another row's description
+  (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
+  `-match` in prose and must not donate it a fabricated value). The
+  table gate is the whole safety argument: `gcc`, `clang` and the `ld`
+  family all carry `-DMACRO` glued values beside a real `--help` row, so
+  their own tables never qualify.
+- fleet: `spaced-bare-word-table-value`
+  (`xtask/src/detector/spaced_bare_word_table_value.rs`) reads 9
+  tools/12 findings on a full-`PATH` sweep of 2269 tools, 2026-09-12,
+  each a table row the per-document evidence floor still refuses (a
+  glued repeated-character shape, or a run the S-145 table gate itself
+  excludes) — a documented lower bound, not a further fix this round.
+  No labelled member of this family exists in any audit seed; the four
+  self-checks are the only standing evidence. The fix itself moved 57
+  tools with 0 flag-count and 0 subcommand-count losses on the same
+  sweep-diff: `Xvfb`, `mksquashfs` and `sqfstar` gain their own named
+  rows; the qemu family (42 tools) recovers `-cpu`'s and `-dfilter`'s
+  value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
+  `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
+  `containerd-shim-runc-v2` and `docker-proxy` each recover at least
+  one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
+  `sg_map` stay byte-identical.
+
+### S-158: a bracket group glued to an angle placeholder keeps only the group
+
+- id: S-158
+- looks like: |
+      -L [<KIND>=]<PATH>  Add a directory to the library search path.
+          --emit <TYPE>[=<FILE>]
+- tools: rustc, dpkg, dpkg-statoverride, java, jlink, jdeps, jpackage,
+  gp-collect-app, lto-dump, lto-dump-13
+- handling: Fixed in `try_value`
+  (`mandible-extract/src/help_text/grammar.rs`). Extends the S-097
+  ruling ("a value spec written as two or more glued optional groups
+  renders as its own source spelling") to a run that mixes a bracket
+  group and a required angle placeholder: the whole glued run is the
+  value name, source spelling kept, and the value becomes required once
+  the required half joins it. Two symmetric additions: the bracket
+  branch glues one adjacent angle group onto its own close
+  (`take_glued_angle_group`, `-L [<KIND>=]<PATH>`); the bare-token
+  branch glues one adjacent bracket group onto a captured angle
+  placeholder (`take_glued_bracket_group`, `--emit <TYPE>[=<FILE>]`,
+  `dpkg`'s `--force-<thing>[,...]`). A single, never-folded bracket
+  group is normally left bracket-free for the renderer to wrap, so the
+  bracket branch re-wraps it explicitly once a required angle group
+  joins, or the source spelling would read `<KIND>=<PATH>` with the
+  bracket gone.
+- fleet: `glued-bracket-angle-run`
+  (`xtask/src/detector/glued_bracket_angle_run.rs`) reads a raw-shape
+  count of 1 tool (rustc) fleet-wide before this fix, maintainer-named
+  (seed 7). Below the five-tool bar, shipped anyway as a gated exception
+  (docs/design.md §16) because the same sweep-diff that measures S-157
+  covers it: 0 flag-count and 0 subcommand-count losses across 2269
+  tools, 2026-09-12. The fix moved 11 tools: `rustc`'s `-L`, `--emit`
+  and `-C`/`--codegen`; `dpkg` and `dpkg-statoverride`'s
+  `--force-<thing>[,...]` family; `java`, `jlink`, `jdeps`, `jpackage`
+  and `gp-collect-app`'s `--add-modules <name>[,<name>...]` shape;
+  `lto-dump`/`lto-dump-13`'s `-D`. No labelled member of this family
+  exists in any audit seed; the four self-checks are the only standing
+  evidence. `gcc`, `clang`, `aarch64-linux-gnu-g++-13` and the whole
+  nine-control set stay byte-identical.
+
+### S-159: a long spelling's own value name repeats into its description
+
+- id: S-159
+- looks like: |
+           -s foo, --src-dir  foo  Set the src dir (historical md5sums live here)
+           -d [n], --debug  [n]    Set the Debug level to N
+- tools: lcf
+- handling: Open, nothing built. The value name is written twice, once after
+  the short spelling and once after the long one, and the second copy is
+  read as the first word of the description, so `mandible lcf` shows
+  `-s, --src-dir foo` described "foo Set the src dir ...". The reserved id is
+  recorded here rather than dropped, because the shape is real and one tool
+  is evidence enough to name it; what is missing is a second tool. Nothing in
+  the seed-7 evidence separates this from a description that genuinely opens
+  with the value's own name, which is why no rule was written.
+- fleet: not measured. No detector was built, so there is no number, and the
+  neighbouring shape a detector DOES count is the multi-word metavar of S-148
+  (`pkcheck`'s `--details=KEY VALUE`, 1 tool/1 finding), which is a different
+  defect on a different row shape.
+
+### S-160: a value spec swallows the alias run's own trailing comma
+
+- id: S-160
+- looks like: |
+        -w, --width=width, -width
+        -p PCT,..., --pcts PCT,...
+        -s, --sections=LIST, --section=LIST
+- tools: pod2text, biolatpcts-bpfcc, make, tar, pr, systemd-run
+- handling: Fixed for the case the grammar can already admit, refused for the
+  rest, and the refusal is the interesting half.
+  `recover_comma_swallowed_alias` (`mandible-extract/src/help_text/
+  grammar.rs`) notices a value that ends in a literal `,` with a real
+  spelling behind it — a genuine value never ends in a comma on its own —
+  strips the comma and reads the alias run on. On a full-`PATH` sweep it
+  fires on exactly one tool, `biolatpcts-bpfcc`, whose `-p PCT,...,
+  --pcts PCT,...` row now reaches the tree as one entity spelled
+  `-p, --pcts` where it was a lone `-p` before.
+  It does NOT fix `pod2text`, which is the shape seed 7 named. The recovered
+  spelling there is `-width`, a single-dash-long name, and `alias_follows`
+  refuses it: `try_long` needs a `--` and `try_short` reads `-w` and chokes
+  on the tail. Admitting a single-dash-long spelling needs S-145's own
+  table test (no `--long` row anywhere in the document), and `pod2text`'s
+  table is full of `--long` rows, so the same evidence that protects `gcc`,
+  `clang` and `ld` from S-145 refuses `pod2text` here. That is the same gate
+  that refuses `fuser`'s `-SIGNAL`.
+- fleet: `comma-swallowed-alias`
+  (`xtask/src/detector/comma_swallowed_alias.rs`) reads 10 tools/31 findings
+  post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which is the
+  refused remainder. Reported, not gated. One flag gained fleet-wide, zero
+  lost, zero subcommand movement, all nine named controls byte-identical.
+
+### S-161: a `/`-joined second spelling outside a lowdown bullet
+
+- id: S-161
+- looks like: |
+          -W / --warn [LINT]       Set lint warnings
+          -A / --allow [LINT]      Set lint allowed
+- tools: cargo-clippy
+- handling: Open on its own tool, widened underneath. S-144 taught
+  `join_slash_alias` (`mandible-extract/src/help_text/sections/bullets.rs`)
+  to rewrite a spaced `/` between two flag-shaped tokens into the ordinary
+  comma-joined alias `parse_flag_spec` already reads, and gated it on the
+  lowdown bullet marker. Round 10 lifted that gate: the evidence is narrow
+  enough on its own (the separator must be exactly `/` with one space each
+  side, and what follows must itself be flag-shaped, so a path or the word
+  "input/output" in a description is never touched), so `emit_flags_with`
+  calls it on any option-table row now.
+  It does not reach `cargo-clippy`, whose four rows are read by a different
+  row reader, so `-W` still takes the literal `/` as its value name and
+  `--warn`, `--allow`, `--deny` and `--forbid` still reach the tree nowhere.
+  `corpus/cargo-clippy/0.1.97` is the `[xfail]` fixture that states it, with
+  `must_contain_flags` naming all four long spellings and
+  `must_not_value_name` naming the `/` on all four short ones.
+- fleet: `slash-joined-alias-outside-bullet`
+  (`xtask/src/detector/slash_joined_alias_outside_bullet.rs`) reads 1 tool/4
+  findings on a full-`PATH` sweep of 2323 tools, 2026-09-13, unchanged by the
+  widening, and far below the five-tool bar. Reported, not gated. The
+  widening itself moved no flag anywhere in the fleet: zero gains, zero
+  losses, no `spellings changed` row in the sweep-diff.
+
+### S-162: a leading diagnostic line inside the chosen document
+
+- id: S-162
+- looks like: |
+      /usr/bin/fuser: Invalid option --help
+      Usage: fuser [-fIMuvw] [-a|-s] [-4|-6] [-c|-m|-n SPACE]
+- tools: fuser, Xvfb, nfsidmap
+- handling: Fixed (the diagnostic-drop half). A tool that refuses `--help` often
+  prints one option-rejection line first, then its document anyway. The
+  chosen stream's own first non-empty line is dropped before any layout
+  analysis when it names an option-rejection (`invalid`/`unrecognized`/
+  `unknown`/`illegal option`, case-insensitive), optionally preceded by the
+  program's own name or path and `": "`. No later line is ever dropped this
+  way. A `<program>: ` prefix glued in front of a usage label
+  (`nfsidmap: Usage: ...`) is stripped the same way, wherever it sits, not
+  only on the first line. Same hazard class as S-029 and S-091: a diagnostic
+  preamble merged into the document is how banner text becomes fabricated
+  structure.
+- fleet: `leading-diagnostic-line` (`xtask/src/detector/leading_diagnostic_line.rs`)
+  is family `None`: no DEFECT_FAMILIES label covers this shape, so its
+  calibration reads NOT EVALUABLE rather than a score. Self-checks hold
+  (5/5). Raw-shape grep count: 197 tools / 198 findings for the leading
+  diagnostic over both streams; the detector reads the tree's chosen stream
+  only, and that count is an upper bound, not this family's own fleet
+  count. 2026-09-12.
+
+### S-163: `+word`, `+/-name` and `[+-]name` option rows
+
+- id: S-163
+- looks like: |
+      +bs                    enable any backing store support
+      -bs                    disable any backing store support
+      +/-render		   turn on/off RENDER extension support(default on)
+      [+-]accessx [ timeout [ ttb [ tpo [ ctrls ]]]] enable/disable accessx
+- tools: Xvfb, fzf, lsof
+- handling: Fixed. Three rules. (1) A `+word` row — a letter-led run after
+  the sigil (`+bs`, `+byteswappedclients`) — is admitted beside a
+  flag-shaped neighbor (`has_flag_shaped_plus_neighbor`), the same evidence
+  bare `+`/`+<placeholder>` already required (S-095), extended to a whole
+  word. That neighbor check no longer requires the neighbor row itself to
+  carry leading whitespace: a headingless table (S-165) sits flush at
+  column 0, and `+bs`'s own neighbor `-bs` does too. The gate this rides on
+  (`scan_flags_block`'s own "indented, or already inside an open block"
+  test) is widened the same way, so a `+word` row is admitted at column 0
+  once a real entry has already opened the block. (2) `+/-word`, `-/+word`,
+  `[+-]word` and `[-+]word` each expand to two entities, `+word` and
+  `-word`, sharing the row's own description and any trailing value spec
+  verbatim. (3) Neither rule fires where the sigil is not the row's own
+  leading token: `xxd`'s `-s [+][-]seek` opens with `-s`, and stays
+  refused, matching S-097's own counter-case.
+  Round 11 fixed three further defects on this same shape, all in
+  `help_text::sections::repair.rs`/`flag_rows.rs`. (4) An alternation
+  row's own expansion never duplicates or overwrites a spelling an
+  ordinary row elsewhere in the document already documents:
+  `+/-render`'s own `-render` half used to collide with the standalone
+  `-render [default|mono|gray|color]` row, and the collision cost the
+  ordinary row its own value and description
+  (`resolve_alternation_spelling_collisions`, run last, after every
+  other repair, so richness — an already-recovered value or choices —
+  decides which duplicate survives). (5) `+word` and its `-word` sibling
+  read the same value column: `parse_plus_sigil_spec`'s hand-rolled word
+  scan already reads a bare, unbracketed value correctly (`+extension
+  name`'s `name`), but the ordinary `-word` row goes through
+  `repair_single_dash_long_options` instead, which only recovers a
+  bracket/angle or `=`-glued value and silently drops a bare one — the
+  already-correct value is now borrowed onto the sibling
+  (`borrow_plus_word_value_for_dash_sibling`) rather than teaching the
+  ordinary repair to guess at bare words (still out of scope, S-117's own
+  reasoning). (6) A `+word` spelling longer than one character renders in
+  the wrong column: `mandible-tui`'s own column-choice test treated every
+  dashless spelling alike, so `+render`/`+extension` landed in the short
+  column at column 0 instead of beside `-render` in the long column; a
+  one-character dashless spelling (`+i`, `fzf`'s own row) still belongs in
+  the short column, and a modifier letter or environment variable name
+  (dashless for an unrelated reason) stays there regardless of length
+  (`mandible-tui/src/render/detail_pane/layout.rs::bare_spelling_column`,
+  spec §9.1a). The same distinction fixed the render *gap*:
+  `spelling_is_sigil` used to glue any dashless spelling's value with no
+  space (the argfile sigil's own `@<file>` shape), which rendered
+  `+extension name` as `+extensionname`; now only a spelling that is
+  nothing but its own bare sigil character (`@`, the standalone `+`)
+  glues, never a `+word` that already carries its own word
+  (`mandible-tui/src/render/detail_pane/entity.rs::spelling_is_sigil`).
+- fleet: `plus-word-option` (`xtask/src/detector/plus_word_option.rs`, rule 1)
+  and `plus-minus-alternation-option`
+  (`xtask/src/detector/plus_minus_alternation_option.rs`, rules 2/3) are
+  both family `None`, so calibration against the seed-7 labelled set reads
+  NOT EVALUABLE for each. Self-checks hold (7/7 and 7/7). Raw-shape count:
+  3 tools / 7 findings for `+word` (Xvfb, fzf, lsof), 1 tool / 2 findings
+  for `+/-name` (Xvfb); both are upper bounds, not the tree-level count.
+  Full-`PATH` sweep-diff of 2269 tools against `origin/main` 0b30c15,
+  2026-09-12: 0 flags lost anywhere, 11 flags gained across 2 tools —
+  Xvfb 69 to 78 (+bs, +byteswappedclients, +iglx, +xinerama, +extension,
+  +render, +accessx, -accessx), fzf 63 to 65 (+i, `+s, --no-sort`). Every
+  gain checked against the tool's own `--help` text.
+
+### S-164: the root description reused as a flag group's own label
+
+- id: S-164
+- looks like: |
+      usage: fc-scan [-bcVh] ... font-file...
+      Scan font files and directories, and print resulting pattern(s)
+
+        -b, --brief            display font pattern briefly
+- tools: fc-scan, fc-validate, grub-macbless, lto-dump, Xvfb
+- handling: Fixed. A sentence directly above a flags block, with no
+  recognized heading word, is read two ways at once: once as the node's
+  own root `description` (the leading-prose rule), and a second time as
+  that block's own group label (`set_pending_bare_label`'s flush-heading
+  shortcut, S-146, and the "recognized heading" flags-block path's
+  `meaningful_flag_group` fallback). A label equal, verbatim (trimmed), to
+  the root description is now refused at both sites: a sentence already
+  spent as the description is not available a second time as a group.
+  `gcc-ranlib-13`'s own `The options are` label is unaffected, since its
+  text differs from the description.
+- fleet: `description-reused-as-group-label`
+  (`xtask/src/detector/description_reused_as_group_label.rs`) is family
+  `None`, so calibration reads NOT EVALUABLE. Self-checks hold (4/4).
+  `fc-scan` and `grub-macbless` are the maintainer-named specimens;
+  `fc-validate` and `lto-dump` are pre-existing, previously-`ok` corpus
+  fixtures the fix also silently repaired (both re-blessed, group lines
+  removed, nothing else changed). Full-`PATH` sweep-diff of 2269 tools
+  against `origin/main` 0b30c15, 2026-09-12: 0 flag/subcommand losses. The
+  detector itself still reads 2 tools / 2 findings fleet-wide after this
+  fix (`"where possible options include:"`, `"where options include:"`),
+  a different pair of tools this round's brief did not name; left as a
+  future finding, not chased here.
+
+### S-165: a headingless table lands in the root description
+
+- id: S-165
+- looks like: |
+      Unrecognized option: --help
+      use: X [:<display>] [option]
+      -a #                   default pointer acceleration (factor)
+      -ac                    disable access control restrictions
+- tools: Xvfb
+- handling: Fixed. `extract_description`'s own bound
+  (`leading_prose_bound`) is a blank-line search with no notion of a
+  flags block at all; with no recognized `usage:` line and no blank line
+  anywhere in the document, it returns the whole document, so a
+  headingless table's rows land in the description as well as being
+  independently recovered by `scan_entries`. Narrowly bounded: only when
+  no blank line exists at all and no usage line was recognized does the
+  description scan now also stop at the first line
+  `starts_attested_headingless_flag_block` (S-052's own recognizer)
+  accepts as a real option row, so an ordinary document's already-correct,
+  cheap bound pays nothing extra. Xvfb's own `use: X [:<display>]
+  [option]` line, an unusual `use:` label rather than `usage:`, is the
+  root cause `flags_block_start` never reaches on its own. This is the
+  same specimen S-164 fixes the group-duplication half of; landing this
+  fix first is what let S-163's `+word` and alternation rows reach column
+  0 at all.
+- fleet: `headingless-table-in-root-description`
+  (`xtask/src/detector/headingless_table_in_root_description.rs`) is
+  family `None`, so calibration reads NOT EVALUABLE. Self-checks hold
+  (4/4). One tool, below the five-tool bar, maintainer-named (carried
+  item 23). Full-`PATH` sweep-diff of 2269 tools against `origin/main`
+  0b30c15, 2026-09-12: 0 flag/subcommand losses anywhere. The detector's
+  own word-boundary heuristic still reads 30 tools fleet-wide after this
+  fix — a broader symptom (a description repeating several of its own
+  tree's flag spellings) than the narrow structural cause this fix
+  closes (no blank line anywhere, no recognized usage line); left as a
+  future finding, not chased here.
+
+### S-166: header-declared three-column option table, env-variable column
+
+- id: S-166
+- looks like: |
+      Argument             Env-variable         Description
+      -h                                        print this help
+      -g port              QEMU_GDB             wait gdb connection to 'port'
+      -cpu model           QEMU_CPU             select CPU (-cpu help for list)
+- tools: the whole `qemu-*-static` fleet (one help template, 42 tools)
+- handling: A header row whose cells name its own columns is read at the column
+  offsets that header declares, stronger evidence than a heading. The middle
+  column, named as an environment variable, becomes the matching flag's own
+  `Entity::env_var` cross-reference (spec §4.5), never folded into the
+  description. `-cpu` and `-dfilter` also lost their own value name outright;
+  a header-declared table's own argument field is read directly rather than
+  through the general single-dash-long repair, whose bare-word value recovery
+  regressed `dbiprof`'s `-match=K=V` when tried document-wide. A fabricated
+  `-E` row and group, folded in from the prose paragraph below the table,
+  stop appearing once the table is read as ending at the header's own column
+  structure, at the first blank line.
+- fleet: `header-declared-env-column` reads 0 findings post-fix on
+  `qemu-riscv64-static` and `qemu-arm64-static`; raw-shape grep over the
+  seed's own captures reads 42 tools / 42 findings, the whole `qemu-*-static`
+  set, 2026-09-12.
+
+### S-167: a usage form's leading word carries a bracketed abbreviation suffix
+
+- id: S-167
+- looks like: |
+      Usage:
+        lldb-server v[ersion]
+        lldb-server g[dbserver] [options]
+        lldb-server p[latform] [options]
+- tools: lldb-server, lldb-server-18, gcc-ar, unsquashfs, sqfscat, bridge
+- handling: Fixed, revised. A usage form whose leading word
+  after the program name is a command word with a bracketed
+  optional-abbreviation suffix names a subcommand: the node is named by the
+  whole word with the brackets removed (`gdbserver`), and that same whole
+  word is the displayed name — the maintainer rejected showing the
+  bracketed source spelling (`g[dbserver]`) in the tree. The row's own short
+  prefix (`g`) is kept as an alias instead of a display spelling. The nodes
+  are `invocation_attested`, never `heading_attested`, but now also carry a
+  third, narrower attestation bit, `abbrev_probe_attested`, admitted only
+  for a node this exact recognizer produced (design §6 rule 0). That bit
+  alone now clears rule 0's probe gate, so `mandible lldb-server`'s three
+  children are probed with their own full word (`lldb-server gdbserver
+  --help`) and fill their own flags; rule 0's thirteen-program list still
+  wins first and unconditionally, proved by the `exec_policy` shim suite.
+  Confirmed directly: `lldb-server 'g[dbserver]' --help` also answers,
+  byte-identical to `lldb-server gdbserver --help`, because lldb-server
+  matches its subcommand by prefix — the bracketed form is not refused
+  here, but the full word is still the right argv, since it is the word a
+  user would type and the bracket characters have no business in argv.
+  The emitted name is the source token minus its bracket characters and
+  nothing else changed, which is why design §7 Tier B rule 7's existence
+  oracle needed a narrow amendment (§16): `gdbserver` is not a contiguous
+  substring of the raw text, only `g[dbserver]` is, so the oracle now also
+  attests a subcommand name reached this way.
+- fleet: `usage-optional-word-table`
+  (`xtask/src/usage_optional_word_table.rs`) named 10 tools/17 findings as a
+  raw shape before the round. What moved on a full-`PATH` sweep of 2323
+  tools, 2026-09-13: 6 subcommands gained across 2 tools, `lldb-server`
+  0 to 3 and `lldb-server-18` 0 to 3, with names `gdbserver`, `platform` and
+  `version`. Zero flag losses, zero flag gains, zero subcommand losses, and
+  all nine named controls byte-identical. The same-day display/alias/probe
+  amendment above changed no node counts (names, not display forms, gate
+  fleet-wide sweeps), so this count stands unchanged. Fixture:
+  `corpus/lldb-server/18.1.3`, whose `must_display_name` pins all three
+  repaired names; the fixture replays frozen bytes with no subprocess, so
+  it cannot show the probe-filled children a live run produces.
+
+### S-168: a colon-introduced choice list under a placeholder pair
+
+- id: S-168
+- looks like: |
+      +extension name        Enable extension
+      -extension name        Disable extension
+       Only the following extensions can be run-time enabled/disabled:
+      	Generic Event Extension
+      	MIT-SHM
+      	XTEST
+- tools: Xvfb; raw-shape grep also finds `chmem`'s "Supported zones:"
+  (`DMA`, `DMA32`, `Normal`, `Highmem`, `Movable`) under `-z, --zone <name>`
+- handling: Fixed for Xvfb. A colon-terminated introducer sentence
+  (`looks_like_choice_list_introducer`) directly followed by at least two
+  bare-name item lines (`looks_like_choice_list_item` — a short run of
+  hyphenated words, refused the moment a genuine column gap appears, which
+  is what tells this apart from `as`'s own *described* sub-option rows,
+  S-015's territory) becomes the placeholder's own `choices`
+  (`mark_choice_list_rows`, `mandible-extract/src/help_text/sections/flag_rows.rs`).
+  Neither the introducer line nor the items are folded into the row's own
+  description. When the placeholder is shared by a `+word`/`-word` pair
+  (S-163), the same choices reach both halves
+  (`spec_word_after_sigil`'s pairing check), since the pair documents one
+  value column twice. Two further repairs on the same specimen ride along:
+  `+extension`/`-extension` used to read different value columns for the
+  same `name` placeholder — the `+word` grammar (`parse_plus_sigil_spec`)
+  already read a bare word correctly, and now that value is borrowed onto
+  the `-word` sibling when the ordinary single-dash-long repair could not
+  recover it on its own (`borrow_plus_word_value_for_dash_sibling`); and
+  the `+/-render` alternation row's own expansion used to collide with the
+  ordinary `-render` row, duplicating `-render` and losing its own
+  four-choice bracket value — the expansion now contributes only the
+  spelling an ordinary row does not already document
+  (`resolve_alternation_spelling_collisions`), both in
+  `mandible-extract/src/help_text/sections/repair.rs`. `-render`'s own
+  bracket value was lost separately: `row_is_table_shaped` required a
+  tab or double-space gap that a single-dash-long table with no column
+  padding at all (S-165's own headingless shape) never has; a genuine
+  `<...>`/`[...]` placeholder exactly one space after the name is now
+  admitted as the same evidence. Fencing gap found on a break-it check:
+  disabling `resolve_alternation_spelling_collisions` still passes
+  `must_describe["-render"]` and `must_value_name["-render"]`, since a
+  duplicate entity does not stop the first matching one carrying the
+  right value — only `expected.snap`'s byte compare catches the
+  duplicate today. A `must_not_duplicate_spelling` contract field would
+  fence it directly; not added this round.
+- fleet: `choice-list-under-placeholder`
+  (`xtask/src/detector/choice_list_under_placeholder.rs`) is family `None`,
+  so calibration reads NOT EVALUABLE; self-checks hold (4/4). The
+  tree-level reach is **1 tool** — a full-`PATH` sweep of 2323 tools names
+  `choices changed` on Xvfb and nothing else, 2026-09-13 — well short of
+  the five-tool bar; this ships on the gated-exception route (§ common.md:
+  maintainer-audited, fixture promoted out of `[xfail]`, zero-loss sweep,
+  controls byte-identical), not because the rule cleared it. Raw-shape
+  grep over `/home/ubuntu/projects/mandible/audit/queue-captures/`: 26
+  tools / 26 findings, an upper bound on the raw shape alone. The other 25
+  (`bash`, `perf`, `usbip`, `dmesg`, `bpftool`, and others) are unaudited
+  and this rule does not reach them — nothing was fabricated on a tool
+  nobody read. `Xvfb` is the one fixture fixed and corpus-pinned this
+  round. 2026-09-13.
+
+### S-169: a command table inside the usage block
+
+- id: S-169
+- looks like: |
+      Usage:
+
+      dmsetup
+              [--version] [-h|--help [-c|-C|--columns]]
+              [-v|--verbose [-v|--verbose ...]] [-f|--force]
+              ...
+
+      	help [-c|-C|--columns]
+      	create <dev_name>
+      	    [-j|--major <major> -m|--minor <minor>]
+      	    ...
+      	remove [--deferred] [-f|--force] [--retry] <device>...
+      	ls [--target <target_type>] [--exec <command>] [--tree]
+      	...
+- tools: dmsetup, dmstats; a fleet-wide raw-shape grep over
+  `audit/queue-captures` also named claude, cryptsetup,
+  dpkg-maintscript-helper, ethtool, fail2ban-client, ffplay, fwupdmgr,
+  fwupdtool, integritysetup, kernel-install, modprobe,
+  update-xmlcatalog, veritysetup (15 tools, a loose upper bound, not a
+  calibrated count)
+- handling: Fixed. A bare `Usage:` label (nothing else on its line)
+  followed by a blank line and the tool's own name alone on its line,
+  heading its root invocation form, is now recognized as continuing the
+  *same* labelled usage block (`scan_usage_section`'s own
+  `bare_usage_label_only` gate, reusing the unlabelled-synopsis
+  continuation machinery via the new
+  `looks_like_bare_name_then_usage_fragment` predicate — the existing
+  `looks_like_stanza_continuation_head` requires a *single* self-closed
+  docopt bracket row on the next line, which a line carrying several
+  bracket groups at once is not). Before this, the block ended at that
+  first blank line, and the root's own flags plus the whole command
+  table fell through to the generic body scanner, which read the
+  tab-indented command lines as fabricated group labels
+  (`Create <dev_name>`). Once the root stanza is recovered this way
+  (`UsageScan::recovered_bare_root_stanza`), the very next block is
+  tried against `scan_headingless_usage_command_table`
+  (`help_text/sections/usage_command_table.rs`): one row per command,
+  never repeating the tool's own name (S-016's own shape, a table whose
+  rows *do* repeat it, is distinct and takes priority), each row's own
+  flags/operands recovered from its own line and any deeper-indented
+  continuation via the existing `extract_usage_flags`/
+  `extract_positionals`. A repeated command word (`create <dev_name>` /
+  `create --concise ...`) folds into one node, its second invocation
+  form's flags merged in. Every emitted node is `invocation_attested:
+  true`, `heading_attested: false` — a usage block is not a heading, so
+  spec §6 rule 0's second gate keeps declining to probe these words,
+  proven by the corpus fixtures' snapshots carrying no
+  `heading_attested` field at all. Gated on `recovered_bare_root_stanza`
+  specifically, not merely "a labelled usage block existed somewhere":
+  an ordinary `Usage: prog [opts]` tool whose body happens to start at
+  the same indent as a real table (`ar`'s modifier tables) must never be
+  mistaken for this shape, caught by a regression this fix's own
+  break-it check reproduced and fixed before shipping.
+- fleet: `usage-command-table`
+  (`xtask/src/detector/usage_command_table.rs`), self-checks held both
+  directions (fires on the pre-fix shape, silent once every row is a
+  real subcommand); no seed-labelled tool carries this shape, so
+  `Detector::family` returns `None`. A calibrated fleet-wide count
+  needs a full-`PATH` sweep, not run as part of this fix.
+
+### S-170: a bracket group of flags is not a value
+
+- id: S-170
+- looks like: |
+      [-h|--help [-c|-C|--columns]]
+      [-v|--verbose [-v|--verbose ...]]
+- tools: dmsetup; a fleet-wide raw-shape grep over `audit/queue-captures`
+  named 186 tools, certainly over-matching (any bracketed alternation
+  glued to another bracket, most of them real values) — not a calibrated
+  count
+- handling: Fixed. `help_text::grammar::try_value`'s bracketed-value arm
+  now refuses to fold a `[VALUE]` group into a value at all when
+  `VALUE`'s own `|`-separated members are entirely option spellings
+  (`-c`, `-C`, `--columns`) or a bare ellipsis word — `try_value` returns
+  `None` for that case, so the flag carries no value and nothing is
+  invented in its place, exactly as an unrecognized value spec already
+  does elsewhere in this function. Requires a genuine `|` alternation:
+  a lone dash-led word inside one bracket with no alternation at all
+  (nvim's own `--remote[-subcommand]`) is a real, if oddly spelled,
+  value placeholder and must keep it — caught by this fix's own
+  regression run against the existing corpus before shipping (`nvim`
+  briefly lost `--remote`'s value during development) and now asserted
+  by `bracket_group_is_pure_flag_alternation`'s own `content.contains('|')`
+  gate. One shared engine, so every framework gets the fix at once (spec
+  §7 Tier B rule 1).
+- fleet: `nested-flag-group-as-value`
+  (`xtask/src/detector/nested_flag_group_as_value.rs`), self-checks held
+  both directions; no seed-labelled tool carries this shape, so
+  `Detector::family` returns `None`. A calibrated fleet-wide count needs
+  a full-`PATH` sweep, not run as part of this fix.
+
+### S-171: a numbered `X1 X2 ...` pair sits ahead of a later required operand
+
+- id: S-171
+- looks like: |
+      SYNTAX: mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
+      exclude dirs/files]
+- tools: mksquashfs
+- handling: Fixed. S-136's sibling: `mksquashfs`'s own numbered pair is
+  unbracketed, like `genccode`'s `filename1 filename2 ...`, but it is not the
+  line's own tail — `FILESYSTEM` follows it — so S-136's own collapse
+  (`collapse_numbered_variadic_tail`, called only from
+  `recover_primary_tail_operands`) never runs: that function is itself gated
+  on `extract_positionals`'s per-line ALL-CAPS loop finding nothing at all,
+  and here that loop already reads `FILESYSTEM`. A new, independent function,
+  `recover_leading_numbered_pair` (`mandible-extract/src/help_text/sections/
+  multiword.rs`), runs unconditionally rather than only on an empty `out`,
+  requires a further operand-shaped group after the pair (a pair with
+  nothing behind it is S-136's own shape), and only ever adds at the front —
+  never replaces — so a tool the loop above already read this pair some
+  other way is untouched. `corpus/mksquashfs/4.6.1` gains the `source`
+  positional; `genccode`'s own pair sits at the true tail (nothing follows)
+  and is declined here by design, staying on S-136's own path unchanged.
+  `linux-version`'s raw text has the same shared-stem-plus-integer shape
+  (`sort [--reverse] [VERSION1 VERSION2 ...]`) but its defect is unrelated:
+  that whole invocation form is a non-primary usage line, and
+  `extract_positionals` only ever reads positionals off the primary one
+  (S-004) — no numbered-pair rule reaches a line `extract_positionals`
+  never visits. Declined here; a fix would mean recovering positionals from
+  every alternate form, a materially larger, riskier change out of this
+  item's scope.
+- fleet: not swept fleet-wide (2 tools/2 findings on the maintainer's own
+  raw grep, both read above); below the five-tool floor. Shipped as a
+  gated exception (docs/design.md §16): `corpus/mksquashfs/4.6.1` gains the
+  assertion and stays passing, the corpus sweep (164 fixtures) shows this
+  fixture as the only change, and all nine named controls stay
+  byte-identical (see gate log). `sqfstar` was checked and is not a member:
+  its own usage has no numbered pair at all.
+
+### S-172: a usage-line single-dash-long token split after one letter
+
+- id: S-172
+- looks like: |
+      usage: /usr/bin/lshw [-format] [-options ...]
+      Usage: fuser ... [-k [-i] [-SIGNAL]] NAME...
+- tools: lshw, fuser
+- handling: A single-dash-long spelling that stands alone as its own bracketed
+  token in a usage line — never joined to a separate value by a space, an
+  `=`, or a bracket of its own — reached the tree split into a short flag
+  plus a swallowed value (`-format` to `-f` valued `"ormat"`, `-SIGNAL` to
+  `-S` valued `"IGNAL"`). Two sites, one shape: a usage-derived flag's own
+  swallowed tail is repaired when uniformly lowercase and the reconstructed
+  name matches a `<word> can be` heading the same document carries
+  (`recover_can_be_placeholder_flags`, also recovering `-options`, dropped
+  entirely as the generic option-list placeholder before this); a
+  table-derived flag's swallowed tail is repaired when the tool's own
+  usage line independently spells the same name as one stand-alone
+  bracketed token (`repair_usage_attested_single_dash_long`) — direct proof
+  from a document location distinct from the row itself, never a loosening
+  of S-145's own table-wide gate, which stays closed for both tools (no
+  unambiguous single-dash-only row establishes either document as that
+  convention). Never claims a bundle of already-known short flags
+  (`rpcbind`'s own `-adhilswfr`, left to the bundling family).
+
+  Refused when the case changes at the split point — a lowercase flag
+  letter running straight into an uppercase tail — because that is the
+  GCC/Clang glued-value convention, not a longer name. `memhog`'s usage
+  line brackets `[-rNUM]` exactly the way `fuser`'s brackets `[-SIGNAL]`,
+  and `-r` valued `NUM` is the correct parse, so without this guard the
+  repair destroyed a real value name. `fuser`'s `-SIGNAL` is uppercase
+  throughout and so has no such transition; `lshw`'s `-format` is
+  lowercase throughout. Found by the full-`PATH` sweep and by nothing
+  else: memhog's flag count is 3 either way, so the change lands in the
+  sweep-diff's field-level list and never on the loss bar, and neither
+  fixture tool carries the shape. Fenced by
+  `memhogs_glued_uppercase_placeholder_is_never_usage_attested`
+  (`sections/repair.rs`), memhog having no fixture of its own; that
+  test's doc comment states the one label it adds to memhog's text and
+  why a bare `parse` needs it.
+- fleet: `usage-attested-single-dash-long`
+  (`xtask/src/detector/usage_attested_single_dash_long.rs`) measures against
+  the parse (a swallowed-value split whose name a usage line independently
+  attests), not the raw text alone. Both fixture tools, lshw and fuser, are
+  seed-7 maintainer-audited (`audit/7.toml`'s own `k1 = true` rows); no
+  broader full-`PATH` sweep was drawn this round, so the honest count is 2,
+  below the five-tool bar. Shipped as a gated exception (docs/design.md
+  §16): both fixtures promote out of a prior unfixed state, `cargo xtask
+  corpus` is zero-loss, and every self-check holds, both directions.
 
 ### S-173: a description's own `* NAME - VALUE` bullet split at its inline dash
 
