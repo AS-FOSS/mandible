@@ -128,6 +128,10 @@ pub(crate) mod header_declared_env_column;
 // list under a `+word`/`-word` placeholder pair), same direct-`Detector`-
 // impl shape.
 pub(crate) mod choice_list_under_placeholder;
+// Round-11 family detectors (queue item 2: a command table inside the
+// usage block, atlas S-169 and S-170), same direct-`Detector`-impl shape.
+pub(crate) mod nested_flag_group_as_value;
+pub(crate) mod usage_command_table;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -792,6 +796,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(header_declared_env_column::HeaderDeclaredEnvColumn),
         Box::new(choice_list_under_placeholder::ChoiceListUnderPlaceholder),
         Box::new(UsageOptionalWordTable),
+        Box::new(usage_command_table::UsageCommandTable),
+        Box::new(nested_flag_group_as_value::NestedFlagGroupAsValue),
     ]
 }
 
