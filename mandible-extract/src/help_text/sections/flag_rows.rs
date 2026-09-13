@@ -937,6 +937,101 @@ fn collect_flags_block_rows<'a>(
     (i, rows, argfile_entry)
 }
 
+// S-168: a colon-introduced choice list under a placeholder row (Xvfb's
+// `+extension`/`-extension` pair and its "run-time enabled/disabled"
+// sentence) becomes that placeholder's own `choices`, shared by both
+// halves of a `+word`/`-word` pair, never folded into a description. See
+// docs/shapes.md S-168.
+
+/// True when a continuation line, once trimmed, is nothing but a
+/// colon-terminated introducer sentence for a list nested directly below
+/// it. Never itself flag-shaped, and never empty once the trailing colon
+/// is stripped — a bare `:` alone introduces nothing. The caller
+/// ([`mark_choice_list_rows`]) trusts this only once
+/// [`MIN_NESTED_TABLE_ROWS`] further [`looks_like_choice_list_item`] rows
+/// confirm a real list follows, so an ordinary description sentence that
+/// happens to end in `:` with nothing list-shaped beneath it is never
+/// mistaken for this. See docs/shapes.md S-168.
+pub(super) fn looks_like_choice_list_introducer(text: &str) -> bool {
+    let trimmed = text.trim();
+    let Some(body) = trimmed.strip_suffix(':') else {
+        return false;
+    };
+    let body = body.trim();
+    !body.is_empty() && !looks_like_flag_start(body) && !looks_like_bracket_flag_row(body)
+}
+
+/// True when a continuation line is one list item in the shape
+/// [`looks_like_choice_list_introducer`]'s own list is made of: a short
+/// run (at most six words) of bare, hyphen-joined words, with none of the
+/// sentence punctuation (`.`, `,`, `;`) an ordinary wrapped description
+/// carries, and — critically — no genuine column gap
+/// ([`find_multi_space_gap`]) anywhere in it. That gap is what tells this
+/// bare-name list apart from `as`'s own described sub-option rows
+/// (`c      omit false conditionals`, S-015's territory, a name *and* a
+/// description column, already handled by
+/// [`choice_description_sub_row`]): a plain list item is nothing but its
+/// own name. Matches `MIT-SHM`, `XVideo-MotionCompensation`, and the
+/// three-word `Generic Event Extension` alike. See docs/shapes.md S-168.
+pub(super) fn looks_like_choice_list_item(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || find_multi_space_gap(trimmed).is_some() {
+        return false;
+    }
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    words.len() <= 6
+        && words
+            .iter()
+            .all(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+}
+
+/// `rows` indices that belong to a colon-introduced choice list — the
+/// introducer row itself, plus every item row beneath it — computed with
+/// the whole block's rows in view so [`scan_flags_block`]'s own folding
+/// loop needs no lookahead of its own. Requires at least
+/// [`MIN_NESTED_TABLE_ROWS`] item rows after the introducer, the same
+/// repetition floor every other nested-list recognizer in this file
+/// uses: one line alone is cheap to produce by coincidence, a real run of
+/// them is a list. See docs/shapes.md S-168.
+fn mark_choice_list_rows(rows: &[FlagsBlockRow<'_>]) -> Vec<bool> {
+    let mut marks = vec![false; rows.len()];
+    let mut i = 0;
+    while i < rows.len() {
+        if let FlagsBlockRow::Continuation(text) = rows[i] {
+            if looks_like_choice_list_introducer(text) {
+                let mut j = i + 1;
+                while let Some(FlagsBlockRow::Continuation(item)) = rows.get(j) {
+                    if !looks_like_choice_list_item(item) {
+                        break;
+                    }
+                    j += 1;
+                }
+                if j - (i + 1) >= MIN_NESTED_TABLE_ROWS {
+                    for mark in &mut marks[i..j] {
+                        *mark = true;
+                    }
+                    i = j;
+                    continue;
+                }
+            }
+        }
+        i += 1;
+    }
+    marks
+}
+
+/// The bare word right after a row's own leading `+`/`-` sigil — used only
+/// to confirm a `+word`/`-word` pair share the same base word before a
+/// colon-introduced choice list (S-168) is propagated from one half to
+/// the other. `None` when the spec's first token carries neither sigil.
+fn spec_word_after_sigil(spec: &str) -> Option<&str> {
+    let token = spec.split_whitespace().next()?;
+    let word = token
+        .strip_prefix('+')
+        .or_else(|| token.strip_prefix('-'))?;
+    (!word.is_empty()).then_some(word)
+}
+
 pub(super) fn scan_flags_block(
     lines: &[&str],
     start: usize,
@@ -984,7 +1079,12 @@ pub(super) fn scan_flags_block(
     // `emit_flags_block` knows which single recovered entry to expand
     // into the row's own `+word`/`-word` pair. See docs/shapes.md S-163.
     let mut is_alternation: Vec<bool> = Vec::new();
-    for row in rows {
+    // S-168: which `rows` indices belong to a colon-introduced choice
+    // list (the introducer line itself, plus every item beneath it) —
+    // computed once, with the whole block's rows in view, so the folding
+    // loop below can route each without its own lookahead.
+    let choice_list_rows = mark_choice_list_rows(&rows);
+    for (row_idx, row) in rows.into_iter().enumerate() {
         let plus_sigil_row = matches!(row, FlagsBlockRow::PlusSigil(_));
         let alt_sigil_row = matches!(row, FlagsBlockRow::AlternationSigil(_));
         let before = entries.len();
@@ -1077,7 +1177,36 @@ pub(super) fn scan_flags_block(
                 }
             }
             FlagsBlockRow::Continuation(text) => {
-                if let Some(last) = entries.last_mut() {
+                if choice_list_rows[row_idx] {
+                    // S-168: a colon-introduced choice list — the
+                    // introducer line itself never becomes a choice or a
+                    // description fragment; each item beneath it becomes a
+                    // bare choice on this entry, and, when this entry is
+                    // one half of a `+word`/`-word` pair (S-163), on its
+                    // sibling too. See docs/shapes.md S-168.
+                    if !looks_like_choice_list_introducer(text) {
+                        let name = text.trim().to_string();
+                        if let Some(last) = entries.last_mut() {
+                            if !last.2.iter().any(|(n, _)| n == &name) {
+                                last.2.push((name.clone(), None));
+                            }
+                        }
+                        // The sibling half of a `+word`/`-word` pair sits
+                        // exactly one entry back, tagged in `is_plus_sigil`
+                        // (built incrementally, same loop) — never further
+                        // back, and never when this entry isn't paired at
+                        // all.
+                        if entries.len() >= 2 {
+                            let sibling_idx = entries.len() - 2;
+                            let paired = is_plus_sigil.get(sibling_idx).copied().unwrap_or(false)
+                                && spec_word_after_sigil(&entries[sibling_idx].0)
+                                    == spec_word_after_sigil(&entries[entries.len() - 1].0);
+                            if paired && !entries[sibling_idx].2.iter().any(|(n, _)| n == &name) {
+                                entries[sibling_idx].2.push((name, None));
+                            }
+                        }
+                    }
+                } else if let Some(last) = entries.last_mut() {
                     // A continuation that completes an unclosed `<...>`
                     // placeholder opened on the entry row above (jmod's
                     // `--target-platform <String: target-` / `platform>`)

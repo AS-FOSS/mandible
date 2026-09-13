@@ -101,6 +101,8 @@ flags:
     - help-text
 - spellings:
   - -deferglyphs
+  value_name: '[none|all|16]'
+  value_kind: Optional
   description: defer loading of [no|all|16-bit] glyphs
   provenance:
     sources:
@@ -239,6 +241,8 @@ flags:
     - help-text
 - spellings:
   - -render
+  value_name: '[default|mono|gray|color]'
+  value_kind: Optional
   description: set render color alloc policy
   provenance:
     sources:
@@ -337,13 +341,55 @@ flags:
   - +extension
   value_name: name
   value_kind: Required
+  choices:
+  - Generic Event Extension
+  - MIT-SHM
+  - XTEST
+  - SECURITY
+  - XINERAMA
+  - XFIXES
+  - RENDER
+  - RANDR
+  - COMPOSITE
+  - DAMAGE
+  - MIT-SCREEN-SAVER
+  - DOUBLE-BUFFER
+  - RECORD
+  - DPMS
+  - X-Resource
+  - XVideo
+  - XVideo-MotionCompensation
+  - SELinux
+  - GLX
   description: Enable extension
   provenance:
     sources:
     - help-text
 - spellings:
   - -extension
-  description: 'Disable extension Only the following extensions can be run-time enabled/disabled: Generic Event Extension MIT-SHM XTEST SECURITY XINERAMA XFIXES RENDER RANDR COMPOSITE DAMAGE MIT-SCREEN-SAVER DOUBLE-BUFFER RECORD DPMS X-Resource XVideo XVideo-MotionCompensation SELinux GLX'
+  value_name: name
+  value_kind: Required
+  choices:
+  - Generic Event Extension
+  - MIT-SHM
+  - XTEST
+  - SECURITY
+  - XINERAMA
+  - XFIXES
+  - RENDER
+  - RANDR
+  - COMPOSITE
+  - DAMAGE
+  - MIT-SCREEN-SAVER
+  - DOUBLE-BUFFER
+  - RECORD
+  - DPMS
+  - X-Resource
+  - XVideo
+  - XVideo-MotionCompensation
+  - SELinux
+  - GLX
+  description: Disable extension
   provenance:
     sources:
     - help-text
@@ -361,6 +407,8 @@ flags:
     - help-text
 - spellings:
   - -multicast
+  value_name: '[addr [hops]'
+  value_kind: Optional
   description: IPv6 multicast for XDMCP
   provenance:
     sources:
@@ -448,12 +496,6 @@ flags:
     - help-text
 - spellings:
   - +render
-  description: turn on/off RENDER extension support(default on)
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - -render
   description: turn on/off RENDER extension support(default on)
   provenance:
     sources:

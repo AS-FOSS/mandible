@@ -94,10 +94,14 @@ pub(super) fn entity_value_text(flag: &Entity) -> Option<String> {
 /// True when this entity's value placeholder glues directly onto its
 /// spelling with no space — the argfile sigil flag's row-verbatim shape,
 /// `@<file>` (spec §4.5), rather than the ordinary `--output FILE` gap
-/// (spec §9.3). Decided by shape (a single dashless spelling whose first
-/// character is not alphanumeric), not by the literal `"@"`: a dashed
-/// short option like `-?` must not match, since it does take a value
-/// (`ffplay`'s `-? topic`) with the ordinary space.
+/// (spec §9.3). Decided by shape (a single dashless spelling that is
+/// nothing but its own leading sigil character, `@`, `+`), not by the
+/// literal `"@"`: a dashed short option like `-?` must not match, since
+/// it does take a value (`ffplay`'s `-? topic`) with the ordinary space —
+/// and neither must a `+word` spelling that already carries its own word
+/// (`+extension`, `+accessx`, S-163), whose value is a separate word in
+/// the source and renders with the ordinary space the same way
+/// `-extension`'s does, never glued into `+extensionname`.
 pub(super) fn spelling_is_sigil(flag: &Entity) -> bool {
     flag.spellings.len() == 1
         && matches!(flag.spellings[0].dashes, Dashes::None)
@@ -106,6 +110,7 @@ pub(super) fn spelling_is_sigil(flag: &Entity) -> bool {
             .chars()
             .next()
             .is_some_and(|c| !c.is_alphanumeric())
+        && flag.spellings[0].name.chars().count() == 1
 }
 
 /// True when a required value glues to its spelling by a literal

@@ -3,6 +3,15 @@
 # defects shared one specimen: the leading diagnostic (S-162), `+word` and
 # `+/-name`/`[+-]name` rows (S-163), and the headingless table landing in the
 # root description (S-165). All three are fixed.
+#
+# Round 11 repaired four further defects on this same specimen: the
+# `+/-render` alternation row used to collide with the ordinary `-render`
+# row, losing its four choices (S-163); `+extension`/`-extension` used to
+# read different value columns for the same `name` placeholder (S-163);
+# the colon-introduced list of run-time-toggleable extension names used to
+# fold into `-extension`'s own description instead of becoming `name`'s
+# choices, shared by both halves of the pair (S-168); and `+word` spellings
+# used to render in the wrong column (mandible-tui, not this fixture).
 
 [bless]
 provenance = "agent"
@@ -24,8 +33,9 @@ min_status = "ok"
 # The leading diagnostic never survives into the root description (S-162).
 must_not_describe_root = ["Unrecognized option", "disable access control restrictions"]
 # `+word` (S-163 rule 1) and the alternation-sigil rows (S-163 rules 2/3)
-# all reach the tree, both halves each.
-must_contain_flags = ["+bs", "-bs", "+accessx", "-accessx", "+render", "-render"]
+# all reach the tree, both halves each. `+extension`/`-extension` reach it
+# too, each exactly once (round 11's collision-avoidance rule).
+must_contain_flags = ["+bs", "-bs", "+accessx", "-accessx", "+render", "-render", "+extension", "-extension"]
 # Neither the `use:` usage-label line nor `[+-]accessx`'s own wrapped
 # description survives as a fabricated group heading (S-164/S-165).
 must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx"]
@@ -34,3 +44,28 @@ must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx"]
 # The headingless table no longer duplicates into the root description
 # (S-165): each flag keeps its own row's own description.
 "-a" = "default pointer acceleration"
+# The `+/-render` alternation row's own expansion never overwrites the
+# ordinary `-render` row's own description (round 11, S-163).
+"-render" = "set render color alloc policy"
+"+render" = "turn on/off RENDER extension support"
+# The colon-introducer line is gone from `-extension`'s description, not
+# folded in (S-168).
+"-extension" = "Disable extension"
+"+extension" = "Enable extension"
+
+[contract.must_value_name]
+# The `+/-render` collision never costs `-render` its own four-choice
+# bracket value (round 11, S-163).
+"-render" = "default"
+# `+extension` and `-extension` read the same value column (round 11,
+# S-163): both name the placeholder `name`, never a garbled swallowed tail.
+"-extension" = "name"
+"+extension" = "name"
+
+[contract.must_attach_choices]
+# The colon-introduced list of run-time-toggleable extensions (S-168)
+# becomes `name`'s own choices, shared by both halves of the
+# `+extension`/`-extension` pair — never folded into `-extension`'s
+# description.
+"-extension" = ["Generic Event Extension", "MIT-SHM", "GLX"]
+"+extension" = ["Generic Event Extension", "MIT-SHM", "GLX"]

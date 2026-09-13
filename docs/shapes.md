@@ -2682,7 +2682,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -pf <pseudo-file>	add list of pseudo file definitions from <pseudo-file>
       -Xhelp			print compressor options for selected compressor
       -mem <size>		use <size> physical memory for caches
-- tools: mksquashfs, sqfstar
+- tools: mksquashfs, sqfstar, Xvfb
 - handling: A table whose rows are column-0 `-word` spellings, tab- or column-gap
   separated from their descriptions, with at least two rows carrying an
   unambiguous, uniformly-lowercase multi-character name and no `--long`
@@ -2699,7 +2699,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   unambiguous-evidence requirement exist because a single ambiguous row
   (a short flag glued to a capitalized description word) cannot tell a
   table from a coincidence on its own; a bundled-short-flag document
-  (digit- or case-mixed clusters) is excluded the same way.
+  (digit- or case-mixed clusters) is excluded the same way. Round 11:
+  `row_is_table_shaped`'s own gap test (tab or double-space) never fires
+  on a table with no column padding at all — Xvfb's own headingless shape
+  (S-165) — so a row's genuine `<...>`/`[...]` placeholder exactly one
+  space after the name is now admitted as the same evidence
+  (`-render [default|mono|gray|color]`, `-deferglyphs [none|all|16]`),
+  recovering both their bracket values without widening the repair to
+  bare, unbracketed words (still out of scope, S-117's own reasoning).
 - fleet: `single-dash-long-table` (`xtask/src/detector/single_dash_long_table.rs`)
   reads 14 tools/21 raw findings on a full-`PATH` sweep of 2323 tools, 2026-09-07,
   after the fix: unsquashfs, xkill, xev, setfont and others in the same
@@ -2868,6 +2875,39 @@ entry's `tools` field and nothing else. It does not get a new entry.
   verbatim. (3) Neither rule fires where the sigil is not the row's own
   leading token: `xxd`'s `-s [+][-]seek` opens with `-s`, and stays
   refused, matching S-097's own counter-case.
+  Round 11 fixed three further defects on this same shape, all in
+  `help_text::sections::repair.rs`/`flag_rows.rs`. (4) An alternation
+  row's own expansion never duplicates or overwrites a spelling an
+  ordinary row elsewhere in the document already documents:
+  `+/-render`'s own `-render` half used to collide with the standalone
+  `-render [default|mono|gray|color]` row, and the collision cost the
+  ordinary row its own value and description
+  (`resolve_alternation_spelling_collisions`, run last, after every
+  other repair, so richness — an already-recovered value or choices —
+  decides which duplicate survives). (5) `+word` and its `-word` sibling
+  read the same value column: `parse_plus_sigil_spec`'s hand-rolled word
+  scan already reads a bare, unbracketed value correctly (`+extension
+  name`'s `name`), but the ordinary `-word` row goes through
+  `repair_single_dash_long_options` instead, which only recovers a
+  bracket/angle or `=`-glued value and silently drops a bare one — the
+  already-correct value is now borrowed onto the sibling
+  (`borrow_plus_word_value_for_dash_sibling`) rather than teaching the
+  ordinary repair to guess at bare words (still out of scope, S-117's own
+  reasoning). (6) A `+word` spelling longer than one character renders in
+  the wrong column: `mandible-tui`'s own column-choice test treated every
+  dashless spelling alike, so `+render`/`+extension` landed in the short
+  column at column 0 instead of beside `-render` in the long column; a
+  one-character dashless spelling (`+i`, `fzf`'s own row) still belongs in
+  the short column, and a modifier letter or environment variable name
+  (dashless for an unrelated reason) stays there regardless of length
+  (`mandible-tui/src/render/detail_pane/layout.rs::bare_spelling_column`,
+  spec §9.1a). The same distinction fixed the render *gap*:
+  `spelling_is_sigil` used to glue any dashless spelling's value with no
+  space (the argfile sigil's own `@<file>` shape), which rendered
+  `+extension name` as `+extensionname`; now only a spelling that is
+  nothing but its own bare sigil character (`@`, the standalone `+`)
+  glues, never a `+word` that already carries its own word
+  (`mandible-tui/src/render/detail_pane/entity.rs::spelling_is_sigil`).
 - fleet: `plus-word-option` (`xtask/src/detector/plus_word_option.rs`, rule 1)
   and `plus-minus-alternation-option`
   (`xtask/src/detector/plus_minus_alternation_option.rs`, rules 2/3) are
@@ -2973,3 +3013,52 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `qemu-riscv64-static` and `qemu-arm64-static`; raw-shape grep over the
   seed's own captures reads 42 tools / 42 findings, the whole `qemu-*-static`
   set, 2026-09-12.
+
+### S-168: a colon-introduced choice list under a placeholder pair
+
+- id: S-168
+- looks like: |
+      +extension name        Enable extension
+      -extension name        Disable extension
+       Only the following extensions can be run-time enabled/disabled:
+      	Generic Event Extension
+      	MIT-SHM
+      	XTEST
+- tools: Xvfb; raw-shape grep also finds `chmem`'s "Supported zones:"
+  (`DMA`, `DMA32`, `Normal`, `Highmem`, `Movable`) under `-z, --zone <name>`
+- handling: Fixed for Xvfb. A colon-terminated introducer sentence
+  (`looks_like_choice_list_introducer`) directly followed by at least two
+  bare-name item lines (`looks_like_choice_list_item` — a short run of
+  hyphenated words, refused the moment a genuine column gap appears, which
+  is what tells this apart from `as`'s own *described* sub-option rows,
+  S-015's territory) becomes the placeholder's own `choices`
+  (`mark_choice_list_rows`, `mandible-extract/src/help_text/sections/flag_rows.rs`).
+  Neither the introducer line nor the items are folded into the row's own
+  description. When the placeholder is shared by a `+word`/`-word` pair
+  (S-163), the same choices reach both halves
+  (`spec_word_after_sigil`'s pairing check), since the pair documents one
+  value column twice. Two further repairs on the same specimen ride along:
+  `+extension`/`-extension` used to read different value columns for the
+  same `name` placeholder — the `+word` grammar (`parse_plus_sigil_spec`)
+  already read a bare word correctly, and now that value is borrowed onto
+  the `-word` sibling when the ordinary single-dash-long repair could not
+  recover it on its own (`borrow_plus_word_value_for_dash_sibling`); and
+  the `+/-render` alternation row's own expansion used to collide with the
+  ordinary `-render` row, duplicating `-render` and losing its own
+  four-choice bracket value — the expansion now contributes only the
+  spelling an ordinary row does not already document
+  (`resolve_alternation_spelling_collisions`), both in
+  `mandible-extract/src/help_text/sections/repair.rs`. `-render`'s own
+  bracket value was lost separately: `row_is_table_shaped` required a
+  tab or double-space gap that a single-dash-long table with no column
+  padding at all (S-165's own headingless shape) never has; a genuine
+  `<...>`/`[...]` placeholder exactly one space after the name is now
+  admitted as the same evidence.
+- fleet: `choice-list-under-placeholder`
+  (`xtask/src/detector/choice_list_under_placeholder.rs`) is family `None`,
+  so calibration reads NOT EVALUABLE; self-checks hold (4/4). Raw-shape
+  grep over `/home/ubuntu/projects/mandible/audit/queue-captures/`: 26
+  tools / 26 findings, an upper bound on the raw shape alone, not the
+  tree-level count — most (`bash`, `perf`, `usbip`, `dmesg`, `bpftool`, and
+  others) are not audited here and their own parse is unexamined; `Xvfb`
+  is the one fixture fixed and corpus-pinned this round. 2026-09-13.

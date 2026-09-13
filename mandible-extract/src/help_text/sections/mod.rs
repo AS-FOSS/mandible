@@ -1836,6 +1836,15 @@ fn parse_body(
     // §7's row grammar) — `-help`'s row only qualifies once the repair
     // above has turned it into a single-dash spelling. See S-007.
     result.flags = recover_anchored_values(std::mem::take(&mut result.flags), raw);
+    // A `+word` row's own value column (S-163) is borrowed onto its
+    // `-word` sibling when the ordinary repair above could not recover a
+    // bare, unbracketed value (Xvfb's own `+extension name` /
+    // `-extension name`). See docs/shapes.md S-163.
+    result.flags = borrow_plus_word_value_for_dash_sibling(std::mem::take(&mut result.flags));
+    // Last of all: an alternation-sigil row's own expansion (S-163) never
+    // duplicates or overwrites a spelling an ordinary row already
+    // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
+    result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result
