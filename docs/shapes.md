@@ -2980,3 +2980,83 @@ entry's `tools` field and nothing else. It does not get a new entry.
   exists in any audit seed; the four self-checks are the only standing
   evidence. `gcc`, `clang`, `aarch64-linux-gnu-g++-13` and the whole
   nine-control set stay byte-identical.
+
+### S-159: a long spelling's own value name repeats into its description
+
+- id: S-159
+- looks like: |
+           -s foo, --src-dir  foo  Set the src dir (historical md5sums live here)
+           -d [n], --debug  [n]    Set the Debug level to N
+- tools: lcf
+- handling: Open, nothing built. The value name is written twice, once after
+  the short spelling and once after the long one, and the second copy is
+  read as the first word of the description, so `mandible lcf` shows
+  `-s, --src-dir foo` described "foo Set the src dir ...". The reserved id is
+  recorded here rather than dropped, because the shape is real and one tool
+  is evidence enough to name it; what is missing is a second tool. Nothing in
+  the seed-7 evidence separates this from a description that genuinely opens
+  with the value's own name, which is why no rule was written.
+- fleet: not measured. No detector was built, so there is no number, and the
+  neighbouring shape a detector DOES count is the multi-word metavar of S-148
+  (`pkcheck`'s `--details=KEY VALUE`, 1 tool/1 finding), which is a different
+  defect on a different row shape.
+
+### S-160: a value spec swallows the alias run's own trailing comma
+
+- id: S-160
+- looks like: |
+        -w, --width=width, -width
+        -p PCT,..., --pcts PCT,...
+        -s, --sections=LIST, --section=LIST
+- tools: pod2text, biolatpcts-bpfcc, make, tar, pr, systemd-run
+- handling: Fixed for the case the grammar can already admit, refused for the
+  rest, and the refusal is the interesting half.
+  `recover_comma_swallowed_alias` (`mandible-extract/src/help_text/
+  grammar.rs`) notices a value that ends in a literal `,` with a real
+  spelling behind it — a genuine value never ends in a comma on its own —
+  strips the comma and reads the alias run on. On a full-`PATH` sweep it
+  fires on exactly one tool, `biolatpcts-bpfcc`, whose `-p PCT,...,
+  --pcts PCT,...` row now reaches the tree as one entity spelled
+  `-p, --pcts` where it was a lone `-p` before.
+  It does NOT fix `pod2text`, which is the shape seed 7 named. The recovered
+  spelling there is `-width`, a single-dash-long name, and `alias_follows`
+  refuses it: `try_long` needs a `--` and `try_short` reads `-w` and chokes
+  on the tail. Admitting a single-dash-long spelling needs S-145's own
+  table test (no `--long` row anywhere in the document), and `pod2text`'s
+  table is full of `--long` rows, so the same evidence that protects `gcc`,
+  `clang` and `ld` from S-145 refuses `pod2text` here. That is the same gate
+  that refuses `fuser`'s `-SIGNAL`.
+- fleet: `comma-swallowed-alias`
+  (`xtask/src/detector/comma_swallowed_alias.rs`) reads 10 tools/31 findings
+  post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which is the
+  refused remainder. Reported, not gated. One flag gained fleet-wide, zero
+  lost, zero subcommand movement, all nine named controls byte-identical.
+
+### S-161: a `/`-joined second spelling outside a lowdown bullet
+
+- id: S-161
+- looks like: |
+          -W / --warn [LINT]       Set lint warnings
+          -A / --allow [LINT]      Set lint allowed
+- tools: cargo-clippy
+- handling: Open on its own tool, widened underneath. S-144 taught
+  `join_slash_alias` (`mandible-extract/src/help_text/sections/bullets.rs`)
+  to rewrite a spaced `/` between two flag-shaped tokens into the ordinary
+  comma-joined alias `parse_flag_spec` already reads, and gated it on the
+  lowdown bullet marker. Round 10 lifted that gate: the evidence is narrow
+  enough on its own (the separator must be exactly `/` with one space each
+  side, and what follows must itself be flag-shaped, so a path or the word
+  "input/output" in a description is never touched), so `emit_flags_with`
+  calls it on any option-table row now.
+  It does not reach `cargo-clippy`, whose four rows are read by a different
+  row reader, so `-W` still takes the literal `/` as its value name and
+  `--warn`, `--allow`, `--deny` and `--forbid` still reach the tree nowhere.
+  `corpus/cargo-clippy/0.1.97` is the `[xfail]` fixture that states it, with
+  `must_contain_flags` naming all four long spellings and
+  `must_not_value_name` naming the `/` on all four short ones.
+- fleet: `slash-joined-alias-outside-bullet`
+  (`xtask/src/detector/slash_joined_alias_outside_bullet.rs`) reads 1 tool/4
+  findings on a full-`PATH` sweep of 2323 tools, 2026-09-13, unchanged by the
+  widening, and far below the five-tool bar. Reported, not gated. The
+  widening itself moved no flag anywhere in the fleet: zero gains, zero
+  losses, no `spellings changed` row in the sweep-diff.

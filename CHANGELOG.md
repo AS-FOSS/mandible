@@ -36,6 +36,7 @@ once it reaches a published 0.1.0 release.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
 - [S-157] A single-dash long option's bare-word value name inside a no-double-dash table now survives instead of reading as the first word of the description, so `mandible Xvfb` shows `-audit int` and `-fp string`, and `mandible mksquashfs`/`mandible sqfstar` show `-Xstrategy` and `-Xbcj` with their comma-separated value lists.
 - [S-158] A value spec that glues a bracket-optional group directly onto a required angle placeholder now keeps the whole run, so `mandible rustc` shows `-L`'s `[<KIND>=]<PATH>` and `--emit`'s `<TYPE>[=<FILE>]` in full instead of losing the half that doesn't open the run.
+- [S-160] A value spec that swallowed its own alias run's trailing comma no longer hides the spelling behind it, so `mandible biolatpcts-bpfcc` shows `-p, --pcts` instead of a lone `-p`.
 
 ## [0.7.0] - 2026-09-05
 
