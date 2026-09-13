@@ -1,6 +1,16 @@
 name: mkfs.bfs
 usage:
 - 'Usage: mkfs.bfs [options] device [block-count]'
+positionals:
+- name: device
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: block-count
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -N

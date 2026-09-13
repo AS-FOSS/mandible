@@ -3,6 +3,12 @@ usage:
 - '    bpftrace [options] filename'
 - '    bpftrace [options] - <stdin input>'
 - '    bpftrace [options] -e ''program'''
+positionals:
+- name: filename
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -B

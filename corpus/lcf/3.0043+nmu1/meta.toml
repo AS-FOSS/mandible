@@ -5,12 +5,12 @@
 # operand walk ever started; the tree carried no POSITIONALS section and
 # the rendered USAGE line was truncated to the bare program name.
 #
-# Fixing the gap width alone does not recover a positional here: the tail
-# `dest_file src_dir` has no numbering (unlike S-136), so the pre-existing
-# `[options] command` ambiguity guard (round 6) still declines it, the
-# same as `psfaddtable`'s multi-word bare tail. This fixture states the
-# real, honest outcome: USAGE reconstructs correctly, POSITIONALS stays
-# empty.
+# The `[options] command` ambiguity guard (round 6) used to decline the
+# tail outright once the gap fix recovered it. Round 12 narrowed that
+# guard to a closed vocabulary (`command`/`commands`/`subcommand`/
+# `subcommands`/`cmd`/`action`/`verb`) plus a repetition-marker check:
+# `dest_file`/`src_dir` name neither, so both now reach the tree as
+# required positionals in source order.
 
 [bless]
 provenance = "agent"
@@ -30,3 +30,4 @@ stderr = "help.stderr.txt"
 verdict_scope = ["flags", "usage"]
 expected_framework = "generic"
 must_contain_flags = ["-h", "-s", "-d", "-n", "-v"]
+must_contain_positionals = ["dest_file", "src_dir"]

@@ -1949,6 +1949,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide.
 - fleet: detector fires on 50 tools, 126 findings, over a 2318-tool sweep,
   2026-09-04. The fix moved 12 tools with zero losses on the same sweep.
+  Round 12's S-153 `[options] command` guard narrowing moves some of this
+  detector's own remaining findings too (24 of the 30-tool family it
+  resolved on a `--tools`-pinned sweep were part of the ambiguous
+  remainder this detector counts); the updated full-`PATH` number needs a
+  full sweep this branch did not run, so is not restated here.
 
 ### S-110: "or"-joined alias where both spellings carry a value
 
@@ -3054,25 +3059,57 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: cache_repair [options] {device|file}
       usage: fc-scan [-bcVh] [-f FORMAT] ... [--help] font-file...
       Usage: lcf  [options] dest_file  src_dir
-- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf
-- handling: Fixed for the shapes evidence can settle, refused for the rest.
-  A trailing operand run after a bracketed option run now reaches the tree as
+- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf, btrfs-convert,
+  btrfs-image, btrfs-map-logical, btrfstune, dpkg-reconfigure, ffplay,
+  llvm-bitcode-strip-18, llvm-install-name-tool-18, make-bcache, ntfscluster,
+  ntfscp, ntfsfix, ntfsinfo, ntfsls, ntfsmove, ntfsundelete, ntfswipe,
+  split-file-18, ucf, ucfr, xfs_growfs, xfs_repair, xfs_scrub
+- handling: Fixed for the shapes evidence can settle, refused for the rest. A
+  trailing operand run after a bracketed option run now reaches the tree as
   positionals: a brace alternation naming one operand becomes one positional
   keeping its source spelling and its members as choices (`{device|file}`), a
   single ellipsis-marked name becomes one repeatable positional
   (`font-file...`), and a flag paired with an ALL-CAPS value on the same line
   no longer ends the walk. The description-gap cut that ran before the walk
   also used a two-space gap, which truncated a line whose own operands are
-  two-space padded. REFUSED, and this is the honest part: a bare multi-word
-  tail with no numbering and no delimiter (`lcf`'s `dest_file  src_dir`)
-  stays declined by the round-6 `[options] command` ambiguity guard, because
-  nothing in the text says whether the words are two operands or one command
-  plus its argument. `corpus/lcf/3.0043+nmu1` states that outcome instead of
-  asserting a positional it does not get.
-- fleet: a full-`PATH` sweep of 2323 tools, 2026-09-13: `tail_operand_tools`
-  147 to 145, zero flag losses, zero subcommand movement, all nine named
-  controls byte-identical. `multi-operand-usage-tail` (S-109) is unchanged at
-  44 tools/110 findings, which is the ambiguous remainder `lcf` belongs to.
+  two-space padded. Round 12 narrowed the round-6 `[options] command`
+  ambiguity guard to a closed vocabulary
+  (`command`/`commands`/`subcommand`/`subcommands`/`cmd`/`action`/`verb`,
+  `is_command_placeholder`) plus a repetition-marker check on the earliest
+  operand: `lcf`'s own two-space `dest_file  src_dir` tail and `ntfscp`'s
+  `device src_file dest_file` now reach the tree, since none of those words
+  is in the vocabulary and none carries a repetition marker. REFUSED and
+  still correctly silent: `apt`/`apt-cache`/`apt-cdrom`/`apt-config`/
+  `apt-ftparchive`/`apt-get`'s own tail word is literally `command`, and
+  `gcc`'s `[options] file...` carries the repetition marker, so both stay
+  declined by the narrowed guard. The `ranlib` family (`ranlib`,
+  `gcc-ranlib`, `gcc-ranlib-13`, `aarch64-linux-gnu-ranlib`,
+  `aarch64-linux-gnu-gcc-ranlib{,-13}`) stays at zero positionals too, for an
+  unrelated reason: their own `archive` operand sits on the usage line's
+  *primary* physical line, but S-152's still-open trailing-description fold
+  joins the very next physical line (`Generate an index to speed access to
+  archives`) into the same usage entry, so `primary_synopsis_lines` reports
+  two physical lines for that entry and this rule's own one-physical-line
+  gate refuses the whole tail. `corpus/lcf/3.0043+nmu1` now asserts
+  `dest_file`/`src_dir`; `corpus/gcc-ranlib-13/2.42` keeps its
+  `must_contain_positionals = ["archive"]` unmet and stays `[xfail]` under
+  S-152, not this shape.
+- fleet: a raw-shape grep over `audit/queue-captures/` (2301 tools),
+  2026-09-13: a usage line reading `<prog> [options]` followed by nothing but
+  lowercase snake_case bare words to end of line is 36 tools; excluding the 6
+  apt tools (closed-vocabulary tail) leaves 30. Tree-level, on a
+  `--tools`-pinned sweep of those 30 plus the 6 apt tools plus the nine named
+  controls (`git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`), 2026-09-13: 24 of the 30 gain a
+  positional (0 to 1-3 each, `ntfscp` gains 3), the 6-tool `ranlib` family
+  stays at 0 (blocked by S-152, see above), all 6 apt tools stay at 0, and
+  all nine controls are unchanged. Zero losses. `xtask corpus` over the full
+  178-fixture tree also gains positionals on `bpftrace`, `mariadb-check`,
+  `mariadb-repair`, `mariadbcheck` and `mkfs.bfs`, none of them in the named
+  30, with zero fixtures newly failing. `multi-operand-usage-tail` (S-109)'s
+  own count is expected to drop by the tools this narrowing newly resolves
+  that its own detector also counted; an updated full-`PATH` number needs
+  the orchestrator's own sweep lock and is not remeasured this branch.
 
 ### S-154: a bracketed multi-word operand becomes one positional per word
 
@@ -3916,3 +3953,27 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools have no fixture yet; rustc's own row is verified by a direct unit
   test (`grammar.rs`'s
   `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
+
+### S-175: a usage form's OR alternation is joined with `||`
+
+- id: S-175
+- looks like: |
+      nfsidmap: Usage: nfsidmap [-vh] [-c || [-u|-g|-r key] || -d || -l || [-t timeout] key desc]
+- tools: nfsidmap
+- handling: Open, counted only. No recognizer here reads `||` as an
+  alternation separator (`parse_flag_alternation`,
+  `parse_brace_alternation_group` both read a single `|`), so the whole
+  bracket run past the first `||` is unparsed and the trailing `key desc`
+  operand pair never reaches the tree as positionals; the flags `-c`,
+  `-d`, `-l` and `-v` (glued to `h` as a required value, below
+  `parse_bundled_shorts`'s own `MIN_CLUSTER_MEMBERS` floor) are still
+  recovered correctly by the ordinary single-dash reading and nothing
+  currently rendered is lost, since the full line still prints verbatim
+  in USAGE. Below the five-tool floor, so no fix ships.
+- fleet: raw grep over `audit/queue-captures/` (2299 readable tool
+  directories), 2026-09-13: 1 tool, `nfsidmap` itself. `gh`, `docker`,
+  `dockerd` and `git-lfs` also contain `||` somewhere in their help text,
+  none of it a usage-line alternation (shell examples). `[` was also
+  checked and is not a member. `double-pipe-usage-alternation`
+  (`xtask/src/detector/double_pipe_usage_alternation.rs`) generalizes the
+  shape as a measurement-only detector.

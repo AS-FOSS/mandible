@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-153] A usage line's `[options]` no longer refuses a bare operand tail unless the tail word names a real command-table placeholder, so `mandible lcf` shows `dest_file`/`src_dir` and `mandible ranlib` shows `archive`.
+
 ## [0.8.0] - 2026-09-14
 
 ### Changed
