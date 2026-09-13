@@ -2682,7 +2682,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -pf <pseudo-file>	add list of pseudo file definitions from <pseudo-file>
       -Xhelp			print compressor options for selected compressor
       -mem <size>		use <size> physical memory for caches
-- tools: mksquashfs, sqfstar, Xvfb
+- tools: mksquashfs, sqfstar, Xvfb, jdb, jrunscript, llvm-libtool-darwin-18,
+  llvm-lipo-18, screen
 - handling: A table whose rows are column-0 `-word` spellings, tab- or column-gap
   separated from their descriptions, with at least two rows carrying an
   unambiguous, uniformly-lowercase multi-character name and no `--long`
@@ -2704,9 +2705,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
   on a table with no column padding at all — Xvfb's own headingless shape
   (S-165) — so a row's genuine `<...>`/`[...]` placeholder exactly one
   space after the name is now admitted as the same evidence
-  (`-render [default|mono|gray|color]`, `-deferglyphs [none|all|16]`),
-  recovering both their bracket values without widening the repair to
-  bare, unbracketed words (still out of scope, S-117's own reasoning).
+  (`-render [default|mono|gray|color]`, `-deferglyphs [none|all|16]`,
+  `-multicast [addr [hops]]`), recovering their bracket values without
+  widening the repair to bare, unbracketed words (still out of scope,
+  S-117's own reasoning). The same widening moved five further tools from
+  no value name to the tool's own literal text on a full-`PATH` sweep,
+  every one checked against its own `--help`: `jdb -dbgtrace [flags]`,
+  `jrunscript -encoding <encoding>`, `llvm-libtool-darwin-18 -arch_only
+  <arch_type>`, `llvm-lipo-18 -arch <value>`, `screen -wipe [match]`. All
+  five are gains, none a fabrication. One qualifier: `llvm-lipo-18`'s own
+  raw line is `-arch <value> <value>`, two values, and only the first is
+  recovered — a partial recovery, not a wrong one; the second value is
+  information the IR does not model.
 - fleet: `single-dash-long-table` (`xtask/src/detector/single_dash_long_table.rs`)
   reads 14 tools/21 raw findings on a full-`PATH` sweep of 2323 tools, 2026-09-07,
   after the fix: unsquashfs, xkill, xev, setfont and others in the same
@@ -2719,7 +2729,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   jrunscript, perlbug, perlthanks, ckbcomp, containerd-shim-runc-v2,
   javax2jakarta, llvm-libtool-darwin-18, llvm-lipo-18 and winpr-makecert,
   0 losses on a full-`PATH` sweep-diff of 2269 tools, 2026-09-07. All four
-  self-checks hold. No labelled member of this family exists in any audit
+  self-checks hold. Round 11's own placeholder-gap widening (above) clears
+  the five-tool bar on its own evidence: 6 tools gained a value name —
+  Xvfb, jdb, jrunscript, llvm-libtool-darwin-18, llvm-lipo-18 and screen —
+  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. No labelled
+  member of this family exists in any audit
   seed; the self-checks are the only standing evidence.
 
 ### S-146: a flush heading or bare sub-label names no group
@@ -3053,12 +3067,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tab or double-space gap that a single-dash-long table with no column
   padding at all (S-165's own headingless shape) never has; a genuine
   `<...>`/`[...]` placeholder exactly one space after the name is now
-  admitted as the same evidence.
+  admitted as the same evidence. Fencing gap found on a break-it check:
+  disabling `resolve_alternation_spelling_collisions` still passes
+  `must_describe["-render"]` and `must_value_name["-render"]`, since a
+  duplicate entity does not stop the first matching one carrying the
+  right value — only `expected.snap`'s byte compare catches the
+  duplicate today. A `must_not_duplicate_spelling` contract field would
+  fence it directly; not added this round.
 - fleet: `choice-list-under-placeholder`
   (`xtask/src/detector/choice_list_under_placeholder.rs`) is family `None`,
-  so calibration reads NOT EVALUABLE; self-checks hold (4/4). Raw-shape
+  so calibration reads NOT EVALUABLE; self-checks hold (4/4). The
+  tree-level reach is **1 tool** — a full-`PATH` sweep of 2323 tools names
+  `choices changed` on Xvfb and nothing else, 2026-09-13 — well short of
+  the five-tool bar; this ships on the gated-exception route (§ common.md:
+  maintainer-audited, fixture promoted out of `[xfail]`, zero-loss sweep,
+  controls byte-identical), not because the rule cleared it. Raw-shape
   grep over `/home/ubuntu/projects/mandible/audit/queue-captures/`: 26
-  tools / 26 findings, an upper bound on the raw shape alone, not the
-  tree-level count — most (`bash`, `perf`, `usbip`, `dmesg`, `bpftool`, and
-  others) are not audited here and their own parse is unexamined; `Xvfb`
-  is the one fixture fixed and corpus-pinned this round. 2026-09-13.
+  tools / 26 findings, an upper bound on the raw shape alone. The other 25
+  (`bash`, `perf`, `usbip`, `dmesg`, `bpftool`, and others) are unaudited
+  and this rule does not reach them — nothing was fabricated on a tool
+  nobody read. `Xvfb` is the one fixture fixed and corpus-pinned this
+  round. 2026-09-13.
