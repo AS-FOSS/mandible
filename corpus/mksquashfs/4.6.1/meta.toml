@@ -46,6 +46,10 @@ must_usage_forms_min = 1
 "-mem" = "<size>"
 "-comp" = "<comp>"
 "-mkfs-time" = "<time>"
+# Bare-word, comma-separated value lists (docs/shapes.md S-157): the same
+# table rule now also keeps a value with no bracket or angle delimiter.
+"-Xstrategy" = "strategy1,strategy2,...,strategyN"
+"-Xbcj" = "filter1,filter2,...,filterN"
 
 # One row under each of the ten `Xxx options:` headings, and one under
 # each of the five compressor sub-labels, gzip included in source order

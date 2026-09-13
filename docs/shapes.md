@@ -2449,7 +2449,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag in a three-way `or` chain, S-099's own `-h or -? or --help`) and a
   bare lowercase first description word (never a value, `-m or
   --match-arch file.o`'s own shape). Below the five-tool bar. Ship
-  nothing; the fixture stays `[xfail]`.
+  nothing; the fixture stays `[xfail]`. A relaxation was built and refused: ending
+  the spelling run at a `--long` followed by one space and a bare lowercase
+  word joined `-c, --copyright` but still gave it the fabricated value name
+  `include`, so it failed its own acceptance test, and it fused `pod2man`'s
+  `--lquote` and `--rquote` into one entity, the shape `must_keep_separate`
+  exists to forbid. Narrowing it to value-free spellings did not stop the
+  fusion. Refused rather than shipped (issue #142).
 ### S-135: usage line's tab-indented continuation folds in unpunctuated
 
 - id: S-135
@@ -2999,6 +3005,243 @@ entry's `tools` field and nothing else. It does not get a new entry.
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
   there. Zero flag losses, zero subcommand movement, all nine named controls
   byte-identical.
+
+### S-155: an alternation value name becomes choices
+
+- id: S-155
+- looks like: |
+      -C, --compression=(xz|none|auto)          grub-mkimage
+          --crate-type <bin|lib|rlib|dylib|cdylib|staticlib|proc-macro>
+          --edition <2015|2018|2021|2024|future>                        rustc
+        -l {c,java,ruby,tcl}, --language {c,java,ruby,tcl}   tclobjnew-bpfcc
+- tools: grub-mkimage, grub-mkstandalone, rustc, tclobjnew-bpfcc,
+  javaflow-bpfcc, rubyobjnew-bpfcc, curl (brace/angle forms only where a
+  choice reading holds — see the false-positive note below) and
+  everywhere else the shape occurs on a full-`PATH` sweep (PLACEHOLDER_TOOLS
+  moved, PLACEHOLDER_FINDINGS findings)
+- handling: Fixed. A value spec that is one delimited alternation of
+  literal members, with no other token inside the delimiter, is that
+  entity's `choices` (`help_text::sections::emit::alternation_choices`).
+  Angle and paren forms split on `|` and require at least three members;
+  brace splits on `,`, requires only two, and is gated to the argparse
+  profile (`FrameworkProfile::argparse_subparser_quirk`, reused rather
+  than adding a nineteenth profile field), since argparse's own
+  `choices=` is a language-level declaration and no other convention in
+  the capture set uses `{` as a value delimiter (checked by grep over
+  `audit/queue-captures/*/0.std*`). The three-member floor on angle/paren
+  exists because curl's own `-b, --cookie <data|filename>` is the
+  identical two-member angle shape and is not a choice list: it describes
+  the value's TYPE (a literal string, or a path), and a reader does not
+  type `data` or `filename` themselves the way `xz`/`none`/`auto` are
+  typed literally. Nothing about the shape alone tells the two apart
+  below three members, so missing beats invented there (S-005's rule). A
+  member must match `^[a-z0-9][a-z0-9_.+-]*$`; a capitalized token
+  (lvm2's `Number`) or one holding whitespace (fuser's `-n SPACE`, inside
+  a `[...]` group this rule never opens) stays part of the placeholder.
+  Once choices are read from the placeholder itself, S-130's own rule
+  applies and `value_name` is dropped rather than kept twice. Scoped to
+  the option-table path (`emit_flags_with`); the usage-synopsis path is
+  untouched this round. `must_attach_choices`/`must_not_value_name` state
+  the claim.
+- fleet: `alternation-value-is-choices` reads 0 labelled members in the
+  seed-7 audit (`NOT EVALUABLE`, both self-check directions held, 8
+  cases). Raw-shape count 26 tools/45 findings (angle/paren) and 44
+  tools/62 findings (brace), 2026-09-12. Tree-level, full-`PATH` sweep:
+  PLACEHOLDER_TREE_BEFORE tools before the fix, PLACEHOLDER_TREE_AFTER
+  after. `sweep-diff`: PLACEHOLDER_FLAG_GAINS flag gains,
+  PLACEHOLDER_FLAG_LOSSES flag losses, PLACEHOLDER_SUB_GAINS subcommand
+  gains, PLACEHOLDER_SUB_LOSSES subcommand losses. Also moved `fzf`'s
+  `--color=COLSPEC`'s `(dark|light|16|bw)` and cryptsetup's `token
+  <add|remove|import|export>`, neither named in the brief.
+
+### S-156: a description tail that enumerates the values
+
+- id: S-156
+- looks like: |
+      -O, --format=FORMAT        generate an image in FORMAT
+                                 available formats: i386-coreboot, i386-multiboot,
+                                 i386-pc, i386-xen_pvh, i386-pc-eltorito,
+- tools: grub-mkimage
+- handling: Open defect, counted only. A flag description whose
+  continuation opens a labelled list (`available formats:`, `possible
+  values:`, `one of:`, `valid values:`) and then runs comma-separated
+  literal values to the end of the description would become that
+  entity's `choices`, with the label and list leaving the description.
+  Gated hard: the label must be the last such label in the description,
+  every member after it must match `^[a-z0-9][a-z0-9_.+-]*$`, there must
+  be at least three members, and the run must reach the end of the
+  description with nothing after it.
+- fleet: `description-tail-enumerates-choices` reads 0 labelled members
+  in the seed-7 audit (`NOT EVALUABLE`, both self-check directions held,
+  5 cases). A grep over `audit/queue-captures/*/0.std*` for the four
+  labels names 35 tools; the tree-level rule, checked against a
+  36-tool sample built from that grep plus `rustc` and
+  `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
+  five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
+  `[xfail]` for `--format`'s own description. 2026-09-12.
+### S-157: a bare-word value placeholder after a single-dash-long spelling
+
+- id: S-157
+- looks like: |
+      -Xstrategy strategy1,...,strategyN	compression strategy    mksquashfs
+      -audit int             set audit trail level            Xvfb
+- tools: Xvfb, mksquashfs, sqfstar, ckbcomp, containerd-shim-runc-v2,
+  docker-proxy, lshw, screen, sqlite3, xdpyinfo, xev, xkill, xlsatoms,
+  ldattach, pod2usage, and the whole qemu-*-static family (42 tools)
+- handling: Fixed, inside the single-dash-long table only (S-145's own
+  gate: a document whose option rows are column-0 `-word` spellings with
+  no `--long` row anywhere). `spaced_bare_word_value`
+  (`mandible-extract/src/help_text/sections/repair.rs`) reads the one
+  whitespace-delimited token after a table row's own single space as the
+  value name, whatever its case, keeping a comma-separated run whole
+  (`strategy1,...,strategyN`). Reading past that first token is refused:
+  `qemu-arm64-static`'s own ragged three-column table
+  (`Argument`/`Env-variable`/`Description`) separates `-dfilter`'s value
+  from its `QEMU_DFILTER` column by only one more space, so a wider
+  gap-based cut would swallow the next column into the value. The search
+  is scoped to the row identified as the flag's own leading token, never
+  any later occurrence of the same text in another row's description
+  (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
+  `-match` in prose and must not donate it a fabricated value). The
+  table gate is the whole safety argument: `gcc`, `clang` and the `ld`
+  family all carry `-DMACRO` glued values beside a real `--help` row, so
+  their own tables never qualify.
+- fleet: `spaced-bare-word-table-value`
+  (`xtask/src/detector/spaced_bare_word_table_value.rs`) reads 9
+  tools/12 findings on a full-`PATH` sweep of 2269 tools, 2026-09-12,
+  each a table row the per-document evidence floor still refuses (a
+  glued repeated-character shape, or a run the S-145 table gate itself
+  excludes) — a documented lower bound, not a further fix this round.
+  No labelled member of this family exists in any audit seed; the four
+  self-checks are the only standing evidence. The fix itself moved 57
+  tools with 0 flag-count and 0 subcommand-count losses on the same
+  sweep-diff: `Xvfb`, `mksquashfs` and `sqfstar` gain their own named
+  rows; the qemu family (42 tools) recovers `-cpu`'s and `-dfilter`'s
+  value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
+  `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
+  `containerd-shim-runc-v2` and `docker-proxy` each recover at least
+  one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
+  `sg_map` stay byte-identical.
+
+### S-158: a bracket group glued to an angle placeholder keeps only the group
+
+- id: S-158
+- looks like: |
+      -L [<KIND>=]<PATH>  Add a directory to the library search path.
+          --emit <TYPE>[=<FILE>]
+- tools: rustc, dpkg, dpkg-statoverride, java, jlink, jdeps, jpackage,
+  gp-collect-app, lto-dump, lto-dump-13
+- handling: Fixed in `try_value`
+  (`mandible-extract/src/help_text/grammar.rs`). Extends the S-097
+  ruling ("a value spec written as two or more glued optional groups
+  renders as its own source spelling") to a run that mixes a bracket
+  group and a required angle placeholder: the whole glued run is the
+  value name, source spelling kept, and the value becomes required once
+  the required half joins it. Two symmetric additions: the bracket
+  branch glues one adjacent angle group onto its own close
+  (`take_glued_angle_group`, `-L [<KIND>=]<PATH>`); the bare-token
+  branch glues one adjacent bracket group onto a captured angle
+  placeholder (`take_glued_bracket_group`, `--emit <TYPE>[=<FILE>]`,
+  `dpkg`'s `--force-<thing>[,...]`). A single, never-folded bracket
+  group is normally left bracket-free for the renderer to wrap, so the
+  bracket branch re-wraps it explicitly once a required angle group
+  joins, or the source spelling would read `<KIND>=<PATH>` with the
+  bracket gone.
+- fleet: `glued-bracket-angle-run`
+  (`xtask/src/detector/glued_bracket_angle_run.rs`) reads a raw-shape
+  count of 1 tool (rustc) fleet-wide before this fix, maintainer-named
+  (seed 7). Below the five-tool bar, shipped anyway as a gated exception
+  (docs/design.md §16) because the same sweep-diff that measures S-157
+  covers it: 0 flag-count and 0 subcommand-count losses across 2269
+  tools, 2026-09-12. The fix moved 11 tools: `rustc`'s `-L`, `--emit`
+  and `-C`/`--codegen`; `dpkg` and `dpkg-statoverride`'s
+  `--force-<thing>[,...]` family; `java`, `jlink`, `jdeps`, `jpackage`
+  and `gp-collect-app`'s `--add-modules <name>[,<name>...]` shape;
+  `lto-dump`/`lto-dump-13`'s `-D`. No labelled member of this family
+  exists in any audit seed; the four self-checks are the only standing
+  evidence. `gcc`, `clang`, `aarch64-linux-gnu-g++-13` and the whole
+  nine-control set stay byte-identical.
+
+### S-159: a long spelling's own value name repeats into its description
+
+- id: S-159
+- looks like: |
+           -s foo, --src-dir  foo  Set the src dir (historical md5sums live here)
+           -d [n], --debug  [n]    Set the Debug level to N
+- tools: lcf
+- handling: Open, nothing built. The value name is written twice, once after
+  the short spelling and once after the long one, and the second copy is
+  read as the first word of the description, so `mandible lcf` shows
+  `-s, --src-dir foo` described "foo Set the src dir ...". The reserved id is
+  recorded here rather than dropped, because the shape is real and one tool
+  is evidence enough to name it; what is missing is a second tool. Nothing in
+  the seed-7 evidence separates this from a description that genuinely opens
+  with the value's own name, which is why no rule was written.
+- fleet: not measured. No detector was built, so there is no number, and the
+  neighbouring shape a detector DOES count is the multi-word metavar of S-148
+  (`pkcheck`'s `--details=KEY VALUE`, 1 tool/1 finding), which is a different
+  defect on a different row shape.
+
+### S-160: a value spec swallows the alias run's own trailing comma
+
+- id: S-160
+- looks like: |
+        -w, --width=width, -width
+        -p PCT,..., --pcts PCT,...
+        -s, --sections=LIST, --section=LIST
+- tools: pod2text, biolatpcts-bpfcc, make, tar, pr, systemd-run
+- handling: Fixed for the case the grammar can already admit, refused for the
+  rest, and the refusal is the interesting half.
+  `recover_comma_swallowed_alias` (`mandible-extract/src/help_text/
+  grammar.rs`) notices a value that ends in a literal `,` with a real
+  spelling behind it — a genuine value never ends in a comma on its own —
+  strips the comma and reads the alias run on. On a full-`PATH` sweep it
+  fires on exactly one tool, `biolatpcts-bpfcc`, whose `-p PCT,...,
+  --pcts PCT,...` row now reaches the tree as one entity spelled
+  `-p, --pcts` where it was a lone `-p` before.
+  It does NOT fix `pod2text`, which is the shape seed 7 named. The recovered
+  spelling there is `-width`, a single-dash-long name, and `alias_follows`
+  refuses it: `try_long` needs a `--` and `try_short` reads `-w` and chokes
+  on the tail. Admitting a single-dash-long spelling needs S-145's own
+  table test (no `--long` row anywhere in the document), and `pod2text`'s
+  table is full of `--long` rows, so the same evidence that protects `gcc`,
+  `clang` and `ld` from S-145 refuses `pod2text` here. That is the same gate
+  that refuses `fuser`'s `-SIGNAL`.
+- fleet: `comma-swallowed-alias`
+  (`xtask/src/detector/comma_swallowed_alias.rs`) reads 10 tools/31 findings
+  post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which is the
+  refused remainder. Reported, not gated. One flag gained fleet-wide, zero
+  lost, zero subcommand movement, all nine named controls byte-identical.
+
+### S-161: a `/`-joined second spelling outside a lowdown bullet
+
+- id: S-161
+- looks like: |
+          -W / --warn [LINT]       Set lint warnings
+          -A / --allow [LINT]      Set lint allowed
+- tools: cargo-clippy
+- handling: Open on its own tool, widened underneath. S-144 taught
+  `join_slash_alias` (`mandible-extract/src/help_text/sections/bullets.rs`)
+  to rewrite a spaced `/` between two flag-shaped tokens into the ordinary
+  comma-joined alias `parse_flag_spec` already reads, and gated it on the
+  lowdown bullet marker. Round 10 lifted that gate: the evidence is narrow
+  enough on its own (the separator must be exactly `/` with one space each
+  side, and what follows must itself be flag-shaped, so a path or the word
+  "input/output" in a description is never touched), so `emit_flags_with`
+  calls it on any option-table row now.
+  It does not reach `cargo-clippy`, whose four rows are read by a different
+  row reader, so `-W` still takes the literal `/` as its value name and
+  `--warn`, `--allow`, `--deny` and `--forbid` still reach the tree nowhere.
+  `corpus/cargo-clippy/0.1.97` is the `[xfail]` fixture that states it, with
+  `must_contain_flags` naming all four long spellings and
+  `must_not_value_name` naming the `/` on all four short ones.
+- fleet: `slash-joined-alias-outside-bullet`
+  (`xtask/src/detector/slash_joined_alias_outside_bullet.rs`) reads 1 tool/4
+  findings on a full-`PATH` sweep of 2323 tools, 2026-09-13, unchanged by the
+  widening, and far below the five-tool bar. Reported, not gated. The
+  widening itself moved no flag anywhere in the fleet: zero gains, zero
+  losses, no `spellings changed` row in the sweep-diff.
 
 ### S-171: a numbered `X1 X2 ...` pair sits ahead of a later required operand
 

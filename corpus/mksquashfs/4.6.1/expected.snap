@@ -758,6 +758,8 @@ flags:
     - help-text
 - spellings:
   - -Xstrategy
+  value_name: strategy1,strategy2,...,strategyN
+  value_kind: Required
   group: gzip (default)
   description: 'Compress using strategy1,strategy2,...,strategyN in turn and choose the best compression. Available strategies: default, filtered, huffman_only, run_length_encoded and fixed'
   provenance:
@@ -790,6 +792,8 @@ flags:
     - help-text
 - spellings:
   - -Xbcj
+  value_name: filter1,filter2,...,filterN
+  value_kind: Required
   group: xz
   description: 'Compress using filter1,filter2,...,filterN in turn (in addition to no filter), and choose the best compression. Available filters: x86, arm, armthumb, powerpc, sparc, ia64'
   provenance:

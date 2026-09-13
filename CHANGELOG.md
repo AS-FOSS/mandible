@@ -18,6 +18,7 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- [S-155] A value spec written as one delimited alternation of literal values (`--compression=(xz|none|auto)`, `--crate-type <bin|lib|...>`, argparse's own `{c,java,ruby,tcl}`) now attaches as that flag's choices, instead of rendering as one opaque placeholder (`mandible grub-mkimage`, `mandible rustc`, `mandible tclobjnew-bpfcc`).
 - `xtask sweep-diff` now reports subcommand-count gains and losses per tool, separately from flags, so an invented subcommand row no longer passes as a clean sweep.
 - `xtask detector calibrate` now prints `NOT EVALUABLE` instead of `DOES NOT PASS` for a detector whose family has zero labelled members in the audit seed, so a legitimate gap in the sample is no longer reported as a failing detector.
 - [S-149] A bare-word block opening on a centered ALL-CAPS group label no longer ends before reading a single real row beneath it (`mandible fail2ban-client`).
@@ -40,6 +41,9 @@ once it reaches a published 0.1.0 release.
 - [S-151] A usage form whose leading word names another program now renders under the tool's own name, so `mandible gcc-ranlib-13` shows `gcc-ranlib-13 [options] archive` instead of repeating `/usr/bin/ranlib`, and `mandible perlthanks` gains the usage section it had none of.
 - [S-142] A `SYNTAX:` label glued straight to the program name, and a usage continuation carrying an open `[` to column zero, are both read now, so `mandible mksquashfs` and `mandible sqfstar` show a real usage line and their `FILESYSTEM` positional instead of the whole synopsis as description prose (#143).
 - [S-171] A numbered `source1 source2 ...` pair ahead of a later required operand no longer drops, so `mandible mksquashfs` shows its `source` positional alongside `FILESYSTEM`.
+- [S-157] A single-dash long option's bare-word value name inside a no-double-dash table now survives instead of reading as the first word of the description, so `mandible Xvfb` shows `-audit int` and `-fp string`, and `mandible mksquashfs`/`mandible sqfstar` show `-Xstrategy` and `-Xbcj` with their comma-separated value lists.
+- [S-158] A value spec that glues a bracket-optional group directly onto a required angle placeholder now keeps the whole run, so `mandible rustc` shows `-L`'s `[<KIND>=]<PATH>` and `--emit`'s `<TYPE>[=<FILE>]` in full instead of losing the half that doesn't open the run.
+- [S-160] A value spec that swallowed its own alias run's trailing comma no longer hides the spelling behind it, so `mandible biolatpcts-bpfcc` shows `-p, --pcts` instead of a lone `-p`.
 
 ## [0.7.0] - 2026-09-05
 

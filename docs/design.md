@@ -2893,6 +2893,15 @@ would move every optional-value row fleet-wide, including the named control
 tools `git` and `tar`, to restore one character that the IR already carries.
 `fdisk`'s `--lock[=<mode>]` is the same shape and the same answer.
 
+**A mixed bracket-and-angle glued value spec ships below the five-tool bar
+(2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a
+raw-shape count of 1 tool (`rustc`), maintainer-named from the seed 7 audit.
+Ships anyway: the fix moved 11 tools once measured tree-wide (`rustc`,
+`dpkg`, `dpkg-statoverride`, `java`, `jlink`, `jdeps`, `jpackage`,
+`gp-collect-app`, `lto-dump`, `lto-dump-13`), with 0 flag-count and 0
+subcommand-count losses on a full-`PATH` sweep-diff of 2269 tools, alongside
+S-157's own sweep.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until

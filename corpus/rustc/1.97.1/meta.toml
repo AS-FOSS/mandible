@@ -1,0 +1,47 @@
+# [S-155] `--crate-type <bin|lib|rlib|dylib|cdylib|staticlib|proc-macro>`
+# and `--edition <2015|2018|2021|2024|future>` are each one angle-bracket
+# alternation of literal values in the value position. Both rendered as an
+# opaque placeholder holding the whole list; the fix reads each as its
+# flag's own `choices` instead. See docs/shapes.md S-155.
+#
+# [S-158] `-L [<KIND>=]<PATH>`, `--emit <TYPE>[=<FILE>]` and
+# `-C <OPT>[=<VALUE>]` each glue a bracket-optional group onto a required
+# angle placeholder. Each used to keep only the group that opens the run
+# and lose the other half. See docs/shapes.md S-158.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "rustc"
+version = "1.97.1"                   # rustc 1.97.1 (8bab26f4f 2026-07-14)
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); rustc 1.97.1"
+
+[[capture]]
+argv = ["rustc", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"           # `--doctor rustc` against the live
+                                         # binary reads "clap (v3/v4)" from
+                                         # an artifact-scan match, but the
+                                         # corpus test has only the frozen
+                                         # help-text bytes, no binary, and
+                                         # falls to "generic" — the value
+                                         # this contract must assert
+min_status = "ok"
+must_contain_flags = ["L", "l", "emit", "C"]
+
+[contract.must_attach_choices]
+"--crate-type" = ["bin", "lib", "rlib", "dylib", "cdylib", "staticlib", "proc-macro"]
+"--edition" = ["2015", "2018", "2021", "2024", "future"]
+
+[contract.must_not_value_name]
+"--crate-type" = "bin|lib|rlib|dylib|cdylib|staticlib|proc-macro"
+"--edition" = "2015|2018|2021|2024|future"
+
+[contract.must_value_name]
+"-L" = "[<KIND>=]<PATH>"
+"--emit" = "<TYPE>[=<FILE>]"
+"-C" = "<OPT>[=<VALUE>]"
