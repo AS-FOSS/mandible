@@ -3964,9 +3964,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   count, not a full-`PATH` sweep; below the five-tool bar on its own but
   ships alongside a family that already cleared it, docs/design.md §16.
 
-### S-175: a genuinely two-flag repeated-letter coincidence loses its value
+### S-178: a genuinely two-flag repeated-letter coincidence loses its value
 
-- id: S-175
+- id: S-178
 - looks like: |
       -c                     turns off key-click
       -cc int                default color visual class
