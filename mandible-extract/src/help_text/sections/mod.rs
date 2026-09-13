@@ -574,6 +574,44 @@ fn continue_usage_block_across_blank(
     None
 }
 
+/// Where the block resumes past a bare usage label's own blank gap, and
+/// whether a stanza was pulled in there. The stanza recognizer gets first
+/// refusal: under a bare `Usage:` the line past the gap may be the tool's
+/// own root invocation form, which is a stanza to record rather than a gap
+/// to step over (`dmsetup`, `dmstats`, S-169). Otherwise the gap is only
+/// skipped, since a bare label contributed no content to lose
+/// (`perlthanks`'s `Advanced usage:`, S-151).
+fn resume_after_bare_label(
+    lines: &[&str],
+    mut i: usize,
+    labelled_usage_start: Option<usize>,
+    tool_name: Option<&str>,
+    usage_lines: &mut Vec<String>,
+    usage_entries: &mut Vec<String>,
+    line_entry_index: &mut Vec<usize>,
+) -> (usize, bool) {
+    // Only a real gap is the recognizer's business: `fdisk` writes its
+    // forms directly under its bare label, and reading past the first one
+    // would drop it.
+    if lines.get(i).is_some_and(|l| l.trim().is_empty()) {
+        if let Some((next, recovered)) = continue_usage_block_across_blank(
+            lines,
+            i,
+            labelled_usage_start,
+            tool_name,
+            usage_lines,
+            usage_entries,
+            line_entry_index,
+        ) {
+            return (next, recovered);
+        }
+    }
+    while i < lines.len() && lines[i].trim().is_empty() {
+        i += 1;
+    }
+    (i, false)
+}
+
 fn scan_usage_section(
     lines: &[&str],
     start: usize,
@@ -611,14 +649,17 @@ fn scan_usage_section(
     let mut recovered_bare_root_stanza = false;
     i += 1;
     if seed_is_bare {
-        // A bare label may sit on its own physical line with its forms a
-        // blank line further down (`perlthanks`'s `Advanced usage:`, a
-        // blank line, then its two forms) — skip past the gap rather than
-        // ending the block on it, since a bare label already contributed
-        // no content to lose. See S-151, corpus/perlthanks.
-        while i < lines.len() && lines[i].trim().is_empty() {
-            i += 1;
-        }
+        let (next, recovered) = resume_after_bare_label(
+            lines,
+            i,
+            labelled_usage_start,
+            tool_name,
+            usage_lines,
+            &mut usage_entries,
+            &mut line_entry_index,
+        );
+        recovered_bare_root_stanza = recovered;
+        i = next;
     }
     while i < lines.len() {
         let l = lines[i];

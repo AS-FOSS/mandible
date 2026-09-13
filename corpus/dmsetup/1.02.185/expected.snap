@@ -1,6 +1,5 @@
 name: dmsetup
 usage:
-- 'Usage:'
 - dmsetup [--version] [-h|--help [-c|-C|--columns]] [-v|--verbose [-v|--verbose ...]] [-f|--force] [--checks] [--manglename {none|hex|auto}] [-r|--readonly] [--noopencount] [--noflush] [--nolockfs] [--inactive] [--udevcookie <cookie>] [--noudevrules] [--noudevsync] [--verifyudev] [-y|--yes] [--readahead {[+]<sectors>|auto|none}] [--retry] [-c|-C|--columns] [-o <fields>] [-O|--sort <sort_fields>] [-S|--select <selection>] [--nameprefixes] [--noheadings] [--separator <separator>]
 flags:
 - spellings:

@@ -1,6 +1,5 @@
 name: dmstats
 usage:
-- 'Usage:'
 - dmstats [-h|--help] [-v|--verbose [-v|--verbose ...]] [--areas <nr_areas>] [--areasize <size>] [--userdata <data>] [--clear] [--count <count>] [--interval <seconds>] [-o <fields>] [-O|--sort <sort_fields>] [--programid <id>] [--start <start>] [--length <length>] [--segments] [--units <units>]
 flags:
 - spellings:
