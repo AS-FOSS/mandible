@@ -1,0 +1,130 @@
+name: lshw
+description: Hardware Lister (lshw) -
+usage:
+- 'usage: /usr/bin/lshw [-format] [-options ...]'
+- '       /usr/bin/lshw -version'
+flags:
+- spellings:
+  - -version
+  description: print program version ()
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -html
+  group: format can be
+  description: output hardware tree as HTML
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xml
+  group: format can be
+  description: output hardware tree as XML
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -json
+  group: format can be
+  description: output hardware tree as a JSON object
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -short
+  group: format can be
+  description: output hardware paths
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -businfo
+  group: format can be
+  description: output bus information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -class
+  group: options can be
+  description: only show a certain class of hardware
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  value_name: CLASS
+  value_kind: Required
+  group: options can be
+  description: same as '-class CLASS'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  value_name: CLASS
+  value_kind: Required
+  group: options can be
+  description: same as '-class CLASS'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -disable
+  group: options can be
+  description: disable a test (like pci, isapnp, cpuid, etc. )
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -enable
+  group: options can be
+  description: enable a test (like pci, isapnp, cpuid, etc. )
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -quiet
+  group: options can be
+  description: don't display status
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sanitize
+  group: options can be
+  description: sanitize output (remove sensitive information like serial numbers, etc.)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -numeric
+  group: options can be
+  description: output numeric IDs (for PCI, USB, etc.)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -notime
+  group: options can be
+  description: exclude volatile attributes (timestamps) from output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -format
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -options
+  provenance:
+    sources:
+    - help-text-synopsis
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.8
+children_filled: true

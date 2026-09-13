@@ -1728,6 +1728,14 @@ fn parse_body(
             // duplicate is not added. "Let the described version win"
             // taken literally: the existing entry is never touched.
         }
+        // A dash-prefixed usage word normally swallowed as the generic
+        // "any option" placeholder, or a usage-derived flag already
+        // misread as a short flag plus a fabricated value, is repaired or
+        // recovered as its own flag when a `<word> can be` line attests
+        // it names a real one (S-172).
+        if result.flags.len() < MAX_RECOVERED_ENTRIES {
+            recover_can_be_placeholder_flags(&usage_lines, &lines, &mut result.flags);
+        }
     }
 
     // Last, over everything both scans produced: the repeated-character
@@ -1742,6 +1750,11 @@ fn parse_body(
     // by the time this one runs the repeated-character family is already
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
+    // A narrower sibling of the repair above, admitted on its own
+    // evidence rather than S-145's table-wide argument (atlas S-172): a
+    // table-derived flag whose reconstructed name the tool's own usage
+    // line spells as one stand-alone bracketed token.
+    repair_usage_attested_single_dash_long(&mut result.flags, &usage_lines);
     // Last because it can only fill what the two above finished naming:
     // descriptions written as free prose paragraphs, not option-table
     // columns.

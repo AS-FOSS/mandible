@@ -102,6 +102,11 @@ pub(crate) mod lowdown_bullet_option_row;
 // parser change ships for it.
 pub(crate) mod option_table_multiword_value_name;
 
+// Round-11 family detector (atlas S-172: a usage-line single-dash-long
+// token split into a short flag plus a swallowed value), same detect()/
+// Report + wrapper shape as `single_dash_long_table` above.
+pub(crate) mod usage_attested_single_dash_long;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -748,6 +753,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
+        Box::new(UsageAttestedSingleDashLong),
     ]
 }
 

@@ -610,6 +610,34 @@ impl Detector for SingleDashLongTable {
     }
 }
 
+pub(crate) struct UsageAttestedSingleDashLong;
+
+impl Detector for UsageAttestedSingleDashLong {
+    fn name(&self) -> &'static str {
+        "usage-attested-single-dash-long"
+    }
+    fn family(&self) -> Option<&'static str> {
+        // No audit seed carries this family's own machine-derived label
+        // yet (spec §13.1e rule 6): calibration has nothing to
+        // generalize against.
+        None
+    }
+    fn describes(&self) -> &'static str {
+        "a single-dash-long spelling the tool's own usage line spells as one stand-alone \
+         bracketed token reaches the tree split into a short flag plus a swallowed value"
+    }
+    fn hits(&self, evidence: &ToolEvidence<'_>) -> Vec<String> {
+        super::usage_attested_single_dash_long::detect(evidence.raw, evidence.root)
+            .findings
+            .iter()
+            .map(|f| format!("-{} never became its own spelling", f.name))
+            .collect()
+    }
+    fn self_checks(&self) -> Vec<SelfCheck> {
+        super::usage_attested_single_dash_long::self_checks()
+    }
+}
+
 pub(crate) struct CommandRowArgumentPlaceholder;
 
 impl Detector for CommandRowArgumentPlaceholder {
