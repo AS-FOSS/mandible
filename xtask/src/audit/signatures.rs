@@ -113,21 +113,24 @@ pub(super) fn is_bare_stub(node: &CommandNode) -> bool {
 }
 
 /// True for a bare stub ([`is_bare_stub`]) that is also not
-/// [`CommandNode::heading_attested`] — its name came from a native/cobra
-/// artifact rather than a recognized `--help` heading or headingless
-/// invocation table (spec §7 Tier B). Provable from the single extraction
-/// pass: `help_text::raw_help` refuses to probe any node whose
-/// `heading_attested` bit is false, so unlike an ordinary un-recursed
+/// [`CommandNode::heading_attested`] and not
+/// [`CommandNode::abbrev_probe_attested`] — its name came from a
+/// native/cobra artifact rather than a recognized `--help` heading, a
+/// headingless invocation table, or the S-167 usage-abbreviation
+/// recognizer (spec §7 Tier B, §6 rule 0, docs/design.md §16). Provable
+/// from the single extraction pass: `help_text::raw_help` refuses to
+/// probe any node with neither bit set, so unlike an ordinary un-recursed
 /// subcommand, this one structurally cannot ever be probed.
 ///
 /// A headingless-table node still counts here even though it's
 /// existence-attested (`invocation_attested`) — it exempts a node from
 /// being counted as *fabricated* ([`crate::status::structure_sanity`]) but
-/// does not make it any less permanently un-probed.
+/// does not make it any less permanently un-probed. An `abbrev_probe_attested`
+/// node is the opposite case: it IS probed, so it must not count here.
 ///
 /// Fixture: `corpus/git-lfs/*/help.txt`.
 pub(super) fn is_attestation_gated_stub(node: &CommandNode) -> bool {
-    is_bare_stub(node) && !node.heading_attested
+    is_bare_stub(node) && !node.heading_attested && !node.abbrev_probe_attested
 }
 
 /// Count of [`is_attestation_gated_stub`] matches across `node` and every

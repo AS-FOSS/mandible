@@ -70,14 +70,20 @@ impl Report {
 
 const MIN_ROWS: usize = 2;
 
-/// Whether `root`'s own subcommands already carry a node named `name`
-/// with `display_name` (or a bare `name` when the row carried no bracket
-/// suffix — never this shape, since every row here does) matching
-/// `display`.
+/// Whether `root`'s own subcommands already carry a node named by the
+/// row's full word (`name`), with the row's own short prefix (`display`'s
+/// leading letter, e.g. `g` for `g[dbserver]`) among that node's
+/// `aliases` (docs/design.md §16: the repaired shape shows the full word,
+/// never the bracketed spelling, and keeps the prefix as an alias
+/// instead of a `display_name`).
 fn tree_attests(root: &CommandNode, name: &str, display: &str) -> bool {
+    let Some(prefix) = display.chars().next() else {
+        return false;
+    };
+    let prefix = prefix.to_string();
     root.subcommands
         .iter()
-        .any(|c| c.name == name && c.display_name.as_deref() == Some(display))
+        .any(|c| c.name == name && c.aliases.contains(&prefix))
 }
 
 pub fn detect(raw: &str, root: &CommandNode) -> Report {
@@ -155,18 +161,18 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
         },
         SelfCheck {
             name: "a correctly repaired tree",
-            why: "once every row's own word reaches the tree with its source spelling as \
-                  `display_name`, the detector has nothing left to report",
+            why: "once every row's own full word reaches the tree with the row's short \
+                  prefix kept as an alias, the detector has nothing left to report",
             expect: Expect::Silent,
             raw: LLDB_SERVER_USAGE.to_string(),
             root: {
                 let mut root = node("lldb-server");
                 let mut version = node("version");
-                version.display_name = Some("v[ersion]".to_string());
+                version.aliases.push("v".to_string());
                 let mut gdbserver = node("gdbserver");
-                gdbserver.display_name = Some("g[dbserver]".to_string());
+                gdbserver.aliases.push("g".to_string());
                 let mut platform = node("platform");
-                platform.display_name = Some("p[latform]".to_string());
+                platform.aliases.push("p".to_string());
                 root.subcommands = vec![version, gdbserver, platform];
                 root
             },
