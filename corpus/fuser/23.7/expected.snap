@@ -1,5 +1,5 @@
 name: fuser
-description: '/usr/bin/fuser: Invalid option --help Show which processes use the named files, sockets, or filesystems.'
+description: Show which processes use the named files, sockets, or filesystems.
 usage:
 - 'Usage: fuser [-fIMuvw] [-a|-s] [-4|-6] [-c|-m|-n SPACE] [-k [-i] [-SIGNAL]] NAME...'
 - '       fuser -l'

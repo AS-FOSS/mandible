@@ -78,9 +78,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -S
-  value_name: IGNAL
-  value_kind: Required
+  - -SIGNAL
   description: send this signal instead of SIGKILL
   provenance:
     sources:

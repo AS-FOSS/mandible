@@ -47,6 +47,8 @@ flags:
     - help-text
 - spellings:
   - -class
+  value_name: CLASS
+  value_kind: Required
   group: options can be
   description: only show a certain class of hardware
   provenance:
@@ -72,6 +74,8 @@ flags:
     - help-text
 - spellings:
   - -disable
+  value_name: TEST
+  value_kind: Required
   group: options can be
   description: disable a test (like pci, isapnp, cpuid, etc. )
   provenance:
@@ -79,6 +83,8 @@ flags:
     - help-text
 - spellings:
   - -enable
+  value_name: TEST
+  value_kind: Required
   group: options can be
   description: enable a test (like pci, isapnp, cpuid, etc. )
   provenance:
