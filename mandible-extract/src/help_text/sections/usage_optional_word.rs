@@ -1,59 +1,30 @@
-//! F11 / docs/shapes.md S-167: a `Usage:` line's leading word is a
-//! subcommand spelled with an optional abbreviation suffix —
-//! `lldb-server`'s `v[ersion]`, `g[dbserver]`, `p[latform]`. Distinct from
-//! S-020's modifier table (`ar`'s `r[ab][f][u]`): there the bracket groups
-//! name separate modifier LETTERS glued onto one command letter; here one
-//! bracket group spells the rest of ONE whole command word. The node's
-//! name and displayed form are that whole word (`gdbserver`); the row's
-//! own short prefix (`g`) is kept as an alias, never as `display_name`
-//! (docs/design.md §16). Never confused with S-020's own code path.
+//! docs/shapes.md S-167: a `Usage:` line's leading word is a subcommand
+//! spelled with an optional abbreviation suffix (`lldb-server`'s
+//! `g[dbserver]`). Distinct from S-020's modifier table (`ar`'s
+//! `r[ab][f][u]`, several LETTERS on one command). The node's name and
+//! displayed form are the whole word; the row's short prefix is an alias.
 
 use super::heading::{starts_with_tool_name, starts_with_tool_name_spelled_differently};
-use mandible_core::{is_command_name_shaped, CommandNode, Provenance, Source};
+use mandible_core::{CommandNode, Provenance, Source};
 
-/// `token` reads as one command word with an optional-abbreviation suffix
-/// only when it carries exactly one bracket group, opened right after a
-/// single leading lowercase letter, holding nothing but lowercase letters,
-/// and closing at the token's own end. `ar`'s `r[ab][f][u]` fails this (a
-/// second group follows the first), so the two shapes never collide.
-///
+/// `token` read back to the emitted name (docs/design.md §7 Tier B rule 7,
+/// §16), moved to `mandible-core` so `mandible-tui` can share it without a
+/// real dependency on this crate; re-exported for every existing caller.
+pub use mandible_core::reconstruct_abbrev_word;
+
 /// Returns `(whole_word, short_alias)`: the full command word with the
 /// brackets removed (`gdbserver`), and the bare leading letter the row
 /// spelled as its abbreviation prefix (`g`) — the node's own alias, never
 /// its displayed name (docs/design.md §16).
 fn optional_abbrev_word(token: &str) -> Option<(String, String)> {
-    let mut chars = token.chars();
-    let lead = chars.next()?;
-    if !lead.is_ascii_lowercase() {
-        return None;
-    }
-    let rest = &token[lead.len_utf8()..];
-    let inner = rest.strip_prefix('[')?.strip_suffix(']')?;
-    if inner.is_empty() || inner.contains(['[', ']']) {
-        return None;
-    }
-    if !inner.chars().all(|c| c.is_ascii_lowercase()) {
-        return None;
-    }
-    let whole = format!("{lead}{inner}");
-    if !is_command_name_shaped(&whole) {
-        return None;
-    }
+    let whole = reconstruct_abbrev_word(token)?;
+    let lead = token.chars().next()?;
     Some((whole, lead.to_string()))
 }
 
-/// The existence oracle's own reconstruction (docs/design.md §7 Tier B
-/// rule 7, §16): `token` read back to the emitted name, or `None` when it
-/// is not this exact shape. Only the bracket characters are removed.
-pub fn reconstruct_abbrev_word(token: &str) -> Option<String> {
-    optional_abbrev_word(token).map(|(whole, _)| whole)
-}
-
-/// One recognized row: the tool's own name (in whatever spelling it printed
-/// itself under), then a word matched by [`optional_abbrev_word`], then
-/// zero or more further tokens that must each be a single bracketed
-/// lowercase word (`[options]`) — anything else and the whole row is
-/// refused rather than partially accepted.
+/// One recognized row: the tool's own name, a word matched by
+/// [`optional_abbrev_word`], then zero or more `[options]`-shaped tokens —
+/// anything else refuses the whole row.
 fn parse_row(line: &str, tool_name: &str) -> Option<(String, String)> {
     let t = line.trim();
     let is_own_name = starts_with_tool_name(t, tool_name)
@@ -76,19 +47,14 @@ fn parse_row(line: &str, tool_name: &str) -> Option<(String, String)> {
     Some((name, alias))
 }
 
-/// The fewest recognized rows before this shape is trusted at all: one row
-/// alone is too cheap a coincidence to act on. `lldb-server` documents
-/// three. See docs/design.md §16 — below AGENTS.md §3.1's five-tool bar,
-/// shipped as a recorded exception the way S-103/S-104/S-143 were.
+/// Fewest recognized rows before this shape is trusted (docs/design.md
+/// §16, below AGENTS.md §3.1's five-tool bar, a recorded exception).
 const MIN_ROWS: usize = 2;
 
-/// Scan the labelled `Usage:` block starting at `heading_idx` (the bare
-/// `Usage:` line itself, with nothing else on it) for this shape.
-/// `Some((end, nodes))` only when every line from `heading_idx + 1` parses
-/// as a row up to the first line that does not, and at least [`MIN_ROWS`]
-/// did — a mixed or under-populated run is refused whole, never partially
-/// accepted, so an ordinary usage synopsis is never swallowed by a guess.
-/// `end` is the index of the first line NOT consumed.
+/// Scan the labelled `Usage:` block at `heading_idx` for this shape.
+/// `Some((end, nodes))` only when every line parses as a row up to the
+/// first that doesn't, and at least [`MIN_ROWS`] did — refused whole,
+/// never partially accepted. `end` is the first line NOT consumed.
 pub(super) fn scan_usage_optional_word_table(
     lines: &[&str],
     heading_idx: usize,
@@ -116,11 +82,8 @@ pub(super) fn scan_usage_optional_word_table(
         .into_iter()
         .map(|(name, alias)| {
             let mut node = CommandNode::new(name.clone(), Provenance::single(Source::HelpText));
-            // Invocation-attested, never heading-attested (§7 Tier B rule
-            // 8), but this recognizer's own third bit admits a probe of
-            // the full word anyway (§6 rule 0, docs/design.md §16). The
-            // row's short prefix is kept as an alias, never as a display
-            // spelling.
+            // invocation_attested, never heading_attested (§7 rule 8);
+            // abbrev_probe_attested admits a probe anyway (§6 rule 0).
             node.invocation_attested = true;
             node.heading_attested = false;
             node.children_filled = false;

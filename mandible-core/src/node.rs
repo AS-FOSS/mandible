@@ -251,6 +251,34 @@ pub fn is_command_name_shaped(s: &str) -> bool {
     chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '_' | '.' | '-'))
 }
 
+/// `token` read back to the whole command word it names when `token` is
+/// spelled with S-167's own optional-abbreviation bracket — one bracket
+/// group opened right after a single leading lowercase letter, holding
+/// nothing but lowercase letters, closing at the token's own end
+/// (`lldb-server`'s `g[dbserver]` reads back to `gdbserver`). `None` for
+/// any other shape. Lives here, not in `mandible-extract`, because
+/// `mandible-tui`'s usage-line renderer needs the same read-back
+/// (docs/shapes.md S-167, S-151's render path) and only depends on
+/// `mandible-core`/`mandible-search` as ordinary dependencies —
+/// `mandible-extract` is a dev-dependency there, tests only.
+pub fn reconstruct_abbrev_word(token: &str) -> Option<String> {
+    let mut chars = token.chars();
+    let lead = chars.next()?;
+    if !lead.is_ascii_lowercase() {
+        return None;
+    }
+    let rest = &token[lead.len_utf8()..];
+    let inner = rest.strip_prefix('[')?.strip_suffix(']')?;
+    if inner.is_empty() || inner.contains(['[', ']']) {
+        return None;
+    }
+    if !inner.chars().all(|c| c.is_ascii_lowercase()) {
+        return None;
+    }
+    let whole = format!("{lead}{inner}");
+    is_command_name_shaped(&whole).then_some(whole)
+}
+
 impl CommandNode {
     /// A minimal, empty node with the given name and provenance. Useful as
     /// a starting point for tiers and for tests.

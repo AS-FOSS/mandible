@@ -245,6 +245,21 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             return spec;
         }
 
+        // S-096's own marker takes its whole remaining row as one value:
+        // `lldb-server`'s `-- program args` names not one word but the
+        // phrase `program args`, since everything past `--` is what it is
+        // saying gets passed through untouched. Only when the marker is
+        // the row's one and only spelling so far and what follows is a
+        // bare word run, never an already-structured `<value>`/`[value]`
+        // spec `try_value` already reads correctly (`cargo fmt`'s own
+        // `-- <rustfmt_options>...`).
+        if is_bare_end_of_options_marker(&spec) && !rest.starts_with(['<', '[', '=']) {
+            spec.value_name = Some(rest.trim_end().to_string());
+            spec.value_kind = ValueKind::Required;
+            spec.fully_consumed = true;
+            return spec;
+        }
+
         // Whatever remains is treated as a value spec: `=VALUE`, ` VALUE`,
         // `[=VALUE]`, `[VALUE]`, or a bare `<value>`/`VALUE` token.
         let Some((value_name, kind, tail)) = try_value(rest) else {
@@ -761,6 +776,15 @@ fn try_bare_sigil(input: &str) -> Option<(Spelling, &str)> {
         return Some((Spelling::bare("--"), rest));
     }
     None
+}
+
+/// True when `spec`'s only spelling so far is the bare end-of-options
+/// marker itself (S-096), never a flag that merely happens to be spelled
+/// `--` on some other row this grammar cannot produce. Gates the
+/// whole-rest-of-row value capture right above this function's own
+/// caller.
+fn is_bare_end_of_options_marker(spec: &FlagSpec) -> bool {
+    matches!(spec.spellings.as_slice(), [s] if s.dashes == Dashes::None && s.name == "--")
 }
 
 /// Strips a leading `[no-]`/`[no]` prefix, if present. Recognized
@@ -2753,6 +2777,29 @@ mod tests {
         let spec = parse_flag_spec("-- <rustfmt_options>...");
         assert_eq!(spec.spellings.len(), 1);
         assert_eq!(spec.spellings[0].name, "--");
+        assert_eq!(spec.value_name.as_deref(), Some("<rustfmt_options>"));
+    }
+
+    #[test]
+    fn a_dashdash_row_with_a_multi_word_bare_value_keeps_every_word() {
+        // `lldb-server gdbserver`'s real row: "-- program args", where
+        // "program args" is a phrase, not a placeholder ending at the
+        // first space. Before this test the second word was dropped
+        // silently (AGENTS.md §3.9). See docs/shapes.md S-096.
+        let spec = parse_flag_spec("-- program args");
+        assert_eq!(spec.spellings.len(), 1);
+        assert_eq!(spec.spellings[0].name, "--");
+        assert_eq!(spec.value_name.as_deref(), Some("program args"));
+        assert!(spec.fully_consumed);
+    }
+
+    #[test]
+    fn a_dashdash_rows_angle_bracket_value_is_unaffected_by_the_multi_word_capture() {
+        // The multi-word capture above must never widen past the shape
+        // `try_value` already reads correctly: an angle-bracketed
+        // placeholder still stops there, `...` and all handled the way it
+        // always was.
+        let spec = parse_flag_spec("-- <rustfmt_options>...");
         assert_eq!(spec.value_name.as_deref(), Some("<rustfmt_options>"));
     }
 }

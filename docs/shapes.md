@@ -1592,7 +1592,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-096
 - looks like: |
       --			Only file names after this
-- tools: vim.basic, nvim
+- tools: vim.basic, nvim, lldb-server, lldb-server-18
 - handling: Fixed. `parse_flag_spec`'s `try_bare_sigil` reads a
   bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
   verbatim). Only a real terminator (nothing left, or whitespace/an alias
@@ -1600,7 +1600,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   may follow the marker; glued onto more name-shaped text (`objdump`'s
   `--[section-]headers` optional-bracket-prefix convention) it is left
   alone, so the marker is never fabricated out of an unrelated long name's
-  own unread tail.
+  own unread tail. Revised: the value that follows the marker used to
+  truncate at its first space, dropping every later word — `lldb-server
+  gdbserver`'s `-- program args` kept `program` and silently lost `args`
+  (AGENTS.md §3.9). A row whose only spelling so far is the bare marker,
+  followed by a bare word run (never an already-structured `<value>`/
+  `[value]` spec `try_value` already reads correctly), now takes the
+  whole remaining row as one value; `cargo fmt`'s own angle-bracket case
+  is untouched.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
@@ -3571,7 +3578,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
   nothing else changed, which is why design §7 Tier B rule 7's existence
   oracle needed a narrow amendment (§16): `gdbserver` is not a contiguous
   substring of the raw text, only `g[dbserver]` is, so the oracle now also
-  attests a subcommand name reached this way.
+  attests a subcommand name reached this way. Revised twice more. The
+  probed child's own USAGE line used to gain a second, redundant copy of
+  the node's name in front of text that already named both the tool and
+  the subcommand (`gdbserver lldb-server g[dbserver] [options] ...`):
+  `mandible-tui`'s `usage_form::word_names_node` now also recognizes a
+  usage line's own bracket-abbreviated leading word as naming the node,
+  through `mandible_core::reconstruct_abbrev_word` (moved there from
+  `mandible-extract` so the renderer can reach it without a real
+  dependency on that crate), so the existing S-108 substitution path
+  replaces `g[dbserver]` with `gdbserver` in place instead of prepending.
+  And the row's own short prefix, kept as `CommandNode::aliases` per the
+  ruling above, rendered nowhere: the detail pane now prints an `alias:`
+  line under the node's summary when `aliases` is non-empty.
 - fleet: `usage-optional-word-table`
   (`xtask/src/usage_optional_word_table.rs`) named 10 tools/17 findings as a
   raw shape before the round. What moved on a full-`PATH` sweep of 2323

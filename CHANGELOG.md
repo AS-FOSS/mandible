@@ -8,6 +8,12 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-167] An S-167 node's own USAGE line no longer doubles its name in front of text that already named the tool and the subcommand (`mandible lldb-server` into `gdbserver`).
+- [S-096] A `--` end-of-options row whose value is a bare multi-word phrase keeps every word instead of the first (`mandible lldb-server gdbserver`'s `-- program args`).
+- [S-167] A node's own short-prefix alias now renders as an `alias:` line in the detail pane (`mandible lldb-server gdbserver` shows `alias: g`).
+
 ## [0.8.0] - 2026-09-14
 
 ### Changed
