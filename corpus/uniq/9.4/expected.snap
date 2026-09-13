@@ -1,0 +1,116 @@
+name: uniq
+description: Filter adjacent matching lines from INPUT (or standard input), writing to OUTPUT (or standard output).
+usage:
+- 'Usage: uniq [OPTION]... [INPUT [OUTPUT]]'
+positionals:
+- name: INPUT
+  provenance:
+    sources:
+    - help-text
+- name: OUTPUT
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -c
+  - --count
+  description: prefix lines by the number of occurrences
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --repeated
+  description: only print duplicate lines, one for each group
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  description: print all duplicate lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --all-repeated
+  value_name: METHOD
+  value_kind: Optional
+  description: like -D, but allow separating groups with an empty line; METHOD={none(default),prepend,separate}
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --skip-fields
+  value_name: N
+  value_kind: Required
+  description: avoid comparing the first N fields
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --group
+  value_name: METHOD
+  value_kind: Optional
+  description: show all items, separating groups with an empty line; METHOD={separate(default),prepend,append,both}
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --ignore-case
+  description: ignore differences in case when comparing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --skip-chars
+  value_name: N
+  value_kind: Required
+  description: avoid comparing the first N characters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --unique
+  description: only print unique lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --zero-terminated
+  description: line delimiter is NUL, not newline
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --check-chars
+  value_name: N
+  value_kind: Required
+  description: compare no more than N characters in lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

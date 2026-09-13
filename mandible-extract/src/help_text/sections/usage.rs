@@ -282,6 +282,10 @@ pub(super) fn extract_positionals(
         // repeatability exactly the way the lone-word ALL-CAPS branch
         // below does for the same token.
         let mut bare_group_words: Vec<(String, String)> = Vec::new();
+        // The group's own source text, from its opening bracket on, for
+        // `bare_bracket_group_is_flat`. Only a flat group names one
+        // multi-word operand; a nested one names an operand per group.
+        let mut bare_group_raw = String::new();
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
             let opens = token.matches('[').count() as i32;
@@ -319,23 +323,28 @@ pub(super) fn extract_positionals(
             if cleaned.starts_with('-') || consumed_by_prior_flag {
                 continue;
             }
-            // A bracket group opened by a bare ALL-CAPS word that does not
-            // close on the same token collapses to one multi-word operand
-            // (`finalize_bare_bracket_group`), rather than one positional
-            // per word inside it. See docs/shapes.md S-154.
+            // A flat bracket group opened by a bare ALL-CAPS word that
+            // does not close on the same token collapses to one
+            // multi-word operand (`finalize_bare_bracket_group`), rather
+            // than one positional per word inside it. A nested group
+            // keeps its words apart. See docs/shapes.md S-154.
             if bare_group_active {
                 bare_group_depth += opens - closes;
+                bare_group_raw.push(' ');
+                bare_group_raw.push_str(token);
                 if !cleaned.is_empty() {
                     bare_group_words.push((token.to_string(), cleaned.to_string()));
                 }
                 if bare_group_depth <= 0 {
-                    for p in finalize_bare_bracket_group(&bare_group_words, line) {
+                    let flat = bare_bracket_group_is_flat(&bare_group_raw);
+                    for p in finalize_bare_bracket_group(&bare_group_words, line, flat) {
                         if seen.insert(p.primary_name().to_string()) {
                             out.push(p);
                         }
                     }
                     bare_group_active = false;
                     bare_group_words.clear();
+                    bare_group_raw.clear();
                 }
                 continue;
             }
@@ -348,6 +357,7 @@ pub(super) fn extract_positionals(
                 bare_group_active = true;
                 bare_group_depth = opens - closes;
                 bare_group_words = vec![(token.to_string(), cleaned.to_string())];
+                bare_group_raw = token.to_string();
                 continue;
             }
             let (name, variadic) = if let Some(stripped) = cleaned.strip_prefix('<') {
@@ -3224,5 +3234,88 @@ mod tests {
             .map(|p| p.primary_name())
             .collect();
         assert_eq!(names, vec!["FILE"], "{names:?}");
+    }
+
+    /// `mknod`'s own bytes (docs/shapes.md S-154): one flat bracket pair
+    /// holding two ALL-CAPS words is one operand named by the whole run.
+    #[test]
+    fn a_flat_bracket_group_of_two_all_caps_words_is_one_operand() {
+        let parsed = parse("Usage: mknod [OPTION]... NAME TYPE [MAJOR MINOR]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["NAME", "TYPE", "MAJOR MINOR"], "{names:?}");
+    }
+
+    /// `uniq`'s own bytes (docs/shapes.md S-154): the group nests, so it
+    /// names two optional operands, never one joined across the inner
+    /// bracket. This is the regression S-154 shipped with.
+    #[test]
+    fn a_nested_bracket_group_names_one_operand_per_word() {
+        let parsed = parse("Usage: uniq [OPTION]... [INPUT [OUTPUT]]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["INPUT", "OUTPUT"], "{names:?}");
+        assert!(!parsed.positionals[0].required);
+        assert!(!parsed.positionals[1].required);
+    }
+
+    /// `env`'s own bytes: the inner group carries the repetition marker,
+    /// which marks that inner operand and never fuses the two words.
+    #[test]
+    fn a_nested_bracket_group_with_an_inner_repetition_marker_keeps_both_words() {
+        let parsed = parse("Usage: env [OPTION]... [-] [NAME=VALUE]... [COMMAND [ARG]...]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["COMMAND", "ARG"], "{names:?}");
+        assert!(parsed.positionals[1].repeatable);
+    }
+
+    /// `systemd-sysusers`'s own bytes: the group is flat and its dots sit
+    /// at the group's own end, so it stays one repeatable operand.
+    #[test]
+    fn a_flat_bracket_group_ending_in_dots_is_one_repeatable_operand() {
+        let parsed = parse("Usage: systemd-sysusers [OPTIONS...] [CONFIGURATION FILE...]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["CONFIGURATION FILE"], "{names:?}");
+        assert!(parsed.positionals[0].repeatable);
+    }
+
+    /// `gettext`'s own bytes: the outer group's first word is itself
+    /// bracketed, which is a nested group, not a two-word name.
+    #[test]
+    fn a_bracketed_first_word_inside_a_group_keeps_the_words_apart() {
+        let parsed = parse("Usage: gettext [OPTION] [[TEXTDOMAIN] MSGID]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["TEXTDOMAIN", "MSGID"], "{names:?}");
+    }
+
+    /// `parted`'s own bytes: three words behind two nested brackets are
+    /// three operands, one per group.
+    #[test]
+    fn a_doubly_nested_bracket_group_names_three_operands() {
+        let parsed = parse("Usage: parted [OPTION]... [DEVICE [COMMAND [PARAMETERS]...]...]\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["DEVICE", "COMMAND", "PARAMETERS"], "{names:?}");
     }
 }

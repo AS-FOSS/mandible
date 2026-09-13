@@ -1,0 +1,25 @@
+# docs/shapes.md S-154: `[COMMAND [ARG]...]` names two optional operands,
+# `COMMAND` and a repeatable `ARG` nested inside it. The flat multi-word
+# group rule joined them into one positional spelled `COMMAND ARG` and
+# carried the repetition marker onto that joined name, so the tree said
+# `env` takes one operand where its own synopsis names two.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "env"
+version = "9.4"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); GNU coreutils 9.4"
+
+[[capture]]
+argv = ["env", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "usage"]
+expected_framework = "GNU argp/getopt_long"
+must_contain_positionals = ["COMMAND", "ARG..."]
+must_not_contain_positionals = ["COMMAND ARG"]
+must_contain_flags = ["-S", "-C", "--block-signal", "--list-signal-handling"]

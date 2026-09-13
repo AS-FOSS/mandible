@@ -89,6 +89,11 @@ pub(crate) mod usage_spelling_duplicates_table_row;
 pub(crate) mod trailing_bracket_group_multiword_operand;
 pub(crate) mod usage_bracket_group_multiword_value;
 
+// S-154's own regression fence, the inverse of the S-132 detector above:
+// that one counts an operand the tree never got, this one counts a fused
+// operand name the tree invented. Same direct-`Detector`-impl shape.
+pub(crate) mod nested_bracket_group_fused_operand;
+
 // Round-8 family detector (issue "lvm2 invocation forms read as section
 // headings", atlas S-137), same direct-`Detector`-impl shape.
 pub(crate) mod invocation_form_head_as_flag_group;
@@ -767,6 +772,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(or_joined_alias_single_space_gap::OrJoinedAliasSingleSpaceGap),
         Box::new(usage_bracket_group_multiword_value::UsageBracketGroupMultiwordValue),
         Box::new(trailing_bracket_group_multiword_operand::TrailingBracketGroupMultiwordOperand),
+        Box::new(nested_bracket_group_fused_operand::NestedBracketGroupFusedOperand),
         Box::new(UsageTextContinuationFold),
         Box::new(NumberedVariadicUsageTail),
         Box::new(invocation_form_head_as_flag_group::InvocationFormHeadAsFlagGroup),

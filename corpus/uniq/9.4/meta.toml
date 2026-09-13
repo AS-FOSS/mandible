@@ -1,0 +1,26 @@
+# docs/shapes.md S-154: `[INPUT [OUTPUT]]` is a nested bracket group, so it
+# names two optional operands, `INPUT` and `OUTPUT`, the second nested
+# inside the first's own group. The rule that collapses a flat multi-word
+# group to one operand (`gdk-pixbuf-thumbnailer`'s `[INPUT FILE]`) also
+# fired here and joined the two words into one positional spelled
+# `INPUT OUTPUT`, a name the tool never documents.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "uniq"
+version = "9.4"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); GNU coreutils 9.4"
+
+[[capture]]
+argv = ["uniq", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "usage"]
+expected_framework = "GNU argp/getopt_long"
+must_contain_positionals = ["INPUT", "OUTPUT"]
+must_not_contain_positionals = ["INPUT OUTPUT"]
+must_contain_flags = ["-c", "-w", "--all-repeated", "--group"]
