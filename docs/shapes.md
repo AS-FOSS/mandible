@@ -2420,6 +2420,31 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the nine named controls held byte-identical. The fixture stays
   `[xfail]` for S-134's separate, still-open `-c`/`--copyright` defect;
   issue #142 stays open.
+
+  A full-`PATH` sweep of icupkg alone reads its own flag count as
+  `19 -> 17 (-2)`, which lands on the loss side of a sweep-diff by number
+  alone — and is not a real loss. The two entities that disappear are the
+  three unfolded `-t`/`--type` rows collapsing to one: three rows in, one
+  row out, net `-2`. Nothing they carried is dropped — each row's own
+  `l`/`b`/`e` value and its own description survive as that one flag's
+  three `choices`, description-for-description, and the trailing
+  "The output type defaults to the input type." sentence (originally
+  folded onto the third row's own description by an unrelated
+  continuation-join rule) rides along on the `e` choice's description.
+  Read the count as three-rows-become-one, never as two flags vanishing.
+
+  Fencing gap, recorded rather than worked around: with the fold disabled,
+  `cargo run -p xtask -- corpus` reports `icupkg/74.2` as
+  `xfail (as expected)`, not `FAIL` — `must_attach_choices["-t"]` does fail
+  once disabled, but the fixture stays `[xfail]` for the separate,
+  still-open `-c`/`--copyright` defect (S-134), so strict xfail has no
+  clean-fixture transition to demand and the corpus gate stays green
+  either way. A regression in this fold is therefore invisible to
+  `cargo run -p xtask -- corpus`; the only fence that would catch one is
+  `or_choice_fold.rs`'s own unit test,
+  `icupkgs_three_type_rows_fold_into_one_flag_with_choices`. This is not
+  changed this round — no new xfail-independent assertion is added, and
+  the fixture's layout stays as-is.
 - fleet: `choice-value-rows-unfolded`
   (`xtask/src/detector/choice_value_rows_unfolded.rs`) reads 8 tools / 12
   findings on a full-`PATH` sweep of 2319 tools, 2026-09-06, requiring
@@ -2853,20 +2878,28 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not to disturb the genuine `N ->` (`sg_luns`) or real dash-bullet
   (`fail2ban-client`) shapes the same heuristic serves.
 
+  Both the defect and the fix live entirely in `mandible-tui`'s render
+  layer, not in `mandible-extract`'s parser: the description field a
+  fixture snapshots is already whole (`xtask corpus --show` confirms this
+  directly). A full-`PATH` sweep, which measures the extracted tree, is
+  structurally blind to this family — a sweep-diff can show zero change
+  here and that is expected, not evidence of nothing shipped. The named
+  controls (screen-level, post-render output) and the unit tests above are
+  this family's actual regression fence, not a sweep.
+
 ### S-174: a value spec's nested bracket pair with trailing text before the outer close
 
 - id: S-174
 - looks like: |
       --listen[=[ADDR:]PORT]
       -l [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]
-- tools: fzf, rustc
-- handling: Fixed (round 11), generalizing S-119. S-119's own bracket matcher
-  requires the outer group to close immediately after the inner pair's own
-  close; both `fzf`'s `--listen` and rustc's `-l` carry more of the outer
-  group *after* the inner pair closes (`PORT`, `=`) before the true outer
-  close, so S-119's matcher refused them and the naive first-`]` reader
-  truncated the value (`--listen` came out `[ADDR:`, dropping `]PORT]` and
-  the description-adjacent text). `nested_bracket_content_general`
+- tools: cpio, fzf, journalctl, lsusb, node, nodejs, rustc
+- handling: Fixed (round 11), CLEARS THE FIVE-TOOL BAR, generalizing S-119.
+  S-119's own bracket matcher requires the outer group to close immediately
+  after the inner pair's own close; each tool above carries more of the
+  outer group *after* the inner pair closes before the true outer close, so
+  S-119's matcher refused them and the naive first-`]` reader truncated the
+  value. `nested_bracket_content_general`
   (`mandible-extract/src/help_text/grammar.rs`) matches by bracket depth
   instead of anchoring to the inner close, still refusing a second nested
   pair or a second level of nesting — the same exclusions S-119 documents
@@ -2875,12 +2908,31 @@ entry's `tools` field and nothing else. It does not get a new entry.
   records the same first-nesting-level defect S-119 already fixed on
   `main`; whoever merges both branches should fold S-158's entry into
   S-119/S-174 rather than keep three ids for two defects.
-- fleet: Below the five-tool bar (2 tools), shipped as a gated exception —
-  `corpus/fzf/0.44.1`'s own `must_value_name["--listen"]` assertion now
-  passes (`[[ADDR:]PORT]`, the whole spec), a corpus run over all 155
-  fixtures is zero-loss (0 failed), and the nine named controls (`git`,
-  `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`, `systemctl`, `tar`,
-  `find`, `docker`) held byte-identical. rustc has no fixture yet (none
-  existed before this round); its own row is verified by a direct unit
-  test (`grammar.rs`'s `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`)
-  since a full rustc fixture is outside this item's scope.
+
+  Not a complete recovery everywhere — only the outer bracket group is
+  recovered, so a spec with real content *after* that group's own close
+  still loses that trailing part. Per tool: `node`/`nodejs` (`--inspect`,
+  `--inspect-brk`, `--inspect-wait`) and `journalctl` (`-n`/`--lines`) and
+  `fzf` (`--listen`) come out COMPLETE, nothing left over after the outer
+  group. `cpio` (`-I`/`-O`) keeps `FILE-NAME` unrendered after
+  `[[USER@]HOST:]`; `lsusb` (`-s`) keeps `[devnum]` after `[[bus]:]`; `rustc`
+  (`-l`) keeps `<NAME>[:<RENAME>]` after `[<KIND>[:<MODIFIERS>]=]`. Fixing
+  the trailing part too is a further, separate rule.
+- fleet: `nested-bracket-value-general` (the depth-tracked matcher itself; no
+  separate xtask detector module this round) moved 7 tools on a full-`PATH`
+  sweep of 2323 tools, zero losses, 2026-09-13 (`r11/p1value.txt`,
+  `r11/p1value.diff.txt`): `cpio` `-I`/`-O` (`[USER@` -> `[[USER@]HOST:]`,
+  raw `-I [[USER@]HOST:]FILE-NAME`), `fzf` `--listen` (`[[ADDR:]` ->
+  `[[ADDR:]PORT]`), `journalctl` `-n`/`--lines` (`[+` -> `[[+]INTEGER]`),
+  `lsusb` `-s` (`[bus` -> `[[bus]:]`, raw `-s [[bus]:][devnum]`), `node` and
+  `nodejs` `--inspect`/`--inspect-brk`/`--inspect-wait` (`[host:` ->
+  `[[host:]port]`, raw `--inspect[=[host:]port]`), `rustc` `-l`
+  (`<KIND>[:<MODIFIERS>` -> `[<KIND>[:<MODIFIERS>]=]`). Clears the
+  five-tool admission bar; not a gated exception. `corpus/fzf/0.44.1`'s own
+  `must_value_name["--listen"]` assertion passes (`[[ADDR:]PORT]`), a
+  corpus run over all 155 fixtures is zero-loss (0 failed), and the nine
+  named controls (`git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`) held byte-identical. The other six
+  tools have no fixture yet; rustc's own row is verified by a direct unit
+  test (`grammar.rs`'s
+  `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
