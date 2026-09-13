@@ -2419,7 +2419,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `must_attach_choices` assertion now passes with a zero-loss sweep and
   the nine named controls held byte-identical. The fixture stays
   `[xfail]` for S-134's separate, still-open `-c`/`--copyright` defect;
-  issue #142 stays open.
+  issue #142 stays open. Round 12: the maintainer verified `-t l` binds
+  the same way `-tl` does and accepted the current rendering; no parser
+  change.
 
   A full-`PATH` sweep of icupkg alone reads its own flag count as
   `19 -> 17 (-2)`, which lands on the loss side of a sweep-diff by number
@@ -2892,16 +2894,33 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       --annotate WHAT KEY VALUE WHAT KEY VALUE WHAT KEY VALUE
                             Add annotation (may be used several times)
-- tools: gdbus-codegen
-- handling: Open defect, the option-table sibling of S-131. `gdbus-codegen`'s
-  block-derived option-table reader wins over the usage-derived one for a
-  flag documented in both places (`help_text/sections/mod.rs`'s "let the
-  described version win"), and its own multi-word metavar row keeps only
-  the first word, `WHAT`, rather than the whole repeated run.
+- tools: gdbus-codegen, pkcheck
+- handling: `gdbus-codegen`'s own shape stays an open defect, the option-table
+  sibling of S-131: its block-derived option-table reader wins over the
+  usage-derived one for a flag documented in both places
+  (`help_text/sections/mod.rs`'s "let the described version win"), and its
+  own multi-word metavar row keeps only the first word, `WHAT`, rather
+  than the whole repeated run.
+
+  Round 12: fixed a narrower member of the same family, `pkcheck`'s
+  `-d, --details=KEY VALUE`, a glued `=`-value spec written as two
+  space-separated ALL-CAPS words where only the first survived
+  (`take_glued_second_metavar_word`, `mandible-extract/src/help_text/
+  grammar.rs`). Gated on both words reading as plain ALL-CAPS metavars
+  and the second word being followed by a real column gap (2+ spaces, a
+  tab, or the fragment's own end) — the same column-gap discipline
+  S-157's `spaced_bare_word_value` uses, so a two-word cut can never eat
+  the first word of a description that starts in the value column
+  (`qemu-arm64-static`'s own ragged three-column table, whose own
+  handling field records the same refusal for a different shape).
 - fleet: `option-table-multiword-value-name`
-  (`xtask/src/detector/option_table_multiword_value_name.rs`) reads 1
-  tool / 1 finding on a full-`PATH` sweep of 2269 tools, 2026-09-07. Below
-  the five-tool bar; not fixed this round.
+  (`xtask/src/detector/option_table_multiword_value_name.rs`) still reads
+  1 tool / 1 finding fleet-wide for `gdbus-codegen`'s own shape; below
+  the five-tool bar, not fixed this round. `pkcheck`'s glued `=`-value
+  sub-shape is a raw-shape upper bound of 1 tool over the 2301 frozen
+  `audit/queue-captures`, also below the five-tool bar; fixed anyway as
+  a gated exception (docs/design.md §16), narrowly scoped and zero-loss
+  on the tools it was checked against. 2026-09-13.
 
 ### S-149: a centered ALL-CAPS group label sets a bare-word block's baseline
 
@@ -3313,7 +3332,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   table test (no `--long` row anywhere in the document), and `pod2text`'s
   table is full of `--long` rows, so the same evidence that protects `gcc`,
   `clang` and `ld` from S-145 refuses `pod2text` here. That is the same gate
-  that refuses `fuser`'s `-SIGNAL`.
+  that refuses `fuser`'s `-SIGNAL`. Round 12: reconsidered and left refused.
+  `pod2text`'s own usage line (`[--stderr] [-w width] [input [output
+  ...]]`) spells `-w`, not `-width`, so S-172's own route (independent
+  usage-line attestation of the exact reconstructed single-dash-long
+  spelling) finds no evidence here either. Raw-shape count stays 1 tool,
+  pod2text.
 - fleet: `comma-swallowed-alias`
   (`xtask/src/detector/comma_swallowed_alias.rs`) reads 10 tools/31 findings
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which is the
@@ -3898,6 +3922,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `[[USER@]HOST:]`; `lsusb` (`-s`) keeps `[devnum]` after `[[bus]:]`; `rustc`
   (`-l`) keeps `<NAME>[:<RENAME>]` after `[<KIND>[:<MODIFIERS>]=]`. Fixing
   the trailing part too is a further, separate rule.
+
+  Round 12: that further rule, `glued_bracket_group_residue`
+  (`mandible-extract/src/help_text/grammar.rs`), fixes all three. It
+  glues whatever sits directly on the outer close with no separator: a
+  required angle placeholder, itself optionally followed by one more
+  glued bracket group (`rustc`'s `<NAME>[:<RENAME>]`, value becomes
+  Required); a bare further bracket group (`lsusb`'s `[devnum]`); or an
+  ALL-CAPS-only glued word (`cpio`'s `FILE-NAME`), gated to carry no
+  lowercase letter so a description that happened to start immediately
+  after the bracket is never mistaken for a fourth glued group. Raw-shape
+  count for the residue alone: the three tools this entry already named;
+  no wider grep was run this round beyond the tools already on record
+  here.
 - fleet: `nested-bracket-value-general` (the depth-tracked matcher itself; no
   separate xtask detector module this round) moved 7 tools on a full-`PATH`
   sweep of 2323 tools, zero losses, 2026-09-13 (`r11/p1value.txt`,
@@ -3916,3 +3953,42 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools have no fixture yet; rustc's own row is verified by a direct unit
   test (`grammar.rs`'s
   `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
+
+  Round 12: the trailing-residue rule above moved the same three named
+  tools, checked by direct unit test
+  (`a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`,
+  `a_second_bare_bracket_group_glues_onto_the_nested_pair`,
+  `an_all_caps_bare_word_glues_onto_the_nested_pair`); `corpus/rustc/1.97.1`
+  and `corpus/fzf/0.44.1` are zero-loss and `must_value_name["--listen"]`
+  still passes. `cpio` and `lsusb` have no fixture. 3 tools is a raw-shape
+  count, not a full-`PATH` sweep; below the five-tool bar on its own but
+  ships alongside a family that already cleared it, docs/design.md §16.
+
+### S-178: a genuinely two-flag repeated-letter coincidence loses its value
+
+- id: S-178
+- looks like: |
+      -c                     turns off key-click
+      -cc int                default color visual class
+- tools: Xvfb
+- handling: Open defect, declined this round. `Xvfb` documents an unrelated
+  bare `-c` boolean ("turns off key-click") on its own row, which is exactly
+  the evidence `repair_repeated_character_flags` (S-035) requires to treat
+  `-cc`'s swallowed value `"c"` as a repeated-verbosity spelling
+  (`documents_bare_boolean`); it rewrites `-cc` to a valueless boolean
+  spelling and `int`, the flag's real value, is dropped outright, not even
+  left in the description. `-c` and `-cc` are two unrelated flags that
+  happen to share the repeated-letter shape by coincidence, the exact
+  ambiguity S-035's own doc comment names as unresolvable by token shape
+  alone (`lessecho`'s genuine `-nn`). `repair_single_dash_long_options`
+  never gets a turn either: its own condition 6 defers any
+  `value_repeats_short` shape to the repeated-character repair. A safe fix
+  needs a second, independent signal that `-cc int` is a real value-taking
+  flag rather than a verbosity level — not found this round. `-deferglyphs
+  [none|all|16]` on the same table (raised alongside `-cc` this round) is
+  not a defect: it already reads its bracket value correctly, recovered by
+  S-145's own round-11 placeholder-gap widening, verified against
+  `mandible Xvfb`.
+- fleet: Not measured fleet-wide; a raw-shape count of 1 tool, Xvfb, is the
+  only evidence this round. Below the five-tool bar. `corpus/Xvfb/audit-seed`
+  does not assert `-cc`, so leaving this open costs no fixture regression.

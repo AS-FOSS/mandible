@@ -8,6 +8,11 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-148] `pkcheck`'s `-d, --details=KEY VALUE` row keeps `KEY VALUE` as the value name instead of just `KEY` (`mandible pkcheck`).
+- [S-174] A nested bracket group's own trailing text after its outer close now glues onto the value name too (`mandible cpio`'s `-I`/`-O`, `lsusb`'s `-s`, `rustc`'s `-l`).
+
 ## [0.8.0] - 2026-09-14
 
 ### Changed
