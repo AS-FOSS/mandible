@@ -33,6 +33,8 @@ once it reaches a published 0.1.0 release.
 - [S-145] A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one.
 - [S-145] A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
+- [S-169] A command table sitting directly under the root's own usage synopsis, rows never repeating the tool's own name, now recovers as subcommands carrying their own flags and operands instead of fabricated flag groups on the root, so `mandible dmsetup` and `mandible dmstats` show their full command lists.
+- [S-170] A usage-synopsis bracket group whose own value spec is itself entirely option spellings no longer invents a value from it, so `mandible dmsetup`'s `-h, --help` and `-v, --verbose` show no value name instead of `-c|-C|--columns`/`-v|--verbose ...`.
 
 ## [0.7.0] - 2026-09-05
 

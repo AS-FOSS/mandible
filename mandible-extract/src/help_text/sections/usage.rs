@@ -126,6 +126,33 @@ pub(super) fn looks_like_bare_synopsis_head(lines: &[&str], idx: usize, name: &s
         })
 }
 
+/// True if `lines[idx]` is the tool's own bare name and *nothing else* —
+/// dmsetup's root `Usage:` block writes the program name alone on one
+/// line, then a multi-bracket-group synopsis on however many continuation
+/// lines follow. [`looks_like_bare_synopsis_head`]'s own next-row test
+/// ([`looks_like_bracket_flag_row`]/[`looks_like_paren_alternation_open`])
+/// requires a *single* self-closed docopt row, which a line carrying
+/// several bracket groups at once (`[--version] [-h|--help [...]]`) is
+/// not; this widens the next-row evidence to any [`looks_like_usage_fragment`]
+/// opener (`[`, `<`, `{`) — still unambiguous synopsis notation, never
+/// prose. See docs/shapes.md S-169.
+pub(super) fn looks_like_bare_name_then_usage_fragment(
+    lines: &[&str],
+    idx: usize,
+    name: &str,
+) -> bool {
+    let t = lines[idx].trim_start();
+    let Some(rest) = t.strip_prefix(name) else {
+        return false;
+    };
+    if !rest.trim().is_empty() {
+        return false;
+    }
+    lines
+        .get(idx + 1)
+        .is_some_and(|next| looks_like_usage_fragment(next.trim_start()))
+}
+
 /// True if `lines[idx]` continues an already-open unlabelled synopsis into
 /// a **later stanza**: a line opening with the tool's own name whose
 /// remainder either carries a bare flag token directly (`vgck

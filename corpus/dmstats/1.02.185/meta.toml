@@ -1,0 +1,32 @@
+# dmstats shares dmsetup's own shape (docs/shapes.md S-169): a bare
+# `Usage:` label, a blank line, the program's own name alone on its
+# line with its global flags on continuation lines, a blank line, then
+# a tab-indented table of one line per command (`help`, `clear`,
+# `create`, `delete`, `group`, `list`, `print`, `report`, `ungroup`, ...),
+# never repeating `dmstats`'s own name. See `corpus/dmsetup/1.02.185` for
+# the shared history.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dmstats"
+version = "1.02.185"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.7.0"
+
+[[capture]]
+argv = ["dmstats", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 10
+must_contain_flags = ["--verbose", "--areas", "--interval"]
+verdict_scope = ["flags", "subcommands"]
+
+[contract.must_contain_flags_by_path]
+create = ["--areas", "--areasize", "--precise"]
+delete = ["--allprograms", "--allregions"]
