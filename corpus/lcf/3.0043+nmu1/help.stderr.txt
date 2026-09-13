@@ -1,0 +1,16 @@
+Debian GNU/Linux lcf Revision: 3.00.
+           Copyright (C) 2002 Manoj Srivastava.
+This is free software; see the GNU General Public Licence for copying
+conditions.  There is NO warranty.
+
+Usage: lcf  [options] dest_file  src_dir
+Options:
+     -h,     --help          print this message
+     -s foo, --src-dir  foo  Set the src dir (historical md5sums live here)
+     -d [n], --debug    [n]  Set the Debug level to N
+     -n,     --no-action     Dry run. No action is actually taken.
+     -v,     --verbose       Make the script verbose
+
+By default, the directory the new_file lives in is assumed to be the src-dir,
+which is where we look for any historical md5sums.
+

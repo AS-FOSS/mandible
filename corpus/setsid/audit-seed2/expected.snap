@@ -1,6 +1,5 @@
 name: setsid
 usage:
-- 'Usage:'
 - ' setsid [options] <program> [arguments ...]'
 positionals:
 - name: program

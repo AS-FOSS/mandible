@@ -2477,7 +2477,7 @@ flags:
     - help-text
 - spellings:
   - -D
-  value_name: <macro>
+  value_name: <macro>[=<val>]
   value_kind: Required
   group: 'The following options are language-related:'
   provenance:

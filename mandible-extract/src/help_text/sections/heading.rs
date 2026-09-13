@@ -1117,7 +1117,8 @@ mod tests {
         assert_eq!(
             parsed.usage,
             vec![
-                "Usage:".to_string(),
+                // The bare `Usage:` label contributes no form of its own
+                // (docs/shapes.md S-150).
                 "    update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>"
                     .to_string(),
                 "    update-xmlcatalog <options> --del --root --type <type> --id <id>".to_string(),

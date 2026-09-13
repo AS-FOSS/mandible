@@ -1,6 +1,13 @@
 name: jdeprscan
 usage:
 - 'Usage: jdeprscan [options] {dir|jar|class} ...'
+positionals:
+- name: '{dir|jar|class}'
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - --class-path

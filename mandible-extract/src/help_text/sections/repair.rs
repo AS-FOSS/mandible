@@ -301,7 +301,16 @@ pub(super) fn repair_single_dash_long_options(
         let uniformly_lowercase = token_is_uniformly_lowercase(&name_token);
         let spaced_value = (table_row || !uniformly_lowercase)
             .then(|| spaced_value_placeholder(raw, &name_token))
-            .flatten();
+            .flatten()
+            // A table row's own bare-word placeholder (S-157, `-audit int`,
+            // `-Xstrategy strategy1,...,strategyN`): only inside a table,
+            // where no `--long` row exists to make a bare word ambiguous
+            // with the GCC/Clang glued-value convention's own description.
+            .or_else(|| {
+                table_row
+                    .then(|| spaced_bare_word_value(&lines, &name_token))
+                    .flatten()
+            });
         if !table_row && !uniformly_lowercase && spaced_value.is_none() {
             continue;
         }
@@ -501,6 +510,45 @@ fn placeholder_at(hay: &[char], start: usize) -> Option<(String, ValueKind)> {
         }
         _ => None,
     }
+}
+
+/// The bare-word value name a single-dash-long-table row (S-145) documents
+/// one space after `name_token`, no bracket or angle placeholder —
+/// `-audit int`. Only inside a table (S-145's own gate), since outside one
+/// a bare word is a description's first word (gcc's `-DMACRO` row).
+/// Scoped to `name_token`'s own row (never a later mention in another
+/// row's description — `dbiprof`'s `-match` inside `-case_sensitive`'s own
+/// text). Stops at the first whitespace, so a ragged three-column table
+/// (`qemu-arm64-static`) can't donate its next column, and a comma run
+/// (`strategy1,...,strategyN`) survives whole since it has no space in it.
+/// See docs/shapes.md S-157.
+fn spaced_bare_word_value(lines: &[&str], name_token: &str) -> Option<(String, ValueKind)> {
+    lines.iter().find_map(|line| {
+        let trimmed = line.trim_start();
+        let after = trimmed.strip_prefix(name_token)?;
+        if after.starts_with(is_word_char) {
+            return None;
+        }
+        let after = after.strip_prefix(' ')?;
+        if after.starts_with([' ', '\t', '<', '[']) {
+            return None;
+        }
+        let value = after.split_whitespace().next()?;
+        // A row separates its value from its description by a real column
+        // gap; prose that merely names a spelling does not. mksquashfs's
+        // `-one-file-system-x` describes itself as "-one-file-system
+        // option except ...", which donated the fabricated value `option`
+        // to `-one-file-system` itself before this check existed.
+        let rest = &after[value.len()..];
+        if !rest.is_empty() && !rest.starts_with(['\t']) && !rest.starts_with("  ") {
+            return None;
+        }
+        value
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphanumeric())
+            .then(|| (value.to_string(), ValueKind::Required))
+    })
 }
 
 /// Split a swallowed tail into the option-name half and the glued value
@@ -916,7 +964,7 @@ mod tests {
     #[test]
     fn qemus_single_dash_long_options_keep_their_real_names() {
         let parsed = parse(QEMU_TABLE);
-        for name in ["help", "cpu", "one-insn-per-tb", "version"] {
+        for name in ["help", "one-insn-per-tb", "version"] {
             let flag = flag_named(&parsed, name);
             assert!(flag.single_dash(), "-{name} is spelled with one dash");
             assert_eq!(flag.spelling(), format!("-{name}"));
@@ -924,6 +972,19 @@ mod tests {
             assert_eq!(flag.value_name, None);
             assert_eq!(flag.value_kind, ValueKind::None);
         }
+    }
+
+    /// `-cpu`'s own bare-word value name (S-157): the row's second column
+    /// (`model`) is a real value, one whitespace-delimited token past the
+    /// name, never swallowed into the third (`QEMU_CPU`) column.
+    #[test]
+    fn qemus_bare_word_table_value_is_recovered() {
+        let parsed = parse(QEMU_TABLE);
+        let cpu = flag_named(&parsed, "cpu");
+        assert!(cpu.single_dash());
+        assert_eq!(cpu.short(), None);
+        assert_eq!(cpu.value_name.as_deref(), Some("model"));
+        assert_eq!(cpu.value_kind, ValueKind::Required);
     }
 
     /// `-g port` stores a `value_name` exactly as `-help` stores

@@ -35,10 +35,10 @@ must_not_describe_root = ["Unrecognized option", "disable access control restric
 # `+word` (S-163 rule 1) and the alternation-sigil rows (S-163 rules 2/3)
 # all reach the tree, both halves each. `+extension`/`-extension` reach it
 # too, each exactly once (round 11's collision-avoidance rule).
-must_contain_flags = ["+bs", "-bs", "+accessx", "-accessx", "+render", "-render", "+extension", "-extension"]
+must_contain_flags = ["+bs", "-bs", "+accessx", "-accessx", "+render", "-render", "+extension", "-extension", "-audit", "-auth", "-fp", "-help"]
 # Neither the `use:` usage-label line nor `[+-]accessx`'s own wrapped
 # description survives as a fabricated group heading (S-164/S-165).
-must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx"]
+must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx", "enable/disable accessx"]
 
 [contract.must_describe]
 # The headingless table no longer duplicates into the root description
@@ -57,6 +57,11 @@ must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx"]
 # The `+/-render` collision never costs `-render` its own four-choice
 # bracket value (round 11, S-163).
 "-render" = "default"
+# Bare-word single-dash-long-table values (S-157): each used to read as a
+# boolean, its value name absorbed into the row's own description column.
+"-audit" = "int"
+"-auth" = "file"
+"-fp" = "string"
 # `+extension` and `-extension` read the same value column (round 11,
 # S-163): both name the placeholder `name`, never a garbled swallowed tail.
 "-extension" = "name"

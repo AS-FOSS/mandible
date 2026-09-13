@@ -1,0 +1,67 @@
+name: tclobjnew-bpfcc
+usage:
+- 'usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-S TOP_SIZE] [-v] pid [interval]'
+positionals:
+- name: pid
+  required: true
+  description: process id to attach to
+  provenance:
+    sources:
+    - help-text
+- name: interval
+  description: print every specified number of seconds
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --language
+  value_kind: Required
+  choices:
+  - c
+  - java
+  - ruby
+  - tcl
+  description: language to trace
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --top-count
+  value_name: TOP_COUNT
+  value_kind: Required
+  description: number of most frequently allocated types to print
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --top-size
+  value_name: TOP_SIZE
+  value_kind: Required
+  description: number of largest types by allocated bytes to print
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: 'verbose mode: print the BPF program (for debugging purposes)'
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

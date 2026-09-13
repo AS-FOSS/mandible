@@ -1,0 +1,178 @@
+name: fdisk
+usage:
+- ' fdisk [options] <disk>         change partition table'
+- ' fdisk [options] -l [<disk>...] list partition table(s)'
+positionals:
+- name: disk
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -b
+  - --sector-size
+  value_name: <size>
+  value_kind: Required
+  description: physical and logical sector size
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --protect-boot
+  description: don't erase bootbits when creating a new label
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --compatibility
+  value_name: <mode>
+  value_kind: Optional
+  description: mode is 'dos' or 'nondos' (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --color
+  value_name: <when>
+  value_kind: Optional
+  description: colorize output (auto, always or never) colors are enabled by default
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --list
+  description: display partitions and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --list-details
+  description: like --list but with more details
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --noauto-pt
+  description: don't create default partition table on empty devices
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: <list>
+  value_kind: Required
+  description: output columns
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --type
+  value_name: <type>
+  value_kind: Required
+  description: recognize specified partition table type only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --units
+  value_name: <unit>
+  value_kind: Optional
+  description: 'display units: ''cylinders'' or ''sectors'' (default)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --getsz
+  description: display device size in 512-byte sectors [DEPRECATED]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bytes
+  description: print SIZE in bytes rather than in human readable format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lock
+  value_name: <mode>
+  value_kind: Optional
+  description: use exclusive device lock (yes, no or nonblock)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --wipe
+  value_name: <mode>
+  value_kind: Required
+  description: wipe signatures (auto, always or never)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --wipe-partitions
+  value_name: <mode>
+  value_kind: Required
+  description: wipe signatures from new partitions (auto, always or never)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --cylinders
+  value_name: <number>
+  value_kind: Required
+  description: specify the number of cylinders
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --heads
+  value_name: <number>
+  value_kind: Required
+  description: specify the number of heads
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --sectors
+  value_name: <number>
+  value_kind: Required
+  description: specify the number of sectors per track
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

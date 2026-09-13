@@ -1,7 +1,6 @@
 name: invoke-rc.d
 description: invoke-rc.d, Debian/SysVinit (/etc/rc?.d) initscript subsystem. Copyright (c) 2000,2001 Henrique de Moraes Holschuh <hmh@debian.org>
 usage:
-- 'Usage:'
 - '  invoke-rc.d [options] <basename> <action> [extra parameters]'
 positionals:
 - name: basename

@@ -24,8 +24,12 @@ flags:
 - spellings:
   - -l
   - --language
-  value_name: '{c,java,ruby,tcl}'
   value_kind: Required
+  choices:
+  - c
+  - java
+  - ruby
+  - tcl
   description: language to trace
   provenance:
     sources:

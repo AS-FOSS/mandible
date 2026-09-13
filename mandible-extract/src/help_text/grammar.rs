@@ -266,8 +266,15 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
         // The alias list may continue past it via `,`/`|`, see
         // [`alias_continues`], or via the word `or` when the second
         // spelling repeats the value too (`icupkg`'s `-s path or
-        // --sourcedir path`), see [`or_alias_continues`]. S-099.
-        let Some(next) = alias_continues(tail).or_else(|| or_alias_continues(tail)) else {
+        // --sourcedir path`), see [`or_alias_continues`]. S-099. Or the
+        // value itself swallowed the alias run's own separator
+        // (`pod2text`'s `-w, --width=width, -width`, its own description
+        // on the next line with no column gap to bound the spec): see
+        // [`recover_comma_swallowed_alias`], S-160.
+        let Some(next) = alias_continues(tail)
+            .or_else(|| or_alias_continues(tail))
+            .or_else(|| recover_comma_swallowed_alias(&mut spec, tail))
+        else {
             spec.fully_consumed = tail.trim().is_empty();
             return spec;
         };
@@ -330,6 +337,12 @@ fn strip_or_alias_separator(rest: &str) -> Option<&str> {
 /// both continue after a single space, so neither is a row joining two
 /// spellings. See docs/shapes.md S-099.
 fn or_alias_ends_the_spec(after: &str) -> bool {
+    or_alias_ends_at_column_boundary(after)
+}
+
+/// [`or_alias_ends_the_spec`]'s original evidence: a real column gap (tab
+/// or 2+ spaces), the fragment's own end, or a chained `or`.
+fn or_alias_ends_at_column_boundary(after: &str) -> bool {
     let token_len = after.find([' ', '\t', ',', '|']).unwrap_or(after.len());
     let tail = &after[token_len..];
     if tail.is_empty() || tail.starts_with(['\t', ',', '|', '=', '[']) || tail.starts_with("  ") {
@@ -392,6 +405,24 @@ fn or_alias_continues(after_value: &str) -> Option<&str> {
         .strip_prefix(' ')
         .filter(|v| !v.starts_with(' '))?;
     or_alias_ends_the_spec(value_part).then_some(spelling_start)
+}
+
+/// A value that swallowed the alias run's own trailing separator
+/// (`pod2text`'s `-w, --width=width, -width`): the value ends in a
+/// literal `,` and a real spelling follows in `tail`, so the alias run
+/// ended one token early. The trailing comma is the tell — a genuine
+/// value never ends in one on its own. Strips the comma from `spec`'s
+/// value and hands back `tail` positioned at the recovered spelling, the
+/// same shape [`alias_continues`] returns. See docs/shapes.md S-160.
+fn recover_comma_swallowed_alias<'a>(spec: &mut FlagSpec, tail: &'a str) -> Option<&'a str> {
+    let value = spec.value_name.as_deref()?;
+    let trimmed_value = value.strip_suffix(',')?;
+    let after = tail.trim_start_matches(' ');
+    if !alias_follows(after) {
+        return None;
+    }
+    spec.value_name = Some(trimmed_value.to_string());
+    Some(after)
 }
 
 /// Rewrite a brace-delimited alternation of flag spellings into the
@@ -773,6 +804,31 @@ fn nested_bracket_content(s: &str) -> Option<&str> {
     s[content_len..].starts_with(']').then(|| &s[..content_len])
 }
 
+/// An angle-delimited placeholder glued directly onto `s`'s own start —
+/// `<PATH>` right after a bracket group's close, no separator — returned
+/// verbatim with its own angle brackets, or `None` when `s` doesn't open
+/// on `<`, carries no matching `>`, or the placeholder is empty. See
+/// [`try_value`]'s bracket branch and docs/shapes.md S-158.
+fn take_glued_angle_group(s: &str) -> Option<(&str, &str)> {
+    let rest = s.strip_prefix('<')?;
+    let close = rest.find('>')?;
+    (close > 0).then(|| (&s[..close + 2], &rest[close + 1..]))
+}
+
+/// A bracket group glued directly onto `s`'s own start — `[=<FILE>]` right
+/// after a required angle placeholder, no separator — returned verbatim
+/// with its own brackets, or `None` when `s` doesn't open on `[`, carries
+/// no matching `]`, or the group is empty. Single-level only, unlike
+/// [`nested_bracket_content`]: the angle placeholder ahead of it already
+/// carries the required half, so this glued half is read as one plain
+/// optional group. See [`try_value`]'s bare-token branch and docs/shapes.md
+/// S-158.
+fn take_glued_bracket_group(s: &str) -> Option<(&str, &str)> {
+    let rest = s.strip_prefix('[')?;
+    let close = rest.find(']')?;
+    (close > 0).then(|| (&s[..close + 2], &rest[close + 1..]))
+}
+
 /// A value spec following the flag token(s): `=VALUE`, ` VALUE`,
 /// `[=VALUE]`, `[VALUE]`, `<value>`, or a bare uppercase-ish word. Returns
 /// `(value_name, kind, rest)`.
@@ -839,6 +895,25 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             s = probe;
             current = next_name;
         }
+        // A required angle placeholder glued directly onto the bracket
+        // run's own close (`rustc`'s `-L [<KIND>=]<PATH>`): the ruling
+        // extends past a run of glued bracket groups (S-097) to a run
+        // that mixes bracket groups and angle placeholders — the whole
+        // glued run is the value name, source spelling kept, and the
+        // value becomes required once a non-optional angle group joins
+        // it. See docs/shapes.md S-158.
+        if let Some((angle, after)) = take_glued_angle_group(s) {
+            // A single, never-folded group is normally left bracket-free
+            // (the renderer adds the bracket for an `Optional` value); once
+            // a required angle group joins it the value is no longer
+            // `Optional`, so the bracket must be written here instead, or
+            // the source spelling `[<KIND>=]<PATH>` would read `<KIND>=<PATH>`.
+            if !folded_any {
+                combined = format!("[{combined}]");
+            }
+            combined.push_str(angle);
+            return Some((combined, ValueKind::Required, after));
+        }
         return Some((combined, ValueKind::Optional, s));
     }
 
@@ -853,9 +928,18 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     if s.is_empty() {
         return None;
     }
-    let (name, tail) = take_rest_value_token(s);
+    let (mut name, mut tail) = take_rest_value_token(s);
     if name.is_empty() {
         return None;
+    }
+    // A bracket group glued directly onto a required angle placeholder
+    // (`rustc`'s `--emit <TYPE>[=<FILE>]`): the mirror of the bracket-first
+    // case above, same S-158 ruling.
+    if name.starts_with('<') {
+        if let Some((bracket, after)) = take_glued_bracket_group(tail) {
+            name.push_str(bracket);
+            tail = after;
+        }
     }
     Some((name, ValueKind::Required, tail))
 }

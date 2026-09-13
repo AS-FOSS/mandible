@@ -73,7 +73,7 @@ flags:
     - help-text
 - spellings:
   - --force-
-  value_name: <thing>
+  value_name: <thing>[,...]
   value_kind: Required
   description: override problems (see --force-help).
   provenance:
@@ -81,7 +81,7 @@ flags:
     - help-text
 - spellings:
   - --no-force-
-  value_name: <thing>
+  value_name: <thing>[,...]
   value_kind: Required
   description: stop when problems encountered.
   provenance:
@@ -89,7 +89,7 @@ flags:
     - help-text
 - spellings:
   - --refuse-
-  value_name: <thing>
+  value_name: <thing>[,...]
   value_kind: Required
   description: ditto.
   provenance:

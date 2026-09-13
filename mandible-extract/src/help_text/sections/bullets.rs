@@ -109,16 +109,19 @@ fn is_lowercase_bare_word(word: &str) -> bool {
     !word.is_empty() && word.chars().all(|c| c.is_ascii_lowercase())
 }
 
-/// S-144's alias half: a `/`-joined second spelling with a space on each
-/// side (`"--print-build-logs / -L Print..."`) is rewritten to the
-/// ordinary comma-joined alias (`", -L"`) [`super::grammar::parse_flag_spec`]
-/// already reads, so the row's own `-L`/`-v` alias survives instead of
-/// being read as an unparsed leftover. Fires only when the token right
-/// after the spelling's own run is exactly `/` with one space on each
-/// side and what follows is itself flag-shaped, so an ordinary
-/// description merely containing a slash (a path, "input/output") is
-/// never touched.
-fn join_slash_alias(text: &str) -> String {
+/// S-144's alias half, and S-161's own repair (docs/shapes.md): a
+/// `/`-joined second spelling with a space on each side
+/// (`"--print-build-logs / -L Print..."`, `cargo-clippy`'s `-W / --warn
+/// [LINT]`) is rewritten to the ordinary comma-joined alias (`", -L"`)
+/// [`super::grammar::parse_flag_spec`] already reads, so the row's own
+/// alias survives instead of being read as an unparsed leftover. Fires
+/// only when the token right after the spelling's own run is exactly `/`
+/// with one space on each side and what follows is itself flag-shaped, so
+/// an ordinary description merely containing a slash (a path,
+/// "input/output") is never touched. Ungated on the lowdown bullet marker
+/// (S-161 lifted it out of that gate): the same narrow evidence is safe on
+/// any option-table row, called from [`super::emit::emit_flags_with`] too.
+pub(super) fn join_slash_alias(text: &str) -> String {
     let Some(spec_end) = text.find(' ') else {
         return text.to_string();
     };
