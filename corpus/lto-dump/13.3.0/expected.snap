@@ -3,7 +3,6 @@ description: 'The following options are specific to just the language Ada:'
 flags:
 - spellings:
   - -fdump-scos
-  group: 'The following options are specific to just the language Ada:'
   description: '[available in Ada]'
   provenance:
     sources:
@@ -2478,7 +2477,7 @@ flags:
     - help-text
 - spellings:
   - -D
-  value_name: <macro>
+  value_name: <macro>[=<val>]
   value_kind: Required
   group: 'The following options are language-related:'
   provenance:

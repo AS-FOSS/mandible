@@ -1,9 +1,14 @@
 name: nvim
 usage:
-- 'Usage:'
 - '  nvim [options] [file ...]      Edit file(s)'
 - '  nvim [options] -t <tag>        Edit file where tag is defined'
 - '  nvim [options] -q [errorfile]  Edit file with first error'
+positionals:
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - --

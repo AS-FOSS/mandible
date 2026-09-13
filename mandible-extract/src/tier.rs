@@ -19,6 +19,14 @@ pub struct NodeHints {
     /// heuristic. A non-attested node is never probed, in any shape; the
     /// tier declines with a per-node error instead. Spec §6 rule 0, §5.3.
     pub heading_attested: bool,
+    /// True only for a node the S-167 recognizer produced: a `Usage:` line
+    /// whose leading word carries a bracketed optional-abbreviation suffix
+    /// (docs/shapes.md S-167). A third, separate attestation reason from
+    /// `heading_attested`, which must keep meaning "came from a recognized
+    /// command heading" and stay honest. Mirrors
+    /// [`mandible_core::CommandNode::abbrev_probe_attested`]; never set from
+    /// `invocation_attested` in general (spec §6 rule 0).
+    pub abbrev_probe_attested: bool,
 }
 
 /// One source of `CommandNode` data: a known-spec catalog, `--help` grammar

@@ -1,5 +1,5 @@
 name: lsof
-description: 'lsof: illegal option character: - lsof: -e not followed by a file system path: "lp" lsof 4.95.0 Defaults in parentheses; comma-separated set (s) items; dash-separated ranges. Anyone can list all files; /dev warnings disabled; kernel ID check disabled.'
+description: 'lsof: -e not followed by a file system path: "lp" lsof 4.95.0 Defaults in parentheses; comma-separated set (s) items; dash-separated ranges. Anyone can list all files; /dev warnings disabled; kernel ID check disabled.'
 usage:
 - 'usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]] [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s] [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]'
 flags:

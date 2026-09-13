@@ -29,7 +29,7 @@ impl Report {
 /// True when some physical line's leading token, after trimming
 /// indentation, is a `--word` spelling — disqualifies the whole document
 /// as a single-dash-long table.
-fn document_has_double_dash_row(raw: &str) -> bool {
+pub(crate) fn document_has_double_dash_row(raw: &str) -> bool {
     raw.lines().any(|line| {
         let trimmed = line.trim_start();
         trimmed
@@ -44,7 +44,7 @@ fn document_has_double_dash_row(raw: &str) -> bool {
 /// (excluded by the caller's own document-level check, and defensively
 /// here too) and never a bare one-character short flag, which carries no
 /// table-rule information of its own.
-fn single_dash_long_row(trimmed: &str) -> Option<String> {
+pub(crate) fn single_dash_long_row(trimmed: &str) -> Option<String> {
     let rest = trimmed.strip_prefix('-')?;
     if rest.is_empty() || rest.starts_with('-') {
         return None;

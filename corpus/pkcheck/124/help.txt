@@ -1,0 +1,19 @@
+Usage:
+  pkcheck [OPTION...]
+
+Help Options:
+  -h, --help                         Show help options
+
+Application Options:
+  -a, --action-id=ACTION             Check authorization to perform ACTION
+  -u, --allow-user-interaction       Interact with the user if necessary
+  -d, --details=KEY VALUE            Add (KEY, VALUE) to information about the action
+  --enable-internal-agent            Use an internal authentication agent if necessary
+  --list-temp                        List temporary authorizations for current session
+  -p, --process=PID[,START_TIME,UID] Check authorization of specified process
+  --revoke-temp                      Revoke all temporary authorizations for current session
+  -s, --system-bus-name=BUS_NAME     Check authorization of owner of BUS_NAME
+  --version                          Show version
+
+Report bugs to: https://gitlab.freedesktop.org/polkit/polkit/-/issues/
+polkit home page: <http://www.freedesktop.org/wiki/Software/polkit>

@@ -1,0 +1,6 @@
+Usage: cache_repair [options] {device|file}
+Options:
+  {-h|--help}
+  {-i|--input} <input metadata (binary format)>
+  {-o|--output} <output metadata (binary format)>
+  {-V|--version}

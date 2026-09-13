@@ -147,6 +147,16 @@ fn command_pattern_sample_section_markdown(rows: &[Row]) -> String {
     )
 }
 
+/// Markdown twin of [`usage_optional_word_sample_lines_text`].
+fn usage_optional_word_sample_section_markdown(rows: &[Row]) -> String {
+    sample_section_markdown(
+        rows.iter()
+            .flat_map(|r| r.usage_optional_word_samples.iter()),
+        "\n**Usage-optional-word-table findings** (sample — see \
+         `xtask/src/usage_optional_word_table.rs`):\n\n| sample |\n|---|\n",
+    )
+}
+
 /// The one-paragraph-per-family prose block for the four command-table
 /// detectors (S-104/S-103/S-141/S-149), factored out of
 /// [`render_markdown`] to stay under its own line ceiling (AGENTS.md §2).
@@ -389,6 +399,7 @@ pub(super) fn render_markdown(rows: &[Row], aggregate: &Aggregate) -> String {
     out.push_str(&ragged_command_sample_section_markdown(rows));
     out.push_str(&wrapped_command_sample_section_markdown(rows));
     out.push_str(&command_pattern_sample_section_markdown(rows));
+    out.push_str(&usage_optional_word_sample_section_markdown(rows));
     out.push_str(&centered_label_baseline_sample_section_markdown(rows));
     // The same machine-readable footer the text format carries, wrapped in
     // an HTML comment so it stays invisible when rendered but parseable by

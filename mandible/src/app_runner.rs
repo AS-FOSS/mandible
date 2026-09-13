@@ -513,6 +513,8 @@ fn apply_effect(
             let hints = mandible_extract::NodeHints {
                 heading_attested: mandible_core::resolve(&app.root, &path)
                     .is_some_and(|n| n.heading_attested),
+                abbrev_probe_attested: mandible_core::resolve(&app.root, &path)
+                    .is_some_and(|n| n.abbrev_probe_attested),
             };
             // Through the same redirect the parse itself went through
             // (spec §5.4), for exactly the reason above: under a
