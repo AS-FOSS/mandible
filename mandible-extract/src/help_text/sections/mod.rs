@@ -39,6 +39,7 @@ mod flag_rows;
 mod heading;
 mod layout;
 mod multiword;
+mod or_choice_fold;
 mod preamble;
 mod repair;
 mod scan;
@@ -55,6 +56,7 @@ use flag_rows::*;
 pub use heading::*;
 pub use layout::*;
 use multiword::*;
+use or_choice_fold::fold_or_joined_choice_rows;
 use preamble::*;
 use repair::*;
 use scan::*;
@@ -1751,6 +1753,9 @@ fn parse_body(
     // §7's row grammar) — `-help`'s row only qualifies once the repair
     // above has turned it into a single-dash spelling. See S-007.
     result.flags = recover_anchored_values(std::mem::take(&mut result.flags), raw);
+    // [S-133] `-tl or --type l`-style rows: fold into one flag with
+    // `choices`, gated on the raw ` or ` row's own literal text.
+    fold_or_joined_choice_rows(raw, &mut result.flags);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result

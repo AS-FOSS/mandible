@@ -30,3 +30,11 @@ must_contain_env_vars = ["FZF_DEFAULT_COMMAND", "FZF_DEFAULT_OPTS", "FZF_API_KEY
 # silently start swallowing (or splitting) the grouped flags blocks that
 # sit directly above it under the same layout convention.
 must_contain_flags = ["--extended", "--multi", "--height", "--history", "--preview", "--query"]
+
+# [S-174, round 11] `--listen[=[ADDR:]PORT]`'s own value spec: a bracket
+# nested inside another with more of the outer group after the inner pair
+# closes. The bracket matcher used to stop at the inner close, dropping
+# the rest and the closing bracket (`value_name` came out `[ADDR:`, missing
+# `]PORT]`). Locks in the whole spec so a regression here fails loudly.
+[contract.must_value_name]
+"--listen" = "[[ADDR:]PORT]"

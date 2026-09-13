@@ -207,9 +207,19 @@ fn word_offsets(text: &str) -> Vec<(usize, &str)> {
 /// True when `word` (at position `i` in `words`) opens an enumerated item:
 /// a token shaped `N ->`, `N:`, a bare `-`, or a bare `*`, where `N` is
 /// [`is_enumerator_key`]-shaped.
+///
+/// [S-173] A bare `-` two words after a bare `*` opener (`* asm -
+/// CRATE_NAME.s`, rustc's own `--emit` bullet list) is that bullet's own
+/// inline separator, not a fresh item — without this exclusion the dash
+/// opened a second, spurious break inside the very bullet the `*` had
+/// just opened, splitting `* asm` from `- CRATE_NAME.s` onto their own
+/// lines. See docs/shapes.md S-173.
 fn opens_enumerated_item(words: &[(usize, &str)], i: usize) -> bool {
     let word = words[i].1;
-    matches!(word, "-" | "*")
+    if word == "-" {
+        return !(i >= 2 && words[i - 2].1 == "*");
+    }
+    word == "*"
         || (is_enumerator_key(word) && words.get(i + 1).is_some_and(|(_, w)| *w == "->"))
         || (word.len() > 1 && word.ends_with(':') && is_enumerator_key(&word[..word.len() - 1]))
 }
@@ -289,4 +299,46 @@ pub(super) fn break_overlong_word(word: &str, width: usize) -> Vec<String> {
         chunks.push(current);
     }
     chunks
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// rustc's own `--emit` description, byte-exact
+    /// (`audit/queue-captures/rustc/0.stdout`): each `* NAME - VALUE`
+    /// bullet must wrap as one segment, never split at its own inline
+    /// dash. See docs/shapes.md S-173.
+    #[test]
+    fn a_bullet_list_with_inline_dashes_keeps_each_bullet_on_one_segment() {
+        let text = "Each TYPE has the default FILE name: * asm - CRATE_NAME.s \
+                    * llvm-bc - CRATE_NAME.bc * dep-info - CRATE_NAME.d";
+        let wrapped = wrap_description(text, 200);
+        assert!(
+            wrapped.iter().any(|l| l == "* asm - CRATE_NAME.s"),
+            "expected one whole bullet line, got {wrapped:?}"
+        );
+        assert!(
+            !wrapped.iter().any(|l| l == "* asm"),
+            "the bullet must not be split from its own dash, got {wrapped:?}"
+        );
+    }
+
+    /// The genuine enumerator shape this rule must not disturb:
+    /// `sg_luns`'s own `N -> ...` range list still breaks before each `N`.
+    #[test]
+    fn a_numbered_arrow_list_still_breaks_before_each_number() {
+        let text = "0 -> 8192 bytes 1 -> 16384 bytes 2 -> 32768 bytes";
+        let breaks = enumerator_breaks(text);
+        assert!(!breaks.is_empty(), "expected the arrow list to still break");
+    }
+
+    /// A lone `-` with nothing shaped like a `*` two words back is still a
+    /// real dash-bullet opener.
+    #[test]
+    fn a_bare_dash_with_no_star_two_back_still_opens_an_item() {
+        let words = word_offsets("first - second - third");
+        assert!(opens_enumerated_item(&words, 1));
+        assert!(opens_enumerated_item(&words, 3));
+    }
 }
