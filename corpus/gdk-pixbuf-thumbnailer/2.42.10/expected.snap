@@ -1,0 +1,41 @@
+name: gdk-pixbuf-thumbnailer
+usage:
+- '  gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images'
+positionals:
+- name: INPUT FILE
+  provenance:
+    sources:
+    - help-text
+- name: OUTPUT FILE
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  group: 'Help Options:'
+  description: Show help options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --size
+  group: 'Application Options:'
+  description: Size of the thumbnail in pixels
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --g-fatal-warnings
+  group: 'Application Options:'
+  description: Make all warnings fatal
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

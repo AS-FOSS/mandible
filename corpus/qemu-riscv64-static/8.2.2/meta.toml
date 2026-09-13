@@ -1,0 +1,45 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "qemu-riscv64-static"
+version = "8.2.2"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.7.0"
+
+[[capture]]
+argv = ["qemu-riscv64-static", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 0
+
+# S-166: the header row names its own three columns, `Argument`,
+# `Env-variable`, `Description`. The unfixed parser read every row at one
+# column gap, so the env-variable cell glued onto the description
+# (`-g` carried "QEMU_GDB wait gdb connection to 'port'") and two rows
+# lost their own value name outright once the glued text was later
+# repaired away (`-cpu` lost `model`, `-dfilter` lost `range[,...]`). A
+# fabricated group and a fabricated `-E` row also appeared, folded in
+# from the prose paragraph below the table; the table now ends at the
+# blank line before `Defaults:`, so neither survives.
+must_contain_flags = ["-cpu", "-dfilter", "-g"]
+
+# The prose paragraph below the table ("The following lines are
+# equivalent:") used to fold onto the last real row and fabricate a
+# second, differently-valued `-E` entity under itself as a group label.
+must_not_contain_flag_group_prefixes = ["The following lines are equivalent"]
+
+verdict_scope = ["flags", "descriptions"]
+
+[contract.must_value_name]
+"-cpu" = "model"
+"-dfilter" = "range[,...]"
+
+[contract.must_describe]
+"-g" = "wait gdb connection"
+
+[contract.must_not_describe]
+"-g" = "QEMU_GDB"

@@ -1,0 +1,36 @@
+# [S-155] `-C, --compression=(xz|none|auto)` is one paren-delimited
+# alternation of literal values in the value position. It rendered as an
+# opaque placeholder holding the whole list; the fix reads it as
+# `--compression`'s own `choices` instead. See docs/shapes.md S-155.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "grub-mkimage"
+version = "2.12"                     # grub-mkimage (GRUB) 2.12-1ubuntu7.3
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); grub2-common 2.12-1ubuntu7.3"
+
+[[capture]]
+argv = ["grub-mkimage", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "GNU argp/getopt_long"
+min_status = "ok"
+
+[contract.must_attach_choices]
+"--compression" = ["xz", "none", "auto"]
+# [S-156] Open: still fails today. --format's own choices live only in its
+# description's "available formats:" tail, never attached as a real
+# choices list. This assertion is the fixture's own evidence that S-156
+# stays [xfail] below.
+"--format" = ["i386-coreboot", "i386-multiboot", "i386-pc", "i386-xen_pvh", "i386-pc-pxe", "i386-pc-eltorito", "i386-efi", "i386-ieee1275", "i386-qemu", "x86_64-efi", "i386-xen", "x86_64-xen", "mipsel-yeeloong-flash", "mipsel-fuloong2f-flash", "mipsel-loongson-elf", "powerpc-ieee1275", "sparc64-ieee1275-raw", "sparc64-ieee1275-cdcore", "sparc64-ieee1275-aout", "ia64-efi", "mips-arc", "mipsel-arc", "mipsel-qemu_mips-elf", "mips-qemu_mips-flash", "mipsel-qemu_mips-flash", "mips-qemu_mips-elf", "arm-uboot", "arm-coreboot-vexpress", "arm-coreboot-veyron", "arm-efi", "arm64-efi", "loongarch64-efi", "riscv32-efi", "riscv64-efi"]
+
+[contract.must_not_value_name]
+"--compression" = "xz|none|auto"
+
+[xfail]
+broken = true
+reason = "S-155 is fixed: --compression's paren-delimited alternation attaches as choices, asserted above. S-156 is open: --format's description continuation opens 'available formats:' and runs 33 comma-separated literal values to the end, never becoming --format's own choices; description-tail-enumerates-choices measures 1 genuine tool fleet-wide (a 36-tool sample built from a grep over audit/queue-captures for the four labels, plus rustc and tclobjnew-bpfcc), below the five-tool bar, so nothing ships for it this round."

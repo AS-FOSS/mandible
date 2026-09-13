@@ -1,0 +1,10 @@
+Usage:
+  gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
+
+Help Options:
+  -h, --help                        Show help options
+
+Application Options:
+  -s, --size                        Size of the thumbnail in pixels
+  --g-fatal-warnings                Make all warnings fatal
+

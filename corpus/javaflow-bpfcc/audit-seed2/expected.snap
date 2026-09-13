@@ -19,8 +19,14 @@ flags:
 - spellings:
   - -l
   - --language
-  value_name: '{java,perl,php,python,ruby,tcl}'
   value_kind: Required
+  choices:
+  - java
+  - perl
+  - php
+  - python
+  - ruby
+  - tcl
   description: language to trace
   provenance:
     sources:

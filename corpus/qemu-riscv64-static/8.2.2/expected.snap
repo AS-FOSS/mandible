@@ -1,0 +1,227 @@
+name: qemu-riscv64-static
+description: Linux CPU emulator (compiled for riscv64 emulation)
+usage:
+- 'usage: qemu-riscv64 [options] program [arguments...]'
+flags:
+- spellings:
+  - -h
+  group: 'Options and associated environment variables:'
+  description: print this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -help
+  group: 'Options and associated environment variables:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  value_name: port
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: wait gdb connection to 'port'
+  env_var: QEMU_GDB
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  value_name: path
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: set the elf interpreter prefix to 'path'
+  env_var: QEMU_LD_PREFIX
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  value_name: size
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: set the stack size to 'size' bytes
+  env_var: QEMU_STACK_SIZE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cpu
+  value_name: model
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: select CPU (-cpu help for list)
+  env_var: QEMU_CPU
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  value_name: var=value
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: sets targets environment variable (see below)
+  env_var: QEMU_SET_ENV
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  value_name: var
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: unsets targets environment variable (see below)
+  env_var: QEMU_UNSET_ENV
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  value_name: argv0
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: forces target process argv[0] to be 'argv0'
+  env_var: QEMU_ARGV0
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  value_name: uname
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: set qemu uname release string to 'uname'
+  env_var: QEMU_UNAME
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  value_name: address
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: set guest_base address to 'address'
+  env_var: QEMU_GUEST_BASE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  value_name: size
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: reserve 'size' bytes for guest virtual address space
+  env_var: QEMU_RESERVED_VA
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  value_name: item[,...]
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: enable logging of specified items (use '-d help' for a list of items)
+  env_var: QEMU_LOG
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -dfilter
+  value_name: range[,...]
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: filter logging based on address range
+  env_var: QEMU_DFILTER
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  value_name: logfile
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: write logs to 'logfile' (default stderr)
+  env_var: QEMU_LOG_FILENAME
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: pagesize
+  value_kind: Required
+  group: 'Options and associated environment variables:'
+  description: set the host page size to 'pagesize'
+  env_var: QEMU_PAGESIZE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -one-insn-per-tb
+  group: 'Options and associated environment variables:'
+  description: run with one guest instruction per emulated TB
+  env_var: QEMU_ONE_INSN_PER_TB
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -singlestep
+  group: 'Options and associated environment variables:'
+  description: deprecated synonym for -one-insn-per-tb
+  env_var: QEMU_SINGLESTEP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -strace
+  group: 'Options and associated environment variables:'
+  description: log system calls
+  env_var: QEMU_STRACE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -seed
+  group: 'Options and associated environment variables:'
+  description: Seed for pseudo-random number generator
+  env_var: QEMU_RAND_SEED
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -trace
+  group: 'Options and associated environment variables:'
+  description: '[[enable=]<pattern>][,events=<file>][,file=<file>]'
+  env_var: QEMU_TRACE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -version
+  group: 'Options and associated environment variables:'
+  description: display version information and exit
+  env_var: QEMU_VERSION
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -perfmap
+  group: 'Options and associated environment variables:'
+  description: Generate a /tmp/perf-${pid}.map file for perf
+  env_var: QEMU_PERFMAP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -jitdump
+  group: 'Options and associated environment variables:'
+  description: Generate a jit-${pid}.dump file for perf
+  env_var: QEMU_JITDUMP
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -8,7 +8,7 @@
 //! own short prefix (`g`) is kept as an alias, never as `display_name`
 //! (docs/design.md §16). Never confused with S-020's own code path.
 
-use super::usage::{starts_with_tool_name, starts_with_tool_name_spelled_differently};
+use super::heading::{starts_with_tool_name, starts_with_tool_name_spelled_differently};
 use mandible_core::{is_command_name_shaped, CommandNode, Provenance, Source};
 
 /// `token` reads as one command word with an optional-abbreviation suffix

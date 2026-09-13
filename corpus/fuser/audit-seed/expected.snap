@@ -1,0 +1,144 @@
+name: fuser
+description: Show which processes use the named files, sockets, or filesystems.
+usage:
+- 'Usage: fuser [-fIMuvw] [-a|-s] [-4|-6] [-c|-m|-n SPACE] [-k [-i] [-SIGNAL]] NAME...'
+- '       fuser -l'
+- '       fuser -V'
+positionals:
+- name: NAME
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -a
+  - --all
+  description: display unused files too
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --interactive
+  description: ask before killing (ignored without -k)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --inode
+  description: use always inodes to compare files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --kill
+  description: kill processes accessing the named file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --list-signals
+  description: list available signal names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --mount
+  description: show all processes using the named filesystems or block device
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --ismountpoint
+  description: fulfill request only if NAME is a mount point
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --namespace
+  value_name: SPACE
+  value_kind: Required
+  description: search in this name space (file, udp, or tcp)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --silent
+  description: silent operation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  value_name: IGNAL
+  value_kind: Required
+  description: send this signal instead of SIGKILL
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --user
+  description: display user IDs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --writeonly
+  description: kill only processes with write access
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: display version information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  - --ipv4
+  description: search IPv4 sockets only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  - --ipv6
+  description: search IPv6 sockets only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

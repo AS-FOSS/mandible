@@ -60,16 +60,36 @@ pub(super) fn spelling_column(entity: &Entity, indent: usize) -> usize {
     indent + bare_spelling_column(entity)
 }
 
+/// The word length a dashless spelling's own name carries once a single
+/// leading sigil character (`+` in `"+render"`, `"+i"`) is stripped off —
+/// zero for the bare sigil alone (`"+"`), and the name's own full length
+/// for a spelling that never had one (a modifier letter, an environment
+/// variable name). See [`bare_spelling_column`] and docs/shapes.md S-163.
+fn dashless_word_len(name: &str) -> usize {
+    let mut chars = name.chars();
+    match chars.next() {
+        Some(c) if !c.is_alphanumeric() => chars.count(),
+        _ => name.chars().count(),
+    }
+}
+
 /// [`spelling_column`] before the section's own indent is added.
 pub(super) fn bare_spelling_column(entity: &Entity) -> usize {
     if entity.spellings.len() > 2 {
         return SHORT_COLUMN;
     }
-    if entity
-        .spellings
-        .iter()
-        .any(|s| matches!(s.dashes, Dashes::None))
-    {
+    // A dashless spelling reads as a short flag's own column when its word
+    // is at most one character (`+i`, the bare `+`), or when it isn't a
+    // `Flag` at all — a modifier letter or an environment variable name
+    // stays at the content edge whatever its length (spec §9.3, "MODIFIERS
+    // and ENVIRONMENT... stay laid out like FLAGS, against the content
+    // edge"). A longer dashless flag spelling (`+render`, `+extension`,
+    // S-163) is a single-dash-long-style spelling instead, and belongs
+    // beside `-render` in the long column. See docs/shapes.md S-163.
+    if entity.spellings.iter().any(|s| {
+        matches!(s.dashes, Dashes::None)
+            && (entity.kind != EntityKind::Flag || dashless_word_len(&s.name) <= 1)
+    }) {
         return SHORT_COLUMN;
     }
     if entity.short_spelling().is_some() {

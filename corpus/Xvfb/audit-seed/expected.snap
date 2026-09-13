@@ -1,0 +1,585 @@
+name: Xvfb
+description: 'use: X [:<display>] [option]'
+flags:
+- spellings:
+  - -a
+  value_name: '#'
+  value_kind: Required
+  description: default pointer acceleration (factor)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ac
+  description: disable access control restrictions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -audit
+  value_name: int
+  value_kind: Required
+  description: set audit trail level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -auth
+  value_name: file
+  value_kind: Required
+  description: select authorization file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -br
+  description: create root window with black background
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +bs
+  description: enable any backing store support
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -bs
+  description: disable any backing store support
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +byteswappedclients
+  description: Allow clients with endianess different to that of the server
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -byteswappedclients
+  description: Prohibit clients with endianess different to that of the server
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  description: turns off key-click
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cc
+  description: default color visual class
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nocursor
+  description: disable the cursor
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -core
+  description: generate core dump on fatal error
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -displayfd
+  value_name: fd
+  value_kind: Required
+  description: file descriptor to write display number to when ready to connect
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -dpi
+  value_name: int
+  value_kind: Required
+  description: screen resolution in dots per inch
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -dpms
+  description: disables VESA DPMS monitor control
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -deferglyphs
+  value_name: '[none|all|16]'
+  value_kind: Optional
+  description: defer loading of [no|all|16-bit] glyphs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  value_name: '#'
+  value_kind: Required
+  description: bell base (0-100)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fakescreenfps
+  description: fake screen default fps (1-600)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fp
+  value_name: string
+  value_kind: Required
+  description: default font path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -help
+  description: prints message with these options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +iglx
+  description: Allow creating indirect GLX contexts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -iglx
+  description: Prohibit creating indirect GLX contexts (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  description: ignore all remaining arguments
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ld
+  value_name: int
+  value_kind: Required
+  description: limit data space to N Kb
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -lf
+  value_name: int
+  value_kind: Required
+  description: limit number of open files to N
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ls
+  value_name: int
+  value_kind: Required
+  description: limit stack space to N Kb
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nolock
+  description: disable the locking mechanism
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -maxclients
+  value_name: n
+  value_kind: Required
+  description: set maximum number of clients (power of two)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nolisten
+  value_name: string
+  value_kind: Required
+  description: don't listen on protocol
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -listen
+  value_name: string
+  value_kind: Required
+  description: listen on protocol
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noreset
+  description: don't reset after last client exists
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -background
+  value_name: '[none]'
+  value_kind: Optional
+  description: create root window with no background
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -reset
+  description: reset after last client exists
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: '#'
+  value_kind: Required
+  description: screen-saver pattern duration (minutes)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -pn
+  description: accept failure to listen on all ports
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nopn
+  description: reject failure to listen on all ports
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  description: turns off auto-repeat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -render
+  value_name: '[default|mono|gray|color]'
+  value_kind: Optional
+  description: set render color alloc policy
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -retro
+  description: start with classic stipple and cursor
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  value_name: '#'
+  value_kind: Required
+  description: screen-saver timeout (minutes)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -seat
+  value_name: string
+  value_kind: Required
+  description: seat to run on
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: '#'
+  value_kind: Required
+  description: default pointer threshold (pixels/t)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -terminate
+  value_name: '[delay]'
+  value_kind: Optional
+  description: terminate at server reset (optional delay in sec)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -tst
+  description: disable testing extensions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  description: screen-saver without video blanking
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -wr
+  description: create root window with white background
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -maxbigreqsize
+  description: set maximal bigrequest size
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +xinerama
+  description: Enable XINERAMA extension
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xinerama
+  description: Disable XINERAMA extension
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -dumbSched
+  description: Disable smart scheduling and threaded input, enable old behavior
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -schedInterval
+  value_name: int
+  value_kind: Required
+  description: Set scheduler interval in msec
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sigstop
+  description: Enable SIGSTOP based startup
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +extension
+  value_name: name
+  value_kind: Required
+  choices:
+  - Generic Event Extension
+  - MIT-SHM
+  - XTEST
+  - SECURITY
+  - XINERAMA
+  - XFIXES
+  - RENDER
+  - RANDR
+  - COMPOSITE
+  - DAMAGE
+  - MIT-SCREEN-SAVER
+  - DOUBLE-BUFFER
+  - RECORD
+  - DPMS
+  - X-Resource
+  - XVideo
+  - XVideo-MotionCompensation
+  - SELinux
+  - GLX
+  description: Enable extension
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -extension
+  value_name: name
+  value_kind: Required
+  choices:
+  - Generic Event Extension
+  - MIT-SHM
+  - XTEST
+  - SECURITY
+  - XINERAMA
+  - XFIXES
+  - RENDER
+  - RANDR
+  - COMPOSITE
+  - DAMAGE
+  - MIT-SCREEN-SAVER
+  - DOUBLE-BUFFER
+  - RECORD
+  - DPMS
+  - X-Resource
+  - XVideo
+  - XVideo-MotionCompensation
+  - SELinux
+  - GLX
+  description: Disable extension
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -query
+  value_name: host-name
+  value_kind: Required
+  description: contact named host for XDMCP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -broadcast
+  description: broadcast for XDMCP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -multicast
+  value_name: '[addr [hops]'
+  value_kind: Optional
+  description: IPv6 multicast for XDMCP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -indirect
+  value_name: host-name
+  value_kind: Required
+  description: contact named host for indirect XDMCP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -port
+  value_name: port-num
+  value_kind: Required
+  description: UDP port number to send messages to
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -from
+  value_name: local-address
+  value_kind: Required
+  description: specify the local address to connect from
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -once
+  description: Terminate server after one session
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -class
+  value_name: display-class
+  value_kind: Required
+  description: specify display class to send in manage
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cookie
+  value_name: xdm-auth-bits
+  value_kind: Required
+  description: specify the magic cookie for XDMCP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -displayID
+  value_name: display-id
+  value_kind: Required
+  description: manufacturer display ID for request
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +accessx
+  value_name: '[ timeout [ timeout_mask [ feedback [ options_mask] ] ] ]'
+  value_kind: Optional
+  description: enable/disable accessx key sequences
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -accessx
+  value_name: '[ timeout [ timeout_mask [ feedback [ options_mask] ] ] ]'
+  value_kind: Optional
+  description: enable/disable accessx key sequences
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ardelay
+  description: set XKB autorepeat delay
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -arinterval
+  description: set XKB autorepeat interval
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -screen
+  description: set screen's width, height, depth
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -pixdepths
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - +render
+  description: turn on/off RENDER extension support(default on)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -linebias
+  value_name: n
+  value_kind: Required
+  description: adjust thin line pixelization
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -blackpixel
+  value_name: n
+  value_kind: Required
+  description: pixel value for black
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -whitepixel
+  value_name: n
+  value_kind: Required
+  description: pixel value for white
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fbdir
+  value_name: directory
+  value_kind: Required
+  description: put framebuffers in mmap'ed files in directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -shmem
+  description: put framebuffers in shared memory
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -492,6 +492,7 @@ fn vim_family_counts(
     counts.extend(super::round7::round7_usage_family_counts(&raw, root));
     counts.extend(super::round8::round8_family_counts(&raw, root));
     counts.extend(super::round9::round9_family_counts(&raw, root));
+    counts.extend(super::round10::round10_family_counts(&raw, root));
     counts
 }
 

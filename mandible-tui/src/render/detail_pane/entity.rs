@@ -94,10 +94,14 @@ pub(super) fn entity_value_text(flag: &Entity) -> Option<String> {
 /// True when this entity's value placeholder glues directly onto its
 /// spelling with no space — the argfile sigil flag's row-verbatim shape,
 /// `@<file>` (spec §4.5), rather than the ordinary `--output FILE` gap
-/// (spec §9.3). Decided by shape (a single dashless spelling whose first
-/// character is not alphanumeric), not by the literal `"@"`: a dashed
-/// short option like `-?` must not match, since it does take a value
-/// (`ffplay`'s `-? topic`) with the ordinary space.
+/// (spec §9.3). Decided by shape (a single dashless spelling that is
+/// nothing but its own leading sigil character, `@`, `+`), not by the
+/// literal `"@"`: a dashed short option like `-?` must not match, since
+/// it does take a value (`ffplay`'s `-? topic`) with the ordinary space —
+/// and neither must a `+word` spelling that already carries its own word
+/// (`+extension`, `+accessx`, S-163), whose value is a separate word in
+/// the source and renders with the ordinary space the same way
+/// `-extension`'s does, never glued into `+extensionname`.
 pub(super) fn spelling_is_sigil(flag: &Entity) -> bool {
     flag.spellings.len() == 1
         && matches!(flag.spellings[0].dashes, Dashes::None)
@@ -106,6 +110,7 @@ pub(super) fn spelling_is_sigil(flag: &Entity) -> bool {
             .chars()
             .next()
             .is_some_and(|c| !c.is_alphanumeric())
+        && flag.spellings[0].name.chars().count() == 1
 }
 
 /// True when a required value glues to its spelling by a literal
@@ -244,7 +249,17 @@ pub(super) fn entity_line(
         format!("values: {joined}")
     });
 
-    if description_text.is_none() && values_line.is_none() && !has_choice_descriptions {
+    // A flag's own environment-variable cross-reference (spec §4.5)
+    // renders the same way `values:` does: its own line, two columns past
+    // the description column, never folded into the description text. See
+    // docs/shapes.md S-166.
+    let env_line = flag.env_var.as_ref().map(|v| format!("env: {v}"));
+
+    if description_text.is_none()
+        && values_line.is_none()
+        && env_line.is_none()
+        && !has_choice_descriptions
+    {
         if !head.is_empty() {
             return head;
         }
@@ -318,6 +333,19 @@ pub(super) fn entity_line(
         }
     } else if has_choice_descriptions {
         lines.extend(choice_detail_lines(flag, column, width, color_enabled));
+    }
+
+    if let Some(env_line) = env_line {
+        let env_column = column + 2;
+        let env_width = width.saturating_sub(env_column).max(1);
+        let env_indent = " ".repeat(env_column);
+        let env_style = style::muted(color_enabled);
+        for chunk in wrap_words(&env_line, env_width) {
+            lines.push(Line::from(Span::styled(
+                format!("{env_indent}{chunk}"),
+                env_style,
+            )));
+        }
     }
 
     lines

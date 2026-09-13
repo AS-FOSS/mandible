@@ -29,4 +29,14 @@ must_contain_env_vars = ["FZF_DEFAULT_COMMAND", "FZF_DEFAULT_OPTS", "FZF_API_KEY
 # the environment-heading recognizer's placement in `parse_body` can never
 # silently start swallowing (or splitting) the grouped flags blocks that
 # sit directly above it under the same layout convention.
-must_contain_flags = ["--extended", "--multi", "--height", "--history", "--preview", "--query"]
+# `+i` and `+s` (S-163) sit inside the `Search` group and used to end the
+# block outright, splitting the group's own later rows away from their
+# label (docs/shapes.md S-163) — asserted here alongside their neighbors.
+must_contain_flags = [
+  "--extended", "--multi", "--height", "--history", "--preview", "--query",
+  "+i", "+s", "--scheme",
+]
+[contract.must_flag_group]
+"+i" = "Search"
+"+s" = "Search"
+"--scheme" = "Search"

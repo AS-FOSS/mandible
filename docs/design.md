@@ -1872,30 +1872,36 @@ sections.
    within one flag's list. A tool's own scope-flag columns (ffmpeg's
    `ED.VAS.....`) stay verbatim inside the description; mandible parses no
    meaning out of them.
-8. Capped shared column, per section. Every list section computes its own
+8. A flag's own `env_var` cross-reference (§4.5) renders as its own
+   `env: FOO` line, indented the same two columns past the description
+   column as `values:`, never folded into the description. Distinct from
+   the `ENVIRONMENT` section below: this is one flag's own row-level
+   relation, not a variable documented as an item in its own right
+   (docs/shapes.md S-166).
+9. Capped shared column, per section. Every list section computes its own
    column, fitted to roughly the p90 row width, measured from the pane's
    left edge through the placeholder's end. Every description line in the
    section, first line and continuation alike, begins at that column.
    Never a per-row column, never a global uncapped one. A wrapped entry is
    one logical row for selection and scroll math.
-9. A head that reaches the column pushes its own first line, and only
-   that, never truncated and never moving the column for the section. A
-   head too wide for the pane wraps within the head area, each line at
-   its own spelling's column, description beginning on the line beneath
-   at the shared column.
-10. A narrow pane moves the column, not the layout (§9.1a): clamped down
+10. A head that reaches the column pushes its own first line, and only
+    that, never truncated and never moving the column for the section. A
+    head too wide for the pane wraps within the head area, each line at
+    its own spelling's column, description beginning on the line beneath
+    at the shared column.
+11. A narrow pane moves the column, not the layout (§9.1a): clamped down
     until the description has its 28 columns, never below two past the
     long column. A 90-column terminal's 41-column detail pane clamps the
     column to 13, still holding a short-and-long pair.
-11. POSITIONALS is inset by two columns; the flag-shaped sections are not.
-12. The vertical gaps are the container hierarchy: two blank rows above a
+12. POSITIONALS is inset by two columns; the flag-shaped sections are not.
+13. The vertical gaps are the container hierarchy: two blank rows above a
     section header, one above a ruled group divider, none below either,
     none above the first header on the page. Each count is exact, not a
     minimum, and belongs to the block that opens, never to the one that
     closes.
-13. ENVIRONMENT is display-only: documented vars under an explicit heading
+14. ENVIRONMENT is display-only: documented vars under an explicit heading
     only, no probing, no inferred cross-references (§4.5).
-14. Group dividers are label-first, like the headers above them. A `group`
+15. Group dividers are label-first, like the headers above them. A `group`
     renders once as its label at column 0 followed by a rule to the
     pane's edge, mixed case; rows beneath sit at the section's normal
     margin. Section headers are CAPS with a count, group dividers
@@ -1916,7 +1922,7 @@ sections.
     - A divider that opens its section drops its rule and its blank row,
       rendering its label alone at column 0 directly beneath the header.
       A divider later in the same section keeps both.
-15. Descriptions always wrap. Sections are mandible's own layout, so
+16. Descriptions always wrap. Sections are mandible's own layout, so
     nothing in them is ever clipped or horizontally scrolled. USAGE is
     mandible's own reconstruction too (§9 rule 9) and wraps the same way.
     `[ui] horizontal_scroll` governs only content whose layout is not ours
@@ -2884,6 +2890,40 @@ S-102) — declined because a union keeps every same-spelling flag on the
 row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
 2.03.16`. Docs/shapes.md S-147.
+**The numbered-variadic-tail fix ships below the five-tool bar
+(2026-09-12).** `numbered-variadic-usage-tail` (docs/shapes.md S-136)
+moves 3 tools, apt-sortpkgs, apt-extracttemplates and apt-mark, with zero
+losses on a full-`PATH` sweep. It ships as a recorded exception on the
+same grounds the ragged-command-table and glued-interior-uppercase fixes
+did, named by the maintainer in issue #141 after the shape was handed to
+a contributor and the claim lapsed. Taken without the maintainer present,
+since the maintainer is away this round: issue #141 itself names the
+fixture, the detector and the function to change, so the exception is
+read from that issue rather than decided fresh. The detector is ratcheted
+at zero fleet-wide the same way a repaired family above the bar is.
+
+**An optional value renders as its bracketed name, and the `=` is not lost
+(2026-09-13).** Asked of `mandible ls`, "see if it's correct to parse the `=`
+out of the `[=WHEN]` placeholder", the answer is that nothing is parsed out.
+`Entity::spelling` (`mandible-core/src/entity.rs`) renders an optional value as
+`[=VALUE]`, so `--color[=WHEN]` is what search matches and what `y` copies. The
+flag table keeps the spelling and the value in separate columns, so the value
+column shows `[WHEN]` alone, which satisfies S-097's ruling that a value name
+keeps its bracket-preserved source spelling. The earlier case the maintainer
+remembered is S-097's own `-V[N][fname]`, ruled 2026-09-04, and this follows it.
+Taken without the maintainer present: gluing the `=` onto the spelling column
+would move every optional-value row fleet-wide, including the named control
+tools `git` and `tar`, to restore one character that the IR already carries.
+`fdisk`'s `--lock[=<mode>]` is the same shape and the same answer.
+
+**A mixed bracket-and-angle glued value spec ships below the five-tool bar
+(2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a
+raw-shape count of 1 tool (`rustc`), maintainer-named from the seed 7 audit.
+Ships anyway: the fix moved 11 tools once measured tree-wide (`rustc`,
+`dpkg`, `dpkg-statoverride`, `java`, `jlink`, `jdeps`, `jpackage`,
+`gp-collect-app`, `lto-dump`, `lto-dump-13`), with 0 flag-count and 0
+subcommand-count losses on a full-`PATH` sweep-diff of 2269 tools, alongside
+S-157's own sweep.
 
 **An S-167 node shows its full word, never the bracketed spelling
 (2026-09-13).** Shown `mandible lldb-server` with its three commands
