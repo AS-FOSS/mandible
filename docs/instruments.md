@@ -30,10 +30,14 @@ own lifecycle rules, never because the tool it names became inconvenient.
 ## SweepDiff (`xtask sweep-diff`)
 
 SweepDiff compares two rendered coverage scoreboards and reports which
-tools gained or lost flags, which gained or lost subcommands, and which
-changed parse status, without netting gains against losses. A subcommand
-gain is named, never scored: it can be a real recovery or an invented row,
-and only a human reading the rendered screen can tell which. It answers
+tools gained or lost flags, which gained or lost subcommands, which gained
+or lost positionals, and which changed parse status, without netting gains
+against losses. A subcommand or positional gain is named, never scored: it
+can be a real recovery or an invented row, and only a human reading the
+rendered screen can tell which. The positional column is read off each
+scoreboard's `#fp2` entity ids (S-154), so it cannot be derived from a V1
+`#fp` scoreboard or a pair missing a fingerprint footer entirely, reported
+honestly as unmeasured rather than as "no positional change". It answers
 "which specific tools did this
 change touch", the question the fleet-wide aggregate cannot answer
 because a four-tool regression moves it by hundredths of a percent. It

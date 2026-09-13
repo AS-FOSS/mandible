@@ -164,6 +164,21 @@ const FP_ID_SEP: char = '=';
 /// [`FP_FIELD_SEP`] above.
 const FP_ENTRY_SEP: char = ':';
 
+/// True when a V2 entity id's own `::<EntityKind>::` segment reads
+/// `Positional` — `mandible_core::EntityKind`'s `{:?}` spelling, the same
+/// string `coverage::fingerprint.rs`'s `entity_identity` embeds. The id
+/// shape is fixed as `<path>::<Kind>::<spelling>` and `<path>` never itself
+/// contains `::` (it's dot-joined subcommand names), so the segment
+/// between the first and second `::` is always the kind, however many
+/// times `::` may appear later inside `<spelling>`.
+///
+/// A V1 id (no kind tag at all) never matches: `split` never finds a
+/// second `::`, so `nth(1)` on a V1 id is its whole tail rather than a bare
+/// kind name.
+pub(super) fn is_positional_id(id: &str) -> bool {
+    id.split("::").nth(1) == Some("Positional")
+}
+
 /// The pre-generalization `#fp` line prefix — flags only, entity ids with
 /// no `EntityKind` tag. Still read, never written: kept so a scoreboard
 /// produced by any earlier xtask still loads, tagged

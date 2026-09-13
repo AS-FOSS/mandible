@@ -3,8 +3,8 @@
 //! ([`field_diff`]) — rendered by [`super::render_text`]/
 //! [`super::render_markdown`], never disagreeing about what changed.
 
-use super::fingerprint::{ParsedFingerprint, EMPTY_FINGERPRINT};
-use super::ParsedScoreboard;
+use super::fingerprint::{is_positional_id, ParsedFingerprint, EMPTY_FINGERPRINT};
+use super::{FingerprintFormat, ParsedScoreboard};
 
 /// One matched tool's flag-count comparison. Kept as a signed delta
 /// alongside both raw counts — never reduced to a single "net" number, per
@@ -39,6 +39,33 @@ impl SubcommandDelta<'_> {
     }
 }
 
+/// One matched tool's positional-count comparison, mirroring [`FlagDelta`]
+/// and [`SubcommandDelta`]: gains and losses stay two separate totals,
+/// never netted. Unlike [`SubcommandDelta`], no scoreboard column carries
+/// this count — it is derived from the `#fp2` entity ids themselves
+/// ([`positional_count`]), so it only exists when both scoreboards carry
+/// [`FingerprintFormat::V2`] fingerprints (`H1`'s own doc comment on
+/// [`diff`]).
+pub(super) struct PositionalDelta<'a> {
+    pub(super) tool: &'a str,
+    pub(super) before: usize,
+    pub(super) after: usize,
+}
+
+impl PositionalDelta<'_> {
+    pub(super) fn delta(&self) -> i64 {
+        self.after as i64 - self.before as i64
+    }
+}
+
+/// Count of `Positional`-kind entity ids in a parsed fingerprint — the
+/// per-tool positional count [`diff`] compares, read straight off the
+/// `#fp2` entity ids ([`is_positional_id`]) rather than any scoreboard
+/// column.
+fn positional_count(fp: &ParsedFingerprint) -> usize {
+    fp.flags.keys().filter(|id| is_positional_id(id)).count()
+}
+
 /// `ParsedRow::nodes` counts the root plus every subcommand
 /// (`count_nodes`'s own doc comment); subtract the root to read a per-tool
 /// subcommand count off a column every scoreboard already carries.
@@ -61,8 +88,20 @@ pub(super) struct StatusTransition<'a> {
 /// this task exists to close.
 pub(super) struct FieldDiff<'a> {
     pub(super) tool: &'a str,
+    /// Never a `Positional`-kind id — split into [`positionals_added`]
+    /// instead ([`is_positional_id`]), so a reader sees a positional
+    /// appearing as a positional, not folded into the flag list.
+    ///
+    /// [`positionals_added`]: FieldDiff::positionals_added
     pub(super) flags_added: Vec<&'a str>,
+    /// Never a `Positional`-kind id — see [`flags_added`]'s doc comment.
+    ///
+    /// [`flags_added`]: FieldDiff::flags_added
     pub(super) flags_removed: Vec<&'a str>,
+    /// A positional entity id present on only the "after" side.
+    pub(super) positionals_added: Vec<&'a str>,
+    /// A positional entity id present on only the "before" side.
+    pub(super) positionals_removed: Vec<&'a str>,
     /// Flags present on both sides whose description's presence or hash
     /// differs — catches both "text deleted" (`has_description` flips) and
     /// "text changed to something else" (hash differs, presence unchanged).
@@ -88,6 +127,8 @@ impl FieldDiff<'_> {
     fn is_empty(&self) -> bool {
         self.flags_added.is_empty()
             && self.flags_removed.is_empty()
+            && self.positionals_added.is_empty()
+            && self.positionals_removed.is_empty()
             && self.description_changed.is_empty()
             && self.choices_changed.is_empty()
             && self.value_name_changed.is_empty()
@@ -117,6 +158,24 @@ pub struct Transition<'a> {
     /// scoreboard format change.
     pub(super) subcommand_gains: Vec<SubcommandDelta<'a>>,
     pub(super) subcommand_losses: Vec<SubcommandDelta<'a>>,
+    /// Positional-count gains and losses, reported the same way flags and
+    /// subcommands are: two separate totals, never netted. Derived from
+    /// `#fp2` entity ids ([`positional_count`]), so only ever populated
+    /// when [`positional_diff_unmeasured`] is 0 for the tools involved —
+    /// see [`diff`]'s own doc comment on why a V1 or missing fingerprint
+    /// makes this dimension unmeasurable rather than "no change."
+    ///
+    /// [`positional_diff_unmeasured`]: Transition::positional_diff_unmeasured
+    pub(super) positional_gains: Vec<PositionalDelta<'a>>,
+    pub(super) positional_losses: Vec<PositionalDelta<'a>>,
+    /// Matched, non-near-cap tools whose positional count could not be
+    /// derived: either scoreboard isn't [`FingerprintFormat::V2`], or this
+    /// one tool has no `#fp` entry on either side. Mirrors
+    /// [`field_diff_unmeasured`]'s "not measured" wording — never folded
+    /// into "no positional change."
+    ///
+    /// [`field_diff_unmeasured`]: Transition::field_diff_unmeasured
+    pub(super) positional_diff_unmeasured: usize,
     /// Per-tool field-level diffs — only tools with at least one change
     /// ([`FieldDiff::is_empty`] false), sorted by tool name. Empty (not
     /// absent) when neither side's scoreboard carries a `#fp` footer at
@@ -150,7 +209,96 @@ impl Transition<'_> {
             && self.flag_losses.is_empty()
             && self.subcommand_gains.is_empty()
             && self.subcommand_losses.is_empty()
+            && self.positional_gains.is_empty()
+            && self.positional_losses.is_empty()
             && self.field_diffs.is_empty()
+    }
+}
+
+/// What [`per_tool_fingerprint_diff`] found for one matched tool — split
+/// out of [`diff`]'s own loop body (ratchet: `clippy::too_many_lines`) so
+/// the loop stays a sequence of "handle this dimension" calls.
+struct PerToolFingerprintResult<'a> {
+    field_diff: Option<FieldDiff<'a>>,
+    field_unmeasured: bool,
+    positional_delta: Option<PositionalDelta<'a>>,
+    positional_unmeasured: bool,
+}
+
+/// The `#fp`/`#fp2` half of one matched tool's comparison: field-level
+/// diff plus positional-count delta, both read off the same before/after
+/// fingerprint entries.
+///
+/// Three states, not two: a line absent on *both* sides means comparison
+/// is impossible (a genuinely legacy scoreboard pair); absent on *one*
+/// side only means "no record for this side," read as empty
+/// (`EMPTY_FINGERPRINT`'s own doc comment) — `coverage::fingerprint_lines`
+/// used to skip an empty row and fall into the impossible case instead,
+/// silently hiding a total flag loss.
+fn per_tool_fingerprint_diff<'a>(
+    tool: &'a str,
+    before: &'a ParsedScoreboard,
+    after: &'a ParsedScoreboard,
+    positional_format_ok: bool,
+    tier_changed: Option<(&'a str, &'a str)>,
+    framework_changed: Option<(&'a str, &'a str)>,
+) -> PerToolFingerprintResult<'a> {
+    match (before.fingerprints.get(tool), after.fingerprints.get(tool)) {
+        (None, None) => {
+            // Neither side has a `#fp` entry for this tool: field-level and
+            // positional-count comparison are both impossible, not "nothing
+            // changed" (`ParsedScoreboard::fingerprints`'s doc comment) —
+            // there is no entity id to classify by kind either way,
+            // regardless of `positional_format_ok`. Still surface a
+            // tier/framework change if one was found from the ordinary
+            // columns, which every scoreboard shape carries.
+            let field_diff =
+                (tier_changed.is_some() || framework_changed.is_some()).then(|| FieldDiff {
+                    tool,
+                    flags_added: Vec::new(),
+                    flags_removed: Vec::new(),
+                    positionals_added: Vec::new(),
+                    positionals_removed: Vec::new(),
+                    description_changed: Vec::new(),
+                    choices_changed: Vec::new(),
+                    value_name_changed: Vec::new(),
+                    subcommands_added: Vec::new(),
+                    subcommands_removed: Vec::new(),
+                    tier_changed,
+                    framework_changed,
+                });
+            PerToolFingerprintResult {
+                field_unmeasured: field_diff.is_none(),
+                field_diff,
+                positional_delta: None,
+                positional_unmeasured: true,
+            }
+        }
+        (bfp, afp) => {
+            // At least one side has a real entry — diff it against the
+            // other side's entry, or against `EMPTY_FINGERPRINT` when the
+            // other side has none. Covers both the ordinary both-measured
+            // case and the deletion/mixed-vintage case.
+            let bfp = bfp.unwrap_or(&EMPTY_FINGERPRINT);
+            let afp = afp.unwrap_or(&EMPTY_FINGERPRINT);
+            let fd = field_diff(tool, bfp, afp, tier_changed, framework_changed);
+            let positional_delta = positional_format_ok
+                .then(|| {
+                    let (bpos, apos) = (positional_count(bfp), positional_count(afp));
+                    (bpos != apos).then_some(PositionalDelta {
+                        tool,
+                        before: bpos,
+                        after: apos,
+                    })
+                })
+                .flatten();
+            PerToolFingerprintResult {
+                field_unmeasured: false,
+                field_diff: (!fd.is_empty()).then_some(fd),
+                positional_unmeasured: !positional_format_ok,
+                positional_delta,
+            }
+        }
     }
 }
 
@@ -172,8 +320,18 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     let mut flag_losses = Vec::new();
     let mut subcommand_gains = Vec::new();
     let mut subcommand_losses = Vec::new();
+    let mut positional_gains = Vec::new();
+    let mut positional_losses = Vec::new();
+    let mut positional_diff_unmeasured = 0usize;
     let mut field_diffs = Vec::new();
     let mut field_diff_unmeasured = 0usize;
+
+    // A positional count is derived from `#fp2` entity ids, which carry no
+    // `EntityKind` tag on a V1 line at all — H1's requirement 5. Checked
+    // once for the whole pair, not per tool: the format is a property of
+    // which xtask wrote the scoreboard, not of any one row.
+    let positional_format_ok = before.fingerprint_format == Some(FingerprintFormat::V2)
+        && after.fingerprint_format == Some(FingerprintFormat::V2);
 
     for (tool, after_row) in &after.rows {
         let Some(before_row) = before.rows.get(tool) else {
@@ -224,55 +382,28 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         let framework_changed = (before_row.framework != after_row.framework)
             .then_some((before_row.framework.as_str(), after_row.framework.as_str()));
 
-        // Three states, not two (the defect this match used to have:
-        // `coverage::fingerprint_lines` used to skip a row with no flags and
-        // no subcommands, so a tool that lost every flag produced a line on
-        // the "before" side and none on the "after" side, and fell into the
-        // catch-all below — "unmeasured" — instead of reporting the total
-        // loss it actually was). Now that every row gets a `#fp` line
-        // unconditionally, a line is absent on *both* sides only for a
-        // genuinely legacy scoreboard pair; absent on *one* side only means
-        // "no record for this side," read as empty (`EMPTY_FINGERPRINT`'s
-        // own doc comment) so the diff still reports the present side's
-        // flags/subcommands as added or removed rather than staying silent.
-        match (before.fingerprints.get(tool), after.fingerprints.get(tool)) {
-            (None, None) => {
-                // Neither side has a `#fp` entry for this tool — the
-                // genuine legacy case (this scoreboard pair predates the
-                // footer entirely, or — vanishingly rarely — this one row's
-                // line failed to parse on both sides). Field-level
-                // comparison is impossible, not "nothing changed"
-                // (`ParsedScoreboard::fingerprints`'s doc comment). Still
-                // surface a tier/framework change if one was found from the
-                // ordinary columns, which every scoreboard shape carries.
-                if tier_changed.is_some() || framework_changed.is_some() {
-                    field_diffs.push(FieldDiff {
-                        tool,
-                        flags_added: Vec::new(),
-                        flags_removed: Vec::new(),
-                        description_changed: Vec::new(),
-                        choices_changed: Vec::new(),
-                        value_name_changed: Vec::new(),
-                        subcommands_added: Vec::new(),
-                        subcommands_removed: Vec::new(),
-                        tier_changed,
-                        framework_changed,
-                    });
-                } else {
-                    field_diff_unmeasured += 1;
-                }
-            }
-            (bfp, afp) => {
-                // At least one side has a real entry — diff it against the
-                // other side's entry, or against `EMPTY_FINGERPRINT` when
-                // the other side has none. Covers both the ordinary
-                // both-measured case and the deletion/mixed-vintage case.
-                let bfp = bfp.unwrap_or(&EMPTY_FINGERPRINT);
-                let afp = afp.unwrap_or(&EMPTY_FINGERPRINT);
-                let fd = field_diff(tool, bfp, afp, tier_changed, framework_changed);
-                if !fd.is_empty() {
-                    field_diffs.push(fd);
-                }
+        let r = per_tool_fingerprint_diff(
+            tool,
+            before,
+            after,
+            positional_format_ok,
+            tier_changed,
+            framework_changed,
+        );
+        if r.field_unmeasured {
+            field_diff_unmeasured += 1;
+        }
+        if let Some(fd) = r.field_diff {
+            field_diffs.push(fd);
+        }
+        if r.positional_unmeasured {
+            positional_diff_unmeasured += 1;
+        }
+        if let Some(d) = r.positional_delta {
+            if d.delta() > 0 {
+                positional_gains.push(d);
+            } else {
+                positional_losses.push(d);
             }
         }
     }
@@ -292,6 +423,8 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     flag_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
     subcommand_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
     subcommand_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
+    positional_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
+    positional_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
     status_transitions.sort_by_key(|t| t.tool.to_string());
     field_diffs.sort_by_key(|d| d.tool.to_string());
 
@@ -306,6 +439,9 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         flag_losses,
         subcommand_gains,
         subcommand_losses,
+        positional_gains,
+        positional_losses,
+        positional_diff_unmeasured,
         field_diffs,
         field_diff_unmeasured,
     }
@@ -325,13 +461,29 @@ pub(super) fn field_diff<'a>(
 ) -> FieldDiff<'a> {
     let mut flags_added = Vec::new();
     let mut flags_removed = Vec::new();
+    let mut positionals_added = Vec::new();
+    let mut positionals_removed = Vec::new();
     let mut description_changed = Vec::new();
     let mut choices_changed = Vec::new();
     let mut value_name_changed = Vec::new();
 
+    // Description/choices/value_name changes stay on the shared lists
+    // above rather than getting their own positional-only split: those
+    // three already mix every `EntityKind` (flag, positional, modifier,
+    // env-var) together with no per-kind separation at all, so splitting
+    // only positionals out of them would be inconsistent rather than
+    // cheap. Only add/remove — H1's requirement 2 — is split, because that
+    // is the one case an entity lands in the wrong-shaped bucket entirely
+    // (a positional read as a flag) rather than merely un-labelled.
     for (id, after_f) in &after.flags {
         match before.flags.get(id) {
-            None => flags_added.push(id.as_str()),
+            None => {
+                if is_positional_id(id) {
+                    positionals_added.push(id.as_str());
+                } else {
+                    flags_added.push(id.as_str());
+                }
+            }
             Some(before_f) => {
                 if before_f.has_description != after_f.has_description
                     || before_f.description_hash != after_f.description_hash
@@ -349,7 +501,11 @@ pub(super) fn field_diff<'a>(
     }
     for id in before.flags.keys() {
         if !after.flags.contains_key(id) {
-            flags_removed.push(id.as_str());
+            if is_positional_id(id) {
+                positionals_removed.push(id.as_str());
+            } else {
+                flags_removed.push(id.as_str());
+            }
         }
     }
 
@@ -368,6 +524,8 @@ pub(super) fn field_diff<'a>(
 
     flags_added.sort_unstable();
     flags_removed.sort_unstable();
+    positionals_added.sort_unstable();
+    positionals_removed.sort_unstable();
     description_changed.sort_unstable();
     choices_changed.sort_unstable();
     value_name_changed.sort_unstable();
@@ -376,6 +534,8 @@ pub(super) fn field_diff<'a>(
         tool,
         flags_added,
         flags_removed,
+        positionals_added,
+        positionals_removed,
         description_changed,
         choices_changed,
         value_name_changed,

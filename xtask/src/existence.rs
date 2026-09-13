@@ -494,28 +494,51 @@ fn option_list_slot<'a>(slots: &[(&'a str, bool)], has_literal_flag: bool) -> Ha
     placeholders
 }
 
+/// Longest contiguous run this module joins into one attested operand name
+/// (S-154's shape). Every real run measured so far is two words; four
+/// leaves headroom without letting an arbitrary sentence become an alibi.
+const MAX_OPERAND_RUN: usize = 4;
+
 /// Every position in `raw` at which a genuine positional operand is
-/// attested — the operand half of what [`attested_name_positions`] is for
-/// subcommand names.
+/// attested — the operand half of [`attested_name_positions`].
 ///
-/// Two sources: an operand slot of a synopsis line, minus the option-list
-/// slot ([`option_list_slot`]); and a line's first token
-/// ([`line_start_words`]), an entry in a declared operand block (argparse's
-/// `positional arguments:`). The option-list subtraction applies only to
-/// the synopsis set, not to `line_start_words`, to avoid an unmeasured
-/// false-alarm class.
-fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<&'a str> {
-    let mut out = HashSet::new();
+/// Three sources: a single operand slot of a synopsis line, minus the
+/// option-list slot; a contiguous run of two or more such slots joined by
+/// one space in source order ([`MAX_OPERAND_RUN`], S-154), never spanning
+/// the placeholder; and a line's first token ([`line_start_words`]). `Cow`
+/// since a joined run is owned but a single slot stays borrowed — the same
+/// shape [`attested_name_positions`] already uses.
+fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<Cow<'a, str>> {
+    let mut out: HashSet<Cow<str>> = HashSet::new();
     for line in synopsis_lines(raw, root_name) {
         let (slots, has_literal_flag) = usage_operands(&line, root_name);
         let placeholders = option_list_slot(&slots, has_literal_flag);
-        for (word, _) in &slots {
+        let words: Vec<&str> = slots.iter().map(|(word, _)| *word).collect();
+        for word in &words {
             if !placeholders.contains(word) {
-                out.insert(*word);
+                out.insert(Cow::Borrowed(*word));
+            }
+        }
+        // Runs stay within one line's own slot order — no skip, no reorder.
+        for start in 0..words.len() {
+            if placeholders.contains(&words[start]) {
+                continue;
+            }
+            let mut run = words[start].to_string();
+            for len in 2..=MAX_OPERAND_RUN {
+                let Some(end) = start.checked_add(len - 1) else {
+                    break;
+                };
+                if end >= words.len() || placeholders.contains(&words[end]) {
+                    break;
+                }
+                run.push(' ');
+                run.push_str(words[end]);
+                out.insert(Cow::Owned(run.clone()));
             }
         }
     }
-    out.extend(line_start_words(raw));
+    out.extend(line_start_words(raw).into_iter().map(Cow::Borrowed));
     out
 }
 
@@ -707,7 +730,7 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
 fn check_positionals(
     node: &CommandNode,
     path: &str,
-    operands: &HashSet<&str>,
+    operands: &HashSet<Cow<str>>,
     out: &mut Vec<Fabrication>,
 ) {
     for positional in node.positionals() {
@@ -729,7 +752,7 @@ fn walk(
     path: &str,
     raw: &str,
     attested: &HashSet<Cow<str>>,
-    operands: &HashSet<&str>,
+    operands: &HashSet<Cow<str>>,
     out: &mut Vec<Fabrication>,
 ) {
     check_flags(node, path, raw, out);
@@ -1811,11 +1834,11 @@ mod tests {
         for (raw, placeholder, operand) in PLACEHOLDER_PAIRS {
             let attested = attested_operand_positions(raw, "");
             assert!(
-                !attested.contains(placeholder),
+                !attested.contains(*placeholder),
                 "{placeholder:?} must not be attested by {raw:?}: {attested:?}"
             );
             assert!(
-                attested.contains(operand),
+                attested.contains(*operand),
                 "{operand:?} must be attested by {raw:?}: {attested:?}"
             );
         }
@@ -2200,5 +2223,58 @@ mod tests {
         let attested = attested_operand_positions(raw, "vgextend");
         assert!(!attested.contains("is"), "{attested:?}");
         assert!(!attested.contains("tool"), "{attested:?}");
+    }
+
+    // --- H2: a multi-word positional in the synopsis -------------------
+
+    /// `mknod`'s real shape: `MAJOR MINOR` is one contiguous run inside a
+    /// flat bracket group, attested whole, and the parser's positional
+    /// `primary_name()` for it is the run joined by one space (S-154).
+    #[test]
+    fn a_genuine_multi_word_operand_is_attested_as_one_run() {
+        let raw = "Usage: mknod [OPTION]... NAME TYPE [MAJOR MINOR]\n";
+        let attested = attested_operand_positions(raw, "mknod");
+        assert!(attested.contains("MAJOR MINOR"), "{attested:?}");
+        let mut root = help_text_node("mknod");
+        root.entities.push(help_text_positional("NAME"));
+        root.entities.push(help_text_positional("TYPE"));
+        root.entities.push(help_text_positional("MAJOR MINOR"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// `accessdb`'s real shape: a second, independent two-word operand.
+    #[test]
+    fn detect_does_not_flag_accessdbs_two_word_operand() {
+        let raw = "Usage: accessdb [OPTION...] [MAN DATABASE]\n";
+        let mut root = help_text_node("accessdb");
+        root.entities.push(help_text_positional("MAN DATABASE"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 0);
+    }
+
+    /// A name whose words are real but not adjacent in the synopsis is
+    /// still fabricated: widening only ever covers a genuine contiguous
+    /// run, never a reordering or a skip.
+    #[test]
+    fn a_non_contiguous_word_pair_is_still_flagged() {
+        let raw = "Usage: cmd [OPTION]... FIRST [FLAG] SECOND\n";
+        let attested = attested_operand_positions(raw, "cmd");
+        assert!(!attested.contains("FIRST SECOND"), "{attested:?}");
+        let mut root = help_text_node("cmd");
+        root.entities.push(help_text_positional("FIRST SECOND"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 1);
+    }
+
+    /// A name whose words come from two different synopsis lines is still
+    /// flagged: a run never crosses a line boundary.
+    #[test]
+    fn words_from_two_different_lines_are_still_flagged() {
+        let raw = "Usage: cmd [OPTION]... FIRST\nUsage: cmd SECOND [OTHER]\n";
+        let attested = attested_operand_positions(raw, "cmd");
+        assert!(attested.contains("FIRST"), "{attested:?}");
+        assert!(attested.contains("SECOND"), "{attested:?}");
+        assert!(!attested.contains("FIRST SECOND"), "{attested:?}");
+        let mut root = help_text_node("cmd");
+        root.entities.push(help_text_positional("FIRST SECOND"));
+        assert_eq!(detect(raw, &root).fabrication_count(), 1);
     }
 }

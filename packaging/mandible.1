@@ -155,6 +155,15 @@ eval "$(mandible \-\-shell\-init bash)"
 .fi
 .RE
 .TP
+.B \-\-allow\-root
+Proceed when running as root (uid 0) instead of refusing.
+.B mandible
+refuses to start as root before probing anything, and names this flag in
+the refusal.
+.B mandible
+never asks for or gains privileges itself; this only lifts the refusal on
+privilege you already brought.
+.TP
 .B \-h\fR,\fB \-\-help
 Print help and exit.
 .TP

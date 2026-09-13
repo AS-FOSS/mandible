@@ -33,6 +33,8 @@ pub fn render_text(t: &Transition) -> String {
     out.push_str(&text_flag_gains_section(t));
     out.push_str(&text_subcommand_losses_section(t));
     out.push_str(&text_subcommand_gains_section(t));
+    out.push_str(&text_positional_losses_section(t));
+    out.push_str(&text_positional_gains_section(t));
     out.push_str(&text_field_level_section(t));
     out.push_str(&text_appeared_disappeared_section(t));
     out.push_str(&text_near_cap_section(t));
@@ -190,6 +192,59 @@ fn text_subcommand_gains_section(t: &Transition) -> String {
     out
 }
 
+/// The `# positional-count losses` section — mirrors
+/// [`text_subcommand_losses_section`] over the positional-count dimension
+/// (H1: derived from `#fp2` entity ids, never a scoreboard column).
+fn text_positional_losses_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_lost: i64 = t.positional_losses.iter().map(|d| -d.delta()).sum();
+    out.push_str(&format!(
+        "# positional-count losses (never netted): {total_lost} lost across {} tool(s)\n",
+        t.positional_losses.len()
+    ));
+    for d in &t.positional_losses {
+        out.push_str(&format!(
+            "  {}: {} -> {} ({})\n",
+            d.tool,
+            d.before,
+            d.after,
+            d.delta()
+        ));
+    }
+    if t.positional_diff_unmeasured > 0 {
+        out.push_str(&format!(
+            "# positional count unavailable for {} matched tool(s) — needs a #fp2 fingerprint on both sides (a V1 entity id carries no EntityKind tag)\n",
+            t.positional_diff_unmeasured
+        ));
+    }
+    out.push('\n');
+    out
+}
+
+/// The `# positional-count gains` section — mirrors
+/// [`text_subcommand_gains_section`]. A gain is named, not scored, exactly
+/// like a subcommand gain: only a human reading the rendered screen can
+/// tell a real recovery from an invented one.
+fn text_positional_gains_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_gained: i64 = t.positional_gains.iter().map(|d| d.delta()).sum();
+    out.push_str(&format!(
+        "# positional-count gains (verify against the rendered screen, not this count alone): {total_gained} gained across {} tool(s)\n",
+        t.positional_gains.len()
+    ));
+    for d in &t.positional_gains {
+        out.push_str(&format!(
+            "  {}: {} -> {} (+{})\n",
+            d.tool,
+            d.before,
+            d.after,
+            d.delta()
+        ));
+    }
+    out.push('\n');
+    out
+}
+
 /// The `# field-level changes` section — split out of [`render_text`]
 /// (ratchet: `clippy::too_many_lines`).
 fn text_field_level_section(t: &Transition) -> String {
@@ -205,6 +260,18 @@ fn text_field_level_section(t: &Transition) -> String {
         }
         if !fd.flags_removed.is_empty() {
             parts.push(format!("flags removed: {}", fd.flags_removed.join(", ")));
+        }
+        if !fd.positionals_added.is_empty() {
+            parts.push(format!(
+                "positionals added: {}",
+                fd.positionals_added.join(", ")
+            ));
+        }
+        if !fd.positionals_removed.is_empty() {
+            parts.push(format!(
+                "positionals removed: {}",
+                fd.positionals_removed.join(", ")
+            ));
         }
         if !fd.description_changed.is_empty() {
             parts.push(format!(
