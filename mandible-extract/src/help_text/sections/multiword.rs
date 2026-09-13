@@ -552,3 +552,153 @@ pub(super) fn recover_primary_tail_operands(
         })
         .collect()
 }
+
+/// The primary synopsis's own trailing lowercase-convention operand run
+/// (`memhog`'s own `size[kmg] [policy [nodeset]]`): a required lead word
+/// (its own glued bracket suffix kept visible in the verbatim `usage`
+/// text, never read as marking it optional), then bracket groups of
+/// lowercase words flattened to an ordered list of optional positionals
+/// (design §7 Tier B rule 17, `[A [B]]`). Neither existing tail recovery
+/// reads this: [`recover_primary_tail_operands`]'s bracket trim is not
+/// depth-aware; [`recover_trailing_multiword_operand`] needs a sibling
+/// flag group in the identical shape. Scoped, like both, to the ALL-CAPS
+/// loop above finding nothing, and further to a single-physical-line
+/// *unlabelled* form only. See docs/shapes.md S-176.
+pub(super) fn recover_lowercase_tail_positionals(
+    usage_lines: &[String],
+    primary_lines: &std::collections::HashSet<usize>,
+) -> Vec<Entity> {
+    let line_idx = match primary_lines.len() {
+        1 => match primary_lines.iter().next() {
+            Some(&i) => i,
+            None => return Vec::new(),
+        },
+        _ => return Vec::new(),
+    };
+    let Some(line) = usage_lines.get(line_idx) else {
+        return Vec::new();
+    };
+    let before_desc = cut_before_description_gap(line);
+    let groups = group_synopsis_tokens(before_desc.trim());
+    if groups.len() < 2 {
+        return Vec::new();
+    }
+    // The program name, then every flag-shaped group (dash-led, whatever
+    // notation it carries); the first group after that which is neither
+    // opens the operand tail. Skips index 0 explicitly rather than
+    // filtering the result of `position()` — the program name itself
+    // also "doesn't start with `-`", so a plain `position()` would match
+    // it first and never look further.
+    let Some(tail_start) = groups
+        .iter()
+        .enumerate()
+        .skip(1)
+        .find(|(_, g)| !g.trim_matches(|c| c == '[' || c == ']').starts_with('-'))
+        .map(|(idx, _)| idx)
+    else {
+        return Vec::new();
+    };
+    let tail = &groups[tail_start..];
+    // The lead operand must be required (no bracket around the whole
+    // group) and lowercase-word-shaped, its own glued bracket suffix
+    // aside.
+    let first = &tail[0];
+    if first.starts_with('[') {
+        return Vec::new();
+    }
+    let lead_base_end = first.find('[').unwrap_or(first.len());
+    let lead_base = &first[..lead_base_end];
+    if lead_base.is_empty()
+        || !lead_base
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c == '_' || c == '-')
+    {
+        return Vec::new();
+    }
+    let mut lead = Entity::positional(lead_base.to_string(), Provenance::single(Source::HelpText));
+    lead.required = true;
+    let mut out = vec![lead];
+    for group in &tail[1..] {
+        let Some(words) = parse_nested_optional_words(group) else {
+            return out; // stop at the first group this shape doesn't read
+        };
+        for w in words {
+            let mut p = Entity::positional(w, Provenance::single(Source::HelpText));
+            p.required = false;
+            out.push(p);
+        }
+    }
+    out
+}
+
+/// `memhog`'s own `Policies: preferred-many local interleave membind
+/// preferred default` line, read as the `policy` positional's own
+/// `choices`. Deliberately narrow — the literal label `Policies:`, not a
+/// generalized colon-introduced-list recognizer (S-168's own general case
+/// was declined as materially larger and riskier than this item's scope)
+/// — so it can only ever help this one document. Never overwrites choices
+/// a positional already carries. See docs/shapes.md S-176.
+pub(super) fn attach_policies_line_choices(lines: &[&str], positionals: &mut [Entity]) {
+    let Some(policy) = positionals
+        .iter_mut()
+        .find(|p| p.primary_name() == "policy")
+    else {
+        return;
+    };
+    if !policy.choices.is_empty() {
+        return;
+    }
+    let Some(rest) = lines
+        .iter()
+        .find_map(|l| l.trim().strip_prefix("Policies:"))
+    else {
+        return;
+    };
+    let members: Vec<Choice> = rest.split_whitespace().map(Choice::bare).collect();
+    if !members.is_empty() {
+        policy.choices = members;
+    }
+}
+
+/// Every lowercase word inside a usage-synopsis bracket group, in source
+/// order, whatever its own nesting depth — the flattening design §7 Tier
+/// B rule 17 requires for `[A [B]]`. `None` unless the group's own
+/// brackets balance and every word is lowercase-word-shaped; a malformed
+/// or non-lowercase group is left alone rather than guessed at. See
+/// docs/shapes.md S-176.
+fn parse_nested_optional_words(group: &str) -> Option<Vec<String>> {
+    let mut words = Vec::new();
+    let mut cur = String::new();
+    let mut depth = 0i32;
+    for c in group.trim().chars() {
+        match c {
+            '[' => depth += 1,
+            ']' => {
+                if !cur.is_empty() {
+                    words.push(std::mem::take(&mut cur));
+                }
+                depth -= 1;
+            }
+            c if c.is_whitespace() => {
+                if !cur.is_empty() {
+                    words.push(std::mem::take(&mut cur));
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.is_empty() {
+        words.push(cur);
+    }
+    if depth != 0 || words.is_empty() {
+        return None;
+    }
+    if !words.iter().all(|w| {
+        !w.is_empty()
+            && w.chars()
+                .all(|c| c.is_ascii_lowercase() || c == '_' || c == '-')
+    }) {
+        return None;
+    }
+    Some(words)
+}

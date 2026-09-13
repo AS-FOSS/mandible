@@ -394,6 +394,151 @@ pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage
     }
 }
 
+/// A single-dash table row with no genuine placeholder (`memhog`'s `-f
+/// mmap is backed by FILE`) reads its description's first word as a
+/// fabricated value, losing the description. The usage line is
+/// independent evidence: present (`[-fFILE]`) or absent (`[-H]`); no
+/// proof, no change. A narrower case: an already-genuine value (`-rNUM`,
+/// S-172) still loses its description, recovered by stripping the known
+/// value off the row's remainder. Scoped, like S-157, to a document with
+/// no `--long` row ([`document_has_no_long_row`]); the floor is a flag
+/// count ([`MIN_TABLE_ROWS`]), not [`single_dash_long_table`]'s
+/// multi-character name. See docs/shapes.md S-175.
+pub(super) fn recover_bare_word_first_description_word(
+    flags: &mut [Entity],
+    usage_lines: &[String],
+    lines: &[&str],
+) {
+    if !document_has_no_long_row(lines) {
+        return;
+    }
+    let short_only_help_text_flags = flags
+        .iter()
+        .filter(|f| {
+            f.provenance.sources.contains(&Source::HelpText)
+                && !f.provenance.sources.contains(&Source::HelpTextSynopsis)
+                && f.short().is_some()
+                && f.long().is_none()
+        })
+        .count();
+    if short_only_help_text_flags < MIN_TABLE_ROWS {
+        return;
+    }
+    for flag in flags.iter_mut() {
+        if !flag.provenance.sources.contains(&Source::HelpText)
+            || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
+        {
+            continue;
+        }
+        if flag.description.is_some() || flag.long().is_some() {
+            continue;
+        }
+        let Some(short) = flag.short() else { continue };
+        let prefix = format!("-{short}");
+        // Exactly one candidate row, never the first of several: `lsof`
+        // documents `-T` twice, once in a packed multi-column summary
+        // line and once in its own real row, and taking whichever comes
+        // first read the summary's neighbouring flags into `-T`'s own
+        // description. A row packing a second flag onto the same line
+        // (a further `-word` token past the first) is refused the same
+        // way, even when it is the only candidate.
+        let mut candidates = lines.iter().filter(|l| l.trim_start().starts_with(&prefix));
+        let Some(row) = candidates.next() else {
+            continue;
+        };
+        if candidates.next().is_some() {
+            continue;
+        }
+        let after_letter = &row.trim_start()[prefix.len()..];
+        if after_letter
+            .split_whitespace()
+            .any(|w| w.len() > 1 && w.starts_with('-') && w[1..].starts_with(char::is_alphabetic))
+        {
+            continue;
+        }
+        // The captured "value" must itself be shaped like a bare
+        // description word, never a genuine placeholder: one run of
+        // nothing but lowercase ASCII letters.
+        let is_bare_word_guess = flag.value_kind == ValueKind::Required
+            && flag
+                .value_name
+                .as_deref()
+                .is_some_and(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_lowercase()));
+        if is_bare_word_guess {
+            // The fabrication shape is always spaced (`-f mmap...`): a
+            // glued tail (`-rNUM`) is the other, already-correct case
+            // below, never this one.
+            if !after_letter.starts_with(char::is_whitespace) {
+                continue;
+            }
+            let desc = after_letter.trim();
+            if desc.is_empty() {
+                continue;
+            }
+            let Some(usage_value) = usage_lines
+                .iter()
+                .find_map(|u| usage_line_glued_short_value(u, short))
+            else {
+                continue; // no independent evidence; leave today's guess alone
+            };
+            match usage_value {
+                Some(value) => {
+                    flag.value_name = Some(value);
+                    flag.value_kind = ValueKind::Required;
+                }
+                None => {
+                    flag.value_name = None;
+                    flag.value_kind = ValueKind::None;
+                }
+            }
+            flag.description = non_empty_text(desc);
+        } else if flag.value_kind == ValueKind::Required {
+            let Some(value) = flag.value_name.as_deref() else {
+                continue;
+            };
+            let Some(rest) = after_letter.strip_prefix(value) else {
+                continue;
+            };
+            let desc = rest.trim();
+            if desc.is_empty() {
+                continue;
+            }
+            flag.description = non_empty_text(desc);
+        }
+    }
+}
+
+/// One usage line's own standalone bracketed token for `-short`, read as
+/// glued-value evidence: `Some(Some(value))` when an uppercase run is
+/// glued directly onto the letter with no space (`[-fFILE]` -> `"FILE"`),
+/// `Some(None)` when the token is the bare letter alone (`[-H]`), `None`
+/// when this line attests nothing about the letter at all. Boundary rule
+/// mirrors [`usage_line_has_standalone_token`]: whitespace or a bracket on
+/// both sides, so a longer spelling sharing the same prefix is never
+/// mistaken for this one. See docs/shapes.md S-175.
+fn usage_line_glued_short_value(line: &str, short: char) -> Option<Option<String>> {
+    let needle = format!("-{short}");
+    let is_boundary = |c: char| c.is_whitespace() || c == '[' || c == ']';
+    let mut start = 0usize;
+    while let Some(rel) = line[start..].find(&needle) {
+        let idx = start + rel;
+        let before_ok = line[..idx].chars().next_back().is_none_or(is_boundary);
+        if before_ok {
+            let after = &line[idx + needle.len()..];
+            let tail_end = after.find(is_boundary).unwrap_or(after.len());
+            let tail = &after[..tail_end];
+            if tail.is_empty() {
+                return Some(None);
+            }
+            if tail.chars().all(|c| c.is_ascii_uppercase()) {
+                return Some(Some(tail.to_string()));
+            }
+        }
+        start = idx + 1;
+    }
+    None
+}
+
 /// A dash-prefixed usage-line word that normally reads as the generic
 /// "any option" placeholder, or a swallowed-value split (`lshw`'s
 /// `-format`), is the tool's own literal flag when the document also
@@ -499,20 +644,16 @@ const MIN_TABLE_ROWS: usize = 2;
 /// qualifies; only an already-unambiguous row may vouch for the
 /// document. See [`is_table_leading_token`].
 fn single_dash_long_table(lines: &[&str]) -> bool {
+    if !document_has_no_long_row(lines) {
+        return false;
+    }
     let mut table_rows = 0usize;
     for (idx, line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
         let Some(rest) = trimmed.strip_prefix('-') else {
             continue;
         };
-        let Some(first) = rest.chars().next() else {
-            continue;
-        };
-        if first == '-' {
-            // A leading `--word` row disqualifies the whole document.
-            if rest[1..].starts_with(|c: char| c.is_alphanumeric()) {
-                return false;
-            }
+        if rest.starts_with('-') {
             continue;
         }
         if is_unambiguous_long_name(rest) && row_is_table_shaped(lines, idx) {
@@ -520,6 +661,27 @@ fn single_dash_long_table(lines: &[&str]) -> bool {
         }
     }
     table_rows >= MIN_TABLE_ROWS
+}
+
+/// True when a document's own option rows never introduce a `--` row
+/// (checked against each physical line's own leading token, so a stray
+/// `--` in prose — mksquashfs's own "Can be used with dialog --gauge
+/// etc." — is never mistaken for one). The GCC/Clang glued-value
+/// convention always documents `--help`/`--version` somewhere, so this
+/// is the one discriminator every single-dash-only repair in this file
+/// rests on, whatever further per-row evidence a given repair needs on
+/// top of it. See [`single_dash_long_table`].
+fn document_has_no_long_row(lines: &[&str]) -> bool {
+    for line in lines {
+        let trimmed = line.trim_start();
+        let Some(rest) = trimmed.strip_prefix("--") else {
+            continue;
+        };
+        if rest.starts_with(|c: char| c.is_alphanumeric()) {
+            return false;
+        }
+    }
+    true
 }
 
 /// True when `rest` (a row's own text, dash already stripped) opens with

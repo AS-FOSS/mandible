@@ -881,22 +881,42 @@ fn scan_usage_section(
         );
         i += 1;
     }
-    // Scoped to a labelled block, never an unlabelled synopsis
-    // (`dbus-cleanup-sockets`, `lvreduce`): the existence oracle's own
-    // synopsis scanner has no unlabelled-synopsis support yet, so any
-    // operand recovered from one reports as invented today. See
-    // S-001.
-    let primary_lines = if labelled_usage_start.is_some() {
-        primary_synopsis_lines(&usage_entries, &line_entry_index, usage_lines.len())
-    } else {
-        std::collections::HashSet::new()
-    };
+    let positionals = finish_positional_recovery(
+        usage_lines,
+        labelled_usage_start,
+        &usage_entries,
+        &line_entry_index,
+    );
     UsageScan {
         next_index: i,
-        positionals: extract_positionals(usage_lines, primary_lines),
+        positionals,
         entries: usage_entries,
         recovered_bare_root_stanza,
     }
+}
+
+/// The tail of [`scan_usage_section`], split out to keep that function
+/// under its own line ceiling (AGENTS.md §2). Scoped to a labelled block
+/// for most unlabelled-synopsis shapes, with one exception: a
+/// single-physical-line unlabelled synopsis (`memhog`) names its primary
+/// form unambiguously, and the existence oracle already attests such a
+/// line (S-001's own recognizer), so an operand recovered from it is not
+/// reported as invented. See docs/shapes.md S-176.
+fn finish_positional_recovery(
+    usage_lines: &[String],
+    labelled_usage_start: Option<usize>,
+    usage_entries: &[String],
+    line_entry_index: &[usize],
+) -> Vec<Entity> {
+    let unlabelled_single_line = labelled_usage_start.is_none() && usage_lines.len() == 1;
+    let primary_lines = if labelled_usage_start.is_some() {
+        primary_synopsis_lines(usage_entries, line_entry_index, usage_lines.len())
+    } else if unlabelled_single_line {
+        std::collections::HashSet::from([0])
+    } else {
+        std::collections::HashSet::new()
+    };
+    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line)
 }
 
 /// The leading prose before the usage block, as the node description.
@@ -978,6 +998,55 @@ fn extract_description(
     } else {
         Some(description)
     }
+}
+
+/// Real prose that sits after every flags/choices row a headingless
+/// document carries (`ar`'s own "supported targets: ..."/"Report bugs
+/// to..." trailer, `ntfsfallocate`'s "Developers' email address:
+/// .../News, support..."), recovered from the tail of the document
+/// backward: a run of non-empty, column-0, non-flag-shaped lines ending
+/// at the last line. Stops at the first blank line, indented line, or
+/// flag-shaped/heading line, so it never reaches back into the table
+/// itself — only genuine trailer text past every row `flag_start` and
+/// `scan_entries` already own. See docs/shapes.md S-165.
+fn trailing_prose_after_flags_block(lines: &[&str], flag_start: usize) -> Option<String> {
+    let mut tail: Vec<&str> = Vec::new();
+    let mut k = lines.len();
+    while k > flag_start {
+        let idx = k - 1;
+        let l = lines[idx];
+        if l.trim().is_empty() || leading_whitespace(l) != 0 {
+            break;
+        }
+        let t = l.trim_start();
+        // A getopt-family "bad option" complaint (S-162), however it is
+        // decorated (Xvfb's own `(EE) Unrecognized option: --help`), is
+        // diagnostic noise about the probe's own `--help` argument, never
+        // real description prose. Discards the whole tail collected so
+        // far, not just this line: the diagnostic marks everything back
+        // to it as the same noisy preamble, not genuine trailer text.
+        // Substring, not `is_option_error_line`'s own line-opening test:
+        // that test's prefix rule refuses a decorated line like this one.
+        let lower = t.to_ascii_lowercase();
+        let is_diagnostic = [
+            "unknown option",
+            "invalid option",
+            "illegal option",
+            "unrecognized option",
+        ]
+        .iter()
+        .any(|kw| lower.contains(kw));
+        if is_diagnostic {
+            return None;
+        }
+        if looks_like_flag_start(t) || is_section_heading_line(t) {
+            break;
+        }
+        tail.push(l);
+        k -= 1;
+    }
+    tail.reverse();
+    non_empty_text(&tail.join("\n")).map(|t| t.as_str().to_string())
 }
 
 /// Walk the document body after the description, emitting flags,
@@ -2102,6 +2171,16 @@ fn parse_body(
         // block just recovered, so it can never eat unrelated prose. See
         // docs/shapes.md S-127.
         i = apply_positional_description_block(&lines, i, &mut result.positionals);
+        // `memhog`'s own `Policies: preferred-many local interleave
+        // membind preferred default` enumerates what its own `policy`
+        // positional accepts — S-168's colon-introduced choice list
+        // shape, on the same line rather than an indented block beneath
+        // it. Narrowly scoped to that literal label, never generalized
+        // (S-168's own general case was declined as materially larger
+        // and riskier): recovers the choices this line would otherwise
+        // lose once it stops being swallowed whole into the root
+        // description (AGENTS.md §3.9). See docs/shapes.md S-176.
+        attach_policies_line_choices(&lines, &mut result.positionals);
     }
 
     // 2. Leading prose before the usage block (or before the first
@@ -2114,22 +2193,32 @@ fn parse_body(
     // of milliseconds.
     let prose_bound = leading_prose_bound(&lines);
     let mut description_bound = i.max(prose_bound);
-    // A headingless table with no blank line ahead of it and no
-    // recognized usage line (Xvfb's `use: X [:<display>] [option]`, not
-    // `usage:`) reaches `leading_prose_bound`'s whole-document fallback
-    // untouched, so its option rows land in the description as well as
-    // being independently recovered by `scan_entries` below — the same
-    // text rendered twice. Consulted only in that narrow case (no blank
-    // line anywhere, no usage line), so an ordinary document's already-
-    // correct, cheap bound pays nothing extra. See docs/shapes.md S-165.
-    if usage_start.is_none() && prose_bound == lines.len() {
-        if let Some(flag_start) =
-            (i..lines.len()).find(|&j| starts_attested_headingless_flag_block(&lines, j))
-        {
-            description_bound = description_bound.min(flag_start);
+    // A headingless table with no blank line ahead of it reaches
+    // `leading_prose_bound`'s whole-document fallback untouched, so its
+    // option rows land in the description too, doubling text
+    // `scan_entries` below recovers anyway. Not gated on `usage_start`
+    // being absent (Xvfb has none; `memhog`'s one usage line covers only
+    // `i` lines, so the fallback still swallows what follows): the shared
+    // "no blank line anywhere" precondition is what keeps an ordinary
+    // document's bound cheap. The trailing run past the table (`ar`'s own
+    // "supported targets: ..." trailer) is separately recovered below and
+    // reattached, since bounding the whole scan would drop it. S-165.
+    let flag_start = (prose_bound == lines.len())
+        .then(|| (i..lines.len()).find(|&j| starts_attested_headingless_flag_block(&lines, j)))
+        .flatten();
+    if let Some(start) = flag_start {
+        description_bound = description_bound.min(start);
+    }
+    let mut description = extract_description(&lines, description_bound, usage_start, i);
+    if let Some(start) = flag_start {
+        if let Some(tail) = trailing_prose_after_flags_block(&lines, start) {
+            description = Some(match description {
+                Some(d) => format!("{d}\n\n{tail}"),
+                None => tail,
+            });
         }
     }
-    if let Some(description) = extract_description(&lines, description_bound, usage_start, i) {
+    if let Some(description) = description {
         result.description = Some(description);
     }
 
@@ -2141,6 +2230,15 @@ fn parse_body(
         bnf_row_lines,
     };
     let (total_entries, clean_entries) = scan_entries(&inp, tool_name, i, &mut result);
+
+    // A single-dash table row with no genuine placeholder (`memhog`'s
+    // `-f mmap is backed by FILE`) reads its own description's first word
+    // as a fabricated value and loses the description outright. Repaired
+    // before the usage-flag merge below, from the usage line's own glued
+    // spelling, so the merge's "let the described version win" rule sees
+    // an already-correct, already-described row rather than needing its
+    // own exception. See docs/shapes.md S-175.
+    recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
@@ -2262,6 +2360,101 @@ fn compute_confidence(total_entries: usize, clean_entries: usize, had_usage: boo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `memhog --help`'s own bytes, byte-exact: an unlabelled synopsis
+    /// whose flag rows carry no column gap. The required `size`
+    /// positional and the flattened optional `policy`/`nodeset` pair
+    /// (design §7 Tier B rule 17), `-f`'s real value and description,
+    /// `-H`'s real description with no fabricated value, `-r`'s
+    /// already-correct `NUM` (S-172) now described too. `Policies:` is
+    /// not flag-shaped, so it still reaches the root description as well
+    /// as `policy`'s own `choices` — harmless, never a genuine loss. See
+    /// docs/shapes.md S-165, S-175, S-176, and corpus/memhog/2.0.18.
+    #[test]
+    fn memhog_flags_positionals_and_root_description_all_land_correctly() {
+        let raw = concat!(
+            "memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]\n",
+            "-f mmap is backed by FILE\n",
+            "-rNUM repeat memset NUM times\n",
+            "-H disable transparent hugepages\n",
+            "Policies: preferred-many local interleave membind preferred default\n",
+        );
+        let parsed = parse_named(raw, "memhog");
+        assert_eq!(
+            parsed.description.as_deref(),
+            Some("Policies: preferred-many local interleave membind preferred default"),
+            "only the non-flag-shaped Policies line reaches the root description"
+        );
+        assert_eq!(
+            parsed
+                .positionals
+                .iter()
+                .map(|p| (p.primary_name().to_string(), p.required))
+                .collect::<Vec<_>>(),
+            vec![
+                ("size".to_string(), true),
+                ("policy".to_string(), false),
+                ("nodeset".to_string(), false),
+            ]
+        );
+        let policy = parsed
+            .positionals
+            .iter()
+            .find(|p| p.primary_name() == "policy")
+            .expect("policy positional");
+        assert_eq!(
+            policy
+                .choices
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "preferred-many",
+                "local",
+                "interleave",
+                "membind",
+                "preferred",
+                "default"
+            ]
+        );
+        let f = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('f'))
+            .expect("-f");
+        assert_eq!(f.value_name.as_deref(), Some("FILE"));
+        assert_eq!(
+            f.description.as_ref().map(Text::as_str),
+            Some("mmap is backed by FILE")
+        );
+        let r = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('r'))
+            .expect("-r");
+        assert_eq!(r.value_name.as_deref(), Some("NUM"));
+        assert_eq!(r.value_kind, ValueKind::Required);
+        assert_eq!(
+            r.description.as_ref().map(Text::as_str),
+            Some("repeat memset NUM times")
+        );
+        let h = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('H'))
+            .expect("-H");
+        assert_eq!(h.value_name, None);
+        assert_eq!(h.value_kind, ValueKind::None);
+        assert_eq!(
+            h.description.as_ref().map(Text::as_str),
+            Some("disable transparent hugepages")
+        );
+        assert_eq!(parsed.usage.len(), 1);
+        assert_eq!(
+            parsed.usage[0].as_str(),
+            "memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]"
+        );
+    }
 
     /// `lvcreate --help`'s own bytes, byte-exact: every invocation form
     /// reaches `usage` as its own alternative, and the tab-indented option

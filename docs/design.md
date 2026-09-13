@@ -2983,6 +2983,20 @@ Re-measured with `xtask coverage --tools lldb-server,lldb-server-18`
 against the real installed binaries: `existence_fabrication_tools` reads
 0 and `exist` reads 0 for both. Docs/shapes.md S-167.
 
+**`memhog`'s whole screen ships below the five-tool bar (2026-09-13).**
+Maintainer, after looking at mandible's screen for the tool: "yeah this one
+needs full revision". `memhog --help` has no blank line anywhere and no
+`usage:` label; every one of its five raw lines was wrong or lost before
+this round (docs/shapes.md S-165, S-175, S-176). Tree-level, each shape
+reads one tool, `memhog` itself; a raw-text grep over
+`audit/queue-captures/*/0.std*` reads 62 tools for S-175's own row shape
+and 48 for S-176's, both explicitly upper bounds on the raw text rather
+than a tree-level count, since most of those rows carry a `--long` row or
+a labelled multi-line synopsis that keeps the narrower gate closed. Ships
+anyway: `corpus/memhog/2.0.18` promotes out of `[xfail]`, every contract
+field it names now passes, and the corpus sweep and named controls stay
+byte-identical.
+
 ### Deferred, with the reason each is not simply undone
 
 **Sub-case (b) of the `-h` fallback is unmeasured and must stay that way until

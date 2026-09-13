@@ -240,6 +240,22 @@ pub(super) fn extract_positionals(
     usage_lines: &[String],
     primary_lines: std::collections::HashSet<usize>,
 ) -> Vec<Entity> {
+    extract_positionals_inner(usage_lines, primary_lines, false)
+}
+
+/// `unlabelled_single_line`: true only for the one shape `extract_positionals`
+/// itself never sees anywhere else — a single-physical-line unlabelled
+/// synopsis (`memhog`). Kept as its own parameter, never inferred from
+/// `primary_lines` alone, so [`recover_lowercase_tail_positionals`] stays
+/// scoped to exactly the case measured (docs/shapes.md S-176) and is
+/// never reached for an ordinary labelled tool's own single-line form,
+/// whatever convention that tool happens to use for its own operand
+/// names.
+pub(super) fn extract_positionals_inner(
+    usage_lines: &[String],
+    primary_lines: std::collections::HashSet<usize>,
+    unlabelled_single_line: bool,
+) -> Vec<Entity> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
     for (line_idx, line) in usage_lines.iter().enumerate() {
@@ -402,6 +418,12 @@ pub(super) fn extract_positionals(
     }
     if out.is_empty() {
         out.extend(recover_trailing_multiword_operand(
+            usage_lines,
+            &primary_lines,
+        ));
+    }
+    if out.is_empty() && unlabelled_single_line {
+        out.extend(recover_lowercase_tail_positionals(
             usage_lines,
             &primary_lines,
         ));

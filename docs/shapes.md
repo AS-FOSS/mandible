@@ -3485,34 +3485,43 @@ entry's `tools` field and nothing else. It does not get a new entry.
       use: X [:<display>] [option]
       -a #                   default pointer acceleration (factor)
       -ac                    disable access control restrictions
-- tools: Xvfb
+- tools: Xvfb, memhog
 - handling: Fixed. `extract_description`'s own bound
   (`leading_prose_bound`) is a blank-line search with no notion of a
-  flags block at all; with no recognized `usage:` line and no blank line
-  anywhere in the document, it returns the whole document, so a
-  headingless table's rows land in the description as well as being
-  independently recovered by `scan_entries`. Narrowly bounded: only when
-  no blank line exists at all and no usage line was recognized does the
+  flags block at all; with no blank line anywhere in the document, it
+  returns the whole document, so a headingless table's rows land in the
+  description as well as being independently recovered by `scan_entries`.
+  Narrowly bounded: only when no blank line exists at all does the
   description scan now also stop at the first line
   `starts_attested_headingless_flag_block` (S-052's own recognizer)
   accepts as a real option row, so an ordinary document's already-correct,
   cheap bound pays nothing extra. Xvfb's own `use: X [:<display>]
   [option]` line, an unusual `use:` label rather than `usage:`, is the
-  root cause `flags_block_start` never reaches on its own. This is the
-  same specimen S-164 fixes the group-duplication half of; landing this
-  fix first is what let S-163's `+word` and alternation rows reach column
-  0 at all.
+  root cause `flags_block_start` never reaches on its own. `memhog`
+  (round 12) showed the bound was still too narrow: its first line IS a
+  recognized usage line (an unlabelled synopsis opening on its own name),
+  so the original gate (also requiring no usage line recognized) never
+  fired, and the flag rows after that one usage line still landed in the
+  description the same way. The `no usage line recognized` half of the
+  gate is dropped; `no blank line anywhere` is the only precondition left,
+  since that alone already keeps the bound cheap for an ordinary document.
+  This is the same specimen S-164 fixes the group-duplication half of;
+  landing this fix first is what let S-163's `+word` and alternation rows
+  reach column 0 at all.
 - fleet: `headingless-table-in-root-description`
   (`xtask/src/detector/headingless_table_in_root_description.rs`) is
   family `None`, so calibration reads NOT EVALUABLE. Self-checks hold
-  (4/4). One tool, below the five-tool bar, maintainer-named (carried
-  item 23). Full-`PATH` sweep-diff of 2269 tools against `origin/main`
-  0b30c15, 2026-09-12: 0 flag/subcommand losses anywhere. The detector's
-  own word-boundary heuristic still reads 30 tools fleet-wide after this
-  fix — a broader symptom (a description repeating several of its own
-  tree's flag spellings) than the narrow structural cause this fix
-  closes (no blank line anywhere, no recognized usage line); left as a
-  future finding, not chased here.
+  (4/4). Two tools, below the five-tool bar, maintainer-named (Xvfb
+  carried item 23; memhog maintainer-audited in round 12, "yeah this one
+  needs full revision"). Full-`PATH` sweep-diff of 2269
+  tools against `origin/main` 0b30c15, 2026-09-12: 0 flag/subcommand
+  losses anywhere. The detector's own word-boundary heuristic still reads
+  30 tools fleet-wide after this fix — a broader symptom (a description
+  repeating several of its own tree's flag spellings) than the narrow
+  structural cause this fix closes (no blank line anywhere); left as a
+  future finding, not chased here. Round 12's own widening (dropping the
+  usage-line precondition) was not re-swept fleet-wide; reported, not
+  gated on a fresh number.
 
 ### S-166: header-declared three-column option table, env-variable column
 
@@ -3916,3 +3925,97 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools have no fixture yet; rustc's own row is verified by a direct unit
   test (`grammar.rs`'s
   `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
+
+### S-175: a table row with no placeholder takes its description's first word as a value
+
+- id: S-175
+- looks like: |
+      -f mmap is backed by FILE
+      -H disable transparent hugepages
+- tools: memhog
+- handling: Fixed, inside a document with no `--long` row anywhere
+  ([`document_has_no_long_row`], the same discriminator S-157's own table
+  repair rests on) and at least two short-only `HelpText`-sourced flags
+  (`MIN_TABLE_ROWS`, the "more than a coincidence" floor). A row with no
+  genuine placeholder at all — no `<...>`/`[...]`, no ALL-CAPS metavar, no
+  glued `-Xvalue` — still reads the first bare word of its own description
+  as a value (`-f mmap is backed by FILE` to `-f` valued `"mmap"`), and the
+  real description is then lost outright, since nothing is left over once
+  that first word is spent. `recover_bare_word_first_description_word`
+  (`mandible-extract/src/help_text/sections/repair.rs`) recovers both
+  halves: the tool's own usage line is independent evidence of the real
+  value, present (`[-fFILE]` glues an uppercase run onto the letter,
+  naming `FILE`) or absent (`[-H]` glues nothing, naming none); without
+  that direct proof the flag's own guess is left alone. The row's text
+  past the flag letter becomes the description either way. A second,
+  narrower case in the same family: a row whose value is already genuine
+  (`memhog`'s own `-rNUM`) still loses its description the same way, with
+  no column gap to say where the spec ends and the description begins;
+  recovered by stripping exactly the already-known-correct value text off
+  the row's own remainder, never touching the value itself.
+- fleet: Not measured with `xtask coverage` this round (build capacity was
+  contended; the orchestrator owns the full-`PATH` sweep). A raw-text grep
+  over `audit/queue-captures/*/0.std*` for a single-dash-letter row
+  followed by one space and a lowercase bare word reads 62 tools — an
+  upper bound on the raw shape, not a tree-level count, and most of those
+  62 (`ffmpeg`, `ffplay`, `ffprobe`, `python3.12`, `qemu-aarch64-static`,
+  …) carry a `--long` row elsewhere and so never reach this repair's own
+  gate. Tree-level: one tool, `memhog`, verified by
+  `mandible-extract/src/help_text/sections/mod.rs`'s
+  `memhog_flags_positionals_and_root_description_all_land_correctly`.
+  Below the five-tool bar; shipped as a gated exception (docs/design.md
+  §16) alongside `corpus/memhog/2.0.18`, promoted out of `[xfail]`,
+  maintainer-audited ("yeah this one needs full revision").
+
+### S-176: a usage synopsis's lowercase operand tail, unlabelled and nested
+
+- id: S-176
+- looks like: |
+      memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]
+- tools: memhog
+- handling: Fixed, for one narrow case: a single-physical-line *unlabelled*
+  synopsis (no `usage:` marker, no continuation line). `extract_positionals`
+  never reads a lowercase operand tail — its own ALL-CAPS/`<...>` loop
+  refuses `size[kmg]` and the nested `[policy [nodeset]]` outright, and the
+  existing tail-recovery fallbacks both decline it too:
+  `recover_primary_tail_operands`'s own bracket trim is not depth-aware and
+  refuses a nested group rather than misreading it;
+  `recover_trailing_multiword_operand` requires a sibling flag group
+  already showing an identical multi-word-value shape, which this usage
+  line has none of. `recover_lowercase_tail_positionals`
+  (`mandible-extract/src/help_text/sections/multiword.rs`) reads the
+  required lead word (`size`, its own glued bracket suffix `[kmg]` kept
+  visible in the verbatim `usage` text rather than folded into the name)
+  then flattens every further bracket group's words into an ordered list
+  of optional positionals — design §7 Tier B rule 17's own ruling for
+  `[A [B]]`, since position already carries the dependency. Gated on a new
+  `unlabelled_single_line` flag threaded through `extract_positionals`
+  (never inferred from `primary_lines` alone), so this fallback is never
+  reached for an ordinary labelled tool's own single-line form, whatever
+  convention that tool happens to use for its own operand names. The
+  primary-line bookkeeping that licenses positional recovery at all
+  (`primary_synopsis_lines`) was previously computed only for a labelled
+  usage block; a single-physical-line unlabelled synopsis now also
+  qualifies, since the existence oracle's own synopsis scanner
+  (`xtask::existence::synopsis_lines`) already attests such a line via the
+  same `looks_like_unlabeled_synopsis_line` the tier itself uses, so an
+  operand recovered from it is not reported as invented. `memhog`'s own
+  `Policies: preferred-many local interleave membind preferred default`
+  line, which the raw capture would otherwise simply drop once it stops
+  being swallowed into the root description (AGENTS.md §3.9), becomes the
+  `policy` positional's own `choices` via `attach_policies_line_choices` —
+  narrowly scoped to that literal label, not a generalized colon-list
+  recognizer (S-168's own general case was declined as materially larger
+  and riskier than this item's scope).
+- fleet: Not measured with `xtask coverage` this round (build capacity was
+  contended; the orchestrator owns the full-`PATH` sweep). A raw-text grep
+  over `audit/queue-captures/*/0.std*` for an unlabelled single-line
+  synopsis whose tail carries a lowercase word followed by a nested
+  bracket pair reads 48 tools — an upper bound on the raw shape, not a
+  tree-level count; most carry a labelled `usage:` line or a multi-line
+  synopsis and so never reach `unlabelled_single_line`. Tree-level: one
+  tool, `memhog`, verified by the same
+  `memhog_flags_positionals_and_root_description_all_land_correctly` test.
+  Below the five-tool bar; shipped as a gated exception (docs/design.md
+  §16) alongside `corpus/memhog/2.0.18`, promoted out of `[xfail]`,
+  maintainer-audited ("yeah this one needs full revision").
