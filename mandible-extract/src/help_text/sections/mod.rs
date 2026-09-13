@@ -46,7 +46,6 @@ mod spelling;
 #[cfg(test)]
 mod test_support;
 mod usage;
-mod usage_label;
 
 use backfill::*;
 use bullets::*;
@@ -62,7 +61,7 @@ use scan::*;
 use spelling::*;
 #[cfg(test)]
 use test_support::*;
-pub use usage::*;
+use usage::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely

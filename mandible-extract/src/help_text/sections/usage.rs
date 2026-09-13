@@ -2,7 +2,6 @@
 //! mining the synopsis itself for positionals and for flags no option
 //! table documents.
 
-pub use super::usage_label::*;
 use super::*;
 
 /// True if `lines[idx]` is a bare own-name invocation line — no bracket
