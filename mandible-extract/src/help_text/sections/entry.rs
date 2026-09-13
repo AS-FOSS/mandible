@@ -700,6 +700,33 @@ pub fn is_option_list_placeholder(name: &str) -> bool {
         .any(|p| name.eq_ignore_ascii_case(p))
 }
 
+/// Words a usage line's tail uses to name a command table rather than a
+/// real operand: `apt`'s `[options] command` genuinely dispatches on a
+/// verb, so reading the word itself as a positional would fabricate one.
+/// A closed vocabulary, the same shape [`OPTION_LIST_PLACEHOLDERS`] is,
+/// checked against the *first* word of a recovered trailing operand run
+/// only — the word sitting directly behind the ambiguous `[options]`
+/// context. See docs/shapes.md S-153 and
+/// `mandible-extract/src/help_text/sections/multiword.rs`'s
+/// `recover_primary_tail_operands`.
+pub(in crate::help_text) const COMMAND_PLACEHOLDER_WORDS: &[&str] = &[
+    "command",
+    "commands",
+    "subcommand",
+    "subcommands",
+    "cmd",
+    "action",
+    "verb",
+];
+
+/// True when `name` (already unwrapped from its notation) is one of
+/// [`COMMAND_PLACEHOLDER_WORDS`].
+pub fn is_command_placeholder(name: &str) -> bool {
+    COMMAND_PLACEHOLDER_WORDS
+        .iter()
+        .any(|p| name.eq_ignore_ascii_case(p))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
