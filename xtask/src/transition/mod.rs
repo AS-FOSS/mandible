@@ -933,7 +933,10 @@ mod tests {
         let t = diff(&before, &after);
         assert_eq!(t.positional_diff_unmeasured, 0);
         assert_eq!(t.positional_gains.len(), 1);
-        assert_eq!((t.positional_gains[0].before, t.positional_gains[0].after), (0, 1));
+        assert_eq!(
+            (t.positional_gains[0].before, t.positional_gains[0].after),
+            (0, 1)
+        );
         assert!(t.positional_losses.is_empty());
         assert_eq!(t.field_diffs.len(), 1);
         assert_eq!(
@@ -962,7 +965,10 @@ mod tests {
         let t = diff(&before, &after);
         assert_eq!(t.positional_diff_unmeasured, 0);
         assert_eq!(t.positional_losses.len(), 1);
-        assert_eq!((t.positional_losses[0].before, t.positional_losses[0].after), (1, 0));
+        assert_eq!(
+            (t.positional_losses[0].before, t.positional_losses[0].after),
+            (1, 0)
+        );
         assert!(t.positional_gains.is_empty());
         assert_eq!(
             t.field_diffs[0].positionals_removed,
@@ -1012,10 +1018,7 @@ mod tests {
     #[test]
     fn v1_fingerprint_pair_reports_positionals_unmeasured_not_clean() {
         let row = row_line("t", "ok", 1, 10);
-        let text = format!(
-            "{}#fp t\t\t(root)::--flag=0:-:-:-\n",
-            sample_text(&[&row])
-        );
+        let text = format!("{}#fp t\t\t(root)::--flag=0:-:-:-\n", sample_text(&[&row]));
         let before = parse_scoreboard(&text);
         let after = parse_scoreboard(&text);
         assert_eq!(before.fingerprint_format, Some(FingerprintFormat::V1));

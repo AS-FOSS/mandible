@@ -257,8 +257,8 @@ fn per_tool_fingerprint_diff<'a>(
             // regardless of `positional_format_ok`. Still surface a
             // tier/framework change if one was found from the ordinary
             // columns, which every scoreboard shape carries.
-            let field_diff = (tier_changed.is_some() || framework_changed.is_some()).then(|| {
-                FieldDiff {
+            let field_diff =
+                (tier_changed.is_some() || framework_changed.is_some()).then(|| FieldDiff {
                     tool,
                     flags_added: Vec::new(),
                     flags_removed: Vec::new(),
@@ -271,8 +271,7 @@ fn per_tool_fingerprint_diff<'a>(
                     subcommands_removed: Vec::new(),
                     tier_changed,
                     framework_changed,
-                }
-            });
+                });
             PerToolFingerprintResult {
                 field_unmeasured: field_diff.is_none(),
                 field_diff,
