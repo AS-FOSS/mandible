@@ -3079,17 +3079,37 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-154
 - looks like: |
         gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
-- tools: gdk-pixbuf-thumbnailer, mknod, sg_format, udevadm, fzf-tmux
-- handling: Fixed. A bracket group holding several words is one operand whose
-  name is the whole run, not one operand per word, so `mandible
+- tools: gdk-pixbuf-thumbnailer, mknod, accessdb, systemd-sysusers,
+  systemd-tmpfiles, sg_format, udevadm, fzf-tmux
+- handling: Fixed, then corrected. A FLAT bracket group holding several words
+  is one operand whose name is the whole run, so `mandible
   gdk-pixbuf-thumbnailer` shows two positionals, `INPUT FILE` and `OUTPUT
   FILE`, where it showed three (`INPUT`, `FILE`, `OUTPUT`) before. The name
   keeps its source spelling, following S-097's ruling that a glued group is
-  quoted as written.
+  quoted as written. Flat means one bracket pair holding no `|` and no `<`,
+  with any repetition marker at the group's own end
+  (`systemd-sysusers`'s `[CONFIGURATION FILE...]` is one repeatable
+  operand). The rule as first shipped tested no flatness at all, so it also
+  fused a NESTED group, where each bracket pair names its own operand:
+  `uniq`'s `[INPUT [OUTPUT]]` became one positional called `INPUT OUTPUT`
+  and `env`'s `[COMMAND [ARG]...]` became `COMMAND ARG`, neither a name its
+  tool documents. Fifteen tools read that way, `chroot`, `env`, `gettext`,
+  `grub-menulst2cfg`, `inetutils-telnet`, `mkpasswd`, `nice`, `parted`,
+  `patch`, `perror`, `ptx`, `split`, `sqlite3`, `telnet` and `uniq`. A
+  nested group now reads exactly as it did before this rule existed, one
+  operand per bracket pair, the inner ones optional
+  (`bare_bracket_group_is_flat`, `mandible-extract/src/help_text/sections/
+  multiword.rs`). The sweep that admitted the rule could not see this,
+  because sweep-diff compares flags and subcommands and never positionals.
 - fleet: `trailing-bracket-group-multiword-operand` reads 0 tools/0 findings
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
-  there. Zero flag losses, zero subcommand movement, all nine named controls
-  byte-identical.
+  there. `nested-bracket-group-fused-operand`
+  (`xtask/src/detector/nested_bracket_group_fused_operand.rs`) counts the
+  regression instead of the original defect and reads 15 tools/15 findings
+  on the fused parser against 0 tools/0 findings on the corrected one, also
+  ratcheted at zero. Zero flag losses, zero subcommand movement, all nine
+  named controls byte-identical. `corpus/uniq/9.4` and `corpus/env/9.4`
+  assert both words separately and refuse the fused name.
 
 ### S-155: an alternation value name becomes choices
 
