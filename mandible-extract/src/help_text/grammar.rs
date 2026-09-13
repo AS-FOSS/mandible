@@ -786,6 +786,56 @@ fn foldable_value(value: &str) -> bool {
     !value.contains('[') && value.chars().any(|c| c.is_ascii_alphanumeric())
 }
 
+/// True when `tok` is itself shaped like an option spelling (`-c`,
+/// `--columns`) or a bare ellipsis (`...`) — the two things a nested
+/// optional group inside a bracketed value spec is ever built from. See
+/// docs/shapes.md S-170.
+fn is_flag_spelling_or_ellipsis(tok: &str) -> bool {
+    let tok = tok.trim();
+    if tok.is_empty() {
+        return false;
+    }
+    if tok.chars().all(|c| c == '.') {
+        return true;
+    }
+    let stripped = tok.trim_start_matches('-');
+    stripped.len() != tok.len()
+        && !stripped.is_empty()
+        && stripped
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-')
+}
+
+/// True when a bracket group's content is entirely option spellings
+/// (optionally repeated via a bare ellipsis word), split on `|` — the
+/// shape `-h|--help [-c|-C|--columns]` names for its own inner group, and
+/// `-v|--verbose [-v|--verbose ...]` for its own. Neither is a value: it is
+/// a nested optional group of flags, and folding it into `value_name`
+/// would invent a value that names no real placeholder. See
+/// docs/shapes.md S-170.
+fn bracket_group_is_pure_flag_alternation(content: &str) -> bool {
+    // Requires a real `|` alternation, not merely a lone dash-led word:
+    // nvim's own `--remote[-subcommand]` names a real, if oddly spelled,
+    // value placeholder — one member, no alternation at all — and must
+    // keep its value. See docs/shapes.md S-170.
+    if !content.contains('|') {
+        return false;
+    }
+    let parts: Vec<&str> = content
+        .split('|')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    parts.len() > 1
+        && parts.iter().all(|part| {
+            let mut words = part.split_whitespace();
+            let Some(first) = words.next() else {
+                return false;
+            };
+            is_flag_spelling_or_ellipsis(first) && words.all(is_flag_spelling_or_ellipsis)
+        })
+}
+
 fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     let mut s = input;
 
@@ -815,6 +865,14 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
         }
         let name = value_inside_brackets(&mut s).ok()?;
         close_bracket(&mut s).ok()?;
+        // A bracket group whose every `|`-separated member is itself an
+        // option spelling (or a bare ellipsis) is a nested optional group
+        // of flags, never a value — `dmsetup --help`'s
+        // `[-h|--help [-c|-C|--columns]]` names no value for `--help`. See
+        // docs/shapes.md S-170.
+        if bracket_group_is_pure_flag_alternation(name) {
+            return None;
+        }
         let mut combined = name.to_string();
         let mut current = name;
         let mut folded_any = false;

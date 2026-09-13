@@ -46,6 +46,7 @@ mod spelling;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_command_table;
 
 use backfill::*;
 use bullets::*;
@@ -62,6 +63,7 @@ use spelling::*;
 #[cfg(test)]
 use test_support::*;
 pub use usage::*;
+use usage_command_table::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
@@ -313,10 +315,49 @@ struct UsageScan {
     next_index: usize,
     entries: Vec<String>,
     positionals: Vec<Entity>,
+    /// True when a bare `Usage:` label (nothing else on its own line) was
+    /// followed by the tool's own name-only line opening its root
+    /// invocation form (dmsetup's shape) — the positional evidence
+    /// [`scan_headingless_usage_command_table`] requires, so that scan is
+    /// only ever tried for documents that actually have this idiom, never
+    /// for an ordinary `Usage: prog [opts]` tool whose body happens to
+    /// start at the same indent as a table row (`ar`'s modifier tables).
+    /// See docs/shapes.md S-169.
+    recovered_bare_root_stanza: bool,
 }
 
 /// Walk the usage block starting at `start`, folding wrapped continuation
 /// lines into one entry each. See docs/shapes.md S-001 and S-037.
+/// True when `usage_lines` names nothing yet but the bare `Usage:` marker
+/// itself — the precondition for [`stanza_continuation_head`]'s own
+/// `bare_usage_label_only` gate. See docs/shapes.md S-169.
+fn usage_label_names_nothing_yet(
+    labelled_usage_start: Option<usize>,
+    usage_lines: &[String],
+) -> bool {
+    labelled_usage_start.is_some()
+        && usage_lines.len() == 1
+        && usage_lines[0]
+            .trim_end_matches(':')
+            .eq_ignore_ascii_case("usage")
+}
+
+/// `lines[j]` continues the open usage stanza: either the ordinary
+/// multi-stanza shape ([`looks_like_stanza_continuation_head`]), or — only
+/// when `bare_usage_label_only` — the dmsetup idiom
+/// ([`looks_like_bare_name_then_usage_fragment`]). See docs/shapes.md
+/// S-169.
+fn stanza_continuation_head(
+    lines: &[&str],
+    j: usize,
+    name: &str,
+    bare_usage_label_only: bool,
+) -> bool {
+    j < lines.len()
+        && (looks_like_stanza_continuation_head(lines, j, name)
+            || (bare_usage_label_only && looks_like_bare_name_then_usage_fragment(lines, j, name)))
+}
+
 fn scan_usage_section(
     lines: &[&str],
     start: usize,
@@ -351,6 +392,8 @@ fn scan_usage_section(
     // start a fresh usage entry even when it carries no marker or own-name
     // evidence of its own. See `is_bare_or_form_separator`.
     let mut force_new_entry_after_separator = false;
+    // See [`UsageScan::recovered_bare_root_stanza`].
+    let mut recovered_bare_root_stanza = false;
     i += 1;
     while i < lines.len() {
         let l = lines[i];
@@ -396,7 +439,17 @@ fn scan_usage_section(
             // as a full sentence — the stanza's own description,
             // consumed here so it lands in neither the synopsis nor
             // the tool's description. See S-005.
-            if labelled_usage_start.is_none() {
+            // dmsetup's own shape: a bare `Usage:` label with nothing else
+            // on its line, a blank line, then the tool's own name heading
+            // its root invocation form — the identical stanza-continuation
+            // shape the unlabelled path already recognizes, just labelled.
+            // Scoped to the label having named nothing yet: once a real
+            // stanza is pulled in this way, further blank lines fall back
+            // to the ordinary labelled rule below. See docs/shapes.md
+            // S-169.
+            let bare_usage_label_only =
+                usage_label_names_nothing_yet(labelled_usage_start, usage_lines);
+            if labelled_usage_start.is_none() || bare_usage_label_only {
                 if let Some(name) = tool_name {
                     let mut j = i + 1;
                     // Deliberately not `looks_like_unlabeled_synopsis_line`
@@ -406,7 +459,7 @@ fn scan_usage_section(
                     // real subcommand into fabricated usage text. See
                     // S-016.
                     let is_head = |lines: &[&str], j: usize| {
-                        j < lines.len() && looks_like_stanza_continuation_head(lines, j, name)
+                        stanza_continuation_head(lines, j, name, bare_usage_label_only)
                     };
                     if !is_head(lines, j) {
                         if let Some(next) = lines.get(j) {
@@ -417,6 +470,9 @@ fn scan_usage_section(
                         }
                     }
                     if is_head(lines, j) {
+                        if bare_usage_label_only {
+                            recovered_bare_root_stanza = true;
+                        }
                         let trimmed = lines[j].trim().to_string();
                         usage_lines.push(trimmed.clone());
                         usage_entries.push(trimmed);
@@ -595,6 +651,7 @@ fn scan_usage_section(
         next_index: i,
         positionals: extract_positionals(usage_lines, primary_lines),
         entries: usage_entries,
+        recovered_bare_root_stanza,
     }
 }
 
@@ -1668,6 +1725,27 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        // A command table sitting directly under the root's own labelled
+        // usage block, one line per command, rows never repeating the
+        // tool's own name (`dmsetup`'s second block). Gated on
+        // `recovered_bare_root_stanza`, not merely a labelled block, so an
+        // ordinary `Usage: prog [opts]` tool whose body starts at the same
+        // indent as a real table (`ar`'s modifier tables) is never
+        // mistaken for this shape — the position right after the tool's
+        // own *recovered root stanza* is the evidence, not "some usage
+        // block existed somewhere". Every emitted node is
+        // invocation_attested, never heading_attested: a usage block is
+        // not a heading. See docs/shapes.md S-169.
+        if scan.recovered_bare_root_stanza {
+            if let Some((end, nodes)) =
+                scan_headingless_usage_command_table(&lines, i, tool_name, raw)
+            {
+                i = end;
+                for node in nodes {
+                    result.try_push_subcommand(node);
+                }
+            }
+        }
         // A block right under the usage line naming each positional's own
         // description (`invoke-rc.d`'s `basename - Initscript ID...`).
         // Consumed only when every row matches a positional this usage

@@ -2817,3 +2817,98 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-169: a command table inside the usage block
+
+- id: S-169
+- looks like: |
+      Usage:
+
+      dmsetup
+              [--version] [-h|--help [-c|-C|--columns]]
+              [-v|--verbose [-v|--verbose ...]] [-f|--force]
+              ...
+
+      	help [-c|-C|--columns]
+      	create <dev_name>
+      	    [-j|--major <major> -m|--minor <minor>]
+      	    ...
+      	remove [--deferred] [-f|--force] [--retry] <device>...
+      	ls [--target <target_type>] [--exec <command>] [--tree]
+      	...
+- tools: dmsetup, dmstats; a fleet-wide raw-shape grep over
+  `audit/queue-captures` also named claude, cryptsetup,
+  dpkg-maintscript-helper, ethtool, fail2ban-client, ffplay, fwupdmgr,
+  fwupdtool, integritysetup, kernel-install, modprobe,
+  update-xmlcatalog, veritysetup (15 tools, a loose upper bound, not a
+  calibrated count)
+- handling: Fixed. A bare `Usage:` label (nothing else on its line)
+  followed by a blank line and the tool's own name alone on its line,
+  heading its root invocation form, is now recognized as continuing the
+  *same* labelled usage block (`scan_usage_section`'s own
+  `bare_usage_label_only` gate, reusing the unlabelled-synopsis
+  continuation machinery via the new
+  `looks_like_bare_name_then_usage_fragment` predicate — the existing
+  `looks_like_stanza_continuation_head` requires a *single* self-closed
+  docopt bracket row on the next line, which a line carrying several
+  bracket groups at once is not). Before this, the block ended at that
+  first blank line, and the root's own flags plus the whole command
+  table fell through to the generic body scanner, which read the
+  tab-indented command lines as fabricated group labels
+  (`Create <dev_name>`). Once the root stanza is recovered this way
+  (`UsageScan::recovered_bare_root_stanza`), the very next block is
+  tried against `scan_headingless_usage_command_table`
+  (`help_text/sections/usage_command_table.rs`): one row per command,
+  never repeating the tool's own name (S-016's own shape, a table whose
+  rows *do* repeat it, is distinct and takes priority), each row's own
+  flags/operands recovered from its own line and any deeper-indented
+  continuation via the existing `extract_usage_flags`/
+  `extract_positionals`. A repeated command word (`create <dev_name>` /
+  `create --concise ...`) folds into one node, its second invocation
+  form's flags merged in. Every emitted node is `invocation_attested:
+  true`, `heading_attested: false` — a usage block is not a heading, so
+  spec §6 rule 0's second gate keeps declining to probe these words,
+  proven by the corpus fixtures' snapshots carrying no
+  `heading_attested` field at all. Gated on `recovered_bare_root_stanza`
+  specifically, not merely "a labelled usage block existed somewhere":
+  an ordinary `Usage: prog [opts]` tool whose body happens to start at
+  the same indent as a real table (`ar`'s modifier tables) must never be
+  mistaken for this shape, caught by a regression this fix's own
+  break-it check reproduced and fixed before shipping.
+- fleet: `usage-command-table`
+  (`xtask/src/detector/usage_command_table.rs`), self-checks held both
+  directions (fires on the pre-fix shape, silent once every row is a
+  real subcommand); no seed-labelled tool carries this shape, so
+  `Detector::family` returns `None`. A calibrated fleet-wide count
+  needs a full-`PATH` sweep, not run as part of this fix.
+
+### S-170: a bracket group of flags is not a value
+
+- id: S-170
+- looks like: |
+      [-h|--help [-c|-C|--columns]]
+      [-v|--verbose [-v|--verbose ...]]
+- tools: dmsetup; a fleet-wide raw-shape grep over `audit/queue-captures`
+  named 186 tools, certainly over-matching (any bracketed alternation
+  glued to another bracket, most of them real values) — not a calibrated
+  count
+- handling: Fixed. `help_text::grammar::try_value`'s bracketed-value arm
+  now refuses to fold a `[VALUE]` group into a value at all when
+  `VALUE`'s own `|`-separated members are entirely option spellings
+  (`-c`, `-C`, `--columns`) or a bare ellipsis word — `try_value` returns
+  `None` for that case, so the flag carries no value and nothing is
+  invented in its place, exactly as an unrecognized value spec already
+  does elsewhere in this function. Requires a genuine `|` alternation:
+  a lone dash-led word inside one bracket with no alternation at all
+  (nvim's own `--remote[-subcommand]`) is a real, if oddly spelled,
+  value placeholder and must keep it — caught by this fix's own
+  regression run against the existing corpus before shipping (`nvim`
+  briefly lost `--remote`'s value during development) and now asserted
+  by `bracket_group_is_pure_flag_alternation`'s own `content.contains('|')`
+  gate. One shared engine, so every framework gets the fix at once (spec
+  §7 Tier B rule 1).
+- fleet: `nested-flag-group-as-value`
+  (`xtask/src/detector/nested_flag_group_as_value.rs`), self-checks held
+  both directions; no seed-labelled tool carries this shape, so
+  `Detector::family` returns `None`. A calibrated fleet-wide count needs
+  a full-`PATH` sweep, not run as part of this fix.

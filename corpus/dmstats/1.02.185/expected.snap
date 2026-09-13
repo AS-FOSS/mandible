@@ -1,0 +1,533 @@
+name: dmstats
+usage:
+- 'Usage:'
+- dmstats [-h|--help] [-v|--verbose [-v|--verbose ...]] [--areas <nr_areas>] [--areasize <size>] [--userdata <data>] [--clear] [--count <count>] [--interval <seconds>] [-o <fields>] [-O|--sort <sort_fields>] [--programid <id>] [--start <start>] [--length <length>] [--segments] [--units <units>]
+flags:
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -v
+  - --verbose
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --areas
+  value_name: <nr_areas>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --areasize
+  value_name: <size>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --userdata
+  value_name: <data>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --clear
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --count
+  value_name: <count>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --interval
+  value_name: <seconds>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -o
+  value_name: <fields>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -O
+  - --sort
+  value_name: <sort_fields>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --programid
+  value_name: <id>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --start
+  value_name: <start>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --length
+  value_name: <length>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --segments
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --units
+  value_name: <units>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: help
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: clear
+  flags:
+  - spellings:
+    - --allregions
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --regionid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --alldevices
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: create
+  flags:
+  - spellings:
+    - --length
+    value_name: <len>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --areas
+    value_name: <nr_areas>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --areasize
+    value_name: <size>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: <id>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --userdata
+    value_name: <data>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --bounds
+    value_name: histogram_boundaries
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --precise
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --segments
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --alldevices
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --filemap
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nogroup
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nomonitor
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --follow
+    value_name: mode
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: delete
+  flags:
+  - spellings:
+    - --allprograms
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allregions
+    - --regionid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --alldevices
+    value_name: <device>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: group
+  flags:
+  - spellings:
+    - --alias
+    value_name: NAME
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --regions
+    value_name: <regions>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allprograms
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --alldevices
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: list
+  flags:
+  - spellings:
+    - --allprograms
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allregions
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --regionid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: print
+  flags:
+  - spellings:
+    - --clear
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allprograms
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allregions
+    - --regionid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --alldevices
+    value_name: <device>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: report
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --interval
+    value_name: <seconds>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --count
+    value_name: <cnt>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --units
+    value_name: <u>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: <id>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --regionid
+    value_name: <id>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -o
+    value_name: <fields>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -O
+    - --sort
+    value_name: <sort_fields>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -S
+    - --select
+    value_name: <selection>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nameprefixes
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --noheadings
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --separator
+    value_name: <separator>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allprograms
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: ungroup
+  flags:
+  - spellings:
+    - --groupid
+    value_name: <id>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allprograms
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --programid
+    value_name: id
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --alldevices
+    value_name: <device>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: update_filemap
+  positionals:
+  - name: file_path
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --groupid
+    value_name: <id>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nomonitor
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --follow
+    value_name: mode
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: version
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true

@@ -1,0 +1,790 @@
+name: dmsetup
+usage:
+- 'Usage:'
+- dmsetup [--version] [-h|--help [-c|-C|--columns]] [-v|--verbose [-v|--verbose ...]] [-f|--force] [--checks] [--manglename {none|hex|auto}] [-r|--readonly] [--noopencount] [--noflush] [--nolockfs] [--inactive] [--udevcookie <cookie>] [--noudevrules] [--noudevsync] [--verifyudev] [-y|--yes] [--readahead {[+]<sectors>|auto|none}] [--retry] [-c|-C|--columns] [-o <fields>] [-O|--sort <sort_fields>] [-S|--select <selection>] [--nameprefixes] [--noheadings] [--separator <separator>]
+flags:
+- spellings:
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -v
+  - --verbose
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -f
+  - --force
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --checks
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --manglename
+  value_name: '{none|hex|auto}'
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -r
+  - --readonly
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --noopencount
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --noflush
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --nolockfs
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --inactive
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --udevcookie
+  value_name: <cookie>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --noudevrules
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --noudevsync
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --verifyudev
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -y
+  - --yes
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --readahead
+  value_name: '{[+]<sectors>|auto|none}'
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --retry
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --columns
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -o
+  value_name: <fields>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -O
+  - --sort
+  value_name: <sort_fields>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -S
+  - --select
+  value_name: <selection>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --nameprefixes
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --noheadings
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --separator
+  value_name: <separator>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.27
+children_filled: true
+subcommands:
+- name: help
+  flags:
+  - spellings:
+    - -c
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -C
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --columns
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: create
+  positionals:
+  - name: dev_name
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -j
+    - --major
+    value_name: <major>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -U
+    - --uid
+    value_name: <uid>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -G
+    - --gid
+    value_name: <gid>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -M
+    - --mode
+    value_name: <octal_mode>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -u
+    - --uuid
+    value_name: <uuid>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --addnodeonresume
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --addnodeoncreate
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --readahead
+    value_name: '{[+]<sectors>|auto|none}'
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -n
+    - --notable
+    - --table
+    value_name: '{<table>|<table_file>}'
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --concise
+    value_name: <concise_device_spec_list>
+    value_kind: Optional
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: remove
+  flags:
+  - spellings:
+    - --deferred
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -f
+    - --force
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --retry
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: remove_all
+  flags:
+  - spellings:
+    - -f
+    - --force
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: suspend
+  flags:
+  - spellings:
+    - --noflush
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nolockfs
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: resume
+  flags:
+  - spellings:
+    - --noflush
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nolockfs
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --addnodeonresume
+    - --addnodeoncreate
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --readahead
+    value_name: '{[+]<sectors>|auto|none}'
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: load
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: table
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: clear
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: reload
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: table
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: wipe_table
+  flags:
+  - spellings:
+    - -f
+    - --force
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --noflush
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --nolockfs
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: rename
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --setuuid
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: measure
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: message
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: sector
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: message
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: ls
+  flags:
+  - spellings:
+    - --target
+    value_name: <target_type>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --exec
+    value_name: <command>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -o
+    value_name: <options>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --tree
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: info
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: deps
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -o
+    value_name: <options>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: stats
+  positionals:
+  - name: command
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: status
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --noflush
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --target
+    value_name: <target_type>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: table
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --concise
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --target
+    value_name: <target_type>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --showkeys
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: wait
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: event_nr
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --noflush
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: mknodes
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: mangle
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: udevcreatecookie
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: udevreleasecookie
+  positionals:
+  - name: cookie
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: udevflags
+  positionals:
+  - name: cookie
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: udevcomplete
+  positionals:
+  - name: cookie
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: udevcomplete_all
+  positionals:
+  - name: age_in_minutes
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: udevcookies
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: target-version
+  positionals:
+  - name: target
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: targets
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: version
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: setgeometry
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: cyl
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: head
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: sect
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: start
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: splitname
+  positionals:
+  - name: device
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: subsystem
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true

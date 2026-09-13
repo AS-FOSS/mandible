@@ -102,6 +102,11 @@ pub(crate) mod lowdown_bullet_option_row;
 // parser change ships for it.
 pub(crate) mod option_table_multiword_value_name;
 
+// Round-11 family detectors (queue item 2: a command table inside the
+// usage block, atlas S-169 and S-170), same direct-`Detector`-impl shape.
+pub(crate) mod nested_flag_group_as_value;
+pub(crate) mod usage_command_table;
+
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
 pub(crate) use detectors_families::*;
@@ -748,6 +753,8 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
+        Box::new(usage_command_table::UsageCommandTable),
+        Box::new(nested_flag_group_as_value::NestedFlagGroupAsValue),
     ]
 }
 
