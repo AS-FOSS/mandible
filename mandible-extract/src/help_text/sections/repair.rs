@@ -336,6 +336,136 @@ pub(super) fn repair_single_dash_long_options(
     }
 }
 
+/// A table-sourced single-dash-long flag S-145 declines (too few
+/// unambiguous rows to qualify — every long alias here is comma-glued to
+/// its short letter, `fuser`'s own `-a,--all`) is admitted on a third,
+/// independent evidence source: the tool's own usage line, a document
+/// location distinct from the table row itself, spells the exact
+/// reconstructed name as one stand-alone bracketed token (`[-SIGNAL]`) —
+/// direct proof, never a change to S-145. Never applied to a flag the
+/// usage line itself produced (that would be self-attestation, no new
+/// evidence at all — see `parse_bundled_shorts`'s own `-adhilswfr`).
+/// Refused when the case changes at the split point (`memhog`'s
+/// `[-rNUM]`): a glued value spec, never a longer name. Atlas S-172,
+/// which carries the discriminator. Fixtures: `corpus/fuser/*`.
+pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage_lines: &[String]) {
+    for flag in flags.iter_mut() {
+        if !flag.provenance.sources.contains(&Source::HelpText)
+            || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
+        {
+            continue;
+        }
+        let Some(short) = flag.short() else { continue };
+        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
+            continue;
+        }
+        let Some(tail) = flag.value_name.as_deref() else {
+            continue;
+        };
+        if !is_option_name_tail(tail) || tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
+            continue;
+        }
+        // A lowercase flag letter running straight into an uppercase
+        // tail is a glued value spec, not a longer name (`memhog`'s
+        // `-rNUM`); see this function's own doc comment.
+        if short.is_ascii_lowercase() && tail.starts_with(|c: char| c.is_ascii_uppercase()) {
+            continue;
+        }
+        let name = format!("{short}{tail}");
+        let needle = format!("-{name}");
+        let attested = usage_lines
+            .iter()
+            .any(|line| usage_line_has_standalone_token(line, &needle));
+        if !attested {
+            continue;
+        }
+        flag.spellings = vec![Spelling::single_dash(&name)];
+        flag.value_name = None;
+        flag.value_kind = ValueKind::None;
+    }
+}
+
+/// A dash-prefixed usage-line word that normally reads as the generic
+/// "any option" placeholder, or a swallowed-value split (`lshw`'s
+/// `-format`), is the tool's own literal flag when the document also
+/// carries a line reading exactly `<word> can be` — `lshw`'s own `format
+/// can be`/`options can be` (atlas S-172). Repairs the matching broken
+/// entry if one exists, else adds a plain, valueless spelling; the block
+/// underneath stays its own flags either way, never folded into `choices`
+/// here. See `docs/shapes.md` S-172.
+pub(super) fn recover_can_be_placeholder_flags(
+    usage_lines: &[String],
+    lines: &[&str],
+    flags: &mut Vec<Entity>,
+) {
+    for line in lines {
+        let trimmed = line.trim();
+        let Some(word) = trimmed.strip_suffix("can be").map(str::trim) else {
+            continue;
+        };
+        if word.is_empty() || !word.chars().all(|c| c.is_ascii_alphanumeric()) {
+            continue;
+        }
+        let name = word.to_ascii_lowercase();
+        let dash_word = format!("-{name}");
+        let attested = usage_lines
+            .iter()
+            .any(|u| usage_line_has_standalone_token(u, &dash_word));
+        if !attested {
+            continue;
+        }
+        if flags.iter().any(|f| {
+            f.spellings
+                .iter()
+                .any(|s| s.dashes == Dashes::Single && s.name == name)
+        }) {
+            continue; // already a clean spelling; nothing to do
+        }
+        let broken = flags.iter_mut().find(|f| {
+            f.long().is_none()
+                && f.value_kind == ValueKind::Required
+                && f.short()
+                    .zip(f.value_name.as_deref())
+                    .is_some_and(|(short, tail)| format!("{short}{tail}") == name)
+        });
+        match broken {
+            Some(flag) => {
+                flag.spellings = vec![Spelling::single_dash(&name)];
+                flag.value_name = None;
+                flag.value_kind = ValueKind::None;
+            }
+            None => {
+                let mut flag = Entity::new(
+                    EntityKind::Flag,
+                    Provenance::single(Source::HelpTextSynopsis),
+                );
+                flag.spellings = vec![Spelling::single_dash(&name)];
+                flags.push(flag);
+            }
+        }
+    }
+}
+
+/// True when `needle` occurs in `line` bounded on both sides by a
+/// bracket, whitespace, or the line's own edge — never glued to another
+/// character, which would mean it is only part of a longer token. See
+/// [`recover_can_be_placeholder_flags`].
+fn usage_line_has_standalone_token(line: &str, needle: &str) -> bool {
+    let is_boundary = |c: char| c.is_whitespace() || c == '[' || c == ']';
+    let mut start = 0usize;
+    while let Some(rel) = line[start..].find(needle) {
+        let idx = start + rel;
+        let before_ok = line[..idx].chars().next_back().is_none_or(is_boundary);
+        let after_idx = idx + needle.len();
+        let after_ok = line[after_idx..].chars().next().is_none_or(is_boundary);
+        if before_ok && after_ok {
+            return true;
+        }
+        start = idx + 1;
+    }
+    false
+}
+
 /// Fewest table-shaped single-dash rows a document must carry before
 /// [`single_dash_long_table`] trusts it. Two, not one: a single such row
 /// carries no evidence that the *document's own convention* is
@@ -686,6 +816,44 @@ mod tests {
         // declared a boolean, confirming that condition does the work.
         let parsed = parse("  -n         never overwrite\n  -nn        never ever overwrite\n");
         assert!(flag_named(&parsed, "nn").single_dash());
+    }
+
+    /// `memhog`'s own text: its usage line brackets `[-rNUM]` exactly
+    /// the way `fuser`'s brackets `[-SIGNAL]`, but `-r` valued `NUM` is
+    /// the correct parse and the usage-attested repair must leave it
+    /// alone. The case change at the split point is the whole
+    /// discriminator. See docs/shapes.md S-172.
+    ///
+    /// One deviation from the raw bytes, deliberate: memhog's first line
+    /// opens on its own program name with no `usage:` label, which the
+    /// real pipeline recognizes because it knows the program it ran and
+    /// this bare [`parse`] does not. The label is added so the standalone
+    /// parse reaches the same rule; every other byte is memhog's own.
+    #[test]
+    fn memhogs_glued_uppercase_placeholder_is_never_usage_attested() {
+        let raw = concat!(
+            "usage: memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]\n",
+            "-f mmap is backed by FILE\n",
+            "-rNUM repeat memset NUM times\n",
+            "-H disable transparent hugepages\n",
+        );
+        let parsed = parse(raw);
+        let r = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('r'))
+            .expect("-r must survive as its own short flag");
+        assert_eq!(r.value_name.as_deref(), Some("NUM"));
+        assert_eq!(r.value_kind, ValueKind::Required);
+        assert!(
+            !parsed.flags.iter().any(|f| f.spelling() == "-rNUM"),
+            "-rNUM is a glued value spec, never a spelling: {:?}",
+            parsed
+                .flags
+                .iter()
+                .map(|f| f.spelling())
+                .collect::<Vec<_>>()
+        );
     }
 
     /// A spaced value is indistinguishable from a glued one once stored;

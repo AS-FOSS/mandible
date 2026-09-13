@@ -2817,3 +2817,53 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
+
+### S-172: a usage-line single-dash-long token split after one letter
+
+- id: S-172
+- looks like: |
+      usage: /usr/bin/lshw [-format] [-options ...]
+      Usage: fuser ... [-k [-i] [-SIGNAL]] NAME...
+- tools: lshw, fuser
+- handling: A single-dash-long spelling that stands alone as its own bracketed
+  token in a usage line — never joined to a separate value by a space, an
+  `=`, or a bracket of its own — reached the tree split into a short flag
+  plus a swallowed value (`-format` to `-f` valued `"ormat"`, `-SIGNAL` to
+  `-S` valued `"IGNAL"`). Two sites, one shape: a usage-derived flag's own
+  swallowed tail is repaired when uniformly lowercase and the reconstructed
+  name matches a `<word> can be` heading the same document carries
+  (`recover_can_be_placeholder_flags`, also recovering `-options`, dropped
+  entirely as the generic option-list placeholder before this); a
+  table-derived flag's swallowed tail is repaired when the tool's own
+  usage line independently spells the same name as one stand-alone
+  bracketed token (`repair_usage_attested_single_dash_long`) — direct proof
+  from a document location distinct from the row itself, never a loosening
+  of S-145's own table-wide gate, which stays closed for both tools (no
+  unambiguous single-dash-only row establishes either document as that
+  convention). Never claims a bundle of already-known short flags
+  (`rpcbind`'s own `-adhilswfr`, left to the bundling family).
+
+  Refused when the case changes at the split point — a lowercase flag
+  letter running straight into an uppercase tail — because that is the
+  GCC/Clang glued-value convention, not a longer name. `memhog`'s usage
+  line brackets `[-rNUM]` exactly the way `fuser`'s brackets `[-SIGNAL]`,
+  and `-r` valued `NUM` is the correct parse, so without this guard the
+  repair destroyed a real value name. `fuser`'s `-SIGNAL` is uppercase
+  throughout and so has no such transition; `lshw`'s `-format` is
+  lowercase throughout. Found by the full-`PATH` sweep and by nothing
+  else: memhog's flag count is 3 either way, so the change lands in the
+  sweep-diff's field-level list and never on the loss bar, and neither
+  fixture tool carries the shape. Fenced by
+  `memhogs_glued_uppercase_placeholder_is_never_usage_attested`
+  (`sections/repair.rs`), memhog having no fixture of its own; that
+  test's doc comment states the one label it adds to memhog's text and
+  why a bare `parse` needs it.
+- fleet: `usage-attested-single-dash-long`
+  (`xtask/src/detector/usage_attested_single_dash_long.rs`) measures against
+  the parse (a swallowed-value split whose name a usage line independently
+  attests), not the raw text alone. Both fixture tools, lshw and fuser, are
+  seed-7 maintainer-audited (`audit/7.toml`'s own `k1 = true` rows); no
+  broader full-`PATH` sweep was drawn this round, so the honest count is 2,
+  below the five-tool bar. Shipped as a gated exception (docs/design.md
+  §16): both fixtures promote out of a prior unfixed state, `cargo xtask
+  corpus` is zero-loss, and every self-check holds, both directions.
