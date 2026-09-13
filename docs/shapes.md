@@ -3926,9 +3926,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   test (`grammar.rs`'s
   `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
 
-### S-175: a table row with no placeholder takes its description's first word as a value
+### S-176: a table row with no placeholder takes its description's first word as a value
 
-- id: S-175
+- id: S-176
 - looks like: |
       -f mmap is backed by FILE
       -H disable transparent hugepages
@@ -3967,9 +3967,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   §16) alongside `corpus/memhog/2.0.18`, promoted out of `[xfail]`,
   maintainer-audited ("yeah this one needs full revision").
 
-### S-176: a usage synopsis's lowercase operand tail, unlabelled and nested
+### S-177: a usage synopsis's lowercase operand tail, unlabelled and nested
 
-- id: S-176
+- id: S-177
 - looks like: |
       memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]
 - tools: memhog

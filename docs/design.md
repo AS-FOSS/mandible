@@ -2987,10 +2987,10 @@ against the real installed binaries: `existence_fabrication_tools` reads
 Maintainer, after looking at mandible's screen for the tool: "yeah this one
 needs full revision". `memhog --help` has no blank line anywhere and no
 `usage:` label; every one of its five raw lines was wrong or lost before
-this round (docs/shapes.md S-165, S-175, S-176). Tree-level, each shape
+this round (docs/shapes.md S-165, S-176, S-177). Tree-level, each shape
 reads one tool, `memhog` itself; a raw-text grep over
-`audit/queue-captures/*/0.std*` reads 62 tools for S-175's own row shape
-and 48 for S-176's, both explicitly upper bounds on the raw text rather
+`audit/queue-captures/*/0.std*` reads 62 tools for S-176's own row shape
+and 48 for S-177's, both explicitly upper bounds on the raw text rather
 than a tree-level count, since most of those rows carry a `--long` row or
 a labelled multi-line synopsis that keeps the narrower gate closed. Ships
 anyway: `corpus/memhog/2.0.18` promotes out of `[xfail]`, every contract

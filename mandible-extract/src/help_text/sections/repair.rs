@@ -403,7 +403,7 @@ pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage
 /// value off the row's remainder. Scoped, like S-157, to a document with
 /// no `--long` row ([`document_has_no_long_row`]); the floor is a flag
 /// count ([`MIN_TABLE_ROWS`]), not [`single_dash_long_table`]'s
-/// multi-character name. See docs/shapes.md S-175.
+/// multi-character name. See docs/shapes.md S-176.
 pub(super) fn recover_bare_word_first_description_word(
     flags: &mut [Entity],
     usage_lines: &[String],
@@ -515,7 +515,7 @@ pub(super) fn recover_bare_word_first_description_word(
 /// when this line attests nothing about the letter at all. Boundary rule
 /// mirrors [`usage_line_has_standalone_token`]: whitespace or a bracket on
 /// both sides, so a longer spelling sharing the same prefix is never
-/// mistaken for this one. See docs/shapes.md S-175.
+/// mistaken for this one. See docs/shapes.md S-176.
 fn usage_line_glued_short_value(line: &str, short: char) -> Option<Option<String>> {
     let needle = format!("-{short}");
     let is_boundary = |c: char| c.is_whitespace() || c == '[' || c == ']';

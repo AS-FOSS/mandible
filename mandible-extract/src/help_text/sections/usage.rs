@@ -247,7 +247,7 @@ pub(super) fn extract_positionals(
 /// itself never sees anywhere else — a single-physical-line unlabelled
 /// synopsis (`memhog`). Kept as its own parameter, never inferred from
 /// `primary_lines` alone, so [`recover_lowercase_tail_positionals`] stays
-/// scoped to exactly the case measured (docs/shapes.md S-176) and is
+/// scoped to exactly the case measured (docs/shapes.md S-177) and is
 /// never reached for an ordinary labelled tool's own single-line form,
 /// whatever convention that tool happens to use for its own operand
 /// names.

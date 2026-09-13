@@ -2,7 +2,7 @@
 # build); its `--help` exits 1 with everything on stdout, no blank line
 # anywhere and no `usage:` label. Maintainer-audited: "yeah this one needs
 # full revision". Fixed; see docs/shapes.md S-165 (the root-description
-# swallow), S-175 (the fabricated placeholder), S-176 (the positional
+# swallow), S-176 (the fabricated placeholder), S-177 (the positional
 # recovery), and S-172 for the already-shipped `-rNUM` guard this fixture
 # also exercises.
 

@@ -901,7 +901,7 @@ fn scan_usage_section(
 /// single-physical-line unlabelled synopsis (`memhog`) names its primary
 /// form unambiguously, and the existence oracle already attests such a
 /// line (S-001's own recognizer), so an operand recovered from it is not
-/// reported as invented. See docs/shapes.md S-176.
+/// reported as invented. See docs/shapes.md S-177.
 fn finish_positional_recovery(
     usage_lines: &[String],
     labelled_usage_start: Option<usize>,
@@ -2179,7 +2179,7 @@ fn parse_body(
         // (S-168's own general case was declined as materially larger
         // and riskier): recovers the choices this line would otherwise
         // lose once it stops being swallowed whole into the root
-        // description (AGENTS.md §3.9). See docs/shapes.md S-176.
+        // description (AGENTS.md §3.9). See docs/shapes.md S-177.
         attach_policies_line_choices(&lines, &mut result.positionals);
     }
 
@@ -2237,7 +2237,7 @@ fn parse_body(
     // before the usage-flag merge below, from the usage line's own glued
     // spelling, so the merge's "let the described version win" rule sees
     // an already-correct, already-described row rather than needing its
-    // own exception. See docs/shapes.md S-175.
+    // own exception. See docs/shapes.md S-176.
     recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
@@ -2369,7 +2369,7 @@ mod tests {
     /// already-correct `NUM` (S-172) now described too. `Policies:` is
     /// not flag-shaped, so it still reaches the root description as well
     /// as `policy`'s own `choices` — harmless, never a genuine loss. See
-    /// docs/shapes.md S-165, S-175, S-176, and corpus/memhog/2.0.18.
+    /// docs/shapes.md S-165, S-176, S-177, and corpus/memhog/2.0.18.
     #[test]
     fn memhog_flags_positionals_and_root_description_all_land_correctly() {
         let raw = concat!(

@@ -563,7 +563,7 @@ pub(super) fn recover_primary_tail_operands(
 /// depth-aware; [`recover_trailing_multiword_operand`] needs a sibling
 /// flag group in the identical shape. Scoped, like both, to the ALL-CAPS
 /// loop above finding nothing, and further to a single-physical-line
-/// *unlabelled* form only. See docs/shapes.md S-176.
+/// *unlabelled* form only. See docs/shapes.md S-177.
 pub(super) fn recover_lowercase_tail_positionals(
     usage_lines: &[String],
     primary_lines: &std::collections::HashSet<usize>,
@@ -637,7 +637,7 @@ pub(super) fn recover_lowercase_tail_positionals(
 /// generalized colon-introduced-list recognizer (S-168's own general case
 /// was declined as materially larger and riskier than this item's scope)
 /// — so it can only ever help this one document. Never overwrites choices
-/// a positional already carries. See docs/shapes.md S-176.
+/// a positional already carries. See docs/shapes.md S-177.
 pub(super) fn attach_policies_line_choices(lines: &[&str], positionals: &mut [Entity]) {
     let Some(policy) = positionals
         .iter_mut()
@@ -665,7 +665,7 @@ pub(super) fn attach_policies_line_choices(lines: &[&str], positionals: &mut [En
 /// B rule 17 requires for `[A [B]]`. `None` unless the group's own
 /// brackets balance and every word is lowercase-word-shaped; a malformed
 /// or non-lowercase group is left alone rather than guessed at. See
-/// docs/shapes.md S-176.
+/// docs/shapes.md S-177.
 fn parse_nested_optional_words(group: &str) -> Option<Vec<String>> {
     let mut words = Vec::new();
     let mut cur = String::new();

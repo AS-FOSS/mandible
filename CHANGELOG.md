@@ -10,7 +10,7 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
-- [S-175] `mandible memhog` now shows each flag's real value and description instead of a fabricated placeholder, and its `size`/`policy`/`nodeset` positionals (S-176) instead of a swallowed root description.
+- [S-176] `mandible memhog` now shows each flag's real value and description instead of a fabricated placeholder, and its `size`/`policy`/`nodeset` positionals (S-177) instead of a swallowed root description.
 
 ## [0.8.0] - 2026-09-14
 
