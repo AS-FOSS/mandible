@@ -2908,18 +2908,53 @@ entry's `tools` field and nothing else. It does not get a new entry.
         gdk-pixbuf-thumbnailer [OPTION…] [INPUT FILE] [OUTPUT FILE] Thumbnail images
        /usr/bin/ranlib [options] archive
         Generate an index to speed access to archives
-- tools: fdisk, gcc-ranlib-13, gdk-pixbuf-thumbnailer
-- handling: Open. The prose belongs to the form, not to the invocation, and
-  it renders glued onto the end of the usage line: `mandible fdisk` shows
-  `fdisk [options] <disk> change partition table`. Nothing is lost, so this
-  is a presentation defect rather than an AGENTS.md §3.9 one, which is why it
-  was left when the round ran out of worker time. The cut is ambiguous in
-  both directions — a column gap separates the two on `fdisk`, a single space
-  on `gdk-pixbuf-thumbnailer`, and a whole following line on `gcc-ranlib-13`
-  — so a rule needs all three cases at once or it will eat an operand.
-- fleet: not measured. No detector was built for this shape this round, so
-  there is no number to quote and the three tools above are the whole
-  evidence.
+- tools: fdisk, gcc-ranlib-13, gdk-pixbuf-thumbnailer, nvim, vim.basic
+- handling: Open, measured this round. `grub-macbless` was checked and is
+  NOT a member: its own description sits on its own physical line and
+  already renders as its own `DESCRIPTION` section, correctly. The prose
+  belongs to the form, not to the invocation, and it renders glued onto the
+  end of the usage line: `mandible fdisk` shows `fdisk [options] <disk>
+  change partition table`. Nothing is lost, so this is a presentation defect
+  rather than an AGENTS.md §3.9 one. The cut is ambiguous in three different
+  ways at once — a column gap separates the two on `fdisk` and `nvim`, a
+  single space on `gdk-pixbuf-thumbnailer`, and a whole following physical
+  line that still folds in on `gcc-ranlib-13` — so a rule needs all three
+  cases at once or it will eat an operand.
+  PROPOSAL: split the usage form at the point its own trailing run of
+  groups reads as plain prose (no flag, no bracket/angle group, no
+  ALL-CAPS word) rather than synopsis grammar, mirroring
+  `is_prose_sentence`'s own word-count floor; keep the split half as the
+  form's own trailing description rather than discarding it, so nothing
+  currently rendered is lost, only relocated. COST: touches the same usage-
+  form rendering path several other shipped shapes already narrow
+  (S-108/S-151's foreign-program-word substitution, S-150's bare-label
+  fold), so a regression here risks re-breaking several already-fixed
+  tools at once — this needs the widest zero-loss sweep-diff of any item
+  this round, not the narrowest. RISK: the column-gap cut (`fdisk`, `nvim`)
+  and the single-space cut (`gdk-pixbuf-thumbnailer`) need different
+  thresholds to both fire without one eating a real two-word operand name
+  (S-132/S-154's own shape) or a docopt alternation tail.
+- fleet: `usage-form-trailing-description`
+  (`xtask/src/detector/usage_form_trailing_description.rs`) reads 4
+  tools/6 findings on the 162-fixture `corpus/` tree (not a full-`PATH`
+  sweep — the orchestrator owns that lock), 2026-09-13: `fdisk`,
+  `gcc-ranlib-13`, `nvim`, `vim.basic`. This crosses the five-tool floor
+  once `gdk-pixbuf-thumbnailer` (confirmed by hand, not in `corpus/`) is
+  added, but the detector itself does not yet count it: its own
+  description is two words (`Thumbnail images`), below this detector's
+  three-word floor, and both `gdk-pixbuf-thumbnailer`'s and
+  `gcc-ranlib-13`'s descriptions open on a capitalized word, which the
+  detector's plain-prose-word test (lowercase-led, matching
+  `multiword.rs`'s own `plain_word`) refuses — `gcc-ranlib-13` still fires
+  because six of its own seven words are lowercase, but the true fleet is
+  larger than this detector honestly counts. No fix ships this round: the
+  measured count alone does not clear the bar with confidence, and the
+  zero-loss sweep-diff the gate also requires needs the orchestrator's
+  sweep lock. `corpus/fdisk/2.39.3` and `corpus/gcc-ranlib-13/2.42`
+  (existing, passing fixtures) each gained a one-line note pointing at
+  this entry rather than a new `[xfail]` fixture, since both already pass
+  their own contracts and demoting a passing fixture to note a
+  presentation-only gap would be the wrong direction.
 
 ### S-153: a usage line's tail operands never reach the tree
 

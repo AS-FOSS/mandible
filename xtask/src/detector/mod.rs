@@ -106,6 +106,7 @@ pub(crate) mod option_table_multiword_value_name;
 // impl shape as the round-8/round-9 modules above.
 pub(crate) mod bare_usage_label_form;
 pub(crate) mod usage_foreign_program_word;
+pub(crate) mod usage_form_trailing_description;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -755,6 +756,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
         Box::new(bare_usage_label_form::BareUsageLabelForm),
         Box::new(usage_foreign_program_word::UsageForeignProgramWord),
+        Box::new(usage_form_trailing_description::UsageFormTrailingDescription),
     ]
 }
 

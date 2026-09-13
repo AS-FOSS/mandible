@@ -19,4 +19,4 @@ must_contain_positionals = ["archive"]
 
 [xfail]
 broken = true
-reason = "[S-152] the usage form's own trailing prose (no terminating period) folds into the usage text with no field to hold it separately; open, xfail with count in the note."
+reason = "[S-152] the usage form's own trailing prose (no terminating period) folds into the usage text with no field to hold it separately; open, xfail with count in the note. Measured 2026-09-13: usage-form-trailing-description reads 4 tools/6 findings on the corpus/ tree (fdisk, gcc-ranlib-13, nvim, vim.basic), below the five-tool floor with confidence, so no fix ships yet."
