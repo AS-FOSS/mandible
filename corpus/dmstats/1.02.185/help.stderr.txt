@@ -1,0 +1,47 @@
+Usage:
+
+dmstats
+        [-h|--help]
+        [-v|--verbose [-v|--verbose ...]]
+        [--areas <nr_areas>] [--areasize <size>]
+        [--userdata <data>] [--clear]
+        [--count <count>] [--interval <seconds>]
+        [-o <fields>] [-O|--sort <sort_fields>]
+	      [--programid <id>]
+        [--start <start>] [--length <length>]
+        [--segments] [--units <units>]
+
+	help 
+	clear [--allregions|--regionid id] [--alldevices|<device>...] 
+	create [--start <start> [--length <len>]
+	    [--areas <nr_areas>] [--areasize <size>] 
+	    [--programid <id>] [--userdata <data> ] 
+	    [--bounds histogram_boundaries] [--precise] 
+	    [--segments] [--alldevices|<device>...] 
+	create --filemap [--nogroup] [--nomonitor] [--follow mode]
+	    [--programid <id>] [--userdata <data> ] 
+	    [--bounds histogram_boundaries] [--precise] <file_path>
+	delete [--allprograms|--programid id] 
+	    [--allregions|--regionid id] 
+	    [--alldevices|<device>...] 
+	group [--alias NAME] --regions <regions>
+	    [--allprograms|--programid id] [--alldevices|<device>...] 
+	list [--allprograms|--programid id] [--allregions|--regionid id] 
+	print [--clear] [--allprograms|--programid id] 
+	    [--allregions|--regionid id] 
+	    [--alldevices|<device>...] 
+	report [--interval <seconds>] [--count <cnt>]
+	    [--units <u>] [--programid <id>] [--regionid <id>] 
+	    [-o <fields>] [-O|--sort <sort_fields>]
+	    [-S|--select <selection>] [--nameprefixes]
+	    [--noheadings] [--separator <separator>]
+	    [--allprograms|--programid id] [<device>...]
+	ungroup --groupid <id> [--allprograms|--programid id] 
+	    [--alldevices|<device>...] 
+	update_filemap --groupid <id> 
+	    [--nomonitor] [--follow mode] <file_path>
+	version 
+
+<device> may be device name or (if only one) -u <uuid> or -j <major> -m <minor>
+<fields> are comma-separated.  Use 'help -c' for list.
+

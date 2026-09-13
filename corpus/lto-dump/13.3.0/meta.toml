@@ -25,3 +25,8 @@ stdout = "help.txt"
 
 [contract]
 must_keep_separate = [["-C", "-CC"]]
+# The root description ("The following options are specific to just the
+# language Ada:") no longer doubles as `-fdump-scos`'s own group
+# (docs/shapes.md S-164).
+[contract.must_flag_group]
+"-fdump-scos" = ""

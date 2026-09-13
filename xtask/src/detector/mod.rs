@@ -49,17 +49,22 @@ pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
 pub(crate) mod description_continuation_dash_flag;
+pub(crate) mod description_reused_as_group_label;
 pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
 pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
+pub(crate) mod headingless_table_in_root_description;
+pub(crate) mod leading_diagnostic_line;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
 pub(crate) mod numbered_variadic_usage_tail;
 pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
+pub(crate) mod plus_minus_alternation_option;
+pub(crate) mod plus_word_option;
 pub(crate) mod positional_description_block;
 pub(crate) mod single_dash_long_table;
 pub(crate) mod spaced_single_dash_long;
@@ -102,6 +107,31 @@ pub(crate) mod lowdown_bullet_option_row;
 // parser change ships for it.
 pub(crate) mod option_table_multiword_value_name;
 
+// Round-10 family detectors (atlas S-150, S-151), same direct-`Detector`-
+// impl shape as the round-8/round-9 modules above.
+pub(crate) mod bare_usage_label_form;
+pub(crate) mod usage_foreign_program_word;
+pub(crate) mod usage_form_trailing_description;
+// Round-10 family detectors (atlas S-155 and S-156).
+pub(crate) mod alternation_value_is_choices;
+pub(crate) mod description_tail_enumerates_choices;
+// Round-10 family detectors (issue-fed round, atlas S-157 to S-161), same
+// direct-`Detector`-impl shape.
+pub(crate) mod comma_swallowed_alias;
+pub(crate) mod glued_bracket_angle_run;
+pub(crate) mod slash_joined_alias_outside_bullet;
+pub(crate) mod spaced_bare_word_table_value;
+// Round-10 family detector (atlas S-166, W6's header-declared
+// three-column option table), same direct-`Detector`-impl shape.
+pub(crate) mod header_declared_env_column;
+// Round-11 family detector (atlas S-168, Xvfb's colon-introduced choice
+// list under a `+word`/`-word` placeholder pair), same direct-`Detector`-
+// impl shape.
+pub(crate) mod choice_list_under_placeholder;
+// Round-11 family detectors (queue item 2: a command table inside the
+// usage block, atlas S-169 and S-170), same direct-`Detector`-impl shape.
+pub(crate) mod nested_flag_group_as_value;
+pub(crate) mod usage_command_table;
 // Round-11 family detector (atlas S-172: a usage-line single-dash-long
 // token split into a short flag plus a swallowed value), same detect()/
 // Report + wrapper shape as `single_dash_long_table` above.
@@ -753,6 +783,25 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(crate::centered_label_baseline::LabelPrecedesShallowerLine),
         Box::new(crate::centered_label_baseline::MissingRowAfterLabel),
         Box::new(option_table_multiword_value_name::OptionTableMultiwordValueName),
+        Box::new(bare_usage_label_form::BareUsageLabelForm),
+        Box::new(usage_foreign_program_word::UsageForeignProgramWord),
+        Box::new(usage_form_trailing_description::UsageFormTrailingDescription),
+        Box::new(alternation_value_is_choices::AlternationValueIsChoices),
+        Box::new(description_tail_enumerates_choices::DescriptionTailEnumeratesChoices),
+        Box::new(spaced_bare_word_table_value::SpacedBareWordTableValue),
+        Box::new(glued_bracket_angle_run::GluedBracketAngleRun),
+        Box::new(slash_joined_alias_outside_bullet::SlashJoinedAliasOutsideBullet),
+        Box::new(comma_swallowed_alias::CommaSwallowedAlias),
+        Box::new(leading_diagnostic_line::LeadingDiagnosticLine),
+        Box::new(plus_word_option::PlusWordOption),
+        Box::new(plus_minus_alternation_option::PlusMinusAlternationOption),
+        Box::new(description_reused_as_group_label::DescriptionReusedAsGroupLabel),
+        Box::new(headingless_table_in_root_description::HeadinglessTableInRootDescription),
+        Box::new(header_declared_env_column::HeaderDeclaredEnvColumn),
+        Box::new(choice_list_under_placeholder::ChoiceListUnderPlaceholder),
+        Box::new(UsageOptionalWordTable),
+        Box::new(usage_command_table::UsageCommandTable),
+        Box::new(nested_flag_group_as_value::NestedFlagGroupAsValue),
         Box::new(UsageAttestedSingleDashLong),
     ]
 }

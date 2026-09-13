@@ -408,6 +408,10 @@ pub(super) enum FlagsBlockRow<'a> {
     /// A `+`/`+<placeholder>` row admitted only by
     /// [`has_flag_shaped_plus_neighbor`] — see docs/shapes.md S-095.
     PlusSigil(&'a str),
+    /// A `+/-word`/`-/+word`/`[+-]word`/`[-+]word` alternation-sigil row
+    /// (`plus_minus_alternation_word`), expanded to two entities later.
+    /// See docs/shapes.md S-163.
+    AlternationSigil(&'a str),
     /// A continuation of the previous entry's description (`trim_end`ed
     /// text only — the row's own indentation has already done its job).
     Continuation(&'a str),
@@ -426,15 +430,26 @@ pub(super) enum FlagsBlockRow<'a> {
 // do not share code).
 
 /// True when `token` is a `+`-prefixed option spelling this family
-/// claims: bare `+`, or `+` followed by a bracketed placeholder
-/// (`+<lnum>`, `+<cmd>`) — never `++` or a token with a real letter
-/// straight after the sigil (`+d`, which [`is_flag_shaped`] already
-/// reads). See docs/shapes.md S-095.
+/// claims: bare `+`, `+` followed by a bracketed placeholder (`+<lnum>`,
+/// `+<cmd>`), or `+word` — a whole run of letters/digits/`-` opening with
+/// a letter (`+bs`, `+byteswappedclients`, `+i`) — never `++` and never a
+/// token whose run is punctuation-only. `looks_like_flag_start` never
+/// reads a `+`-led line as an ordinary entry on its own (no signal tells
+/// it apart from prose that merely starts with `+`), so this is the only
+/// gate a `+word` row ever passes through. See docs/shapes.md S-095,
+/// S-163.
 pub(super) fn is_claimed_plus_token(token: &str) -> bool {
     let Some(rest) = token.strip_prefix('+') else {
         return false;
     };
-    rest.is_empty() || rest.starts_with('<')
+    if rest.is_empty() || rest.starts_with('<') {
+        return true;
+    }
+    let mut chars = rest.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() => chars.all(|c| c.is_ascii_alphanumeric() || c == '-'),
+        _ => false,
+    }
 }
 
 /// True when `line`'s own leading token is flag-shaped evidence for the
@@ -442,8 +457,13 @@ pub(super) fn is_claimed_plus_token(token: &str) -> bool {
 /// this same family's own claimed `+`-token shape. See docs/shapes.md
 /// S-095.
 fn plus_neighbor_row_is_flag_shaped(line: &str) -> bool {
+    // No indentation requirement: a headingless table (S-165) sits flush
+    // at column 0 throughout, so a real neighbor row there carries no
+    // leading whitespace either. The row's own shape — a `-`-led token,
+    // `--`, or this family's own claimed `+`-token — is evidence enough
+    // on its own regardless of indent.
     let trimmed = line.trim_start();
-    if trimmed.is_empty() || trimmed == line {
+    if trimmed.is_empty() {
         return false;
     }
     let Some(token) = trimmed.split_whitespace().next() else {
@@ -491,23 +511,115 @@ pub(super) fn parse_plus_sigil_spec(spec_text: &str) -> FlagSpec {
     let Some(rest) = trimmed.strip_prefix('+') else {
         return FlagSpec::default();
     };
-    if !(rest.is_empty() || rest.starts_with('<')) {
-        return FlagSpec::default();
-    }
-    let mut spec = FlagSpec {
-        spellings: vec![Spelling::bare("+")],
-        ..FlagSpec::default()
-    };
     if rest.is_empty() {
-        spec.fully_consumed = true;
+        return FlagSpec {
+            spellings: vec![Spelling::bare("+")],
+            fully_consumed: true,
+            ..FlagSpec::default()
+        };
+    }
+    if rest.starts_with('<') {
+        let mut spec = FlagSpec {
+            spellings: vec![Spelling::bare("+")],
+            ..FlagSpec::default()
+        };
+        let tail = parse_flag_spec(rest);
+        spec.value_name = tail.value_name;
+        spec.value_kind = tail.value_kind;
+        spec.spellings.extend(tail.spellings);
+        spec.fully_consumed = tail.fully_consumed;
         return spec;
     }
-    let tail = parse_flag_spec(rest);
-    spec.value_name = tail.value_name;
-    spec.value_kind = tail.value_kind;
-    spec.spellings.extend(tail.spellings);
-    spec.fully_consumed = tail.fully_consumed;
+    // `+word` (S-163): the whole run is the spelling, verbatim, `+`
+    // included — a second, distinct entity from any `-word` sibling the
+    // table also carries, never a value glued onto a bare `+`.
+    let word_end = rest
+        .char_indices()
+        .find(|(_, c)| !(c.is_ascii_alphanumeric() || *c == '-'))
+        .map_or(rest.len(), |(i, _)| i);
+    if word_end == 0 {
+        return FlagSpec::default();
+    }
+    let word = &rest[..word_end];
+    let after = rest[word_end..].trim_start();
+    let mut spec = FlagSpec {
+        spellings: vec![Spelling::bare(format!("+{word}"))],
+        fully_consumed: after.is_empty(),
+        ..FlagSpec::default()
+    };
+    if !after.is_empty() {
+        let tail = parse_flag_spec(after);
+        spec.value_name = tail.value_name;
+        spec.value_kind = tail.value_kind;
+        spec.spellings.extend(tail.spellings);
+        spec.fully_consumed = tail.fully_consumed;
+    }
     spec
+}
+
+// --- S-163: the `+/-word`/`[+-]word` alternation-sigil row -------------
+//
+// `+/-render` and `[+-]accessx` name two opposite flags, `+word` and
+// `-word`, on one row with one shared description — a different shape
+// from the neighbor-gated bare `+word` above, and unambiguous on its own
+// four-character sigil, so it needs no neighbor evidence. Anchored to the
+// row's own leading token, so `xxd`'s `-s [+][-]seek` (whose leading
+// token is `-s`) is never in scope. See docs/shapes.md S-163.
+
+/// The base word right after a `+/-`/`-/+`/`[+-]`/`[-+]` alternation
+/// sigil at the very start of `token`, when the sigil is immediately
+/// followed by a letter-led run of letters/digits/`-`. `None` for every
+/// other token, including a bare `+`/`-` or a sigil with nothing
+/// word-shaped after it.
+pub(super) fn plus_minus_alternation_word(token: &str) -> Option<&str> {
+    let rest = token
+        .strip_prefix("+/-")
+        .or_else(|| token.strip_prefix("-/+"))
+        .or_else(|| token.strip_prefix("[+-]"))
+        .or_else(|| token.strip_prefix("[-+]"))?;
+    let word_end = rest
+        .char_indices()
+        .find(|(_, c)| !(c.is_ascii_alphanumeric() || *c == '-'))
+        .map_or(rest.len(), |(i, _)| i);
+    if word_end == 0 || !rest.starts_with(|c: char| c.is_ascii_alphabetic()) {
+        return None;
+    }
+    Some(&rest[..word_end])
+}
+
+/// Parse an alternation-sigil row's spec text into its two entities'
+/// specs, `+word` and `-word`, sharing whatever trailing value spec
+/// follows the sigil verbatim (kept as one optional value name rather
+/// than run through the ordinary grammar, which assumes a leading dash).
+/// `None` when `spec_text` does not open with the claimed shape —
+/// defensive only, since every caller already gated on
+/// [`plus_minus_alternation_word`] before routing a row here. See
+/// docs/shapes.md S-163.
+pub(super) fn parse_plus_minus_alternation_spec(spec_text: &str) -> Option<(FlagSpec, FlagSpec)> {
+    let trimmed = spec_text.trim_start();
+    let leading = first_word(trimmed);
+    let word = plus_minus_alternation_word(leading)?.to_string();
+    let rest = trimmed[leading.len()..].trim_start();
+    let (value_name, value_kind) = if rest.is_empty() {
+        (None, ValueKind::None)
+    } else {
+        (Some(rest.to_string()), ValueKind::Optional)
+    };
+    let plus = FlagSpec {
+        spellings: vec![Spelling::bare(format!("+{word}"))],
+        value_name: value_name.clone(),
+        value_kind,
+        fully_consumed: true,
+        ..FlagSpec::default()
+    };
+    let minus = FlagSpec {
+        spellings: vec![Spelling::single_dash(word)],
+        value_name,
+        value_kind,
+        fully_consumed: true,
+        ..FlagSpec::default()
+    };
+    Some((plus, minus))
 }
 
 /// One recovered flag-table row: its spec text, its description, and any
@@ -689,17 +801,31 @@ pub(super) fn trailing_choice_list(content: &str) -> Vec<String> {
     Vec::new()
 }
 
-pub(super) fn scan_flags_block<'a>(
-    lines: &[&'a str],
-    start: usize,
-    heading_is_bnf: bool,
-) -> (
+/// `scan_flags_block`'s own return: the next line index, the recovered
+/// entries, whether the block is `packed` (S-047), the argfile row if
+/// present (S-021), and two `entries`-length parallel flag vectors
+/// marking which rows are plus-sigil (S-095) or alternation-sigil
+/// (S-163) rows. Named, not a plain tuple, so every call site stays
+/// readable and clippy's `type_complexity` lint never trips.
+pub(super) type FlagsBlockScan = (
     usize,
     Vec<FlagRowEntry>,
     bool,
     Option<FlagRowEntry>,
     Vec<bool>,
-) {
+    Vec<bool>,
+);
+
+/// Phase 1 of [`scan_flags_block`]: walk `lines` from `start`, classifying
+/// each into a [`FlagsBlockRow`] (or capturing it as the block's own
+/// argfile row, S-021) until the block ends. Split out on its own so
+/// `scan_flags_block` itself stays under the size ceilings — this is the
+/// row-classification half; the entry-building half stays in the parent.
+fn collect_flags_block_rows<'a>(
+    lines: &[&'a str],
+    start: usize,
+    heading_is_bnf: bool,
+) -> (usize, Vec<FlagsBlockRow<'a>>, Option<FlagRowEntry>) {
     const ENTRY_INDENT_TOLERANCE: usize = 10;
     let mut i = start;
     let mut rows: Vec<FlagsBlockRow<'a>> = Vec::new();
@@ -745,21 +871,38 @@ pub(super) fn scan_flags_block<'a>(
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented
-        // (a heading has none), the claimed shape, and beside a
+        // (a heading has none) **or** inside a block this scan has
+        // already opened (`min_entry_indent.is_some()` — Xvfb's own
+        // headingless table sits flush at column 0 throughout, so no row
+        // in it is ever indented; S-165), the claimed shape, and beside a
         // flag-shaped neighbor — see `has_flag_shaped_plus_neighbor`.
         // Checked only once the ordinary shapes above have refused the
         // row, and independently of the indent-tolerance gate above (a
         // block's own plus row may open no more indented than its first
         // real flag).
+        let inside_open_block = indent > 0 || min_entry_indent.is_some();
         let is_plus_sigil_start = !is_entry_start
-            && indent > 0
+            && inside_open_block
             && is_claimed_plus_token(first_word(trimmed).trim_end_matches(','))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE)
             && has_flag_shaped_plus_neighbor(lines, i);
 
-        if is_entry_start || is_plus_sigil_start {
+        // The alternation-sigil row (S-163): same "indented, or already
+        // inside an open block" evidence as the plus-sigil row above, no
+        // neighbor gate needed — the four-character sigil is unambiguous
+        // on its own (see `plus_minus_alternation_word`'s own doc
+        // comment).
+        let is_alternation_start = !is_entry_start
+            && !is_plus_sigil_start
+            && inside_open_block
+            && plus_minus_alternation_word(first_word(trimmed).trim_end_matches(',')).is_some()
+            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
+
+        if is_entry_start || is_plus_sigil_start || is_alternation_start {
             rows.push(if is_plus_sigil_start {
                 FlagsBlockRow::PlusSigil(line)
+            } else if is_alternation_start {
+                FlagsBlockRow::AlternationSigil(line)
             } else {
                 FlagsBlockRow::Entry(line)
             });
@@ -791,6 +934,111 @@ pub(super) fn scan_flags_block<'a>(
         break;
     }
 
+    (i, rows, argfile_entry)
+}
+
+// S-168: a colon-introduced choice list under a placeholder row (Xvfb's
+// `+extension`/`-extension` pair and its "run-time enabled/disabled"
+// sentence) becomes that placeholder's own `choices`, shared by both
+// halves of a `+word`/`-word` pair, never folded into a description. See
+// docs/shapes.md S-168.
+
+/// True when a continuation line, once trimmed, is nothing but a
+/// colon-terminated introducer sentence for a list nested directly below
+/// it. Never itself flag-shaped, and never empty once the trailing colon
+/// is stripped — a bare `:` alone introduces nothing. The caller
+/// ([`mark_choice_list_rows`]) trusts this only once
+/// [`MIN_NESTED_TABLE_ROWS`] further [`looks_like_choice_list_item`] rows
+/// confirm a real list follows, so an ordinary description sentence that
+/// happens to end in `:` with nothing list-shaped beneath it is never
+/// mistaken for this. See docs/shapes.md S-168.
+pub(super) fn looks_like_choice_list_introducer(text: &str) -> bool {
+    let trimmed = text.trim();
+    let Some(body) = trimmed.strip_suffix(':') else {
+        return false;
+    };
+    let body = body.trim();
+    !body.is_empty() && !looks_like_flag_start(body) && !looks_like_bracket_flag_row(body)
+}
+
+/// True when a continuation line is one list item in the shape
+/// [`looks_like_choice_list_introducer`]'s own list is made of: a short
+/// run (at most six words) of bare, hyphen-joined words, with none of the
+/// sentence punctuation (`.`, `,`, `;`) an ordinary wrapped description
+/// carries, and — critically — no genuine column gap
+/// ([`find_multi_space_gap`]) anywhere in it. That gap is what tells this
+/// bare-name list apart from `as`'s own described sub-option rows
+/// (`c      omit false conditionals`, S-015's territory, a name *and* a
+/// description column, already handled by
+/// [`choice_description_sub_row`]): a plain list item is nothing but its
+/// own name. Matches `MIT-SHM`, `XVideo-MotionCompensation`, and the
+/// three-word `Generic Event Extension` alike. See docs/shapes.md S-168.
+pub(super) fn looks_like_choice_list_item(text: &str) -> bool {
+    let trimmed = text.trim();
+    if trimmed.is_empty() || find_multi_space_gap(trimmed).is_some() {
+        return false;
+    }
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    words.len() <= 6
+        && words
+            .iter()
+            .all(|w| !w.is_empty() && w.chars().all(|c| c.is_ascii_alphanumeric() || c == '-'))
+}
+
+/// `rows` indices that belong to a colon-introduced choice list — the
+/// introducer row itself, plus every item row beneath it — computed with
+/// the whole block's rows in view so [`scan_flags_block`]'s own folding
+/// loop needs no lookahead of its own. Requires at least
+/// [`MIN_NESTED_TABLE_ROWS`] item rows after the introducer, the same
+/// repetition floor every other nested-list recognizer in this file
+/// uses: one line alone is cheap to produce by coincidence, a real run of
+/// them is a list. See docs/shapes.md S-168.
+fn mark_choice_list_rows(rows: &[FlagsBlockRow<'_>]) -> Vec<bool> {
+    let mut marks = vec![false; rows.len()];
+    let mut i = 0;
+    while i < rows.len() {
+        if let FlagsBlockRow::Continuation(text) = rows[i] {
+            if looks_like_choice_list_introducer(text) {
+                let mut j = i + 1;
+                while let Some(FlagsBlockRow::Continuation(item)) = rows.get(j) {
+                    if !looks_like_choice_list_item(item) {
+                        break;
+                    }
+                    j += 1;
+                }
+                if j - (i + 1) >= MIN_NESTED_TABLE_ROWS {
+                    for mark in &mut marks[i..j] {
+                        *mark = true;
+                    }
+                    i = j;
+                    continue;
+                }
+            }
+        }
+        i += 1;
+    }
+    marks
+}
+
+/// The bare word right after a row's own leading `+`/`-` sigil — used only
+/// to confirm a `+word`/`-word` pair share the same base word before a
+/// colon-introduced choice list (S-168) is propagated from one half to
+/// the other. `None` when the spec's first token carries neither sigil.
+fn spec_word_after_sigil(spec: &str) -> Option<&str> {
+    let token = spec.split_whitespace().next()?;
+    let word = token
+        .strip_prefix('+')
+        .or_else(|| token.strip_prefix('-'))?;
+    (!word.is_empty()).then_some(word)
+}
+
+pub(super) fn scan_flags_block(
+    lines: &[&str],
+    start: usize,
+    heading_is_bnf: bool,
+) -> FlagsBlockScan {
+    let (i, rows, argfile_entry) = collect_flags_block_rows(lines, start, heading_is_bnf);
+
     // Whether this block packs several flag+description pairs per line
     // (spec §7 Tier B, `lsof`'s options table) is a property of the block,
     // decided once from every entry row together — never per line, which
@@ -800,7 +1048,9 @@ pub(super) fn scan_flags_block<'a>(
         .iter()
         .filter_map(|r| match r {
             FlagsBlockRow::Entry(l) => Some(*l),
-            FlagsBlockRow::PlusSigil(_) | FlagsBlockRow::Continuation(_) => None,
+            FlagsBlockRow::PlusSigil(_)
+            | FlagsBlockRow::AlternationSigil(_)
+            | FlagsBlockRow::Continuation(_) => None,
         })
         .collect();
     let multi_column = block_is_multi_column(&entry_lines);
@@ -824,11 +1074,22 @@ pub(super) fn scan_flags_block<'a>(
     // `parse_flag_spec`/`try_bare_sigil` grammar every other entry goes
     // through. See docs/shapes.md S-095.
     let mut is_plus_sigil: Vec<bool> = Vec::new();
-    for row in rows {
+    // Parallel to `entries` the same way `is_plus_sigil` is: `true` where
+    // that entry came from a `FlagsBlockRow::AlternationSigil` row, so
+    // `emit_flags_block` knows which single recovered entry to expand
+    // into the row's own `+word`/`-word` pair. See docs/shapes.md S-163.
+    let mut is_alternation: Vec<bool> = Vec::new();
+    // S-168: which `rows` indices belong to a colon-introduced choice
+    // list (the introducer line itself, plus every item beneath it) —
+    // computed once, with the whole block's rows in view, so the folding
+    // loop below can route each without its own lookahead.
+    let choice_list_rows = mark_choice_list_rows(&rows);
+    for (row_idx, row) in rows.into_iter().enumerate() {
         let plus_sigil_row = matches!(row, FlagsBlockRow::PlusSigil(_));
+        let alt_sigil_row = matches!(row, FlagsBlockRow::AlternationSigil(_));
         let before = entries.len();
         match row {
-            FlagsBlockRow::PlusSigil(line) => {
+            FlagsBlockRow::PlusSigil(line) | FlagsBlockRow::AlternationSigil(line) => {
                 let (spec, desc) = split_single_column_entry(line);
                 entries.push((spec, desc, Vec::new()));
             }
@@ -916,7 +1177,36 @@ pub(super) fn scan_flags_block<'a>(
                 }
             }
             FlagsBlockRow::Continuation(text) => {
-                if let Some(last) = entries.last_mut() {
+                if choice_list_rows[row_idx] {
+                    // S-168: a colon-introduced choice list — the
+                    // introducer line itself never becomes a choice or a
+                    // description fragment; each item beneath it becomes a
+                    // bare choice on this entry, and, when this entry is
+                    // one half of a `+word`/`-word` pair (S-163), on its
+                    // sibling too. See docs/shapes.md S-168.
+                    if !looks_like_choice_list_introducer(text) {
+                        let name = text.trim().to_string();
+                        if let Some(last) = entries.last_mut() {
+                            if !last.2.iter().any(|(n, _)| n == &name) {
+                                last.2.push((name.clone(), None));
+                            }
+                        }
+                        // The sibling half of a `+word`/`-word` pair sits
+                        // exactly one entry back, tagged in `is_plus_sigil`
+                        // (built incrementally, same loop) — never further
+                        // back, and never when this entry isn't paired at
+                        // all.
+                        if entries.len() >= 2 {
+                            let sibling_idx = entries.len() - 2;
+                            let paired = is_plus_sigil.get(sibling_idx).copied().unwrap_or(false)
+                                && spec_word_after_sigil(&entries[sibling_idx].0)
+                                    == spec_word_after_sigil(&entries[entries.len() - 1].0);
+                            if paired && !entries[sibling_idx].2.iter().any(|(n, _)| n == &name) {
+                                entries[sibling_idx].2.push((name, None));
+                            }
+                        }
+                    }
+                } else if let Some(last) = entries.last_mut() {
                     // A continuation that completes an unclosed `<...>`
                     // placeholder opened on the entry row above (jmod's
                     // `--target-platform <String: target-` / `platform>`)
@@ -955,12 +1245,24 @@ pub(super) fn scan_flags_block<'a>(
             }
         }
         is_plus_sigil.resize(entries.len(), plus_sigil_row);
+        is_alternation.resize(entries.len(), alt_sigil_row);
         debug_assert!(
             !plus_sigil_row || entries.len() == before + 1,
             "a PlusSigil row must produce exactly one entry"
         );
+        debug_assert!(
+            !alt_sigil_row || entries.len() == before + 1,
+            "an AlternationSigil row must produce exactly one entry"
+        );
     }
-    (i, entries, packed, argfile_entry, is_plus_sigil)
+    (
+        i,
+        entries,
+        packed,
+        argfile_entry,
+        is_plus_sigil,
+        is_alternation,
+    )
 }
 
 /// The fewest name/description pairs a deeper-indented run must show before

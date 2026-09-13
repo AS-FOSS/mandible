@@ -1,0 +1,32 @@
+name: lldb-server
+description: Invoke subcommand for additional help
+provenance:
+  sources:
+  - help-text
+  confidence: 0.15
+children_filled: true
+subcommands:
+- name: version
+  aliases:
+  - v
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+  abbrev_probe_attested: true
+- name: gdbserver
+  aliases:
+  - g
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+  abbrev_probe_attested: true
+- name: platform
+  aliases:
+  - p
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+  abbrev_probe_attested: true

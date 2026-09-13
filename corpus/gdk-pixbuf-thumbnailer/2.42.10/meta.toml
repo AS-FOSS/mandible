@@ -1,0 +1,30 @@
+# docs/shapes.md S-154: `[INPUT FILE]` and `[OUTPUT FILE]` each name one
+# two-word operand. The per-token ALL-CAPS scan read every bracket-group
+# word independently, so the tree carried three positionals (`INPUT`,
+# `FILE`, `OUTPUT`, `FILE` deduplicated to three) instead of the two the
+# tool actually documents.
+#
+# The trailing `Thumbnail images` prose glued onto the same physical line
+# is a separate defect (docs/shapes.md, W1's usage-program-word-mismatch
+# family territory, not this one); it does not interfere here, since it
+# is mixed-case and the ALL-CAPS scan already ignores it.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "gdk-pixbuf-thumbnailer"
+version = "2.42.10"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); gdk-pixbuf 2.42.10"
+
+[[capture]]
+argv = ["gdk-pixbuf-thumbnailer", "--help"]
+stdout = "help.txt"
+
+[contract]
+verdict_scope = ["flags", "usage"]
+expected_framework = "generic"
+must_contain_positionals = ["INPUT FILE", "OUTPUT FILE"]
+must_not_contain_positionals = ["INPUT", "FILE", "OUTPUT"]
+must_contain_flags = ["-h", "-s", "--g-fatal-warnings"]

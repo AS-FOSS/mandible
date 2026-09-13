@@ -960,6 +960,7 @@ fn a_real_environment_section_reaches_the_screen_through_the_real_pipeline() {
     };
     const ATTESTED: mandible_extract::NodeHints = mandible_extract::NodeHints {
         heading_attested: true,
+        abbrev_probe_attested: false,
     };
     let node = mandible_extract::ExtractionTier::extract_node(
         &tier,

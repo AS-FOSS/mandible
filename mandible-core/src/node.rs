@@ -120,6 +120,16 @@ pub struct CommandNode {
     /// never flagged as a fabricated phantom subcommand merely for not
     /// being probe-eligible.
     pub invocation_attested: bool,
+    /// True only for a node the S-167 recognizer produced (docs/shapes.md
+    /// S-167): a `Usage:` line whose leading word after the program name
+    /// carries a bracketed optional-abbreviation suffix (`g[dbserver]`).
+    /// A third, separate attestation reason from `heading_attested` and
+    /// `invocation_attested` (spec §6 rule 0): the word is trusted enough
+    /// to become argv for a `<word> --help` probe, though it did not come
+    /// from a recognized command heading. Never set for any other
+    /// recognizer; `heading_attested` keeps meaning what its own doc
+    /// comment says.
+    pub abbrev_probe_attested: bool,
     /// The binary this node was discovered as, when it was found by the
     /// `<parent>-<sub>` PATH convention rather than documented by its
     /// parent's own help text (spec §5.4) — e.g. `Some("cargo-clippy")` on
@@ -262,6 +272,7 @@ impl CommandNode {
             provenance,
             heading_attested: false,
             invocation_attested: false,
+            abbrev_probe_attested: false,
             discovered_binary: None,
             confession: None,
             same_as_ancestor: false,

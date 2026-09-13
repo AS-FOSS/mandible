@@ -1,6 +1,5 @@
 name: update-xmlcatalog
 usage:
-- 'Usage:'
 - '    update-xmlcatalog <options> --add --root --type <type> --id <id> --package <package>'
 - '    update-xmlcatalog <options> --del --root --type <type> --id <id>'
 flags:

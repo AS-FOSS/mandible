@@ -467,6 +467,12 @@ pub struct NodeSnapshot {
     /// See [`crate::CommandNode::invocation_attested`].
     #[serde(skip_serializing_if = "is_false")]
     pub invocation_attested: bool,
+    /// True only for a node the S-167 recognizer produced (docs/shapes.md
+    /// S-167): a usage form's leading word carrying a bracketed
+    /// optional-abbreviation suffix. See
+    /// [`crate::CommandNode::abbrev_probe_attested`].
+    #[serde(skip_serializing_if = "is_false")]
+    pub abbrev_probe_attested: bool,
     /// The binary this node was discovered as under the `<parent>-<sub>`
     /// PATH convention (spec §5.4), when it was. Omitted for every node an
     /// extraction tier produced — which is every node a fixture replays,
@@ -564,6 +570,7 @@ impl From<&CommandNode> for NodeSnapshot {
             children_filled: n.children_filled,
             heading_attested: n.heading_attested,
             invocation_attested: n.invocation_attested,
+            abbrev_probe_attested: n.abbrev_probe_attested,
             discovered_binary: n.discovered_binary.clone(),
             unparsed: n.unparsed.iter().map(|t| t.as_str().to_string()).collect(),
             // The order-preservation this whole module exists to protect:

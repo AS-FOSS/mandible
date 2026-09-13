@@ -194,6 +194,34 @@ pub(super) fn option_error_tail_is_shapely(tail: &str) -> bool {
     })
 }
 
+/// Drop `raw`'s own leading option-rejection diagnostic line, whole
+/// document unaffected otherwise. See docs/shapes.md S-162.
+///
+/// Narrower than [`is_option_error_line`]: consulted only on the
+/// document's own first non-empty physical line, before any paragraph or
+/// section boundary is known, and returns the whole document with that one
+/// line (and its line terminator) removed rather than a verdict on a
+/// paragraph. Every other line is untouched, including a later paragraph
+/// [`is_option_error_paragraph`] would still drop on its own terms.
+pub(super) fn strip_leading_diagnostic_line(raw: &str) -> String {
+    let mut consumed = 0usize;
+    for line in raw.split_inclusive('\n') {
+        let content = line.trim_end_matches(['\n', '\r']);
+        if content.trim().is_empty() {
+            consumed += line.len();
+            continue;
+        }
+        if is_option_error_line(content) {
+            let mut out = String::with_capacity(raw.len() - line.len());
+            out.push_str(&raw[..consumed]);
+            out.push_str(&raw[consumed + line.len()..]);
+            return out;
+        }
+        break;
+    }
+    raw.to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -325,22 +353,22 @@ mod tests {
         );
     }
 
-    /// A leading complaint followed by unrelated content in the same
-    /// paragraph must not be dropped — `sshd`'s real shape: its version
-    /// banner sits directly under the complaint.
+    /// `sshd`'s real shape: its version banner sits directly under its own
+    /// leading complaint, no blank line between them. `S-162` (the
+    /// document's first non-empty line, checked before any paragraph
+    /// boundary is known) now drops the complaint line on its own, so only
+    /// the real banner text survives as the description — never re-fused
+    /// with the diagnostic the way a whole-paragraph check would have kept
+    /// it, since the rule cares about the first line alone, never what
+    /// follows it. See docs/shapes.md S-162.
     #[test]
-    fn a_mixed_paragraph_with_real_content_is_kept_whole() {
+    fn a_leading_complaint_is_dropped_even_when_real_content_follows_on_the_next_line() {
         let raw = "unknown option -- -\nOpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13\n\n\
                     usage: sshd [-46DdeGiqTtV]\n";
         let parsed = parse_named(raw, "sshd");
         assert_eq!(
             parsed.description.as_deref(),
-            Some("unknown option -- -\nOpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13")
-        );
-        // Neither line is structural, so the pair reflows once sanitized.
-        assert_eq!(
-            mandible_core::Text::sanitize(parsed.description.as_deref().unwrap()).as_str(),
-            "unknown option -- - OpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13"
+            Some("OpenSSH_9.6p1 Ubuntu, OpenSSL 3.0.13")
         );
     }
 

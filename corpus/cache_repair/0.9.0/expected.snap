@@ -1,0 +1,44 @@
+name: cache_repair
+description: 'Options:'
+usage:
+- 'Usage: cache_repair [options] {device|file}'
+positionals:
+- name: '{device|file}'
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --input
+  value_name: <input metadata (binary format)>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: <output metadata (binary format)>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
