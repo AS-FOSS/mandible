@@ -2879,6 +2879,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   matches its subcommand by prefix — the bracketed form is not refused
   here, but the full word is still the right argv, since it is the word a
   user would type and the bracket characters have no business in argv.
+  The emitted name is the source token minus its bracket characters and
+  nothing else changed, which is why design §7 Tier B rule 7's existence
+  oracle needed a narrow amendment (§16): `gdbserver` is not a contiguous
+  substring of the raw text, only `g[dbserver]` is, so the oracle now also
+  attests a subcommand name reached this way.
 - fleet: `usage-optional-word-table`
   (`xtask/src/usage_optional_word_table.rs`) named 10 tools/17 findings as a
   raw shape before the round. What moved on a full-`PATH` sweep of 2323

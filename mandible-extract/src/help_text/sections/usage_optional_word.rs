@@ -42,6 +42,13 @@ fn optional_abbrev_word(token: &str) -> Option<(String, String)> {
     Some((whole, lead.to_string()))
 }
 
+/// The existence oracle's own reconstruction (docs/design.md §7 Tier B
+/// rule 7, §16): `token` read back to the emitted name, or `None` when it
+/// is not this exact shape. Only the bracket characters are removed.
+pub fn reconstruct_abbrev_word(token: &str) -> Option<String> {
+    optional_abbrev_word(token).map(|(whole, _)| whole)
+}
+
 /// One recognized row: the tool's own name (in whatever spelling it printed
 /// itself under), then a word matched by [`optional_abbrev_word`], then
 /// zero or more further tokens that must each be a single bracketed

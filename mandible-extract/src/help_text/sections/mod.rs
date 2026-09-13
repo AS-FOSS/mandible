@@ -63,6 +63,7 @@ use spelling::*;
 #[cfg(test)]
 use test_support::*;
 pub use usage::*;
+pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted

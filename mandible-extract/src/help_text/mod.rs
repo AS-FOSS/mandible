@@ -47,6 +47,13 @@ pub use sections::{
 /// docs/shapes.md S-059.
 pub use sections::strip_optional_modifier_suffix;
 
+/// Re-exported for `xtask/src/existence.rs`: an S-167 usage-abbreviation
+/// token (`g[dbserver]`) reconstructs to the emitted node's name by
+/// deleting only its bracket characters, the one reconstruction
+/// docs/design.md §7 Tier B rule 7 permits (§16); the oracle must agree
+/// or `lldb-server`'s two real subcommands report as invented.
+pub use sections::reconstruct_abbrev_word;
+
 /// Re-exported for `xtask/src/existence.rs`'s positional-operand check: the
 /// oracle must agree on which lines are a synopsis before it can attest an
 /// operand's position. Includes the fprintf-idiom and unlabelled-synopsis
@@ -60,6 +67,13 @@ pub use sections::{
     looks_like_unlabeled_synopsis_line, starts_with_name_prefixed_usage, starts_with_or_marker,
     starts_with_tool_name, starts_with_usage_prefix,
 };
+
+/// Re-exported for `xtask/src/existence.rs`'s S-167 reconstruction
+/// (docs/design.md §16): the real row spells the tool's own name as a
+/// full path (`/usr/bin/lldb-server`), the same spelling difference
+/// `sections::usage_optional_word`'s own row parser already tolerates, so
+/// the oracle must recognize the same row it is checking against.
+pub use sections::starts_with_tool_name_spelled_differently;
 
 /// Re-exported for `xtask/src/existence.rs`: LVM's bare invocation line
 /// (`vgextend VG PV ...`, no bracket notation) opens a usage block only on

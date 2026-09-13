@@ -1298,7 +1298,13 @@ into structured entities.
    qualify; a bare word list under no heading does not.
 7. A candidate name must match `^[a-z][a-z0-9_.-]*$` with no whitespace,
    and every emitted name must occur literally in the tool's own raw text
-   (the existence oracle, §13.1).
+   (the existence oracle, §13.1). One narrow reconstruction is permitted
+   (§16). A subcommand name may also satisfy this rule when it is a raw
+   token with its bracket characters deleted and nothing else changed. No
+   character may be added, removed beyond the brackets, reordered, or
+   changed in case. `g[dbserver]` yields `gdbserver` this way and no other
+   token yields it. This is the only reconstruction rule 7 permits for a
+   subcommand name.
 8. Two evidence classes short of a heading are tracked separately.
    `invocation_attested` marks a row that repeats the tool's own name, or a
    table whose row shape is unambiguous even without a heading.
@@ -2904,6 +2910,38 @@ would type and the bracket characters have no business in argv. Fixture:
 `corpus/lldb-server/18.1.3`, a frozen-bytes capture with no subprocess, so
 it shows the repaired root parse but not the probe-filled children a live
 run produces. Docs/shapes.md S-167.
+
+**Rule 7 gets one narrow reconstruction for S-167 (2026-09-13).** S-167's
+own node names (`gdbserver`, `version`, `platform`, unchanged since the
+shape first shipped) never occur as a contiguous substring of
+`lldb-server`'s raw text, only `g[dbserver]` etc. do, confirmed directly:
+`lldb-server --help | grep -c gdbserver` is 0 on this box. A full-`PATH`
+sweep found `existence_fabrication_tools` at 56 on the pre-S-167 baseline
+and 58 once S-167 shipped, the two lldb-server binaries each newly
+reporting 3 fabrications. This predates the display fix directly above;
+naming these nodes by the full word, not the gate widening, is what rule 7
+never accounted for. The ruling: a
+subcommand name also satisfies rule 7 when it is a raw token with its
+bracket characters deleted and nothing else changed, no character added,
+none reordered, no case changed. `mandible-extract::help_text::
+reconstruct_abbrev_word` computes it, re-exported for
+`xtask/src/existence.rs::tool_name_prefixed_row_words`, which inserts the
+reconstructed name alongside its existing modifier-stripped candidate at
+the same already-attested command-list position; the position requirement
+itself is untouched, widened only to also recognize that position under
+the tool's own full-path spelling (`/usr/bin/lldb-server`), the real
+shape a live probe actually captures and the same spelling S-167's own row
+parser already tolerated, which the position check had not. A break-it
+check disabled the reconstruction and confirmed four tests turn red:
+`tool_name_prefixed_row_words_attests_the_bracket_deleted_reconstruction`,
+`tool_name_prefixed_row_words_attests_the_reconstruction_under_a_full_
+path_spelling`, `detect_does_not_flag_lldb_servers_real_abbreviated_
+subcommands`, and `detect_still_flags_a_name_that_is_not_a_bracket_
+deletion_of_anything`, the last of which also pins the negative case, a
+genuinely fabricated name sitting in the same row is still caught.
+Re-measured with `xtask coverage --tools lldb-server,lldb-server-18`
+against the real installed binaries: `existence_fabrication_tools` reads
+0 and `exist` reads 0 for both. Docs/shapes.md S-167.
 
 ### Deferred, with the reason each is not simply undone
 
