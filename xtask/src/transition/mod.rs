@@ -901,6 +901,131 @@ mod tests {
         );
     }
 
+    // --- H1: the positional column -------------------------------------
+    //
+    // `build_fingerprint`/`fingerprint_lines` (`coverage::fingerprint`) are
+    // `pub(super)`, reachable only from `crate::coverage` itself, so these
+    // tests drive the *parser* half of the real `#fp2` wire format
+    // (`parse_scoreboard`, on hand-written text in the exact shape
+    // `fingerprint_lines` emits — the same technique this file's own awk
+    // and old-format tests above already use) rather than the emitter half.
+
+    /// A positional appearing on the "after" side is a positional-count
+    /// gain, named as a positional in `positionals_added`, never mixed into
+    /// `flags_added` (the defect `h1-sweepdiff-before-change.txt` shows on
+    /// `uniq`: `(root)::Positional::OUTPUT` reported as a flag).
+    #[test]
+    fn positional_gained_is_a_named_positional_gain_not_a_flag() {
+        let row = row_line("uniqx", "ok", 1, 20);
+        let before_text = format!(
+            "{}#fp2 uniqx\t\t(root)::Flag::--version=0:-:-:-\n",
+            sample_text(&[&row])
+        );
+        let after_text = format!(
+            "{}#fp2 uniqx\t\t(root)::Flag::--version=0:-:-:-|(root)::Positional::FILE=0:-:-:-\n",
+            sample_text(&[&row])
+        );
+        let before = parse_scoreboard(&before_text);
+        let after = parse_scoreboard(&after_text);
+        assert_eq!(before.fingerprint_format, Some(FingerprintFormat::V2));
+        assert_eq!(after.fingerprint_format, Some(FingerprintFormat::V2));
+
+        let t = diff(&before, &after);
+        assert_eq!(t.positional_diff_unmeasured, 0);
+        assert_eq!(t.positional_gains.len(), 1);
+        assert_eq!((t.positional_gains[0].before, t.positional_gains[0].after), (0, 1));
+        assert!(t.positional_losses.is_empty());
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(
+            t.field_diffs[0].positionals_added,
+            vec!["(root)::Positional::FILE"]
+        );
+        assert!(
+            t.field_diffs[0].flags_added.is_empty(),
+            "a gained positional must never land in flags_added"
+        );
+    }
+
+    /// The loss direction of the same defect: a positional present only on
+    /// the "before" side.
+    #[test]
+    fn positional_lost_is_a_named_positional_loss_not_a_flag() {
+        let row = row_line("uniqx", "ok", 1, 20);
+        let before_text = format!(
+            "{}#fp2 uniqx\t\t(root)::Positional::FILE=0:-:-:-\n",
+            sample_text(&[&row])
+        );
+        let after_text = format!("{}#fp2 uniqx\t\t\n", sample_text(&[&row]));
+        let before = parse_scoreboard(&before_text);
+        let after = parse_scoreboard(&after_text);
+
+        let t = diff(&before, &after);
+        assert_eq!(t.positional_diff_unmeasured, 0);
+        assert_eq!(t.positional_losses.len(), 1);
+        assert_eq!((t.positional_losses[0].before, t.positional_losses[0].after), (1, 0));
+        assert!(t.positional_gains.is_empty());
+        assert_eq!(
+            t.field_diffs[0].positionals_removed,
+            vec!["(root)::Positional::FILE"]
+        );
+        assert!(t.field_diffs[0].flags_removed.is_empty());
+    }
+
+    /// A renamed positional is one loss plus one gain — **never** a net
+    /// zero: the total count is unchanged (1 before, 1 after), so it must
+    /// not appear in `positional_gains`/`positional_losses` at all, but the
+    /// field-level lists must still name both the old and the new spelling.
+    #[test]
+    fn positional_renamed_is_one_loss_and_one_gain_never_a_net_zero() {
+        let row = row_line("uniqx", "ok", 1, 20);
+        let before_text = format!(
+            "{}#fp2 uniqx\t\t(root)::Positional::OLDNAME=0:-:-:-\n",
+            sample_text(&[&row])
+        );
+        let after_text = format!(
+            "{}#fp2 uniqx\t\t(root)::Positional::NEWNAME=0:-:-:-\n",
+            sample_text(&[&row])
+        );
+        let before = parse_scoreboard(&before_text);
+        let after = parse_scoreboard(&after_text);
+
+        let t = diff(&before, &after);
+        assert!(
+            t.positional_gains.is_empty() && t.positional_losses.is_empty(),
+            "an unchanged total count must never appear in the gain/loss lists"
+        );
+        assert_eq!(t.field_diffs.len(), 1);
+        assert_eq!(
+            t.field_diffs[0].positionals_added,
+            vec!["(root)::Positional::NEWNAME"]
+        );
+        assert_eq!(
+            t.field_diffs[0].positionals_removed,
+            vec!["(root)::Positional::OLDNAME"]
+        );
+        assert!(!t.is_identical(), "a renamed positional is a real change");
+    }
+
+    /// H1 requirement 5: a positional count cannot be derived from a V1
+    /// `#fp` scoreboard at all (no `EntityKind` tag to read), so it is
+    /// reported unmeasured, never as "no positional change."
+    #[test]
+    fn v1_fingerprint_pair_reports_positionals_unmeasured_not_clean() {
+        let row = row_line("t", "ok", 1, 10);
+        let text = format!(
+            "{}#fp t\t\t(root)::--flag=0:-:-:-\n",
+            sample_text(&[&row])
+        );
+        let before = parse_scoreboard(&text);
+        let after = parse_scoreboard(&text);
+        assert_eq!(before.fingerprint_format, Some(FingerprintFormat::V1));
+
+        let t = diff(&before, &after);
+        assert_eq!(t.positional_diff_unmeasured, 1);
+        assert!(t.positional_gains.is_empty());
+        assert!(t.positional_losses.is_empty());
+    }
+
     // The end-to-end render→parse round trip used to live here, driven by a
     // real `grep --help` probe, and asserted "at least one flag carries a
     // description" — a fact about the *host's* grep (GNU grep documents its
