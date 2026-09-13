@@ -239,6 +239,68 @@ pub(super) fn collapse_numbered_variadic_tail(
     Some((stem1.to_string(), true, true, false, true))
 }
 
+/// A plain-word numbered pair (`source1 source2 ...`) ahead of further
+/// required operands on the primary line — `mksquashfs`'s own
+/// `source1 source2 ... FILESYSTEM`. S-136's own collapse
+/// ([`collapse_numbered_variadic_tail`]) only ever runs from
+/// `recover_primary_tail_operands`, itself gated on the per-line ALL-CAPS
+/// loop in `extract_positionals` finding nothing at all; here that loop
+/// already reads `FILESYSTEM`, so S-136's path never runs and the pair is
+/// silently dropped. Requires a further operand-shaped group after the
+/// pair — a pair with nothing behind it is S-136's own tail shape, already
+/// handled there. See docs/shapes.md S-171.
+pub(super) fn recover_leading_numbered_pair(
+    usage_lines: &[String],
+    primary_lines: &std::collections::HashSet<usize>,
+) -> Option<Entity> {
+    // Unlike the tail-only recovery functions above, this never needs the
+    // primary form folded onto one physical line: the pair and the
+    // operand behind it are both read off the block's own first physical
+    // line, which is the one carrying the program name. A later physical
+    // line (a wrapped continuation, `mksquashfs`'s own second line) never
+    // enters this check.
+    let line_idx = *primary_lines.iter().min()?;
+    let line = usage_lines.get(line_idx)?;
+    let lower = line.to_ascii_lowercase();
+    let after = match lower.find("usage:") {
+        Some(idx) => &line[idx + "usage:".len()..],
+        None => line.as_str(),
+    };
+    let before_desc = cut_before_description_gap(after);
+    let mut groups = group_synopsis_tokens(before_desc.trim());
+    if groups.len() < 4 {
+        return None;
+    }
+    groups.remove(0); // the program name itself
+    for i in 0..groups.len().saturating_sub(2) {
+        let (a, b, c) = (&groups[i], &groups[i + 1], &groups[i + 2]);
+        if a.starts_with('[') || b.starts_with('[') {
+            continue; // a bracketed pair is S-136's own shape, not this one
+        }
+        if c.is_empty() || !c.chars().all(|ch| ch == '.') || c.len() < 2 {
+            continue;
+        }
+        let Some((stem1, n1)) = split_trailing_integer(a) else {
+            continue;
+        };
+        let Some((stem2, n2)) = split_trailing_integer(b) else {
+            continue;
+        };
+        if stem1.is_empty() || stem1 != stem2 || n2 != n1 + 1 {
+            continue;
+        }
+        if i + 3 >= groups.len() {
+            continue; // nothing follows: S-136's own tail shape
+        }
+        let mut positional =
+            Entity::positional(stem1.to_string(), Provenance::single(Source::HelpText));
+        positional.required = true;
+        positional.repeatable = true;
+        return Some(positional);
+    }
+    None
+}
+
 /// A bracket group that opened on a bare ALL-CAPS word (`extract_positionals`'s
 /// own token loop), closed. `words` pairs each raw token with its own
 /// cleaned (bracket/dot-trimmed) spelling, in source order. Every word

@@ -39,6 +39,7 @@ once it reaches a published 0.1.0 release.
 - [S-150] A usage label alone on its own line no longer becomes a usage entry of its own, and no longer swallows the bracketed option run under it, so `mandible fdisk` and `mandible pkcheck` show only their real invocation forms and `mandible dmsetup`, `mandible dmstats` and `mandible npm` recover 39 flags documented only inside their own `Usage:` block.
 - [S-151] A usage form whose leading word names another program now renders under the tool's own name, so `mandible gcc-ranlib-13` shows `gcc-ranlib-13 [options] archive` instead of repeating `/usr/bin/ranlib`, and `mandible perlthanks` gains the usage section it had none of.
 - [S-142] A `SYNTAX:` label glued straight to the program name, and a usage continuation carrying an open `[` to column zero, are both read now, so `mandible mksquashfs` and `mandible sqfstar` show a real usage line and their `FILESYSTEM` positional instead of the whole synopsis as description prose (#143).
+- [S-171] A numbered `source1 source2 ...` pair ahead of a later required operand no longer drops, so `mandible mksquashfs` shows its `source` positional alongside `FILESYSTEM`.
 
 ## [0.7.0] - 2026-09-05
 

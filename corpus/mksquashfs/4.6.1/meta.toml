@@ -32,11 +32,11 @@ must_contain_flags = [
 ]
 must_not_contain_flags = ["-n"]
 # [S-142] FILESYSTEM, once the glued `SYNTAX:` label and the column-zero
-# open-bracket continuation are both read. `source1 source2 ...` sits
-# between the program name and FILESYSTEM rather than at the line's own
-# tail, a shape `recover_primary_tail_operands` does not reach; it stays
-# an unrecovered positional, noted rather than asserted here.
-must_contain_positionals = ["FILESYSTEM"]
+# open-bracket continuation are both read. [S-171] source, the numbered
+# `source1 source2 ...` pair ahead of FILESYSTEM that
+# `recover_primary_tail_operands` (S-136) never reaches, since its own
+# tail-only path only runs when the per-line loop found nothing at all.
+must_contain_positionals = ["source", "FILESYSTEM"]
 must_usage_forms_min = 1
 
 # Tab-separated value placeholders the table rule keeps (docs/shapes.md

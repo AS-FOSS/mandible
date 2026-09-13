@@ -506,6 +506,18 @@ pub(super) fn extract_positionals(
             out.push(positional);
         }
     }
+    // A numbered pair (`source1 source2 ...`) ahead of further operands the
+    // loop above already found (`mksquashfs`'s own `FILESYSTEM`) is never
+    // reached by the tail-only recovery below, since `out` is no longer
+    // empty by the time it would run. Runs unconditionally and only ever
+    // adds at the front — the pair always precedes whatever the loop above
+    // found, by this function's own "more follows" requirement. See
+    // docs/shapes.md S-171.
+    if let Some(pair) = recover_leading_numbered_pair(usage_lines, &primary_lines) {
+        if !out.iter().any(|e| e.primary_name() == pair.primary_name()) {
+            out.insert(0, pair);
+        }
+    }
     if out.is_empty() {
         out.extend(recover_primary_tail_operands(usage_lines, &primary_lines));
     }

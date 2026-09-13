@@ -2964,3 +2964,41 @@ entry's `tools` field and nothing else. It does not get a new entry.
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
   there. Zero flag losses, zero subcommand movement, all nine named controls
   byte-identical.
+
+### S-171: a numbered `X1 X2 ...` pair sits ahead of a later required operand
+
+- id: S-171
+- looks like: |
+      SYNTAX: mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of
+      exclude dirs/files]
+- tools: mksquashfs
+- handling: Fixed. S-136's sibling: `mksquashfs`'s own numbered pair is
+  unbracketed, like `genccode`'s `filename1 filename2 ...`, but it is not the
+  line's own tail — `FILESYSTEM` follows it — so S-136's own collapse
+  (`collapse_numbered_variadic_tail`, called only from
+  `recover_primary_tail_operands`) never runs: that function is itself gated
+  on `extract_positionals`'s per-line ALL-CAPS loop finding nothing at all,
+  and here that loop already reads `FILESYSTEM`. A new, independent function,
+  `recover_leading_numbered_pair` (`mandible-extract/src/help_text/sections/
+  multiword.rs`), runs unconditionally rather than only on an empty `out`,
+  requires a further operand-shaped group after the pair (a pair with
+  nothing behind it is S-136's own shape), and only ever adds at the front —
+  never replaces — so a tool the loop above already read this pair some
+  other way is untouched. `corpus/mksquashfs/4.6.1` gains the `source`
+  positional; `genccode`'s own pair sits at the true tail (nothing follows)
+  and is declined here by design, staying on S-136's own path unchanged.
+  `linux-version`'s raw text has the same shared-stem-plus-integer shape
+  (`sort [--reverse] [VERSION1 VERSION2 ...]`) but its defect is unrelated:
+  that whole invocation form is a non-primary usage line, and
+  `extract_positionals` only ever reads positionals off the primary one
+  (S-004) — no numbered-pair rule reaches a line `extract_positionals`
+  never visits. Declined here; a fix would mean recovering positionals from
+  every alternate form, a materially larger, riskier change out of this
+  item's scope.
+- fleet: not swept fleet-wide (2 tools/2 findings on the maintainer's own
+  raw grep, both read above); below the five-tool floor. Shipped as a
+  gated exception (docs/design.md §16): `corpus/mksquashfs/4.6.1` gains the
+  assertion and stays passing, the corpus sweep (164 fixtures) shows this
+  fixture as the only change, and all nine named controls stay
+  byte-identical (see gate log). `sqfstar` was checked and is not a member:
+  its own usage has no numbered pair at all.

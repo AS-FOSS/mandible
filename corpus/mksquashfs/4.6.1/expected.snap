@@ -2,6 +2,12 @@ name: mksquashfs
 usage:
 - mksquashfs source1 source2 ...  FILESYSTEM [OPTIONS] [-e list of exclude dirs/files]
 positionals:
+- name: source
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 - name: FILESYSTEM
   required: true
   provenance:
