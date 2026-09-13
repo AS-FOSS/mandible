@@ -399,6 +399,7 @@ pub fn check_round9_family_ratchets(
 }
 
 /// [`check_vim_family_ratchet`] for round 10's repaired families, atlas
+/// S-154 (a nested bracket group's words fused into one operand name),
 /// S-150 (a bare usage label seeding an empty form) and S-142's two
 /// halves (issue #143: the glued label and the open-bracket
 /// continuation, both now tree-aware — see
@@ -413,6 +414,7 @@ pub fn check_round10_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
+    let fused = check_vim_family_ratchet("nested-bracket-group-fused-operand", previous, fresh)?;
     let bare = check_vim_family_ratchet("bare-usage-label-form", previous, fresh)?;
     let glued = check_vim_family_ratchet("usage-label-glued-to-program-name", previous, fresh)?;
     let bracket = check_vim_family_ratchet(
@@ -420,7 +422,7 @@ pub fn check_round10_family_ratchets(
         previous,
         fresh,
     )?;
-    Ok(bare && glued && bracket)
+    Ok(fused && bare && glued && bracket)
 }
 
 /// pnpm's two families (atlas S-103, S-104), fixed in

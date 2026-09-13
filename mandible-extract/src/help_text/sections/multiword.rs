@@ -301,19 +301,61 @@ pub(super) fn recover_leading_numbered_pair(
     None
 }
 
-/// A bracket group that opened on a bare ALL-CAPS word (`extract_positionals`'s
-/// own token loop), closed. `words` pairs each raw token with its own
-/// cleaned (bracket/dot-trimmed) spelling, in source order. Every word
-/// ALL-CAPS and none an option-list placeholder (`mknod`'s `[MAJOR
-/// MINOR]`, `gdk-pixbuf-thumbnailer`'s `[INPUT FILE]`) collapses to one
-/// multi-word operand; otherwise this is exactly the per-word reading a
-/// lone-word ALL-CAPS bracket already gets (`udevadm`'s `[COMMAND
-/// OPTIONS]` keeps `COMMAND`, declines `OPTIONS`) — a batch of the same
-/// tokens behind one bracket, not a new rule, so this never removes a
-/// reading the lone-word branch already gave. See docs/shapes.md S-154.
-pub(super) fn finalize_bare_bracket_group(words: &[(String, String)], line: &str) -> Vec<Entity> {
+/// True when a bare bracket group's own source text names one operand
+/// rather than several: exactly one bracket pair, and no `|` or `<`
+/// inside it. A group's own trailing repetition marker is allowed
+/// (`systemd-sysusers`'s `[CONFIGURATION FILE...]` is one repeatable
+/// operand), an interior one is not. `[MAJOR MINOR]` is flat; `[INPUT
+/// [OUTPUT]]` and `[COMMAND [ARG]...]` are two optional operands, the
+/// inner one nested inside the outer, which is what the words mean and
+/// what the parser read before S-154 shipped. `raw` is the group's own
+/// whitespace-normalized source, from its opening bracket on.
+/// See docs/shapes.md S-154.
+pub(super) fn bare_bracket_group_is_flat(raw: &str) -> bool {
+    let Some(open) = raw.find('[') else {
+        return false;
+    };
+    let mut depth = 0i32;
+    let mut inner = None;
+    for (offset, c) in raw[open..].char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    inner = Some(&raw[open + 1..open + offset]);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let Some(inner) = inner else {
+        return false;
+    };
+    let inner = inner.trim_end_matches('.');
+    !inner.contains(['[', ']', '|', '<']) && !inner.contains("...")
+}
+
+/// A bracket group that opened on a bare ALL-CAPS word, closed. `words`
+/// pairs each raw token with its cleaned spelling in source order, and
+/// `flat` is [`bare_bracket_group_is_flat`] for the same group. A flat
+/// group whose every word is ALL-CAPS and no option-list placeholder
+/// (`mknod`'s `[MAJOR MINOR]`) collapses to one multi-word operand.
+/// Anything else gets exactly the per-word reading a lone-word ALL-CAPS
+/// bracket already gets: `udevadm`'s `[COMMAND OPTIONS]` keeps
+/// `COMMAND` and declines `OPTIONS`, `uniq`'s `[INPUT [OUTPUT]]` keeps
+/// both words apart. That fallback is a batch of the tokens the
+/// lone-word branch would have read one by one, so this never removes a
+/// reading. See docs/shapes.md S-154.
+pub(super) fn finalize_bare_bracket_group(
+    words: &[(String, String)],
+    line: &str,
+    flat: bool,
+) -> Vec<Entity> {
     let is_real_word = |w: &str| w.chars().all(|c| c.is_uppercase() || c == '_') && w.len() > 1;
-    if words.len() >= 2
+    if flat
+        && words.len() >= 2
         && words
             .iter()
             .all(|(_, w)| is_real_word(w) && !is_option_list_placeholder(w))

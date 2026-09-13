@@ -1,6 +1,7 @@
 //! The round-10 family detectors, atlas S-150 upward. Split into its own
 //! file for the same line-count reason `round7.rs`, `round8.rs` and
-//! `round9.rs` are.
+//! `round9.rs` are. `nested-bracket-group-fused-operand` belongs here
+//! because the rule it fences, S-154, is one of this round's own.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
@@ -31,6 +32,9 @@ pub(super) fn round10_family_counts(
         crate::detector::plus_minus_alternation_option::PlusMinusAlternationOption.hits(&evidence);
     let description_reused_as_group =
         crate::detector::description_reused_as_group_label::DescriptionReusedAsGroupLabel
+            .hits(&evidence);
+    let fused_operand =
+        crate::detector::nested_bracket_group_fused_operand::NestedBracketGroupFusedOperand
             .hits(&evidence);
     let headingless_table_in_description =
         crate::detector::headingless_table_in_root_description::HeadinglessTableInRootDescription
@@ -136,6 +140,11 @@ pub(super) fn round10_family_counts(
             "header-declared-env-column",
             env_col.len(),
             env_col.into_iter().take(cap).collect(),
+        ),
+        (
+            "nested-bracket-group-fused-operand",
+            fused_operand.len(),
+            fused_operand.into_iter().take(cap).collect(),
         ),
     ]
 }

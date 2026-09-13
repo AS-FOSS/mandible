@@ -1,0 +1,111 @@
+name: env
+description: Set each NAME to VALUE in the environment and run COMMAND.
+usage:
+- 'Usage: env [OPTION]... [-] [NAME=VALUE]... [COMMAND [ARG]...]'
+positionals:
+- name: COMMAND
+  provenance:
+    sources:
+    - help-text
+- name: ARG
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -i
+  - --ignore-environment
+  description: start with an empty environment
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  - --null
+  description: end each output line with NUL, not newline
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --unset
+  value_name: NAME
+  value_kind: Required
+  description: remove variable from the environment
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --chdir
+  value_name: DIR
+  value_kind: Required
+  description: change working directory to DIR
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --split-string
+  value_name: S
+  value_kind: Required
+  description: process and split S into separate arguments; used to pass multiple arguments on shebang lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --block-signal
+  value_name: SIG
+  value_kind: Optional
+  description: block delivery of SIG signal(s) to COMMAND
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --default-signal
+  value_name: SIG
+  value_kind: Optional
+  description: reset handling of SIG signal(s) to the default
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-signal
+  value_name: SIG
+  value_kind: Optional
+  description: set handling of SIG signal(s) to do nothing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --list-signal-handling
+  description: list non default signal handling to stderr
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --debug
+  description: print verbose information for each processing step
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true
