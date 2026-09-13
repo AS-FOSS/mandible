@@ -2,12 +2,11 @@
 //! subcommand spelled with an optional abbreviation suffix —
 //! `lldb-server`'s `v[ersion]`, `g[dbserver]`, `p[latform]`. Distinct from
 //! S-020's modifier table (`ar`'s `r[ab][f][u]`): there the bracket groups
-//! name separate modifier LETTERS glued onto a command letter; here one
-//! bracket group's content, appended to the single letter before it, spells
-//! out the rest of ONE whole command word. The node's name is that whole
-//! word; `display_name` keeps the row's own spelling. Never confused with
-//! S-020, which is a `commands:`-heading row scanned by a different code
-//! path this function is never reached from.
+//! name separate modifier LETTERS glued onto one command letter; here one
+//! bracket group spells the rest of ONE whole command word. The node's
+//! name and displayed form are that whole word (`gdbserver`); the row's
+//! own short prefix (`g`) is kept as an alias, never as `display_name`
+//! (docs/design.md §16). Never confused with S-020's own code path.
 
 use super::usage::{starts_with_tool_name, starts_with_tool_name_spelled_differently};
 use mandible_core::{is_command_name_shaped, CommandNode, Provenance, Source};
@@ -17,6 +16,11 @@ use mandible_core::{is_command_name_shaped, CommandNode, Provenance, Source};
 /// single leading lowercase letter, holding nothing but lowercase letters,
 /// and closing at the token's own end. `ar`'s `r[ab][f][u]` fails this (a
 /// second group follows the first), so the two shapes never collide.
+///
+/// Returns `(whole_word, short_alias)`: the full command word with the
+/// brackets removed (`gdbserver`), and the bare leading letter the row
+/// spelled as its abbreviation prefix (`g`) — the node's own alias, never
+/// its displayed name (docs/design.md §16).
 fn optional_abbrev_word(token: &str) -> Option<(String, String)> {
     let mut chars = token.chars();
     let lead = chars.next()?;
@@ -35,7 +39,7 @@ fn optional_abbrev_word(token: &str) -> Option<(String, String)> {
     if !is_command_name_shaped(&whole) {
         return None;
     }
-    Some((whole, token.to_string()))
+    Some((whole, lead.to_string()))
 }
 
 /// One recognized row: the tool's own name (in whatever spelling it printed
@@ -53,7 +57,7 @@ fn parse_row(line: &str, tool_name: &str) -> Option<(String, String)> {
     let mut words = t.split_whitespace();
     words.next()?; // the tool's own name, already confirmed above
     let first = words.next()?;
-    let (name, display) = optional_abbrev_word(first)?;
+    let (name, alias) = optional_abbrev_word(first)?;
     for trailing in words {
         let inner = trailing
             .strip_prefix('[')
@@ -62,7 +66,7 @@ fn parse_row(line: &str, tool_name: &str) -> Option<(String, String)> {
             return None;
         }
     }
-    Some((name, display))
+    Some((name, alias))
 }
 
 /// The fewest recognized rows before this shape is trusted at all: one row
@@ -103,16 +107,19 @@ pub(super) fn scan_usage_optional_word_table(
     }
     let nodes = rows
         .into_iter()
-        .map(|(name, display)| {
+        .map(|(name, alias)| {
             let mut node = CommandNode::new(name.clone(), Provenance::single(Source::HelpText));
-            // §7 Tier B rule 8 / §6 rule 0: a name read off a usage form is
-            // invocation-attested only, never heading-attested, so no probe
-            // is ever sent under it (docs/design.md §16).
+            // Invocation-attested, never heading-attested (§7 Tier B rule
+            // 8), but this recognizer's own third bit admits a probe of
+            // the full word anyway (§6 rule 0, docs/design.md §16). The
+            // row's short prefix is kept as an alias, never as a display
+            // spelling.
             node.invocation_attested = true;
             node.heading_attested = false;
             node.children_filled = false;
-            if display != name {
-                node.display_name = Some(display);
+            node.abbrev_probe_attested = true;
+            if alias != name {
+                node.aliases.push(alias);
             }
             node
         })
@@ -127,19 +134,25 @@ mod tests {
     const LLDB_SERVER: &str = "Usage:\n  lldb-server v[ersion]\n  lldb-server g[dbserver] [options]\n  lldb-server p[latform] [options]\nInvoke subcommand for additional help\n";
 
     #[test]
-    fn recovers_three_named_nodes_with_source_spelling_preserved() {
+    fn recovers_three_named_nodes_with_the_full_word_as_name_and_the_prefix_as_alias() {
         let lines: Vec<&str> = LLDB_SERVER.lines().collect();
         let (end, nodes) = scan_usage_optional_word_table(&lines, 0, "lldb-server").unwrap();
         assert_eq!(end, 4, "stops at the trailing prose sentence");
         assert_eq!(nodes.len(), 3);
         assert_eq!(nodes[0].name, "version");
-        assert_eq!(nodes[0].display_name.as_deref(), Some("v[ersion]"));
+        assert_eq!(nodes[0].display_name, None, "no bracketed display form");
+        assert_eq!(nodes[0].aliases, vec!["v".to_string()]);
         assert!(nodes[0].invocation_attested);
         assert!(!nodes[0].heading_attested);
+        assert!(nodes[0].abbrev_probe_attested);
         assert_eq!(nodes[1].name, "gdbserver");
-        assert_eq!(nodes[1].display_name.as_deref(), Some("g[dbserver]"));
+        assert_eq!(nodes[1].display_name, None);
+        assert_eq!(nodes[1].aliases, vec!["g".to_string()]);
+        assert!(nodes[1].abbrev_probe_attested);
         assert_eq!(nodes[2].name, "platform");
-        assert_eq!(nodes[2].display_name.as_deref(), Some("p[latform]"));
+        assert_eq!(nodes[2].display_name, None);
+        assert_eq!(nodes[2].aliases, vec!["p".to_string()]);
+        assert!(nodes[2].abbrev_probe_attested);
     }
 
     #[test]
@@ -159,7 +172,7 @@ mod tests {
     fn accepts_a_single_bracket_group_that_spells_a_whole_word() {
         assert_eq!(
             optional_abbrev_word("v[ersion]"),
-            Some(("version".to_string(), "v[ersion]".to_string()))
+            Some(("version".to_string(), "v".to_string()))
         );
     }
 

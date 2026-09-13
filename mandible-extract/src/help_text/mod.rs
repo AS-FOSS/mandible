@@ -396,9 +396,9 @@ impl ExtractionTier for HelpTextTier {
 /// stream is whichever looks like help, stdout on a tie (spec §7 Tier B,
 /// M-8). See docs/shapes.md S-066.
 ///
-/// Gated on provenance: no probe is sent at all for a non-empty `words`
-/// unless [`NodeHints::heading_attested`] is true (spec §6 rule 0) — a
-/// non-attested node returns [`ExtractError::Other`] instead. The man-page
+/// Gated on provenance: no probe is sent for a non-empty `words` unless
+/// [`NodeHints::heading_attested`] or [`NodeHints::abbrev_probe_attested`]
+/// is true (spec §6 rule 0), else [`ExtractError::Other`]. The man-page
 /// fallback never fires for the root (six root-level binaries stay
 /// verbatim, S-066); the `-h` response is validated with
 /// [`looks_like_help_output`] (D1.3.1) before being trusted.
@@ -414,7 +414,11 @@ fn probe_help_text_reporting_flag(
     // name the user typed, never a word any parser invented — so this
     // never blocks the ordinary `<tool> --help` root probe, only a deeper
     // path whose last word did not come from a recognized heading.
-    if !words.is_empty() && !hints.heading_attested {
+    //
+    // `abbrev_probe_attested` admits ONLY a node the S-167 recognizer
+    // produced (docs/design.md §16); it never widens `heading_attested`'s
+    // own meaning and never admits `invocation_attested` in general.
+    if !words.is_empty() && !hints.heading_attested && !hints.abbrev_probe_attested {
         return Err(ExtractError::Other(format!(
             "refusing to probe `{} --help`: {:?} is not heading_attested, so it may be a \
              fabricated subcommand rather than a real one (spec §6 rule 0)",
@@ -685,7 +689,10 @@ fn raw_probe_streams(
     words: &[String],
     hints: NodeHints,
 ) -> Result<RawProbeOutcome, ExtractError> {
-    if !words.is_empty() && !hints.heading_attested {
+    // Same gate as `probe_help_text_reporting_flag`, including the S-167
+    // widening (docs/design.md §16): `abbrev_probe_attested` admits only
+    // that recognizer's own nodes.
+    if !words.is_empty() && !hints.heading_attested && !hints.abbrev_probe_attested {
         return Ok(RawProbeOutcome::NotAttested);
     }
 
@@ -834,6 +841,7 @@ fn not_attested_fallback(
         &[],
         NodeHints {
             heading_attested: true,
+            abbrev_probe_attested: false,
         },
     ) {
         if !root_streams.is_empty() {
@@ -985,6 +993,7 @@ mod tests {
     /// invented word, so `heading_attested: true` is honest throughout.
     const ATTESTED: NodeHints = NodeHints {
         heading_attested: true,
+        abbrev_probe_attested: false,
     };
 
     fn fixture(name: &str) -> String {
@@ -1033,6 +1042,7 @@ mod tests {
             &["pkill".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         )
         .expect("`pkill --help` is the one permitted shape and must be shown");
@@ -1046,6 +1056,7 @@ mod tests {
             &["pkill".to_string(), "something".to_string()],
             NodeHints {
                 heading_attested: true,
+                abbrev_probe_attested: false,
             },
         )
         .expect_err("a positional path must still be refused");
@@ -1092,6 +1103,7 @@ mod tests {
             &["shimtool".to_string(), "ghost".to_string()],
             NodeHints {
                 heading_attested: false,
+                abbrev_probe_attested: false,
             },
         )
         .expect("a not-attested refusal must resolve to Ok with an explanation, not Err");

@@ -35,6 +35,7 @@ fn systemctl_node() -> mandible_core::CommandNode {
     };
     const ATTESTED: mandible_extract::NodeHints = mandible_extract::NodeHints {
         heading_attested: true,
+        abbrev_probe_attested: false,
     };
     mandible_extract::ExtractionTier::extract_node(
         &tier,

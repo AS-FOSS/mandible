@@ -959,6 +959,17 @@ allowlist below.
    heading evidence strong enough to probe — the two bits are never
    conflated, and this gate reads only `heading_attested`.
 
+   A third, narrower bit, `abbrev_probe_attested`, admits one closed case
+   (§16, docs/shapes.md S-167). It marks a node the usage-optional-
+   abbreviation recognizer produced. That recognizer matches a `Usage:`
+   line whose leading word carries a bracketed optional-abbreviation
+   suffix, for example `lldb-server`'s `g[dbserver]`. This gate now admits
+   a node when `heading_attested` is true or `abbrev_probe_attested` is
+   true. No other recognizer ever sets this bit. `invocation_attested`
+   never implies it; a headingless-invocation-table node still stays
+   declined. Rule 0's thirteen-program list is checked first, and it wins
+   unconditionally before this gate runs at all.
+
 1. **Never invoke a bare binary.** An argv is never empty. Running an
    arbitrary binary with no arguments is how you launch a REPL, block on
    stdin, start a daemon, or trigger a tool whose no-argument default is an
@@ -2867,6 +2878,32 @@ S-102) — declined because a union keeps every same-spelling flag on the
 row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
 2.03.16`. Docs/shapes.md S-147.
+
+**An S-167 node shows its full word, never the bracketed spelling
+(2026-09-13).** Shown `mandible lldb-server` with its three commands
+rendered `v[ersion]`, `g[dbserver]`, `p[latform]`, the maintainer rejected
+keeping the source spelling as the display name. The rule: the node's name
+and displayed form are both the full word (`gdbserver`), and the row's own
+short prefix (`g`) is kept as `CommandNode::aliases` instead, the IR's
+existing alias slot (§4.5). `display_name` is no longer set for this
+shape. A new, narrower attestation bit, `CommandNode::abbrev_probe_attested`
+/ `NodeHints::abbrev_probe_attested`, is set only by this recognizer and
+admits the node to §6 rule 0's probe gate on its own, without touching
+`heading_attested`'s own meaning or admitting `invocation_attested` in
+general. A live `mandible` run now probes each child with its own full
+word (`lldb-server gdbserver --help`) and fills its own flags; rule 0's
+thirteen-program list is checked first and wins unconditionally, proved by
+`mandible-extract/tests/exec_policy.rs`'s
+`abbrev_probe_attested_word_is_probed_even_though_not_heading_attested` and
+`rule_0_still_refuses_an_abbrev_probe_attested_word_naming_a_never_probe_tool`.
+Measured on this box: `lldb-server 'g[dbserver]' --help` answers
+byte-identical to `lldb-server gdbserver --help`, since lldb-server
+matches a subcommand by prefix. The bracketed form is not refused here,
+but the full word is still the right argv, since it is the word a user
+would type and the bracket characters have no business in argv. Fixture:
+`corpus/lldb-server/18.1.3`, a frozen-bytes capture with no subprocess, so
+it shows the repaired root parse but not the probe-filled children a live
+run produces. Docs/shapes.md S-167.
 
 ### Deferred, with the reason each is not simply undone
 

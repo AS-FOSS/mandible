@@ -33,7 +33,7 @@ once it reaches a published 0.1.0 release.
 - [S-145] A single-dash long option in a table with no double-dash row anywhere keeps its whole name and case now, so `mandible mksquashfs` and `mandible sqfstar` show `-pf`, `-ef`, `-Xhelp`, `-Xstrategy`, `-Xhc` and `-Xbcj` instead of splitting each one.
 - [S-145] A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
-- [S-167] A `Usage:` line whose leading word carries a bracketed optional-abbreviation suffix (`v[ersion]`, `g[dbserver]`) now reaches the tree as its own subcommand, keeping the source spelling, instead of folding into the usage block (`mandible lldb-server`).
+- [S-167] A `Usage:` line whose leading word carries a bracketed optional-abbreviation suffix (`v[ersion]`, `g[dbserver]`) now reaches the tree as its own subcommand, named and shown by its full word with the short prefix kept as an alias, and probed for its own flags, instead of folding into the usage block (`mandible lldb-server`).
 
 ## [0.7.0] - 2026-09-05
 

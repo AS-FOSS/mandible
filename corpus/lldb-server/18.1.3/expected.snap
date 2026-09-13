@@ -7,20 +7,26 @@ provenance:
 children_filled: true
 subcommands:
 - name: version
+  aliases:
+  - v
   provenance:
     sources:
     - help-text
   invocation_attested: true
-  display_name: v[ersion]
+  abbrev_probe_attested: true
 - name: gdbserver
+  aliases:
+  - g
   provenance:
     sources:
     - help-text
   invocation_attested: true
-  display_name: g[dbserver]
+  abbrev_probe_attested: true
 - name: platform
+  aliases:
+  - p
   provenance:
     sources:
     - help-text
   invocation_attested: true
-  display_name: p[latform]
+  abbrev_probe_attested: true

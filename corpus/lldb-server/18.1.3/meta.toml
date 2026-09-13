@@ -1,9 +1,13 @@
 # S-167: a bare `Usage:` heading's rows repeat the tool's own name plus
 # one subcommand word abbreviated with a bracket suffix. `version`,
 # `gdbserver` and `platform` recover as subcommand nodes, never usage
-# forms, each keeping its source spelling in `must_display_name` and
-# staying invocation-attested only, so no probe follows (docs/design.md
-# §16). The help text sits entirely on stderr; stdout is empty.
+# forms, each shown by its full word (never the bracketed source
+# spelling) with the row's short prefix kept as an alias. Each node is
+# invocation_attested and abbrev_probe_attested (docs/design.md §16,
+# 2026-09-13), so a live `mandible` run probes `<word> --help` for its own
+# flags; this frozen fixture captures only the root parse, with no
+# subprocess, so it cannot show that fill. The help text sits entirely on
+# stderr; stdout is empty.
 
 [bless]
 provenance = "agent"
@@ -25,6 +29,6 @@ expected_framework = "generic"
 min_subcommands = 3
 
 [contract.must_display_name]
-version = "v[ersion]"
-gdbserver = "g[dbserver]"
-platform = "p[latform]"
+version = "version"
+gdbserver = "gdbserver"
+platform = "platform"
