@@ -396,14 +396,14 @@ pub(super) fn repair_usage_attested_single_dash_long(flags: &mut [Entity], usage
 
 /// A single-dash table row with no genuine placeholder (`memhog`'s `-f
 /// mmap is backed by FILE`) reads its description's first word as a
-/// fabricated value, losing the description. The usage line is
-/// independent evidence: present (`[-fFILE]`) or absent (`[-H]`); no
-/// proof, no change. A narrower case: an already-genuine value (`-rNUM`,
-/// S-172) still loses its description, recovered by stripping the known
-/// value off the row's remainder. Scoped, like S-157, to a document with
-/// no `--long` row ([`document_has_no_long_row`]); the floor is a flag
-/// count ([`MIN_TABLE_ROWS`]), not [`single_dash_long_table`]'s
-/// multi-character name. See docs/shapes.md S-176.
+/// fabricated value; the row's own text is never trusted to say what a
+/// value is. The tool's own usage line is
+/// ([`usage_derived_value_for_short`], same grammar and bundle logic
+/// [`extract_usage_flags`] already uses) or it is left alone — `host`'s
+/// own `-A`/`-s`/`-U`/`-4`/`-6`, named in no usage line at all, are
+/// exactly this refusal. Scoped, like S-157, to a document with no
+/// `--long` row ([`document_has_no_long_row`]); the floor is a flag
+/// count ([`MIN_TABLE_ROWS`]). See docs/shapes.md S-176.
 pub(super) fn recover_bare_word_first_description_word(
     flags: &mut [Entity],
     usage_lines: &[String],
@@ -424,7 +424,6 @@ pub(super) fn recover_bare_word_first_description_word(
     if short_only_help_text_flags < MIN_TABLE_ROWS {
         return;
     }
-    let dash_separator_document = document_uses_dash_separator_convention(lines);
     for flag in flags.iter_mut() {
         if !flag.provenance.sources.contains(&Source::HelpText)
             || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
@@ -435,6 +434,13 @@ pub(super) fn recover_bare_word_first_description_word(
             continue;
         }
         let Some(short) = flag.short() else { continue };
+        // No evidence, no change: a letter the usage line never spells
+        // at all keeps today's row-only guess rather than being assumed
+        // boolean.
+        let Some((usage_value, usage_kind)) = usage_derived_value_for_short(usage_lines, short)
+        else {
+            continue;
+        };
         let prefix = format!("-{short}");
         // Exactly one candidate row, never the first of several: `lsof`
         // documents `-T` twice, once in a packed multi-column summary
@@ -451,110 +457,69 @@ pub(super) fn recover_bare_word_first_description_word(
             continue;
         }
         let after_letter = &row.trim_start()[prefix.len()..];
-        if after_letter
-            .split_whitespace()
-            .any(|w| w.len() > 1 && w.starts_with('-') && w[1..].starts_with(char::is_alphabetic))
-        {
+        // A second flag token *packed onto the same line by a real column
+        // gap* (`lsof`'s `-T disable TCP/TPI info  -U select Unix
+        // socket`, two-plus spaces before `-U`) is refused — that row
+        // documents more than one flag and taking the whole remainder
+        // would read a neighbour's row into this one's description. A
+        // single-spaced dash-word is ordinary prose mentioning another
+        // flag (`kpartx`'s own `-l list partitions ... added by -a`) and
+        // must not trip this guard.
+        if let Some(gap) = find_multi_space_gap(after_letter) {
+            if after_letter[gap..].trim_start().starts_with('-') {
+                continue;
+            }
+        }
+        // The row's own remainder is the description, whole, unless it
+        // happens to open with the usage-named value as its own leading
+        // word (`savelog`'s `-r rolldir - use rolldir...`: `rolldir` is
+        // both the value and the row's own first token) — then only that
+        // leading occurrence, and an immediately following ` - `
+        // separator, are stripped off it. `host`'s `-c specifies query
+        // class for non-IN data` has no such overlap (`class`, the real
+        // value, never opens the row), so the whole sentence stays the
+        // description exactly as it reads.
+        let trimmed = after_letter.trim_start();
+        let desc_source = match usage_value.as_deref() {
+            Some(v) if !v.is_empty() => match trimmed.strip_prefix(v) {
+                Some(rest) if rest.is_empty() || rest.starts_with(char::is_whitespace) => {
+                    let rest = rest.trim_start();
+                    rest.strip_prefix("- ").unwrap_or(rest)
+                }
+                _ => trimmed,
+            },
+            _ => trimmed,
+        };
+        let desc = desc_source.trim();
+        if desc.is_empty() {
             continue;
         }
-        // A ` - ` (space-dash-space) run right after the row's own value
-        // token, in a document whose other option rows show the same
-        // separator (`savelog`'s `-m mode   - chmod...`, every row),
-        // is the document's own description boundary, not a coincidence:
-        // the value is genuine even though its own row's gap collapsed to
-        // one space (`-r rolldir - use rolldir...`, `rolldir` too long to
-        // leave room for a wider gap before the dash). Takes priority
-        // over the bare-word guess below, never touching the value.
-        if flag.value_kind == ValueKind::Required && dash_separator_document {
-            if let Some(dash_idx) = find_dash_separator(row) {
-                let (_, desc) = split_at_dash(row, dash_idx);
-                if !desc.trim().is_empty() {
-                    flag.description = non_empty_text(desc.trim());
-                    continue;
-                }
-            }
-        }
-        // The captured "value" must itself be shaped like a bare
-        // description word, never a genuine placeholder: one run of
-        // nothing but lowercase ASCII letters.
-        let is_bare_word_guess = flag.value_kind == ValueKind::Required
-            && flag
-                .value_name
-                .as_deref()
-                .is_some_and(|v| !v.is_empty() && v.chars().all(|c| c.is_ascii_lowercase()));
-        if is_bare_word_guess {
-            // The fabrication shape is always spaced (`-f mmap...`): a
-            // glued tail (`-rNUM`) is the other, already-correct case
-            // below, never this one.
-            if !after_letter.starts_with(char::is_whitespace) {
-                continue;
-            }
-            let desc = after_letter.trim();
-            if desc.is_empty() {
-                continue;
-            }
-            let Some(usage_value) = usage_lines
-                .iter()
-                .find_map(|u| usage_line_glued_short_value(u, short))
-            else {
-                continue; // no independent evidence; leave today's guess alone
-            };
-            match usage_value {
-                Some(value) => {
-                    flag.value_name = Some(value);
-                    flag.value_kind = ValueKind::Required;
-                }
-                None => {
-                    flag.value_name = None;
-                    flag.value_kind = ValueKind::None;
-                }
-            }
-            flag.description = non_empty_text(desc);
-        } else if flag.value_kind == ValueKind::Required {
-            let Some(value) = flag.value_name.as_deref() else {
-                continue;
-            };
-            let Some(rest) = after_letter.strip_prefix(value) else {
-                continue;
-            };
-            let desc = rest.trim();
-            if desc.is_empty() {
-                continue;
-            }
-            flag.description = non_empty_text(desc);
-        }
+        flag.value_name = usage_value;
+        flag.value_kind = usage_kind;
+        flag.description = non_empty_text(desc);
     }
 }
 
-/// One usage line's own standalone bracketed token for `-short`, read as
-/// glued-value evidence: `Some(Some(value))` when an uppercase run is
-/// glued directly onto the letter with no space (`[-fFILE]` -> `"FILE"`),
-/// `Some(None)` when the token is the bare letter alone (`[-H]`), `None`
-/// when this line attests nothing about the letter at all. Boundary rule
-/// mirrors [`usage_line_has_standalone_token`]: whitespace or a bracket on
-/// both sides, so a longer spelling sharing the same prefix is never
-/// mistaken for this one. See docs/shapes.md S-176.
-fn usage_line_glued_short_value(line: &str, short: char) -> Option<Option<String>> {
-    let needle = format!("-{short}");
-    let is_boundary = |c: char| c.is_whitespace() || c == '[' || c == ']';
-    let mut start = 0usize;
-    while let Some(rel) = line[start..].find(&needle) {
-        let idx = start + rel;
-        let before_ok = line[..idx].chars().next_back().is_none_or(is_boundary);
-        if before_ok {
-            let after = &line[idx + needle.len()..];
-            let tail_end = after.find(is_boundary).unwrap_or(after.len());
-            let tail = &after[..tail_end];
-            if tail.is_empty() {
-                return Some(None);
-            }
-            if tail.chars().all(|c| c.is_ascii_uppercase()) {
-                return Some(Some(tail.to_string()));
-            }
-        }
-        start = idx + 1;
-    }
-    None
+/// The value [`extract_usage_flags`] itself would assign `short`, read
+/// straight off the usage line by the same grammar (a spaced placeholder,
+/// `[-c class]`; a glued optional group, `[-s[<node>]]`; a glued
+/// uppercase run, `[-fFILE]`) and the same bundle/alternation logic
+/// ([`push_usage_token`]) every other usage-derived flag already goes
+/// through — never a second, narrower reading of the usage line built
+/// just for this repair. `Some((None, ValueKind::None))` when the usage
+/// line spells the letter with no placeholder at all, alone, in an
+/// alternation, or in a bundle (`kpartx`'s `[-a|-d|-u|-l]`, `host`'s
+/// `[-aCdilrTvVw]`). `None` when the usage line never names this letter,
+/// so the caller leaves the row untouched rather than assuming boolean.
+/// See docs/shapes.md S-176.
+fn usage_derived_value_for_short(
+    usage_lines: &[String],
+    short: char,
+) -> Option<(Option<String>, ValueKind)> {
+    extract_usage_flags(usage_lines)
+        .into_iter()
+        .find(|f| f.short() == Some(short) && f.long().is_none())
+        .map(|f| (f.value_name, f.value_kind))
 }
 
 /// A dash-prefixed usage-line word that normally reads as the generic
@@ -700,22 +665,6 @@ fn document_has_no_long_row(lines: &[&str]) -> bool {
         }
     }
     true
-}
-
-/// True when at least [`MIN_TABLE_ROWS`] of the document's own option
-/// rows show a ` - ` (space-dash-space) description separator
-/// ([`find_dash_separator`]) — `savelog`'s own convention, every row
-/// from `-m mode   - chmod...` to `-r rolldir - use rolldir...`. Evidence
-/// that the document's own boundary is this literal separator, not the
-/// width of the gap before it, so a row whose gap happens to collapse to
-/// one space (a long value crowding out the padding) is not mistaken for
-/// a fabricated placeholder. See docs/shapes.md S-176.
-fn document_uses_dash_separator_convention(lines: &[&str]) -> bool {
-    lines
-        .iter()
-        .filter(|l| looks_like_flag_start(l.trim_start()) && find_dash_separator(l).is_some())
-        .count()
-        >= MIN_TABLE_ROWS
 }
 
 /// True when `rest` (a row's own text, dash already stripped) opens with
@@ -1203,16 +1152,17 @@ mod tests {
     }
 
     /// `savelog --help`'s own bytes, byte-exact (minus the trailing rows
-    /// this test doesn't need): every option row uses a ` - ` separator,
-    /// most with a wide enough gap that the ordinary column-gap grammar
-    /// already reads them (`-m`, `-u`, `-g`, `-c` all keep their real
-    /// descriptions untouched by this repair). `-r rolldir`'s own gap
-    /// collapses to one space because `rolldir` is long, which used to
-    /// read `rolldir` as a fabricated placeholder guess and throw the
-    /// real value away recovering the description. The document's own
-    /// separator, corroborated by its sibling rows, says `rolldir` was
-    /// always genuine — value and description both survive. See
-    /// docs/shapes.md S-176 and audit/queue-captures/savelog/0.stdout.
+    /// this test doesn't need): `-r rolldir`'s usage placeholder is
+    /// `rolldir` itself, a spaced usage-line value
+    /// ([`usage_derived_value_for_short`]'s own case), and `rolldir` also
+    /// happens to be the row's own leading word (`-r rolldir - use
+    /// rolldir...`) — the row's gap before its own ` - ` separator
+    /// collapsed to one space because `rolldir` is long, which used to
+    /// read it as a fabricated placeholder guess and throw the real
+    /// value away recovering the description. Both survive: value from
+    /// the usage line, description from the row's own remainder past
+    /// that leading occurrence. See docs/shapes.md S-176 and
+    /// audit/queue-captures/savelog/0.stdout.
     #[test]
     fn savelogs_own_dash_separator_keeps_a_narrow_gapped_value_and_recovers_its_description() {
         let raw = concat!(
@@ -1240,6 +1190,136 @@ mod tests {
             r.description.as_ref().map(Text::as_str),
             Some("use rolldir instead of . to roll files")
         );
+    }
+
+    /// `host --help`'s own bytes, byte-exact: a single-dash table with no
+    /// column gap at all, where every row used to read its description's
+    /// first word as a fabricated value. `-c`/`-N`/`-t`/`-W` each get
+    /// their real value (`class`/`ndots`/`type`/`time`) from `host`'s own
+    /// usage line's spaced placeholder; `-a` is a member of the usage
+    /// line's own bundle `[-aCdilrTvVw]` and is read boolean, its real
+    /// description recovered with no value fabricated. `-A`, named in no
+    /// usage line at all, is the deliberate residual this rule leaves
+    /// alone rather than guess at. See docs/shapes.md S-176 and
+    /// corpus/host/9.18.39.
+    #[test]
+    fn hosts_own_usage_line_supplies_every_valued_flags_real_name() {
+        let raw = concat!(
+            "Usage: host [-aCdilrTvVw] [-c class] [-N ndots] [-t type] [-W time]\n",
+            "            [-R number] [-m flag] [-p port] hostname [server]\n",
+            "       -a is equivalent to -v -t ANY\n",
+            "       -A is like -a but omits RRSIG, NSEC, NSEC3\n",
+            "       -c specifies query class for non-IN data\n",
+            "       -N changes the number of dots allowed before root lookup is done\n",
+            "       -t specifies the query type\n",
+            "       -W specifies how long to wait for a reply\n",
+        );
+        let parsed = parse_named(raw, "host");
+        let short = |c: char| {
+            parsed
+                .flags
+                .iter()
+                .find(|f| f.short() == Some(c))
+                .unwrap_or_else(|| panic!("no -{c} in {:?}", parsed.flags))
+        };
+        for (letter, value) in [('c', "class"), ('N', "ndots"), ('t', "type"), ('W', "time")] {
+            let f = short(letter);
+            assert_eq!(
+                f.value_name.as_deref(),
+                Some(value),
+                "-{letter} must keep the usage line's own value name"
+            );
+            assert_eq!(f.value_kind, ValueKind::Required);
+            assert!(
+                f.description.is_some(),
+                "-{letter} must recover its real description too"
+            );
+        }
+        let a = short('a');
+        assert_eq!(a.value_name, None, "-a is boolean per the usage bundle");
+        assert_eq!(a.value_kind, ValueKind::None);
+        assert_eq!(
+            a.description.as_ref().map(Text::as_str),
+            Some("is equivalent to -v -t ANY")
+        );
+        // `-A` is named in no usage line at all (not in the bundle, not
+        // in its own bracket group): no evidence, no change. It keeps
+        // today's fabricated guess rather than being assumed boolean.
+        let big_a = short('A');
+        assert_eq!(big_a.value_name.as_deref(), Some("is"));
+        assert!(big_a.description.is_none());
+    }
+
+    /// `kpartx --help`'s own bytes, byte-exact: every flag is boolean.
+    /// `-f`/`-g`/`-p`/`-r`/`-v`, each its own bracketed usage token
+    /// (`[-r]`), already lost their fabricated values to the row-only
+    /// repair; `-a`/`-d`/`-u`/`-l`, members of the usage line's own
+    /// alternation `[-a|-d|-u|-l]`, did not — the alternation shape is
+    /// this rule's own addition. `-l`'s own row, "list partitions ...
+    /// added by -a", is prose merely mentioning another flag and must
+    /// not trip the packed-multi-column-row guard the way a real
+    /// two-plus-space gap would. See docs/shapes.md S-176 and
+    /// corpus/kpartx (unfixtured; captured live, `kpartx` prints its own
+    /// usage with no arguments).
+    #[test]
+    fn kpartxs_alternation_members_are_read_boolean_not_valued() {
+        let raw = concat!(
+            "Usage:\n",
+            "  kpartx [-a|-d|-u|-l] [-r] [-p] [-f] [-g] [-s|-n] [-v] wholedisk\n",
+            "\t-a add partition devmappings\n",
+            "\t-r devmappings will be readonly\n",
+            "\t-d del partition devmappings\n",
+            "\t-u update partition devmappings\n",
+            "\t-l list partitions devmappings that would be added by -a\n",
+            "\t-v verbose\n",
+        );
+        let parsed = parse_named(raw, "kpartx");
+        for letter in ['a', 'd', 'u', 'l', 'r', 'v'] {
+            let f = parsed
+                .flags
+                .iter()
+                .find(|f| f.short() == Some(letter))
+                .unwrap_or_else(|| panic!("no -{letter} in {:?}", parsed.flags));
+            assert_eq!(f.value_name, None, "-{letter} must be read boolean");
+            assert_eq!(f.value_kind, ValueKind::None);
+            assert!(
+                f.description.is_some(),
+                "-{letter} must still recover its real description"
+            );
+        }
+    }
+
+    /// `numastat --help`'s own bytes, byte-exact: `-s[<node>]` is a
+    /// glued optional group on the usage line, the third of the rule's
+    /// four usage spellings (a bare uppercase run, a spaced placeholder,
+    /// a glued optional group, no placeholder at all). `-p <PID>|<pattern>`
+    /// is a spaced placeholder carrying its own alternation. See
+    /// docs/shapes.md S-176.
+    #[test]
+    fn numastats_glued_optional_group_keeps_its_own_bracket_value() {
+        let raw = concat!(
+            "Usage: numastat [-c] [-p <PID>|<pattern>] [-s[<node>]] [-v]\n",
+            "-c to minimize column widths\n",
+            "-p <PID>|<pattern> to show process info\n",
+            "-s[<node>] to sort data by total column or <node>\n",
+            "-v to make some reports more verbose\n",
+        );
+        let parsed = parse_named(raw, "numastat");
+        let s = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('s'))
+            .expect("no -s in numastat's flags");
+        assert_eq!(s.value_kind, ValueKind::Optional);
+        assert!(s.value_name.as_deref().is_some_and(|v| v.contains("node")));
+        assert!(s.description.is_some());
+        let p = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('p'))
+            .expect("no -p in numastat's flags");
+        assert_eq!(p.value_kind, ValueKind::Required);
+        assert!(p.description.is_some());
     }
 
     /// A spaced value is indistinguishable from a glued one once stored;

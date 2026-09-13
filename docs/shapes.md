@@ -3931,41 +3931,55 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-176
 - looks like: |
       -f mmap is backed by FILE
-      -H disable transparent hugepages
-- tools: memhog
+      -c specifies query class for non-IN data
+      -a is equivalent to -v -t ANY
+- tools: memhog, host, kpartx, numastat, savelog
 - handling: Fixed, inside a document with no `--long` row anywhere
-  ([`document_has_no_long_row`], the same discriminator S-157's own table
-  repair rests on) and at least two short-only `HelpText`-sourced flags
-  (`MIN_TABLE_ROWS`, the "more than a coincidence" floor). A row with no
-  genuine placeholder at all — no `<...>`/`[...]`, no ALL-CAPS metavar, no
-  glued `-Xvalue` — still reads the first bare word of its own description
-  as a value (`-f mmap is backed by FILE` to `-f` valued `"mmap"`), and the
-  real description is then lost outright, since nothing is left over once
-  that first word is spent. `recover_bare_word_first_description_word`
-  (`mandible-extract/src/help_text/sections/repair.rs`) recovers both
-  halves: the tool's own usage line is independent evidence of the real
-  value, present (`[-fFILE]` glues an uppercase run onto the letter,
-  naming `FILE`) or absent (`[-H]` glues nothing, naming none); without
-  that direct proof the flag's own guess is left alone. The row's text
-  past the flag letter becomes the description either way. A second,
-  narrower case in the same family: a row whose value is already genuine
-  (`memhog`'s own `-rNUM`) still loses its description the same way, with
-  no column gap to say where the spec ends and the description begins;
-  recovered by stripping exactly the already-known-correct value text off
-  the row's own remainder, never touching the value itself.
-- fleet: Not measured with `xtask coverage` this round (build capacity was
-  contended; the orchestrator owns the full-`PATH` sweep). A raw-text grep
-  over `audit/queue-captures/*/0.std*` for a single-dash-letter row
-  followed by one space and a lowercase bare word reads 62 tools — an
-  upper bound on the raw shape, not a tree-level count, and most of those
-  62 (`ffmpeg`, `ffplay`, `ffprobe`, `python3.12`, `qemu-aarch64-static`,
-  …) carry a `--long` row elsewhere and so never reach this repair's own
-  gate. Tree-level: one tool, `memhog`, verified by
-  `mandible-extract/src/help_text/sections/mod.rs`'s
-  `memhog_flags_positionals_and_root_description_all_land_correctly`.
-  Below the five-tool bar; shipped as a gated exception (docs/design.md
-  §16) alongside `corpus/memhog/2.0.18`, promoted out of `[xfail]`,
-  maintainer-audited ("yeah this one needs full revision").
+  ([`document_has_no_long_row`]) and at least two short-only `HelpText`-
+  sourced flags (`MIN_TABLE_ROWS`). A row with no genuine placeholder at
+  all still reads the first bare word of its own description as a value
+  (`-f mmap is backed by FILE` to `-f` valued `"mmap"`), and the real
+  description is lost outright once that first word is spent. The row's
+  own text is never trusted to say what the value is — the tool's own
+  usage line is, read by the exact grammar and bundle/alternation logic
+  [`extract_usage_flags`] already uses everywhere else
+  ([`usage_derived_value_for_short`]), covering all four usage spellings:
+  a glued uppercase run (`[-fFILE]` → `FILE`), a spaced placeholder
+  (`host`'s `[-c class]` → `class`), a glued optional group (`numastat`'s
+  `[-s[<node>]]` → `<node>`, Optional), and no placeholder at all, whether
+  alone (`[-r]`), in an alternation (`kpartx`'s `[-a|-d|-u|-l]`), or in a
+  bundle (`host`'s `[-aCdilrTvVw]`) — all three read boolean. A letter the
+  usage line never names at all (`host`'s own `-A`/`-s`/`-U`/`-4`/`-6`)
+  gets no change at all: no evidence, no guess. The row's own remainder
+  becomes the description either way, minus one leading occurrence of the
+  usage value when the row's own text happens to open with it too
+  (`savelog`'s `-r rolldir - use rolldir...`). A row packing a second
+  flag by a real two-plus-space column gap (`lsof`'s own multi-column
+  `-T`/`-U`/`-v` summary line) is refused rather than read as one row's
+  description; a single-spaced mention of another flag in ordinary prose
+  (`kpartx`'s `-l list partitions ... added by -a`) is not mistaken for
+  that shape.
+- fleet: Tree-level: 5 tools (`memhog`, `host`, `kpartx`, `numastat`,
+  `savelog`), each verified by its own unit test in
+  `mandible-extract/src/help_text/sections/repair.rs` (`host` also by
+  `corpus/host/9.18.39`, promoted straight in — never `[xfail]`). Clears
+  the five-tool bar (AGENTS.md §3.1) on that count; not swept fleet-wide
+  with `xtask coverage` this round (build capacity was contended, and the
+  orchestrator owns the full-`PATH` sweep). A raw-text grep over
+  `audit/queue-captures/*/0.std*` for a single-dash-letter row followed by
+  one space and a lowercase bare word reads 62 tools — an explicit upper
+  bound on the raw shape, not a tree-level count; most of those 62
+  (`ffmpeg`, `ffplay`, `ffprobe`, `python3.12`, `qemu-aarch64-static`, …)
+  carry a `--long` row elsewhere and never reach this repair's own gate.
+  Honest residual: `host`'s own `-A`, `-s`, `-U`, `-4`, `-6`, named in no
+  usage line at all, stay exactly as wrong as before — 5 rows on 1 tool,
+  recorded in `corpus/host/9.18.39/meta.toml` rather than claimed fixed.
+  Zero-loss checked against `git diff`'s own field-level list on every
+  corpus fixture this round: no `value_name` went from something real to
+  nothing anywhere except `memhog`'s own already-fenced S-172 case (S-177
+  gained, `lsof`'s own `-F` gained a description with its value
+  untouched), and `Xvfb`/`mksquashfs`/`sqfstar` stayed byte-identical
+  (`pty_screenshot.py`, before/after diff empty).
 
 ### S-177: a usage synopsis's lowercase operand tail, unlabelled and nested
 

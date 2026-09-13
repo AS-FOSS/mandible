@@ -2983,19 +2983,26 @@ Re-measured with `xtask coverage --tools lldb-server,lldb-server-18`
 against the real installed binaries: `existence_fabrication_tools` reads
 0 and `exist` reads 0 for both. Docs/shapes.md S-167.
 
-**`memhog`'s whole screen ships below the five-tool bar (2026-09-13).**
-Maintainer, after looking at mandible's screen for the tool: "yeah this one
-needs full revision". `memhog --help` has no blank line anywhere and no
-`usage:` label; every one of its five raw lines was wrong or lost before
-this round (docs/shapes.md S-165, S-176, S-177). Tree-level, each shape
-reads one tool, `memhog` itself; a raw-text grep over
-`audit/queue-captures/*/0.std*` reads 62 tools for S-176's own row shape
-and 48 for S-177's, both explicitly upper bounds on the raw text rather
-than a tree-level count, since most of those rows carry a `--long` row or
-a labelled multi-line synopsis that keeps the narrower gate closed. Ships
-anyway: `corpus/memhog/2.0.18` promotes out of `[xfail]`, every contract
-field it names now passes, and the corpus sweep and named controls stay
-byte-identical.
+**`memhog`'s whole screen was wrong or lost, S-177's own positional
+recovery ships below the five-tool bar, S-176's own value-name rule
+does not (2026-09-13).** Maintainer, after looking at mandible's screen
+for the tool: "yeah this one needs full revision". `memhog --help` has
+no blank line anywhere and no `usage:` label; every one of its five raw
+lines was wrong or lost before this round (docs/shapes.md S-165, S-176,
+S-177). S-176's own rule — a single-dash table row's real value comes
+from the tool's own usage line, never a guess at the row's own text —
+was first measured at 1 tool (`memhog` alone) and revised once a
+full-`PATH` sweep on an earlier version of the rule found it threw away
+genuine values on `host` (`-c`/`-N`/`-t`/`-W`/`-R`/`-m`/`-p`) that a
+narrower usage-line reading now recovers correctly; the revised rule
+reads tree-level at 5 tools (`memhog`, `host`, `kpartx`, `numastat`,
+`savelog`), clearing the bar. S-177's own positional-flattening rule
+stays at 1 tool, `memhog`, below the bar; a raw-text grep over
+`audit/queue-captures/*/0.std*` reads 48 tools for its own row shape, an
+explicit upper bound on the raw text rather than a tree-level count.
+Both ship: `corpus/memhog/2.0.18` and `corpus/host/9.18.39` promote out
+of (or never enter) `[xfail]`, every contract field they name passes,
+and the corpus sweep and named controls stay byte-identical.
 
 ### Deferred, with the reason each is not simply undone
 

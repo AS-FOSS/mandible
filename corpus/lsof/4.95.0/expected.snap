@@ -155,6 +155,7 @@ flags:
   - -F
   value_name: f
   value_kind: Optional
+  description: '[f] select fields; -F? for help'
   provenance:
     sources:
     - help-text
