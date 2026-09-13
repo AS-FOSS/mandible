@@ -424,6 +424,7 @@ pub(super) fn recover_bare_word_first_description_word(
     if short_only_help_text_flags < MIN_TABLE_ROWS {
         return;
     }
+    let dash_separator_document = document_uses_dash_separator_convention(lines);
     for flag in flags.iter_mut() {
         if !flag.provenance.sources.contains(&Source::HelpText)
             || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
@@ -455,6 +456,23 @@ pub(super) fn recover_bare_word_first_description_word(
             .any(|w| w.len() > 1 && w.starts_with('-') && w[1..].starts_with(char::is_alphabetic))
         {
             continue;
+        }
+        // A ` - ` (space-dash-space) run right after the row's own value
+        // token, in a document whose other option rows show the same
+        // separator (`savelog`'s `-m mode   - chmod...`, every row),
+        // is the document's own description boundary, not a coincidence:
+        // the value is genuine even though its own row's gap collapsed to
+        // one space (`-r rolldir - use rolldir...`, `rolldir` too long to
+        // leave room for a wider gap before the dash). Takes priority
+        // over the bare-word guess below, never touching the value.
+        if flag.value_kind == ValueKind::Required && dash_separator_document {
+            if let Some(dash_idx) = find_dash_separator(row) {
+                let (_, desc) = split_at_dash(row, dash_idx);
+                if !desc.trim().is_empty() {
+                    flag.description = non_empty_text(desc.trim());
+                    continue;
+                }
+            }
         }
         // The captured "value" must itself be shaped like a bare
         // description word, never a genuine placeholder: one run of
@@ -682,6 +700,22 @@ fn document_has_no_long_row(lines: &[&str]) -> bool {
         }
     }
     true
+}
+
+/// True when at least [`MIN_TABLE_ROWS`] of the document's own option
+/// rows show a ` - ` (space-dash-space) description separator
+/// ([`find_dash_separator`]) — `savelog`'s own convention, every row
+/// from `-m mode   - chmod...` to `-r rolldir - use rolldir...`. Evidence
+/// that the document's own boundary is this literal separator, not the
+/// width of the gap before it, so a row whose gap happens to collapse to
+/// one space (a long value crowding out the padding) is not mistaken for
+/// a fabricated placeholder. See docs/shapes.md S-176.
+fn document_uses_dash_separator_convention(lines: &[&str]) -> bool {
+    lines
+        .iter()
+        .filter(|l| looks_like_flag_start(l.trim_start()) && find_dash_separator(l).is_some())
+        .count()
+        >= MIN_TABLE_ROWS
 }
 
 /// True when `rest` (a row's own text, dash already stripped) opens with
@@ -1165,6 +1199,46 @@ mod tests {
                 .iter()
                 .map(|f| f.spelling())
                 .collect::<Vec<_>>()
+        );
+    }
+
+    /// `savelog --help`'s own bytes, byte-exact (minus the trailing rows
+    /// this test doesn't need): every option row uses a ` - ` separator,
+    /// most with a wide enough gap that the ordinary column-gap grammar
+    /// already reads them (`-m`, `-u`, `-g`, `-c` all keep their real
+    /// descriptions untouched by this repair). `-r rolldir`'s own gap
+    /// collapses to one space because `rolldir` is long, which used to
+    /// read `rolldir` as a fabricated placeholder guess and throw the
+    /// real value away recovering the description. The document's own
+    /// separator, corroborated by its sibling rows, says `rolldir` was
+    /// always genuine — value and description both survive. See
+    /// docs/shapes.md S-176 and audit/queue-captures/savelog/0.stdout.
+    #[test]
+    fn savelogs_own_dash_separator_keeps_a_narrow_gapped_value_and_recovers_its_description() {
+        let raw = concat!(
+            "Usage: savelog [-m mode] [-u user] [-g group] [-t] [-c cycle] [-p]\n",
+            "             [-j] [-C] [-d] [-l] [-r rolldir] [-n] [-q] file ...\n",
+            "\t-m mode\t   - chmod log files to mode\n",
+            "\t-u user\t   - chown log files to user\n",
+            "\t-g group   - chgrp log files to group\n",
+            "\t-c cycle   - save cycle versions of the logfile (default: 7)\n",
+            "\t-r rolldir - use rolldir instead of . to roll files\n",
+        );
+        let parsed = parse(raw);
+        let r = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('r'))
+            .expect("-r must survive as its own short flag");
+        assert_eq!(
+            r.value_name.as_deref(),
+            Some("rolldir"),
+            "the genuine value must never be thrown away"
+        );
+        assert_eq!(r.value_kind, ValueKind::Required);
+        assert_eq!(
+            r.description.as_ref().map(Text::as_str),
+            Some("use rolldir instead of . to roll files")
         );
     }
 
