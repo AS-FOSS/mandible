@@ -11,20 +11,29 @@ use super::*;
 /// [`parse_plus_sigil_spec`]'s grammar, and would otherwise keep the
 /// literal `+`/`+<lnum>` text as a bare "spelling". See docs/shapes.md
 /// S-095.
+/// Three-way now, not two: a packed block's own alternation-sigil rows
+/// (S-163) need the same detour around [`emit_packed_flags`] a plus-sigil
+/// row does, for the identical reason — that reader assumes a
+/// `-wholename` shape [`parse_plus_sigil_spec`]/
+/// [`parse_plus_minus_alternation_spec`] never produce.
 fn partition_plus_sigil_entries(
     entries: Vec<FlagRowEntry>,
     is_plus_sigil: &[bool],
-) -> (Vec<FlagRowEntry>, Vec<FlagRowEntry>) {
+    is_alternation: &[bool],
+) -> (Vec<FlagRowEntry>, Vec<FlagRowEntry>, Vec<FlagRowEntry>) {
     let mut ordinary = Vec::new();
     let mut plus_sigil = Vec::new();
+    let mut alternation = Vec::new();
     for (idx, entry) in entries.into_iter().enumerate() {
-        if is_plus_sigil.get(idx).copied().unwrap_or(false) {
+        if is_alternation.get(idx).copied().unwrap_or(false) {
+            alternation.push(entry);
+        } else if is_plus_sigil.get(idx).copied().unwrap_or(false) {
             plus_sigil.push(entry);
         } else {
             ordinary.push(entry);
         }
     }
-    (ordinary, plus_sigil)
+    (ordinary, plus_sigil, alternation)
 }
 
 /// Emit everything one [`scan_flags_block`] call recovered — the packed
@@ -33,17 +42,32 @@ fn partition_plus_sigil_entries(
 /// through, so neither call site repeats the packed/plus-sigil/argfile
 /// three-way split inline. Returns `(seen, clean)` for the caller's own
 /// running totals.
+/// The per-row routing facts [`emit_flags_block`] needs beside the rows:
+/// which entries take [`parse_plus_sigil_spec`]'s grammar (S-095), which
+/// take the alternation-sigil expansion (S-163), and whether the document
+/// is argparse's, which gates S-155's brace form.
+pub(super) struct RowRouting<'a> {
+    pub is_plus_sigil: &'a [bool],
+    pub is_alternation: &'a [bool],
+    pub is_argparse: bool,
+}
+
 pub(super) fn emit_flags_block(
     group: Option<String>,
     entries: Vec<FlagRowEntry>,
     packed: bool,
-    is_plus_sigil: &[bool],
+    routing: RowRouting<'_>,
     argfile_entry: Option<FlagRowEntry>,
-    is_argparse: bool,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
+    let RowRouting {
+        is_plus_sigil,
+        is_alternation,
+        is_argparse,
+    } = routing;
     let (mut seen, mut clean) = if packed {
-        let (ordinary, plus_sigil) = partition_plus_sigil_entries(entries, is_plus_sigil);
+        let (ordinary, plus_sigil, alternation) =
+            partition_plus_sigil_entries(entries, is_plus_sigil, is_alternation);
         let ordinary_seen = ordinary.len();
         emit_packed_flags(
             group.clone(),
@@ -55,12 +79,32 @@ pub(super) fn emit_flags_block(
             group.clone(),
             plus_sigil,
             &vec![true; plus_seen],
+            &vec![false; plus_seen],
             is_argparse,
             out,
         );
-        (ordinary_seen + plus_seen, ordinary_seen + plus_clean)
+        let alt_seen = alternation.len();
+        let (_, alt_clean) = emit_flags_with(
+            group.clone(),
+            alternation,
+            &vec![false; alt_seen],
+            &vec![true; alt_seen],
+            is_argparse,
+            out,
+        );
+        (
+            ordinary_seen + plus_seen + alt_seen,
+            ordinary_seen + plus_clean + alt_clean,
+        )
     } else {
-        emit_flags_with(group.clone(), entries, is_plus_sigil, is_argparse, out)
+        emit_flags_with(
+            group.clone(),
+            entries,
+            is_plus_sigil,
+            is_alternation,
+            is_argparse,
+            out,
+        )
     };
     if let Some(entry) = argfile_entry {
         seen += 1;
@@ -169,6 +213,7 @@ pub(super) fn emit_flags_with(
     group: Option<String>,
     entries: Vec<FlagRowEntry>,
     is_plus_sigil: &[bool],
+    is_alternation: &[bool],
     is_argparse: bool,
     out: &mut ParsedHelp,
 ) -> (usize, usize) {
@@ -179,6 +224,31 @@ pub(super) fn emit_flags_with(
             break;
         }
         seen += 1;
+        // The alternation-sigil row (S-163) expands to two entities,
+        // `+word` and `-word`, both sharing this row's own description
+        // and choices — built directly from the two `FlagSpec`s rather
+        // than through the loop's single-`spec` path below, since one
+        // source row producing two entities is the one shape this loop
+        // otherwise never has.
+        if is_alternation.get(idx).copied().unwrap_or(false) {
+            if let Some((plus_spec, minus_spec)) = parse_plus_minus_alternation_spec(&spec_text) {
+                clean += 1;
+                for spec in [plus_spec, minus_spec] {
+                    if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+                        break;
+                    }
+                    push_flag_entity(
+                        spec,
+                        &desc_text,
+                        &choice_names,
+                        group.clone(),
+                        is_argparse,
+                        out,
+                    );
+                }
+            }
+            continue;
+        }
         // S-161: a `/`-joined second spelling (`-W / --warn [LINT]`) reads
         // as the ordinary comma-joined alias `parse_flag_spec` already
         // knows, on any option-table row, not only a lowdown bullet's own
@@ -221,56 +291,78 @@ pub(super) fn emit_flags_with(
                 }
             }
         }
-        let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
-        flag.spellings = spec.spellings;
-        flag.value_name = spec.value_name;
-        flag.value_kind = spec.value_kind;
-        flag.group = group.clone();
-        flag.description = non_empty_text(&description);
-        // Sub-rows nested directly under this flag's own row (llvm-ar's
-        // bare `=value` shape and ffmpeg/ffplay's described AVOption shape,
-        // see `choices_sub_row_value`/`choice_description_sub_row`) share
-        // this same `choices` field with clap's `[possible values: …]`.
-        flag.choices = choice_names
-            .into_iter()
-            .map(|(name, desc)| Choice {
-                name,
-                description: desc.map(|d| Text::sanitize(&d)),
-            })
-            .collect();
-        // A value spec that is nothing but one delimited alternation of
-        // literal values is that entity's `choices` (S-155): the reader
-        // could not otherwise see that these are the only values, and
-        // search could not match one. Scoped to when no other source
-        // already populated `choices` — a sub-row or clap's own
-        // `[possible values: …]` outranks a bare reading of the
-        // placeholder text.
-        if flag.choices.is_empty() {
-            if let Some(value_name) = flag.value_name.as_deref() {
-                if let Some(members) = alternation_choices(value_name, is_argparse) {
-                    flag.choices = members.into_iter().map(Choice::bare).collect();
-                    // S-130: the choices came from the placeholder text
-                    // itself, so value_name must not repeat them — there
-                    // is no separate generic placeholder here to keep.
-                    flag.value_name = None;
-                }
-            }
-        }
-        // A docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
-        // S-120) already carries every value as `choices`; when no bracketed
-        // placeholder introduced it (`--configreport log|vg|lv|pv|pvseg|seg`,
-        // unlike `--units [Number]r|R|...`), the same list is *also* what
-        // grammar read as `value_name`, so the rendered screen prints it
-        // twice. Dropped rather than replaced with a generic placeholder,
-        // since `choices` already carries the full enumeration and a
-        // placeholder here would tell the reader nothing new. See
-        // docs/shapes.md S-130.
-        if value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices) {
-            flag.value_name = None;
-        }
-        out.flags.push(flag);
+        push_flag_entity(
+            spec,
+            &description,
+            &choice_names,
+            group.clone(),
+            is_argparse,
+            out,
+        );
     }
     (seen, clean)
+}
+
+/// Build and push one [`Entity`] from an already-parsed [`FlagSpec`],
+/// shared by the ordinary/plus-sigil path above and the alternation-sigil
+/// row's two-entity expansion — the exact steps every flag entity needs
+/// regardless of which spec produced it. See docs/shapes.md S-163.
+fn push_flag_entity(
+    spec: FlagSpec,
+    description: &str,
+    choice_names: &[(String, Option<String>)],
+    group: Option<String>,
+    is_argparse: bool,
+    out: &mut ParsedHelp,
+) {
+    let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+    flag.spellings = spec.spellings;
+    flag.value_name = spec.value_name;
+    flag.value_kind = spec.value_kind;
+    flag.group = group;
+    flag.description = non_empty_text(description);
+    // Sub-rows nested directly under this flag's own row (llvm-ar's
+    // bare `=value` shape and ffmpeg/ffplay's described AVOption shape,
+    // see `choices_sub_row_value`/`choice_description_sub_row`) share
+    // this same `choices` field with clap's `[possible values: …]`.
+    flag.choices = choice_names
+        .iter()
+        .map(|(name, desc)| Choice {
+            name: name.clone(),
+            description: desc.clone().map(|d| Text::sanitize(&d)),
+        })
+        .collect();
+    // A value spec that is nothing but one delimited alternation of
+    // literal values is that entity's `choices` (S-155): the reader
+    // could not otherwise see that these are the only values, and
+    // search could not match one. Scoped to when no other source
+    // already populated `choices` — a sub-row or clap's own
+    // `[possible values: …]` outranks a bare reading of the
+    // placeholder text.
+    if flag.choices.is_empty() {
+        if let Some(value_name) = flag.value_name.as_deref() {
+            if let Some(members) = alternation_choices(value_name, is_argparse) {
+                flag.choices = members.into_iter().map(Choice::bare).collect();
+                // S-130: the choices came from the placeholder text
+                // itself, so value_name must not repeat them — there
+                // is no separate generic placeholder here to keep.
+                flag.value_name = None;
+            }
+        }
+    }
+    // A docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
+    // S-120) already carries every value as `choices`; when no bracketed
+    // placeholder introduced it (`--configreport log|vg|lv|pv|pvseg|seg`,
+    // unlike `--units [Number]r|R|...`), the same list is *also* what
+    // grammar read as `value_name`, so the rendered screen prints it
+    // twice. Dropped rather than replaced with a generic placeholder,
+    // since `choices` already carries the full enumeration and a
+    // placeholder here would tell the reader nothing new. See
+    // docs/shapes.md S-130.
+    if value_name_duplicates_its_own_choices(flag.value_name.as_deref(), &flag.choices) {
+        flag.value_name = None;
+    }
+    out.flags.push(flag);
 }
 
 /// Emit the argfile sigil flag [`super::flag_rows::argfile_row_value_name`]
@@ -408,6 +500,44 @@ pub(super) fn emit_env_vars(
         out.env_vars.push(env_var);
     }
     (seen, seen)
+}
+
+/// Emit a header-declared three-column option table's rows as flags
+/// (docs/shapes.md S-166). The middle column becomes [`Entity::env_var`],
+/// the flag's own cross-reference to the variable that row names for it
+/// (spec §4.5) — never folded into `description`, and never a standalone
+/// [`EntityKind::EnvVar`] item, since this is a per-row relation a named
+/// column header states, not a variable documented as an item in its own
+/// right.
+pub(super) fn emit_three_column_env_table(
+    group: Option<String>,
+    rows: Vec<ThreeColumnRow>,
+    out: &mut ParsedHelp,
+) -> (usize, usize) {
+    let mut seen = 0usize;
+    let mut clean = 0usize;
+    for (argument, env_var, description) in rows {
+        if out.flags.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        seen += 1;
+        let spec = three_column_argument_spec(&argument);
+        if spec.spellings.is_empty() {
+            continue;
+        }
+        if spec.fully_consumed {
+            clean += 1;
+        }
+        let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
+        flag.spellings = spec.spellings;
+        flag.value_name = spec.value_name;
+        flag.value_kind = spec.value_kind;
+        flag.group = group.clone();
+        flag.description = non_empty_text(&description);
+        flag.env_var = env_var;
+        out.flags.push(flag);
+    }
+    (seen, clean)
 }
 
 /// True when `rest` is nothing but argument placeholders: uppercase

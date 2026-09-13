@@ -428,6 +428,17 @@ fn row_is_table_shaped(lines: &[&str], idx: usize) -> bool {
     if after.contains('\t') || after.contains("  ") {
         return true;
     }
+    // A genuine placeholder (`<...>`/`[...]`) exactly one space after the
+    // name is unambiguous evidence of a real value column even with no
+    // visual gap at all: Xvfb's own headingless table (S-165) never pads
+    // its columns, so `-render [default|mono|gray|color]` never earns the
+    // tab/double-space evidence above on its own row. See docs/shapes.md
+    // S-145.
+    if let Some(stripped) = after.strip_prefix(' ') {
+        if !stripped.starts_with(' ') && (stripped.starts_with('<') || stripped.starts_with('[')) {
+            return true;
+        }
+    }
     let indent = leading_whitespace(line);
     lines
         .get(idx + 1)
@@ -629,6 +640,97 @@ pub(super) fn recover_anchored_values(mut flags: Vec<Entity>, raw: &str) -> Vec<
             recover_run(&mut flags[run_start..run_end], raw);
         }
         run_start = run_end;
+    }
+    flags
+}
+
+/// A `+word` row (`parse_plus_sigil_spec`) reads a bare, unbracketed value
+/// correctly; its `-word` sibling goes through
+/// [`repair_single_dash_long_options`] instead, which only recovers a
+/// bracket/angle or `=`-glued value and drops a bare one. Borrows the
+/// already-correct value from the `+word` side rather than teaching the
+/// ordinary repair to guess at bare words. Never overwrites a `-word` row
+/// that already carries its own value. See docs/shapes.md S-163.
+pub(super) fn borrow_plus_word_value_for_dash_sibling(mut flags: Vec<Entity>) -> Vec<Entity> {
+    let borrowed: Vec<(String, String, ValueKind)> = flags
+        .iter()
+        .filter_map(|f| {
+            if f.spellings.len() != 1 || f.spellings[0].dashes != Dashes::None {
+                return None;
+            }
+            let name = &f.spellings[0].name;
+            let base = name.strip_prefix('+')?;
+            if base.is_empty() {
+                return None;
+            }
+            let value = f.value_name.as_ref()?;
+            Some((base.to_string(), value.clone(), f.value_kind))
+        })
+        .collect();
+    for (base, value, kind) in borrowed {
+        if let Some(sibling) = flags.iter_mut().find(|f| {
+            f.spellings.len() == 1
+                && f.spellings[0].dashes == Dashes::Single
+                && f.spellings[0].name == base
+                && f.value_name.is_none()
+        }) {
+            sibling.value_name = Some(value);
+            sibling.value_kind = kind;
+        }
+    }
+    flags
+}
+
+/// When a `+/-name` alternation row (S-163) expands to a `-word` spelling
+/// an *ordinary* row elsewhere already documents (Xvfb's own `-render`),
+/// the expansion contributes only the spelling the existing row lacks,
+/// never overwriting its value, choices or description. Run last, after
+/// every other repair. Scoped to exactly the words the document's own
+/// alternation rows name, never a general duplicate-spelling merge: `du`'s
+/// `--time`/`--time=WORD` legitimately share one spelling for two forms
+/// elsewhere in the fleet. See docs/shapes.md S-163.
+pub(super) fn resolve_alternation_spelling_collisions(
+    mut flags: Vec<Entity>,
+    raw: &str,
+) -> Vec<Entity> {
+    let alt_words: std::collections::HashSet<String> = raw
+        .lines()
+        .filter_map(|line| {
+            let token = line.split_whitespace().next()?;
+            plus_minus_alternation_word(token).map(str::to_string)
+        })
+        .collect();
+    if alt_words.is_empty() {
+        return flags;
+    }
+    for word in alt_words {
+        let dupes: Vec<usize> = flags
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| {
+                f.spellings.len() == 1
+                    && f.spellings[0].dashes == Dashes::Single
+                    && f.spellings[0].name == word
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if dupes.len() < 2 {
+            continue;
+        }
+        // Prefer the row that already carries a real value or choices —
+        // the pre-existing ordinary row's own value spec — over the
+        // alternation expansion's shared, valueless half. A tie (neither
+        // carries one) keeps the earliest, document-order entry.
+        let keep = dupes
+            .iter()
+            .copied()
+            .find(|&i| flags[i].value_name.is_some() || !flags[i].choices.is_empty())
+            .unwrap_or(dupes[0]);
+        let mut drop: Vec<usize> = dupes.into_iter().filter(|&i| i != keep).collect();
+        drop.sort_unstable_by(|a, b| b.cmp(a));
+        for i in drop {
+            flags.remove(i);
+        }
     }
     flags
 }

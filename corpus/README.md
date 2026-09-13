@@ -291,6 +291,24 @@ no root satisfies this vacuously, the same reasoning `must_not_contain_flags`
 uses. Dropping an entry is a weakening exactly as dropping a
 `must_not_contain_flags` entry is.
 
+### Stating that the root description carries text it must not: `must_not_describe_root`
+
+`must_not_describe` only ever checks a *flag's* own description. Nothing
+before this field could say the *root's* own `description` is
+contaminated — `Xvfb`'s leading option-rejection diagnostic
+(`Unrecognized option: --help`) used to fuse into the root description
+alongside its whole eighty-row option table (docs/shapes.md S-162).
+
+```toml
+must_not_describe_root = ["Unrecognized option"]
+```
+
+Every listed string is checked as a substring of `root.description`,
+whitespace-collapsed to a single space on both sides, `must_describe`'s
+own rule. `cargo xtask corpus` fails when any listed text is still
+present, naming it. Satisfied vacuously by a tree with no root or no
+description at all, the same reasoning `must_not_contain_flags` uses.
+
 ### Stating that a flag group is not an invocation line: `must_not_contain_flag_group_prefixes`
 
 `must_not_contain_flags` and `must_not_contain_usage_text` say nothing

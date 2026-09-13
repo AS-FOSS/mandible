@@ -49,17 +49,22 @@ pub(crate) mod choices_after_optional_placeholder;
 pub(crate) mod comma_glued_option_value;
 pub(crate) mod command_row_argument_placeholder;
 pub(crate) mod description_continuation_dash_flag;
+pub(crate) mod description_reused_as_group_label;
 pub(crate) mod description_subcommands_list;
 pub(crate) mod examples_block_contaminates_last_flag;
 pub(crate) mod generic_option_placeholder_flag;
 pub(crate) mod glued_optional_group_spelling;
 pub(crate) mod glued_uppercase_shared_prefix;
 pub(crate) mod hash_in_spelling;
+pub(crate) mod headingless_table_in_root_description;
+pub(crate) mod leading_diagnostic_line;
 pub(crate) mod multi_operand_usage_tail;
 pub(crate) mod nested_bracket_value;
 pub(crate) mod numbered_variadic_usage_tail;
 pub(crate) mod or_joined_alias_single_space_gap;
 pub(crate) mod or_joined_alias_with_values;
+pub(crate) mod plus_minus_alternation_option;
+pub(crate) mod plus_word_option;
 pub(crate) mod positional_description_block;
 pub(crate) mod single_dash_long_table;
 pub(crate) mod spaced_single_dash_long;
@@ -116,6 +121,13 @@ pub(crate) mod comma_swallowed_alias;
 pub(crate) mod glued_bracket_angle_run;
 pub(crate) mod slash_joined_alias_outside_bullet;
 pub(crate) mod spaced_bare_word_table_value;
+// Round-10 family detector (atlas S-166, W6's header-declared
+// three-column option table), same direct-`Detector`-impl shape.
+pub(crate) mod header_declared_env_column;
+// Round-11 family detector (atlas S-168, Xvfb's colon-introduced choice
+// list under a `+word`/`-word` placeholder pair), same direct-`Detector`-
+// impl shape.
+pub(crate) mod choice_list_under_placeholder;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -772,6 +784,13 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(glued_bracket_angle_run::GluedBracketAngleRun),
         Box::new(slash_joined_alias_outside_bullet::SlashJoinedAliasOutsideBullet),
         Box::new(comma_swallowed_alias::CommaSwallowedAlias),
+        Box::new(leading_diagnostic_line::LeadingDiagnosticLine),
+        Box::new(plus_word_option::PlusWordOption),
+        Box::new(plus_minus_alternation_option::PlusMinusAlternationOption),
+        Box::new(description_reused_as_group_label::DescriptionReusedAsGroupLabel),
+        Box::new(headingless_table_in_root_description::HeadinglessTableInRootDescription),
+        Box::new(header_declared_env_column::HeaderDeclaredEnvColumn),
+        Box::new(choice_list_under_placeholder::ChoiceListUnderPlaceholder),
     ]
 }
 

@@ -61,7 +61,7 @@ use scan::*;
 use spelling::*;
 #[cfg(test)]
 use test_support::*;
-pub use usage::*;
+use usage::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
@@ -147,7 +147,14 @@ fn is_ignorable_heading(heading: &str) -> bool {
     // Deliberately not matching "see also": git's own command group
     // headings legitimately carry that phrase as a parenthetical aside.
     let lower = heading.to_lowercase();
-    lower.starts_with("example") || lower.contains("report bugs")
+    // "are equivalent" introduces worked invocation-line comparisons, the
+    // same class as "example" — qemu's own "The following lines are
+    // equivalent:" (docs/shapes.md S-166), whose indented rows repeat a
+    // real flag's own spelling with a different value on each line and
+    // would otherwise read as further, fabricated rows of that flag.
+    lower.starts_with("example")
+        || lower.contains("report bugs")
+        || lower.contains("are equivalent")
 }
 
 /// True when `heading` positively names a section whose rows describe CLI
@@ -210,7 +217,7 @@ fn starts_attested_flag_section(lines: &[&str], heading_idx: usize) -> bool {
     // at least two independently parsed rows plus the heading vocabulary
     // above is the minimum evidence to reopen a same-indent section. See
     // S-071.
-    let (_, entries, _, _, _) = scan_flags_block(lines, flags_start, false);
+    let (_, entries, _, _, _, _) = scan_flags_block(lines, flags_start, false);
     entries.len() >= MIN_ATTESTED_SECTION_FLAGS
 }
 
@@ -286,6 +293,14 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    // A leading option-rejection diagnostic (`fuser`'s `Invalid option
+    // --help`, `Xvfb`'s `Unrecognized option: --help`, `nfsidmap`'s
+    // `invalid option -- '-'`) is the tool's own complaint about the probe,
+    // not part of its document, and merging it into the root description or
+    // a heading is the same S-029/S-091 hazard a banner line already is
+    // (spec §7 Tier B rule 11's Why paragraph). Dropped once, here, before
+    // any layout analysis sees it. See docs/shapes.md S-162.
+    let raw = strip_leading_diagnostic_line(&raw);
     // lowdown's man-page-like rendering (nix/Lix, issue #138) writes
     // every entry, command or option alike, as a `·`-led bullet row and
     // sometimes wraps a group label across two physical lines. Rewritten
@@ -337,7 +352,10 @@ fn seed_usage_scan(
     usage_lines: &mut Vec<String>,
 ) -> SeedState {
     let base_indent = leading_whitespace(lines[start]);
-    let seed_trimmed = lines[start].trim().to_string();
+    // Drop a `<program>: ` prefix in front of this line's own usage label
+    // (S-162): the C fprintf idiom's diagnostic prefix, never the label
+    // itself.
+    let seed_trimmed = strip_name_prefixed_usage_label(lines[start], tool_name);
     // A usage label can sit glued directly to the tool's own name with no
     // space (`mksquashfs`'s `SYNTAX:mksquashfs source1 ...`). Drop the
     // label before seeding, the same way the render layer already drops a
@@ -963,11 +981,27 @@ fn set_pending_bare_label(st: &mut BodyScan, label: Option<String>, lines: &[&st
         if !st.in_ignorable_section
             && heading_can_name_a_group(&label)
             && !label.trim_end().ends_with(" :")
+            && !text_is_already_root_description(&label, st.result)
             && pending_label_names_a_real_table(lines, next)
         {
             st.pending_bare_label = Some(label);
         }
     }
+}
+
+/// True when `text` is, verbatim (trimmed), the node's own root
+/// `description` — already decided by [`extract_description`] before
+/// this body scan runs. A sentence already spent as the root description
+/// is not available a second time as a group label (S-164): Xvfb's own
+/// `use: X [:<display>] [option]` line is both, and a group repeating the
+/// description word for word is never new information (AGENTS.md §3.9's
+/// own reasoning, applied to a label instead of a dropped row). See
+/// docs/shapes.md S-164.
+fn text_is_already_root_description(text: &str, result: &ParsedHelp) -> bool {
+    result
+        .description
+        .as_deref()
+        .is_some_and(|d| d.trim() == text.trim())
 }
 
 /// True when the row at `lines[idx]` is flag-shaped and documents a real
@@ -1181,7 +1215,7 @@ fn emit_heading_block(
         // `split_shared_heading_rows`'s doc comment for why the BNF
         // fact is keyed on the row rather than the heading beside it.
         let heading_is_bnf = bnf_row_lines.contains(&flags_start);
-        let (end, entries, packed, argfile_entry, is_plus_sigil) =
+        let (end, entries, packed, argfile_entry, is_plus_sigil, is_alternation) =
             scan_flags_block(lines, flags_start, heading_is_bnf);
         i = end;
         if is_ignorable_heading(heading) {
@@ -1196,20 +1230,30 @@ fn emit_heading_block(
         // as the group's label, and only there — every other block
         // still takes `meaningful_flag_group`'s answer unchanged. See
         // S-012.
+        //
+        // A label equal, verbatim, to the root description is refused
+        // (S-164): `grub-macbless`'s own `Mac-style bless on HFS or
+        // HFS+` is both its description and this block's own would-be
+        // heading, and a group repeating the description word for word
+        // names nothing new.
         let group = stanza_label
             .clone()
-            .or_else(|| meaningful_flag_group(heading.clone()));
+            .or_else(|| meaningful_flag_group(heading.clone()))
+            .filter(|g| !text_is_already_root_description(g, st.result));
         let (seen, clean) = emit_flags_block(
             group,
             entries,
             packed,
-            &is_plus_sigil,
+            RowRouting {
+                is_plus_sigil: &is_plus_sigil,
+                is_alternation: &is_alternation,
+                // `argparse_subparser_quirk` is set only for
+                // `Framework::Argparse` (see profile.rs), so it doubles
+                // here as "this tool is argparse" for S-155's
+                // brace-alternation gate, with no new profile field.
+                is_argparse: profile.is_some_and(|p| p.argparse_subparser_quirk),
+            },
             argfile_entry,
-            // `argparse_subparser_quirk` is set only for `Framework::Argparse`
-            // (see profile.rs), so it doubles here as "this tool is
-            // argparse" for S-155's brace-alternation gate, with no new
-            // profile field needed.
-            profile.is_some_and(|p| p.argparse_subparser_quirk),
             st.result,
         );
         st.total_entries += seen;
@@ -1299,6 +1343,27 @@ fn emit_flush_heading(
             st.command_mode = false;
             let (seen, clean) =
                 emit_env_vars(meaningful_flag_group(heading.clone()), rows, st.result);
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            return i;
+        }
+    }
+    // A header-declared three-column option table (`Argument
+    // Env-variable Description`, the whole `qemu-*-static` fleet):
+    // checked before the word-grid reading below, which would otherwise
+    // read this same header row as a one-row grid and silently discard
+    // it (docs/design.md §7 Tier B rule 16). See docs/shapes.md S-166.
+    if i < lines.len() && leading_whitespace(lines[i]) == heading_indent {
+        if let Some((env_col, desc_col)) = three_column_env_table_header(lines[i]) {
+            let (end, rows) = scan_three_column_env_table(lines, i + 1, env_col, desc_col);
+            i = end;
+            st.in_ignorable_section = false;
+            st.command_mode = false;
+            let (seen, clean) = emit_three_column_env_table(
+                meaningful_flag_group(heading.clone()),
+                rows,
+                st.result,
+            );
             st.total_entries += seen;
             st.clean_entries += clean;
             return i;
@@ -1394,6 +1459,7 @@ fn emit_flush_heading(
     } else if !st.in_ignorable_section
         && heading_can_name_a_group(heading)
         && find_description_gap(h.line).is_none()
+        && !text_is_already_root_description(heading, st.result)
         && pending_label_names_a_real_table(lines, heading_idx + 1)
     {
         // A flush heading whose own rows sit at its own column rather
@@ -1402,7 +1468,10 @@ fn emit_flush_heading(
         // group from the headingless flags-block shortcut. The gap
         // check guards the heading line itself: `nm`'s own `@FILE  Read
         // options from FILE` row is not flag-shaped, so it reaches here
-        // looking like a heading, but it is a real row. See S-146.
+        // looking like a heading, but it is a real row. See S-146. A
+        // line already spent as the root description is refused here
+        // instead (S-164): Xvfb's own `use: X [:<display>] [option]` is
+        // both its description and this shape's own heading candidate.
         st.pending_bare_label = Some(heading.clone());
     }
     // Rewind to just past the original line and continue scanning
@@ -1540,16 +1609,19 @@ fn scan_entries(
             // revisited as a heading — dcb and vdpa's `OPTIONS` row.
             // See S-042, noted as `bnf_row_lines`.
             let heading_is_bnf = bnf_row_lines.contains(&i);
-            let (end, entries, packed, argfile_entry, is_plus_sigil) =
+            let (end, entries, packed, argfile_entry, is_plus_sigil, is_alternation) =
                 scan_flags_block(lines, i, heading_is_bnf);
             i = end;
             let (seen, clean) = emit_flags_block(
                 pending_group,
                 entries,
                 packed,
-                &is_plus_sigil,
+                RowRouting {
+                    is_plus_sigil: &is_plus_sigil,
+                    is_alternation: &is_alternation,
+                    is_argparse: profile.is_some_and(|p| p.argparse_subparser_quirk),
+                },
                 argfile_entry,
-                profile.is_some_and(|p| p.argparse_subparser_quirk),
                 st.result,
             );
             st.total_entries += seen;
@@ -1807,7 +1879,23 @@ fn parse_body(
     // iteration made this function quadratic, found via the coverage
     // harness (spec §13.1) parsing a degenerate input in minutes instead
     // of milliseconds.
-    let description_bound = i.max(leading_prose_bound(&lines));
+    let prose_bound = leading_prose_bound(&lines);
+    let mut description_bound = i.max(prose_bound);
+    // A headingless table with no blank line ahead of it and no
+    // recognized usage line (Xvfb's `use: X [:<display>] [option]`, not
+    // `usage:`) reaches `leading_prose_bound`'s whole-document fallback
+    // untouched, so its option rows land in the description as well as
+    // being independently recovered by `scan_entries` below — the same
+    // text rendered twice. Consulted only in that narrow case (no blank
+    // line anywhere, no usage line), so an ordinary document's already-
+    // correct, cheap bound pays nothing extra. See docs/shapes.md S-165.
+    if usage_start.is_none() && prose_bound == lines.len() {
+        if let Some(flag_start) =
+            (i..lines.len()).find(|&j| starts_attested_headingless_flag_block(&lines, j))
+        {
+            description_bound = description_bound.min(flag_start);
+        }
+    }
     if let Some(description) = extract_description(&lines, description_bound, usage_start, i) {
         result.description = Some(description);
     }
@@ -1874,6 +1962,15 @@ fn parse_body(
     // §7's row grammar) — `-help`'s row only qualifies once the repair
     // above has turned it into a single-dash spelling. See S-007.
     result.flags = recover_anchored_values(std::mem::take(&mut result.flags), raw);
+    // A `+word` row's own value column (S-163) is borrowed onto its
+    // `-word` sibling when the ordinary repair above could not recover a
+    // bare, unbracketed value (Xvfb's own `+extension name` /
+    // `-extension name`). See docs/shapes.md S-163.
+    result.flags = borrow_plus_word_value_for_dash_sibling(std::mem::take(&mut result.flags));
+    // Last of all: an alternation-sigil row's own expansion (S-163) never
+    // duplicates or overwrites a spelling an ordinary row already
+    // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
+    result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result
