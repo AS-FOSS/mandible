@@ -8,6 +8,10 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Added
+
+- `--allow-root` lets mandible run as root; without it, the TUI, `--doctor`, and `--report` refuse before probing anything when effective uid is 0.
+
 ### Fixed
 
 - `xtask sweep-diff` now reports positional-count gains and losses per tool, separately from flags and subcommands, so a positional turning into a flag (or vice versa) no longer passes as a clean sweep; the field-level report also names each positional added or removed instead of folding it into the flag list.
