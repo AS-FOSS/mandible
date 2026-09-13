@@ -3952,8 +3952,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   usage line never names at all (`host`'s own `-A`/`-s`/`-U`/`-4`/`-6`)
   gets no change at all: no evidence, no guess. The row's own remainder
   becomes the description either way, minus one leading occurrence of the
-  usage value when the row's own text happens to open with it too
-  (`savelog`'s `-r rolldir - use rolldir...`). A row packing a second
+  usage value when the row's own text happens to open with it too, in
+  whichever spelling that row uses for it — bare (`savelog`'s `-r rolldir
+  - use rolldir...`), bracketed (`lsof`'s `-F [f] select fields; -F? for
+  help`, whose Optional `f` would otherwise be printed twice) or angled
+  ([`strip_leading_value_spelling`]). A row packing a second
   flag by a real two-plus-space column gap (`lsof`'s own multi-column
   `-T`/`-U`/`-v` summary line) is refused rather than read as one row's
   description; a single-spaced mention of another flag in ordinary prose

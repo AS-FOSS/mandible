@@ -472,22 +472,17 @@ pub(super) fn recover_bare_word_first_description_word(
         }
         // The row's own remainder is the description, whole, unless it
         // happens to open with the usage-named value as its own leading
-        // word (`savelog`'s `-r rolldir - use rolldir...`: `rolldir` is
-        // both the value and the row's own first token) — then only that
+        // token (`savelog`'s `-r rolldir - use rolldir...`: `rolldir` is
+        // both the value and the row's own first word) — then only that
         // leading occurrence, and an immediately following ` - `
-        // separator, are stripped off it. `host`'s `-c specifies query
-        // class for non-IN data` has no such overlap (`class`, the real
-        // value, never opens the row), so the whole sentence stays the
-        // description exactly as it reads.
+        // separator, are stripped off it
+        // ([`strip_leading_value_spelling`]). `host`'s `-c specifies
+        // query class for non-IN data` has no such overlap (`class`, the
+        // real value, never opens the row), so the whole sentence stays
+        // the description exactly as it reads.
         let trimmed = after_letter.trim_start();
         let desc_source = match usage_value.as_deref() {
-            Some(v) if !v.is_empty() => match trimmed.strip_prefix(v) {
-                Some(rest) if rest.is_empty() || rest.starts_with(char::is_whitespace) => {
-                    let rest = rest.trim_start();
-                    rest.strip_prefix("- ").unwrap_or(rest)
-                }
-                _ => trimmed,
-            },
+            Some(v) if !v.is_empty() => strip_leading_value_spelling(trimmed, v).unwrap_or(trimmed),
             _ => trimmed,
         };
         let desc = desc_source.trim();
@@ -498,6 +493,35 @@ pub(super) fn recover_bare_word_first_description_word(
         flag.value_kind = usage_kind;
         flag.description = non_empty_text(desc);
     }
+}
+
+/// The row's own leading occurrence of the usage-named value, stripped
+/// off the row's remainder along with an immediately following ` - `
+/// separator, in whichever spelling the row itself uses for it: bare
+/// (`savelog`'s `-r rolldir - use rolldir instead of .`), bracketed
+/// (`lsof`'s `-F [f] select fields; -F? for help`, whose value is
+/// already Optional and would otherwise be printed twice) or angled
+/// (`<node>`). `None` when the row does not open with the value at all
+/// (`host`'s `-c specifies query class for non-IN data`), and the whole
+/// remainder is the description. The token must end at whitespace or at
+/// the end of the row, so a longer word merely starting with the value's
+/// own letters is never cut. See docs/shapes.md S-176.
+fn strip_leading_value_spelling<'a>(trimmed: &'a str, value: &str) -> Option<&'a str> {
+    for spelling in [
+        value.to_string(),
+        format!("[{value}]"),
+        format!("<{value}>"),
+    ] {
+        let Some(rest) = trimmed.strip_prefix(spelling.as_str()) else {
+            continue;
+        };
+        if !rest.is_empty() && !rest.starts_with(char::is_whitespace) {
+            continue;
+        }
+        let rest = rest.trim_start();
+        return Some(rest.strip_prefix("- ").unwrap_or(rest));
+    }
+    None
 }
 
 /// The value [`extract_usage_flags`] itself would assign `short`, read
@@ -1287,6 +1311,42 @@ mod tests {
                 "-{letter} must still recover its real description"
             );
         }
+    }
+
+    /// `lsof -h`'s own bytes, byte-exact (the rows this test needs):
+    /// `-F`'s usage placeholder is the optional `[f]`, and the row's own
+    /// remainder opens with that same `[f]` — the description must be
+    /// the sentence alone, never the placeholder printed a second time
+    /// beside the value the flag already carries. The packed
+    /// multi-column `-T`/`-U`/`-v` summary line is here too: `-T` has
+    /// two candidate rows and must keep the real value `fqs` from its
+    /// own row, untouched by this repair. See docs/shapes.md S-176 and
+    /// corpus/lsof/4.95.0.
+    #[test]
+    fn lsofs_bracketed_optional_value_is_not_printed_twice_in_its_description() {
+        let raw = concat!(
+            "lsof 4.95.0\n",
+            " usage: [-?abhKlnNoOPRtUvVX] [+|-c c] [+|-d s] [+D D] [+|-E] [+|-e s] [+|-f[gG]]\n",
+            " [-F [f]] [-g [s]] [-i [i]] [+|-L [l]] [+m [m]] [+|-M] [-o [o]] [-p s]\n",
+            " [+|-r [t]] [-s [p:s]] [-S [t]] [-T [t]] [-u s] [+|-w] [-x [fl]] [--] [names]\n",
+            "  -T disable TCP/TPI info  -U select Unix socket      -v list version info\n",
+            "  -F [f] select fields; -F? for help  \n",
+            "  -T fqs TCP/TPI Fl,Q,St (s) info\n",
+            "  -g [s] exclude(^)|select and print process group IDs\n",
+        );
+        let parsed = parse_named(raw, "lsof");
+        let f = parsed
+            .flags
+            .iter()
+            .find(|f| f.short() == Some('F'))
+            .unwrap_or_else(|| panic!("no -F in {:?}", parsed.flags));
+        assert_eq!(f.value_name.as_deref(), Some("f"));
+        assert_eq!(f.value_kind, ValueKind::Optional);
+        assert_eq!(
+            f.description.as_ref().map(Text::as_str),
+            Some("select fields; -F? for help"),
+            "-F's own bracketed placeholder must not open its description"
+        );
     }
 
     /// `numastat --help`'s own bytes, byte-exact: `-s[<node>]` is a
