@@ -136,35 +136,6 @@ impl ParsedHelp {
         self.subcommands.push(node);
         true
     }
-
-    /// docs/shapes.md S-141: a command-pattern-table row's own first token
-    /// may already name a node this same block recovered as a bare word
-    /// (`restart`, from the row `restart` alone) before a later row
-    /// (`restart [--unban] [--if-exists] <JAIL>`) shares that token. One
-    /// node per distinct first token (the S-141 design pass, point 3) means
-    /// this appends the row's whole pattern to the existing node's `usage`
-    /// rather than losing it to [`Self::try_push_subcommand`]'s silent
-    /// duplicate-name refusal. A first token no row has named yet gets a
-    /// fresh node, `invocation_attested: true, heading_attested: false`
-    /// (design pass point 5) — a pattern's leading word is never probed.
-    fn merge_or_push_pattern(&mut self, name: &str, pattern: &str, desc: &str, heading: &str) {
-        if let Some(existing) = self.subcommands.iter_mut().find(|c| c.name == name) {
-            existing.usage.push(Text::sanitize(pattern));
-            return;
-        }
-        if self.subcommands.len() >= MAX_RECOVERED_ENTRIES {
-            return;
-        }
-        let mut node = CommandNode::new(name, Provenance::single(Source::HelpText));
-        node.summary = non_empty_text(desc);
-        node.group = heading_can_name_a_group(heading).then(|| heading.to_string());
-        node.children_filled = false;
-        node.invocation_attested = true;
-        node.heading_attested = false;
-        node.usage.push(Text::sanitize(pattern));
-        self.subcommand_names_seen.insert(node.name.clone());
-        self.subcommands.push(node);
-    }
 }
 
 /// Minimum count of independently parsed flag rows a same-indent (or

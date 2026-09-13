@@ -2581,23 +2581,47 @@ entry's `tools` field and nothing else. It does not get a new entry.
       set loglevel <LEVEL>                     sets logging level to <LEVEL>.
 - tools: fail2ban-client, busctl, hostnamectl, localectl, networkctl,
   resolvectl, timedatectl
-- handling: Open. Two prototypes were built and refused: reading each token of
-  a row's own name field separately fabricated nine command rows on
-  fail2ban-client (`logtarget`, `persistent`, `of`, `list`, `files`, `filter`,
-  `for`, `back`, `failures`), each a word cut out of a wrapped description. The
-  `bare_block_end` baseline blocker underneath is fixed now (S-149): every row
-  of fail2ban-client's `Command:` table is read, and its 10 single-word
-  commands recover cleanly with no fabrication. The name rule itself, one node
-  per distinct leading word with each row's own pattern appended to that
-  node's `usage` list, is not shipped: `emit_subcommands` still drops any row
-  whose name field is not a single command-name-shaped word or a bare-word
-  plus an ALL-CAPS-only placeholder run, so `set`, `get`, `add`, `unban` and
-  `reload` recover no node at all. `command-pattern-table`
-  (`xtask/src/command_pattern_table.rs`) stays as the instrument.
+- handling: Open, refused three times. The name rule, one node per distinct
+  leading word with each row's own pattern appended to that node's `usage`
+  list, is NOT shipped: `emit_subcommands` still drops any row whose name
+  field is not a single command-name-shaped word or a bare-word plus an
+  ALL-CAPS-only placeholder run, so on fail2ban-client `set`, `get`, `add`,
+  `unban` and `reload` recover no node at all. `command-pattern-table`
+  (`xtask/src/command_pattern_table.rs`) stays as the instrument, reported and
+  not gated.
+  The three refusals, each with the names it invented, so a fourth attempt has
+  the whole negative list:
+  1. Round 8 read each token of a row's own name field as its own command and
+     fabricated nine nodes on fail2ban-client: `logtarget`, `persistent`,
+     `of`, `list`, `files`, `filter`, `for`, `back`, `failures`. Every one is a
+     word cut out of a WRAPPED DESCRIPTION, not out of a name field.
+  2. Round 9 fixed the block boundary underneath (S-149) and deliberately did
+     not retry the name rule. Every row of fail2ban-client's `Command:` table
+     is read now, and its 10 single-word commands recover cleanly with no
+     fabrication.
+  3. Round 10 built the rule behind a column-identity guard: a candidate row
+     is admitted only when its name field begins at the block's own name
+     column, on the reasoning that a wrapped description continuation begins
+     at the description column by construction. The guard held on
+     fail2ban-client, which gained exactly the four named targets (`add`,
+     `get`, `reload`, `set`), and it FAILED elsewhere, because a prose line
+     and a repeated program name can both begin at the name column. A
+     full-`PATH` sweep-diff named six fabricated nodes on three tools:
+     `options` on xauth, cut from the prose line `options are:`, which is a
+     heading and not a command; `gprofng` on gprofng, the tool's own name cut
+     from rows like `gprofng collect app`; and `attach`, `logs`, `respawn`,
+     `rm` on claude, the first two cut from prose ("attach to an existing",
+     "logs to a specific file path") and the last two matching no row at all.
+     Column identity is a necessary condition and not a sufficient one.
+  The bar for a fourth attempt: a guard that separates a table ROW from a
+  prose line at the same indent, checked on xauth, gprofng and claude by name
+  before any count is reported.
 - fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
   fail2ban-client holds 85 of them and 84 were read by hand and are genuine.
   Above the five-tool bar. Not shipped; the fixture's `min_subcommands = 14`
-  floor documents the gap, currently 10.
+  floor documents the gap, currently 10. Round 10's refused prototype would
+  have taken fail2ban-client to 14, which is why a count alone can never
+  admit this rule: the same build fabricated six nodes on three other tools.
 
 ### S-142: usage label glued to the program name, wrapped mid-bracket at column zero
 
@@ -2826,41 +2850,3 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated: 3 are fail2ban-client's own still-open `set`/`add` gap (S-141's
   name rule, not this fix), the rest are false alarms on text that merely
   resembles a label followed by a row. 2026-09-07.
-
-### S-167: a usage form's leading word is a subcommand spelled with an optional-abbreviation suffix
-
-- id: S-167
-- looks like: |
-      Usage:
-        lldb-server v[ersion]
-        lldb-server g[dbserver] [options]
-        lldb-server p[latform] [options]
-- tools: lldb-server, lldb-server-18
-- handling: Fixed. A bare `Usage:` heading whose following rows each repeat
-  the tool's own name plus one command word abbreviated with a single
-  bracket suffix now recovers three subcommand nodes, one per row, instead
-  of folding the whole block into `usage`. The node's name is the whole
-  word (`gdbserver`, letter plus bracket content concatenated);
-  `display_name` keeps the row's own spelling (`g[dbserver]`). Distinct
-  from S-020's modifier table (`ar`'s `r[ab][f][u]`): there the brackets
-  name separate modifier letters glued onto a command letter, never a tail
-  of one word, and the two shapes never collide since this recognizer only
-  runs inside a bare `Usage:` block, never a `commands:`-heading table.
-  Every node is `invocation_attested`, never `heading_attested` (spec §6
-  rule 0's second gate, §7 Tier B rule 8): a name read off a usage form is
-  not heading evidence, so no probe is ever sent under it. The existence
-  oracle's bare-token check alone reads the reassembled word as invented,
-  since `v[ersion]` never contains the contiguous text `version`; widened
-  to also accept a node whose `display_name` occurs literally in the raw
-  text, since that display spelling IS what the tool printed
-  (`xtask/src/existence.rs`).
-- fleet: `usage-optional-word-table` reads 2 tools/6 findings on a
-  full-`PATH` sweep, 2026-09-12. Ten raw-shape candidates were reported in
-  round 10's own grep count; eight are a different shape: `ar`, `gcc-ar`
-  and their four aliases carry S-020's modifier table (`m[ab]`, multiple
-  bracket groups after a command letter, gated by heading not by a bare
-  `Usage:` block), and `bridge`, `sqfscat`, `unsquashfs` carry the same
-  bracket-suffix convention on FLAG spellings (`-V[ersion]`), never on a
-  row beginning with the tool's own name. Below AGENTS.md §3.1's five-tool
-  bar; shipped as a recorded exception the way S-103/S-104/S-143 were
-  (docs/design.md §16). Fixture: `corpus/lldb-server/18.1.3`.

@@ -690,26 +690,6 @@ fn check_positionals(
     }
 }
 
-/// Whether `child`'s own name is attested: either the bare name itself
-/// occurs in `attested`, or — docs/shapes.md S-167 — `child` carries a
-/// `display_name` whose bracket suffix means the bare name is a
-/// reassembled word that can never occur as its own contiguous substring
-/// (`v[ersion]` never contains the literal text `version`). The row
-/// `display_name` holds IS the literal text the tool printed; when that
-/// exact string occurs in `raw`, the row is real and the name derived
-/// from it is not a fabrication, only a shape this generic oracle's
-/// token extractors don't tokenize. Never widens anything else: every
-/// other `display_name` this tree ever sets (`ar`'s `r[ab][f][u]`) already
-/// carries a `name` that is itself literal, so this clause never fires
-/// for it.
-fn child_name_is_attested(child: &CommandNode, attested: &HashSet<&str>, raw: &str) -> bool {
-    attested.contains(child.name.as_str())
-        || child
-            .display_name
-            .as_deref()
-            .is_some_and(|d| raw.contains(d))
-}
-
 fn walk(
     node: &CommandNode,
     path: &str,
@@ -721,8 +701,7 @@ fn walk(
     check_flags(node, path, raw, out);
     check_positionals(node, path, operands, out);
     for child in &node.subcommands {
-        if is_help_text_sourced(&child.provenance) && !child_name_is_attested(child, attested, raw)
-        {
+        if is_help_text_sourced(&child.provenance) && !attested.contains(child.name.as_str()) {
             out.push(Fabrication {
                 path: path.to_string(),
                 kind: FabricationKind::Subcommand,
@@ -1549,45 +1528,6 @@ mod tests {
         root.subcommands.push(help_text_node("init"));
         let report = detect(raw, &root);
         assert_eq!(report.fabrication_count(), 0);
-    }
-
-    #[test]
-    fn detect_does_not_flag_lldb_servers_reassembled_optional_abbrev_word() {
-        // docs/shapes.md S-167: `v[ersion]` never contains the literal
-        // contiguous text "version" — the bracket sits between `v` and
-        // `ersion` — so the bare-token oracle alone reads the node as
-        // invented unless `display_name` (the row's own literal spelling)
-        // is consulted too.
-        let raw = "Usage:\n  lldb-server v[ersion]\n  lldb-server g[dbserver] [options]\n";
-        let mut root = help_text_node("lldb-server");
-        let mut version = help_text_node("version");
-        version.display_name = Some("v[ersion]".to_string());
-        root.subcommands.push(version);
-        let report = detect(raw, &root);
-        assert_eq!(
-            report.fabrication_count(),
-            0,
-            "{:?}",
-            report
-                .fabrications
-                .iter()
-                .map(|f| &f.name)
-                .collect::<Vec<_>>()
-        );
-    }
-
-    #[test]
-    fn detect_still_flags_a_display_name_that_itself_never_occurs() {
-        // The widening is specific to a real, printed row — a node whose
-        // `display_name` is ALSO absent from the raw text stays flagged.
-        let raw = "Usage:\n  lldb-server v[ersion]\n";
-        let mut root = help_text_node("lldb-server");
-        let mut ghost = help_text_node("ghost");
-        ghost.display_name = Some("g[host]".to_string());
-        root.subcommands.push(ghost);
-        let report = detect(raw, &root);
-        assert_eq!(report.fabrication_count(), 1);
-        assert_eq!(report.fabrications[0].name, "ghost");
     }
 
     #[test]

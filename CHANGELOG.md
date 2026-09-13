@@ -34,7 +34,6 @@ once it reaches a published 0.1.0 release.
 - [S-145] A tab-separated value name on a single-dash long option survives the same repair now, so `mandible mksquashfs` and `mandible sqfstar` keep `-mem`, `-comp` and `-mkfs-time` with their placeholders instead of losing them.
 - [S-146] A heading with no indent step to its own rows, and a bare label above a nested option block, now name a group instead of leaving every row underneath ungrouped, so `mandible mksquashfs` shows its ten option headings and its five compressor names.
 - [S-167] A `Usage:` line whose leading word carries a bracketed optional-abbreviation suffix (`v[ersion]`, `g[dbserver]`) now reaches the tree as its own subcommand, keeping the source spelling, instead of folding into the usage block (`mandible lldb-server`).
-- [S-141] A command table's multi-word row (`set loglevel <LEVEL>`, `restart [--unban] [--if-exists] <JAIL>`) now reaches the tree as its own command's usage form instead of being dropped, without reintroducing round 8's nine fabricated names (`mandible fail2ban-client`).
 
 ## [0.7.0] - 2026-09-05
 
