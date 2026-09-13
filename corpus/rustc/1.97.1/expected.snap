@@ -41,8 +41,8 @@ flags:
     - help-text
 - spellings:
   - -l
-  value_name: '[<KIND>[:<MODIFIERS>]=]'
-  value_kind: Optional
+  value_name: '[<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]'
+  value_kind: Required
   description: 'Link the generated crate(s) to the specified native library NAME. The optional KIND can be one of <static|framework|dylib> (default: dylib). Optional comma separated MODIFIERS <bundle|verbatim|whole-archive|as-needed> may be specified each with a prefix of either ''+'' to enable or ''-'' to disable.'
   provenance:
     sources:

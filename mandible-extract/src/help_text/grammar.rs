@@ -829,6 +829,43 @@ fn take_glued_bracket_group(s: &str) -> Option<(&str, &str)> {
     (close > 0).then(|| (&s[..close + 2], &rest[close + 1..]))
 }
 
+/// [S-174] Whatever glues onto a matched nested-bracket value spec's own
+/// outer close, with no separator: a required angle placeholder, itself
+/// optionally followed by one further glued bracket group (rustc's `-l
+/// [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]`); a bare bracket group
+/// (lsusb's `-s [[bus]:][devnum]`); or an ALL-CAPS glued word (cpio's
+/// `-I [[USER@]HOST:]FILE-NAME`). Same S-097 ruling as the two helpers
+/// above. The bare-word arm requires no lowercase letter, so a
+/// description glued with no space is never mistaken for a value group.
+/// Returns the text to append, whether the value becomes required, and
+/// the remaining tail; `None` when nothing is glued on.
+fn glued_bracket_group_residue(s: &str) -> Option<(String, bool, &str)> {
+    if let Some((angle, after)) = take_glued_angle_group(s) {
+        let mut suffix = angle.to_string();
+        let after = if let Some((bracket, after2)) = take_glued_bracket_group(after) {
+            suffix.push_str(bracket);
+            after2
+        } else {
+            after
+        };
+        return Some((suffix, true, after));
+    }
+    if let Some((bracket, after)) = take_glued_bracket_group(s) {
+        return Some((bracket.to_string(), false, after));
+    }
+    let is_name_char = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
+    if s.starts_with(is_name_char) {
+        let end = s.find(|c: char| !is_name_char(c)).unwrap_or(s.len());
+        let word = &s[..end];
+        if word.chars().any(|c| c.is_ascii_uppercase())
+            && !word.chars().any(|c| c.is_ascii_lowercase())
+        {
+            return Some((word.to_string(), true, &s[end..]));
+        }
+    }
+    None
+}
+
 /// [S-174] Generalizes [`nested_bracket_content`] (S-119) to the same
 /// one-nested-pair shape when the outer group carries more text *after*
 /// the inner pair closes, before its own close (`fzf`'s
@@ -954,6 +991,14 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             let after_outer = after_inner
                 .strip_prefix(']')
                 .expect("nested_bracket_content only returns a prefix a `]` follows");
+            if let Some((suffix, required, after)) = glued_bracket_group_residue(after_outer) {
+                let kind = if required {
+                    ValueKind::Required
+                } else {
+                    ValueKind::Optional
+                };
+                return Some((format!("[{content}]{suffix}"), kind, after));
+            }
             return Some((format!("[{content}]"), ValueKind::Optional, after_outer));
         }
         // [S-174] The same one-nested-pair shape, but with more of the
@@ -963,6 +1008,17 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             let after_outer = after_inner
                 .strip_prefix(']')
                 .expect("nested_bracket_content_general only returns a prefix a `]` follows");
+            // [S-174 continuation] Trailing text after the outer close
+            // itself: `rustc`'s `<NAME>[:<RENAME>]`, `lsusb`'s
+            // `[devnum]`, `cpio`'s bare `FILE-NAME`.
+            if let Some((suffix, required, after)) = glued_bracket_group_residue(after_outer) {
+                let kind = if required {
+                    ValueKind::Required
+                } else {
+                    ValueKind::Optional
+                };
+                return Some((format!("[{content}]{suffix}"), kind, after));
+            }
             return Some((format!("[{content}]"), ValueKind::Optional, after_outer));
         }
         let name = value_inside_brackets(&mut s).ok()?;
@@ -1024,6 +1080,9 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     // `=VALUE`
     if equals_sign(&mut s).is_ok() {
         let (name, tail) = take_rest_value_token(s);
+        if let Some((combined, consumed)) = take_glued_second_metavar_word(&name, tail) {
+            return Some((combined, ValueKind::Required, &tail[consumed..]));
+        }
         return Some((name, ValueKind::Required, tail));
     }
 
@@ -1071,6 +1130,56 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
         })
         .map_or(s.len(), |(i, _)| i);
     (s[..end].to_string(), &s[end..])
+}
+
+/// True when `w` is a plain, all-uppercase metavar word: letter-led,
+/// alphanumeric/`-`/`_`, at least one letter, every letter uppercase —
+/// the argparse metavar convention `pkcheck`'s option table writes.
+/// Twin of `xtask`'s own
+/// `option_table_multiword_value_name::plain_metavar_word`. See
+/// docs/shapes.md S-148.
+fn plain_metavar_word(w: &str) -> bool {
+    !w.is_empty()
+        && w.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+        && w.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        && w.chars()
+            .filter(|c| c.is_ascii_alphabetic())
+            .all(|c| c.is_ascii_uppercase())
+}
+
+/// A second ALL-CAPS metavar word glued one space after an `=`-value's
+/// first word, itself followed by a real column gap (`pkcheck`'s
+/// `--details=KEY VALUE`, atlas S-148): admitted only when both words
+/// are ALL-CAPS ([`plain_metavar_word`]) and the second is followed by
+/// 2+ spaces, a tab, or the fragment's own end — the same column-gap
+/// discipline [`spaced_bare_word_value`]-style repairs use (S-157), so a
+/// description that happens to open with an uppercase word right after
+/// the first value word (`qemu-arm64-static`'s own ragged three-column
+/// table) is never donated a second value word. `name` is the value's
+/// first word, already taken; `tail` is the text right after it.
+/// Returns the combined `"KEY VALUE"` name and how many bytes of `tail`
+/// it consumed.
+fn take_glued_second_metavar_word(name: &str, tail: &str) -> Option<(String, usize)> {
+    if !plain_metavar_word(name) {
+        return None;
+    }
+    let after_space = tail.strip_prefix(' ')?;
+    if after_space.starts_with([' ', '\t']) {
+        return None;
+    }
+    let second_len = after_space
+        .find(char::is_whitespace)
+        .unwrap_or(after_space.len());
+    let second = &after_space[..second_len];
+    if !plain_metavar_word(second) {
+        return None;
+    }
+    let rest = &after_space[second_len..];
+    if !rest.is_empty() && !rest.starts_with('\t') && !rest.starts_with("  ") {
+        return None;
+    }
+    Some((format!("{name} {second}"), 1 + second_len))
 }
 
 /// True if `input` starts with something recognizable as a flag — used
@@ -1710,14 +1819,54 @@ mod tests {
     /// `rustc`'s own `-l [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]` row
     /// (`audit/queue-captures/rustc/0.stdout`): the same S-174 shape, one
     /// space before the bracket rather than glued. The outer group
-    /// (`[<KIND>[:<MODIFIERS>]=]`) survives whole; the trailing
-    /// `<NAME>[:<RENAME>]` is a second, later spec fragment and out of
-    /// this rule's scope.
+    /// (`[<KIND>[:<MODIFIERS>]=]`) survives whole, and the trailing
+    /// `<NAME>[:<RENAME>]` glues directly onto its close with no
+    /// separator, so it joins the same value name (S-174's own "further,
+    /// separate rule", `glued_bracket_group_residue`) and the value
+    /// becomes required once the angle placeholder joins it.
     #[test]
     fn a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group() {
         let spec = parse_flag_spec("-l [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]");
         assert_eq!(spec.short(), Some('l'));
-        assert_eq!(spec.value_name.as_deref(), Some("[<KIND>[:<MODIFIERS>]=]"));
+        assert_eq!(
+            spec.value_name.as_deref(),
+            Some("[<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]")
+        );
+        assert_eq!(spec.value_kind, ValueKind::Required);
+    }
+
+    /// `lsusb`'s own `-s [[bus]:][devnum]` row: a second, bare bracket
+    /// group glues directly onto the nested pair's own close, with no
+    /// separator (`audit/queue-captures/lsusb/0.stdout`). See
+    /// docs/shapes.md S-174.
+    #[test]
+    fn a_second_bare_bracket_group_glues_onto_the_nested_pair() {
+        let spec = parse_flag_spec("-s [[bus]:][devnum]");
+        assert_eq!(spec.short(), Some('s'));
+        assert_eq!(spec.value_name.as_deref(), Some("[[bus]:][devnum]"));
+        assert_eq!(spec.value_kind, ValueKind::Optional);
+    }
+
+    /// `cpio`'s own `-I [[USER@]HOST:]FILE-NAME` row: an ALL-CAPS bare
+    /// word glues directly onto the nested pair's own close, with no
+    /// bracket and no separator (`audit/queue-captures/cpio/0.stdout`).
+    /// See docs/shapes.md S-174.
+    #[test]
+    fn an_all_caps_bare_word_glues_onto_the_nested_pair() {
+        let spec = parse_flag_spec("-I [[USER@]HOST:]FILE-NAME");
+        assert_eq!(spec.short(), Some('I'));
+        assert_eq!(spec.value_name.as_deref(), Some("[[USER@]HOST:]FILE-NAME"));
+        assert_eq!(spec.value_kind, ValueKind::Required);
+    }
+
+    /// A lowercase word directly after the nested pair's close is never
+    /// glued on: nothing in the fleet writes a value spec that way, and
+    /// admitting it would risk mistaking a description's own leading
+    /// word for a fourth glued group.
+    #[test]
+    fn does_not_glue_a_lowercase_word_onto_the_nested_pair() {
+        let spec = parse_flag_spec("-I [[USER@]HOST:]archive filename to use");
+        assert_eq!(spec.value_name.as_deref(), Some("[[USER@]HOST:]"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
     }
 
@@ -1750,6 +1899,40 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("N"));
         assert_eq!(spec.value_kind, ValueKind::Optional);
         assert!(!spec.fully_consumed);
+    }
+
+    /// `pkcheck`'s own `-d, --details=KEY VALUE` row
+    /// (`audit/queue-captures/pkcheck/0.stdout`): a glued `=`-value
+    /// written as two space-separated ALL-CAPS words. See docs/shapes.md
+    /// S-148.
+    #[test]
+    fn a_glued_value_keeps_a_second_all_caps_metavar_word() {
+        let spec = parse_flag_spec(
+            "-d, --details=KEY VALUE            Add (KEY, VALUE) to information about the action",
+        );
+        assert_eq!(spec.short(), Some('d'));
+        assert_eq!(spec.long(), Some("details"));
+        assert_eq!(spec.value_name.as_deref(), Some("KEY VALUE"));
+        assert_eq!(spec.value_kind, ValueKind::Required);
+    }
+
+    /// The safety gate `qemu-arm64-static`'s own ragged three-column
+    /// table names (docs/shapes.md S-157's own handling field): an
+    /// ALL-CAPS second word not followed by a real column gap is a
+    /// ragged column's own header, not a second value word, and must
+    /// stay in the description.
+    #[test]
+    fn does_not_glue_a_second_word_without_a_real_column_gap() {
+        let spec = parse_flag_spec("--dfilter=RANGE COLUMN Env-variable QEMU_DFILTER");
+        assert_eq!(spec.value_name.as_deref(), Some("RANGE"));
+    }
+
+    /// The other half of the same gate: a lowercase second word is
+    /// ordinary prose, never a second metavar.
+    #[test]
+    fn does_not_glue_a_lowercase_second_word() {
+        let spec = parse_flag_spec("--foo=BAR baz qux");
+        assert_eq!(spec.value_name.as_deref(), Some("BAR"));
     }
 
     #[test]
