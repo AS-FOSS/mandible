@@ -71,6 +71,12 @@ sudo dnf install mandible
 nix run github:AS-FOSS/mandible
 ```
 
+**[X-CMD](https://www.x-cmd.com/)**
+
+```console
+x eget use AS-FOSS/mandible
+```
+
 **Homebrew** (macOS or Linux)
 
 ```console
