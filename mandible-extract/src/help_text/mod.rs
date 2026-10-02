@@ -1037,17 +1037,11 @@ mod tests {
         // A shim named `pkill` exercises the refusal by file name, not
         // the real binary's behavior.
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("pkill");
-        std::fs::write(
-            &path,
+        let path = crate::test_shim::write_shim(
+            dir.path(),
+            "pkill",
             "#!/bin/sh\necho 'Usage: pkill [options] <pattern>'\n",
-        )
-        .unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        );
         let mut tool = resolve_tool("pkill");
         tool.path = Some(path);
 
@@ -1096,17 +1090,7 @@ mod tests {
     #[test]
     fn raw_help_explains_a_not_attested_refusal_and_falls_back_to_root_text() {
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("shimtool");
-        std::fs::write(
-            &path,
-            "#!/bin/sh\necho 'Usage: shimtool [COMMAND]'\necho ''\necho 'Commands:'\necho '  clean   tidy up'\n",
-        )
-        .unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        let path = crate::test_shim::write_shim(dir.path(), "shimtool", "#!/bin/sh\necho 'Usage: shimtool [COMMAND]'\necho ''\necho 'Commands:'\necho '  clean   tidy up'\n");
         let mut tool = resolve_tool("shimtool");
         tool.path = Some(path);
 

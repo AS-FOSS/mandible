@@ -22,6 +22,10 @@
 
 pub mod exec;
 
+#[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+pub(crate) mod test_shim;
+
 mod errors;
 mod resolve;
 mod runner;

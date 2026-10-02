@@ -639,13 +639,8 @@ mod tests {
     fn help_only_tools_are_refused_every_shape_but_help_long() {
         let dir = tempfile::tempdir().unwrap();
         // A shim named `pkill` that would report if it ever ran.
-        let path = dir.path().join("pkill");
-        std::fs::write(&path, "#!/bin/sh\ntouch \"$0.ran\"\n").unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        let path =
+            crate::test_shim::write_shim(dir.path(), "pkill", "#!/bin/sh\ntouch \"$0.ran\"\n");
 
         for argv in [
             InertArgv::HelpShort,
@@ -736,20 +731,7 @@ mod tests {
             );
         }
     }
-    use std::io::Write;
-
-    fn write_shim(dir: &std::path::Path, name: &str, script: &str) -> std::path::PathBuf {
-        let path = dir.join(name);
-        let mut f = std::fs::File::create(&path).unwrap();
-        f.write_all(script.as_bytes()).unwrap();
-        drop(f);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
-        path
-    }
+    use crate::test_shim::write_shim;
 
     #[test]
     fn captures_stdout_and_exit_code() {
