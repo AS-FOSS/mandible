@@ -273,11 +273,6 @@ pub(super) fn extract_positionals_inner(
 ) -> Vec<Entity> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
-    // Sign-run mode operands (`[-+=aAc...]`) ride beside the ordinary
-    // operands and are put in front once every recovery below has had its
-    // say: they must not make `out` look non-empty to the tail recoveries,
-    // which only run when no other operand was found.
-    let mut sign_operands: Vec<Entity> = Vec::new();
     for (line_idx, line) in usage_lines.iter().enumerate() {
         // A value-shaped token immediately following a bare flag token
         // (`-C <path>`) is that flag's argument, not a positional.
@@ -356,15 +351,6 @@ pub(super) fn extract_positionals_inner(
             prev_cleaned = Some(cleaned);
             prev_was_self_closed_group = token.starts_with('[') && token.ends_with(']');
 
-            if let Some(mode) = sign_run_operand(token) {
-                if !consumed_by_prior_flag && seen.insert(mode.to_string()) {
-                    let mut positional =
-                        Entity::positional(mode.to_string(), Provenance::single(Source::HelpText));
-                    positional.required = false;
-                    sign_operands.push(positional);
-                }
-                continue;
-            }
             if cleaned.starts_with('-') || consumed_by_prior_flag {
                 continue;
             }
@@ -459,10 +445,6 @@ pub(super) fn extract_positionals_inner(
             usage_lines,
             &primary_lines,
         ));
-    }
-    if !sign_operands.is_empty() {
-        sign_operands.append(&mut out);
-        return sign_operands;
     }
     out
 }
@@ -807,9 +789,6 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                 UsageSegment::Group(members) => {
                     let mut flaggy: Vec<&str> = Vec::new();
                     for m in members {
-                        if sign_run_operand(&format!("[{m}]")).is_some() {
-                            continue;
-                        }
                         if m.starts_with('-') {
                             // The author's own generic "any option"
                             // placeholder, not a flag — see

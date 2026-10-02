@@ -86,27 +86,6 @@ pub(super) fn split_long_only_alternation(content: &str) -> Vec<&str> {
         vec![content]
     }
 }
-/// The inside of a self-closed bracket group that opens with a run of two
-/// or more sign characters (`-`, `+`, `=`) holding at least one `+` or `=`,
-/// then letters: `chattr`'s `[-+=aAcCdDeijPsStTuFx]` is one operator from
-/// the signs followed by attribute letters, an operand, never a flag spelled
-/// `-+`. A pure dash run (`--force`) is a long flag and a sign run with no
-/// letters (`[-+]`) a real flag, so neither matches. The help gives it no
-/// name, so the text stays verbatim. See docs/shapes.md S-185.
-pub(super) fn sign_run_operand(token: &str) -> Option<&str> {
-    let inner = token.strip_prefix('[')?.strip_suffix(']')?;
-    let run = inner
-        .find(|c: char| !matches!(c, '-' | '+' | '='))
-        .unwrap_or(inner.len());
-    let (signs, letters) = inner.split_at(run);
-    let has_operator = signs.contains(['+', '=']);
-    (signs.len() >= 2
-        && has_operator
-        && !letters.is_empty()
-        && letters.chars().all(|c| c.is_ascii_alphanumeric()))
-    .then_some(inner)
-}
-
 /// The flags one whole-line bracket group names: several side by side, a
 /// run of long alternatives, or (the ordinary case) the one flag with its
 /// trailing `|`-list of choices. See docs/shapes.md S-184, S-120.
@@ -150,16 +129,5 @@ mod tests {
             split_long_only_alternation("-d|--debug"),
             vec!["-d|--debug"]
         );
-    }
-
-    #[test]
-    fn a_sign_run_then_letters_is_an_operand_and_real_flags_are_not() {
-        assert_eq!(
-            sign_run_operand("[-+=aAcCdDeijPsStTuFx]"),
-            Some("-+=aAcCdDeijPsStTuFx")
-        );
-        for t in ["[-+]", "[--force]", "[-RVf]", "[-+= x]", "-+=ab", "[--]"] {
-            assert_eq!(sign_run_operand(t), None, "{t}");
-        }
     }
 }

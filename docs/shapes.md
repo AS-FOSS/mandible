@@ -4400,13 +4400,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: chattr [-RVf] [-+=aAcCdDeijPsStTuFx] [-p project] [-v version] files...
 - tools: chattr
-- handling: Fixed. A self-closed bracket that opens with a run of two
-  or more of `-`, `+`, `=` holding at least one `+` or `=`, followed by
-  letters or digits only, is an optional operand kept verbatim
-  (`sign_run_operand`); the help gives it no name. It no longer reads
-  as a flag spelled `-+` with the value `aAcCdDeijPsStTuFx`. A pure
-  dash run (`--force`) and a sign run with no letters (`[-+]`) stay
-  flags. The operand is placed ahead of the ordinary operands without
-  hiding the trailing `files...` from the tail recovery.
-- fleet: 1 tool gained 1 operand and lost 1 flag in the full-PATH sweep
-  (chattr 6 -> 5 flags, the fabricated `-+`; 1 -> 2 operands).
+- handling: Not shipped; no rule is in the tree and
+  `corpus/chattr/1.47.0` stays `[xfail]`. The fix was a self-closed
+  bracket that opens with a run of two or more of `-`, `+`, `=` holding
+  at least one `+` or `=`, followed by letters or digits only, read as an
+  optional operand kept verbatim. It removes the fabricated `-+` flag
+  (chattr 6 -> 5 flags), which the sweep-diff counts as a flag-count
+  loss, so it awaits a maintainer ruling.
+- fleet: `chattr` only; no sweep movement while the rule is held back.

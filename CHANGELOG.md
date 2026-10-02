@@ -21,7 +21,6 @@ once it reaches a published 0.1.0 release.
 - [S-036] A packed multi-column row reads `+X` and `--` cells as cells of their own and keeps each cell's value placeholder out of its description (`mandible lsof`'s `+c`, `+d`, `+D`, `+m`, `--`, `-c c`; `mandible unzip`'s `-O CHARSET`).
 - [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
 - [S-184] `mandible dmsetup` keeps `create`'s `-m|--minor` beside `-j|--major`, shows `resume`'s `--addnodeonresume` and `--addnodeoncreate` as two flags, and `remove`, `suspend`, `resume`, `wipe_table`, `rename` and `dmstats create` keep their trailing operands (`device...`, `new_name_or_uuid`, `file_path`).
-- [S-185] `mandible chattr` shows its `[-+=aAcCdDeijPsStTuFx]` mode as an operand instead of a fabricated `-+` flag.
 - [S-153] A trailing operand behind a `[--]` marker or alone on a wrapped usage line reaches the tree, and a `name  text` table row describes it (`mandible lsof`'s `names`, `mandible icupkg`'s `infilename` and `outfilename`).
 - [S-096] A `[[--] program args...]` usage group is an optional separator then positional operands, and the `-- program args` row describes `program` instead of being a flag (`mandible lldb-server gdbserver`).
 
