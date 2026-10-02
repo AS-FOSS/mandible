@@ -37,6 +37,3 @@ gdbserver = ["--fd", "--named-pipe", "--pipe", "--reverse-connect", "--help", "-
 [contract.must_contain_positionals_by_path]
 gdbserver = ["program"]
 
-[xfail]
-broken = true
-reason = "[S-096] The `[[--] program args...]` usage and the `-- program args` row render as a flag `--` with value `program args`, and the `program` positional is missing. A fix must read the usage's optional `--` as a separator, not a flag, and recover `program` (with `args...`) as the positional operands."

@@ -616,6 +616,19 @@ pub(super) fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
     Some((word.to_string(), required, marker_repeat || inline_repeat))
 }
 
+/// `[[--] word word...]`: an optional end-of-options marker followed by
+/// operand words, as `(name, repeatable)` in source order. `None` for any
+/// other group. See docs/shapes.md S-153 and S-096.
+pub(super) fn parse_separator_operand_group(group: &str) -> Option<Vec<(String, bool)>> {
+    let inner = group.strip_prefix("[[--]")?.strip_suffix(']')?;
+    let mut out = Vec::new();
+    for w in inner.split_whitespace() {
+        let (name, _, repeat) = parse_operand_group(w)?;
+        out.push((name, repeat));
+    }
+    (!out.is_empty()).then_some(out)
+}
+
 /// After the usage block, some tools describe each named positional on a
 /// `name - description` line right below it (`invoke-rc.d`'s `basename -
 /// Initscript ID...`). Every row's name must be EXACTLY one of

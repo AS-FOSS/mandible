@@ -1647,7 +1647,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   args` row is that same separator. The tree still reads a flag `--` with
   value `program args` and no `program` positional. The open case is the
   `[xfail]` fixture `corpus/lldb-server/18.1.3-dashdash`, which asserts
-  `must_contain_positionals_by_path` for `gdbserver`.
+  `must_contain_positionals_by_path` for `gdbserver`. Fixed (round 13): see
+  S-153, whose `[[--] word...]` group reading recovers `program` (optional)
+  and `args` (optional, repeatable), and a `-- word word` flag row that
+  restates those operands is dropped as a flag and describes `program`.
+  `corpus/lldb-server/18.1.3-dashdash` is promoted.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
@@ -3187,6 +3191,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   own count is expected to drop by the tools this narrowing newly resolves
   that its own detector also counted; an updated full-`PATH` number needs
   the orchestrator's own sweep lock and is not remeasured this branch.
+- round 13 addition: two more licences for the tail walk, both of which fix the
+  boundary so the earlier-group gate is not needed. (1) An end-of-options
+  marker: a `[--]` group directly ahead of the run (`lsof`'s `[--] [names]`),
+  or the run being itself a `[[--] word args...]` group (`lldb-server
+  gdbserver`). (2) The run being alone on the last physical line of a wrapped
+  synopsis whose earlier groups are all bracketed (`icupkg`'s tab-indented
+  `infilename [outfilename]`). The `[--]` and `[-x [fl]]` groups never become
+  operands. A positional with no description also takes it from the one
+  indented table row that opens with its name and a column gap of two or more
+  spaces (`names  select named files ...`), beside S-182's `name - text` form.
+  Tools: lsof, icupkg, lldb-server. Fleet, full-`PATH` sweep of 2270 tools against the ebb3ef2 baseline: 19 positionals gained across 13 tools (gprof and its aarch64 twin `image-file` and `profile-file...`, icupkg 2, nc/nc.openbsd/netcat `destination` and `port`, derb `bundle...`, fakeroot/fakeroot-sysv/fakeroot-tcp `command`, grog `file...`, lsof `names`, tree `directory...`), each read against its raw `--help`; 0 flag, subcommand or positional losses; 14 positionals gained a description from their table row (msgattrib family, ngettext, podchecker, pstree, pygmentize, runcon, sg_emc_trespass); the nine controls are byte-identical.
 
 ### S-154: a bracketed multi-word operand becomes one positional per word
 

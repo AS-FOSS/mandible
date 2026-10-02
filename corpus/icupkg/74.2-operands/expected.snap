@@ -1,0 +1,167 @@
+name: icupkg
+usage:
+- 'Usage: icupkg [-h|-?|--help ] [-tl|-tb|-te] [-c] [-C comment] [-a list] [-r list] [-x list] [-l [-o outputListFileName]] [-s path] [-d path] [-w] [-m mode] [--ignore-deps] [--auto_toc_prefix] [--auto_toc_prefix_with_type] [--toc_prefix] infilename [outfilename]'
+positionals:
+- name: infilename
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: outfilename
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - -?
+  - --help
+  group: (Only the last occurrence of an option is used.)
+  description: print this message and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --type
+  value_kind: Required
+  choices:
+  - name: l
+    description: output for little-endian/ASCII charset family
+  - name: b
+    description: output for big-endian/ASCII charset family
+  - name: e
+    description: output for big-endian/EBCDIC charset family The output type defaults to the input type.
+  group: (Only the last occurrence of an option is used.)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  value_name: or
+  value_kind: Required
+  group: (Only the last occurrence of an option is used.)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --comment
+  value_name: comment
+  value_kind: Required
+  group: (Only the last occurrence of an option is used.)
+  description: include a comment string
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --add
+  value_name: list
+  value_kind: Required
+  group: (Only the last occurrence of an option is used.)
+  description: add items to the package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --remove
+  value_name: list
+  value_kind: Required
+  group: (Only the last occurrence of an option is used.)
+  description: remove items from the package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --extract
+  value_name: list
+  value_kind: Required
+  group: (Only the last occurrence of an option is used.)
+  description: extract items from the package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --writepkg
+  description: write the output package even if no items are removed or added (e.g., for only swapping the data)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --matchmode
+  value_name: mode
+  value_kind: Required
+  description: 'set the matching mode for item names with wildcards noslash: the ''*'' wildcard does not match the ''/'' tree separator'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-deps
+  description: Do not fail if not all resource dependencies are met. Use this option if the missing resources come from another source.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auto_toc_prefix
+  description: automatic ToC entries prefix Uses the prefix of the first entry of the input package, rather than its basename. Requires a non-empty input package.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auto_toc_prefix_with_type
+  description: auto_toc_prefix + adjust platform type Same as auto_toc_prefix but also checks that the prefix ends with the input platform type letter, and modifies it to the output platform type letter. At most one of the auto_toc_prefix options can be used at a time.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --toc_prefix
+  value_name: prefix
+  value_kind: Required
+  description: ToC prefix to be used in the output package Overrides the package basename and --auto_toc_prefix. Cannot be combined with --auto_toc_prefix_with_type.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --sourcedir
+  value_name: path
+  value_kind: Required
+  description: directory for the --add items
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --destdir
+  value_name: path
+  value_kind: Required
+  description: directory for the --extract items
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --list
+  description: list the package items (after modifying the package) to stdout or to output list file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --outlist
+  value_name: path
+  value_kind: Required
+  description: path/filename for the --list output
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

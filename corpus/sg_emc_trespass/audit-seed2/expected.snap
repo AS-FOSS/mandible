@@ -5,6 +5,7 @@ usage:
 positionals:
 - name: DEVICE
   required: true
+  description: sg or block device (latter in lk 2.6 or lk 3 series)
   provenance:
     sources:
     - help-text

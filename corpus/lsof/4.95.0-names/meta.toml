@@ -25,6 +25,3 @@ must_contain_positionals = ["names"]
 [contract.must_describe_positional]
 names = "select named files"
 
-[xfail]
-broken = true
-reason = "[S-153] the usage synopsis is a run of bracket groups ending in `[names]`, and the table has a `names` row, but no positional reaches the tree. A fix needs the bracketed operand at the tail of a usage line made of bracket groups to become an optional positional, described from the `names` row; it must not turn the `[--]` or the `[-x [fl]]` groups into operands."

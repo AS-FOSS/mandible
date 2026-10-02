@@ -62,7 +62,10 @@ use flag_rows::*;
 pub use heading::*;
 pub use layout::*;
 use multiword::*;
-use numeric_range::{describe_positionals_from_name_rows, expand_numeric_range_flags};
+use numeric_range::{
+    describe_positionals_from_name_rows, expand_numeric_range_flags,
+    fold_separator_row_into_operand,
+};
 use or_choice_fold::fold_or_joined_choice_rows;
 use plus_minus::*;
 use preamble::*;
@@ -2249,6 +2252,7 @@ fn parse_body(
     expand_numeric_range_flags(&mut result.flags, &lines);
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
+    fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
