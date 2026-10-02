@@ -4204,3 +4204,33 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: Not measured fleet-wide; a raw-shape count of 1 tool, Xvfb, is the
   only evidence this round. Below the five-tool bar. `corpus/Xvfb/audit-seed`
   does not assert `-cc`, so leaving this open costs no fixture regression.
+
+### S-179: headed blocks of undescribed invocation lines name the subcommands
+
+- id: S-179
+- looks like: |
+      Example usage:
+        brew search TEXT|/REGEX/
+        brew info [FORMULA|CASK...]
+        brew install FORMULA|CASK...
+
+      Further help:
+        brew commands
+        brew help [COMMAND]
+- tools: brew
+- handling: Open defect. `brew --help` reads as one node with no subcommands and
+  no flags. Every line under the four headings opens with the tool's own name
+  and a lowercase word, and no line has a description, so S-016 (which needs a
+  deeper description row under each name row) and S-169 (a command table inside
+  the usage block) do not apply. The 13 names in the text are search, info,
+  install, update, upgrade, uninstall, list, config, doctor, create, edit,
+  commands and help. A fix needs a general rule that reads a block whose every
+  non-blank line is `<tool> <word> ...` as subcommand names marked
+  invocation-attested only, so they are listed but never probed
+  (docs/design.md section 6). S-071 fences `Examples:` regions because their
+  lines can be shell commands, so the rule must show that these blocks are
+  invocation forms of the tool itself and leave `Examples:` alone. Running
+  `brew commands` for the full list is not an argv section 6 allows, so only
+  the names the text spells out are in reach. Fixture: `corpus/brew/7.0.2`,
+  transcribed from issue #163 because brew is not installed on the dev box.
+- fleet: not measured

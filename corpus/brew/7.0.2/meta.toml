@@ -1,0 +1,38 @@
+# Transcribed from issue #163 (a `brew --help` capture pasted by the
+# reporter on macOS, Homebrew 7.0.2-9-g52f15df); brew is not installed on the
+# dev box. The text is the bytes the issue shows, nothing added.
+#
+# `mandible --doctor brew` on v0.8.1 with this capture reads 1 node, 0
+# subcommands, 0 flags. Every non-blank line under the four headings is an
+# invocation line that opens with the tool's own name and a lowercase
+# subcommand word (`brew search TEXT|/REGEX/`), with no description. The
+# subcommand names the text documents are search, info, install, update,
+# upgrade, uninstall, list, config, doctor, create, edit, commands and help
+# (13). `brew install --verbose --debug FORMULA|CASK` repeats `install`.
+# `man brew` and the URL are not invocations of the tool.
+#
+# Out of scope here: the reporter expected `brew commands` to be run and its
+# output shown with each command's own help. `brew commands` is not an argv
+# shape docs/design.md section 6 allows, so a fix can only surface the names
+# the help text itself spells out.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "brew"
+version = "7.0.2"
+platform = "macos"
+captured_with = "transcribed from issue #163 (mandible 0.8.0 report)"
+
+[[capture]]
+argv = ["brew", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 12
+
+[xfail]
+broken = true
+reason = "[S-179] four headed blocks (Example usage:, Troubleshooting:, Contributing:, Further help:) list invocation lines of the form `brew <subcommand> args` with no description, and none reaches the tree: the root has 0 subcommands and 0 flags. A fix needs a general rule that reads a headed block whose every line opens with the tool's own name plus a lowercase word as subcommand names, marked invocation-attested and never probed, and that keeps docs/shapes.md S-071's fenced `Examples:` regions (whose lines can be shell commands, not subcommands) from becoming nodes. Issue #163."
