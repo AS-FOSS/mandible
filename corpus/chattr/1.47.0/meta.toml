@@ -1,0 +1,25 @@
+# The mode operand [-+=aAcCdDeijPsStTuFx] reads as a flag.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "chattr"
+version = "1.47.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); e2fsprogs 1.47.0-2.4~exp1ubuntu4.1"
+
+[[capture]]
+argv = ["chattr", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-R", "-V", "-f"]
+must_not_contain_flags = ["-+"]
+
+[xfail]
+broken = true
+reason = "the usage group [-+=aAcCdDeijPsStTuFx] is one operator from -+= followed by attribute letters, an optional operand before files. It reads as a flag spelled -+ (the = taken as a value separator) with value aAcCdDeijPsStTuFx. A fix reads a bracket that opens with a run of sign characters and continues with letters as an operand, kept verbatim since the help gives it no name."
