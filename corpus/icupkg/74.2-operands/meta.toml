@@ -1,0 +1,29 @@
+# Sibling of corpus/icupkg/74.2, which stays xfail for the -c/--copyright row.
+# Raw: the usage block ends `[--toc_prefix]` then, on its own tab-indented
+# line, `infilename [outfilename]`, and the prose says the input filename
+# "new" creates an empty package. The v0.8.1 tree has no positionals, so
+# neither operand reaches the screen. Also seen in the same tree, not asserted
+# here: the root description is empty although a prose paragraph follows the
+# usage block, and the `(Only the last occurrence of an option is used.)`
+# line is carried as the group label of the -t and -c flags.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "icupkg"
+version = "74.2"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1 (same bytes as corpus/icupkg/74.2)"
+
+[[capture]]
+argv = ["icupkg", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["infilename", "outfilename"]
+
+[xfail]
+broken = true
+reason = "[S-153] the usage form ends with a tab-indented continuation line `infilename [outfilename]` after a run of bracket groups, and neither operand reaches the tree. A fix needs the trailing-operand walk to continue across the tab-indented usage continuation lines and to read a bare lowercase word plus a bracketed word as one required and one optional positional."

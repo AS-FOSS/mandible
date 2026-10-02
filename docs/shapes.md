@@ -3095,7 +3095,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: cache_repair [options] {device|file}
       usage: fc-scan [-bcVh] [-f FORMAT] ... [--help] font-file...
       Usage: lcf  [options] dest_file  src_dir
-- tools: lsof, cache_repair, fc-scan, apt-mark, jdeprscan, lcf, btrfs-convert,
+- tools: lsof, icupkg, cache_repair, fc-scan, apt-mark, jdeprscan, lcf, btrfs-convert,
   btrfs-image, btrfs-map-logical, btrfstune, dpkg-reconfigure, ffplay,
   llvm-bitcode-strip-18, llvm-install-name-tool-18, make-bcache, ntfscluster,
   ntfscp, ntfsfix, ntfsinfo, ntfsls, ntfsmove, ntfsundelete, ntfswipe,
