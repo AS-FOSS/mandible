@@ -1,0 +1,5 @@
+Usage:
+  lldb-server v[ersion]
+  lldb-server g[dbserver] [options]
+  lldb-server p[latform] [options]
+Invoke subcommand for additional help

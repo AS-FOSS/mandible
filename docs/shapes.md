@@ -1617,10 +1617,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   whole remaining row as one value; `cargo fmt`'s own angle-bracket case
   is untouched. Open: a usage line that brackets the marker before an
   operand, `lldb-server gdbserver`'s `[[--] program args...]`, documents
-  an optional `--` followed by a positional. The tree still reads a flag
-  `--` with value `program args` and no `program` positional. No contract
-  field asserts a subcommand's positionals, so `corpus/lldb-server/18.1.3`
-  cannot carry this as an xfail.
+  an optional `--` separator followed by a positional, and its `-- program
+  args` row is that same separator. The tree still reads a flag `--` with
+  value `program args` and no `program` positional. The open case is the
+  `[xfail]` fixture `corpus/lldb-server/18.1.3-dashdash`, which asserts
+  `must_contain_positionals_by_path` for `gdbserver`.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
