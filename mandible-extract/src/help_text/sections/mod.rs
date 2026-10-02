@@ -52,6 +52,7 @@ mod test_support;
 mod usage;
 mod usage_command_table;
 mod usage_optional_word;
+mod usage_signs;
 
 use avoption::recover_avoption_type_column;
 use backfill::*;
@@ -78,6 +79,7 @@ use usage::*;
 use usage_command_table::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
+use usage_signs::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely

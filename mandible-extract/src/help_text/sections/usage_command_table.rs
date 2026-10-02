@@ -112,7 +112,11 @@ pub(super) fn scan_headingless_usage_command_table(
                 flags.push(flag);
             }
         }
-        let positionals = extract_positionals(own_lines, std::collections::HashSet::new());
+        // Every row of a command is that command's own invocation form, so
+        // a self-closed bracket group (`[--force]`) never consumes the
+        // operand behind it (`remove [--force] <device>...`). See S-169.
+        let own_primary: std::collections::HashSet<usize> = (0..own_lines.len()).collect();
+        let positionals = extract_positionals(own_lines, own_primary);
         node.entities.extend(flags);
         node.entities.extend(positionals);
     }

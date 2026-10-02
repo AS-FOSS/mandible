@@ -3868,7 +3868,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   an ordinary `Usage: prog [opts]` tool whose body happens to start at
   the same indent as a real table (`ar`'s modifier tables) must never be
   mistaken for this shape, caught by a regression this fix's own
-  break-it check reproduced and fixed before shipping.
+  break-it check reproduced and fixed before shipping. Every row of a
+  command is that command's own invocation form, so a self-closed
+  bracket group (`[--force]`) no longer consumes the operand behind it:
+  `remove [--deferred] [-f|--force] [--retry] <device>...` keeps
+  `device...`, `rename <device> [--setuuid] <new_name_or_uuid>` keeps
+  both operands (dmsetup 33 -> 38 operands, dmstats `create --filemap`
+  gains `file_path`). Still open: `-n|--notable|--table {<table>|<table_file>}`
+  reads as one flag (an alias run followed by a value does not say which
+  spelling takes it) and `stats <command> [<options>]` has no `options`
+  operand, since `options` is the generic placeholder word.
 - fleet: `usage-command-table`
   (`xtask/src/detector/usage_command_table.rs`), self-checks held both
   directions (fires on the pre-fix shape, silent once every row is a
@@ -4364,3 +4373,40 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`target [target ...]`). A nested alternation ahead of the run still
   refuses the line.
 - fleet: 16 tools gained 17 operands in the full-PATH sweep, no losses.
+
+### S-184: one bracket group holds several valued flags side by side
+
+- id: S-184
+- looks like: |
+      create <dev_name>
+          [-j|--major <major> -m|--minor <minor>]
+          [--addnodeonresume|--addnodeoncreate]
+- tools: dmsetup
+- handling: Fixed. A whole-line bracket group that carries a value word
+  and then a second flag-shaped word is split into one flag spec per
+  flag (`split_adjacent_flag_specs`), so `-m|--minor <minor>` is no
+  longer swallowed into `--major`'s value. A word after an alias
+  separator (`|`, `,`) never opens a piece. A whole-line bracket of
+  nothing but two or more long spellings (`split_long_only_alternation`)
+  keeps each as its own flag, the same pairing rule a group inside a
+  longer line follows (one short with one long, nothing else paired).
+- fleet: 1 tool gained 2 flags (dmsetup 65 -> 67: `create -m|--minor`,
+  `resume --addnodeonresume` and `--addnodeoncreate` as two flags), no
+  losses in the full-PATH sweep.
+
+### S-185: a bracket of signs then letters is a mode operand
+
+- id: S-185
+- looks like: |
+      Usage: chattr [-RVf] [-+=aAcCdDeijPsStTuFx] [-p project] [-v version] files...
+- tools: chattr
+- handling: Fixed. A self-closed bracket that opens with a run of two
+  or more of `-`, `+`, `=` holding at least one `+` or `=`, followed by
+  letters or digits only, is an optional operand kept verbatim
+  (`sign_run_operand`); the help gives it no name. It no longer reads
+  as a flag spelled `-+` with the value `aAcCdDeijPsStTuFx`. A pure
+  dash run (`--force`) and a sign run with no letters (`[-+]`) stay
+  flags. The operand is placed ahead of the ordinary operands without
+  hiding the trailing `files...` from the tail recovery.
+- fleet: 1 tool gained 1 operand and lost 1 flag in the full-PATH sweep
+  (chattr 6 -> 5 flags, the fabricated `-+`; 1 -> 2 operands).
