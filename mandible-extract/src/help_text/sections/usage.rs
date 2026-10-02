@@ -3087,16 +3087,23 @@ mod tests {
     }
 
     /// `[options] command`'s shape: a lone option-list placeholder ahead
-    /// of a bare, required tail reads as easily as "provide a subcommand"
-    /// as "provide an operand" — apt-ftparchive's real usage line — and
-    /// this rule must stay silent rather than guess. Contrast with
-    /// vim.basic above, the same placeholder-only shape but with a
-    /// bracketed (optional) tail, which stays in scope.
+    /// of a bare, required tail naming a genuine command-table word
+    /// (`is_command_placeholder`'s closed vocabulary) reads as easily as
+    /// "provide a subcommand" as "provide an operand" — apt-ftparchive's
+    /// real usage line — and this rule must stay silent rather than
+    /// guess. `gcc`'s own real bytes match the same placeholder-only
+    /// context but its tail carries a repetition marker (`file...`), the
+    /// same "give me a file list" notation the vocabulary test exists to
+    /// catch, so it stays refused too even though `file` itself is not in
+    /// the vocabulary. Contrast with vim.basic above, the same
+    /// placeholder-only shape but with a bracketed (optional) tail, which
+    /// stays in scope. See docs/shapes.md S-153.
     #[test]
-    fn placeholder_only_context_with_a_bare_required_tail_gains_no_positional() {
+    fn placeholder_only_context_with_a_command_placeholder_or_repeatable_tail_gains_no_positional()
+    {
         for line in [
             "Usage: apt-ftparchive [options] command\n",
-            "usage: ffplay [options] input_file\n",
+            "Usage: apt [options] command\n",
             "Usage: gcc [options] file...\n",
         ] {
             let parsed = parse(line);
@@ -3106,6 +3113,43 @@ mod tests {
                 parsed.positionals
             );
         }
+    }
+
+    /// The narrowing itself: a bare, required tail behind `[options]`
+    /// that names a real operand (no command-placeholder vocabulary, no
+    /// repetition marker) now reaches the tree. `ranlib`'s own bytes
+    /// (`aarch64-linux-gnu-ranlib`, `gcc-ranlib-13`) and `lcf`'s two-space
+    /// two-operand tail (S-153's own REFUSED case) are the ones this
+    /// round moves. See docs/shapes.md S-153.
+    #[test]
+    fn a_bare_required_tail_naming_a_real_operand_now_reaches_the_tree() {
+        let parsed = parse("Usage: /usr/bin/ranlib [options] archive\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["archive"], "{names:?}");
+        assert!(parsed.positionals[0].required);
+        assert!(!parsed.positionals[0].repeatable);
+
+        let parsed = parse("Usage: lcf  [options] dest_file  src_dir\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["dest_file", "src_dir"], "{names:?}");
+        assert!(parsed.positionals[0].required);
+        assert!(parsed.positionals[1].required);
+
+        let parsed = parse("usage: ffplay [options] input_file\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["input_file"], "{names:?}");
     }
 
     /// An earlier group carrying an explicit bare-word value (`-d xy`,

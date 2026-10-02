@@ -1956,6 +1956,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide.
 - fleet: detector fires on 50 tools, 126 findings, over a 2318-tool sweep,
   2026-09-04. The fix moved 12 tools with zero losses on the same sweep.
+  Round 12's S-153 `[options] command` guard narrowing moves some of this
+  detector's own remaining findings too (24 of the 30-tool family it
+  resolved on a `--tools`-pinned sweep were part of the ambiguous
+  remainder this detector counts); the updated full-`PATH` number needs a
+  full sweep this branch did not run, so is not restated here.
 
 ### S-110: "or"-joined alias where both spellings carry a value
 
@@ -2426,7 +2431,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `must_attach_choices` assertion now passes with a zero-loss sweep and
   the nine named controls held byte-identical. The fixture stays
   `[xfail]` for S-134's separate, still-open `-c`/`--copyright` defect;
-  issue #142 stays open.
+  issue #142 stays open. Round 12: the maintainer verified `-t l` binds
+  the same way `-tl` does and accepted the current rendering; no parser
+  change.
 
   A full-`PATH` sweep of icupkg alone reads its own flag count as
   `19 -> 17 (-2)`, which lands on the loss side of a sweep-diff by number
@@ -2899,16 +2906,33 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       --annotate WHAT KEY VALUE WHAT KEY VALUE WHAT KEY VALUE
                             Add annotation (may be used several times)
-- tools: gdbus-codegen
-- handling: Open defect, the option-table sibling of S-131. `gdbus-codegen`'s
-  block-derived option-table reader wins over the usage-derived one for a
-  flag documented in both places (`help_text/sections/mod.rs`'s "let the
-  described version win"), and its own multi-word metavar row keeps only
-  the first word, `WHAT`, rather than the whole repeated run.
+- tools: gdbus-codegen, pkcheck
+- handling: `gdbus-codegen`'s own shape stays an open defect, the option-table
+  sibling of S-131: its block-derived option-table reader wins over the
+  usage-derived one for a flag documented in both places
+  (`help_text/sections/mod.rs`'s "let the described version win"), and its
+  own multi-word metavar row keeps only the first word, `WHAT`, rather
+  than the whole repeated run.
+
+  Round 12: fixed a narrower member of the same family, `pkcheck`'s
+  `-d, --details=KEY VALUE`, a glued `=`-value spec written as two
+  space-separated ALL-CAPS words where only the first survived
+  (`take_glued_second_metavar_word`, `mandible-extract/src/help_text/
+  grammar.rs`). Gated on both words reading as plain ALL-CAPS metavars
+  and the second word being followed by a real column gap (2+ spaces, a
+  tab, or the fragment's own end) — the same column-gap discipline
+  S-157's `spaced_bare_word_value` uses, so a two-word cut can never eat
+  the first word of a description that starts in the value column
+  (`qemu-arm64-static`'s own ragged three-column table, whose own
+  handling field records the same refusal for a different shape).
 - fleet: `option-table-multiword-value-name`
-  (`xtask/src/detector/option_table_multiword_value_name.rs`) reads 1
-  tool / 1 finding on a full-`PATH` sweep of 2269 tools, 2026-09-07. Below
-  the five-tool bar; not fixed this round.
+  (`xtask/src/detector/option_table_multiword_value_name.rs`) still reads
+  1 tool / 1 finding fleet-wide for `gdbus-codegen`'s own shape; below
+  the five-tool bar, not fixed this round. `pkcheck`'s glued `=`-value
+  sub-shape is a raw-shape upper bound of 1 tool over the 2301 frozen
+  `audit/queue-captures`, also below the five-tool bar; fixed anyway as
+  a gated exception (docs/design.md §16), narrowly scoped and zero-loss
+  on the tools it was checked against. 2026-09-13.
 
 ### S-149: a centered ALL-CAPS group label sets a bare-word block's baseline
 
@@ -3061,25 +3085,57 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: cache_repair [options] {device|file}
       usage: fc-scan [-bcVh] [-f FORMAT] ... [--help] font-file...
       Usage: lcf  [options] dest_file  src_dir
-- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf
-- handling: Fixed for the shapes evidence can settle, refused for the rest.
-  A trailing operand run after a bracketed option run now reaches the tree as
+- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf, btrfs-convert,
+  btrfs-image, btrfs-map-logical, btrfstune, dpkg-reconfigure, ffplay,
+  llvm-bitcode-strip-18, llvm-install-name-tool-18, make-bcache, ntfscluster,
+  ntfscp, ntfsfix, ntfsinfo, ntfsls, ntfsmove, ntfsundelete, ntfswipe,
+  split-file-18, ucf, ucfr, xfs_growfs, xfs_repair, xfs_scrub
+- handling: Fixed for the shapes evidence can settle, refused for the rest. A
+  trailing operand run after a bracketed option run now reaches the tree as
   positionals: a brace alternation naming one operand becomes one positional
   keeping its source spelling and its members as choices (`{device|file}`), a
   single ellipsis-marked name becomes one repeatable positional
   (`font-file...`), and a flag paired with an ALL-CAPS value on the same line
   no longer ends the walk. The description-gap cut that ran before the walk
   also used a two-space gap, which truncated a line whose own operands are
-  two-space padded. REFUSED, and this is the honest part: a bare multi-word
-  tail with no numbering and no delimiter (`lcf`'s `dest_file  src_dir`)
-  stays declined by the round-6 `[options] command` ambiguity guard, because
-  nothing in the text says whether the words are two operands or one command
-  plus its argument. `corpus/lcf/3.0043+nmu1` states that outcome instead of
-  asserting a positional it does not get.
-- fleet: a full-`PATH` sweep of 2323 tools, 2026-09-13: `tail_operand_tools`
-  147 to 145, zero flag losses, zero subcommand movement, all nine named
-  controls byte-identical. `multi-operand-usage-tail` (S-109) is unchanged at
-  44 tools/110 findings, which is the ambiguous remainder `lcf` belongs to.
+  two-space padded. Round 12 narrowed the round-6 `[options] command`
+  ambiguity guard to a closed vocabulary
+  (`command`/`commands`/`subcommand`/`subcommands`/`cmd`/`action`/`verb`,
+  `is_command_placeholder`) plus a repetition-marker check on the earliest
+  operand: `lcf`'s own two-space `dest_file  src_dir` tail and `ntfscp`'s
+  `device src_file dest_file` now reach the tree, since none of those words
+  is in the vocabulary and none carries a repetition marker. REFUSED and
+  still correctly silent: `apt`/`apt-cache`/`apt-cdrom`/`apt-config`/
+  `apt-ftparchive`/`apt-get`'s own tail word is literally `command`, and
+  `gcc`'s `[options] file...` carries the repetition marker, so both stay
+  declined by the narrowed guard. The `ranlib` family (`ranlib`,
+  `gcc-ranlib`, `gcc-ranlib-13`, `aarch64-linux-gnu-ranlib`,
+  `aarch64-linux-gnu-gcc-ranlib{,-13}`) stays at zero positionals too, for an
+  unrelated reason: their own `archive` operand sits on the usage line's
+  *primary* physical line, but S-152's still-open trailing-description fold
+  joins the very next physical line (`Generate an index to speed access to
+  archives`) into the same usage entry, so `primary_synopsis_lines` reports
+  two physical lines for that entry and this rule's own one-physical-line
+  gate refuses the whole tail. `corpus/lcf/3.0043+nmu1` now asserts
+  `dest_file`/`src_dir`; `corpus/gcc-ranlib-13/2.42` keeps its
+  `must_contain_positionals = ["archive"]` unmet and stays `[xfail]` under
+  S-152, not this shape.
+- fleet: a raw-shape grep over `audit/queue-captures/` (2301 tools),
+  2026-09-13: a usage line reading `<prog> [options]` followed by nothing but
+  lowercase snake_case bare words to end of line is 36 tools; excluding the 6
+  apt tools (closed-vocabulary tail) leaves 30. Tree-level, on a
+  `--tools`-pinned sweep of those 30 plus the 6 apt tools plus the nine named
+  controls (`git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  `systemctl`, `tar`, `find`, `docker`), 2026-09-13: 24 of the 30 gain a
+  positional (0 to 1-3 each, `ntfscp` gains 3), the 6-tool `ranlib` family
+  stays at 0 (blocked by S-152, see above), all 6 apt tools stay at 0, and
+  all nine controls are unchanged. Zero losses. `xtask corpus` over the full
+  178-fixture tree also gains positionals on `bpftrace`, `mariadb-check`,
+  `mariadb-repair`, `mariadbcheck` and `mkfs.bfs`, none of them in the named
+  30, with zero fixtures newly failing. `multi-operand-usage-tail` (S-109)'s
+  own count is expected to drop by the tools this narrowing newly resolves
+  that its own detector also counted; an updated full-`PATH` number needs
+  the orchestrator's own sweep lock and is not remeasured this branch.
 
 ### S-154: a bracketed multi-word operand becomes one positional per word
 
@@ -3107,7 +3163,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   operand per bracket pair, the inner ones optional
   (`bare_bracket_group_is_flat`, `mandible-extract/src/help_text/sections/
   multiword.rs`). The sweep that admitted the rule could not see this,
-  because sweep-diff compares flags and subcommands and never positionals.
+  because sweep-diff compared flags and subcommands and never positionals at
+  the time; it now reports a positional-count gain/loss column and names
+  each positional added or removed per tool.
 - fleet: `trailing-bracket-group-multiword-operand` reads 0 tools/0 findings
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
   there. `nested-bracket-group-fused-operand`
@@ -3320,7 +3378,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   table test (no `--long` row anywhere in the document), and `pod2text`'s
   table is full of `--long` rows, so the same evidence that protects `gcc`,
   `clang` and `ld` from S-145 refuses `pod2text` here. That is the same gate
-  that refuses `fuser`'s `-SIGNAL`.
+  that refuses `fuser`'s `-SIGNAL`. Round 12: reconsidered and left refused.
+  `pod2text`'s own usage line (`[--stderr] [-w width] [input [output
+  ...]]`) spells `-w`, not `-width`, so S-172's own route (independent
+  usage-line attestation of the exact reconstructed single-dash-long
+  spelling) finds no evidence here either. Raw-shape count stays 1 tool,
+  pod2text.
 - fleet: `comma-swallowed-alias`
   (`xtask/src/detector/comma_swallowed_alias.rs`) reads 10 tools/31 findings
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, which is the
@@ -3917,6 +3980,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `[[USER@]HOST:]`; `lsusb` (`-s`) keeps `[devnum]` after `[[bus]:]`; `rustc`
   (`-l`) keeps `<NAME>[:<RENAME>]` after `[<KIND>[:<MODIFIERS>]=]`. Fixing
   the trailing part too is a further, separate rule.
+
+  Round 12: that further rule, `glued_bracket_group_residue`
+  (`mandible-extract/src/help_text/grammar.rs`), fixes all three. It
+  glues whatever sits directly on the outer close with no separator: a
+  required angle placeholder, itself optionally followed by one more
+  glued bracket group (`rustc`'s `<NAME>[:<RENAME>]`, value becomes
+  Required); a bare further bracket group (`lsusb`'s `[devnum]`); or an
+  ALL-CAPS-only glued word (`cpio`'s `FILE-NAME`), gated to carry no
+  lowercase letter so a description that happened to start immediately
+  after the bracket is never mistaken for a fourth glued group. Raw-shape
+  count for the residue alone: the three tools this entry already named;
+  no wider grep was run this round beyond the tools already on record
+  here.
 - fleet: `nested-bracket-value-general` (the depth-tracked matcher itself; no
   separate xtask detector module this round) moved 7 tools on a full-`PATH`
   sweep of 2323 tools, zero losses, 2026-09-13 (`r11/p1value.txt`,
@@ -3935,3 +4011,66 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools have no fixture yet; rustc's own row is verified by a direct unit
   test (`grammar.rs`'s
   `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
+
+  Round 12: the trailing-residue rule above moved the same three named
+  tools, checked by direct unit test
+  (`a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`,
+  `a_second_bare_bracket_group_glues_onto_the_nested_pair`,
+  `an_all_caps_bare_word_glues_onto_the_nested_pair`); `corpus/rustc/1.97.1`
+  and `corpus/fzf/0.44.1` are zero-loss and `must_value_name["--listen"]`
+  still passes. `cpio` and `lsusb` have no fixture. 3 tools is a raw-shape
+  count, not a full-`PATH` sweep; below the five-tool bar on its own but
+  ships alongside a family that already cleared it, docs/design.md §16.
+
+### S-175: a usage form's OR alternation is joined with `||`
+
+- id: S-175
+- looks like: |
+      nfsidmap: Usage: nfsidmap [-vh] [-c || [-u|-g|-r key] || -d || -l || [-t timeout] key desc]
+- tools: nfsidmap
+- handling: Open, counted only. No recognizer here reads `||` as an
+  alternation separator (`parse_flag_alternation`,
+  `parse_brace_alternation_group` both read a single `|`), so the whole
+  bracket run past the first `||` is unparsed and the trailing `key desc`
+  operand pair never reaches the tree as positionals; the flags `-c`,
+  `-d`, `-l` and `-v` (glued to `h` as a required value, below
+  `parse_bundled_shorts`'s own `MIN_CLUSTER_MEMBERS` floor) are still
+  recovered correctly by the ordinary single-dash reading and nothing
+  currently rendered is lost, since the full line still prints verbatim
+  in USAGE. Below the five-tool floor, so no fix ships.
+- fleet: raw grep over `audit/queue-captures/` (2299 readable tool
+  directories), 2026-09-13: 1 tool, `nfsidmap` itself. `gh`, `docker`,
+  `dockerd` and `git-lfs` also contain `||` somewhere in their help text,
+  none of it a usage-line alternation (shell examples). `[` was also
+  checked and is not a member. `double-pipe-usage-alternation`
+  (`xtask/src/detector/double_pipe_usage_alternation.rs`) generalizes the
+  shape as a measurement-only detector.
+
+### S-178: a genuinely two-flag repeated-letter coincidence loses its value
+
+- id: S-178
+- looks like: |
+      -c                     turns off key-click
+      -cc int                default color visual class
+- tools: Xvfb
+- handling: Open defect, declined this round. `Xvfb` documents an unrelated
+  bare `-c` boolean ("turns off key-click") on its own row, which is exactly
+  the evidence `repair_repeated_character_flags` (S-035) requires to treat
+  `-cc`'s swallowed value `"c"` as a repeated-verbosity spelling
+  (`documents_bare_boolean`); it rewrites `-cc` to a valueless boolean
+  spelling and `int`, the flag's real value, is dropped outright, not even
+  left in the description. `-c` and `-cc` are two unrelated flags that
+  happen to share the repeated-letter shape by coincidence, the exact
+  ambiguity S-035's own doc comment names as unresolvable by token shape
+  alone (`lessecho`'s genuine `-nn`). `repair_single_dash_long_options`
+  never gets a turn either: its own condition 6 defers any
+  `value_repeats_short` shape to the repeated-character repair. A safe fix
+  needs a second, independent signal that `-cc int` is a real value-taking
+  flag rather than a verbosity level — not found this round. `-deferglyphs
+  [none|all|16]` on the same table (raised alongside `-cc` this round) is
+  not a defect: it already reads its bracket value correctly, recovered by
+  S-145's own round-11 placeholder-gap widening, verified against
+  `mandible Xvfb`.
+- fleet: Not measured fleet-wide; a raw-shape count of 1 tool, Xvfb, is the
+  only evidence this round. Below the five-tool bar. `corpus/Xvfb/audit-seed`
+  does not assert `-cc`, so leaving this open costs no fixture regression.
