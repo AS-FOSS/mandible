@@ -1,0 +1,39 @@
+# Same capture as corpus/host/9.18.39. Five rows that no usage line
+# names (`-A`, `-s`, `-U`, `-4`, `-6`) still take their description's
+# first word as a value and lose the rest of the description. S-176.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "host"
+version = "9.18.39"
+platform = "ubuntu-24.04"
+captured_with = "copied from corpus/host/9.18.39"
+
+[[capture]]
+argv = ["host", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_describe]
+"-A" = "is like -a but omits RRSIG, NSEC, NSEC3"
+"-s" = "a SERVFAIL response should stop query"
+"-U" = "enables UDP mode"
+"-4" = "use IPv4 query transport only"
+"-6" = "use IPv6 query transport only"
+
+[contract.must_not_value_name]
+"-A" = "is"
+"-s" = "a"
+"-U" = "enables"
+"-4" = "use"
+"-6" = "use"
+
+[xfail]
+broken = true
+reason = "[S-176] -A, -s, -U, -4 and -6 are named in no usage line, so they keep a value guessed from their description's first word and render no description. A fix must read these rows as booleans with their whole row text as the description, with no usage evidence to lean on."

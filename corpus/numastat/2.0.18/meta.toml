@@ -1,0 +1,27 @@
+# Usage and option row both spell `-p <PID>|<pattern>`: the flag takes
+# either a PID or a name pattern. The tree keeps only `<PID>`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "numastat"
+version = "2.0.18"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); numactl 2.0.18-1ubuntu0.24.04.1"
+
+[[capture]]
+argv = ["numastat", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_value_name]
+"-p" = "<PID>|<pattern>"
+
+[xfail]
+broken = true
+reason = "-p renders its value as <PID> and drops the |<pattern> alternative that both the usage line and the option row spell. A fix must keep a pipe-joined value alternation whole."

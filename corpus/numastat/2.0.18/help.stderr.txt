@@ -1,0 +1,9 @@
+Usage: numastat [-c] [-m] [-n] [-p <PID>|<pattern>] [-s[<node>]] [-v] [-V] [-z] [ <PID>|<pattern>... ]
+-c to minimize column widths
+-m to show meminfo-like system-wide memory usage
+-n to show the numastat statistics info
+-p <PID>|<pattern> to show process info
+-s[<node>] to sort data by total column or <node>
+-v to make some reports more verbose
+-V to show the numastat code version
+-z to skip rows and columns of zeros
