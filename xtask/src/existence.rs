@@ -517,6 +517,13 @@ fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<Cow<
         for word in &words {
             if !placeholders.contains(word) {
                 out.insert(Cow::Borrowed(*word));
+                // A glued `<a>|<b>` operand attests each alternative and
+                // the joined name. See docs/shapes.md S-190.
+                if word.contains('|') {
+                    let parts: Vec<&str> = word.split('|').map(clean_usage_token).collect();
+                    out.extend(parts.iter().map(|p| Cow::Owned((*p).to_string())));
+                    out.insert(Cow::Owned(parts.join("|")));
+                }
             }
         }
         // Runs stay within one line's own slot order — no skip, no reorder.
@@ -579,6 +586,36 @@ fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
     .any(|token| {
         mandible_extract::help_text::parse_bundled_shorts(token)
             .is_some_and(|members| members.contains(&short))
+    })
+}
+
+/// Whether `raw` spells `short`, a digit, as a member of a row-written
+/// range `-N .. -M` (`savelog`'s `-1 .. -9`, `xz`'s `-0 ... -9`) with
+/// `N <= short <= M`. See docs/shapes.md S-191.
+fn occurs_in_digit_range(raw: &str, short: char) -> bool {
+    let Some(d) = short.to_digit(10) else {
+        return false;
+    };
+    raw.lines().any(|line| {
+        let chars: Vec<char> = line.chars().collect();
+        chars.windows(2).enumerate().any(|(i, w)| {
+            if w[0] != '-' || !w[1].is_ascii_digit() {
+                return false;
+            }
+            let rest: String = chars[i + 2..].iter().collect();
+            let rest = rest.trim_start();
+            let dots = rest.chars().take_while(|c| *c == '.').count();
+            let Some(tail) = rest.get(dots..).filter(|_| dots >= 2) else {
+                return false;
+            };
+            let mut it = tail.trim_start().chars();
+            let hi = match (it.next(), it.next()) {
+                (Some('-'), Some(c)) => c.to_digit(10),
+                _ => None,
+            };
+            let lo = w[1].to_digit(10);
+            matches!((lo, hi), (Some(lo), Some(hi)) if lo <= d && d <= hi)
+        })
     })
 }
 
@@ -698,7 +735,8 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
             let spelling = format!("-{short}");
             let candidates = short_candidates(flag, short);
             let attested = candidates.iter().any(|c| spelling_occurs(raw, c))
-                || occurs_as_a_bundle_member(raw, short);
+                || occurs_as_a_bundle_member(raw, short)
+                || occurs_in_digit_range(raw, short);
             if !attested {
                 out.push(Fabrication {
                     path: path.to_string(),
@@ -730,6 +768,7 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
 fn check_positionals(
     node: &CommandNode,
     path: &str,
+    raw: &str,
     operands: &HashSet<Cow<str>>,
     out: &mut Vec<Fabrication>,
 ) {
@@ -737,7 +776,14 @@ fn check_positionals(
         if !is_help_text_sourced(&positional.provenance) {
             continue;
         }
-        if !operands.contains(positional.primary_name()) {
+        let name = positional.primary_name();
+        let attested = if name.contains('|') {
+            name.split('|')
+                .all(|part| operands.contains(part) || spelling_occurs(raw, part))
+        } else {
+            operands.contains(name)
+        };
+        if !attested {
             out.push(Fabrication {
                 path: path.to_string(),
                 kind: FabricationKind::Positional,
@@ -756,7 +802,7 @@ fn walk(
     out: &mut Vec<Fabrication>,
 ) {
     check_flags(node, path, raw, out);
-    check_positionals(node, path, operands, out);
+    check_positionals(node, path, raw, operands, out);
     for child in &node.subcommands {
         if is_help_text_sourced(&child.provenance) && !attested.contains(child.name.as_str()) {
             out.push(Fabrication {
