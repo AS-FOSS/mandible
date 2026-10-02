@@ -47,3 +47,10 @@ min_subcommands = 0
 # collapses, the rest genuine multi-character single-dash flags) — a
 # pre-existing, general decision this fix does not revisit.
 must_contain_flags = ["-v", "-c", "-d", "-l"]
+
+# docs/shapes.md S-175: the `||`-joined OR alternation past `-c` is a
+# shape no alternation recognizer here reads, so the trailing `key desc`
+# operand pair never becomes positionals. Nothing currently rendered is
+# lost — the full line still prints verbatim in USAGE — and the raw-shape
+# family is 1 tool (nfsidmap itself), below the five-tool floor, so this
+# stays a passing fixture rather than `[xfail]`.

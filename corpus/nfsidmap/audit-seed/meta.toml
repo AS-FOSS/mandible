@@ -42,3 +42,5 @@ min_status = "ok"
 # §7 Tier B forbids.)
 must_contain_flags = ["-v", "-c", "-d", "-l"]
 must_not_contain_flags = ["-u", "-g", "-r", "-t"]
+# The `||`-joined alternation and its trailing `key desc` operands: see
+# docs/shapes.md S-175.

@@ -2,6 +2,12 @@ name: ffplay
 description: Simple media player
 usage:
 - 'usage: ffplay [options] input_file'
+positionals:
+- name: input_file
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -L

@@ -7,6 +7,16 @@ description: |-
   The option -c (--check) will be used by default, if none was specified. You can change the default behavior by making a symbolic link, or copying this file somewhere with another name, the alternatives are: mysqlrepair: The default option will be -r mysqlanalyze: The default option will be -a mysqloptimize: The default option will be -o
 usage:
 - 'Usage: /usr/bin/mariadb-repair [OPTIONS] database [tables]'
+positionals:
+- name: database
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: tables
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - --print-defaults

@@ -2,6 +2,17 @@ name: split-file-18
 description: 'OVERVIEW: Split input into multiple parts separated by regex ''^(.|//)--- '' and extract the part specified by ''^(.|//)--- <part>'''
 usage:
 - 'USAGE: split-file-18 [options] filename directory'
+positionals:
+- name: filename
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: directory
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - --help
