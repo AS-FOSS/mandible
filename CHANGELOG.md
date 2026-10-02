@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-02
+
 ### Added
 
 - `--allow-root` lets mandible run as root; without it, the TUI, `--doctor`, and `--report` refuse before probing anything when effective uid is 0.
@@ -18,8 +20,6 @@ once it reaches a published 0.1.0 release.
 - [S-096] A `--` end-of-options row whose value is a bare multi-word phrase keeps every word instead of the first (`mandible lldb-server gdbserver`'s `-- program args`).
 - [S-167] A node's own short-prefix alias now renders as an `alias:` line in the detail pane (`mandible lldb-server gdbserver` shows `alias: g`).
 - [S-153] A usage line's `[options]` no longer refuses a bare operand tail unless the tail word names a real command-table placeholder, so `mandible lcf` shows `dest_file`/`src_dir` and `mandible ranlib` shows `archive`.
-- `xtask sweep-diff` now reports positional-count gains and losses per tool, separately from flags and subcommands, so a positional turning into a flag (or vice versa) no longer passes as a clean sweep; the field-level report also names each positional added or removed instead of folding it into the flag list.
-- The existence-fabrication oracle now attests a contiguous multi-word operand from a synopsis line's own slots (S-154's shape, `mknod`'s `MAJOR MINOR`), instead of only single tokens, so `mknod`, `accessdb`, `gdk-pixbuf-thumbnailer`, `systemd-sysusers` and `systemd-tmpfiles` no longer report a fabricated positional they genuinely document.
 - [S-148] `pkcheck`'s `-d, --details=KEY VALUE` row keeps `KEY VALUE` as the value name instead of just `KEY` (`mandible pkcheck`).
 - [S-174] A nested bracket group's own trailing text after its outer close now glues onto the value name too (`mandible cpio`'s `-I`/`-O`, `lsusb`'s `-s`, `rustc`'s `-l`).
 - [S-176] A single-dash table row with no placeholder column now reads its flag's real value off the tool's own usage line instead of guessing it from the description's first word (`mandible host`, `mandible kpartx`, `mandible numastat`, `mandible savelog`, `mandible memhog`); `mandible memhog` also gains its `size`/`policy`/`nodeset` positionals (S-177) instead of a swallowed root description.
