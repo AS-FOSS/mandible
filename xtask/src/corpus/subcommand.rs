@@ -1,5 +1,6 @@
 //! Path-keyed subcommand `[contract]` fields — `must_describe_subcommand`,
-//! `must_subcommand_group`, `must_display_name`, `must_accept_modifiers` —
+//! `must_subcommand_group`, `must_display_name`, `must_accept_modifiers`,
+//! `must_contain_positionals_by_path` —
 //! split out of `contract.rs` to keep that file under the workspace's
 //! line-count lint (AGENTS.md §2), the same reason `contract.rs`'s own
 //! `new_field_weakened_lines` exists.
@@ -20,6 +21,11 @@ pub(super) fn missing_root_failures(contract: &ContractMeta) -> Vec<ContractFail
             "must_subcommand_group: no root produced".into(),
         ));
     }
+    if !contract.must_contain_positionals_by_path.is_empty() {
+        failures.push(ContractFailure(
+            "must_contain_positionals_by_path: no root produced".into(),
+        ));
+    }
     failures
 }
 
@@ -28,6 +34,36 @@ pub(super) fn missing_root_failures(contract: &ContractMeta) -> Vec<ContractFail
 pub(super) fn check_all(contract: &ContractMeta, root: &CommandNode) -> Vec<ContractFailure> {
     let mut failures = check_must_describe_subcommand(contract, root);
     failures.extend(check_must_subcommand_group(contract, root));
+    failures.extend(check_must_contain_positionals_by_path(contract, root));
+    failures
+}
+
+/// `must_contain_positionals_by_path`: a node's own operands, found by
+/// path. Each entry is matched as `must_contain_positionals` matches it.
+fn check_must_contain_positionals_by_path(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (path, specs) in &contract.must_contain_positionals_by_path {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_contain_positionals_by_path: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let missing: Vec<&str> = specs
+            .iter()
+            .filter(|spec| !positional_present(node, spec))
+            .map(|s| s.as_str())
+            .collect();
+        if !missing.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_contain_positionals_by_path[{path:?}]: missing {}",
+                missing.join(", ")
+            )));
+        }
+    }
     failures
 }
 
@@ -117,6 +153,20 @@ pub(super) fn contract_weakened_lines(
         if !n.must_subcommand_group.contains_key(path) {
             lines.push(format!(
                 "CONTRACT WEAKENED: {label} must_subcommand_group[{path:?}] (assertion removed)"
+            ));
+        }
+    }
+    for (path, base_specs) in &b.must_contain_positionals_by_path {
+        let now_specs = n.must_contain_positionals_by_path.get(path);
+        let missing: Vec<&str> = base_specs
+            .iter()
+            .filter(|spec| !now_specs.is_some_and(|specs| specs.iter().any(|s| s == *spec)))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_contain_positionals_by_path[{path:?}] (dropped: {})",
+                missing.join(", ")
             ));
         }
     }

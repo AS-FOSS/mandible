@@ -178,6 +178,14 @@ must_keep_separate = [["-w", "-X"], ["-C", "-CC"]]
 [contract.must_contain_flags_by_path]
 restore = ["--source", "--staged"]
 
+# The same for a node's own positional operands, keyed by path. Matched on
+# the operand's name as the parser stores it, exactly as
+# `must_contain_positionals` does, so a trailing `...` also requires the
+# operand to be repeatable. The root is the empty path `""`. Requires a
+# `[[capture]]` for that subcommand's own `--help`.
+[contract.must_contain_positionals_by_path]
+restore = ["pathspec..."]
+
 # A root flag's value placeholder must contain this text, keyed by the
 # flag's own spelling. Substring match after collapsing whitespace, the
 # same rule `must_describe` uses, and satisfied when *any* entity carrying
