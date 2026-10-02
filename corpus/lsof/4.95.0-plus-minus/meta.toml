@@ -1,0 +1,39 @@
+# Sibling of corpus/lsof/4.95.0, which stays green and guards the rows that parse.
+# Raw rows: `+|-e s  exempt s *RISKY*`, `+|-w  Warnings (+)`, `+f|-f  +filesystem or -file names`,
+# `+|-f[gG] flaGs`, `+|-L [l] list (+) suppress (-) link counts ...`, `+|-M   portMap registration (-)`,
+# `+|-r [t[m<fmt>]] repeat every t seconds (15); + until no files, - forever.`.
+# v0.8.1 tree: -e -f -L -M -r -w exist only from the usage synopsis, with no
+# description, and no +-prefixed spelling exists at all. The two -f rows
+# (+f|-f and +|-f[gG]) both lose their text.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lsof"
+version = "4.95.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+# Same bytes as corpus/lsof/4.95.0 (stdout empty, the table is on stderr).
+[[capture]]
+argv = ["lsof", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["+e", "+f", "+L", "+M", "+r", "+w"]
+
+[contract.must_describe]
+"-e" = "exempt s"
+"-w" = "Warnings"
+"-L" = "suppress (-) link counts"
+"-M" = "portMap registration"
+"-r" = "repeat every t seconds"
+"-f" = "flaGs"
+
+[xfail]
+broken = true
+reason = "[S-086] the plus-or-minus notation (`+|-e s`, `+|-w`, `+f|-f`, `+|-f[gG]`, `+|-L [l]`, `+|-M`, `+|-r [t]`) is read as no flag at all: the -e, -f, -L, -M, -r and -w entities come only from the usage synopsis with no description, and no +-prefixed spelling reaches the tree. A fix needs the alias separator to accept a bare + as the left side of `+|-X` and fold the row into one flag carrying both polarities (`+w`, `-w`) with the row's own description; the +f|-f row says `+filesystem or -file names`, which is a per-polarity meaning and must not be dropped (docs/shapes.md S-086, S-163)."

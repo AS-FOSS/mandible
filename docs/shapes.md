@@ -639,6 +639,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag-shaped cells, which keeps an alias pair like nano's short and long
   spelling together and protects arptables's lowercase value placeholder from
   being read as a second, fabricated flag.
+  Open residual on `lsof` (`corpus/lsof/4.95.0-columns`): a cell led by `+`
+  or `--`, or by a bracketed placeholder, is not counted as flag-shaped, so
+  `+c`, `+d`, `+D`, `+E` and `+m` are lost, `--` folds into the previous
+  flag's description, and `-c`, `-d`, `-K` and `-Z` keep their placeholder in
+  the description.
 - fleet: 5 flags recovered (-a -b -l -t -v), 2026-08-30
 
 ### S-037: usage synopsis wraps at the marker's own indent, not a hanging indent
@@ -3090,7 +3095,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: cache_repair [options] {device|file}
       usage: fc-scan [-bcVh] [-f FORMAT] ... [--help] font-file...
       Usage: lcf  [options] dest_file  src_dir
-- tools: cache_repair, fc-scan, apt-mark, jdeprscan, lcf, btrfs-convert,
+- tools: lsof, cache_repair, fc-scan, apt-mark, jdeprscan, lcf, btrfs-convert,
   btrfs-image, btrfs-map-logical, btrfstune, dpkg-reconfigure, ffplay,
   llvm-bitcode-strip-18, llvm-install-name-tool-18, make-bcache, ntfscluster,
   ntfscp, ntfsfix, ntfsinfo, ntfsls, ntfsmove, ntfsundelete, ntfswipe,

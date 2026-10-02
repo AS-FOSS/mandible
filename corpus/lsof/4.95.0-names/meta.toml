@@ -1,0 +1,30 @@
+# Sibling of corpus/lsof/4.95.0. Raw: usage ends `[--] [names]` and the table has
+# `names  select named files or files on named file systems`. The v0.8.1 tree
+# has no positionals at all, so the operand lsof is run with is not shown.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lsof"
+version = "4.95.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+# Same bytes as corpus/lsof/4.95.0 (stdout empty, the table is on stderr).
+[[capture]]
+argv = ["lsof", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["names"]
+
+[contract.must_describe_positional]
+names = "select named files"
+
+[xfail]
+broken = true
+reason = "[S-153] the usage synopsis is a run of bracket groups ending in `[names]`, and the table has a `names` row, but no positional reaches the tree. A fix needs the bracketed operand at the tail of a usage line made of bracket groups to become an optional positional, described from the `names` row; it must not turn the `[--]` or the `[-x [fl]]` groups into operands."
