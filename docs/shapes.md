@@ -2525,12 +2525,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -c or --copyright include the ICU copyright notice
 - tools: icupkg
-- handling: Open defect. `-c or --copyright`'s row joins two value-free spellings
-  with the word `or`, the same shape `or_joined_alias` (S-099) already
-  reads, but its description starts only one space after `--copyright`,
-  not the two-space or tab gap `or_alias_ends_the_spec` requires before
-  treating the row as fully joined. `-c` keeps the literal word `or` as a
-  fabricated value name and `--copyright` reaches nothing.
+- handling: Fixed. `find_or_alias_single_space_gap` is the last finder in
+  `find_description_gap`'s chain, so it runs only when every other finder
+  found nothing: a short flag, the word `or`, a bare `--long` spelling
+  (no `=`, no bracket), then three or more plain alphabetic words with a
+  lowercase first one. The description starts after the long spelling,
+  so `-c` and `--copyright` are one value-free flag. A lone trailing
+  token (`-m or --match-arch file.o`) is never enough, it stays that
+  flag's value. The earlier relaxation (ending the spelling run at a
+  `--long` followed by one space and a lowercase word) gave `--copyright`
+  the value name `include` and fused `pod2man`'s `--lquote` and
+  `--rquote`; this rule never touches the spelling run, only the cut
+  point, and `pod2man` is unchanged. Issue #142.
 - fleet: `or-joined-alias-single-space-gap`
   (`xtask/src/detector/or_joined_alias_single_space_gap.rs`) reads 4
   tools / 4 findings on a full-`PATH` sweep of 2319 tools, 2026-09-06,
@@ -2545,6 +2551,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `--lquote` and `--rquote` into one entity, the shape `must_keep_separate`
   exists to forbid. Narrowing it to value-free spellings did not stop the
   fusion. Refused rather than shipped (issue #142).
+  Fixed in the full-`PATH` sweep of 2270 tools: `icupkg` gains `-c,
+  --copyright` and `genrb` gains `-R, --omitCollationRules` (the same
+  row shape), no losses.
+
 ### S-135: usage line's tab-indented continuation folds in unpunctuated
 
 - id: S-135

@@ -192,7 +192,53 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     // Same "no aligned column anywhere" precondition, one shape further
     // out: no placeholder either, just a sentence. See
     // `find_sentence_start_gap`.
-    find_sentence_start_gap(line)
+    if let Some(col) = find_sentence_start_gap(line) {
+        return Some(col);
+    }
+    // Last resort, same precondition: `-c or --copyright text...`. See
+    // `find_or_alias_single_space_gap`.
+    find_or_alias_single_space_gap(line)
+}
+
+/// Last-resort gap for a value-free `-x or --long description` row whose
+/// description sits one space after the long spelling (no aligned column,
+/// no capitalised first word). Cuts right after the long spelling when the
+/// row is exactly: a short flag, the word `or`, a bare `--long` spelling
+/// (no `=`, no bracket), then at least three plain alphabetic words, the
+/// first lowercase, so a lone trailing token (`-m or --match-arch file.o`) stays that flag's
+/// value. Only consulted when every other finder found nothing. See
+/// docs/shapes.md S-134.
+pub(super) fn find_or_alias_single_space_gap(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let lead = line.len() - trimmed.len();
+    let mut words = trimmed.split(' ');
+    let short = words.next()?;
+    let is_short = short.len() >= 2
+        && short.starts_with('-')
+        && !short.starts_with("--")
+        && short.chars().skip(1).all(|c| c.is_ascii_alphanumeric());
+    if !is_short || words.next()? != "or" {
+        return None;
+    }
+    let long = words.next()?;
+    let bare_long = long.len() > 2
+        && long.starts_with("--")
+        && long
+            .chars()
+            .skip(2)
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !bare_long {
+        return None;
+    }
+    let rest: Vec<&str> = words.collect();
+    let plain = |w: &&str| w.chars().all(|c| c.is_ascii_alphabetic());
+    if rest.len() < 3
+        || !rest[0].chars().all(|c| c.is_ascii_lowercase())
+        || !rest.iter().take(3).all(plain)
+    {
+        return None;
+    }
+    Some(lead + short.len() + 1 + 2 + 1 + long.len())
 }
 
 /// Push the naive column gap past a second spelling the word `or`
