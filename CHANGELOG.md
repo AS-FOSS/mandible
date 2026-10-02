@@ -17,6 +17,8 @@ once it reaches a published 0.1.0 release.
 - [S-153] A usage line's `[options]` no longer refuses a bare operand tail unless the tail word names a real command-table placeholder, so `mandible lcf` shows `dest_file`/`src_dir` and `mandible ranlib` shows `archive`.
 - `xtask sweep-diff` now reports positional-count gains and losses per tool, separately from flags and subcommands, so a positional turning into a flag (or vice versa) no longer passes as a clean sweep; the field-level report also names each positional added or removed instead of folding it into the flag list.
 - The existence-fabrication oracle now attests a contiguous multi-word operand from a synopsis line's own slots (S-154's shape, `mknod`'s `MAJOR MINOR`), instead of only single tokens, so `mknod`, `accessdb`, `gdk-pixbuf-thumbnailer`, `systemd-sysusers` and `systemd-tmpfiles` no longer report a fabricated positional they genuinely document.
+- [S-148] `pkcheck`'s `-d, --details=KEY VALUE` row keeps `KEY VALUE` as the value name instead of just `KEY` (`mandible pkcheck`).
+- [S-174] A nested bracket group's own trailing text after its outer close now glues onto the value name too (`mandible cpio`'s `-I`/`-O`, `lsusb`'s `-s`, `rustc`'s `-l`).
 
 ## [0.8.0] - 2026-09-14
 

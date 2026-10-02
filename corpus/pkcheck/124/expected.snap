@@ -31,7 +31,7 @@ flags:
 - spellings:
   - -d
   - --details
-  value_name: KEY
+  value_name: KEY VALUE
   value_kind: Required
   group: 'Application Options:'
   description: Add (KEY, VALUE) to information about the action
