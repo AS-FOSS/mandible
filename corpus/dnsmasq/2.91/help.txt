@@ -1,0 +1,193 @@
+Usage: dnsmasq [options]
+
+Valid options are:
+-a, --listen-address=<ipaddr>                          Specify local address(es) to listen on.
+-A, --address=/<domain>/<ipaddr>                       Return ipaddr for all hosts in specified domains.
+-b, --bogus-priv                                       Fake reverse lookups for RFC1918 private address ranges.
+-B, --bogus-nxdomain=<ipaddr>                          Treat ipaddr as NXDOMAIN (defeats Verisign wildcard).
+-c, --cache-size=<integer>                             Specify the size of the cache in entries (defaults to 150).
+-C, --conf-file=<path>                                 Specify configuration file (defaults to /etc/dnsmasq.conf).
+-d, --no-daemon                                        Do NOT fork into the background: run in debug mode.
+-D, --domain-needed                                    Do NOT forward queries with no domain part.
+-e, --selfmx                                           Return self-pointing MX records for local hosts.
+-E, --expand-hosts                                     Expand simple names in /etc/hosts with domain-suffix.
+-f, --filterwin2k                                      Don't forward spurious DNS requests from Windows hosts.
+    --filter-A                                         Don't include IPv4 addresses in DNS answers.
+    --filter-AAAA                                      Don't include IPv6 addresses in DNS answers.
+    --filter-rr=<RR-type>                              Don't include resource records of the given type in DNS answers.
+-F, --dhcp-range=<ipaddr>,...                          Enable DHCP in the range given with lease duration.
+-g, --group=<groupname>                                Change to this group after startup (defaults to dip).
+-G, --dhcp-host=<hostspec>                             Set address or hostname for a specified machine.
+    --dhcp-hostsfile=<path>                            Read DHCP host specs from file.
+    --dhcp-optsfile=<path>                             Read DHCP option specs from file.
+    --dhcp-hostsdir=<path>                             Read DHCP host specs from a directory.
+    --dhcp-optsdir=<path>                              Read DHCP options from a directory.
+    --tag-if=tag-expression                            Evaluate conditional tag expression.
+-h, --no-hosts                                         Do NOT load /etc/hosts file.
+-H, --addn-hosts=<path>                                Specify a hosts file to be read in addition to /etc/hosts.
+    --hostsdir=<path>                                  Read hosts files from a directory.
+-i, --interface=<interface>                            Specify interface(s) to listen on.
+-I, --except-interface=<interface>                     Specify interface(s) NOT to listen on.
+-j, --dhcp-userclass=set:<tag>,<class>                 Map DHCP user class to tag.
+    --dhcp-circuitid=set:<tag>,<circuit>               Map RFC3046 circuit-id to tag.
+    --dhcp-remoteid=set:<tag>,<remote>                 Map RFC3046 remote-id to tag.
+    --dhcp-subscrid=set:<tag>,<remote>                 Map RFC3993 subscriber-id to tag.
+    --dhcp-pxe-vendor=<vendor>[,...]                   Specify vendor class to match for PXE requests.
+-J, --dhcp-ignore=tag:<tag>...                         Don't do DHCP for hosts with tag set.
+    --dhcp-broadcast[=tag:<tag>...]                    Force broadcast replies for hosts with tag set.
+-k, --keep-in-foreground                               Do NOT fork into the background, do NOT run in debug mode.
+-K, --dhcp-authoritative                               Assume we are the only DHCP server on the local network.
+-l, --dhcp-leasefile=<path>                            Specify where to store DHCP leases (defaults to /var/lib/misc/dnsmasq.leases).
+-L, --localmx                                          Return MX records for local hosts.
+-m, --mx-host=<host_name>,<target>,<pref>              Specify an MX record.
+-M, --dhcp-boot=<bootp opts>                           Specify BOOTP options to DHCP server.
+-n, --no-poll                                          Do NOT poll /etc/resolv.conf file, reload only on SIGHUP.
+-N, --no-negcache                                      Do NOT cache failed search results.
+    --use-stale-cache[=<max_expired>]                  Use expired cache data for faster reply.
+-o, --strict-order                                     Use nameservers strictly in the order given in /etc/resolv.conf.
+-O, --dhcp-option=<optspec>                            Specify options to be sent to DHCP clients.
+    --dhcp-option-force=<optspec>                      DHCP option sent even if the client does not request it.
+    --dhcp-option-pxe=<optspec>                        DHCP option sent only to PXE clients.
+-p, --port=<integer>                                   Specify port to listen for DNS requests on (defaults to 53).
+-P, --edns-packet-max=<integer>                        Maximum supported UDP packet size for EDNS.0 (defaults to 1232).
+-q, --log-queries                                      Log DNS queries.
+-Q, --query-port=<integer>                             Force the originating port for upstream DNS queries.
+    --port-limit=#ports                                Set maximum number of random originating ports for a query.
+-R, --no-resolv                                        Do NOT read resolv.conf.
+-r, --resolv-file=<path>                               Specify path to resolv.conf (defaults to /etc/resolv.conf).
+    --servers-file=<path>                              Specify path to file with server= options
+-S, --server=/<domain>/<ipaddr>                        Specify address(es) of upstream servers with optional domains.
+    --rev-server=<addr>/<prefix>,<ipaddr>              Specify address of upstream servers for reverse address queries
+    --local=/<domain>/                                 Never forward queries to specified domains.
+-s, --domain=<domain>[,<range>]                        Specify the domain to be assigned in DHCP leases.
+-t, --mx-target=<host_name>                            Specify default target in an MX record.
+-T, --local-ttl=<integer>                              Specify time-to-live in seconds for replies from /etc/hosts.
+    --neg-ttl=<integer>                                Specify time-to-live in seconds for negative caching.
+    --max-ttl=<integer>                                Specify time-to-live in seconds for maximum TTL to send to clients.
+    --max-cache-ttl=<integer>                          Specify time-to-live ceiling for cache.
+    --min-cache-ttl=<integer>                          Specify time-to-live floor for cache.
+    --fast-dns-retry=<milliseconds>                    Retry DNS queries after this many milliseconds.
+-u, --user=<username>                                  Change to this user after startup. (defaults to nobody).
+-U, --dhcp-vendorclass=set:<tag>,<class>               Map DHCP vendor class to tag.
+-v, --version                                          Display dnsmasq version and copyright information.
+-V, --alias=<ipaddr>,<ipaddr>,<netmask>                Translate IPv4 addresses from upstream servers.
+-W, --srv-host=<name>,<target>,...                     Specify a SRV record.
+-w, --help                                             Display this message. Use --help dhcp or --help dhcp6 for known DHCP options.
+-x, --pid-file=<path>                                  Specify path of PID file (defaults to /var/run/dnsmasq.pid).
+-X, --dhcp-lease-max=<integer>                         Specify maximum number of DHCP leases (defaults to 1000).
+-y, --localise-queries                                 Answer DNS queries based on the interface a query was sent to.
+-Y, --txt-record=<name>,<txt>[,<txt]                   Specify TXT DNS record.
+    --ptr-record=<name>,<target>                       Specify PTR DNS record.
+    --interface-name=<name>,<interface>                Give DNS name to IPv4 address of interface.
+-z, --bind-interfaces                                  Bind only to interfaces in use.
+-Z, --read-ethers                                      Read DHCP static host information from /etc/ethers.
+-1, --enable-dbus[=<busname>]                          Enable the DBus interface for setting upstream servers, etc.
+    --enable-ubus[=<busname>]                          Enable the UBus interface.
+-2, --no-dhcp-interface=<interface>                    Do not provide DHCP on this interface, only provide DNS.
+    --no-dhcpv6-interface=<interface>                  Do not provide DHCPv6 on this interface.
+    --no-dhcpv4-interface=<interface>                  Do not provide DHCPv4 on this interface.
+-3, --bootp-dynamic[=tag:<tag>]...                     Enable dynamic address allocation for bootp.
+-4, --dhcp-mac=set:<tag>,<mac address>                 Map MAC address (with wildcards) to option set.
+    --bridge-interface=<iface>,<alias>..               Treat DHCP requests on aliases as arriving from interface.
+    --shared-network=<iface>|<addr>,<addr>             Specify extra networks sharing a broadcast domain for DHCP
+-5, --no-ping                                          Disable ICMP echo address checking in the DHCP server.
+-6, --dhcp-script=<path>                               Shell script to run on DHCP lease creation and destruction.
+    --dhcp-luascript=path                              Lua script to run on DHCP lease creation and destruction.
+    --dhcp-scriptuser=<username>                       Run lease-change scripts as this user.
+    --script-arp                                       Call dhcp-script with changes to local ARP table.
+-7, --conf-dir=<path>                                  Read configuration from all the files in this directory.
+    --conf-script=<path>                               Execute file and read configuration from stdin.
+-8, --log-facility=<facility>|<file>                   Log to this syslog facility or file. (defaults to DAEMON)
+-9, --leasefile-ro                                     Do not use leasefile.
+-0, --dns-forward-max=<integer>                        Maximum number of concurrent DNS queries. (defaults to 150)
+    --clear-on-reload                                  Clear DNS cache when reloading /etc/resolv.conf.
+    --dhcp-ignore-names[=tag:<tag>]...                 Ignore hostnames provided by DHCP clients.
+    --dhcp-no-override                                 Do NOT reuse filename and server fields for extra DHCP options.
+    --enable-tftp[=<intr>[,<intr>]]                    Enable integrated read-only TFTP server.
+    --tftp-root=<dir>[,<iface>]                        Export files by TFTP only from the specified subtree.
+    --tftp-unique-root[=ip|mac]                        Add client IP or hardware address to tftp-root.
+    --tftp-secure                                      Allow access only to files owned by the user running dnsmasq.
+    --tftp-no-fail                                     Do not terminate the service if TFTP directories are inaccessible.
+    --tftp-max=<integer>                               Maximum number of concurrent TFTP transfers (defaults to 50).
+    --tftp-mtu=<integer>                               Maximum MTU to use for TFTP transfers.
+    --tftp-no-blocksize                                Disable the TFTP blocksize extension.
+    --tftp-lowercase                                   Convert TFTP filenames to lowercase
+    --tftp-port-range=<start>,<end>                    Ephemeral port range for use by TFTP transfers.
+    --tftp-single-port                                 Use only one port for TFTP server.
+    --log-dhcp                                         Extra logging for DHCP.
+    --log-async[=<integer>]                            Enable async. logging; optionally set queue length.
+    --stop-dns-rebind                                  Stop DNS rebinding. Filter private IP ranges when resolving.
+    --rebind-localhost-ok                              Allow rebinding of 127.0.0.0/8, for RBL servers.
+    --rebind-domain-ok=/<domain>/                      Inhibit DNS-rebind protection on this domain.
+    --all-servers                                      Always perform DNS queries to all servers.
+    --dhcp-match=set:<tag>,<optspec>                   Set tag if client includes matching option in request.
+    --dhcp-name-match=set:<tag>,<string>[*]            Set tag if client provides given name.
+    --dhcp-alternate-port[=<ports>]                    Use alternative ports for DHCP.
+    --naptr-record=<name>,<naptr>                      Specify NAPTR DNS record.
+    --min-port=<port>                                  Specify lowest port available for DNS query transmission.
+    --max-port=<port>                                  Specify highest port available for DNS query transmission.
+    --dhcp-fqdn                                        Use only fully qualified domain names for DHCP clients.
+    --dhcp-generate-names[=tag:<tag>]                  Generate hostnames based on MAC address for nameless clients.
+    --dhcp-proxy[=<ipaddr>]...                         Use these DHCP relays as full proxies.
+    --dhcp-relay=<local-addr>,<server>[,<iface>]       Relay DHCP requests to a remote server
+    --cname=<alias>,<target>[,<ttl>]                   Specify alias name for LOCAL DNS name.
+    --pxe-prompt=<prompt>,[<timeout>]                  Prompt to send to PXE clients.
+    --pxe-service=<service>                            Boot service for PXE menu.
+    --test                                             Check configuration syntax.
+    --add-mac[=base64|text]                            Add requestor's MAC address to forwarded DNS queries.
+    --strip-mac                                        Strip MAC information from queries.
+    --add-subnet=<v4 pref>[,<v6 pref>]                 Add specified IP subnet to forwarded DNS queries.
+    --strip-subnet                                     Strip ECS information from queries.
+    --add-cpe-id=<text>                                Add client identification to forwarded DNS queries.
+    --proxy-dnssec                                     Proxy DNSSEC validation results from upstream nameservers.
+    --dhcp-sequential-ip                               Attempt to allocate sequential IP addresses to DHCP clients.
+    --dhcp-ignore-clid                                 Ignore client identifier option sent by DHCP clients.
+    --conntrack                                        Copy connection-track mark from queries to upstream connections.
+    --dhcp-client-update                               Allow DHCP clients to do their own DDNS updates.
+    --enable-ra                                        Send router-advertisements for interfaces doing DHCPv6
+    --dhcp-duid=<enterprise>,<duid>                    Specify DUID_EN-type DHCPv6 server DUID
+    --host-record=<name>,<address>[,<ttl>]             Specify host (A/AAAA and PTR) records
+    --dynamic-host=<name>,[<IPv4>][,<IPv6>],<interface-Specify host record in interface subnet
+    --caa-record=<name>,<flags>,<tag>,<value>          Specify certification authority authorization record
+    --dns-rr=<name>,<RR-number>,[<data>]               Specify arbitrary DNS resource record
+    --bind-dynamic                                     Bind to interfaces in use - check for new interfaces
+    --auth-server=<NS>,<interface>                     Export local names to global DNS
+    --auth-zone=<domain>,[<subnet>...]                 Domain to export to global DNS
+    --auth-ttl=<integer>                               Set TTL for authoritative replies
+    --auth-soa=<serial>[,...]                          Set authoritative zone information
+    --auth-sec-servers=<NS>[,<NS>...]                  Secondary authoritative nameservers for forward domains
+    --auth-peer=<ipaddr>[,<ipaddr>...]                 Peers which are allowed to do zone transfer
+    --ipset=/<domain>[/<domain>...]/<ipset>...         Specify ipsets to which matching domains should be added
+    --nftset=/<domain>[/<domain>...]/<nftset>...       Specify nftables sets to which matching domains should be added
+    --connmark-allowlist-enable[=<mask>]               Enable filtering of DNS queries with connection-track marks.
+    --connmark-allowlist=<connmark>[/<mask>][,<pattern>Set allowed DNS patterns for a connection-track mark.
+    --synth-domain=<domain>,<range>,[<prefix>]         Specify a domain and address range for synthesised names
+    --dnssec                                           Activate DNSSEC validation
+    --trust-anchor=<domain>,[<class>,]...              Specify trust anchor key digest.
+    --dnssec-debug                                     Disable upstream checking for DNSSEC debugging.
+    --dnssec-check-unsigned                            Ensure answers without DNSSEC are in unsigned zones.
+    --dnssec-no-timecheck                              Don't check DNSSEC signature timestamps until first cache-reload
+    --dnssec-timestamp=<path>                          Timestamp file to verify system clock for DNSSEC
+    --dnssec-limits=<limit>,..                         Set resource limits for DNSSEC validation
+    --ra-param=<iface>,[mtu:<value>|<interface>|off,][<Set MTU, priority, resend-interval and router-lifetime
+    --quiet-dhcp                                       Do not log routine DHCP.
+    --quiet-dhcp6                                      Do not log routine DHCPv6.
+    --quiet-ra                                         Do not log RA.
+    --log-debug                                        Log debugging information.
+    --local-service                                    Accept queries only from directly-connected networks.
+    --dns-loop-detect                                  Detect and remove DNS forwarding loops.
+    --ignore-address=<ipaddr>                          Ignore DNS responses containing ipaddr.
+    --dhcp-ttl=<ttl>                                   Set TTL in DNS responses with DHCP-derived addresses.
+    --dhcp-reply-delay=<integer>                       Delay DHCP replies for at least number of seconds.
+    --dhcp-rapid-commit                                Enables DHCPv4 Rapid Commit option.
+    --dumpfile=<path>                                  Path to debug packet dump file.
+    --dumpmask=<hex>                                   Mask which packets to dump.
+    --script-on-renewal                                Call dhcp-script when lease expiry changes.
+    --umbrella[=<optspec>]                             Send Cisco Umbrella identifiers including remote IP.
+    --quiet-tftp                                       Do not log routine TFTP.
+    --no-round-robin                                   Suppress round-robin ordering of DNS records.
+    --no-0x20-encode                                   Suppress DNS bit 0x20 encoding.
+    --do-0x20-encode                                   Enable DNS bit 0x20 encoding.
+    --no-ident                                         Do not add CHAOS TXT records.
+    --cache-rr=<RR-type>                               Cache this DNS resource record type.
+    --max-tcp-connections=<integer>                    Maximum number of concurrent tcp connections.

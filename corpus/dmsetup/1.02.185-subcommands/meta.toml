@@ -1,0 +1,26 @@
+# Same capture as corpus/dmsetup/1.02.185. Defects in the per-subcommand
+# flags and operands of the one usage block.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dmsetup"
+version = "1.02.185"
+platform = "ubuntu-24.04"
+captured_with = "copied from corpus/dmsetup/1.02.185"
+
+[[capture]]
+argv = ["dmsetup", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_contain_flags_by_path]
+create = ["--major", "--minor", "--notable", "--table"]
+
+[xfail]
+broken = true
+reason = "create drops -m|--minor <minor>, the second flag inside the bracket [-j|--major <major> -m|--minor <minor>]. Also unasserted until by-path keep-separate and positional fields exist: create folds -n|--notable and --table {<table>|<table_file>} into one flag, resume folds --addnodeonresume|--addnodeoncreate into one flag where create keeps two, and a trailing <device>... after flags is lost on remove, suspend, resume and wipe_table, as are rename's <new_name_or_uuid> and stats' [<options>]."

@@ -1,0 +1,68 @@
+Usage:
+
+dmsetup
+        [--version] [-h|--help [-c|-C|--columns]]
+        [-v|--verbose [-v|--verbose ...]] [-f|--force]
+        [--checks] [--manglename {none|hex|auto}]
+        [-r|--readonly] [--noopencount] [--noflush] [--nolockfs] [--inactive]
+        [--udevcookie <cookie>] [--noudevrules] [--noudevsync] [--verifyudev]
+        [-y|--yes] [--readahead {[+]<sectors>|auto|none}] [--retry]
+        [-c|-C|--columns] [-o <fields>] [-O|--sort <sort_fields>]
+        [-S|--select <selection>] [--nameprefixes] [--noheadings]
+        [--separator <separator>]
+
+	help [-c|-C|--columns]
+	create <dev_name>
+	    [-j|--major <major> -m|--minor <minor>]
+	    [-U|--uid <uid>] [-G|--gid <gid>] [-M|--mode <octal_mode>]
+	    [-u|--uuid <uuid>] [--addnodeonresume|--addnodeoncreate]
+	    [--readahead {[+]<sectors>|auto|none}]
+	    [-n|--notable|--table {<table>|<table_file>}]
+	create --concise [<concise_device_spec_list>]
+	remove [--deferred] [-f|--force] [--retry] <device>...
+	remove_all [-f|--force]
+	suspend [--noflush] [--nolockfs] <device>...
+	resume [--noflush] [--nolockfs] <device>...
+	       [--addnodeonresume|--addnodeoncreate]
+	       [--readahead {[+]<sectors>|auto|none}]
+	load <device> [<table>|<table_file>]
+	clear <device>
+	reload <device> [<table>|<table_file>]
+	wipe_table [-f|--force] [--noflush] [--nolockfs] <device>...
+	rename <device> [--setuuid] <new_name_or_uuid>
+	measure [<device>...]
+	message <device> <sector> <message>
+	ls [--target <target_type>] [--exec <command>] [-o <options>] [--tree]
+	info [<device>...]
+	deps [-o <options>] [<device>...]
+	stats <command> [<options>] [<device>...]
+	status [<device>...] [--noflush] [--target <target_type>]
+	table [<device>...] [--concise] [--target <target_type>] [--showkeys]
+	wait <device> [<event_nr>] [--noflush]
+	mknodes [<device>...]
+	mangle [<device>...]
+	udevcreatecookie 
+	udevreleasecookie [<cookie>]
+	udevflags <cookie>
+	udevcomplete <cookie>
+	udevcomplete_all [<age_in_minutes>]
+	udevcookies 
+	target-version [<target>...]
+	targets 
+	version 
+	setgeometry <device> <cyl> <head> <sect> <start>
+	splitname <device> [<subsystem>]
+
+<device> may be device name or (if only one) -u <uuid> or -j <major> -m <minor>
+<mangling_mode> is one of 'none', 'auto' and 'hex'.
+<fields> are comma-separated.  Use 'help -c' for list.
+<concise_device_specification> has single-device entries separated by semi-colons:
+    <name>,<uuid>,<minor>,<flags>,<table>
+        where <flags> is 'ro' or 'rw' (the default) and any of <uuid>, <minor>
+        and <flags> may be empty. Separate extra table lines with commas.
+    E.g.: dev1,,,,0 100 linear 253:1 0,100 100 error;dev2,,,ro,0 1 error
+Table_file contents may be supplied on stdin.
+Options are: devno, devname, blkdevname.
+Tree specific options are: ascii, utf, vt100; compact, inverted, notrunc;
+                           blkdevname, [no]device, active, open, rw and uuid.
+
