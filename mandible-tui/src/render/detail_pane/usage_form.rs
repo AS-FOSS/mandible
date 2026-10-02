@@ -1,9 +1,9 @@
 //! The USAGE section's own line shaping: strip the redundant label and
 //! program word, and decide when a leading word IS this program.
-//! docs/shapes.md S-108, S-150, S-151.
+//! docs/shapes.md S-108, S-150, S-151, S-167.
 
 use crate::sanitize::defensive_single_line;
-use mandible_core::Text;
+use mandible_core::{reconstruct_abbrev_word, Text};
 
 /// One usage line with its redundant prefix stripped: the `Usage:` or
 /// `or:` label, and the program word the heading already names. Returns
@@ -135,11 +135,19 @@ pub(super) fn usage_naming_span(text: &str, name: &str) -> Option<(usize, usize)
 }
 
 /// Whether `word` names the node: an exact match, its basename after the
-/// last `/` (`cp`'s `/usr/bin/cp`), or the node name's own prefix before
-/// its first `.` (`vim.basic`'s own `vim`).
+/// last `/` (`cp`'s `/usr/bin/cp`), the node name's own prefix before its
+/// first `.` (`vim.basic`'s own `vim`), or S-167's own bracket-abbreviated
+/// spelling read back to the whole word it names (`g[dbserver]` for node
+/// `gdbserver`) — without this, the usage line's own leading word never
+/// matches the node under `usage_naming_span`, so `usage_form` falls
+/// through to prepending a second, redundant `gdbserver` in front of text
+/// that already names both the tool and the subcommand.
 fn word_names_node(word: &str, name: &str) -> bool {
     let basename = word.rsplit('/').next().unwrap_or(word);
     if basename == name {
+        return true;
+    }
+    if reconstruct_abbrev_word(basename).as_deref() == Some(name) {
         return true;
     }
     match name.split_once('.') {

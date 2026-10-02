@@ -14,6 +14,9 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- [S-167] An S-167 node's own USAGE line no longer doubles its name in front of text that already named the tool and the subcommand (`mandible lldb-server` into `gdbserver`).
+- [S-096] A `--` end-of-options row whose value is a bare multi-word phrase keeps every word instead of the first (`mandible lldb-server gdbserver`'s `-- program args`).
+- [S-167] A node's own short-prefix alias now renders as an `alias:` line in the detail pane (`mandible lldb-server gdbserver` shows `alias: g`).
 - [S-153] A usage line's `[options]` no longer refuses a bare operand tail unless the tail word names a real command-table placeholder, so `mandible lcf` shows `dest_file`/`src_dir` and `mandible ranlib` shows `archive`.
 - `xtask sweep-diff` now reports positional-count gains and losses per tool, separately from flags and subcommands, so a positional turning into a flag (or vice versa) no longer passes as a clean sweep; the field-level report also names each positional added or removed instead of folding it into the flag list.
 - The existence-fabrication oracle now attests a contiguous multi-word operand from a synopsis line's own slots (S-154's shape, `mknod`'s `MAJOR MINOR`), instead of only single tokens, so `mknod`, `accessdb`, `gdk-pixbuf-thumbnailer`, `systemd-sysusers` and `systemd-tmpfiles` no longer report a fabricated positional they genuinely document.

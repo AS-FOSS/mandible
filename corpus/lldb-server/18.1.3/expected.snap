@@ -17,9 +17,99 @@ subcommands:
 - name: gdbserver
   aliases:
   - g
+  description: 'OVERVIEW: lldb-server'
+  usage:
+  - 'USAGE: lldb-server g[dbserver] [options] [[host]:port] [[--] program args...]'
+  flags:
+  - spellings:
+    - --fd
+    value_name: <fd>
+    value_kind: Required
+    group: 'CONNECTION:'
+    description: Communicate over the given file descriptor.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --named-pipe
+    value_name: <name>
+    value_kind: Required
+    group: 'CONNECTION:'
+    description: Write port lldb-server will listen on to the given named pipe.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --pipe
+    value_name: <fd>
+    value_kind: Required
+    group: 'CONNECTION:'
+    description: Write port lldb-server will listen on to the given file descriptor.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --reverse-connect
+    group: 'CONNECTION:'
+    description: Connect to the client instead of passively waiting for a connection. In this case [host]:port denotes the remote address to connect to.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --help
+    group: 'GENERAL OPTIONS:'
+    description: Prints out the usage information for lldb-server.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --log-channels
+    value_name: <channel1 categories...:channel2 categories...>
+    value_kind: Required
+    group: 'GENERAL OPTIONS:'
+    description: Channels to log. A colon-separated list of entries. Each entry starts with a channel followed by a space-separated list of categories.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --log-file
+    value_name: <file>
+    value_kind: Required
+    group: 'GENERAL OPTIONS:'
+    description: Destination file to log to. If empty, log to stderr.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --setsid
+    group: 'GENERAL OPTIONS:'
+    description: Run lldb-server in a new session.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --attach
+    value_name: <pid-or-name>
+    value_kind: Required
+    group: 'TARGET SELECTION:'
+    description: Attach to the process given by a (numeric) process id or a name.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --
+    value_name: program args
+    value_kind: Required
+    group: 'TARGET SELECTION:'
+    description: Launch program for debugging.
+    provenance:
+      sources:
+      - help-text
   provenance:
     sources:
     - help-text
+    confidence: 0.45
+  children_filled: true
   invocation_attested: true
   abbrev_probe_attested: true
 - name: platform

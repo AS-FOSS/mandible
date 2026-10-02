@@ -530,6 +530,16 @@ fn build_lines(
         }
     }
 
+    // S-167 (docs/design.md §16): the node's own short prefix (`g` for
+    // `gdbserver`) is kept as `CommandNode::aliases`, never as a second
+    // display spelling, so it renders nowhere unless something reads this
+    // field. A one-line subtitle right under the summary is the smallest
+    // surface that still makes it reachable without touching the commands
+    // tree's own row layout (spec §9.1).
+    if !node.aliases.is_empty() {
+        lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
+    }
+
     if let Some(description) = &node.description {
         open_block(&mut lines, SECTION_BLANKS);
         lines.push(heading_line_ruled(
@@ -1161,6 +1171,49 @@ mod tests {
             text[example + 1].trim().starts_with("PATTERNS can contain"),
             "the sentence after it must start its own line: {:?}",
             text[example + 1]
+        );
+    }
+
+    /// S-167: the row's own short prefix (`g` for `gdbserver`) is kept as
+    /// `CommandNode::aliases`, never as a display spelling, so it rendered
+    /// nowhere until this line. Fixture: `corpus/lldb-server/18.1.3`.
+    #[test]
+    fn a_nodes_alias_renders_as_its_own_line() {
+        let mut node = node_with_flags();
+        node.aliases = vec!["g".to_string()];
+        let built = build_lines(
+            &node,
+            80,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let text: Vec<String> = built.lines.iter().map(text_of).collect();
+        assert!(
+            text.iter().any(|l| l.trim() == "alias: g"),
+            "the alias must render as its own line: {text:?}"
+        );
+    }
+
+    /// The anti-case: a node with no aliases renders no `alias:` line at
+    /// all, so the addition above never shows up as noise on the vast
+    /// majority of nodes that don't carry one.
+    #[test]
+    fn a_node_with_no_aliases_renders_no_alias_line() {
+        let node = node_with_flags();
+        let built = build_lines(
+            &node,
+            80,
+            style::Palette::extended(),
+            None,
+            crate::glyphs::UNICODE,
+            &test_app(),
+        );
+        let text: Vec<String> = built.lines.iter().map(text_of).collect();
+        assert!(
+            !text.iter().any(|l| l.trim().starts_with("alias:")),
+            "no alias line without aliases: {text:?}"
         );
     }
 
@@ -3743,6 +3796,26 @@ mod tests {
         assert_eq!(
             usage_form("outlier", "smokecli columns outlier [-h] [-v] [-n]").1,
             "smokecli columns outlier [-h] [-v] [-n]"
+        );
+    }
+
+    /// S-167: the node's own USAGE line names it through the bracket-
+    /// abbreviated spelling the tool actually printed (`g[dbserver]`),
+    /// not the plain word `usage_naming_span` looked for before. Without
+    /// the fix this doubled the node's name in front of text that already
+    /// named both the tool and the subcommand
+    /// (`gdbserver lldb-server g[dbserver] [options] ...`); the repair
+    /// substitutes the bracketed word with the full one instead, the same
+    /// way `word_names_node`'s other cases already do.
+    #[test]
+    fn a_usage_form_substitutes_the_nodes_own_bracket_abbreviated_word() {
+        assert_eq!(
+            usage_form(
+                "gdbserver",
+                "lldb-server g[dbserver] [options] [[host]:port] [[--] program args...]"
+            )
+            .1,
+            "lldb-server gdbserver [options] [[host]:port] [[--] program args...]"
         );
     }
 
