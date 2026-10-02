@@ -253,6 +253,13 @@ contributed, and how much of the tool it understood. It turns "mandible is
 wrong about tool X" into "the cobra grammar mishandles Y", which is a bug
 someone can actually fix.
 
+### Running as root
+
+mandible refuses to start as root, printing the flag that lifts the refusal.
+A probe like `fail2ban-client start --help` reaches a daemon socket, and
+under root that is an action, not a question. Pass `--allow-root` to proceed
+anyway; mandible never asks for or gains privileges on its own.
+
 </details>
 
 ## Documentation

@@ -27,6 +27,8 @@ pub fn render_markdown(t: &Transition) -> String {
     out.push_str(&md_flag_gains_section(t));
     out.push_str(&md_subcommand_losses_section(t));
     out.push_str(&md_subcommand_gains_section(t));
+    out.push_str(&md_positional_losses_section(t));
+    out.push_str(&md_positional_gains_section(t));
     out.push_str(&md_field_level_section(t));
     out.push_str(&md_appeared_disappeared_section(t));
     out.push_str(&md_near_cap_section(t));
@@ -264,6 +266,88 @@ fn md_subcommand_gains_section(t: &Transition) -> String {
     out
 }
 
+/// The "### Positional-count losses" section — mirrors
+/// [`md_subcommand_losses_section`] over the positional-count dimension
+/// (H1: derived from `#fp2` entity ids, never a scoreboard column).
+fn md_positional_losses_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_lost: i64 = t.positional_losses.iter().map(|d| -d.delta()).sum();
+    out.push_str("### Positional-count losses (never netted against gains)\n\n");
+    if t.positional_losses.is_empty() {
+        out.push_str("No matched tool lost positionals.\n\n");
+    } else {
+        out.push_str(&format!(
+            "**{total_lost} positional(s) lost across {n} tool(s).** A gain elsewhere never \
+             offsets this.\n\n",
+            n = t.positional_losses.len(),
+        ));
+        out.push_str("| tool | before | after | lost |\n|---|---|---|---|\n");
+        for d in t.positional_losses.iter().take(TABLE_ROW_LIMIT) {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                escape_md(d.tool),
+                d.before,
+                d.after,
+                -d.delta(),
+            ));
+        }
+        if t.positional_losses.len() > TABLE_ROW_LIMIT {
+            out.push_str(&format!(
+                "\n_{} more not shown._\n",
+                t.positional_losses.len() - TABLE_ROW_LIMIT
+            ));
+        }
+        out.push('\n');
+    }
+    if t.positional_diff_unmeasured > 0 {
+        out.push_str(&format!(
+            "> [!NOTE]\n> {} matched tool(s) could not have their positional count compared — \
+             needs a `#fp2` fingerprint on both sides. A V1 entity id carries no `EntityKind` \
+             tag, so it cannot be classified as a positional at all.\n\n",
+            t.positional_diff_unmeasured,
+        ));
+    }
+    out
+}
+
+/// The "### Positional-count gains" section — mirrors
+/// [`md_subcommand_gains_section`]. A gain is named, not scored: only a
+/// human reading the rendered screen can tell a real recovery from an
+/// invented positional.
+fn md_positional_gains_section(t: &Transition) -> String {
+    let mut out = String::new();
+    let total_gained: i64 = t.positional_gains.iter().map(|d| d.delta()).sum();
+    out.push_str("### Positional-count gains\n\n");
+    if t.positional_gains.is_empty() {
+        out.push_str("No matched tool gained positionals.\n\n");
+    } else {
+        out.push_str(&format!(
+            "**{total_gained} positional(s) gained across {n} tool(s).** A gain is not \
+             automatically a fix: verify each named tool against its rendered screen before \
+             trusting the count.\n\n",
+            n = t.positional_gains.len(),
+        ));
+        out.push_str("| tool | before | after | gained |\n|---|---|---|---|\n");
+        for d in t.positional_gains.iter().take(TABLE_ROW_LIMIT) {
+            out.push_str(&format!(
+                "| {} | {} | {} | {} |\n",
+                escape_md(d.tool),
+                d.before,
+                d.after,
+                d.delta(),
+            ));
+        }
+        if t.positional_gains.len() > TABLE_ROW_LIMIT {
+            out.push_str(&format!(
+                "\n_{} more not shown._\n",
+                t.positional_gains.len() - TABLE_ROW_LIMIT
+            ));
+        }
+        out.push('\n');
+    }
+    out
+}
+
 /// The "### Field-level changes" section — split out of [`render_markdown`]
 /// (ratchet: `clippy::too_many_lines`/`clippy::cognitive_complexity`).
 fn md_field_level_section(t: &Transition) -> String {
@@ -288,6 +372,18 @@ fn md_field_level_section(t: &Transition) -> String {
             }
             if !fd.flags_removed.is_empty() {
                 parts.push(format!("flags removed: {}", capped_join(&fd.flags_removed)));
+            }
+            if !fd.positionals_added.is_empty() {
+                parts.push(format!(
+                    "positionals added: {}",
+                    capped_join(&fd.positionals_added)
+                ));
+            }
+            if !fd.positionals_removed.is_empty() {
+                parts.push(format!(
+                    "positionals removed: {}",
+                    capped_join(&fd.positionals_removed)
+                ));
             }
             if !fd.description_changed.is_empty() {
                 parts.push(format!(

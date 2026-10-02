@@ -917,6 +917,7 @@ dependencies = [
  "mandible-core",
  "mandible-extract",
  "mandible-tui",
+ "nix",
  "ratatui",
  "rayon",
  "tempfile",

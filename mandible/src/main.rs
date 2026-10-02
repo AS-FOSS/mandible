@@ -15,6 +15,7 @@ mod discovery;
 mod doctor;
 mod pipeline;
 mod report;
+mod root_guard;
 mod shell_init;
 
 use clap::{CommandFactory, Parser};
@@ -41,6 +42,13 @@ fn main() -> anyhow::Result<()> {
     if let Some(shell) = cli.shell_init {
         print!("{}", shell.snippet());
         return Ok(());
+    }
+
+    // Before any probe spawns (spec §6 rule 10): the TUI, `--doctor`,
+    // `--report` and `--review` all pass through here first, and nothing
+    // above this point resolves or runs a tool.
+    if let Some(refusal) = root_guard::refusal(nix::unistd::Uid::effective(), cli.allow_root) {
+        anyhow::bail!(refusal);
     }
 
     if let Some(seed) = cli.review {
