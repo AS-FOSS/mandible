@@ -564,7 +564,15 @@ pub(super) fn recover_primary_tail_operands(
     {
         return Vec::new();
     }
-    collected
+    // `target [target ...]` is one repeatable operand. See docs/shapes.md S-191.
+    let mut merged: Vec<(String, bool, bool, bool, bool)> = Vec::with_capacity(collected.len());
+    for item in collected {
+        match merged.last_mut() {
+            Some(prev) if prev.0 == item.0 => prev.2 = true,
+            _ => merged.push(item),
+        }
+    }
+    merged
         .into_iter()
         .map(|(word, required, repeatable, is_brace, _is_numbered)| {
             let mut positional =
