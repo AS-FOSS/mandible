@@ -43,7 +43,7 @@ one is a decision, and a decision goes in docs/design.md §16.
 | Cognitive complexity of a function | 30 | `clippy.toml`, `clippy::cognitive_complexity` |
 | Lines in one comment block | 12 | `scripts/shape_guard.sh` |
 | Comment lines over code lines in a file | 0.5 | `scripts/shape_guard.sh` |
-| Tools a new parser heuristic must move | 5 | `xtask sweep-diff`, read by a human |
+| Tools that show a parser shape recurs (reported, not gated) | 5 | `xtask sweep-diff`, read by a human |
 
 Functions that predate the size ceilings carry a scoped `#[allow]` with a
 one-line reason. Every such allow is listed in `scripts/ratchet.txt`, and
@@ -78,16 +78,19 @@ Rust source (`mandible-extract/tests/no_machine_local_paths.rs`).
 
 ### 3.1 Admitting a new parser heuristic
 
-A new heuristic earns its place by moving at least **five tools** fleet-wide,
-or by making a tool that used to render as invented structure render verbatim
-instead. Measure it, do not argue it. Sweep with
+A new heuristic earns its place by moving tools fleet-wide, or by making a
+tool that used to render as invented structure render verbatim instead.
+Measure it, do not argue it. Sweep with
 `cargo xtask coverage --out before.txt`, apply the change, sweep again into
 `after.txt`, then run
 `cargo xtask sweep-diff --before before.txt --after after.txt`.
 
 Read the gains and the losses as two separate numbers. A heuristic that gains
 six tools and loses two has moved four, and the two it lost are the interesting
-half. Five is a starting threshold; revising it is a §16 decision.
+half. Five moved tools is evidence that the shape recurs, and the pull request
+states the count. Fewer than five may ship when the sweep-diff shows zero
+losses, the nine controls stay byte-identical, the corpus stays green, and
+every moved tool has been read against its raw help (docs/design.md §16).
 
 Never loosen a recognizer to catch more cases when it can degrade a tool that
 already works, because a permissive instrument hides the defects it exists to

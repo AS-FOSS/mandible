@@ -3049,6 +3049,16 @@ same change that lands the fixture. The exec-policy rows stay, since shim
 tests enforce them and the rows record why, though each is worth checking:
 where the shim test's own comment carries the reasoning, the row can go too.
 
+**The five-tool bar is evidence of recurrence, not a gate (2026-10-02).**
+The bar in `AGENTS.md` §3.1 exists to show that a shape repeats across tools
+and is not one tool's quirk. Applied as a gate, it sent general fixes to the
+`[xfail]` backlog instead of shipping them. A general rule that moves fewer
+than five tools now ships when four fences hold: a full-`PATH` sweep-diff
+with zero losses, the nine control tools byte-identical, a green corpus, and
+every moved tool read against its raw help. The pull request states the tool
+count. The rule must still be general. A tool-name-keyed rule stays
+forbidden by §1. This supersedes the per-fix below-bar exceptions above.
+
 1. **Cold-start cost is the top UX risk.** 10–25 s for cobra-heavy tools if
    extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2),
    which must exist early, not in a polish phase; there is no cache (§11).
