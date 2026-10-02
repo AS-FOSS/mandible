@@ -297,11 +297,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not model what they mean. This nests directly under the flag's own row with
   no heading of any kind governing it, so it is recognized entirely inside the
   flags-block scanner's own continuation handling rather than through the
-  heading-block matcher. Open residual on `ffplay`
-  (`corpus/ffplay/6.1.1-3ubuntu5-avoptions`): the `<type>` token of an
-  AVOptions row stays in the description beside the capability column
-  instead of becoming the value name.
-- fleet: not measured
+  heading-block matcher. A flag row's own `<type> ED.VAS.....` prefix
+  (`recover_avoption_type_column`,
+  `corpus/ffplay/6.1.1-3ubuntu5-avoptions`) makes `<type>` the value name
+  and drops the capability column from the flag row's description: the
+  column is a fixed-position bitmask the help never explains (no legend
+  in the output), and it is kept on the described choice rows beneath.
+- fleet: moved ffplay, ffmpeg and ffprobe, 0 flag-count, subcommand-count and positional losses on a full-`PATH` sweep-diff of 2270 tools, 2026-10-03, nine controls byte-identical. Every AVOptions row carries `<type>` as its value name; the 26 `ffplay` rows whose description was only the capability column now have none.
 
 ### S-016: headingless invocation table naming the tool itself
 
@@ -2823,7 +2825,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   five are gains, none a fabrication. One qualifier: `llvm-lipo-18`'s own
   raw line is `-arch <value> <value>`, two values, and only the first is
   recovered — a partial recovery, not a wrong one; the second value is
-  information the IR does not model.
+  information the IR does not model. Round 13: a `--name` row that only
+  mirrors a `-name` row of its own (`ffplay`'s `-help topic` beside
+  `--help topic`) no longer vetoes the no-`--long`-row gate
+  (`long_row_mirrors_single_dash`), and a table row is exempt from the
+  repeated-character refusal (`-ss pos`, whose tail repeats its letter).
+  Fixes `-ss`, `-fs`, `-an`, `-vn`, `-sn`, `-vf`, `-af`, `-ar`, `-ac`
+  (`corpus/ffplay/6.1.1-3ubuntu5-two-letter`); `-v loglevel` and `-f fmt`
+  stay. Moved `ffplay`, `ffmpeg`, `ffprobe`, `lspci` (`-mm`),
+  `winpr-makecert` (`-ss`) and `xkbprint` (`-ll`), each read against its
+  own `--help`, 0 losses (sweep numbers in the fleet field).
 - fleet: `single-dash-long-table` (`xtask/src/detector/single_dash_long_table.rs`)
   reads 14 tools/21 raw findings on a full-`PATH` sweep of 2323 tools, 2026-09-07,
   after the fix: unsquashfs, xkill, xev, setfont and others in the same
@@ -2839,7 +2850,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   self-checks hold. Round 11's own placeholder-gap widening (above) clears
   the five-tool bar on its own evidence: 6 tools gained a value name —
   Xvfb, jdb, jrunscript, llvm-libtool-darwin-18, llvm-lipo-18 and screen —
-  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. No labelled
+  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. Round 13's
+  mirrored-`--help` gate moved 6 tools (ffplay, ffmpeg, ffprobe, lspci,
+  winpr-makecert, xkbprint), 0 losses on 2270 tools, 2026-10-03. No labelled
   member of this family exists in any audit
   seed; the self-checks are the only standing evidence.
 
@@ -3288,7 +3301,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   any later occurrence of the same text in another row's description
   (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
   `-match` in prose and must not donate it a fabricated value). The
-  table gate is the whole safety argument: `gcc`, `clang` and the `ld`
+  table gate is the whole safety argument. Round 13 (the mirrored `--help`
+  row of S-145 no longer counts against the gate): a two-word lowercase
+  placeholder closed by a real column gap is one value (`gap_cut_two_word_value`,
+  `-window_title window title`, `-loop loop count`, `-left x pos`), while an
+  uppercase second word stays the next column (`range[,...] QEMU_DFILTER`);
+  and a repeated spelling reads only the rows carrying the flag's own
+  description (`-loop` in the player table vs in AVOptions). Fixture
+  `corpus/ffplay/6.1.1-3ubuntu5-values`. `gcc`, `clang` and the `ld`
   family all carry `-DMACRO` glued values beside a real `--help` row, so
   their own tables never qualify.
 - fleet: `spaced-bare-word-table-value`
@@ -3305,7 +3325,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
   `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
   `containerd-shim-runc-v2` and `docker-proxy` each recover at least
-  one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  one. Round 13 moved `ffplay` and `ffmpeg` (two-word placeholders and
+  the mirrored-`--help` gate), 0 losses on a full-`PATH` sweep of 2270
+  tools, 2026-10-03. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
   `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
   `sg_map` stay byte-identical.
 

@@ -252,6 +252,7 @@ pub(super) fn repair_single_dash_long_options(
     // introduce a row with `--`. See [`single_dash_long_table`].
     let lines: Vec<&str> = raw.lines().collect();
     let table_rule_applies = single_dash_long_table(&lines);
+    let leading = LeadingTokenIndex::new(&lines);
     for flag in flags.iter_mut() {
         // 1. Option-table-sourced, never synopsis.
         if !flag.provenance.sources.contains(&Source::HelpText)
@@ -276,17 +277,18 @@ pub(super) fn repair_single_dash_long_options(
         if !is_option_name_tail(name_tail) {
             continue;
         }
-        // 6. Not the repeated-character family, which is the other repair's.
-        if value_repeats_short(short, tail) {
+        let name_token = format!("-{short}{name_tail}");
+        // 6. Not the repeated-character family, which is the other repair's,
+        //    unless the row is a table row of its own (`-ss pos`).
+        let table_row = table_rule_applies && is_table_leading_token(&lines, &leading, &name_token);
+        if !table_row && value_repeats_short(short, tail) {
             continue;
         }
-        let name_token = format!("-{short}{name_tail}");
         // A single-dash-long table admits its own row whatever its
         // length and whatever its case (S-145); every other row still
         // needs enough *name* to be a name rather than a character
         // argument (4), since outside a table a one-character tail is
         // genuinely ambiguous (`rpcgen`'s `-Ss`, `xxd`'s `-ps`).
-        let table_row = table_rule_applies && is_table_leading_token(&lines, &name_token);
         if !table_row && name_tail.chars().count() < MIN_SWALLOWED_NAME_CHARS {
             continue;
         }
@@ -300,7 +302,17 @@ pub(super) fn repair_single_dash_long_options(
         //    (`-mem <size>`, `-comp <comp>`) still reads it.
         let uniformly_lowercase = token_is_uniformly_lowercase(&name_token);
         let spaced_value = (table_row || !uniformly_lowercase)
-            .then(|| spaced_value_placeholder(raw, &name_token))
+            .then(|| {
+                if table_row {
+                    let own_rows: Vec<&str> = own_rows(&lines, &leading, &name_token, flag)
+                        .into_iter()
+                        .map(|i| lines[i])
+                        .collect();
+                    spaced_value_placeholder(&own_rows.join("\n"), &name_token)
+                } else {
+                    spaced_value_placeholder(raw, &name_token)
+                }
+            })
             .flatten()
             // A table row's own bare-word placeholder (S-157, `-audit int`,
             // `-Xstrategy strategy1,...,strategyN`): only inside a table,
@@ -308,7 +320,12 @@ pub(super) fn repair_single_dash_long_options(
             // with the GCC/Clang glued-value convention's own description.
             .or_else(|| {
                 table_row
-                    .then(|| spaced_bare_word_value(&lines, &name_token))
+                    .then(|| {
+                        spaced_bare_word_value(
+                            &lines,
+                            &own_rows(&lines, &leading, &name_token, flag),
+                        )
+                    })
                     .flatten()
             });
         if !table_row && !uniformly_lowercase && spaced_value.is_none() {
@@ -709,11 +726,28 @@ fn document_has_no_long_row(lines: &[&str]) -> bool {
         let Some(rest) = trimmed.strip_prefix("--") else {
             continue;
         };
-        if rest.starts_with(|c: char| c.is_alphanumeric()) {
+        if rest.starts_with(|c: char| c.is_alphanumeric())
+            && !long_row_mirrors_single_dash(lines, rest)
+        {
             return false;
         }
     }
     true
+}
+
+/// True when a `--name` row is only the mirror of a `-name` row of its
+/// own (`ffplay`'s `-help topic` beside `--help topic`): the document
+/// spells the same option both ways, so the `--` row is no evidence of
+/// the GCC/Clang convention, which documents `--help` with no `-help`
+/// row. See docs/shapes.md S-145.
+fn long_row_mirrors_single_dash(lines: &[&str], rest: &str) -> bool {
+    let name: String = rest.chars().take_while(|c| is_word_char(*c)).collect();
+    lines.iter().any(|line| {
+        line.trim_start()
+            .strip_prefix('-')
+            .and_then(|r| r.strip_prefix(name.as_str()))
+            .is_some_and(|after| !after.starts_with(is_word_char))
+    })
 }
 
 /// True when `rest` (a row's own text, dash already stripped) opens with
@@ -774,14 +808,80 @@ fn row_is_table_shaped(lines: &[&str], idx: usize) -> bool {
 /// [`row_is_table_shaped`] trusts — the row a single-dash-long table's
 /// own rewrite is trusted to have read, rather than a fragment recovered
 /// from elsewhere in the line.
-fn is_table_leading_token(lines: &[&str], name_token: &str) -> bool {
-    lines.iter().enumerate().any(|(idx, line)| {
-        let trimmed = line.trim_start();
-        trimmed
-            .strip_prefix(name_token)
-            .is_some_and(|after| !after.chars().next().is_some_and(is_word_char))
-            && row_is_table_shaped(lines, idx)
-    })
+fn is_table_leading_token(lines: &[&str], index: &LeadingTokenIndex, name_token: &str) -> bool {
+    index
+        .rows(name_token)
+        .iter()
+        .any(|&idx| row_is_table_shaped(lines, idx))
+}
+
+/// The leading `-word` token of an already-trimmed-or-not row.
+fn leading_word_token(line: &str) -> &str {
+    let trimmed = line.trim_start();
+    let end = trimmed
+        .char_indices()
+        .skip(1)
+        .find(|&(_, c)| !is_word_char(c))
+        .map_or(trimmed.len(), |(i, _)| i);
+    &trimmed[..end]
+}
+
+/// The rows leading with `name_token` that carry this flag's own
+/// description (first three words), so a spelling repeated in several
+/// tables (`-loop` in the player table and in AVOptions) reads each
+/// flag's own row. Every row when the flag has no description or none
+/// matches. See docs/shapes.md S-157.
+fn own_rows(
+    lines: &[&str],
+    index: &LeadingTokenIndex,
+    name_token: &str,
+    flag: &Entity,
+) -> Vec<usize> {
+    let all = index.rows(name_token);
+    let squash = |s: &str| s.split_whitespace().collect::<Vec<_>>().join(" ");
+    let head = flag.description.as_ref().map(|d| {
+        let words: Vec<&str> = d.as_str().split_whitespace().take(3).collect();
+        words.join(" ")
+    });
+    let Some(head) = head.filter(|h| !h.is_empty()) else {
+        return all.to_vec();
+    };
+    let matched: Vec<usize> = all
+        .iter()
+        .copied()
+        .filter(|&i| squash(lines[i]).contains(&head))
+        .collect();
+    if matched.is_empty() {
+        all.to_vec()
+    } else {
+        matched
+    }
+}
+
+/// Line numbers by leading `-word` token, built once per document so the
+/// per-flag lookups below stay O(1) instead of rescanning every line.
+struct LeadingTokenIndex<'a>(std::collections::HashMap<&'a str, Vec<usize>>);
+
+impl<'a> LeadingTokenIndex<'a> {
+    fn new(lines: &[&'a str]) -> Self {
+        let mut map: std::collections::HashMap<&'a str, Vec<usize>> = Default::default();
+        for (idx, line) in lines.iter().enumerate() {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with('-') {
+                let end = trimmed
+                    .char_indices()
+                    .skip(1)
+                    .find(|&(_, c)| !is_word_char(c))
+                    .map_or(trimmed.len(), |(i, _)| i);
+                map.entry(&trimmed[..end]).or_default().push(idx);
+            }
+        }
+        Self(map)
+    }
+
+    fn rows(&self, token: &str) -> &[usize] {
+        self.0.get(token).map_or(&[], Vec::as_slice)
+    }
 }
 
 /// The value placeholder a row documents one space after `name_token`
@@ -846,8 +946,10 @@ fn placeholder_at(hay: &[char], start: usize) -> Option<(String, ValueKind)> {
 /// (`qemu-arm64-static`) can't donate its next column, and a comma run
 /// (`strategy1,...,strategyN`) survives whole since it has no space in it.
 /// See docs/shapes.md S-157.
-fn spaced_bare_word_value(lines: &[&str], name_token: &str) -> Option<(String, ValueKind)> {
-    lines.iter().find_map(|line| {
+fn spaced_bare_word_value(lines: &[&str], rows: &[usize]) -> Option<(String, ValueKind)> {
+    let name_token = rows.first().map(|&i| leading_word_token(lines[i]))?;
+    rows.iter().find_map(|&idx| {
+        let line = lines[idx];
         let trimmed = line.trim_start();
         let after = trimmed.strip_prefix(name_token)?;
         if after.starts_with(is_word_char) {
@@ -857,7 +959,11 @@ fn spaced_bare_word_value(lines: &[&str], name_token: &str) -> Option<(String, V
         if after.starts_with([' ', '\t', '<', '[']) {
             return None;
         }
-        let value = after.split_whitespace().next()?;
+        let value = gap_cut_two_word_value(after)
+            .unwrap_or_else(|| after.split_whitespace().next().unwrap_or(""));
+        if value.is_empty() {
+            return None;
+        }
         // A row separates its value from its description by a real column
         // gap; prose that merely names a spelling does not. mksquashfs's
         // `-one-file-system-x` describes itself as "-one-file-system
@@ -873,6 +979,23 @@ fn spaced_bare_word_value(lines: &[&str], name_token: &str) -> Option<(String, V
             .is_some_and(|c| c.is_ascii_alphanumeric())
             .then(|| (value.to_string(), ValueKind::Required))
     })
+}
+
+/// A two-word lowercase placeholder (`window title`, `loop count`,
+/// `x pos`) that a real column gap (tab or two spaces) closes. An
+/// uppercase second word is the next column (`range[,...] QEMU_DFILTER`),
+/// never part of the value. See docs/shapes.md S-157.
+fn gap_cut_two_word_value(after: &str) -> Option<&str> {
+    let end = after
+        .find(['\t'])
+        .into_iter()
+        .chain(after.find("  "))
+        .min()?;
+    let seg = &after[..end];
+    let mut words = seg.split(' ');
+    let (first, second) = (words.next()?, words.next()?);
+    let plain = |w: &str| !w.is_empty() && w.chars().all(|c| c.is_ascii_lowercase());
+    (words.next().is_none() && plain(first) && plain(second)).then_some(seg)
 }
 
 /// Split a swallowed tail into the option-name half and the glued value
@@ -1824,7 +1947,7 @@ mod tests {
     /// description untouched. Rows byte-for-byte from `ffplay --help`
     /// (6.1.1-3ubuntu5). See docs/shapes.md S-035.
     #[test]
-    fn an_avoption_row_keeps_its_value_spec_and_capability_column() {
+    fn an_avoption_row_takes_its_type_as_value_and_drops_the_capability_column() {
         const AVOPTIONS: &str = concat!(
             "AVCodecContext AVOptions:\n",
             "  -is_avc            <boolean>    .D.V..X.... is avc (default false)\n",
@@ -1832,17 +1955,19 @@ mod tests {
             "  -threads           <int>        ED.VA...... set the number of threads (from 0 to INT_MAX) (default 1)\n",
         );
         let parsed = parse(AVOPTIONS);
-        for (name, spec) in [
-            ("is_avc", "<boolean> .D.V..X.... is avc (default false)"),
+        for (name, value, spec) in [
+            ("is_avc", "boolean", "is avc (default false)"),
             (
                 "skip_top",
-                "<int> .D.V....... number of macroblock rows at the top which are skipped (from INT_MIN to INT_MAX) (default 0)",
+                "int",
+                "number of macroblock rows at the top which are skipped (from INT_MIN to INT_MAX) (default 0)",
             ),
             // Control: no underscore, recovered on the parser as it
             // stands.
             (
                 "threads",
-                "<int> ED.VA...... set the number of threads (from 0 to INT_MAX) (default 1)",
+                "int",
+                "set the number of threads (from 0 to INT_MAX) (default 1)",
             ),
         ] {
             let flag = parsed
@@ -1860,10 +1985,11 @@ mod tests {
                     )
                 });
             assert!(flag.single_dash());
+            assert_eq!(flag.value_name.as_deref(), Some(value), "-{name} value");
             assert_eq!(
                 flag.description.as_ref().map(|d| d.as_str()),
                 Some(spec),
-                "-{name} lost its value spec or capability column"
+                "-{name} kept the capability column"
             );
         }
     }

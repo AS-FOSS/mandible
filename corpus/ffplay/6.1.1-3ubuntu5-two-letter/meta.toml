@@ -32,7 +32,3 @@ must_not_contain_flags = ["-a", "-s"]
 "-ss" = "seek to a given position"
 "-fs" = "force full screen"
 "-an" = "disable audio"
-
-[xfail]
-broken = true
-reason = "[S-145] two-letter single-dash spellings (-ss, -fs, -an, -vn, -sn, -vf, -af, -ar, -ac) are read as a one-letter flag with a glued one-letter value, because the table gate of S-145 (a document with no --long row) fails on ffplay's `--help topic` row and the ordinary repair needs a swallowed tail of two characters. A fix needs the same evidence the S-145 rule uses, extended to a table where every other row is a multi-letter single-dash spelling, so the --help row does not veto it; -v and -f are also real one-letter flags here and must stay (`-v loglevel`, `-f fmt`)."

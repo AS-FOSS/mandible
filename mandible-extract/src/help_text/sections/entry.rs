@@ -1104,7 +1104,7 @@ mod tests {
         assert!(flag.single_dash());
         assert_eq!(
             flag.description.as_ref().map(|d| d.as_str()),
-            Some("<boolean> .D......... Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)")
+            Some("Use HTTP partial requests, 0 = disable, 1 = enable, -1 = auto (default auto)")
         );
     }
 

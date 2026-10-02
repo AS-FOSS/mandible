@@ -2193,9 +2193,10 @@ Options:
         // The flag's own description shrinks to what actually belongs to
         // it — the constants are gone, not merely duplicated.
         let desc = flags.description.as_ref().map_or("", |t| t.as_str());
+        assert_eq!(flags.value_name.as_deref(), Some("flags"));
         assert!(
-            desc.contains("ED.VAS....."),
-            "the flag's own scope/default text must survive: {desc:?}"
+            desc.contains("(default 0)") && !desc.contains("ED.VAS....."),
+            "the flag's own default text must survive, the capability column must not: {desc:?}"
         );
         for (name, text) in &want {
             assert!(

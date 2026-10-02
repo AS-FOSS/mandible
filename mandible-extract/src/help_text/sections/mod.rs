@@ -31,6 +31,7 @@ use mandible_core::{
     Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
 };
 
+mod avoption;
 mod backfill;
 mod bullets;
 mod emit;
@@ -51,6 +52,7 @@ mod usage;
 mod usage_command_table;
 mod usage_optional_word;
 
+use avoption::recover_avoption_type_column;
 use backfill::*;
 use bullets::*;
 pub use emit::*;
@@ -2310,6 +2312,7 @@ fn parse_body(
     // table-derived flag whose reconstructed name the tool's own usage
     // line spells as one stand-alone bracketed token.
     repair_usage_attested_single_dash_long(&mut result.flags, &usage_lines);
+    recover_avoption_type_column(&mut result.flags);
     // Last because it can only fill what the two above finished naming:
     // descriptions written as free prose paragraphs, not option-table
     // columns.

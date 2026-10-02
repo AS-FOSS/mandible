@@ -15,6 +15,9 @@ once it reaches a published 0.1.0 release.
 - [S-181] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..` (`mandible savelog`, `mandible bzip2`, `mandible xz`, `mandible streamzip`).
 - [S-183] A trailing `file ...` operand behind valued flag groups or a wrapped usage line reaches the tree (`mandible savelog`, `mandible eqn`, `mandible chattr`, `mandible xfs_copy`).
 - [S-182] A usage operand takes its description from a `name - text` table row (`mandible savelog`'s `file`).
+- [S-145] A `--name` row that mirrors a `-name` row no longer vetoes a single-dash-long table, so two-letter spellings keep their names (`mandible ffplay`'s `-ss`, `-fs`, `-an`, `-vf`).
+- [S-157] A two-word lowercase placeholder closed by a column gap is the value name (`mandible ffplay`'s `-window_title window title`, `-loop loop count`, `-left x pos`).
+- [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
 
 ## [0.8.1] - 2026-10-02
 

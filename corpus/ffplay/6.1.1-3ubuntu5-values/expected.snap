@@ -1,0 +1,720 @@
+name: ffplay
+description: Simple media player
+usage:
+- 'usage: ffplay [options] input_file'
+positionals:
+- name: input_file
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -L
+  group: 'Main options:'
+  description: show license
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  value_name: topic
+  value_kind: Required
+  group: 'Main options:'
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  value_name: topic
+  value_kind: Required
+  group: 'Main options:'
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -help
+  value_name: topic
+  value_kind: Required
+  group: 'Main options:'
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -version
+  group: 'Main options:'
+  description: show version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -buildconf
+  group: 'Main options:'
+  description: show build configuration
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -formats
+  group: 'Main options:'
+  description: show available formats
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -muxers
+  group: 'Main options:'
+  description: show available muxers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -demuxers
+  group: 'Main options:'
+  description: show available demuxers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -devices
+  group: 'Main options:'
+  description: show available devices
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -codecs
+  group: 'Main options:'
+  description: show available codecs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -decoders
+  group: 'Main options:'
+  description: show available decoders
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -encoders
+  group: 'Main options:'
+  description: show available encoders
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -bsfs
+  group: 'Main options:'
+  description: show available bit stream filters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -protocols
+  group: 'Main options:'
+  description: show available protocols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -filters
+  group: 'Main options:'
+  description: show available filters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -pix_fmts
+  group: 'Main options:'
+  description: show available pixel formats
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -layouts
+  group: 'Main options:'
+  description: show standard channel layouts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sample_fmts
+  group: 'Main options:'
+  description: show available audio sample formats
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -dispositions
+  group: 'Main options:'
+  description: show available stream dispositions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -colors
+  group: 'Main options:'
+  description: show available color names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -loglevel
+  value_name: loglevel
+  value_kind: Required
+  group: 'Main options:'
+  description: set logging level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  value_name: loglevel
+  value_kind: Required
+  group: 'Main options:'
+  description: set logging level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -report
+  group: 'Main options:'
+  description: generate a report
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -max_alloc
+  value_name: bytes
+  value_kind: Required
+  group: 'Main options:'
+  description: set maximum size of a single allocated block
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sources
+  value_name: device
+  value_kind: Required
+  group: 'Main options:'
+  description: list sources of the input device
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sinks
+  value_name: device
+  value_kind: Required
+  group: 'Main options:'
+  description: list sinks of the output device
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  value_name: width
+  value_kind: Required
+  group: 'Main options:'
+  description: force displayed width
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  value_name: height
+  value_kind: Required
+  group: 'Main options:'
+  description: force displayed height
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fs
+  group: 'Main options:'
+  description: force full screen
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -an
+  group: 'Main options:'
+  description: disable audio
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -vn
+  group: 'Main options:'
+  description: disable video
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sn
+  group: 'Main options:'
+  description: disable subtitling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ss
+  value_name: pos
+  value_kind: Required
+  group: 'Main options:'
+  description: seek to a given position in seconds
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: duration
+  value_kind: Required
+  group: 'Main options:'
+  description: play "duration" seconds of audio/video
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -bytes
+  value_name: val
+  value_kind: Required
+  group: 'Main options:'
+  description: seek by bytes 0=off 1=on -1=auto
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -seek_interval
+  value_name: seconds
+  value_kind: Required
+  group: 'Main options:'
+  description: set seek interval for left/right keys, in seconds
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nodisp
+  group: 'Main options:'
+  description: disable graphical display
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noborder
+  group: 'Main options:'
+  description: borderless window
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -alwaysontop
+  group: 'Main options:'
+  description: window always on top
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -volume
+  value_name: volume
+  value_kind: Required
+  group: 'Main options:'
+  description: set startup volume 0=min 100=max
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  value_name: fmt
+  value_kind: Required
+  group: 'Main options:'
+  description: force format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -window_title
+  value_name: window title
+  value_kind: Required
+  group: 'Main options:'
+  description: set window title
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -af
+  value_name: filter_graph
+  value_kind: Required
+  group: 'Main options:'
+  description: set audio filters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -showmode
+  value_name: mode
+  value_kind: Required
+  group: 'Main options:'
+  description: select show mode (0 = video, 1 = waves, 2 = RDFT)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  value_name: input_file
+  value_kind: Required
+  group: 'Main options:'
+  description: read specified file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -codec
+  value_name: decoder_name
+  value_kind: Required
+  group: 'Main options:'
+  description: force decoder
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -autorotate
+  group: 'Main options:'
+  description: automatically rotate video
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cpuflags
+  value_name: flags
+  value_kind: Required
+  group: 'Advanced options:'
+  description: force specific cpu flags
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cpucount
+  value_name: count
+  value_kind: Required
+  group: 'Advanced options:'
+  description: force specific cpu count
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -hide_banner
+  value_name: hide_banner
+  value_kind: Required
+  group: 'Advanced options:'
+  description: do not show program banner
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ast
+  value_name: stream_specifier
+  value_kind: Required
+  group: 'Advanced options:'
+  description: select desired audio stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -vst
+  value_name: stream_specifier
+  value_kind: Required
+  group: 'Advanced options:'
+  description: select desired video stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sst
+  value_name: stream_specifier
+  value_kind: Required
+  group: 'Advanced options:'
+  description: select desired subtitle stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -stats
+  group: 'Advanced options:'
+  description: show status
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fast
+  group: 'Advanced options:'
+  description: non spec compliant optimizations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -genpts
+  group: 'Advanced options:'
+  description: generate pts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -drp
+  group: 'Advanced options:'
+  description: let decoder reorder pts 0=off 1=on -1=auto
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -lowres
+  group: 'Advanced options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sync
+  value_name: type
+  value_kind: Required
+  group: 'Advanced options:'
+  description: set audio-video sync. type (type=audio/video/ext)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -autoexit
+  group: 'Advanced options:'
+  description: exit at the end
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -exitonkeydown
+  group: 'Advanced options:'
+  description: exit on key down
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -exitonmousedown
+  group: 'Advanced options:'
+  description: exit on mouse down
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -loop
+  value_name: loop count
+  value_kind: Required
+  group: 'Advanced options:'
+  description: set number of times the playback shall be looped
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -framedrop
+  group: 'Advanced options:'
+  description: drop frames when cpu is too slow
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -infbuf
+  group: 'Advanced options:'
+  description: don't limit the input buffer size (useful with realtime streams)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -left
+  value_name: x pos
+  value_kind: Required
+  group: 'Advanced options:'
+  description: set the x position for the left of the window
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -top
+  value_name: y pos
+  value_kind: Required
+  group: 'Advanced options:'
+  description: set the y position for the top of the window
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -vf
+  value_name: filter_graph
+  value_kind: Required
+  group: 'Advanced options:'
+  description: set video filters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -rdftspeed
+  value_name: msecs
+  value_kind: Required
+  group: 'Advanced options:'
+  description: rdft speed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -acodec
+  value_name: decoder_name
+  value_kind: Required
+  group: 'Advanced options:'
+  description: force audio decoder
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -scodec
+  value_name: decoder_name
+  value_kind: Required
+  group: 'Advanced options:'
+  description: force subtitle decoder
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -vcodec
+  value_name: decoder_name
+  value_kind: Required
+  group: 'Advanced options:'
+  description: force video decoder
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -find_stream_info
+  group: 'Advanced options:'
+  description: read and decode the streams to fill missing information with heuristics
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -filter_threads
+  group: 'Advanced options:'
+  description: number of filter threads per graph
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flags
+  value_name: flags
+  value_kind: Required
+  choices:
+  - name: unaligned
+    description: .D.V....... allow decoders to produce unaligned output
+  - name: gray
+    description: ED.V....... only decode/encode grayscale
+  - name: low_delay
+    description: ED.V....... force low delay
+  - name: bitexact
+    description: ED.VAS..... use only bitexact functions (except (I)DCT)
+  - name: output_corrupt
+    description: .D.V....... Output even potentially corrupted frames
+  - name: drop_changed
+    description: .D.VA.....P Drop frames whose parameters differ from first decoded frame
+  group: 'AVCodecContext AVOptions:'
+  description: (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flags2
+  value_name: flags
+  value_kind: Required
+  choices:
+  - name: ignorecrop
+    description: .D.V....... ignore cropping information from sps
+  - name: chunks
+    description: .D.V....... Frame data might be split into multiple chunks
+  - name: showall
+    description: .D.V....... Show all frames before the first keyframe
+  - name: export_mvs
+    description: .D.V....... export motion vectors through frame side data
+  - name: skip_manual
+    description: .D..A...... do not skip samples and export skip information as frame side data
+  - name: ass_ro_flush_noop
+    description: .D...S..... do not reset ASS ReadOrder field on flush
+  - name: icc_profiles
+    description: .D...S..... generate/parse embedded ICC profiles from/to colorimetry tags
+  group: 'AVCodecContext AVOptions:'
+  description: (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -export_side_data
+  value_name: flags
+  value_kind: Required
+  choices:
+  - name: mvs
+    description: .D.V....... export motion vectors through frame side data
+  - name: venc_params
+    description: .D.V....... export video encoding parameters through frame side data
+  - name: film_grain
+    description: .D.V....... export film grain parameters through frame side data
+  group: 'AVCodecContext AVOptions:'
+  description: Export metadata as side data (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ar
+  value_name: int
+  value_kind: Required
+  group: 'AVCodecContext AVOptions:'
+  description: set audio sampling rate (in Hz) (from 0 to INT_MAX) (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ac
+  value_name: int
+  value_kind: Required
+  group: 'AVCodecContext AVOptions:'
+  description: set number of audio channels (from 0 to INT_MAX) (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -linespeed
+  value_name: int
+  value_kind: Required
+  group: 'Artworx Data Format demuxer AVOptions:'
+  description: set simulated line speed (bytes per second) (from 1 to INT_MAX) (default 6000)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -video_size
+  value_name: image_size
+  value_kind: Required
+  group: 'Artworx Data Format demuxer AVOptions:'
+  description: set video size, such as 640x480 or hd720.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -framerate
+  value_name: video_rate
+  value_kind: Required
+  group: 'Artworx Data Format demuxer AVOptions:'
+  description: set framerate (frames per second) (default "25")
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
