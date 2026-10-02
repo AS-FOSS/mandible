@@ -89,6 +89,12 @@ pub struct Cli {
     /// Mirrors `xtask audit`'s own `--dir` default.
     #[arg(long, default_value = "audit")]
     pub audit_dir: PathBuf,
+
+    /// Proceed when running as root (uid 0) instead of refusing. mandible
+    /// never asks for or gains privileges itself; this only lifts the
+    /// refusal on privilege the user already brought. See spec §6 rule 10.
+    #[arg(long)]
+    pub allow_root: bool,
 }
 
 impl Cli {

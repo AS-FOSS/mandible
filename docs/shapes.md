@@ -3100,7 +3100,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   operand per bracket pair, the inner ones optional
   (`bare_bracket_group_is_flat`, `mandible-extract/src/help_text/sections/
   multiword.rs`). The sweep that admitted the rule could not see this,
-  because sweep-diff compares flags and subcommands and never positionals.
+  because sweep-diff compared flags and subcommands and never positionals at
+  the time; it now reports a positional-count gain/loss column and names
+  each positional added or removed per tool.
 - fleet: `trailing-bracket-group-multiword-operand` reads 0 tools/0 findings
   post-fix on a full-`PATH` sweep of 2323 tools, 2026-09-13, and is ratcheted
   there. `nested-bracket-group-fused-operand`
