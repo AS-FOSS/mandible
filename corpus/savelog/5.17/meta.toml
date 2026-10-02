@@ -1,7 +1,6 @@
-# Two defects on one capture. The row `-1 .. -9` documents nine
-# single-digit flags, and the tree reads one flag `-1` with value `..`.
-# The last row `file - log file names` documents the usage line's
-# trailing `file ...` operand, and the tree has no positional at all.
+# The row `-1 .. -9` documents nine single-digit flags, read as nine
+# flags with no value (S-181). The last row `file - log file names`
+# describes the usage line's trailing `file ...` operand (S-182).
 
 [bless]
 provenance = "agent"
@@ -26,6 +25,5 @@ must_contain_flags = ["-1", "-5", "-9"]
 [contract.must_not_value_name]
 "-1" = ".."
 
-[xfail]
-broken = true
-reason = "the usage line's trailing file ... operand is missing from the tree, though the last option row documents it as 'file - log file names'. Separately, the '-1 .. -9' row is read as one flag -1 with value '..' where it names nine flags; no second tool spells a numeric flag range this way yet, so that half is below the five-tool bar."
+[contract.must_describe]
+"-9" = "compression strength or memory usage (default: 9, except for xz)"

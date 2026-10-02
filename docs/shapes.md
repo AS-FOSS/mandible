@@ -4117,9 +4117,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   bound on the raw shape, not a tree-level count; most of those 62
   (`ffmpeg`, `ffplay`, `ffprobe`, `python3.12`, `qemu-aarch64-static`, …)
   carry a `--long` row elsewhere and never reach this repair's own gate.
-  Honest residual: `host`'s own `-A`, `-s`, `-U`, `-4`, `-6`, named in no
-  usage line at all, stay exactly as wrong as before — 5 rows on 1 tool,
-  recorded in `corpus/host/9.18.39/meta.toml` rather than claimed fixed.
+  `host`'s own `-A`, `-s`, `-U`, `-4`, `-6`, named in no usage line,
+  read boolean with the whole row as the description when the usage line
+  names other flags and the row has prose past the guessed value
+  (`corpus/host/9.18.39-unlisted`).
   Zero-loss checked against `git diff`'s own field-level list on every
   corpus fixture this round: no `value_name` went from something real to
   nothing anywhere except `memhog`'s own already-fenced S-172 case (S-177
@@ -4238,3 +4239,67 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the names the text spells out are in reach. Fixture: `corpus/brew/7.0.2`,
   transcribed from issue #163 because brew is not installed on the dev box.
 - fleet: not measured
+
+### S-180: a value spec spells an alternation of angle placeholders
+
+- id: S-180
+- looks like: |
+      -p <PID>|<pattern>   to show process info
+      flock [options] <file>|<directory> <command>
+- tools: numastat, dmsetup, dnsmasq, eject, flock, hardlink, unshare
+- handling: Fixed. A value token that opens with an angle placeholder keeps
+  every glued `|<other>` placeholder ([`take_rest_value_token`]), so `-p`
+  carries `<PID>|<pattern>`. A usage operand spelled the same way is named
+  by its alternatives joined with `|` (`alternation_name` in `usage.rs`),
+  so the second alternative is not dropped. The existence check attests
+  such a name when each part occurs in the raw text.
+- fleet: 7 tools moved in the full-PATH sweep, all by field-level change
+  (value or operand names), none by count. `numastat`'s bracketed operand
+  still reads `required`, a separate defect.
+
+### S-181: a row spells a run of single-digit flags as `-N .. -M`
+
+- id: S-181
+- looks like: |
+      -1 .. -9   - compression strength or memory usage (default: 9)
+      -0 ... -9  compression preset; default is 6
+- tools: savelog, bzip2, bunzip2, bzcat, xz, unxz, xzcat, lzma, unlzma, lzcat, streamzip
+- handling: Fixed. The row parses as flag `-N` with value `..`. A post-pass
+  (`expand_numeric_range_flags`) replaces it with one flag per digit, each
+  with no value and the row's description, when the row spells both
+  endpoints and the upper digit is larger. Nine flags, not one flag with
+  nine spellings, because spellings of one entity are aliases and `-1` and
+  `-9` are not. The existence check attests every digit inside a written
+  range.
+- fleet: 11 tools gained 8 or 9 flags each in the full-PATH sweep, 95 in
+  total, no losses.
+
+### S-182: an operand is described by a `name - text` table row
+
+- id: S-182
+- looks like: |
+      Usage: savelog [-q] file ...
+      	-q         - suppress rotation message
+      	file 	   - log file names
+- tools: savelog
+- handling: Fixed. A usage operand with no description takes the text of the
+  one row whose first token is its name followed by `- `
+  (`describe_positionals_from_name_rows`). Two matching rows leave it
+  undescribed.
+- fleet: 1 tool (`savelog`), no losses in the full-PATH sweep.
+
+### S-183: a trailing operand behind valued flag groups or a wrapped usage entry
+
+- id: S-183
+- looks like: |
+      Usage: savelog [-m mode] [-u user] [-q]
+                   [-n] file ...
+      xfs_copy [-L logfile] source target [target ...]
+- tools: savelog, eqn, geqn, neqn, fc-validate, fc-query, chattr, grops, grotty, infocmp, preconv, soelim, toe, showmount, xfs_bmap, xfs_copy
+- handling: Fixed. `recover_primary_tail_operands` joins the physical lines
+  of a wrapped primary entry, and accepts a bracketed `-X word` group
+  ahead of the run when the run's last operand carries a repetition
+  marker. A repeated operand name merges into one repeatable operand
+  (`target [target ...]`). A nested alternation ahead of the run still
+  refuses the line.
+- fleet: 16 tools gained 17 operands in the full-PATH sweep, no losses.

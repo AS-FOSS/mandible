@@ -1,0 +1,179 @@
+name: savelog
+usage:
+- 'Usage: savelog [-m mode] [-u user] [-g group] [-t] [-c cycle] [-p] [-j] [-C] [-d] [-l] [-r rolldir] [-n] [-q] file ...'
+positionals:
+- name: file
+  required: true
+  variadic: true
+  description: log file names
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -m
+  value_name: mode
+  value_kind: Required
+  description: chmod log files to mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  value_name: user
+  value_kind: Required
+  description: chown log files to user
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  value_name: group
+  value_kind: Required
+  description: chgrp log files to group
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  value_name: cycle
+  value_kind: Required
+  description: 'save cycle versions of the logfile (default: 7)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  value_name: rolldir
+  value_kind: Required
+  description: use rolldir instead of . to roll files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  description: force cleanup of cycled logfiles
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: use standard date for rolling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  description: override date format for -d
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  description: touch file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  description: 'don''t compress any log files (default: compress)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  description: preserve mode/user/group of original file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  description: use bzip2 instead of gzip
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  description: use xz instead of gzip
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-1'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-2'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-3'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-5'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-7'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-8'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-9'
+  description: 'compression strength or memory usage (default: 9, except for xz)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  value_name: script
+  value_kind: Required
+  description: invoke script with rotated log file in $FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  description: do not rotate empty files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  description: suppress rotation message
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

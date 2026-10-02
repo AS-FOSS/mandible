@@ -3,6 +3,12 @@ usage:
 - 'usage: /usr/bin/eqn [-CNrR] [-d xy] [-f font] [-m n] [-M dir] [-p n] [-s n] [-T name] [file ...]'
 - 'usage: /usr/bin/eqn {-v | --version}'
 - 'usage: /usr/bin/eqn --help'
+positionals:
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -C

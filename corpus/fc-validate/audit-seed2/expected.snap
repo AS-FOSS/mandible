@@ -2,6 +2,13 @@ name: fc-validate
 description: Validate font files and print result
 usage:
 - 'usage: /usr/bin/fc-validate [-Vhv] [-i index] [-l LANG] [--index index] [--lang LANG] [--verbose] [--version] [--help] font-file...'
+positionals:
+- name: font-file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -i

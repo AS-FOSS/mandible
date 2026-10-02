@@ -1,0 +1,68 @@
+name: numastat
+usage:
+- 'Usage: numastat [-c] [-m] [-n] [-p <PID>|<pattern>] [-s[<node>]] [-v] [-V] [-z] [ <PID>|<pattern>... ]'
+positionals:
+- name: PID|pattern
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -c
+  description: to minimize column widths
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: to show meminfo-like system-wide memory usage
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  description: to show the numastat statistics info
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: <PID>|<pattern>
+  value_kind: Required
+  description: to show process info
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  value_name: <node>
+  value_kind: Optional
+  description: to sort data by total column or <node>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  description: to make some reports more verbose
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  description: to show the numastat code version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  description: to skip rows and columns of zeros
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.25
+children_filled: true

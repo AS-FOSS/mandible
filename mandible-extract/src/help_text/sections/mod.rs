@@ -39,6 +39,7 @@ mod flag_rows;
 mod heading;
 mod layout;
 mod multiword;
+mod numeric_range;
 mod or_choice_fold;
 mod preamble;
 mod repair;
@@ -58,6 +59,7 @@ use flag_rows::*;
 pub use heading::*;
 pub use layout::*;
 use multiword::*;
+use numeric_range::{describe_positionals_from_name_rows, expand_numeric_range_flags};
 use or_choice_fold::fold_or_joined_choice_rows;
 use preamble::*;
 use repair::*;
@@ -2239,6 +2241,10 @@ fn parse_body(
     // an already-correct, already-described row rather than needing its
     // own exception. See docs/shapes.md S-176.
     recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
+    // A `-1 .. -9` row is nine flags, not `-1` valued `..`. See docs/shapes.md S-181.
+    expand_numeric_range_flags(&mut result.flags, &lines);
+    // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
+    describe_positionals_from_name_rows(&mut result.positionals, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
