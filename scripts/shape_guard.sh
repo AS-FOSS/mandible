@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Shape guard: file size, comment blocks, comment ratio, and narrative prose.
 #
-# Four checks, all of them things a reviewer will not catch reliably:
+# Five checks, all of them things a reviewer will not catch reliably:
 #
 #   size       code lines before `mod tests` in a .rs file, ceiling 800
 #   block      one run of consecutive comment lines, ceiling 12
 #   ratio      comment lines over code lines in a .rs file, ceiling 0.5
 #   narrative  branch names, ISO dates and status phrases in prose
+#   atlas      docs/shapes.md ids ascend with no repeat and no new gap
 #
 # Existing violations are counted per file in `scripts/shape_baseline.txt`.
 # The guard fails when a file's count goes above its baseline, or when a file
@@ -194,6 +195,27 @@ def print_baseline(found):
         print(f"{check}\t{len(found[(check, path)])}\t{path}")
 
 
+# Atlas ids run one after another. Two workers that each take the next free id
+# collide, and one that skips ahead leaves a hole. These ids were never used and
+# later ids are cited in released CHANGELOG sections, so the holes stay frozen.
+ATLAS = "docs/shapes.md"
+ATLAS_FROZEN_GAPS = {121, 122, 123, 124, 125, 138}
+
+
+def atlas_problems():
+    with open(ATLAS, encoding="utf-8") as f:
+        ids = [int(m.group(1)) for m in re.finditer(r"^### S-(\d+)\b", f.read(), re.M)]
+    problems = []
+    for prev, cur in zip(ids, ids[1:]):
+        if cur <= prev:
+            problems.append(f"S-{cur} follows S-{prev}: ids must ascend without repeats")
+            continue
+        missing = [i for i in range(prev + 1, cur) if i not in ATLAS_FROZEN_GAPS]
+        if missing:
+            problems.append(f"S-{prev} jumps to S-{cur}: missing S-{missing[0]}")
+    return problems
+
+
 def main():
     found = collect()
     if "--print-baseline" in sys.argv:
@@ -221,6 +243,12 @@ def main():
 
     for check, path, actual, allowed in slack:
         print(f"note: {check} {path} is down to {actual} from {allowed}; shrink {BASELINE}")
+
+    atlas = atlas_problems()
+    for problem in atlas:
+        print(f"FAIL atlas {ATLAS}: {problem}")
+    if atlas:
+        failures.append(("atlas", ATLAS, len(atlas), 0, atlas))
 
     if failures:
         print()
