@@ -1,6 +1,6 @@
 # Same capture as corpus/host/9.18.39. Five rows that no usage line
-# names (`-A`, `-s`, `-U`, `-4`, `-6`) still take their description's
-# first word as a value and lose the rest of the description. S-176.
+# names (`-A`, `-s`, `-U`, `-4`, `-6`) read as booleans that keep their
+# whole row as the description. S-176.
 
 [bless]
 provenance = "agent"
@@ -33,7 +33,3 @@ expected_framework = "generic"
 "-U" = "enables"
 "-4" = "use"
 "-6" = "use"
-
-[xfail]
-broken = true
-reason = "[S-176] -A, -s, -U, -4 and -6 are named in no usage line, so they keep a value guessed from their description's first word and render no description. A fix must read these rows as booleans with their whole row text as the description, with no usage evidence to lean on."

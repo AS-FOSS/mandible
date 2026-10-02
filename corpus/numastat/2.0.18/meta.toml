@@ -1,5 +1,5 @@
 # Usage and option row both spell `-p <PID>|<pattern>`: the flag takes
-# either a PID or a name pattern. The tree keeps only `<PID>`.
+# either a PID or a name pattern. The tree keeps both. S-190.
 
 [bless]
 provenance = "agent"
@@ -21,7 +21,3 @@ expected_framework = "generic"
 
 [contract.must_value_name]
 "-p" = "<PID>|<pattern>"
-
-[xfail]
-broken = true
-reason = "-p renders its value as <PID> and drops the |<pattern> alternative that both the usage line and the option row spell. A fix must keep a pipe-joined value alternation whole."

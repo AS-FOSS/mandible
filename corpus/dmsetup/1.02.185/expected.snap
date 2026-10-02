@@ -362,7 +362,7 @@ subcommands:
     provenance:
       sources:
       - help-text
-  - name: table
+  - name: table|table_file
     provenance:
       sources:
       - help-text
@@ -390,7 +390,7 @@ subcommands:
     provenance:
       sources:
       - help-text
-  - name: table
+  - name: table|table_file
     provenance:
       sources:
       - help-text

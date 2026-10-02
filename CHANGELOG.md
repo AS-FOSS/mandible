@@ -8,6 +8,13 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-176] A single-dash row that no usage line names reads as a boolean with its whole row as the description, instead of a value guessed from its first word (`mandible host`'s `-A`, `-s`, `-U`, `-4`, `-6`).
+- [S-190] A value or operand spelled as an alternation of angle placeholders keeps every alternative (`mandible numastat`'s `-p <PID>|<pattern>`, `mandible dmsetup`'s `load`).
+- [S-191] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..`, and a bracketed `-m mode` group no longer hides a wrapped usage line's trailing `file ...` operand (`mandible savelog`, `mandible eqn`, `mandible fc-validate`).
+- [S-192] A usage operand takes its description from a `name - text` table row (`mandible savelog`'s `file`).
+
 ## [0.8.1] - 2026-10-02
 
 ### Added

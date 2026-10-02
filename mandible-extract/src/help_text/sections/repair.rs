@@ -434,12 +434,18 @@ pub(super) fn recover_bare_word_first_description_word(
             continue;
         }
         let Some(short) = flag.short() else { continue };
-        // No evidence, no change: a letter the usage line never spells
-        // at all keeps today's row-only guess rather than being assumed
-        // boolean.
-        let Some((usage_value, usage_kind)) = usage_derived_value_for_short(usage_lines, short)
-        else {
-            continue;
+        // A letter the usage line never spells, in a usage line that
+        // lists other flags, reads boolean when the row's remainder has
+        // prose past the guessed value. See docs/shapes.md S-176 and
+        // corpus/host/9.18.39-unlisted.
+        let (usage_value, usage_kind) = match usage_derived_value_for_short(usage_lines, short) {
+            Some(found) => found,
+            None if usage_names_flags(usage_lines)
+                && row_has_prose_past_value(lines, short, flag) =>
+            {
+                (None, ValueKind::None)
+            }
+            None => continue,
         };
         let prefix = format!("-{short}");
         // Exactly one candidate row, never the first of several: `lsof`
@@ -493,6 +499,25 @@ pub(super) fn recover_bare_word_first_description_word(
         flag.value_kind = usage_kind;
         flag.description = non_empty_text(desc);
     }
+}
+
+/// True when the usage lines name at least one flag, so a letter they
+/// omit is an omission rather than a tool whose synopsis lists none.
+fn usage_names_flags(usage_lines: &[String]) -> bool {
+    !extract_usage_flags(usage_lines).is_empty()
+}
+
+/// True when the one row starting `-<short>` carries at least two words
+/// after the flag and the guessed value is its first word, so reading the
+/// row as a boolean drops nothing.
+fn row_has_prose_past_value(lines: &[&str], short: char, flag: &Entity) -> bool {
+    let prefix = format!("-{short}");
+    let Some(row) = lines.iter().find(|l| l.trim_start().starts_with(&prefix)) else {
+        return false;
+    };
+    let mut words = row.trim_start()[prefix.len()..].split_whitespace();
+    let first = words.next();
+    first.is_some() && first == flag.value_name.as_deref() && words.next().is_some()
 }
 
 /// The row's own leading occurrence of the usage-named value, stripped
@@ -1266,12 +1291,13 @@ mod tests {
             a.description.as_ref().map(Text::as_str),
             Some("is equivalent to -v -t ANY")
         );
-        // `-A` is named in no usage line at all (not in the bundle, not
-        // in its own bracket group): no evidence, no change. It keeps
-        // today's fabricated guess rather than being assumed boolean.
+        // `-A` is named in no usage line: boolean, whole row kept.
         let big_a = short('A');
-        assert_eq!(big_a.value_name.as_deref(), Some("is"));
-        assert!(big_a.description.is_none());
+        assert_eq!(big_a.value_name, None);
+        assert_eq!(
+            big_a.description.as_ref().map(Text::as_str),
+            Some("is like -a but omits RRSIG, NSEC, NSEC3")
+        );
     }
 
     /// `kpartx --help`'s own bytes, byte-exact: every flag is boolean.

@@ -220,6 +220,21 @@ pub(super) fn primary_synopsis_lines(
         .collect()
 }
 
+/// The placeholder name ending at `end` in `stripped` (text after `<`),
+/// extended over glued `|<other>` alternatives and joined with `|`
+/// (`<PID>|<pattern>` is `PID|pattern`). See docs/shapes.md S-190.
+fn alternation_name(stripped: &str, end: usize) -> String {
+    let mut name = stripped[..end].to_string();
+    let mut rest = &stripped[end + 1..];
+    while let Some(more) = rest.strip_prefix("|<") {
+        let Some(close) = more.find('>') else { break };
+        name.push('|');
+        name.push_str(&more[..close]);
+        rest = &more[close + 1..];
+    }
+    name
+}
+
 /// A trailing run of two or more dots marks a synopsis token repeatable:
 /// `[FILE...]` and `FILE...` both count, since the marker sits inside a
 /// closing bracket exactly as often as outside one. A lone trailing dot is
@@ -383,7 +398,10 @@ pub(super) fn extract_positionals_inner(
                 // yield `name`, not `name>=<value` from stripping only the
                 // token's very last `>`.
                 match stripped.find('>') {
-                    Some(end) => (stripped[..end].to_string(), token_marks_repetition(token)),
+                    Some(end) => (
+                        alternation_name(stripped, end),
+                        token_marks_repetition(token),
+                    ),
                     None => continue,
                 }
             } else if cleaned.chars().all(|c| c.is_uppercase() || c == '_') && cleaned.len() > 1 {
@@ -3174,18 +3192,15 @@ mod tests {
         assert_eq!(names, vec!["input_file"], "{names:?}");
     }
 
-    /// An earlier group carrying an explicit bare-word value (`-d xy`,
-    /// `-f font`, `-i index`, `-m mode`, `-p prog`) or a nested alternation
-    /// (`[-c|-C] cmd`) is grammar this rule declines to reason about, even
-    /// though the tail itself looks exactly like a real operand: the bare
-    /// word could itself be mistaken for an operand, so the whole line is
-    /// refused rather than guessing a boundary.
+    /// A nested alternation (`[-c|-C] cmd`) ahead of the run is grammar this
+    /// rule declines, so the whole line is refused rather than guessing a
+    /// boundary. A bracketed `-m mode` ahead of a repetition-marked tail
+    /// is read (S-191), so `eqn`'s and `savelog`'s `file ...` land.
     #[test]
     fn a_non_clean_flag_earlier_group_refuses_the_whole_line() {
         for line in [
-            "usage: /usr/bin/eqn [-CNrR] [-d xy] [-f font] [file ...]\n",
-            "usage: /usr/bin/fc-validate [-Vhv] [-i index] font-file...\n",
             "Usage: xfs_io [-adfinrRstVx] [-m mode] [-p prog] [[-c|-C] cmd]... file\n",
+            "usage: tool [-d xy] [-f font] file\n",
         ] {
             let parsed = parse(line);
             assert!(
@@ -3193,6 +3208,15 @@ mod tests {
                 "{line:?}: {:?}",
                 parsed.positionals
             );
+        }
+        for line in [
+            "usage: /usr/bin/eqn [-CNrR] [-d xy] [-f font] [file ...]\n",
+            "usage: /usr/bin/fc-validate [-Vhv] [-i index] font-file...\n",
+            "Usage: savelog [-m mode] [-q]\n   [-n] file ...\n",
+        ] {
+            let parsed = parse(line);
+            assert_eq!(parsed.positionals.len(), 1, "{line:?}");
+            assert!(parsed.positionals[0].repeatable, "{line:?}");
         }
     }
 

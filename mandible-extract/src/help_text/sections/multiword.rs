@@ -383,6 +383,24 @@ pub(super) fn finalize_bare_bracket_group(
         .collect()
 }
 
+/// True for a clean flag spelling followed by exactly one lowercase bare
+/// value word (`-m mode`). See [`recover_primary_tail_operands`].
+fn is_bracketed_valued_flag(stripped: &str) -> bool {
+    let mut words = stripped.split_whitespace();
+    let (Some(flag), Some(value), None) = (words.next(), words.next(), words.next()) else {
+        return false;
+    };
+    flag.starts_with('-')
+        && flag.len() > 1
+        && flag
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        && value.starts_with(|c: char| c.is_ascii_lowercase())
+        && value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 /// The primary synopsis's own trailing run of operands — atlas S-041
 /// (one operand) generalized to a run of two or more, promoted from
 /// `xtask`'s `unparsed-tail-operand` detector (`xtask/src/tail_operand.rs`).
@@ -399,16 +417,18 @@ pub(super) fn recover_primary_tail_operands(
     usage_lines: &[String],
     primary_lines: &std::collections::HashSet<usize>,
 ) -> Vec<Entity> {
-    let line_idx = match primary_lines.len() {
-        1 => match primary_lines.iter().next() {
-            Some(&i) => i,
-            None => return Vec::new(),
-        },
-        _ => return Vec::new(),
-    };
-    let Some(line) = usage_lines.get(line_idx) else {
+    // A wrapped entry joins its physical lines in source order, each
+    // trimmed. See docs/shapes.md S-191 and corpus/savelog/5.17.
+    let mut indices: Vec<usize> = primary_lines.iter().copied().collect();
+    indices.sort_unstable();
+    if indices.is_empty() {
         return Vec::new();
-    };
+    }
+    let joined: Vec<&str> = indices
+        .iter()
+        .filter_map(|&i| usage_lines.get(i).map(|l| l.trim()))
+        .collect();
+    let line = &joined.join(" ");
     // The label is optional. A tool that prints `Usage:` alone on its own
     // line leaves the primary form carrying no label at all (S-150), and
     // requiring one here refused every such form.
@@ -502,6 +522,7 @@ pub(super) fn recover_primary_tail_operands(
     // nested alternation (`[-c|-C] cmd`) — is grammar this rule declines
     // to reason about, even when the run itself looks clean, and refuses
     // the whole line rather than guess a boundary.
+    let tail_repeats = collected.last().is_some_and(|c| c.2);
     let mut earlier_all_placeholder = true;
     for earlier in &groups {
         let earlier_stripped = earlier.trim_matches(|c| c == '[' || c == ']');
@@ -516,7 +537,12 @@ pub(super) fn recover_primary_tail_operands(
         // told apart from a genuinely boolean one without that notation —
         // the same ambiguity `-d xy` carries inside a bracket. See
         // `a_bare_unbracketed_flag_never_licenses_the_run_behind_it`.
-        if earlier.starts_with('[') && is_understood_flag_context(earlier_stripped) {
+        // A bracketed `-m mode` group licenses a run whose last operand
+        // carries a repetition marker. See docs/shapes.md S-191.
+        if earlier.starts_with('[')
+            && (is_understood_flag_context(earlier_stripped)
+                || (tail_repeats && is_bracketed_valued_flag(earlier_stripped)))
+        {
             earlier_all_placeholder = false;
             continue;
         }
