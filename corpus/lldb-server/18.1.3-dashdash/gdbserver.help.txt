@@ -1,0 +1,32 @@
+OVERVIEW: lldb-server
+
+USAGE: lldb-server g[dbserver] [options] [[host]:port] [[--] program args...]
+
+CONNECTION:
+  --fd <fd>           Communicate over the given file descriptor.
+  --named-pipe <name> Write port lldb-server will listen on to the given named pipe.
+  --pipe <fd>         Write port lldb-server will listen on to the given file descriptor.
+  --reverse-connect   Connect to the client instead of passively waiting for a connection. In this case [host]:port denotes the remote address to connect to.
+
+GENERAL OPTIONS:
+  --help            Prints out the usage information for lldb-server.
+  --log-channels <channel1 categories...:channel2 categories...>
+                    Channels to log. A colon-separated list of entries. Each entry starts with a channel followed by a space-separated list of categories.
+  --log-file <file> Destination file to log to. If empty, log to stderr.
+  --setsid          Run lldb-server in a new session.
+
+TARGET SELECTION:
+  --attach <pid-or-name> Attach to the process given by a (numeric) process id or a name.
+  -- program args        Launch program for debugging.
+
+DESCRIPTION
+  lldb-server connects to the LLDB client, which drives the debugging session.
+  If no connection options are given, the [host]:port argument must be present
+  and will denote the address that lldb-server will listen on. [host] defaults
+  to "localhost" if empty. Port can be zero, in which case the port number will
+  be chosen dynamically and written to destinations given by --named-pipe and
+  --pipe arguments.
+
+  If no target is selected at startup, lldb-server can be directed by the LLDB
+  client to launch or attach to a process.
+

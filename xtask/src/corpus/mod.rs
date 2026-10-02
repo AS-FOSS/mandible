@@ -20,8 +20,8 @@
 //!   never an `insta` run ([`render_snapshot`]).
 //! - (b) `[contract]`: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
-//!   `must_contain_positionals`, `must_contain_modifiers`,
-//!   `must_not_contain_flags`, `must_not_contain_positionals`,
+//!   `must_contain_positionals`, `must_contain_positionals_by_path`,
+//!   `must_contain_modifiers`,   `must_not_contain_flags`, `must_not_contain_positionals`,
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
 //!   `must_not_describe_root`,
 //!   `must_keep_separate`, `must_attach_choices`,
@@ -153,6 +153,13 @@ pub(crate) struct ContractMeta {
     /// difference.
     #[serde(default)]
     must_contain_positionals: Vec<String>,
+    /// `must_contain_positionals` for a subcommand's own operands, keyed
+    /// by path the way `must_contain_flags_by_path` is. Each entry is
+    /// matched as `must_contain_positionals` matches it (exact
+    /// `primary_name`, trailing `...` also requires repeatable). An empty
+    /// path `""` names the root.
+    #[serde(default)]
+    must_contain_positionals_by_path: std::collections::BTreeMap<String, Vec<String>>,
     /// Modifier letters the tree must carry (spec §4.5, §7 Tier B
     /// "Modifier tables"). Written as the bare letter (`"a"`, `"D"`),
     /// matched on `Entity::primary_name`, root only. Case is significant:
@@ -1807,6 +1814,70 @@ stdout = "help-sub.txt"
         assert!(
             sub.flags().any(|f| f.long() == Some("deep")),
             "the recursive fill must have picked up sub's own captured --help: {sub:?}"
+        );
+    }
+
+    /// `must_contain_positionals_by_path`: a subcommand's own operands,
+    /// found by path, in both directions.
+    #[test]
+    fn must_contain_positionals_by_path_checks_a_subcommands_own_operands() {
+        let corpus = setup();
+        let dir = corpus.root.join("deeptool/1.0");
+        let meta = |entries: &str| {
+            format!(
+                r#"
+[bless]
+provenance = "agent"
+
+[tool]
+name = "deeptool"
+version = "1.0"
+
+[[capture]]
+argv = ["deeptool", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["deeptool", "sub", "--help"]
+stdout = "help-sub.txt"
+
+[contract.must_contain_positionals_by_path]
+{entries}
+"#
+            )
+        };
+        write(&dir.join("meta.toml"), &meta("sub = [\"target\"]"));
+        write(
+            &dir.join("help.txt"),
+            "Usage: deeptool <COMMAND>\n\nCommands:\n  sub    does a thing\n",
+        );
+        write(
+            &dir.join("help-sub.txt"),
+            "Usage: deeptool sub [OPTIONS] <target>\n\nOptions:\n  --deep   a flag\n",
+        );
+
+        let report = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        assert!(!report.failed(), "{}", report.text);
+        let checked = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(!checked.failed(), "{}", checked.text);
+
+        write(
+            &dir.join("meta.toml"),
+            &meta("sub = [\"target\", \"nonexistent\"]\n\"missing-node\" = [\"x\"]"),
+        );
+        let report = run(&corpus.root, false, ScoreFormat::Text).expect("check run succeeds");
+        assert!(report.failed());
+        assert!(
+            report
+                .text
+                .contains("must_contain_positionals_by_path[\"sub\"]: missing nonexistent"),
+            "{}",
+            report.text
+        );
+        assert!(
+            report.text.contains("missing-node"),
+            "the unresolvable path must be named: {}",
+            report.text
         );
     }
 

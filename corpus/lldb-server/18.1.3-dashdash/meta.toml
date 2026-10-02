@@ -1,0 +1,42 @@
+# Same captures as corpus/lldb-server/18.1.3. The `gdbserver` usage
+# `[[--] program args...]` is an optional `--` separator followed by the
+# `program` positional. S-096.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lldb-server"
+version = "18.1.3"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "copied from corpus/lldb-server/18.1.3"
+
+[[capture]]
+argv = ["lldb-server", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["lldb-server", "gdbserver", "--help"]
+stdout = "gdbserver.help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 3
+
+[contract.must_display_name]
+version = "version"
+gdbserver = "gdbserver"
+platform = "platform"
+
+[contract.must_contain_flags_by_path]
+gdbserver = ["--fd", "--named-pipe", "--pipe", "--reverse-connect", "--help", "--log-channels", "--log-file", "--setsid", "--attach"]
+
+[contract.must_contain_positionals_by_path]
+gdbserver = ["program"]
+
+[xfail]
+broken = true
+reason = "[S-096] The `[[--] program args...]` usage and the `-- program args` row render as a flag `--` with value `program args`, and the `program` positional is missing. A fix must read the usage's optional `--` as a separator, not a flag, and recover `program` (with `args...`) as the positional operands."

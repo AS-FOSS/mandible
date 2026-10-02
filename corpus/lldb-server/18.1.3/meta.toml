@@ -10,12 +10,11 @@
 # stderr; stdout is empty.
 #
 # The second capture is the `gdbserver` node's own document (stdout this
-# time, stderr empty). It pins two repairs: its USAGE line no longer
-# double-names the node (`gdbserver lldb-server g[dbserver] ...`, S-167's
-# own render fix in `mandible-tui`'s `usage_form`), and its `-- program
-# args` row recovers as the end-of-options marker `--` with value
-# `program args`, never a fabricated flag `--program` (S-096's own
-# widened value capture in `mandible-extract`'s `grammar.rs`).
+# time, stderr empty). It pins S-167's render fix: its USAGE line no
+# longer double-names the node (`gdbserver lldb-server g[dbserver] ...`,
+# `usage_form` in `mandible-tui`). Its `-- program args` row is an
+# optional separator before the `program` positional, not a flag; that
+# open case is tracked by the sibling fixture 18.1.3-dashdash.
 
 [bless]
 provenance = "agent"
@@ -47,4 +46,4 @@ gdbserver = "gdbserver"
 platform = "platform"
 
 [contract.must_contain_flags_by_path]
-gdbserver = ["--fd", "--named-pipe", "--pipe", "--reverse-connect", "--help", "--log-channels", "--log-file", "--setsid", "--attach", "--"]
+gdbserver = ["--fd", "--named-pipe", "--pipe", "--reverse-connect", "--help", "--log-channels", "--log-file", "--setsid", "--attach"]

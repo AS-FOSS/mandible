@@ -922,7 +922,7 @@ fn check_must_not_value_name(contract: &ContractMeta, root: &CommandNode) -> Vec
 /// additionally requires the operand to be repeatable, which is the only
 /// way a contract can state that a repetition marker survived
 /// (`corpus/aarch64-linux-gnu-dwp/2.42`, atlas S-042).
-fn positional_present(root: &CommandNode, spec: &str) -> bool {
+pub(super) fn positional_present(root: &CommandNode, spec: &str) -> bool {
     let (name, must_repeat) = match spec.strip_suffix("...") {
         Some(base) => (base, true),
         None => (spec, false),
