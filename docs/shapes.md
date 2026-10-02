@@ -297,7 +297,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not model what they mean. This nests directly under the flag's own row with
   no heading of any kind governing it, so it is recognized entirely inside the
   flags-block scanner's own continuation handling rather than through the
-  heading-block matcher.
+  heading-block matcher. Open residual on `ffplay`
+  (`corpus/ffplay/6.1.1-3ubuntu5-avoptions`): the `<type>` token of an
+  AVOptions row stays in the description beside the capability column
+  instead of becoming the value name.
 - fleet: not measured
 
 ### S-016: headingless invocation table naming the tool itself
@@ -2785,7 +2788,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -pf <pseudo-file>	add list of pseudo file definitions from <pseudo-file>
       -Xhelp			print compressor options for selected compressor
       -mem <size>		use <size> physical memory for caches
-- tools: mksquashfs, sqfstar, Xvfb, jdb, jrunscript, llvm-libtool-darwin-18,
+- tools: ffplay, mksquashfs, sqfstar, Xvfb, jdb, jrunscript, llvm-libtool-darwin-18,
   llvm-lipo-18, screen
 - handling: A table whose rows are column-0 `-word` spellings, tab- or column-gap
   separated from their descriptions, with at least two rows carrying an
@@ -3266,7 +3269,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -Xstrategy strategy1,...,strategyN	compression strategy    mksquashfs
       -audit int             set audit trail level            Xvfb
-- tools: Xvfb, mksquashfs, sqfstar, ckbcomp, containerd-shim-runc-v2,
+- tools: ffplay, Xvfb, mksquashfs, sqfstar, ckbcomp, containerd-shim-runc-v2,
   docker-proxy, lshw, screen, sqlite3, xdpyinfo, xev, xkill, xlsatoms,
   ldattach, pod2usage, and the whole qemu-*-static family (42 tools)
 - handling: Fixed, inside the single-dash-long table only (S-145's own

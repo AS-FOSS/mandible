@@ -1,0 +1,47 @@
+# Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (the Main and Advanced tables, the
+# first AVCodecContext rows and one demuxer block), kept small so the fixture
+# stays readable. The full capture stays green and guards the rest.
+# Raw: `  -flags             <flags>      ED.VAS..... (default 0)`,
+# `  -linespeed         <int>        .D......... set simulated line speed (bytes per second) ...`,
+# `  -framerate         <video_rate> .D......... set framerate (frames per second) (default "25")`.
+# v0.8.1 tree: the `<type>` column is not a value (value_name empty) and both
+# the type and the `ED.VAS.....` capability column stay inside the description
+# text: `<video_rate> .D......... set framerate ...`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-flags", "-export_side_data", "-linespeed", "-video_size", "-framerate"]
+
+[contract.must_value_name]
+"-flags" = "flags"
+"-export_side_data" = "flags"
+"-linespeed" = "int"
+"-video_size" = "image_size"
+"-framerate" = "video_rate"
+
+[contract.must_describe]
+"-linespeed" = "set simulated line speed"
+"-framerate" = "set framerate (frames per second)"
+
+[contract.must_not_describe]
+"-framerate" = ".D........."
+"-linespeed" = "<int>"
+"-flags" = "ED.VAS"
+
+[xfail]
+broken = true
+reason = "[S-015] in the AVOptions tables the `<type>` token after the flag name is the value placeholder, but it stays in the description along with the capability column (`<video_rate> .D......... set framerate`). A fix needs the row reader to take `<token>` as value_name and drop the two-column `ED.VAS.....` token from the description, keeping it as nothing the user needs; the same rows repeat -framerate about 80 times in the full capture, so one wrong rule shows up as 80 identical rows."

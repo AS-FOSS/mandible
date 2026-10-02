@@ -1,0 +1,38 @@
+# Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (the Main and Advanced tables, the
+# first AVCodecContext rows and one demuxer block), kept small so the fixture
+# stays readable. The full capture stays green and guards the rest.
+# Raw: `-ss pos   seek to a given position in seconds`, `-fs  force full screen`,
+# `-an  disable audio`, `-vn`, `-sn`, `-vf filter_graph`, `-af filter_graph`,
+# `-ar <int> ...`, `-ac <int> ...`. v0.8.1 tree: each two-letter single-dash
+# spelling is split into a one-letter flag plus a glued value (`-ss pos` is
+# `-s` valued `s`, `-fs` is `-f` valued `s`, `-an` is `-a` valued `n`,
+# `-vf` is `-v` valued `f`), so the real spelling is gone and a
+# `-f`/`-a`/`-s`/`-v` flag ffplay does not have appears.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-ss", "-fs", "-an", "-vn", "-sn", "-vf", "-af", "-ar", "-ac"]
+must_not_contain_flags = ["-a", "-s"]
+
+[contract.must_describe]
+"-ss" = "seek to a given position"
+"-fs" = "force full screen"
+"-an" = "disable audio"
+
+[xfail]
+broken = true
+reason = "[S-145] two-letter single-dash spellings (-ss, -fs, -an, -vn, -sn, -vf, -af, -ar, -ac) are read as a one-letter flag with a glued one-letter value, because the table gate of S-145 (a document with no --long row) fails on ffplay's `--help topic` row and the ordinary repair needs a swallowed tail of two characters. A fix needs the same evidence the S-145 rule uses, extended to a table where every other row is a multi-letter single-dash spelling, so the --help row does not veto it; -v and -f are also real one-letter flags here and must stay (`-v loglevel`, `-f fmt`)."

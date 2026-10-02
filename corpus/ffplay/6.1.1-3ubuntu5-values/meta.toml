@@ -1,0 +1,49 @@
+# Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (the Main and Advanced tables, the
+# first AVCodecContext rows and one demuxer block), kept small so the fixture
+# stays readable. The full capture stays green and guards the rest.
+# Raw: `-bytes val          seek by bytes 0=off 1=on -1=auto`,
+# `-max_alloc bytes`, `-seek_interval seconds`, `-volume volume`,
+# `-window_title window title`, `-codec decoder_name`, `-loop loop count`,
+# `-left x pos`. v0.8.1 tree: every multi-letter single-dash row loses its
+# placeholder (value_name empty, no value shown) while one-letter rows
+# (`-x width`, `-t duration`, `-i input_file`) keep theirs. The text
+# `0=off 1=on -1=auto` already sits in -bytes's description, so it is not
+# misattached; -drp carries its own copy of that text.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-bytes", "-max_alloc", "-seek_interval", "-volume", "-window_title", "-codec", "-loop"]
+
+[contract.must_describe]
+"-bytes" = "seek by bytes 0=off 1=on -1=auto"
+"-drp" = "0=off 1=on -1=auto"
+
+[contract.must_value_name]
+"-bytes" = "val"
+"-max_alloc" = "bytes"
+"-seek_interval" = "seconds"
+"-volume" = "volume"
+"-window_title" = "window title"
+"-codec" = "decoder_name"
+"-loop" = "loop count"
+"-left" = "x pos"
+"-rdftspeed" = "msecs"
+"-ast" = "stream_specifier"
+
+[xfail]
+broken = true
+reason = "[S-157] the bare-word value placeholder after a multi-letter single-dash spelling is dropped on ffplay's Main and Advanced rows (`-bytes val`, `-max_alloc bytes`, `-window_title window title`, `-loop loop count`), the same loss S-157 fixes inside a single-dash-long table. The gate (no --long row anywhere) is not met because of the `--help topic` row. A fix needs that gate to tolerate one --long row when the rest of the table is single-dash-long, and a two-word placeholder (`window title`, `loop count`, `x pos`) is separated from the description only by the column gap, so the cut must use the gap, not the first space."
