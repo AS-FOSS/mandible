@@ -518,7 +518,7 @@ fn attested_operand_positions<'a>(raw: &'a str, root_name: &str) -> HashSet<Cow<
             if !placeholders.contains(word) {
                 out.insert(Cow::Borrowed(*word));
                 // A glued `<a>|<b>` operand attests each alternative and
-                // the joined name. See docs/shapes.md S-190.
+                // the joined name. See docs/shapes.md S-180.
                 if word.contains('|') {
                     let parts: Vec<&str> = word.split('|').map(clean_usage_token).collect();
                     out.extend(parts.iter().map(|p| Cow::Owned((*p).to_string())));
@@ -591,7 +591,7 @@ fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
 
 /// Whether `raw` spells `short`, a digit, as a member of a row-written
 /// range `-N .. -M` (`savelog`'s `-1 .. -9`, `xz`'s `-0 ... -9`) with
-/// `N <= short <= M`. See docs/shapes.md S-191.
+/// `N <= short <= M`. See docs/shapes.md S-181.
 fn occurs_in_digit_range(raw: &str, short: char) -> bool {
     let Some(d) = short.to_digit(10) else {
         return false;

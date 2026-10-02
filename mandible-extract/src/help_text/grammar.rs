@@ -1141,7 +1141,7 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
     if let Some(rest) = s.strip_prefix('<') {
         if let Some(end) = rest.find('>') {
             // A glued `|<other>` run is one value spec, kept whole.
-            // See docs/shapes.md S-190, corpus/numastat/2.0.18.
+            // See docs/shapes.md S-180, corpus/numastat/2.0.18.
             let mut taken = end + 2;
             while let Some(more) = s[taken..].strip_prefix("|<") {
                 let Some(close) = more.find('>') else { break };

@@ -222,7 +222,7 @@ pub(super) fn primary_synopsis_lines(
 
 /// The placeholder name ending at `end` in `stripped` (text after `<`),
 /// extended over glued `|<other>` alternatives and joined with `|`
-/// (`<PID>|<pattern>` is `PID|pattern`). See docs/shapes.md S-190.
+/// (`<PID>|<pattern>` is `PID|pattern`). See docs/shapes.md S-180.
 fn alternation_name(stripped: &str, end: usize) -> String {
     let mut name = stripped[..end].to_string();
     let mut rest = &stripped[end + 1..];
@@ -3195,7 +3195,7 @@ mod tests {
     /// A nested alternation (`[-c|-C] cmd`) ahead of the run is grammar this
     /// rule declines, so the whole line is refused rather than guessing a
     /// boundary. A bracketed `-m mode` ahead of a repetition-marked tail
-    /// is read (S-193), so `eqn`'s and `savelog`'s `file ...` land.
+    /// is read (S-183), so `eqn`'s and `savelog`'s `file ...` land.
     #[test]
     fn a_non_clean_flag_earlier_group_refuses_the_whole_line() {
         for line in [

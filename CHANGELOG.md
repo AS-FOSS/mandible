@@ -11,10 +11,10 @@ once it reaches a published 0.1.0 release.
 ### Fixed
 
 - [S-176] A single-dash row that no usage line names reads as a boolean with its whole row as the description, instead of a value guessed from its first word (`mandible host`'s `-A`, `-s`, `-U`, `-4`, `-6`).
-- [S-190] A value or operand spelled as an alternation of angle placeholders keeps every alternative (`mandible numastat`'s `-p <PID>|<pattern>`, `mandible dmsetup`'s `load`).
-- [S-191] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..` (`mandible savelog`, `mandible bzip2`, `mandible xz`, `mandible streamzip`).
-- [S-193] A trailing `file ...` operand behind valued flag groups or a wrapped usage line reaches the tree (`mandible savelog`, `mandible eqn`, `mandible chattr`, `mandible xfs_copy`).
-- [S-192] A usage operand takes its description from a `name - text` table row (`mandible savelog`'s `file`).
+- [S-180] A value or operand spelled as an alternation of angle placeholders keeps every alternative (`mandible numastat`'s `-p <PID>|<pattern>`, `mandible dmsetup`'s `load`).
+- [S-181] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..` (`mandible savelog`, `mandible bzip2`, `mandible xz`, `mandible streamzip`).
+- [S-183] A trailing `file ...` operand behind valued flag groups or a wrapped usage line reaches the tree (`mandible savelog`, `mandible eqn`, `mandible chattr`, `mandible xfs_copy`).
+- [S-182] A usage operand takes its description from a `name - text` table row (`mandible savelog`'s `file`).
 
 ## [0.8.1] - 2026-10-02
 

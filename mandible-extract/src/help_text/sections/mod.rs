@@ -2241,9 +2241,9 @@ fn parse_body(
     // an already-correct, already-described row rather than needing its
     // own exception. See docs/shapes.md S-176.
     recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
-    // A `-1 .. -9` row is nine flags, not `-1` valued `..`. See docs/shapes.md S-191.
+    // A `-1 .. -9` row is nine flags, not `-1` valued `..`. See docs/shapes.md S-181.
     expand_numeric_range_flags(&mut result.flags, &lines);
-    // A `file - log file names` row describes the usage operand. See docs/shapes.md S-192.
+    // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just

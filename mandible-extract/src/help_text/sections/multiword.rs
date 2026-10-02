@@ -418,7 +418,7 @@ pub(super) fn recover_primary_tail_operands(
     primary_lines: &std::collections::HashSet<usize>,
 ) -> Vec<Entity> {
     // A wrapped entry joins its physical lines in source order, each
-    // trimmed. See docs/shapes.md S-193 and corpus/savelog/5.17.
+    // trimmed. See docs/shapes.md S-183 and corpus/savelog/5.17.
     let mut indices: Vec<usize> = primary_lines.iter().copied().collect();
     indices.sort_unstable();
     if indices.is_empty() {
@@ -538,7 +538,7 @@ pub(super) fn recover_primary_tail_operands(
         // the same ambiguity `-d xy` carries inside a bracket. See
         // `a_bare_unbracketed_flag_never_licenses_the_run_behind_it`.
         // A bracketed `-m mode` group licenses a run whose last operand
-        // carries a repetition marker. See docs/shapes.md S-193.
+        // carries a repetition marker. See docs/shapes.md S-183.
         if earlier.starts_with('[')
             && (is_understood_flag_context(earlier_stripped)
                 || (tail_repeats && is_bracketed_valued_flag(earlier_stripped)))
@@ -564,7 +564,7 @@ pub(super) fn recover_primary_tail_operands(
     {
         return Vec::new();
     }
-    // `target [target ...]` is one repeatable operand. See docs/shapes.md S-193.
+    // `target [target ...]` is one repeatable operand. See docs/shapes.md S-183.
     let mut merged: Vec<(String, bool, bool, bool, bool)> = Vec::with_capacity(collected.len());
     for item in collected {
         match merged.last_mut() {

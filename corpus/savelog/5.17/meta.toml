@@ -1,6 +1,6 @@
 # The row `-1 .. -9` documents nine single-digit flags, read as nine
-# flags with no value (S-191). The last row `file - log file names`
-# describes the usage line's trailing `file ...` operand (S-192).
+# flags with no value (S-181). The last row `file - log file names`
+# describes the usage line's trailing `file ...` operand (S-182).
 
 [bless]
 provenance = "agent"

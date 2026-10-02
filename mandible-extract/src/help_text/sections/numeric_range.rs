@@ -6,7 +6,7 @@ use super::*;
 /// with one flag per digit in the range, each carrying the row's
 /// description and no value. The row must spell both endpoints
 /// (`-N .. -M`, `N < M`); a digit another flag already owns is skipped.
-/// See docs/shapes.md S-191 and corpus/savelog/5.17.
+/// See docs/shapes.md S-181 and corpus/savelog/5.17.
 pub(super) fn expand_numeric_range_flags(flags: &mut Vec<Entity>, lines: &[&str]) {
     let mut out: Vec<Entity> = Vec::with_capacity(flags.len());
     for flag in flags.iter() {
@@ -56,7 +56,7 @@ fn row_range_end(lines: &[&str], first: char) -> Option<char> {
 /// A positional with no description takes it from the one table row that
 /// reads `<name> - <text>` with the positional's own name as its first
 /// token (`savelog`'s `file - log file names`). Skipped when two rows
-/// match, so it never picks between them. See docs/shapes.md S-192 and
+/// match, so it never picks between them. See docs/shapes.md S-182 and
 /// corpus/savelog/5.17.
 pub(super) fn describe_positionals_from_name_rows(positionals: &mut [Entity], lines: &[&str]) {
     for positional in positionals.iter_mut() {

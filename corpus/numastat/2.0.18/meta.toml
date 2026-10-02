@@ -1,5 +1,5 @@
 # Usage and option row both spell `-p <PID>|<pattern>`: the flag takes
-# either a PID or a name pattern. The tree keeps both. S-190.
+# either a PID or a name pattern. The tree keeps both. S-180.
 
 [bless]
 provenance = "agent"

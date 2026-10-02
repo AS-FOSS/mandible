@@ -4240,9 +4240,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   transcribed from issue #163 because brew is not installed on the dev box.
 - fleet: not measured
 
-### S-190: a value spec spells an alternation of angle placeholders
+### S-180: a value spec spells an alternation of angle placeholders
 
-- id: S-190
+- id: S-180
 - looks like: |
       -p <PID>|<pattern>   to show process info
       flock [options] <file>|<directory> <command>
@@ -4257,9 +4257,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (value or operand names), none by count. `numastat`'s bracketed operand
   still reads `required`, a separate defect.
 
-### S-191: a row spells a run of single-digit flags as `-N .. -M`
+### S-181: a row spells a run of single-digit flags as `-N .. -M`
 
-- id: S-191
+- id: S-181
 - looks like: |
       -1 .. -9   - compression strength or memory usage (default: 9)
       -0 ... -9  compression preset; default is 6
@@ -4274,9 +4274,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: 11 tools gained 8 or 9 flags each in the full-PATH sweep, 95 in
   total, no losses.
 
-### S-192: an operand is described by a `name - text` table row
+### S-182: an operand is described by a `name - text` table row
 
-- id: S-192
+- id: S-182
 - looks like: |
       Usage: savelog [-q] file ...
       	-q         - suppress rotation message
@@ -4288,9 +4288,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   undescribed.
 - fleet: 1 tool (`savelog`), no losses in the full-PATH sweep.
 
-### S-193: a trailing operand behind valued flag groups or a wrapped usage entry
+### S-183: a trailing operand behind valued flag groups or a wrapped usage entry
 
-- id: S-193
+- id: S-183
 - looks like: |
       Usage: savelog [-m mode] [-u user] [-q]
                    [-n] file ...
