@@ -3195,7 +3195,7 @@ mod tests {
     /// A nested alternation (`[-c|-C] cmd`) ahead of the run is grammar this
     /// rule declines, so the whole line is refused rather than guessing a
     /// boundary. A bracketed `-m mode` ahead of a repetition-marked tail
-    /// is read (S-191), so `eqn`'s and `savelog`'s `file ...` land.
+    /// is read (S-193), so `eqn`'s and `savelog`'s `file ...` land.
     #[test]
     fn a_non_clean_flag_earlier_group_refuses_the_whole_line() {
         for line in [

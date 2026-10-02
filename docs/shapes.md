@@ -4244,37 +4244,34 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-190
 - looks like: |
       -p <PID>|<pattern>   to show process info
-      numastat [-p <PID>|<pattern>] [ <PID>|<pattern>... ]
-- tools: numastat, dmsetup
+      flock [options] <file>|<directory> <command>
+- tools: numastat, dmsetup, dnsmasq, eject, flock, hardlink, unshare
 - handling: Fixed. A value token that opens with an angle placeholder keeps
   every glued `|<other>` placeholder ([`take_rest_value_token`]), so `-p`
   carries `<PID>|<pattern>`. A usage operand spelled the same way is named
-  by its alternatives joined with `|` (`PID|pattern`, `alternation_name`
-  in `usage.rs`), so the second alternative is not dropped.
-- fleet: 2 tools moved in the corpus (`numastat`, `dmsetup`'s `load` and
-  `reload` operand, now `table|table_file`). Below the five-tool bar;
-  zero-loss sweep recorded in the pull request. `numastat`'s bracketed
-  operand still reads `required`, a separate defect.
+  by its alternatives joined with `|` (`alternation_name` in `usage.rs`),
+  so the second alternative is not dropped. The existence check attests
+  such a name when each part occurs in the raw text.
+- fleet: 7 tools moved in the full-PATH sweep, all by field-level change
+  (value or operand names), none by count. `numastat`'s bracketed operand
+  still reads `required`, a separate defect.
 
 ### S-191: a row spells a run of single-digit flags as `-N .. -M`
 
 - id: S-191
 - looks like: |
       -1 .. -9   - compression strength or memory usage (default: 9)
-- tools: savelog
-- handling: Fixed. The row parses as flag `-1` with value `..`. A post-pass
+      -0 ... -9  compression preset; default is 6
+- tools: savelog, bzip2, bunzip2, bzcat, xz, unxz, xzcat, lzma, unlzma, lzcat, streamzip
+- handling: Fixed. The row parses as flag `-N` with value `..`. A post-pass
   (`expand_numeric_range_flags`) replaces it with one flag per digit, each
   with no value and the row's description, when the row spells both
   endpoints and the upper digit is larger. Nine flags, not one flag with
-  nine spellings, because spellings of one entity are aliases and `-1`
-  and `-9` are not. A wrapped usage entry also joins its physical lines
-  before the tail-operand recovery reads it, and a bracketed `-m mode`
-  group ahead of a repetition-marked tail (`file ...`) no longer refuses
-  the line (`recover_primary_tail_operands`), so `savelog`'s `file ...`,
-  `eqn`'s `[file ...]` and `fc-validate`'s `font-file...` reach the tree.
-- fleet: 1 tool spells the range (`savelog`); the tail-operand widening
-  moved `savelog`, `eqn` and `fc-validate` in the corpus. Below the
-  five-tool bar; zero-loss sweep recorded in the pull request.
+  nine spellings, because spellings of one entity are aliases and `-1` and
+  `-9` are not. The existence check attests every digit inside a written
+  range.
+- fleet: 11 tools gained 8 or 9 flags each in the full-PATH sweep, 95 in
+  total, no losses.
 
 ### S-192: an operand is described by a `name - text` table row
 
@@ -4288,5 +4285,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   one row whose first token is its name followed by `- `
   (`describe_positionals_from_name_rows`). Two matching rows leave it
   undescribed.
-- fleet: 1 tool (`savelog`). Below the five-tool bar; zero-loss sweep
-  recorded in the pull request.
+- fleet: 1 tool (`savelog`), no losses in the full-PATH sweep.
+
+### S-193: a trailing operand behind valued flag groups or a wrapped usage entry
+
+- id: S-193
+- looks like: |
+      Usage: savelog [-m mode] [-u user] [-q]
+                   [-n] file ...
+      xfs_copy [-L logfile] source target [target ...]
+- tools: savelog, eqn, geqn, neqn, fc-validate, fc-query, chattr, grops, grotty, infocmp, preconv, soelim, toe, showmount, xfs_bmap, xfs_copy
+- handling: Fixed. `recover_primary_tail_operands` joins the physical lines
+  of a wrapped primary entry, and accepts a bracketed `-X word` group
+  ahead of the run when the run's last operand carries a repetition
+  marker. A repeated operand name merges into one repeatable operand
+  (`target [target ...]`). A nested alternation ahead of the run still
+  refuses the line.
+- fleet: 16 tools gained 17 operands in the full-PATH sweep, no losses.
