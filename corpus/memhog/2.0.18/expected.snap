@@ -1,0 +1,46 @@
+name: memhog
+description: 'Policies: preferred-many local interleave membind preferred default'
+usage:
+- memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]
+positionals:
+- name: size
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: policy
+  provenance:
+    sources:
+    - help-text
+- name: nodeset
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -f
+  value_name: FILE
+  value_kind: Required
+  description: mmap is backed by FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  value_name: NUM
+  value_kind: Required
+  description: repeat memset NUM times
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  description: disable transparent hugepages
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true

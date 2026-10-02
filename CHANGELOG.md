@@ -22,6 +22,7 @@ once it reaches a published 0.1.0 release.
 - The existence-fabrication oracle now attests a contiguous multi-word operand from a synopsis line's own slots (S-154's shape, `mknod`'s `MAJOR MINOR`), instead of only single tokens, so `mknod`, `accessdb`, `gdk-pixbuf-thumbnailer`, `systemd-sysusers` and `systemd-tmpfiles` no longer report a fabricated positional they genuinely document.
 - [S-148] `pkcheck`'s `-d, --details=KEY VALUE` row keeps `KEY VALUE` as the value name instead of just `KEY` (`mandible pkcheck`).
 - [S-174] A nested bracket group's own trailing text after its outer close now glues onto the value name too (`mandible cpio`'s `-I`/`-O`, `lsusb`'s `-s`, `rustc`'s `-l`).
+- [S-176] A single-dash table row with no placeholder column now reads its flag's real value off the tool's own usage line instead of guessing it from the description's first word (`mandible host`, `mandible kpartx`, `mandible numastat`, `mandible savelog`, `mandible memhog`); `mandible memhog` also gains its `size`/`policy`/`nodeset` positionals (S-177) instead of a swallowed root description.
 
 ## [0.8.0] - 2026-09-14
 

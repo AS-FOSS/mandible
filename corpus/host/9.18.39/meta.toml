@@ -1,0 +1,75 @@
+# `host --help` writes only its getopt complaint to stdout... no, to
+# stderr: `host: illegal option -- -` (S-162's own shape, already
+# stripped), then a single-dash option table with no column gap
+# anywhere and no placeholder column. Every row reads its description's
+# first bare word as a fabricated value before this fixture's fix.
+#
+# Fixed by reading each flag's real value from `host`'s own usage line
+# (`Usage: host [-aCdilrTvVw] [-c class] [-N ndots] [-t type] [-W time]
+# [-R number] [-m flag] [-p port] hostname [server]`), the same grammar
+# and bundle logic `extract_usage_flags` already uses everywhere else:
+# `-c`/`-N`/`-t`/`-W`/`-R`/`-m`/`-p` each keep the spaced placeholder
+# usage names them (`class`/`ndots`/`type`/`time`/`number`/`flag`/`port`)
+# and gain their real description; every bundle member
+# (`-a`/`-C`/`-d`/`-l`/`-r`/`-T`/`-v`/`-V`/`-w`) is read boolean, per the
+# bundle `[-aCdilrTvVw]`, and also gains its real description.
+#
+# Honest residual, deliberately not claimed here: `-A`, `-s`, `-U`, `-4`
+# and `-6` are named in NO usage line at all (not in the bundle, not in
+# their own bracket group), so the fix has no evidence for them and
+# leaves them exactly as broken as before: a fabricated value guessed
+# from their own description's first word, and no description recovered.
+# `must_not_contain_flags` below is not the tool for stating that; it is
+# recorded here in prose since the corpus contract has no "known still
+# wrong" field.
+#
+# `-i` also appears in the tree, undescribed: the usage bundle
+# `[-aCdilrTvVw]` names it but no option row documents it. Pre-existing
+# behaviour (spec [M-15], usage-derived flags), not something this fix
+# changed.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "host"
+version = "9.18.39"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); bind9-host 1:9.18.39-0ubuntu0.24.04.7"
+
+[[capture]]
+argv = ["host", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+# `mandible --doctor host` reports framework: unidentified.
+expected_framework = "generic"
+
+[contract.must_describe]
+"-a" = "is equivalent to -v -t ANY"
+"-C" = "compares SOA records on authoritative nameservers"
+"-c" = "specifies query class for non-IN data"
+"-d" = "is equivalent to -v"
+"-l" = "lists all hosts in a domain, using AXFR"
+"-m" = "set memory debugging flag (trace|record|usage)"
+"-N" = "changes the number of dots allowed before root lookup is done"
+"-p" = "specifies the port on the server to query"
+"-r" = "disables recursive processing"
+"-R" = "specifies number of retries for UDP packets"
+"-t" = "specifies the query type"
+"-T" = "enables TCP/IP mode"
+"-v" = "enables verbose output"
+"-V" = "print version number and exit"
+"-w" = "specifies to wait forever for a reply"
+"-W" = "specifies how long to wait for a reply"
+
+[contract.must_value_name]
+"-c" = "class"
+"-N" = "ndots"
+"-t" = "type"
+"-W" = "time"
+"-R" = "number"
+"-m" = "flag"
+"-p" = "port"
