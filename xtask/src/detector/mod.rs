@@ -141,6 +141,10 @@ pub(crate) mod usage_command_table;
 // token split into a short flag plus a swallowed value), same detect()/
 // Report + wrapper shape as `single_dash_long_table` above.
 pub(crate) mod usage_attested_single_dash_long;
+// Round-12 family detector (atlas S-175: a usage form's `||`-joined OR
+// alternation), same detect()/Report + wrapper shape as
+// `usage_form_trailing_description` above.
+pub(crate) mod double_pipe_usage_alternation;
 
 pub(crate) use calibration::*;
 pub(crate) use commands::*;
@@ -809,6 +813,7 @@ pub fn registry() -> Vec<Box<dyn Detector>> {
         Box::new(usage_command_table::UsageCommandTable),
         Box::new(nested_flag_group_as_value::NestedFlagGroupAsValue),
         Box::new(UsageAttestedSingleDashLong),
+        Box::new(double_pipe_usage_alternation::DoublePipeUsageAlternation),
     ]
 }
 

@@ -28,7 +28,9 @@ pub use entity::{is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Sp
 pub use merge::{
     merge_entity_lists, merge_nodes, merge_subcommand_lists, pair_aliases, MergeError,
 };
-pub use node::{is_command_name_shaped, CommandNode, Confession, Example, ValueKind};
+pub use node::{
+    is_command_name_shaped, reconstruct_abbrev_word, CommandNode, Confession, Example, ValueKind,
+};
 pub use noderef::{resolve, resolve_flag, resolve_mut, FlagKey, NodeRef};
 pub use provenance::{Authority, Axis, ManFormat, Provenance, Source};
 pub use snapshot::{

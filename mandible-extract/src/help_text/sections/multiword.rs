@@ -522,14 +522,20 @@ pub(super) fn recover_primary_tail_operands(
         }
         return Vec::new();
     }
-    // `[options] command`'s shape: a lone placeholder group ahead of a
-    // bare, required first operand reads as easily as "provide a
-    // subcommand" as "provide an operand" — see the doc comment above.
-    // Only the earliest operand in the run sits directly behind the
-    // ambiguous context, so only its own required-ness is checked. A
-    // brace alternation or a numbered-variadic tail is exempt: neither
-    // notation can be mistaken for a bare subcommand name.
-    if earlier_all_placeholder && collected[0].1 && !collected[0].3 && !collected[0].4 {
+    // `[options] command`'s shape: a lone placeholder group ahead of the
+    // run's earliest operand. Narrowed to a closed vocabulary
+    // (`is_command_placeholder`) plus a repetition-marker check on that
+    // same operand: `apt`'s tail word is literally `command` and `gcc`'s
+    // `file...` carries the marker, so both stay refused, while `ranlib`'s
+    // `archive` and `lcf`'s `dest_file` are neither and now reach the
+    // tree. A brace alternation or numbered-variadic tail is exempt. See
+    // docs/shapes.md S-153.
+    if earlier_all_placeholder
+        && collected[0].1
+        && !collected[0].3
+        && !collected[0].4
+        && (is_command_placeholder(&collected[0].0) || collected[0].2)
+    {
         return Vec::new();
     }
     collected
