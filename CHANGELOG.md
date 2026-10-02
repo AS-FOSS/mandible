@@ -17,6 +17,8 @@ once it reaches a published 0.1.0 release.
 - [S-182] A usage operand takes its description from a `name - text` table row (`mandible savelog`'s `file`).
 - [S-145] A `--name` row that mirrors a `-name` row no longer vetoes a single-dash-long table, so two-letter spellings keep their names (`mandible ffplay`'s `-ss`, `-fs`, `-an`, `-vf`).
 - [S-157] A two-word lowercase placeholder closed by a column gap is the value name (`mandible ffplay`'s `-window_title window title`, `-loop loop count`, `-left x pos`).
+- [S-086] A plus-or-minus row (`+|-w`, `+f|-f`, `+|-r [t[m<fmt>]]`) is one flag carrying both `+x` and `-x` spellings with the row's own description (`mandible lsof`'s `-e`, `-f`, `-L`, `-M`, `-r`, `-w`).
+- [S-036] A packed multi-column row reads `+X` and `--` cells as cells of their own and keeps each cell's value placeholder out of its description (`mandible lsof`'s `+c`, `+d`, `+D`, `+m`, `--`, `-c c`; `mandible unzip`'s `-O CHARSET`).
 - [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
 
 ## [0.8.1] - 2026-10-02

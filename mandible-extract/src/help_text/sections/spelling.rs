@@ -226,7 +226,7 @@ pub(super) fn spelling_run(line: &str) -> Option<SpellingRun> {
 /// True if `entry_lines` shows a real, aligned column of alternate
 /// spellings: at least [`MIN_SPELLING_COLUMN_RECURRENCE`] rows whose
 /// [`spelling_run`]'s second cell starts at the same offset. Same
-/// recurrence reasoning as [`block_is_multi_column`] — a table is
+/// recurrence reasoning as [`secondary_column_offsets`] — a table is
 /// evidenced by repetition, never one suggestive row. See S-082.
 pub(super) fn block_has_aligned_spelling_column(entry_lines: &[&str]) -> bool {
     let mut offset_counts: std::collections::HashMap<usize, usize> =
@@ -292,7 +292,7 @@ pub(super) fn split_aligned_spelling_entry(line: &str) -> (String, String) {
 
 /// The single-column way to split one flags-block entry line: one
 /// description column, detected once per line. The only path for a block
-/// [`block_is_multi_column`] didn't flag, and the fallback for a
+/// [`secondary_column_offsets`] didn't flag, and the fallback for a
 /// multi-column block's occasional non-splitting line.
 pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     // `find_dash_token_separator_gap` is deliberately *not* part of

@@ -384,7 +384,7 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
 /// [`try_split_packed_row`] and at least one row actually packs two or
 /// more entries — proof this is the dense shape and not an ordinary
 /// one-flag-per-line block with no description. Consulted only after
-/// [`block_is_multi_column`] and the aligned-spelling check have both
+/// [`secondary_column_offsets`] and the aligned-spelling check have both
 /// declined the block, never in front of either. See docs/shapes.md
 /// S-047.
 pub(super) fn block_is_packed_flag_rows(entry_lines: &[&str]) -> bool {
@@ -400,7 +400,7 @@ pub(super) fn block_is_packed_flag_rows(entry_lines: &[&str]) -> bool {
 
 /// One raw row within a flags block, before it's split into `(spec,
 /// description)` — kept as a whole `&str` because the splitting decision
-/// (one column vs. several, see [`block_is_multi_column`]) needs every
+/// (one column vs. several, see [`secondary_column_offsets`]) needs every
 /// entry row in the block at once, not just this one.
 pub(super) enum FlagsBlockRow<'a> {
     /// Looks like the start of a new flag entry.
@@ -413,8 +413,9 @@ pub(super) enum FlagsBlockRow<'a> {
     /// See docs/shapes.md S-163.
     AlternationSigil(&'a str),
     /// A continuation of the previous entry's description (`trim_end`ed
-    /// text only — the row's own indentation has already done its job).
-    Continuation(&'a str),
+    /// text only — the row's own indentation has already done its job),
+    /// with the raw line beside it for the multi-column rescue.
+    Continuation(&'a str, &'a str),
 }
 
 // --- S-095: the neighbor-gated `+`/`+<placeholder>` option row ---------
@@ -867,7 +868,10 @@ fn collect_flags_block_rows<'a>(
             // entry there fabricates a second flag. Only a `:=`-shaped
             // heading may read the leading-`|` shape as anything but an
             // ordinary continuation. See docs/shapes.md S-043.
-            || (heading_is_bnf && looks_like_bnf_continuation_row(trimmed)))
+            || (heading_is_bnf && looks_like_bnf_continuation_row(trimmed))
+            // The plus-or-minus row (S-086): the `+|-x` sigil is
+            // unambiguous on its own.
+            || starts_with_plus_minus_pair(trimmed))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented
@@ -923,7 +927,7 @@ fn collect_flags_block_rows<'a>(
             {
                 break;
             }
-            rows.push(FlagsBlockRow::Continuation(trimmed.trim_end()));
+            rows.push(FlagsBlockRow::Continuation(trimmed.trim_end(), line));
             i += 1;
             continue;
         }
@@ -997,10 +1001,10 @@ fn mark_choice_list_rows(rows: &[FlagsBlockRow<'_>]) -> Vec<bool> {
     let mut marks = vec![false; rows.len()];
     let mut i = 0;
     while i < rows.len() {
-        if let FlagsBlockRow::Continuation(text) = rows[i] {
+        if let FlagsBlockRow::Continuation(text, _) = rows[i] {
             if looks_like_choice_list_introducer(text) {
                 let mut j = i + 1;
-                while let Some(FlagsBlockRow::Continuation(item)) = rows.get(j) {
+                while let Some(FlagsBlockRow::Continuation(item, _)) = rows.get(j) {
                     if !looks_like_choice_list_item(item) {
                         break;
                     }
@@ -1050,10 +1054,13 @@ pub(super) fn scan_flags_block(
             FlagsBlockRow::Entry(l) => Some(*l),
             FlagsBlockRow::PlusSigil(_)
             | FlagsBlockRow::AlternationSigil(_)
-            | FlagsBlockRow::Continuation(_) => None,
+            | FlagsBlockRow::Continuation(..) => None,
         })
         .collect();
-    let multi_column = block_is_multi_column(&entry_lines);
+    let dash_cells = dash_cells_are_flags(&entry_lines);
+    let column_offsets = secondary_column_offsets(&entry_lines, dash_cells);
+    let multi_column = !column_offsets.is_empty();
+    let rows = rescue_column_rows(rows, &column_offsets);
     // Independent of, and subordinate to, `multi_column`: a block can pack
     // several flag+description pairs per line (that decision) *or* spell
     // one option across aligned spelling columns (this one). Only a block
@@ -1153,18 +1160,20 @@ pub(super) fn scan_flags_block(
                 // isn't `is_flag_shaped` (a stricter, narrower class).
                 // Never silently drop the row: fall back to the ordinary
                 // single-column split instead.
+                // A row with a single field is an ordinary row of the block
+                // (`-T fqs TCP/TPI Fl,Q,St (s) info`), not a packed one:
+                // the ordinary splitter reads its value and description.
                 let split = multi_column
-                    .then(|| fields_in_line(line))
-                    .filter(|f| !f.is_empty());
+                    .then(|| fields_in_line(line, dash_cells))
+                    .filter(|f| f.len() > 1 || f.iter().all(field_is_plus_cell));
                 match split {
                     Some(fields) => {
-                        for field in fields {
-                            entries.push((
-                                field.tokens.join(", "),
-                                field.trailing.trim().to_string(),
-                                Vec::new(),
-                            ));
-                        }
+                        push_multi_column_fields(
+                            fields,
+                            &mut entries,
+                            &mut is_plus_sigil,
+                            &mut is_alternation,
+                        );
                     }
                     None if aligned_spellings => {
                         let (s, d) = split_aligned_spelling_entry(line);
@@ -1176,7 +1185,7 @@ pub(super) fn scan_flags_block(
                     }
                 }
             }
-            FlagsBlockRow::Continuation(text) => {
+            FlagsBlockRow::Continuation(text, _) => {
                 if choice_list_rows[row_idx] {
                     // S-168: a colon-introduced choice list — the
                     // introducer line itself never becomes a choice or a
@@ -1263,6 +1272,76 @@ pub(super) fn scan_flags_block(
         is_plus_sigil,
         is_alternation,
     )
+}
+
+/// A multi-column row whose first column is empty sits indented under the
+/// row above (lsof's `+m [m]` under `+|-L [l]`'s line), where it reads as
+/// that row's continuation. Its first cell opening at a recurring column
+/// of this very block, with a flag-shaped token, is evidence enough that
+/// it is a row of its own. A no-op on a block with no recurring column.
+/// See docs/shapes.md S-036.
+fn rescue_column_rows<'a>(
+    rows: Vec<FlagsBlockRow<'a>>,
+    column_offsets: &[usize],
+) -> Vec<FlagsBlockRow<'a>> {
+    if column_offsets.is_empty() {
+        return rows;
+    }
+    rows.into_iter()
+        .map(|row| match row {
+            FlagsBlockRow::Continuation(_, raw)
+                if continuation_opens_a_recurring_column(raw, column_offsets) =>
+            {
+                FlagsBlockRow::Entry(raw)
+            }
+            other => other,
+        })
+        .collect()
+}
+
+/// Push one packed row's fields as entries, each with its own value
+/// placeholder. A `+word` cell inside a block already proven multi-column
+/// by its recurring alignment is a plus-sigil spelling (`+c w`); the
+/// evidence is the alignment, not a neighbor row. See docs/shapes.md
+/// S-036, S-163.
+fn push_multi_column_fields(
+    fields: Vec<Field>,
+    entries: &mut Vec<FlagRowEntry>,
+    is_plus_sigil: &mut Vec<bool>,
+    is_alternation: &mut Vec<bool>,
+) {
+    for field in fields {
+        let plus_cell = field_is_plus_cell(&field);
+        let mut spec = field.tokens.join(", ");
+        if !field.value_spec.is_empty() {
+            spec.push(' ');
+            spec.push_str(&field.value_spec);
+        }
+        entries.push((spec, field.trailing.trim().to_string(), Vec::new()));
+        is_plus_sigil.resize(entries.len() - 1, false);
+        is_plus_sigil.push(plus_cell);
+        is_alternation.resize(entries.len(), false);
+    }
+}
+
+/// True when `field` is a lone `+word` spelling (`+m [m] ...`).
+fn field_is_plus_cell(field: &Field) -> bool {
+    field.tokens.len() == 1 && is_claimed_plus_token(&field.tokens[0]) && field.tokens[0].len() > 1
+}
+
+/// True when `raw`'s first cell opens at one of `offsets` (a recurring
+/// secondary column of its block) with a flag-shaped token.
+fn continuation_opens_a_recurring_column(raw: &str, offsets: &[usize]) -> bool {
+    let Some((offset, content)) = cells(raw).into_iter().next() else {
+        return false;
+    };
+    let token = first_word(&content);
+    let flag_like = if token.starts_with('+') && !token.starts_with("+|") {
+        is_claimed_plus_token(token)
+    } else {
+        is_flag_shaped(token)
+    };
+    flag_like && offsets.contains(&offset)
 }
 
 /// The fewest name/description pairs a deeper-indented run must show before
@@ -1420,7 +1499,7 @@ pub(super) fn nested_entry_table_starts_at(lines: &[&str], start: usize, indent:
 /// from continuation rows accumulated so far, so a description already
 /// underway can never be truncated part-way through.
 pub(super) fn entry_row_carries_own_description(entry_line: &str) -> bool {
-    if fields_in_line(entry_line).len() > 1 {
+    if fields_in_line(entry_line, false).len() > 1 {
         return false;
     }
     let (_, desc) = split_single_column_entry(entry_line);

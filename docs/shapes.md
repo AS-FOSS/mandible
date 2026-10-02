@@ -644,12 +644,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag-shaped cells, which keeps an alias pair like nano's short and long
   spelling together and protects arptables's lowercase value placeholder from
   being read as a second, fabricated flag.
-  Open residual on `lsof` (`corpus/lsof/4.95.0-columns`): a cell led by `+`
-  or `--`, or by a bracketed placeholder, is not counted as flag-shaped, so
-  `+c`, `+d`, `+D`, `+E` and `+m` are lost, `--` folds into the previous
-  flag's description, and `-c`, `-d`, `-K` and `-Z` keep their placeholder in
-  the description.
-- fleet: 5 flags recovered (-a -b -l -t -v), 2026-08-30
+  A cell led by `+word` or the bare `--` is a cell like any other
+  (`layout.rs::fields_in_line`); a `+word` cell in a block proven
+  multi-column by its recurring alignment is a plus-sigil spelling (S-163),
+  the alignment being its evidence. Each cell's own value placeholder is
+  split off its description: a leading bracketed placeholder always
+  (`-K [i] list|(i)gn tasKs`), a lone bare word when a description cell of
+  its own follows in the row (`-c c  cmd c ^c /c/[bix]`, `+c w  COMMAND
+  width (9)`). A `+`-led cell right after a still-bare plus-or-minus token
+  (S-086) is that token's per-polarity description, never its alias. A row
+  indented under the row above whose first cell opens at a recurring
+  column of its block is a row of its own (`+m [m]` under `+|-L [l]`'s
+  line), not a continuation. A row with a single field takes the ordinary
+  splitter. Open: the second `-T fqs TCP/TPI Fl,Q,St (s) info` row keeps
+  `fqs` and drops the rest of its text, a pre-existing ordinary-splitter
+  gap (a spec's unconsumed remainder is not moved to the description).
+- fleet: 5 flags recovered (-a -b -l -t -v), 2026-08-30; full-PATH sweep-diff of 2270 tools against the
+  r13/parse-b head before this fix, 2026-10-03: 0 flags lost anywhere, 8
+  flags gained on lsof (40 to 48); field-level changes on infocmp, lsof,
+  unzip and zipinfo (value placeholders moved out of descriptions), every
+  one read against the tool's own help. A bare `--` cell is a flag only
+  where one row of the block carries it (`dash_cells_are_flags`):
+  pppoe-discovery and ssh-copy-id use a column of `--` separators and
+  stay as they were
 
 ### S-037: usage synopsis wraps at the marker's own indent, not a hanging indent
 
@@ -1418,18 +1435,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured at zero legitimate occurrences fleet-wide before this grammar
   existed, not otherwise dated
 
-### S-086: plus-or-minus flag notation, unmodeled
+### S-086: plus-or-minus flag notation (`+|-x`, `+x|-x`)
 
 - id: S-086
 - looks like: |
       +|-e s  exempt s *RISKY*
 - tools: lsof
-- handling: This third notation, meaning plus or minus e, is not modeled at all. The
-  separator predicate requires a finished value placeholder on its left before
-  treating a pipe as an alias separator, and a bare plus is not one, so the
-  token is left alone rather than fabricating a short flag carrying a literal
-  plus as its value. Recovering the real -e flag here is left as future work.
-- fleet: not measured
+- handling: Fixed. A `+|-x` or `+x|-x` token (`layout.rs::plus_minus_pair_rest`) opens a
+  flag row on its own, no neighbor evidence needed, and is one entity
+  carrying both spellings, `+x` then `-x`, with its value and the row's
+  own description verbatim (`flag_rows.rs::parse_plus_minus_pair_spec`).
+  `+f|-f  +filesystem or -file names` keeps its per-polarity text and
+  `+|-f[gG] flaGs` is a second entity with the same spellings, both rows'
+  text kept. A glued `[gG]` is the optional value; a nested bracket value
+  (`[t[m<fmt>]]`) is read whole, and text the column splitter leaves after
+  the value joins the description. The ordinary alias grammar still does
+  not read a bare plus as an alias left side
+  (`separator_has_a_left_operand`); the row is recognised before it.
+- fleet: same sweep as S-036, 2026-10-03: lsof gains `+c`, `+d`, `+D`,
+  `+E`, `+m` and the `+x` spelling of `-e -f -L -M -r -w`; 0 flags lost
 
 ### S-087: GNU getopt bundled cluster below the collapse floor, and above it
 

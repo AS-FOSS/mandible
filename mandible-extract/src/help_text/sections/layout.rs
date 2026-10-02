@@ -64,8 +64,8 @@ pub(super) const MIN_SPELLING_COLUMN_RECURRENCE: usize = 2;
 /// True if `token` is shaped like a flag spelling: `-x`, `--word`, `+x`,
 /// or `+|-x` — lsof spells some flags with a `+` prefix (`+d`, `+m`).
 pub fn is_flag_shaped(token: &str) -> bool {
-    if let Some(rest) = token.strip_prefix("+|-") {
-        return rest.chars().next().is_some_and(is_flag_char);
+    if plus_minus_pair_rest(token).is_some() {
+        return true;
     }
     if let Some(rest) = token.strip_prefix("--") {
         return rest.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
@@ -77,6 +77,24 @@ pub fn is_flag_shaped(token: &str) -> bool {
         return rest.chars().next().is_some_and(is_flag_char);
     }
     false
+}
+
+/// The text after the sigil of a plus-or-minus flag token: `+|-e` and
+/// `+|-f[gG]` give `e` and `f[gG]`, the long form `+f|-f` gives `f`.
+/// The long form requires both halves to name the same flag. `None` for
+/// every other token. One entity carries both spellings. See
+/// docs/shapes.md S-086.
+pub(super) fn plus_minus_pair_rest(token: &str) -> Option<&str> {
+    if let Some(rest) = token.strip_prefix("+|-") {
+        return rest
+            .chars()
+            .next()
+            .is_some_and(is_flag_char)
+            .then_some(rest);
+    }
+    let (plus, minus) = token.strip_prefix('+')?.split_once("|-")?;
+    let first = plus.chars().next()?;
+    (is_flag_char(first) && plus == minus).then_some(plus)
 }
 
 /// Character class allowed immediately after a short flag's leading
@@ -158,7 +176,7 @@ pub fn is_value_placeholder_only(s: &str) -> bool {
 /// One column entry recovered from a multi-column row.
 pub(super) struct Field {
     /// Character offset of the field's first flag-shaped cell — the
-    /// position [`block_is_multi_column`] buckets recurrence counts by.
+    /// position [`secondary_column_offsets`] buckets recurrence counts by.
     /// Never updated once created, even as later cells fold in.
     offset: usize,
     /// Every flag-shaped spelling folded into this field — usually one,
@@ -169,6 +187,11 @@ pub(super) struct Field {
     /// token(s). Empty (or a bare placeholder) means "not yet
     /// described" — see [`Field::is_bare`].
     pub(super) trailing: String,
+    /// The value placeholder that belongs to this field's own spelling
+    /// (`-c c  cmd c ^c`'s `c`), split off the description when the cell
+    /// is followed by a description cell of its own. Empty when the
+    /// cell carries none. See docs/shapes.md S-036.
+    pub(super) value_spec: String,
 }
 
 impl Field {
@@ -194,11 +217,26 @@ impl Field {
 /// has real-looking trailing text, but `--append` is still bare when
 /// `-A` arrives, so `chain` folds in as shared trailing text rather
 /// than proving a second flag. See docs/shapes.md S-036.
-pub(super) fn fields_in_line(line: &str) -> Vec<Field> {
+pub(super) fn fields_in_line(line: &str, dash_cells: bool) -> Vec<Field> {
     let mut fields: Vec<Field> = Vec::new();
-    for (offset, content) in cells(line) {
-        let token = first_word(&content);
-        if !is_flag_shaped(token) {
+    let all_cells = cells(line);
+    for (idx, (offset, content)) in all_cells.iter().enumerate() {
+        let offset = *offset;
+        let token = first_word(content);
+        // A `+`-led cell right after a still-bare plus-or-minus token is
+        // that token's per-polarity description (`+f|-f  +filesystem or
+        // -file names`): the pair already names both polarities, so
+        // nothing can be its alias. See docs/shapes.md S-086.
+        let describes_open_pair = token.starts_with('+')
+            && fields
+                .last()
+                .is_some_and(|f| f.is_bare() && f.tokens.iter().any(|t| is_pair_token(t)));
+        // A bare `--` is a cell only where the caller proved it one
+        // (`dash_cells_are_flags`), and never an alias of a still-bare
+        // field: otherwise it is a dash separator before a description.
+        let is_separator_dash =
+            token == "--" && (!dash_cells || fields.last().is_some_and(|f| f.is_bare()));
+        if !is_flag_shaped(token) && token != "--" || is_separator_dash || describes_open_pair {
             // Plain prose: belongs to whichever field is currently open. A
             // line that starts with prose before any flag-shaped cell has
             // no open field yet, so that content is simply dropped — it
@@ -207,13 +245,13 @@ pub(super) fn fields_in_line(line: &str) -> Vec<Field> {
                 if !last.trailing.is_empty() {
                     last.trailing.push(' ');
                 }
-                last.trailing.push_str(&content);
+                last.trailing.push_str(content);
             }
             continue;
         }
         let own_trailing = content
             .strip_prefix(token)
-            .unwrap_or(&content)
+            .unwrap_or(content)
             .trim()
             .to_string();
         if let Some(last) = fields.last_mut() {
@@ -228,30 +266,71 @@ pub(super) fn fields_in_line(line: &str) -> Vec<Field> {
                 continue;
             }
         }
+        let next_is_prose = all_cells
+            .get(idx + 1)
+            .is_some_and(|(_, next)| !is_flag_shaped(first_word(next)) && first_word(next) != "--");
+        let (value_spec, trailing) = split_value_spec(&own_trailing, next_is_prose);
         fields.push(Field {
             offset,
             tokens: vec![token.to_string()],
-            trailing: own_trailing,
+            trailing,
+            value_spec,
         });
     }
     fields
 }
 
-/// True if `entry_lines` (a flags block's raw entry rows, never
-/// continuation lines) shows real column alignment: a secondary field
-/// recurring at the same character offset across at least
-/// [`MIN_COLUMN_RECURRENCE`] rows. Mirrors
+fn is_pair_token(token: &str) -> bool {
+    plus_minus_pair_rest(token).is_some()
+}
+
+/// Split a flag cell's own text after its spelling into the value
+/// placeholder and the description. A leading bracketed placeholder
+/// (`-K [i] list|(i)gn tasKs`) is always the value. A lone bare word
+/// (`-c c  cmd c ^c`) is the value only when a description cell of its
+/// own follows in the same row, since otherwise the word is the whole
+/// description. See docs/shapes.md S-036.
+fn split_value_spec(own_trailing: &str, next_is_prose: bool) -> (String, String) {
+    let first = first_word(own_trailing);
+    let rest = own_trailing[first.len()..].trim_start();
+    let bracketed = (first.starts_with('[') && first.ends_with(']') && first.len() > 2)
+        || (first.starts_with('<') && first.ends_with('>') && first.len() > 2);
+    let bare_word = rest.is_empty() && next_is_prose && !first.is_empty();
+    if bracketed || bare_word {
+        (first.to_string(), rest.to_string())
+    } else {
+        (String::new(), own_trailing.to_string())
+    }
+}
+
+/// True when a block's bare `--` cells are flags: at most one row of it
+/// carries one (lsof's `-- end option scan`). Two or more rows with a `--`
+/// cell make a column of dash separators between a flag and its
+/// description (`-I if_name  -- Specify interface`), which is no flag.
+/// See docs/shapes.md S-036.
+pub(super) fn dash_cells_are_flags(entry_lines: &[&str]) -> bool {
+    entry_lines
+        .iter()
+        .filter(|line| cells(line).iter().any(|(_, c)| first_word(c) == "--"))
+        .count()
+        <= 1
+}
+
+/// The character offsets at which a secondary field recurs at least
+/// [`MIN_COLUMN_RECURRENCE`] times across `entry_lines` (a flags block's raw
+/// entry rows, never continuation lines) — the columns of a genuinely
+/// multi-column block, empty when it is not one. Mirrors
 /// `misattribution::build_definition_index`'s recurrence check, scoped
 /// to one block. Only secondary fields count (each row's own first
 /// field is skipped), since a row's primary entry can legitimately
 /// cross-reference another real flag in its own prose (`du`'s `-H`
 /// mentioning `-D`) without that looking like a second column. See
 /// docs/shapes.md S-036.
-pub(super) fn block_is_multi_column(entry_lines: &[&str]) -> bool {
+pub(super) fn secondary_column_offsets(entry_lines: &[&str], dash_cells: bool) -> Vec<usize> {
     let mut offset_counts: std::collections::HashMap<usize, usize> =
         std::collections::HashMap::new();
     for line in entry_lines {
-        let fields = fields_in_line(line);
+        let fields = fields_in_line(line, dash_cells);
         if fields.len() < 2 {
             continue;
         }
@@ -263,14 +342,16 @@ pub(super) fn block_is_multi_column(entry_lines: &[&str]) -> bool {
         }
     }
     offset_counts
-        .values()
-        .any(|&count| count >= MIN_COLUMN_RECURRENCE)
+        .into_iter()
+        .filter(|&(_, count)| count >= MIN_COLUMN_RECURRENCE)
+        .map(|(offset, _)| offset)
+        .collect()
 }
 
 // Packed flag rows: GNU `find --help`'s "Tests"/"Actions" tables pack
 // several `-flag [ARG]` entries onto one physical line with single
 // spaces and no description column at all. Neither
-// `block_is_multi_column` (needs each cell to carry its own
+// `secondary_column_offsets` (needs each cell to carry its own
 // description) nor the ordinary single-column path applies; reading the
 // whole line as one flag's spec would misread `-size N[bcwkMG]`'s
 // bracketed suffix as a placeholder-boundary gap and fabricate the next
@@ -357,7 +438,7 @@ mod tests {
     }
 
     /// A block with only one description column parses unaffected —
-    /// `block_is_multi_column`'s gate requires real recurring alignment.
+    /// `secondary_column_offsets`'s gate requires real recurring alignment.
     #[test]
     fn a_single_column_block_is_not_treated_as_multi_column() {
         let raw = "Options:\n\
@@ -385,7 +466,7 @@ mod tests {
                     \x20 -B  --breezy     Enable breezy mode\n\
                     \x20 -C  --calm       Enable calm mode\n";
         assert_eq!(
-            fields_in_line(" -A  --smarthome  Enable smart home key").len(),
+            fields_in_line(" -A  --smarthome  Enable smart home key", false).len(),
             1
         );
         let parsed = parse(raw);
@@ -421,7 +502,7 @@ mod tests {
                     \x20 --check   -C chain\tCheck for the existence of a rule\n\
                     \x20 --delete  -D chain\tDelete matching rule from chain\n";
         assert_eq!(
-            fields_in_line(" --append  -A chain\tAppend to chain").len(),
+            fields_in_line(" --append  -A chain\tAppend to chain", false).len(),
             1
         );
         let parsed = parse(raw);
