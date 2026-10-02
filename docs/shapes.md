@@ -4418,3 +4418,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (chattr 6 -> 5 flags), which the sweep-diff counts as a flag-count
   loss, so it awaits a maintainer ruling.
 - fleet: `chattr` only; no sweep movement while the rule is held back.
+
+### S-186: a value placeholder's comma-list tail is part of the value
+
+- id: S-186
+- looks like: |
+      --dhcp-range=<ipaddr>,...
+      --dhcp-pxe-vendor=<vendor>[,...]
+      --shared-network=<iface>|<addr>,<addr>
+- tools: dnsmasq, dpkg, dpkg-buildpackage, dpkg-genbuildinfo, dpkg-genchanges, pmap
+- handling: Fixed. An angle placeholder (and a glued `|<other>` run)
+  keeps a comma-list tail that follows it with no whitespace: `,...`,
+  `,<name>` (repeated) or `[,...]` / `[,<name>]`
+  (`glued_list_tail`). The tail says the value is a comma-separated
+  list, so dropping it lost information. A comma followed by anything
+  else (`,-f`, an alias) is not a tail. Still open: a placeholder whose
+  angle group holds a space (`set:<tag>,<mac address>`) is cut at the
+  space, as before.
+- fleet: 6 tools changed value names in the full-`PATH` sweep of 2270
+  tools (dnsmasq 25 flags, dpkg, dpkg-buildpackage, dpkg-genbuildinfo,
+  dpkg-genchanges, pmap), no flag, positional or subcommand count
+  moved; each read against raw help.

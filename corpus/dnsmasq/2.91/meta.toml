@@ -20,7 +20,3 @@ expected_framework = "generic"
 "--dhcp-range" = "<ipaddr>,..."
 "--dhcp-pxe-vendor" = "<vendor>[,...]"
 "--shared-network" = "<iface>|<addr>,<addr>"
-
-[xfail]
-broken = true
-reason = "a value spec's comma tail is dropped: --dhcp-range=<ipaddr>,... renders <ipaddr>, --dhcp-pxe-vendor=<vendor>[,...] renders <vendor>, --shared-network=<iface>|<addr>,<addr> renders <iface>|<addr>. The tail says the value is a comma-separated list, so dropping it loses information (AGENTS.md 3.9). A fix keeps the whole value spec."

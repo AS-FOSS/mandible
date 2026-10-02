@@ -1150,6 +1150,7 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
                 }
                 taken += 2 + close + 1;
             }
+            taken += glued_list_tail(&s[taken..]);
             return (s[..taken].to_string(), &s[taken..]);
         }
     }
@@ -1163,6 +1164,39 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
         })
         .map_or(s.len(), |(i, _)| i);
     (s[..end].to_string(), &s[end..])
+}
+
+/// Length of a comma-list tail glued onto a value placeholder with no
+/// whitespace: `,...`, `,<addr>` (repeated) or `[,...]`. The tail says the
+/// value is a comma-separated list, so it stays in the value name. A comma
+/// followed by anything else (`,-f`, an alias) is not a tail. See
+/// docs/shapes.md S-186.
+fn glued_list_tail(s: &str) -> usize {
+    let mut taken = 0;
+    loop {
+        let rest = &s[taken..];
+        let step = if let Some(r) = rest.strip_prefix("[,") {
+            r.find(']')
+                .filter(|&c| !r[..c].contains(char::is_whitespace))
+                .map(|c| 2 + c + 1)
+        } else if let Some(r) = rest.strip_prefix(',') {
+            if r.starts_with("...") {
+                Some(1 + 3)
+            } else if r.starts_with('<') {
+                r.find('>')
+                    .filter(|&c| !r[..c].contains(char::is_whitespace))
+                    .map(|c| 1 + c + 1)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        match step {
+            Some(n) => taken += n,
+            None => return taken,
+        }
+    }
 }
 
 /// True when `w` is a plain, all-uppercase metavar word: letter-led,
