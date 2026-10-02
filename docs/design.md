@@ -1129,6 +1129,16 @@ allowlist below.
    `COLUMNS` this policy sets cannot be matched; the scratch prefix is kept
    short to make that rare.
 
+10. **Refuse to start at all under uid 0.** The binary checks its effective
+    uid before the TUI, `--doctor`, or `--report` resolves a tool, and
+    before any probe spawns. Refusal names the flag that lifts it,
+    `--allow-root`.
+
+    A subcommand probe such as `fail2ban-client start --help` reaches a
+    daemon socket, and under root that is an action rather than a question.
+    mandible never asks for or gains privileges itself, so this rule is
+    about the privilege the user already brought, not one mandible seeks.
+
 **A convention-discovered node (§5.4's `<parent>-<sub>` children, named by a
 file on `PATH`) adds no argv shape and no exemption.** It is probed as its
 own binary's root `--help`, never as a subcommand word, so it needs no
@@ -1168,7 +1178,9 @@ Neither was a bad shape; both were a right shape sent to the wrong
 program. A per-tool list of who may be probed would be §1's forbidden
 knowledge wearing a safety label, so rule 1a requires evidence instead.
 
-**Implemented in.** `mandible-extract/src/exec/`.
+**Implemented in.** `mandible-extract/src/exec/`. Rule 10 is implemented in
+`mandible/src/root_guard.rs`, ahead of the exec chokepoint, since it governs
+whether mandible starts at all rather than one probe's argv.
 
 ---
 ---
