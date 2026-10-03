@@ -1,0 +1,28 @@
+# Excerpt of corpus/dnsmasq/2.91 (three rows).
+# Raw: `-4, --dhcp-mac=set:<tag>,<mac address>   Map MAC address ...`. The
+# angle group holds a space, and the value is the whole placeholder.
+# Broken: the value is cut at the space (`set:<tag>,<mac`).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dnsmasq"
+version = "2.91"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); dnsmasq-base 2.91-0ubuntu0.24.04.1"
+
+[[capture]]
+argv = ["dnsmasq", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_value_name]
+"--dhcp-mac" = "set:<tag>,<mac address>"
+"--dhcp-boot" = "<bootp opts>"
+
+[xfail]
+broken = true
+reason = "[S-186] a value placeholder whose angle group holds a space is cut at the space, so the value loses `address>`. AGENTS section 3.9."
