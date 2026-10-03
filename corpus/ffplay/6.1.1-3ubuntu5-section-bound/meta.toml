@@ -1,0 +1,31 @@
+# Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (one flag with choices, the
+# libdc1394 section and the first AVFilter blocks).
+# Raw: the libdc1394 section ends at `-framerate <string> .D......... (default "ntsc")`,
+# and the next heading `AVFilter AVOptions:` opens rows without a dash
+# (`thread_type <flags> ..F........ ...` with `slice`), which are not
+# libdc1394's values; they are option rows of their own sections and
+# never choices of the flag above.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-flags", "-framerate"]
+
+[contract.must_attach_choices]
+"-flags" = ["unaligned", "gray", "low_delay", "bitexact", "output_corrupt", "drop_changed"]
+
+[contract.must_not_attach_choices]
+"-framerate" = ["thread_type", "slice", "enable", "threads", "extra_hw_frames", "action", "start", "stop"]

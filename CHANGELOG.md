@@ -20,6 +20,8 @@ once it reaches a published 0.1.0 release.
 - [S-086] A plus-or-minus row (`+|-w`, `+f|-f`, `+|-r [t[m<fmt>]]`) is one flag carrying both `+x` and `-x` spellings with the row's own description (`mandible lsof`'s `-e`, `-f`, `-L`, `-M`, `-r`, `-w`).
 - [S-036] A packed multi-column row reads `+X` and `--` cells as cells of their own and keeps each cell's value placeholder out of its description (`mandible lsof`'s `+c`, `+d`, `+D`, `+m`, `--`, `-c c`; `mandible unzip`'s `-O CHARSET`).
 - [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
+- [S-015] An AVOptions row whose only text is the capability column keeps it as the description (`mandible ffplay`'s `-ch_layout`, `-srtp_in_suite`).
+- [S-014] An AVOptions-shaped row never becomes a choice of the flag above its section: `mandible ffplay`'s libdc1394 `-framerate` no longer carries 1348 AVFilter option names, and those options show as dashless flags in their own `AVFilter AVOptions:`-style groups with their values.
 - [S-184] `mandible dmsetup` keeps `create`'s `-m|--minor` beside `-j|--major`, shows `resume`'s `--addnodeonresume` and `--addnodeoncreate` as two flags, and `remove`, `suspend`, `resume`, `wipe_table`, `rename` and `dmstats create` keep their trailing operands (`device...`, `new_name_or_uuid`, `file_path`).
 - [S-185] `mandible chattr` shows its `[-+=aAcCdDeijPsStTuFx]` mode as an operand instead of a fabricated `-+` flag.
 - [S-134] A value-free `-c or --copyright text...` row is one flag with both spellings and its own description instead of `-c` taking the word `or` as a value (`mandible icupkg`'s `-c`, #142).
@@ -27,6 +29,7 @@ once it reaches a published 0.1.0 release.
 - [S-153] A trailing operand behind a `[--]` marker or alone on a wrapped usage line reaches the tree, and a `name  text` table row describes it (`mandible lsof`'s `names`, `mandible icupkg`'s `infilename` and `outfilename`).
 - [S-096] A `[[--] program args...]` usage group is an optional separator then positional operands, and the `-- program args` row describes `program` instead of being a flag (`mandible lldb-server gdbserver`).
 - [S-179] A headed block of undescribed `<tool> <word>` invocation lines names its words as subcommands, listed but never probed (`mandible brew`'s search, info, install, update, upgrade, uninstall, list, config, doctor, create, edit, commands, help, #163).
+- [S-186] A value placeholder whose angle group holds a space keeps the whole group (`mandible dnsmasq`'s `--dhcp-mac=set:<tag>,<mac address>`, `mandible as`'s `-mabi=<abi name>`).
 
 ## [0.8.1] - 2026-10-02
 

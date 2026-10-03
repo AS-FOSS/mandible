@@ -1,0 +1,6 @@
+Usage: dnsmasq [options]
+
+Valid options are:
+-M, --dhcp-boot=<bootp opts>                           Specify BOOTP options to DHCP server.
+-4, --dhcp-mac=set:<tag>,<mac address>                 Map MAC address (with wildcards) to option set.
+    --shared-network=<iface>|<addr>,<addr>             Specify extra networks sharing a broadcast domain for DHCP

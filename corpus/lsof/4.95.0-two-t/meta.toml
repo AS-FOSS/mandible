@@ -1,0 +1,34 @@
+# Excerpt of corpus/lsof/4.95.0 (the options table through the -i row).
+# Raw: `  -T disable TCP/TPI info` in the three-column table, and later in the
+# same table `  -T fqs TCP/TPI Fl,Q,St (s) info`. The second row has a value
+# and a description of its own, so it keeps both. Broken: the -T row with
+# value fqs has no description.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lsof"
+version = "4.95.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["lsof", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-T", "-p", "-S", "-g"]
+
+[contract.must_value_name]
+"-T" = "fqs"
+
+[contract.must_describe]
+"-T" = "TCP/TPI Fl,Q,St (s) info"
+
+[xfail]
+broken = true
+reason = "[S-031] a one-space boundary between a lowercase value and an uppercase-led description is not found, so the -T fqs row has no description. The block's other rows all start their description at the same column. AGENTS section 3.9: the row's text belongs on it."

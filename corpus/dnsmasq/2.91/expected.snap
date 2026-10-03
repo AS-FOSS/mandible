@@ -790,7 +790,7 @@ flags:
 - spellings:
   - '-4'
   - --dhcp-mac
-  value_name: set:<tag>,<mac
+  value_name: set:<tag>,<mac address>
   value_kind: Required
   group: 'Valid options are:'
   description: Map MAC address (with wildcards) to option set.

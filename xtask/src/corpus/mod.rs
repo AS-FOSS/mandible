@@ -50,6 +50,7 @@ use std::time::{Duration, Instant};
 
 mod contract;
 mod markdown;
+mod not_attach_choices;
 mod refill_contract;
 mod report;
 mod runner;
@@ -291,6 +292,13 @@ pub(crate) struct ContractMeta {
     /// this vacuously, the same reasoning `must_not_contain_flags` uses.
     #[serde(default)]
     must_not_describe: std::collections::BTreeMap<String, String>,
+    /// Choice values no root flag of this spelling may carry, keyed by the
+    /// flag's own spelling. The negative twin of `must_attach_choices`:
+    /// every root flag with that spelling is checked, so a choices block
+    /// that overran into another section's flag is a failure. Vacuous when
+    /// the tree has no root or no such flag.
+    #[serde(default)]
+    must_not_attach_choices: std::collections::BTreeMap<String, Vec<String>>,
     /// A subcommand's own display spelling (`CommandNode::display_name`,
     /// falling back to its bare `name` when unset), keyed by path the way
     /// `must_contain_flags_by_path` is keyed. `ar`'s `r` row displays as
@@ -1447,6 +1455,33 @@ must_not_contain_flags = ["{forbidden}"]
                 .map(|f| f.0.as_str())
                 .collect::<Vec<_>>(),
             vec!["must_attach_choices: no root produced"]
+        );
+    }
+
+    /// `must_not_attach_choices` checks every flag of the spelling and is
+    /// silent when none carries a named value.
+    #[test]
+    fn must_not_attach_choices_names_the_values_carried() {
+        let mut forbidden = std::collections::BTreeMap::new();
+        forbidden.insert("--warnings".to_string(), vec!["slice".to_string()]);
+        let contract = ContractMeta {
+            must_not_attach_choices: forbidden,
+            ..ContractMeta::default()
+        };
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        assert!(check_contract(&contract, Some(&root)).is_empty());
+        let mut first = Entity::flag_long("warnings", Provenance::single(Source::HelpText));
+        first.choices.push(mandible_core::Choice::bare("gnu"));
+        let mut second = Entity::flag_long("warnings", Provenance::single(Source::HelpText));
+        second.choices.push(mandible_core::Choice::bare("slice"));
+        root.entities.push(first);
+        root.entities.push(second);
+        assert_eq!(
+            check_contract(&contract, Some(&root))
+                .iter()
+                .map(|f| f.0.as_str())
+                .collect::<Vec<_>>(),
+            vec!["must_not_attach_choices[\"--warnings\"]: carries slice"]
         );
     }
 
