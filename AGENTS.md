@@ -91,6 +91,8 @@ half. Five moved tools is evidence that the shape recurs, and the pull request
 states the count. Fewer than five may ship when the sweep-diff shows zero
 losses, the nine controls stay byte-identical, the corpus stays green, and
 every moved tool has been read against its raw help (docs/design.md §16).
+A flag the sweep counts as lost is a fix, not a loss, when raw help shows
+the tool never documented it and a fixture asserts it is gone.
 
 Never loosen a recognizer to catch more cases when it can degrade a tool that
 already works, because a permissive instrument hides the defects it exists to

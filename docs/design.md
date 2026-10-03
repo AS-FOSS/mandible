@@ -3059,6 +3059,13 @@ every moved tool read against its raw help. The pull request states the tool
 count. The rule must still be general. A tool-name-keyed rule stays
 forbidden by §1. This supersedes the per-fix below-bar exceptions above.
 
+**Removing a fabricated flag is a fix, not a sweep loss (2026-10-03).** The
+sweep-diff counts any flag that disappears as a loss. `chattr`'s `-+` was
+invented from the operand `[-+=aAcCdDeijPsStTuFx]`, and the change that
+removed it read as one lost flag. A lost flag counts as a fix when raw help
+shows the tool never documented it and a fixture asserts it is gone
+(`corpus/chattr/1.47.0`). Every other lost flag is still a loss.
+
 1. **Cold-start cost is the top UX risk.** 10–25 s for cobra-heavy tools if
    extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2),
    which must exist early, not in a polish phase; there is no cache (§11).
