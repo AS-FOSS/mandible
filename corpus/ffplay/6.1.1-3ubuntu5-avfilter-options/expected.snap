@@ -127,6 +127,47 @@ flags:
   provenance:
     sources:
     - help-text
+- spellings:
+  - level_in
+  value_name: double
+  value_kind: Required
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set input gain (from 0.015625 to 64) (default 1)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - mode
+  value_name: int
+  value_kind: Required
+  choices:
+  - name: downward
+    description: 0 ..F.A....T.
+  - name: upward
+    description: 1 ..F.A....T.
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set mode (from 0 to 1) (default downward)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - threshold
+  value_name: double
+  value_kind: Required
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set threshold (from 0.000976563 to 1) (default 0.125)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - ratio
+  value_name: double
+  value_kind: Required
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set ratio (from 1 to 20) (default 2)
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

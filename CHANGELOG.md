@@ -21,7 +21,7 @@ once it reaches a published 0.1.0 release.
 - [S-036] A packed multi-column row reads `+X` and `--` cells as cells of their own and keeps each cell's value placeholder out of its description (`mandible lsof`'s `+c`, `+d`, `+D`, `+m`, `--`, `-c c`; `mandible unzip`'s `-O CHARSET`).
 - [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
 - [S-015] An AVOptions row whose only text is the capability column keeps it as the description (`mandible ffplay`'s `-ch_layout`, `-srtp_in_suite`).
-- [S-014] An AVOptions-shaped row never becomes a choice of the flag above its section (`mandible ffplay`'s libdc1394 `-framerate` no longer carries 1348 AVFilter option names).
+- [S-014] An AVOptions-shaped row never becomes a choice of the flag above its section: `mandible ffplay`'s libdc1394 `-framerate` no longer carries 1348 AVFilter option names, and those options show as dashless flags in their own `AVFilter AVOptions:`-style groups with their values.
 - [S-184] `mandible dmsetup` keeps `create`'s `-m|--minor` beside `-j|--major`, shows `resume`'s `--addnodeonresume` and `--addnodeoncreate` as two flags, and `remove`, `suspend`, `resume`, `wipe_table`, `rename` and `dmstats create` keep their trailing operands (`device...`, `new_name_or_uuid`, `file_path`).
 - [S-185] `mandible chattr` shows its `[-+=aAcCdDeijPsStTuFx]` mode as an operand instead of a fabricated `-+` flag.
 - [S-134] A value-free `-c or --copyright text...` row is one flag with both spellings and its own description instead of `-c` taking the word `or` as a value (`mandible icupkg`'s `-c`, #142).

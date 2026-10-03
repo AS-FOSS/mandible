@@ -282,8 +282,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `<type> ED.VAS.....` is an option of its own AVOptions section and never a
   choice (`corpus/ffplay/6.1.1-3ubuntu5-section-bound`), so `ffplay`'s
   AVFilter rows no longer become 1348 choices of libdc1394's `-framerate`.
-  Those rows are dropped, since they are filter options and not flags of the
-  tool. See S-025 for the still-open
+  Inside a section headed `... AVOptions:` those rows are the section's own
+  options: each is emitted as a dashless flag spelled as printed, grouped
+  under the heading, with the deeper value rows as its choices
+  (`corpus/ffplay/6.1.1-3ubuntu5-avfilter-options`). See S-025 for the still-open
   morphological-variant gap this leaves.
 - fleet: not measured
 

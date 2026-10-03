@@ -40,7 +40,3 @@ must_contain_flags = ["-framerate", "thread_type", "enable", "action", "level_in
 [contract.must_value_name]
 "thread_type" = "flags"
 "action" = "int"
-
-[xfail]
-broken = true
-reason = "[S-014] dashless AVOptions rows of an AVOptions section render nowhere: the rows are skipped as choices and nothing emits them as the section's own options (AGENTS 3.9). A fix emits each as a dashless flag in its section's group with its nested value rows as choices."
