@@ -1,0 +1,80 @@
+name: brew
+usage:
+- '  brew search TEXT|/REGEX/'
+- '  brew info [FORMULA|CASK...]'
+- '  brew install FORMULA|CASK...'
+- '  brew update'
+- '  brew upgrade [FORMULA|CASK...]'
+- '  brew uninstall FORMULA|CASK...'
+- '  brew list [FORMULA|CASK...]'
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: search
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: info
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: install
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: update
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: upgrade
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: uninstall
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: list
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: config
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: doctor
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: create
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: edit
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: help
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

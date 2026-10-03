@@ -38,6 +38,7 @@ mod emit;
 mod entry;
 mod flag_rows;
 mod heading;
+mod invocation_block;
 mod layout;
 mod multiword;
 mod numeric_range;
@@ -61,6 +62,7 @@ pub use emit::*;
 pub use entry::*;
 use flag_rows::*;
 pub use heading::*;
+use invocation_block::{recover_invocation_block, scan_invocation_block};
 pub use layout::*;
 use multiword::*;
 use numeric_range::{
@@ -1341,6 +1343,11 @@ fn emit_heading_block(
     let heading_indent = h.heading_indent;
     let heading_idx = h.heading_idx;
 
+    // A headed block of undescribed `<tool> <word> ...` rows. S-179.
+    if let Some(end) = recover_invocation_block(lines, heading_idx, tool_name, raw, st) {
+        return end;
+    }
+
     // Reaching here means genuinely more-indented content follows this
     // heading — LVM's own stanza shape, a head line naming a
     // mode-selecting flag followed by that mode's rows. Recovering
@@ -2155,6 +2162,17 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        // An extended usage label (`Example usage:`) whose rows are all
+        // `<tool> <word> ...` also names subcommands; the rows stay usage
+        // forms too. S-179.
+        if let Some((_, nodes)) = labelled_usage_start
+            .zip(tool_name)
+            .and_then(|(at, name)| scan_invocation_block(&lines, at, name, raw))
+        {
+            for node in nodes {
+                result.try_push_subcommand(node);
+            }
+        }
         // A command table sitting directly under the root's own labelled
         // usage block, one line per command, rows never repeating the
         // tool's own name (`dmsetup`'s second block). Gated on

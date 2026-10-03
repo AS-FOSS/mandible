@@ -4303,22 +4303,33 @@ entry's `tools` field and nothing else. It does not get a new entry.
         brew commands
         brew help [COMMAND]
 - tools: brew
-- handling: Open defect. `brew --help` reads as one node with no subcommands and
-  no flags. Every line under the four headings opens with the tool's own name
-  and a lowercase word, and no line has a description, so S-016 (which needs a
-  deeper description row under each name row) and S-169 (a command table inside
-  the usage block) do not apply. The 13 names in the text are search, info,
-  install, update, upgrade, uninstall, list, config, doctor, create, edit,
-  commands and help. A fix needs a general rule that reads a block whose every
-  non-blank line is `<tool> <word> ...` as subcommand names marked
-  invocation-attested only, so they are listed but never probed
-  (docs/design.md section 6). S-071 fences `Examples:` regions because their
-  lines can be shell commands, so the rule must show that these blocks are
-  invocation forms of the tool itself and leave `Examples:` alone. Running
-  `brew commands` for the full list is not an argv section 6 allows, so only
-  the names the text spells out are in reach. Fixture: `corpus/brew/7.0.2`,
-  transcribed from issue #163 because brew is not installed on the dev box.
-- fleet: not measured
+- handling: Fixed. A block under a heading ending in a colon, every
+  non-blank line of which is either `<tool> <lowercase word> ...` or a
+  reference line (a bare URL, `man <tool>`), names those words as
+  subcommands (`invocation_block.rs`). The tool name is the one the
+  pipeline resolved, not a literal. At least two distinct words are
+  required, a repeat (`install`) folds into one node, and each word must
+  occur in the raw text. Nodes are `invocation_attested`, never
+  `heading_attested`, so no `<tool> <word> --help` is ever sent
+  (docs/design.md section 6, test
+  `invocation_block_child_is_never_heading_attested_and_never_probed`).
+  `Example usage:` is read by the usage scanner as an extended usage
+  label (S-151); its rows stay usage forms and also name subcommands. The
+  S-071 fence holds: a heading that is exactly `Example`/`Examples`, a
+  literal `Usage:` and a `Synopsis`/`Syntax` heading are never read this
+  way, and one line that is not an invocation of the tool refuses the
+  whole block. Flags on a row (`install --verbose --debug FORMULA|CASK`,
+  `create URL [--no-fetch]`) are not attached to their subcommand: the
+  usage-flag reader would give the operand to the last flag as its value,
+  which the help never says. Running `brew commands` for the full list is
+  not an argv section 6 allows, so only the 13 names the text spells out
+  (search, info, install, update, upgrade, uninstall, list, config,
+  doctor, create, edit, commands, help) are in reach. Fixture:
+  `corpus/brew/7.0.2`, transcribed from issue #163 because brew is not
+  installed on the dev box.
+- fleet: no tool on the dev box gained or lost anything in the full-PATH
+  sweep of 2270 tools (no tool installed here prints this shape); no other
+  corpus fixture changed.
 
 ### S-180: a value spec spells an alternation of angle placeholders
 

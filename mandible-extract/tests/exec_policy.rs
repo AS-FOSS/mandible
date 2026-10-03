@@ -904,6 +904,72 @@ exit 1
     );
 }
 
+/// docs/shapes.md S-179: a node named by a headed block of undescribed
+/// `<tool> <word>` invocation lines is existence-attested only. Driven
+/// through the real root extraction; the child's name must never reach the
+/// shim as argv (spec section 6: `brew commands` and friends are not
+/// allowlisted).
+#[test]
+fn invocation_block_child_is_never_heading_attested_and_never_probed() {
+    let dir = tempfile::tempdir().unwrap();
+    let script = r#"#!/bin/sh
+if [ "$1" = "--help" ]; then
+    cat <<'HELPEOF'
+Example usage:
+  pkgtool search TEXT
+  pkgtool install NAME...
+
+Further help:
+  pkgtool commands
+  pkgtool help [COMMAND]
+HELPEOF
+    exit 0
+fi
+echo "unexpected argv: $@" >&2
+exit 1
+"#;
+    let shim = write_named_shim(dir.path(), "pkgtool", script);
+
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkgtool".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let root = tier
+        .extract_node(
+            &tool,
+            &["pkgtool".to_string()],
+            NodeHints {
+                heading_attested: true,
+                abbrev_probe_attested: false,
+            },
+        )
+        .expect("root probe must succeed");
+    let names: Vec<&str> = root.subcommands.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names, ["search", "install", "commands", "help"]);
+    for node in &root.subcommands {
+        assert!(
+            node.invocation_attested && !node.heading_attested,
+            "{}",
+            node.name
+        );
+        let result = tier.extract_node(
+            &tool,
+            &["pkgtool".to_string(), node.name.clone()],
+            NodeHints {
+                heading_attested: node.heading_attested,
+                abbrev_probe_attested: false,
+            },
+        );
+        assert!(
+            result.is_err(),
+            "{} must be declined: {result:?}",
+            node.name
+        );
+    }
+}
+
 /// Shared with the "prove the negative fails without the fix" check below:
 /// a shim that marks which of the two probes it received, man-shaped on
 /// `--help` exactly like `man_shaped_subcommand_help_triggers_the_dash_h_fallback_when_permitted`'s
