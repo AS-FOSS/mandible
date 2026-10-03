@@ -852,6 +852,32 @@ run = ["--source", "--staged"]
     }
 
     #[test]
+    fn bless_skips_xfail_fixture_and_never_touches_its_snapshot() {
+        let corpus = setup();
+        green_fixture(&corpus.root);
+        broken_xfail_fixture(&corpus.root);
+
+        let blessed = run(&corpus.root, true, ScoreFormat::Text).expect("bless run succeeds");
+        assert!(!blessed.failed());
+        assert!(corpus.root.join("mytool/1.0/expected.snap").is_file());
+        assert!(
+            !corpus.root.join("brokentool/1.0/expected.snap").exists(),
+            "bless must not invent expected.snap for an [xfail] fixture"
+        );
+        assert!(
+            blessed.text.contains("skipped brokentool"),
+            "bless names the xfail fixture it skipped: {}",
+            blessed.text
+        );
+
+        // A snapshot an xfail fixture already has is left byte-for-byte alone.
+        let existing = corpus.root.join("brokentool/1.0/expected.snap");
+        fs::write(&existing, "hand-kept\n").unwrap();
+        run(&corpus.root, true, ScoreFormat::Text).expect("second bless run succeeds");
+        assert_eq!(fs::read_to_string(&existing).unwrap(), "hand-kept\n");
+    }
+
+    #[test]
     fn green_fixture_with_bless_then_check_round_trips_clean() {
         let corpus = setup();
         green_fixture(&corpus.root);
