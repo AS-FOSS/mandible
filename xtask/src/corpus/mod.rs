@@ -49,6 +49,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 mod contract;
+mod group_rows_contract;
 mod markdown;
 mod refill_contract;
 mod report;
@@ -360,6 +361,11 @@ pub(crate) struct ContractMeta {
     /// flag's own spelling. See `refill_contract.rs`.
     #[serde(default)]
     must_choices_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
+    /// Group label (`""` for no group) to the flag spellings that must have
+    /// exactly one row under it, in the parse and after a refill. See
+    /// `group_rows_contract.rs` and docs/shapes.md S-187.
+    #[serde(default)]
+    must_one_row_in_group: std::collections::BTreeMap<String, Vec<String>>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a

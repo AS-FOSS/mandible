@@ -1,0 +1,33 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "lsof"
+version = "4.95.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.2.2"
+
+# The usage synopsis `[--]` and the table row `-- end option scan` are one
+# option: the undescribed synopsis spelling folds into the described row
+# (spec [M-15], S-187). Same bytes as corpus/lsof/4.95.0.
+
+[[capture]]
+argv = ["lsof", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--", "-T"]
+
+[contract.must_describe]
+"--" = "end option scan"
+
+[contract.must_one_row_in_group]
+"" = ["--"]
+
+[xfail]
+broken = true
+reason = "S-187: the usage synopsis `[--]` stays a second, undescribed `--` row beside the table row `-- end option scan`"

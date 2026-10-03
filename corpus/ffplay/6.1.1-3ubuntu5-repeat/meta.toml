@@ -1,0 +1,37 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+# Excerpt of the 6.1.1-3ubuntu5 capture: its Main options table, the
+# `text/vplayer/stl/pjs/subviewer1 decoder AVOptions:` block printed five
+# times, and a run of demuxer blocks including `generic raw video demuxer
+# AVOptions:` printed twice under one heading with identical rows.
+# Rows identical in every field under one heading are one row (S-187);
+# a different row under the same spelling elsewhere stays separate.
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["-keep_ass_markup", "-framerate", "-raw_packet_size", "-linespeed"]
+
+[contract.must_one_row_in_group]
+"text/vplayer/stl/pjs/subviewer1 decoder AVOptions:" = ["-keep_ass_markup"]
+"generic raw video demuxer AVOptions:" = ["-framerate", "-raw_packet_size"]
+"AV1 Annex B/low overhead OBU demuxer AVOptions:" = ["-framerate"]
+"Binary text demuxer AVOptions:" = ["-framerate"]
+"bitpacked demuxer AVOptions:" = ["-framerate"]
+
+[xfail]
+broken = true
+reason = "S-187: a block printed repeatedly under one heading renders its rows once per print; identical rows under one heading must fold to one"
