@@ -794,16 +794,17 @@ You found a tool that parses badly. The steps:
    fixed). A maintainer merges it: the bug is now an executable, reproducible
    backlog entry instead of a prose report.
 6. **Optionally, fix it** — in the same PR or a later one, by you or anyone:
-   improve the grammar (never add per-tool logic), run
-   `cargo xtask corpus --bless` to accept the new snapshot, fill in
-   `[contract]`, set `[bless] provenance` (`"agent"` unless a human is doing
-   this bless and reviewing the tree themselves, in which case `"human"`),
-   remove `[xfail]`. `cargo xtask corpus` (without `--bless`)
+   improve the grammar (never add per-tool logic), remove `[xfail]`, fill in
+   `[contract]`, run `cargo xtask corpus --bless` to accept the new snapshot,
+   and set `[bless] provenance` (`"agent"` unless a human is doing this bless
+   and reviewing the tree themselves, in which case `"human"`).
+   `cargo xtask corpus` (without `--bless`)
    enforces that **every other fixture stays green** — that is the entire
    point. A fix that breaks another fixture will be named, and the tension
-   goes to review instead of shipping. Note the order: blessing happens
-   *before* removing `[xfail]`, and that's deliberate — the strict-xfail
-   check on the very next plain run is what then tells you to remove it.
+   goes to review instead of shipping. Note the order: `--bless` skips
+   every `[xfail]` fixture (it names each one it skipped), so remove
+   `[xfail]` before blessing. The strict-xfail check on a plain run tells
+   you when a fixture is stale and ready to promote.
 
 Fixture-only PRs (step 5) need no Rust and are near-trivially mergeable.
 Grammar PRs (step 6) are held to CONTRIBUTING.md's full bar.
