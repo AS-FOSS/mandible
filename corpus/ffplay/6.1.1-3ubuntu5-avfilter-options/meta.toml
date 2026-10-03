@@ -1,0 +1,46 @@
+# Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (the libdc1394 section and three
+# AVFilter sections). Raw: the sections after `libdc1394 indev AVOptions:`
+# print their options without a dash (`thread_type <flags> ..F........`,
+# `action <int> ..F.A......` with nested `start 0 ..F.A......` values).
+# They are options of their own sections, never choices of `-framerate`,
+# and must still render, as dashless options in their section's group.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-framerate", "thread_type", "enable", "action", "level_in", "mode"]
+
+[contract.must_attach_choices]
+"thread_type" = ["slice"]
+"action" = ["start", "stop"]
+"mode" = ["downward", "upward"]
+
+[contract.must_not_attach_choices]
+"-framerate" = ["thread_type", "slice", "enable", "threads", "action", "start", "stop", "level_in", "mode"]
+
+[contract.must_flag_group]
+"thread_type" = "AVFilter AVOptions:"
+"action" = "abench AVOptions:"
+"level_in" = "acompressor/sidechaincompress AVOptions:"
+"-framerate" = "libdc1394 indev AVOptions:"
+
+[contract.must_value_name]
+"thread_type" = "flags"
+"action" = "int"
+
+[xfail]
+broken = true
+reason = "[S-014] dashless AVOptions rows of an AVOptions section render nowhere: the rows are skipped as choices and nothing emits them as the section's own options (AGENTS 3.9). A fix emits each as a dashless flag in its section's group with its nested value rows as choices."
