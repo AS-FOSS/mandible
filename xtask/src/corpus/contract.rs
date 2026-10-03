@@ -276,6 +276,14 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    for flag in b.must_not_attach_choices.keys() {
+        if !n.must_not_attach_choices.contains_key(flag) {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_not_attach_choices[{flag:?}] (assertion removed)"
+            ));
+        }
+    }
+
     // `must_display_name`: same rule as `must_describe` above — a string
     // value has no natural stronger/weaker ordering, so only its outright
     // removal is reported.
@@ -632,6 +640,22 @@ fn check_contract_scalar_fields(
                 "must_not_describe[{flag_spec:?}]: description contains {:?}, got {:?}",
                 forbidden_collapsed,
                 truncate_for_display(&actual_collapsed, 160)
+            )));
+        }
+    }
+
+    for (flag_spec, forbidden) in &contract.must_not_attach_choices {
+        let carried: Vec<&str> = root
+            .flags()
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+            .flat_map(|f| f.choices.iter())
+            .filter(|c| forbidden.iter().any(|x| x == &c.name))
+            .map(|c| c.name.as_str())
+            .collect();
+        if !carried.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_not_attach_choices[{flag_spec:?}]: carries {}",
+                carried.join(", ")
             )));
         }
     }

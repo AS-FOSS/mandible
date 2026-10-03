@@ -164,6 +164,11 @@ must_keep_separate = [["-w", "-X"], ["-C", "-CC"]]
 [contract.must_attach_choices]
 "--warnings" = ["gnu", "obsolete", "portability"]
 
+# A flag must NOT carry the named choice values. Every root flag with that
+# spelling is checked. Vacuous when the flag or the root is absent.
+[contract.must_not_attach_choices]
+"--warnings" = ["slice"]
+
 # A flag's rendered description must contain this text — substring match
 # after collapsing runs of whitespace on both sides to a single space
 # (descriptions wrap), case-sensitive. Makes description recovery
@@ -410,6 +415,11 @@ and its `Entity::choices` must include every value listed. This is a
 when any listed value is not among the choices attached to it, naming
 either the missing flag or the missing values. A fixture that produces no
 root fails this exactly as it fails `must_contain_flags`.
+
+`[contract.must_not_attach_choices]` is its negative twin: it names values
+that no root flag of that spelling may carry, so a block that overran into
+another section's flag fails by name. A tree with no root, or no such flag,
+satisfies it vacuously.
 
 ### A flag's description says what it should: `must_describe`
 

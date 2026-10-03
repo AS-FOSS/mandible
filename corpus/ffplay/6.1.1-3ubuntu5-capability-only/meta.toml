@@ -1,0 +1,40 @@
+# Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (AVOptions rows whose only text is
+# the capability column).
+# Raw: `-ch_layout <channel_layout> ED..A......`, `-srtp_in_suite <string> .D......... `,
+# `-channel_layout <channel_layout> ED..A...... (default 0x0)`. The row's only
+# text is the capability column, so it is the description; a row with prose or
+# a default keeps that text. Broken: the capability-only rows have no description.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ffplay"
+version = "6.1.1-3ubuntu5"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["ffplay", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+must_contain_flags = ["-flags", "-ch_layout", "-channel_layout", "-srtp_in_suite", "-srtp_in_params"]
+
+[contract.must_value_name]
+"-ch_layout" = "channel_layout"
+"-srtp_in_suite" = "string"
+
+[contract.must_describe]
+"-ch_layout" = "ED..A......"
+"-srtp_in_suite" = ".D........."
+"-srtp_in_params" = ".D........."
+"-channel_layout" = "(default 0x0)"
+
+[contract.must_not_describe]
+"-channel_layout" = "ED..A"
+
+[xfail]
+broken = true
+reason = "[S-015] an AVOptions row whose only text is the capability column loses it, so the row has no description. AGENTS section 3.9: the column is the description when it is the row's only text."
