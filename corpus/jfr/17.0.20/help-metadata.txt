@@ -1,0 +1,32 @@
+Display event metadata, such as labels, descriptions and field layout
+
+ jfr metadata [--categories <filter>]
+              [--events <filter>]
+              [<file>]
+
+  --categories <filter>   Select events matching a category name.
+                          The filter is a comma-separated list of names,
+                          simple and/or qualified, and/or quoted glob patterns
+
+  --events <filter>       Select events matching an event name.
+                          The filter is a comma-separated list of names,
+                          simple and/or qualified, and/or quoted glob patterns
+
+  <file>                  Location of the recording file (.jfr)
+
+If the <file> parameter is omitted, metadata from the JDK where
+the 'jfr' tool is located will be used
+
+
+Example usage:
+
+ jfr metadata
+
+ jfr metadata --events jdk.ThreadStart recording.jfr
+
+ jfr metadata --events CPULoad,GarbageCollection
+
+ jfr metadata --categories 'GC,JVM,Java*'
+
+ jfr metadata --events 'Thread*'
+

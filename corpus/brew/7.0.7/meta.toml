@@ -77,7 +77,3 @@ install = ["--debug", "--force", "--verbose", "--dry-run", "--formula", "--ignor
 search = ["--formula", "--cask", "--desc"]
 upgrade = ["--debug", "--force", "--verbose"]
 
-[xfail]
-broken = true
-reason = "[S-187] `brew help <word>` is never probed, so every subcommand renders with no flags and no description"
-issue = "https://github.com/AS-FOSS/mandible/issues/163"
