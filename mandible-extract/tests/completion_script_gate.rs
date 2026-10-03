@@ -103,6 +103,7 @@ fn a_tool_with_no_completion_evidence_never_receives_a_completion_argv() {
         mandible_extract::NodeHints {
             heading_attested: true,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         },
     );
     assert!(result.is_err(), "expected a refusal, got {result:?}");
@@ -144,6 +145,7 @@ fn a_tool_that_advertises_the_command_is_still_probed_and_still_extracts() {
             mandible_extract::NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("evidence is present, so extraction must proceed exactly as before");

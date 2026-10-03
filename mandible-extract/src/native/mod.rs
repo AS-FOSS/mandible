@@ -915,6 +915,7 @@ mod tests {
                 NodeHints {
                     heading_attested: true,
                     abbrev_probe_attested: false,
+                    help_word_attested: false,
                 },
             )
             .expect("detect having succeeded, extract_node must too");
@@ -963,6 +964,7 @@ mod tests {
                 NodeHints {
                     heading_attested: true,
                     abbrev_probe_attested: false,
+                    help_word_attested: false,
                 },
             )
             .expect("detect having succeeded, extract_node must too");

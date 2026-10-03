@@ -4452,3 +4452,34 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools (dnsmasq 25 flags, dpkg, dpkg-buildpackage, dpkg-genbuildinfo,
   dpkg-genchanges, pmap), no flag, positional or subcommand count
   moved; each read against raw help.
+
+### S-187: a strict `<tool> help <COMMAND>` line opens `help <word>` probes
+
+- id: S-187
+- looks like: |
+      Further help:
+        brew commands
+        brew help [COMMAND]
+      jfr help [<command>] (aliases --help, -h, -?)
+- tools: brew, jfr, gem
+- handling: Fixed. A help text with a line that opens with the tool's own
+  name, then `help`, then one slot (`[COMMAND]`, `<command>`, `<command...>`
+  or a bare all-caps `COMMAND`), then nothing, a parenthetical or a column
+  gap and a description, is a strict help line (`help_word.rs`). A sentence
+  that quotes the argv ("See 'git help <command>'") opens with another word
+  and never matches. Each subcommand the same text names by invocation and
+  not by heading gets `help_word_attested`, except the word `help`. Such a
+  node is probed as `help <word>` and never as `<word> --help`
+  (docs/design.md section 6 rule 2c), so it gains its own flags and
+  description. A flag-bearing text still needs the parser to read it:
+  `jfr help metadata` is probed and its prose reads, but its wrapped usage
+  block and headingless flag rows yield no flags (`corpus/jfr/17.0.20`,
+  xfail). `gem` prints the line, names no word by invocation, and gains
+  nothing. A usage line `Usage: brew search, -S [options] ...` gives the
+  alias `-S` an invented optional value (`corpus/brew/7.0.7-search-alias`,
+  xfail). The prose paragraph after a `Usage:` line is not read as the
+  node description. Fixtures: `corpus/brew/7.0.7`, `corpus/jfr/17.0.20`.
+- fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
+  cannot see this change. 2301 captures hold two strict lines (`gem`, `jfr`),
+  plus `brew`, which is not in the captures.
+

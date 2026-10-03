@@ -515,6 +515,8 @@ fn apply_effect(
                     .is_some_and(|n| n.heading_attested),
                 abbrev_probe_attested: mandible_core::resolve(&app.root, &path)
                     .is_some_and(|n| n.abbrev_probe_attested),
+                help_word_attested: mandible_core::resolve(&app.root, &path)
+                    .is_some_and(|n| n.help_word_attested),
             };
             // Through the same redirect the parse itself went through
             // (spec §5.4), for exactly the reason above: under a
@@ -527,11 +529,11 @@ fn apply_effect(
                 // Render the argv exactly as a human would type it, so
                 // the pane can name its own source rather than assume one.
                 Ok((lines, flag)) => {
-                    let argv = std::iter::once(raw_tool.name.clone())
-                        .chain(raw_path.iter().skip(1).cloned())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    RawHelp::Ready(lines, format!("{argv} {flag}"))
+                    let words: Vec<String> = raw_path.iter().skip(1).cloned().collect();
+                    RawHelp::Ready(
+                        lines,
+                        mandible_extract::help_text::render_argv(&raw_tool.name, &words, &flag),
+                    )
                 }
                 // Shown in the pane, not swallowed: "refused: kill is
                 // never probed" is a useful answer to `t`, and a blank

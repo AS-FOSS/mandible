@@ -27,6 +27,9 @@ pub struct NodeHints {
     /// [`mandible_core::CommandNode::abbrev_probe_attested`]; never set from
     /// `invocation_attested` in general (spec §6 rule 0).
     pub abbrev_probe_attested: bool,
+    /// Mirrors [`mandible_core::CommandNode::help_word_attested`]: admits the
+    /// `help <word>` probe and no other (spec §6 rule 2).
+    pub help_word_attested: bool,
 }
 
 /// One source of `CommandNode` data: a known-spec catalog, `--help` grammar

@@ -1,0 +1,7 @@
+Assemble leftover chunks from a disk repository into a recording file
+
+ jfr assemble <repository> <file>
+
+  <repository>   Directory where the repository is located
+
+  <file>         Name of the recording file (.jfr) to create

@@ -1,0 +1,5 @@
+Display general information about a recording file (.jfr)
+
+ jfr summary <file>
+
+  <file>   Location of the recording file (.jfr) to display information about

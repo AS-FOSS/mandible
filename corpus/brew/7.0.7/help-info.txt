@@ -1,0 +1,43 @@
+Usage: brew info, abv [options] [formula|cask ...]
+
+Display brief statistics for your Homebrew installation. If a formula or
+cask is provided, show summary of information about it.
+
+      --analytics                  List global Homebrew analytics data or, if
+                                   specified, installation and build error data
+                                   for formula (provided neither
+                                   $HOMEBREW_NO_ANALYTICS nor
+                                   $HOMEBREW_NO_GITHUB_API are set).
+      --days                       How many days of analytics data to retrieve.
+                                   The value for days must be 30, 90 or
+                                   365. The default is 30.
+      --category                   Which type of analytics data to retrieve. The
+                                   value for category must be install,
+                                   install-on-request or build-error;
+                                   cask-install or os-version may be
+                                   specified if formula is not. The default is
+                                   install.
+      --github                     Open the GitHub source page for formula and
+                                   cask in a browser. To view the history
+                                   locally: brew log -p formula or cask
+      --json                       Print a JSON representation. Currently the
+                                   default value for version is v1.v1 is
+                                   valid for formula only. v2 is valid for
+                                   both formula and cask.See the docs for
+                                   examples of using the JSON output:
+                                   https://docs.brew.sh/Querying-Brew
+      --installed                  Output a human-readable inventory of
+                                   installed formulae and casks. If --json is
+                                   passed, print JSON for installed formulae
+                                   and, with --json=v2, installed casks.
+      --variations                 Include the variations hash in each formula's
+                                   JSON output.
+  -v, --verbose                    Show more verbose data for formula, or full
+                                   information with --installed.
+      --formula, --formulae        Treat all named arguments as formulae.
+      --cask, --casks              Treat all named arguments as casks.
+      --sizes                      Show the size of installed formulae and
+                                   casks.
+  -d, --debug                      Display any debugging information.
+  -q, --quiet                      Make some output more quiet.
+  -h, --help                       Show this message.

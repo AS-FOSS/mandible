@@ -18,61 +18,73 @@ subcommands:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: info
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: install
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: update
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: upgrade
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: uninstall
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: list
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: config
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: doctor
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: create
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: edit
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: commands
   provenance:
     sources:
     - help-text
   invocation_attested: true
+  help_word_attested: true
 - name: help
   provenance:
     sources:

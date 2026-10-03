@@ -1,0 +1,10 @@
+Usage: brew commands [--quiet] [--include-aliases]
+
+Show lists of built-in and external commands.
+
+  -q, --quiet                      List only the names of commands without
+                                   category headers.
+      --include-aliases            Include aliases of internal commands.
+  -d, --debug                      Display any debugging information.
+  -v, --verbose                    Make some output more verbose.
+  -h, --help                       Show this message.

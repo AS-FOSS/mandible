@@ -1,0 +1,4 @@
+Display version of the jfr tool
+
+ jfr version (alias --version)
+

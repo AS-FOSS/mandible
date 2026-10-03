@@ -1,0 +1,55 @@
+# Captured from OpenJDK 17.0.20 on the dev box through the probe
+# environment. The root prints `jfr help [<command>] (aliases --help, -h,
+# -?)`, so each word its own text attests by invocation is probed as
+# `jfr help <word>` (docs/shapes.md S-187, spec section 6 rule 2).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jfr"
+version = "17.0.20"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["jfr", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["jfr", "help", "configure"]
+stdout = "help-configure.txt"
+
+[[capture]]
+argv = ["jfr", "help", "metadata"]
+stdout = "help-metadata.txt"
+
+[[capture]]
+argv = ["jfr", "help", "summary"]
+stdout = "help-summary.txt"
+
+[[capture]]
+argv = ["jfr", "help", "assemble"]
+stdout = "help-assemble.txt"
+
+[[capture]]
+argv = ["jfr", "help", "disassemble"]
+stdout = "help-disassemble.txt"
+
+[[capture]]
+argv = ["jfr", "help", "version"]
+stdout = "help-version.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 6
+
+[contract.must_contain_flags_by_path]
+metadata = ["--categories", "--events"]
+configure = ["--interactive", "--verbose", "--input", "--output"]
+disassemble = ["--output", "--max-chunks", "--max-size"]
+
+[xfail]
+broken = true
+reason = "[S-187] `jfr help <word>` is probed and its prose and usage head are read, but a wrapped usage block followed by headingless `--flag <value>   text` rows yields no flags, and `jfr print` is read as root usage rather than a node"

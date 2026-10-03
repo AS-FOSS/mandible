@@ -1,0 +1,17 @@
+Disassemble a recording file into smaller files/chunks
+
+ jfr disassemble [--output <directory>]
+                 [--max-chunks <chunks>]
+                 [--max-size <size>]
+                 <file>
+
+ --output <directory>    The location to write the disassembled file,
+                         by default the current directory
+
+ --max-chunks <chunks>   Maximum number of chunks per disassembled file,
+                         by default 5. The chunk size varies, but is 
+                         typically around 15 MB.
+
+ --max-size <size>       Maximum number of bytes per file.
+
+  <file>                 Location of the recording file (.jfr)

@@ -1,0 +1,36 @@
+Tool for working with Flight Recorder files
+
+ jfr print [--xml|--json]
+           [--categories <filter>]
+           [--events <filter>]
+           [--stack-depth <depth>]
+           <file>
+     Print contents of a recording file. See 'jfr help print' for details.
+
+ jfr configure [--interactive] [--verbose]
+               [--input <files>] [--output <file>]
+               [option=value]* [event-setting=value]*
+     Creates a custom .jfc-file for event configuration
+
+ jfr metadata [--categories <filter>]
+              [--events <filter>]
+              [<file>]
+     Display event metadata, such as labels, descriptions and field layout. See 'jfr help metadata' for details.
+
+ jfr summary <file>
+     Display general information about a recording file (.jfr)
+
+ jfr assemble <repository> <file>
+     Assemble leftover chunks from a disk repository into a recording file
+
+ jfr disassemble [--output <directory>]
+                 [--max-chunks <chunks>]
+                 [--max-size <size>]
+                 <file>
+     Disassemble a recording file into smaller files/chunks
+
+ jfr version (alias --version)
+     Display version of the jfr tool
+
+ jfr help [<command>] (aliases --help, -h, -?)
+     Display all available commands, or help about a specific command

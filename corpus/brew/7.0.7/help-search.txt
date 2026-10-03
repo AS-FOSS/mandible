@@ -1,0 +1,27 @@
+Usage: brew search, -S [options] text|/regex/ [...]
+
+Perform a substring search of cask tokens and formula names for text. If
+text is flanked by slashes, it is interpreted as a regular expression.
+
+      --formula, --formulae        Search for formulae.
+      --cask, --casks              Search for casks.
+      --desc                       Search for formulae with a description
+                                   matching text and casks with a name or
+                                   description matching text.
+      --pull-request               Search for GitHub pull requests containing
+                                   text.
+      --open                       Search for only open GitHub pull requests.
+      --closed                     Search for only closed GitHub pull requests.
+      --alpine                     Search for text in the given database.
+      --repology                   Search for text in the given database.
+      --macports                   Search for text in the given database.
+      --fink                       Search for text in the given database.
+      --opensuse                   Search for text in the given database.
+      --fedora                     Search for text in the given database.
+      --archlinux                  Search for text in the given database.
+      --debian                     Search for text in the given database.
+      --ubuntu                     Search for text in the given database.
+  -d, --debug                      Display any debugging information.
+  -q, --quiet                      Make some output more quiet.
+  -v, --verbose                    Make some output more verbose.
+  -h, --help                       Show this message.
