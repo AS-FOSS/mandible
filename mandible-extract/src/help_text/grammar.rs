@@ -1163,7 +1163,33 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
                     && alias_follows(&s[i + c.len_utf8()..]))
         })
         .map_or(s.len(), |(i, _)| i);
+    let end = unclosed_angle_end(s, end).unwrap_or(end);
     (s[..end].to_string(), &s[end..])
+}
+
+/// End offset of a value token whose last `<` has no `>` before the
+/// token's whitespace cut (`set:<tag>,<mac address>`): the next `>` closes
+/// it when at most three plain words sit between. See docs/shapes.md S-186,
+/// corpus/dnsmasq/2.91-angle-space.
+fn unclosed_angle_end(s: &str, end: usize) -> Option<usize> {
+    let token = s.get(..end)?;
+    let open = token.rfind('<')?;
+    if token.rfind('>').is_some_and(|c| c > open) {
+        return None;
+    }
+    let rest = s.get(end..)?;
+    let close = rest.find('>')?;
+    let inner = rest.get(..close)?;
+    let plain = |w: &str| {
+        w.chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | '.'))
+    };
+    let words: Vec<&str> = inner.split_whitespace().collect();
+    if words.is_empty() || words.len() > 3 || !words.iter().all(|w| plain(w)) {
+        return None;
+    }
+    let taken = end + close + 1;
+    Some(taken + glued_list_tail(s.get(taken..)?))
 }
 
 /// Length of a comma-list tail glued onto a value placeholder with no

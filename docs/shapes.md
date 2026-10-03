@@ -4448,15 +4448,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --dhcp-range=<ipaddr>,...
       --dhcp-pxe-vendor=<vendor>[,...]
       --shared-network=<iface>|<addr>,<addr>
-- tools: dnsmasq, dpkg, dpkg-buildpackage, dpkg-genbuildinfo, dpkg-genchanges, pmap
+- tools: dnsmasq, dpkg, dpkg-buildpackage, dpkg-genbuildinfo, dpkg-genchanges, pmap, as
 - handling: Fixed. An angle placeholder (and a glued `|<other>` run)
   keeps a comma-list tail that follows it with no whitespace: `,...`,
   `,<name>` (repeated) or `[,...]` / `[,<name>]`
   (`glued_list_tail`). The tail says the value is a comma-separated
   list, so dropping it lost information. A comma followed by anything
-  else (`,-f`, an alias) is not a tail. Still open: a placeholder whose
-  angle group holds a space (`set:<tag>,<mac address>`) is cut at the
-  space, as before.
+  else (`,-f`, an alias) is not a tail. A value token whose last `<` has
+  no `>` before the whitespace cut (`set:<tag>,<mac address>`) runs on to
+  the next `>` when at most three plain words sit between
+  (`unclosed_angle_end`).
 - fleet: 6 tools changed value names in the full-`PATH` sweep of 2270
   tools (dnsmasq 25 flags, dpkg, dpkg-buildpackage, dpkg-genbuildinfo,
   dpkg-genchanges, pmap), no flag, positional or subcommand count

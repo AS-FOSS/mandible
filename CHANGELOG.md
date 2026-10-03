@@ -29,6 +29,7 @@ once it reaches a published 0.1.0 release.
 - [S-153] A trailing operand behind a `[--]` marker or alone on a wrapped usage line reaches the tree, and a `name  text` table row describes it (`mandible lsof`'s `names`, `mandible icupkg`'s `infilename` and `outfilename`).
 - [S-096] A `[[--] program args...]` usage group is an optional separator then positional operands, and the `-- program args` row describes `program` instead of being a flag (`mandible lldb-server gdbserver`).
 - [S-179] A headed block of undescribed `<tool> <word>` invocation lines names its words as subcommands, listed but never probed (`mandible brew`'s search, info, install, update, upgrade, uninstall, list, config, doctor, create, edit, commands, help, #163).
+- [S-186] A value placeholder whose angle group holds a space keeps the whole group (`mandible dnsmasq`'s `--dhcp-mac=set:<tag>,<mac address>`, `mandible as`'s `-mabi=<abi name>`).
 
 ## [0.8.1] - 2026-10-02
 
