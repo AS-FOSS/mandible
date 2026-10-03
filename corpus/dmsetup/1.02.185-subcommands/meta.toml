@@ -1,5 +1,8 @@
-# Same capture as corpus/dmsetup/1.02.185. Defects in the per-subcommand
-# flags and operands of the one usage block.
+# Same capture as corpus/dmsetup/1.02.185. Per-subcommand flags and operands
+# of the one usage block. Still unfixed: create folds -n|--notable|--table
+# {<table>|<table_file>} into one flag (an alias run followed by a value does
+# not say which spelling takes it), and stats' [<options>] is read as the
+# generic options placeholder, so it is no operand.
 
 [bless]
 provenance = "agent"
@@ -20,7 +23,12 @@ expected_framework = "generic"
 
 [contract.must_contain_flags_by_path]
 create = ["--major", "--minor", "--notable", "--table"]
+resume = ["--addnodeonresume", "--addnodeoncreate"]
 
-[xfail]
-broken = true
-reason = "create drops -m|--minor <minor>, the second flag inside the bracket [-j|--major <major> -m|--minor <minor>]. Also unasserted until by-path keep-separate and positional fields exist: create folds -n|--notable and --table {<table>|<table_file>} into one flag, resume folds --addnodeonresume|--addnodeoncreate into one flag where create keeps two, and a trailing <device>... after flags is lost on remove, suspend, resume and wipe_table, as are rename's <new_name_or_uuid> and stats' [<options>]."
+[contract.must_contain_positionals_by_path]
+create = ["dev_name"]
+remove = ["device..."]
+suspend = ["device..."]
+resume = ["device..."]
+wipe_table = ["device..."]
+rename = ["device", "new_name_or_uuid"]

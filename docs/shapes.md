@@ -297,11 +297,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not model what they mean. This nests directly under the flag's own row with
   no heading of any kind governing it, so it is recognized entirely inside the
   flags-block scanner's own continuation handling rather than through the
-  heading-block matcher. Open residual on `ffplay`
-  (`corpus/ffplay/6.1.1-3ubuntu5-avoptions`): the `<type>` token of an
-  AVOptions row stays in the description beside the capability column
-  instead of becoming the value name.
-- fleet: not measured
+  heading-block matcher. A flag row's own `<type> ED.VAS.....` prefix
+  (`recover_avoption_type_column`,
+  `corpus/ffplay/6.1.1-3ubuntu5-avoptions`) makes `<type>` the value name
+  and drops the capability column from the flag row's description: the
+  column is a fixed-position bitmask the help never explains (no legend
+  in the output), and it is kept on the described choice rows beneath.
+- fleet: moved ffplay, ffmpeg and ffprobe, 0 flag-count, subcommand-count and positional losses on a full-`PATH` sweep-diff of 2270 tools, 2026-10-03, nine controls byte-identical. Every AVOptions row carries `<type>` as its value name; the 26 `ffplay` rows whose description was only the capability column now have none.
 
 ### S-016: headingless invocation table naming the tool itself
 
@@ -642,12 +644,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag-shaped cells, which keeps an alias pair like nano's short and long
   spelling together and protects arptables's lowercase value placeholder from
   being read as a second, fabricated flag.
-  Open residual on `lsof` (`corpus/lsof/4.95.0-columns`): a cell led by `+`
-  or `--`, or by a bracketed placeholder, is not counted as flag-shaped, so
-  `+c`, `+d`, `+D`, `+E` and `+m` are lost, `--` folds into the previous
-  flag's description, and `-c`, `-d`, `-K` and `-Z` keep their placeholder in
-  the description.
-- fleet: 5 flags recovered (-a -b -l -t -v), 2026-08-30
+  A cell led by `+word` or the bare `--` is a cell like any other
+  (`layout.rs::fields_in_line`); a `+word` cell in a block proven
+  multi-column by its recurring alignment is a plus-sigil spelling (S-163),
+  the alignment being its evidence. Each cell's own value placeholder is
+  split off its description: a leading bracketed placeholder always
+  (`-K [i] list|(i)gn tasKs`), a lone bare word when a description cell of
+  its own follows in the row (`-c c  cmd c ^c /c/[bix]`, `+c w  COMMAND
+  width (9)`). A `+`-led cell right after a still-bare plus-or-minus token
+  (S-086) is that token's per-polarity description, never its alias. A row
+  indented under the row above whose first cell opens at a recurring
+  column of its block is a row of its own (`+m [m]` under `+|-L [l]`'s
+  line), not a continuation. A row with a single field takes the ordinary
+  splitter. Open: the second `-T fqs TCP/TPI Fl,Q,St (s) info` row keeps
+  `fqs` and drops the rest of its text, a pre-existing ordinary-splitter
+  gap (a spec's unconsumed remainder is not moved to the description).
+- fleet: 5 flags recovered (-a -b -l -t -v), 2026-08-30; full-PATH sweep-diff of 2270 tools against the
+  r13/parse-b head before this fix, 2026-10-03: 0 flags lost anywhere, 8
+  flags gained on lsof (40 to 48); field-level changes on infocmp, lsof,
+  unzip and zipinfo (value placeholders moved out of descriptions), every
+  one read against the tool's own help. A bare `--` cell is a flag only
+  where one row of the block carries it (`dash_cells_are_flags`):
+  pppoe-discovery and ssh-copy-id use a column of `--` separators and
+  stay as they were
 
 ### S-037: usage synopsis wraps at the marker's own indent, not a hanging indent
 
@@ -1416,18 +1435,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: measured at zero legitimate occurrences fleet-wide before this grammar
   existed, not otherwise dated
 
-### S-086: plus-or-minus flag notation, unmodeled
+### S-086: plus-or-minus flag notation (`+|-x`, `+x|-x`)
 
 - id: S-086
 - looks like: |
       +|-e s  exempt s *RISKY*
 - tools: lsof
-- handling: This third notation, meaning plus or minus e, is not modeled at all. The
-  separator predicate requires a finished value placeholder on its left before
-  treating a pipe as an alias separator, and a bare plus is not one, so the
-  token is left alone rather than fabricating a short flag carrying a literal
-  plus as its value. Recovering the real -e flag here is left as future work.
-- fleet: not measured
+- handling: Fixed. A `+|-x` or `+x|-x` token (`layout.rs::plus_minus_pair_rest`) opens a
+  flag row on its own, no neighbor evidence needed, and is one entity
+  carrying both spellings, `+x` then `-x`, with its value and the row's
+  own description verbatim (`flag_rows.rs::parse_plus_minus_pair_spec`).
+  `+f|-f  +filesystem or -file names` keeps its per-polarity text and
+  `+|-f[gG] flaGs` is a second entity with the same spellings, both rows'
+  text kept. A glued `[gG]` is the optional value; a nested bracket value
+  (`[t[m<fmt>]]`) is read whole, and text the column splitter leaves after
+  the value joins the description. The ordinary alias grammar still does
+  not read a bare plus as an alias left side
+  (`separator_has_a_left_operand`); the row is recognised before it.
+- fleet: same sweep as S-036, 2026-10-03: lsof gains `+c`, `+d`, `+D`,
+  `+E`, `+m` and the `+x` spelling of `-e -f -L -M -r -w`; 0 flags lost
 
 ### S-087: GNU getopt bundled cluster below the collapse floor, and above it
 
@@ -1621,7 +1647,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   args` row is that same separator. The tree still reads a flag `--` with
   value `program args` and no `program` positional. The open case is the
   `[xfail]` fixture `corpus/lldb-server/18.1.3-dashdash`, which asserts
-  `must_contain_positionals_by_path` for `gdbserver`.
+  `must_contain_positionals_by_path` for `gdbserver`. Fixed (round 13): see
+  S-153, whose `[[--] word...]` group reading recovers `program` (optional)
+  and `args` (optional, repeatable), and a `-- word word` flag row that
+  restates those operands is dropped as a flag and describes `program`.
+  `corpus/lldb-server/18.1.3-dashdash` is promoted.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
@@ -2495,12 +2525,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -c or --copyright include the ICU copyright notice
 - tools: icupkg
-- handling: Open defect. `-c or --copyright`'s row joins two value-free spellings
-  with the word `or`, the same shape `or_joined_alias` (S-099) already
-  reads, but its description starts only one space after `--copyright`,
-  not the two-space or tab gap `or_alias_ends_the_spec` requires before
-  treating the row as fully joined. `-c` keeps the literal word `or` as a
-  fabricated value name and `--copyright` reaches nothing.
+- handling: Fixed. `find_or_alias_single_space_gap` is the last finder in
+  `find_description_gap`'s chain, so it runs only when every other finder
+  found nothing: a short flag, the word `or`, a bare `--long` spelling
+  (no `=`, no bracket), then three or more plain alphabetic words with a
+  lowercase first one. The description starts after the long spelling,
+  so `-c` and `--copyright` are one value-free flag. A lone trailing
+  token (`-m or --match-arch file.o`) is never enough, it stays that
+  flag's value. The earlier relaxation (ending the spelling run at a
+  `--long` followed by one space and a lowercase word) gave `--copyright`
+  the value name `include` and fused `pod2man`'s `--lquote` and
+  `--rquote`; this rule never touches the spelling run, only the cut
+  point, and `pod2man` is unchanged. Issue #142.
 - fleet: `or-joined-alias-single-space-gap`
   (`xtask/src/detector/or_joined_alias_single_space_gap.rs`) reads 4
   tools / 4 findings on a full-`PATH` sweep of 2319 tools, 2026-09-06,
@@ -2515,6 +2551,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `--lquote` and `--rquote` into one entity, the shape `must_keep_separate`
   exists to forbid. Narrowing it to value-free spellings did not stop the
   fusion. Refused rather than shipped (issue #142).
+  Fixed in the full-`PATH` sweep of 2270 tools: `icupkg` gains `-c,
+  --copyright` and `genrb` gains `-R, --omitCollationRules` (the same
+  row shape), no losses.
+
 ### S-135: usage line's tab-indented continuation folds in unpunctuated
 
 - id: S-135
@@ -2823,7 +2863,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   five are gains, none a fabrication. One qualifier: `llvm-lipo-18`'s own
   raw line is `-arch <value> <value>`, two values, and only the first is
   recovered — a partial recovery, not a wrong one; the second value is
-  information the IR does not model.
+  information the IR does not model. Round 13: a `--name` row that only
+  mirrors a `-name` row of its own (`ffplay`'s `-help topic` beside
+  `--help topic`) no longer vetoes the no-`--long`-row gate
+  (`long_row_mirrors_single_dash`), and a table row is exempt from the
+  repeated-character refusal (`-ss pos`, whose tail repeats its letter).
+  Fixes `-ss`, `-fs`, `-an`, `-vn`, `-sn`, `-vf`, `-af`, `-ar`, `-ac`
+  (`corpus/ffplay/6.1.1-3ubuntu5-two-letter`); `-v loglevel` and `-f fmt`
+  stay. Moved `ffplay`, `ffmpeg`, `ffprobe`, `lspci` (`-mm`),
+  `winpr-makecert` (`-ss`) and `xkbprint` (`-ll`), each read against its
+  own `--help`, 0 losses (sweep numbers in the fleet field).
 - fleet: `single-dash-long-table` (`xtask/src/detector/single_dash_long_table.rs`)
   reads 14 tools/21 raw findings on a full-`PATH` sweep of 2323 tools, 2026-09-07,
   after the fix: unsquashfs, xkill, xev, setfont and others in the same
@@ -2839,7 +2888,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   self-checks hold. Round 11's own placeholder-gap widening (above) clears
   the five-tool bar on its own evidence: 6 tools gained a value name —
   Xvfb, jdb, jrunscript, llvm-libtool-darwin-18, llvm-lipo-18 and screen —
-  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. No labelled
+  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. Round 13's
+  mirrored-`--help` gate moved 6 tools (ffplay, ffmpeg, ffprobe, lspci,
+  winpr-makecert, xkbprint), 0 losses on 2270 tools, 2026-10-03. No labelled
   member of this family exists in any audit
   seed; the self-checks are the only standing evidence.
 
@@ -3150,6 +3201,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   own count is expected to drop by the tools this narrowing newly resolves
   that its own detector also counted; an updated full-`PATH` number needs
   the orchestrator's own sweep lock and is not remeasured this branch.
+- round 13 addition: two more licences for the tail walk, both of which fix the
+  boundary so the earlier-group gate is not needed. (1) An end-of-options
+  marker: a `[--]` group directly ahead of the run (`lsof`'s `[--] [names]`),
+  or the run being itself a `[[--] word args...]` group (`lldb-server
+  gdbserver`). (2) The run being alone on the last physical line of a wrapped
+  synopsis whose earlier groups are all bracketed (`icupkg`'s tab-indented
+  `infilename [outfilename]`). The `[--]` and `[-x [fl]]` groups never become
+  operands. A positional with no description also takes it from the one
+  indented table row that opens with its name and a column gap of two or more
+  spaces (`names  select named files ...`), beside S-182's `name - text` form.
+  Tools: lsof, icupkg, lldb-server. Fleet, full-`PATH` sweep of 2270 tools against the ebb3ef2 baseline: 19 positionals gained across 13 tools (gprof and its aarch64 twin `image-file` and `profile-file...`, icupkg 2, nc/nc.openbsd/netcat `destination` and `port`, derb `bundle...`, fakeroot/fakeroot-sysv/fakeroot-tcp `command`, grog `file...`, lsof `names`, tree `directory...`), each read against its raw `--help`; 0 flag, subcommand or positional losses; 14 positionals gained a description from their table row (msgattrib family, ngettext, podchecker, pstree, pygmentize, runcon, sg_emc_trespass); the nine controls are byte-identical.
 
 ### S-154: a bracketed multi-word operand becomes one positional per word
 
@@ -3288,7 +3350,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   any later occurrence of the same text in another row's description
   (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
   `-match` in prose and must not donate it a fabricated value). The
-  table gate is the whole safety argument: `gcc`, `clang` and the `ld`
+  table gate is the whole safety argument. Round 13 (the mirrored `--help`
+  row of S-145 no longer counts against the gate): a two-word lowercase
+  placeholder closed by a real column gap is one value (`gap_cut_two_word_value`,
+  `-window_title window title`, `-loop loop count`, `-left x pos`), while an
+  uppercase second word stays the next column (`range[,...] QEMU_DFILTER`);
+  and a repeated spelling reads only the rows carrying the flag's own
+  description (`-loop` in the player table vs in AVOptions). Fixture
+  `corpus/ffplay/6.1.1-3ubuntu5-values`. `gcc`, `clang` and the `ld`
   family all carry `-DMACRO` glued values beside a real `--help` row, so
   their own tables never qualify.
 - fleet: `spaced-bare-word-table-value`
@@ -3305,7 +3374,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
   `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
   `containerd-shim-runc-v2` and `docker-proxy` each recover at least
-  one. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
+  one. Round 13 moved `ffplay` and `ffmpeg` (two-word placeholders and
+  the mirrored-`--help` gate), 0 losses on a full-`PATH` sweep of 2270
+  tools, 2026-10-03. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
   `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
   `sg_map` stay byte-identical.
 
@@ -3807,7 +3878,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   an ordinary `Usage: prog [opts]` tool whose body happens to start at
   the same indent as a real table (`ar`'s modifier tables) must never be
   mistaken for this shape, caught by a regression this fix's own
-  break-it check reproduced and fixed before shipping.
+  break-it check reproduced and fixed before shipping. Every row of a
+  command is that command's own invocation form, so a self-closed
+  bracket group (`[--force]`) no longer consumes the operand behind it:
+  `remove [--deferred] [-f|--force] [--retry] <device>...` keeps
+  `device...`, `rename <device> [--setuuid] <new_name_or_uuid>` keeps
+  both operands (dmsetup 33 -> 38 operands, dmstats `create --filemap`
+  gains `file_path`). Still open: `-n|--notable|--table {<table>|<table_file>}`
+  reads as one flag (an alias run followed by a value does not say which
+  spelling takes it) and `stats <command> [<options>]` has no `options`
+  operand, since `options` is the generic placeholder word.
 - fleet: `usage-command-table`
   (`xtask/src/detector/usage_command_table.rs`), self-checks held both
   directions (fires on the pre-fix shape, silent once every row is a
@@ -4223,22 +4303,33 @@ entry's `tools` field and nothing else. It does not get a new entry.
         brew commands
         brew help [COMMAND]
 - tools: brew
-- handling: Open defect. `brew --help` reads as one node with no subcommands and
-  no flags. Every line under the four headings opens with the tool's own name
-  and a lowercase word, and no line has a description, so S-016 (which needs a
-  deeper description row under each name row) and S-169 (a command table inside
-  the usage block) do not apply. The 13 names in the text are search, info,
-  install, update, upgrade, uninstall, list, config, doctor, create, edit,
-  commands and help. A fix needs a general rule that reads a block whose every
-  non-blank line is `<tool> <word> ...` as subcommand names marked
-  invocation-attested only, so they are listed but never probed
-  (docs/design.md section 6). S-071 fences `Examples:` regions because their
-  lines can be shell commands, so the rule must show that these blocks are
-  invocation forms of the tool itself and leave `Examples:` alone. Running
-  `brew commands` for the full list is not an argv section 6 allows, so only
-  the names the text spells out are in reach. Fixture: `corpus/brew/7.0.2`,
-  transcribed from issue #163 because brew is not installed on the dev box.
-- fleet: not measured
+- handling: Fixed. A block under a heading ending in a colon, every
+  non-blank line of which is either `<tool> <lowercase word> ...` or a
+  reference line (a bare URL, `man <tool>`), names those words as
+  subcommands (`invocation_block.rs`). The tool name is the one the
+  pipeline resolved, not a literal. At least two distinct words are
+  required, a repeat (`install`) folds into one node, and each word must
+  occur in the raw text. Nodes are `invocation_attested`, never
+  `heading_attested`, so no `<tool> <word> --help` is ever sent
+  (docs/design.md section 6, test
+  `invocation_block_child_is_never_heading_attested_and_never_probed`).
+  `Example usage:` is read by the usage scanner as an extended usage
+  label (S-151); its rows stay usage forms and also name subcommands. The
+  S-071 fence holds: a heading that is exactly `Example`/`Examples`, a
+  literal `Usage:` and a `Synopsis`/`Syntax` heading are never read this
+  way, and one line that is not an invocation of the tool refuses the
+  whole block. Flags on a row (`install --verbose --debug FORMULA|CASK`,
+  `create URL [--no-fetch]`) are not attached to their subcommand: the
+  usage-flag reader would give the operand to the last flag as its value,
+  which the help never says. Running `brew commands` for the full list is
+  not an argv section 6 allows, so only the 13 names the text spells out
+  (search, info, install, update, upgrade, uninstall, list, config,
+  doctor, create, edit, commands, help) are in reach. Fixture:
+  `corpus/brew/7.0.2`, transcribed from issue #163 because brew is not
+  installed on the dev box.
+- fleet: no tool on the dev box gained or lost anything in the full-PATH
+  sweep of 2270 tools (no tool installed here prints this shape); no other
+  corpus fixture changed.
 
 ### S-180: a value spec spells an alternation of angle placeholders
 
@@ -4303,3 +4394,61 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`target [target ...]`). A nested alternation ahead of the run still
   refuses the line.
 - fleet: 16 tools gained 17 operands in the full-PATH sweep, no losses.
+
+### S-184: one bracket group holds several valued flags side by side
+
+- id: S-184
+- looks like: |
+      create <dev_name>
+          [-j|--major <major> -m|--minor <minor>]
+          [--addnodeonresume|--addnodeoncreate]
+- tools: dmsetup
+- handling: Fixed. A whole-line bracket group that carries a value word
+  and then a second flag-shaped word is split into one flag spec per
+  flag (`split_adjacent_flag_specs`), so `-m|--minor <minor>` is no
+  longer swallowed into `--major`'s value. A word after an alias
+  separator (`|`, `,`) never opens a piece. A whole-line bracket of
+  nothing but two or more long spellings (`split_long_only_alternation`)
+  keeps each as its own flag, the same pairing rule a group inside a
+  longer line follows (one short with one long, nothing else paired).
+- fleet: 1 tool gained 2 flags (dmsetup 65 -> 67: `create -m|--minor`,
+  `resume --addnodeonresume` and `--addnodeoncreate` as two flags), no
+  losses in the full-PATH sweep.
+
+### S-185: a bracket of signs then letters is a mode operand
+
+- id: S-185
+- looks like: |
+      Usage: chattr [-RVf] [-+=aAcCdDeijPsStTuFx] [-p project] [-v version] files...
+- tools: chattr
+- handling: Fixed. A self-closed bracket that opens with a run of two
+  or more of `-`, `+`, `=` holding at least one `+` or `=`, followed by
+  letters or digits only, is an optional operand kept verbatim
+  (`sign_run_operand`); the help gives it no name. It no longer reads
+  as a flag spelled `-+` with the value `aAcCdDeijPsStTuFx`. A pure
+  dash run (`--force`) and a sign run with no letters (`[-+]`) stay
+  flags. The operand is placed ahead of the ordinary operands without
+  hiding the trailing `files...` from the tail recovery.
+- fleet: 1 tool gained 1 operand and lost 1 flag in the full-PATH sweep
+  (chattr 6 -> 5 flags, the fabricated `-+`; 1 -> 2 operands).
+
+### S-186: a value placeholder's comma-list tail is part of the value
+
+- id: S-186
+- looks like: |
+      --dhcp-range=<ipaddr>,...
+      --dhcp-pxe-vendor=<vendor>[,...]
+      --shared-network=<iface>|<addr>,<addr>
+- tools: dnsmasq, dpkg, dpkg-buildpackage, dpkg-genbuildinfo, dpkg-genchanges, pmap
+- handling: Fixed. An angle placeholder (and a glued `|<other>` run)
+  keeps a comma-list tail that follows it with no whitespace: `,...`,
+  `,<name>` (repeated) or `[,...]` / `[,<name>]`
+  (`glued_list_tail`). The tail says the value is a comma-separated
+  list, so dropping it lost information. A comma followed by anything
+  else (`,-f`, an alias) is not a tail. Still open: a placeholder whose
+  angle group holds a space (`set:<tag>,<mac address>`) is cut at the
+  space, as before.
+- fleet: 6 tools changed value names in the full-`PATH` sweep of 2270
+  tools (dnsmasq 25 flags, dpkg, dpkg-buildpackage, dpkg-genbuildinfo,
+  dpkg-genchanges, pmap), no flag, positional or subcommand count
+  moved; each read against raw help.

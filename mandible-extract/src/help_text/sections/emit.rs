@@ -249,6 +249,27 @@ pub(super) fn emit_flags_with(
             }
             continue;
         }
+        // S-086: a `+|-x` / `+x|-x` row is one entity carrying both
+        // spellings and the row's own description.
+        if let Some((spec, leftover)) = parse_plus_minus_pair_spec(&spec_text) {
+            if spec.fully_consumed {
+                clean += 1;
+            }
+            let desc_text = match (leftover.is_empty(), desc_text.is_empty()) {
+                (true, _) => desc_text,
+                (false, true) => leftover,
+                (false, false) => format!("{leftover} {desc_text}"),
+            };
+            push_flag_entity(
+                spec,
+                &desc_text,
+                &choice_names,
+                group.clone(),
+                is_argparse,
+                out,
+            );
+            continue;
+        }
         // S-161: a `/`-joined second spelling (`-W / --warn [LINT]`) reads
         // as the ordinary comma-joined alias `parse_flag_spec` already
         // knows, on any option-table row, not only a lowdown bullet's own

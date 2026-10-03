@@ -163,15 +163,19 @@ flags:
     - help-text
 - spellings:
   - -O
+  value_name: CHARSET
+  value_kind: Required
   group: 'modifiers:'
-  description: CHARSET specify a character encoding for DOS, Windows and OS/2 archives
+  description: specify a character encoding for DOS, Windows and OS/2 archives
   provenance:
     sources:
     - help-text
 - spellings:
   - -I
+  value_name: CHARSET
+  value_kind: Required
   group: 'modifiers:'
-  description: CHARSET specify a character encoding for UNIX and other archives
+  description: specify a character encoding for UNIX and other archives
   provenance:
     sources:
     - help-text

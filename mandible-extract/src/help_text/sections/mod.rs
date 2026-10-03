@@ -31,16 +31,19 @@ use mandible_core::{
     Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
 };
 
+mod avoption;
 mod backfill;
 mod bullets;
 mod emit;
 mod entry;
 mod flag_rows;
 mod heading;
+mod invocation_block;
 mod layout;
 mod multiword;
 mod numeric_range;
 mod or_choice_fold;
+mod plus_minus;
 mod preamble;
 mod repair;
 mod scan;
@@ -50,17 +53,24 @@ mod test_support;
 mod usage;
 mod usage_command_table;
 mod usage_optional_word;
+mod usage_signs;
 
+use avoption::recover_avoption_type_column;
 use backfill::*;
 use bullets::*;
 pub use emit::*;
 pub use entry::*;
 use flag_rows::*;
 pub use heading::*;
+use invocation_block::{recover_invocation_block, scan_invocation_block};
 pub use layout::*;
 use multiword::*;
-use numeric_range::{describe_positionals_from_name_rows, expand_numeric_range_flags};
+use numeric_range::{
+    describe_positionals_from_name_rows, expand_numeric_range_flags,
+    fold_separator_row_into_operand,
+};
 use or_choice_fold::fold_or_joined_choice_rows;
+use plus_minus::*;
 use preamble::*;
 use repair::*;
 use scan::*;
@@ -71,6 +81,7 @@ use usage::*;
 use usage_command_table::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
+use usage_signs::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output never remotely
@@ -1332,6 +1343,11 @@ fn emit_heading_block(
     let heading_indent = h.heading_indent;
     let heading_idx = h.heading_idx;
 
+    // A headed block of undescribed `<tool> <word> ...` rows. S-179.
+    if let Some(end) = recover_invocation_block(lines, heading_idx, tool_name, raw, st) {
+        return end;
+    }
+
     // Reaching here means genuinely more-indented content follows this
     // heading — LVM's own stanza shape, a head line naming a
     // mode-selecting flag followed by that mode's rows. Recovering
@@ -2146,6 +2162,17 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        // An extended usage label (`Example usage:`) whose rows are all
+        // `<tool> <word> ...` also names subcommands; the rows stay usage
+        // forms too. S-179.
+        if let Some((_, nodes)) = labelled_usage_start
+            .zip(tool_name)
+            .and_then(|(at, name)| scan_invocation_block(&lines, at, name, raw))
+        {
+            for node in nodes {
+                result.try_push_subcommand(node);
+            }
+        }
         // A command table sitting directly under the root's own labelled
         // usage block, one line per command, rows never repeating the
         // tool's own name (`dmsetup`'s second block). Gated on
@@ -2245,6 +2272,7 @@ fn parse_body(
     expand_numeric_range_flags(&mut result.flags, &lines);
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
+    fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
@@ -2310,6 +2338,7 @@ fn parse_body(
     // table-derived flag whose reconstructed name the tool's own usage
     // line spells as one stand-alone bracketed token.
     repair_usage_attested_single_dash_long(&mut result.flags, &usage_lines);
+    recover_avoption_type_column(&mut result.flags);
     // Last because it can only fill what the two above finished naming:
     // descriptions written as free prose paragraphs, not option-table
     // columns.

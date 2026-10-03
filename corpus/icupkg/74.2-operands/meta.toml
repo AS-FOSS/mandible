@@ -24,6 +24,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 must_contain_positionals = ["infilename", "outfilename"]
 
-[xfail]
-broken = true
-reason = "[S-153] the usage form ends with a tab-indented continuation line `infilename [outfilename]` after a run of bracket groups, and neither operand reaches the tree. A fix needs the trailing-operand walk to continue across the tab-indented usage continuation lines and to read a bare lowercase word plus a bracketed word as one required and one optional positional."

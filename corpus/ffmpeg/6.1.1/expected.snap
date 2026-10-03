@@ -190,6 +190,8 @@ flags:
     - help-text
 - spellings:
   - -sources
+  value_name: device
+  value_kind: Required
   group: 'Print help / information / capabilities:'
   description: list sources of the input device
   provenance:
@@ -197,6 +199,8 @@ flags:
     - help-text
 - spellings:
   - -sinks
+  value_name: device
+  value_kind: Required
   group: 'Print help / information / capabilities:'
   description: list sinks of the output device
   provenance:
@@ -236,6 +240,8 @@ flags:
     - help-text
 - spellings:
   - -max_alloc
+  value_name: bytes
+  value_kind: Required
   group: 'Global options (affect whole program instead of just one file):'
   description: set maximum size of a single allocated block
   provenance:
@@ -319,6 +325,8 @@ flags:
     - help-text
 - spellings:
   - -pre
+  value_name: preset
+  value_kind: Required
   group: 'Per-file main options:'
   description: preset name
   provenance:
@@ -326,6 +334,8 @@ flags:
     - help-text
 - spellings:
   - -map_metadata
+  value_name: outfile[,metadata]:infile[,metadata]
+  value_kind: Required
   group: 'Per-file main options:'
   description: set metadata information of outfile from infile
   provenance:
@@ -341,8 +351,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -t
-  value_name: o
+  - -to
+  value_name: time_stop
   value_kind: Required
   group: 'Per-file main options:'
   description: record or transcode stop time
@@ -350,8 +360,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -f
-  value_name: s
+  - -fs
+  value_name: limit_size
   value_kind: Required
   group: 'Per-file main options:'
   description: set the limit file size in bytes
@@ -359,8 +369,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -s
-  value_name: s
+  - -ss
+  value_name: time_off
   value_kind: Required
   group: 'Per-file main options:'
   description: set the start time offset
@@ -369,6 +379,8 @@ flags:
     - help-text
 - spellings:
   - -sseof
+  value_name: time_off
+  value_kind: Required
   group: 'Per-file main options:'
   description: set the start time offset relative to EOF
   provenance:
@@ -383,6 +395,8 @@ flags:
     - help-text
 - spellings:
   - -timestamp
+  value_name: time
+  value_kind: Required
   group: 'Per-file main options:'
   description: set the recording timestamp ('now' to set the current time)
   provenance:
@@ -390,6 +404,8 @@ flags:
     - help-text
 - spellings:
   - -metadata
+  value_name: string=string
+  value_kind: Required
   group: 'Per-file main options:'
   description: add metadata
   provenance:
@@ -397,6 +413,8 @@ flags:
     - help-text
 - spellings:
   - -program
+  value_name: title=string:st=number...
+  value_kind: Required
   group: 'Per-file main options:'
   description: add program with specified streams
   provenance:
@@ -404,6 +422,8 @@ flags:
     - help-text
 - spellings:
   - -target
+  value_name: type
+  value_kind: Required
   group: 'Per-file main options:'
   description: specify target file type ("vcd", "svcd", "dvd", "dv" or "dv50" with optional prefixes "pal-", "ntsc-" or "film-")
   provenance:
@@ -418,6 +438,8 @@ flags:
     - help-text
 - spellings:
   - -frames
+  value_name: number
+  value_kind: Required
   group: 'Per-file main options:'
   description: set the number of frames to output
   provenance:
@@ -425,6 +447,8 @@ flags:
     - help-text
 - spellings:
   - -filter
+  value_name: filter_graph
+  value_kind: Required
   group: 'Per-file main options:'
   description: set stream filtergraph
   provenance:
@@ -432,6 +456,8 @@ flags:
     - help-text
 - spellings:
   - -filter_script
+  value_name: filename
+  value_kind: Required
   group: 'Per-file main options:'
   description: read stream filtergraph description from a file
   provenance:
@@ -460,6 +486,8 @@ flags:
     - help-text
 - spellings:
   - -vframes
+  value_name: number
+  value_kind: Required
   group: 'Video options:'
   description: set the number of video frames to output
   provenance:
@@ -476,6 +504,8 @@ flags:
     - help-text
 - spellings:
   - -fpsmax
+  value_name: rate
+  value_kind: Required
   group: 'Video options:'
   description: set max frame rate (Hz value, fraction or abbreviation)
   provenance:
@@ -492,6 +522,8 @@ flags:
     - help-text
 - spellings:
   - -aspect
+  value_name: aspect
+  value_kind: Required
   group: 'Video options:'
   description: set aspect ratio (4:3, 16:9 or 1.3333, 1.7777)
   provenance:
@@ -499,6 +531,8 @@ flags:
     - help-text
 - spellings:
   - -display_rotation
+  value_name: angle
+  value_kind: Required
   group: 'Video options:'
   description: set pure counter-clockwise rotation in degrees for stream(s)
   provenance:
@@ -519,9 +553,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -v
-  value_name: n
-  value_kind: Required
+  - -vn
   group: 'Video options:'
   description: disable video
   provenance:
@@ -529,6 +561,8 @@ flags:
     - help-text
 - spellings:
   - -vcodec
+  value_name: codec
+  value_kind: Required
   group: 'Video options:'
   description: force video codec ('copy' to copy stream)
   provenance:
@@ -536,6 +570,8 @@ flags:
     - help-text
 - spellings:
   - -timecode
+  value_name: hh:mm:ss[:;.]ff
+  value_kind: Required
   group: 'Video options:'
   description: set initial TimeCode value.
   provenance:
@@ -543,14 +579,16 @@ flags:
     - help-text
 - spellings:
   - -pass
+  value_name: n
+  value_kind: Required
   group: 'Video options:'
   description: select the pass number (1 to 3)
   provenance:
     sources:
     - help-text
 - spellings:
-  - -v
-  value_name: f
+  - -vf
+  value_name: filter_graph
   value_kind: Required
   group: 'Video options:'
   description: set video filters
@@ -567,9 +605,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -d
-  value_name: n
-  value_kind: Required
+  - -dn
   group: 'Video options:'
   description: disable data
   provenance:
@@ -577,14 +613,16 @@ flags:
     - help-text
 - spellings:
   - -aframes
+  value_name: number
+  value_kind: Required
   group: 'Audio options:'
   description: set the number of audio frames to output
   provenance:
     sources:
     - help-text
 - spellings:
-  - -a
-  value_name: q
+  - -aq
+  value_name: quality
   value_kind: Required
   group: 'Audio options:'
   description: set audio quality (codec-specific)
@@ -592,8 +630,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -a
-  value_name: r
+  - -ar
+  value_name: rate
   value_kind: Required
   group: 'Audio options:'
   description: set audio sampling rate (in Hz)
@@ -601,8 +639,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -a
-  value_name: c
+  - -ac
+  value_name: channels
   value_kind: Required
   group: 'Audio options:'
   description: set number of audio channels
@@ -610,9 +648,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -a
-  value_name: n
-  value_kind: Required
+  - -an
   group: 'Audio options:'
   description: disable audio
   provenance:
@@ -620,14 +656,16 @@ flags:
     - help-text
 - spellings:
   - -acodec
+  value_name: codec
+  value_kind: Required
   group: 'Audio options:'
   description: force audio codec ('copy' to copy stream)
   provenance:
     sources:
     - help-text
 - spellings:
-  - -a
-  value_name: b
+  - -ab
+  value_name: bitrate
   value_kind: Required
   group: 'Audio options:'
   description: audio bitrate (please use -b:a)
@@ -635,8 +673,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -a
-  value_name: f
+  - -af
+  value_name: filter_graph
   value_kind: Required
   group: 'Audio options:'
   description: set audio filters
@@ -653,9 +691,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -s
-  value_name: n
-  value_kind: Required
+  - -sn
   group: 'Subtitle options:'
   description: disable subtitle
   provenance:
@@ -663,6 +699,8 @@ flags:
     - help-text
 - spellings:
   - -scodec
+  value_name: codec
+  value_kind: Required
   group: 'Subtitle options:'
   description: force subtitle codec ('copy' to copy stream)
   provenance:
@@ -670,6 +708,8 @@ flags:
     - help-text
 - spellings:
   - -stag
+  value_name: fourcc/tag
+  value_kind: Required
   group: 'Subtitle options:'
   description: force subtitle tag/fourcc
   provenance:
@@ -684,6 +724,8 @@ flags:
     - help-text
 - spellings:
   - -canvas_size
+  value_name: size
+  value_kind: Required
   group: 'Subtitle options:'
   description: set canvas size (WxH or abbreviation)
   provenance:
@@ -691,6 +733,8 @@ flags:
     - help-text
 - spellings:
   - -spre
+  value_name: preset
+  value_kind: Required
   group: 'Subtitle options:'
   description: set the subtitle options to the indicated preset
   provenance:

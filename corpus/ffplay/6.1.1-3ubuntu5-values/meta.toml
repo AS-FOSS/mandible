@@ -43,7 +43,3 @@ must_contain_flags = ["-bytes", "-max_alloc", "-seek_interval", "-volume", "-win
 "-left" = "x pos"
 "-rdftspeed" = "msecs"
 "-ast" = "stream_specifier"
-
-[xfail]
-broken = true
-reason = "[S-157] the bare-word value placeholder after a multi-letter single-dash spelling is dropped on ffplay's Main and Advanced rows (`-bytes val`, `-max_alloc bytes`, `-window_title window title`, `-loop loop count`), the same loss S-157 fixes inside a single-dash-long table. The gate (no --long row anywhere) is not met because of the `--help topic` row. A fix needs that gate to tolerate one --long row when the rest of the table is single-dash-long, and a two-word placeholder (`window title`, `loop count`, `x pos`) is separated from the description only by the column gap, so the cut must use the gap, not the first space."

@@ -3,13 +3,14 @@
 # `-d s  select by FD set   +D D  dir D tree *SLOW?*   +|-e s  exempt s *RISKY*`,
 # `-Z Z  context [Z] -- end option scan`, `-p s   exclude(^)|select PIDs`,
 # `-S [t] t second stat timeout (15)` (column two of the -p row's line),
-# `-T fqs TCP/TPI Fl,Q,St (s) info`, `+m [m] use|create mount supplement`.
-# v0.8.1 tree: -c reads its description as `c cmd c ^c /c/[bix]`, -d as
-# `s select by FD set`, -K as `[i] list|(i)gn tasKs`, -Z as `Z context [Z] -- end option scan`
-# (the `--` row folds into -Z; the `--` entity from the synopsis has no text),
-# -p absorbs `-S [t] t second stat timeout (15)`, the second -T (fqs) has no description,
-# and +c +d +D +E +m reach nothing. -T, -i and -s each appear twice in the raw
-# text with different meanings (-T disable vs -T fqs), so the doubled entities are real.
+# `+m [m] use|create mount supplement` (first column empty, under the -L row).
+# Each cell is its own entity with its own value placeholder (-c c, +c w, -K [i],
+# -Z Z, -S [t]); `+X` cells and the bare `--` cell are cells like any other.
+# -T, -i and -s each appear twice in the raw text with different meanings
+# (-T disable vs -T fqs), so the doubled entities are real. The second -T row
+# (`-T fqs TCP/TPI Fl,Q,St (s) info`) is a single-cell row read by the ordinary
+# splitter, which keeps `fqs` and still drops the rest; no contract field can
+# address the second entity of a repeated spelling.
 
 [bless]
 provenance = "agent"
@@ -32,12 +33,18 @@ expected_framework = "generic"
 must_contain_flags = ["+c", "+d", "+D", "+E", "+m", "--"]
 
 [contract.must_value_name]
+"+c" = "w"
+"+d" = "s"
+"+D" = "D"
+"-S" = "t"
 "-c" = "c"
 "-d" = "s"
 "-K" = "i"
 "-Z" = "Z"
 
 [contract.must_describe]
+"+c" = "COMMAND width"
+"+m" = "use|create mount supplement"
 "-c" = "cmd c ^c /c/[bix]"
 "-d" = "select by FD set"
 "-Z" = "context [Z]"
@@ -48,7 +55,3 @@ must_contain_flags = ["+c", "+d", "+D", "+E", "+m", "--"]
 "-p" = "second stat timeout"
 "-Z" = "end option scan"
 "-c" = "c cmd"
-
-[xfail]
-broken = true
-reason = "[S-036] in the packed multi-column rows a column whose cell starts with +, `--` or a bracketed placeholder is not recognised as a cell: +c, +d, +D, +E and +m are lost, `--` is folded into -Z's description, -S's cell lands in -p's description, and for -c, -d, -K and -Z the value placeholder stays in the description instead of value_name. A fix needs the column detector to count +X and `--` cells as flag-shaped (the +-led ones need S-086's sigil rule) and the placeholder split to run per cell; the second -T row (`-T fqs TCP/TPI Fl,Q,St (s) info`) also loses its description and no contract field can address the second entity of a repeated spelling."

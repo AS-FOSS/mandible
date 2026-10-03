@@ -443,6 +443,7 @@ pub(super) fn recover_primary_tail_operands(
         return Vec::new();
     }
     groups.remove(0); // the program name itself
+    let total_groups = groups.len();
 
     // Walk backward from the tail, collecting a run of operand-shaped
     // groups in reverse source order. A separate ellipsis-only group
@@ -456,12 +457,25 @@ pub(super) fn recover_primary_tail_operands(
     // (S-136), never set here.
     let mut collected: Vec<(String, bool, bool, bool, bool)> = Vec::new();
     let mut pending_repeat = false;
+    // True once the run is introduced by an end-of-options marker: a
+    // `[--]` group directly ahead of it, or the run is itself a
+    // `[[--] word...]` group. See docs/shapes.md S-153.
+    let mut marker_licensed = false;
     while let Some(last) = groups.last() {
         let bare = last.trim_matches(|c| c == '[' || c == ']');
         if !bare.is_empty() && bare.chars().all(|c| c == '.') {
             pending_repeat = true;
             groups.pop();
             continue;
+        }
+        if let Some(words) = parse_separator_operand_group(last) {
+            for (word, repeat) in words.into_iter().rev() {
+                collected.push((word, false, repeat || pending_repeat, false, false));
+                pending_repeat = false;
+            }
+            marker_licensed = true;
+            groups.pop();
+            break;
         }
         if let Some((word, required, marker_repeat)) = parse_operand_group(last) {
             collected.push((
@@ -485,6 +499,13 @@ pub(super) fn recover_primary_tail_operands(
     if collected.is_empty() {
         return Vec::new();
     }
+    marker_licensed |= groups.last().is_some_and(|g| g == "[--]");
+    // The run is alone on the last physical line of a wrapped synopsis.
+    let last_line_groups = indices
+        .last()
+        .and_then(|&i| usage_lines.get(i))
+        .map(|l| group_synopsis_tokens(cut_before_description_gap(l.trim()).trim()).len());
+    let own_line = indices.len() >= 2 && last_line_groups == Some(total_groups - groups.len());
     collected.reverse(); // restore source order
 
     // A trailing `X1 [X2 ...]` pair (S-136, issue #141) collapses to one
@@ -524,7 +545,17 @@ pub(super) fn recover_primary_tail_operands(
     // the whole line rather than guess a boundary.
     let tail_repeats = collected.last().is_some_and(|c| c.2);
     let mut earlier_all_placeholder = true;
-    for earlier in &groups {
+    // An end-of-options marker, or a run alone on its own line behind
+    // bracket groups only, already fixes the boundary: nothing ahead of
+    // it can be mistaken for an operand. See docs/shapes.md S-153.
+    let bracket_only = groups
+        .iter()
+        .all(|g| g.starts_with('[') && g.ends_with(']'));
+    let boundary_known = marker_licensed || (own_line && bracket_only);
+    if boundary_known {
+        earlier_all_placeholder = false;
+    }
+    for earlier in groups.iter().filter(|_| !boundary_known) {
         let earlier_stripped = earlier.trim_matches(|c| c == '[' || c == ']');
         if ends_with_option_list_placeholder(earlier_stripped) {
             continue;

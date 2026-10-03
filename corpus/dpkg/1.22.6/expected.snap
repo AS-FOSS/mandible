@@ -451,7 +451,7 @@ flags:
     - help-text
 - spellings:
   - --ignore-depends
-  value_name: <package>
+  value_name: <package>[,...]
   value_kind: Required
   description: Ignore dependencies involving <package>.
   provenance:

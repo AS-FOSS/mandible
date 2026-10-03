@@ -15,6 +15,18 @@ once it reaches a published 0.1.0 release.
 - [S-181] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..` (`mandible savelog`, `mandible bzip2`, `mandible xz`, `mandible streamzip`).
 - [S-183] A trailing `file ...` operand behind valued flag groups or a wrapped usage line reaches the tree (`mandible savelog`, `mandible eqn`, `mandible chattr`, `mandible xfs_copy`).
 - [S-182] A usage operand takes its description from a `name - text` table row (`mandible savelog`'s `file`).
+- [S-145] A `--name` row that mirrors a `-name` row no longer vetoes a single-dash-long table, so two-letter spellings keep their names (`mandible ffplay`'s `-ss`, `-fs`, `-an`, `-vf`).
+- [S-157] A two-word lowercase placeholder closed by a column gap is the value name (`mandible ffplay`'s `-window_title window title`, `-loop loop count`, `-left x pos`).
+- [S-086] A plus-or-minus row (`+|-w`, `+f|-f`, `+|-r [t[m<fmt>]]`) is one flag carrying both `+x` and `-x` spellings with the row's own description (`mandible lsof`'s `-e`, `-f`, `-L`, `-M`, `-r`, `-w`).
+- [S-036] A packed multi-column row reads `+X` and `--` cells as cells of their own and keeps each cell's value placeholder out of its description (`mandible lsof`'s `+c`, `+d`, `+D`, `+m`, `--`, `-c c`; `mandible unzip`'s `-O CHARSET`).
+- [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
+- [S-184] `mandible dmsetup` keeps `create`'s `-m|--minor` beside `-j|--major`, shows `resume`'s `--addnodeonresume` and `--addnodeoncreate` as two flags, and `remove`, `suspend`, `resume`, `wipe_table`, `rename` and `dmstats create` keep their trailing operands (`device...`, `new_name_or_uuid`, `file_path`).
+- [S-185] `mandible chattr` shows its `[-+=aAcCdDeijPsStTuFx]` mode as an operand instead of a fabricated `-+` flag.
+- [S-134] A value-free `-c or --copyright text...` row is one flag with both spellings and its own description instead of `-c` taking the word `or` as a value (`mandible icupkg`'s `-c`, #142).
+- [S-186] A value placeholder keeps its comma-list tail (`--dhcp-range=<ipaddr>,...`, `--dhcp-pxe-vendor=<vendor>[,...]`, `--shared-network=<iface>|<addr>,<addr>`) instead of showing only the first part (`mandible dnsmasq`, `mandible dpkg`, `mandible pmap`).
+- [S-153] A trailing operand behind a `[--]` marker or alone on a wrapped usage line reaches the tree, and a `name  text` table row describes it (`mandible lsof`'s `names`, `mandible icupkg`'s `infilename` and `outfilename`).
+- [S-096] A `[[--] program args...]` usage group is an optional separator then positional operands, and the `-- program args` row describes `program` instead of being a flag (`mandible lldb-server gdbserver`).
+- [S-179] A headed block of undescribed `<tool> <word>` invocation lines names its words as subcommands, listed but never probed (`mandible brew`'s search, info, install, update, upgrade, uninstall, list, config, doctor, create, edit, commands, help, #163).
 
 ## [0.8.1] - 2026-10-02
 

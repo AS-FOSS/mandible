@@ -139,6 +139,12 @@ subcommands:
   children_filled: true
   invocation_attested: true
 - name: create
+  positionals:
+  - name: file_path
+    required: true
+    provenance:
+      sources:
+      - help-text
   flags:
   - spellings:
     - --length

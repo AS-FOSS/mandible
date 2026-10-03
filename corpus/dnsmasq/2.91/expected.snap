@@ -1,0 +1,1650 @@
+name: dnsmasq
+usage:
+- 'Usage: dnsmasq [options]'
+flags:
+- spellings:
+  - -a
+  - --listen-address
+  value_name: <ipaddr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify local address(es) to listen on.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --address
+  value_name: /<domain>/<ipaddr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Return ipaddr for all hosts in specified domains.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --bogus-priv
+  group: 'Valid options are:'
+  description: Fake reverse lookups for RFC1918 private address ranges.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --bogus-nxdomain
+  value_name: <ipaddr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Treat ipaddr as NXDOMAIN (defeats Verisign wildcard).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --cache-size
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify the size of the cache in entries (defaults to 150).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --conf-file
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify configuration file (defaults to /etc/dnsmasq.conf).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --no-daemon
+  group: 'Valid options are:'
+  description: 'Do NOT fork into the background: run in debug mode.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --domain-needed
+  group: 'Valid options are:'
+  description: Do NOT forward queries with no domain part.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --selfmx
+  group: 'Valid options are:'
+  description: Return self-pointing MX records for local hosts.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  - --expand-hosts
+  group: 'Valid options are:'
+  description: Expand simple names in /etc/hosts with domain-suffix.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --filterwin2k
+  group: 'Valid options are:'
+  description: Don't forward spurious DNS requests from Windows hosts.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter-A
+  group: 'Valid options are:'
+  description: Don't include IPv4 addresses in DNS answers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter-AAAA
+  group: 'Valid options are:'
+  description: Don't include IPv6 addresses in DNS answers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter-rr
+  value_name: <RR-type>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Don't include resource records of the given type in DNS answers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --dhcp-range
+  value_name: <ipaddr>,...
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Enable DHCP in the range given with lease duration.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  - --group
+  value_name: <groupname>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Change to this group after startup (defaults to dip).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -G
+  - --dhcp-host
+  value_name: <hostspec>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set address or hostname for a specified machine.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-hostsfile
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Read DHCP host specs from file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-optsfile
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Read DHCP option specs from file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-hostsdir
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Read DHCP host specs from a directory.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-optsdir
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Read DHCP options from a directory.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tag-if
+  value_name: tag-expression
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Evaluate conditional tag expression.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --no-hosts
+  group: 'Valid options are:'
+  description: Do NOT load /etc/hosts file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --addn-hosts
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify a hosts file to be read in addition to /etc/hosts.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hostsdir
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Read hosts files from a directory.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --interface
+  value_name: <interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify interface(s) to listen on.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --except-interface
+  value_name: <interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify interface(s) NOT to listen on.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --dhcp-userclass
+  value_name: set:<tag>,<class>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map DHCP user class to tag.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-circuitid
+  value_name: set:<tag>,<circuit>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map RFC3046 circuit-id to tag.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-remoteid
+  value_name: set:<tag>,<remote>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map RFC3046 remote-id to tag.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-subscrid
+  value_name: set:<tag>,<remote>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map RFC3993 subscriber-id to tag.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-pxe-vendor
+  value_name: <vendor>[,...]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify vendor class to match for PXE requests.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  - --dhcp-ignore
+  value_name: tag:<tag>...
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Don't do DHCP for hosts with tag set.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-broadcast
+  value_name: tag:<tag>...
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Force broadcast replies for hosts with tag set.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --keep-in-foreground
+  group: 'Valid options are:'
+  description: Do NOT fork into the background, do NOT run in debug mode.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --dhcp-authoritative
+  group: 'Valid options are:'
+  description: Assume we are the only DHCP server on the local network.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --dhcp-leasefile
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify where to store DHCP leases (defaults to /var/lib/misc/dnsmasq.leases).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --localmx
+  group: 'Valid options are:'
+  description: Return MX records for local hosts.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --mx-host
+  value_name: <host_name>,<target>,<pref>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify an MX record.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --dhcp-boot
+  value_name: <bootp opts>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify BOOTP options to DHCP server.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-poll
+  group: 'Valid options are:'
+  description: Do NOT poll /etc/resolv.conf file, reload only on SIGHUP.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --no-negcache
+  group: 'Valid options are:'
+  description: Do NOT cache failed search results.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --use-stale-cache
+  value_name: <max_expired>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Use expired cache data for faster reply.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --strict-order
+  group: 'Valid options are:'
+  description: Use nameservers strictly in the order given in /etc/resolv.conf.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --dhcp-option
+  value_name: <optspec>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify options to be sent to DHCP clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-option-force
+  value_name: <optspec>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: DHCP option sent even if the client does not request it.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-option-pxe
+  value_name: <optspec>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: DHCP option sent only to PXE clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --port
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify port to listen for DNS requests on (defaults to 53).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --edns-packet-max
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Maximum supported UDP packet size for EDNS.0 (defaults to 1232).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --log-queries
+  group: 'Valid options are:'
+  description: Log DNS queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Q
+  - --query-port
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Force the originating port for upstream DNS queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --port-limit
+  value_name: '#ports'
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set maximum number of random originating ports for a query.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --no-resolv
+  group: 'Valid options are:'
+  description: Do NOT read resolv.conf.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --resolv-file
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify path to resolv.conf (defaults to /etc/resolv.conf).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --servers-file
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify path to file with server= options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --server
+  value_name: /<domain>/<ipaddr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify address(es) of upstream servers with optional domains.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rev-server
+  value_name: <addr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify address of upstream servers for reverse address queries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --local
+  value_name: /<domain>/
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Never forward queries to specified domains.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --domain
+  value_name: <domain>[,<range>]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify the domain to be assigned in DHCP leases.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --mx-target
+  value_name: <host_name>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify default target in an MX record.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --local-ttl
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify time-to-live in seconds for replies from /etc/hosts.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --neg-ttl
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify time-to-live in seconds for negative caching.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-ttl
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify time-to-live in seconds for maximum TTL to send to clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-cache-ttl
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify time-to-live ceiling for cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --min-cache-ttl
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify time-to-live floor for cache.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fast-dns-retry
+  value_name: <milliseconds>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Retry DNS queries after this many milliseconds.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --user
+  value_name: <username>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Change to this user after startup. (defaults to nobody).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --dhcp-vendorclass
+  value_name: set:<tag>,<class>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map DHCP vendor class to tag.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  group: 'Valid options are:'
+  description: Display dnsmasq version and copyright information.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --alias
+  value_name: <ipaddr>,<ipaddr>,<netmask>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Translate IPv4 addresses from upstream servers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --srv-host
+  value_name: <name>,<target>,...
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify a SRV record.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --help
+  group: 'Valid options are:'
+  description: Display this message. Use --help dhcp or --help dhcp6 for known DHCP options.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --pid-file
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify path of PID file (defaults to /var/run/dnsmasq.pid).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --dhcp-lease-max
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify maximum number of DHCP leases (defaults to 1000).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --localise-queries
+  group: 'Valid options are:'
+  description: Answer DNS queries based on the interface a query was sent to.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Y
+  - --txt-record
+  value_name: <name>,<txt>[,<txt]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify TXT DNS record.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ptr-record
+  value_name: <name>,<target>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify PTR DNS record.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --interface-name
+  value_name: <name>,<interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Give DNS name to IPv4 address of interface.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --bind-interfaces
+  group: 'Valid options are:'
+  description: Bind only to interfaces in use.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  - --read-ethers
+  group: 'Valid options are:'
+  description: Read DHCP static host information from /etc/ethers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-1'
+  - --enable-dbus
+  value_name: <busname>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Enable the DBus interface for setting upstream servers, etc.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-ubus
+  value_name: <busname>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Enable the UBus interface.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-2'
+  - --no-dhcp-interface
+  value_name: <interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Do not provide DHCP on this interface, only provide DNS.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-dhcpv6-interface
+  value_name: <interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Do not provide DHCPv6 on this interface.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-dhcpv4-interface
+  value_name: <interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Do not provide DHCPv4 on this interface.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-3'
+  - --bootp-dynamic
+  value_name: tag:<tag>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Enable dynamic address allocation for bootp.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  - --dhcp-mac
+  value_name: set:<tag>,<mac
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map MAC address (with wildcards) to option set.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bridge-interface
+  value_name: <iface>,<alias>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Treat DHCP requests on aliases as arriving from interface.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --shared-network
+  value_name: <iface>|<addr>,<addr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify extra networks sharing a broadcast domain for DHCP
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-5'
+  - --no-ping
+  group: 'Valid options are:'
+  description: Disable ICMP echo address checking in the DHCP server.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  - --dhcp-script
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Shell script to run on DHCP lease creation and destruction.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-luascript
+  value_name: path
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Lua script to run on DHCP lease creation and destruction.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-scriptuser
+  value_name: <username>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Run lease-change scripts as this user.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --script-arp
+  group: 'Valid options are:'
+  description: Call dhcp-script with changes to local ARP table.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-7'
+  - --conf-dir
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Read configuration from all the files in this directory.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --conf-script
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Execute file and read configuration from stdin.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-8'
+  - --log-facility
+  value_name: <facility>|<file>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Log to this syslog facility or file. (defaults to DAEMON)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-9'
+  - --leasefile-ro
+  group: 'Valid options are:'
+  description: Do not use leasefile.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  - --dns-forward-max
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Maximum number of concurrent DNS queries. (defaults to 150)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --clear-on-reload
+  group: 'Valid options are:'
+  description: Clear DNS cache when reloading /etc/resolv.conf.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-ignore-names
+  value_name: tag:<tag>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Ignore hostnames provided by DHCP clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-no-override
+  group: 'Valid options are:'
+  description: Do NOT reuse filename and server fields for extra DHCP options.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-tftp
+  value_name: '[<intr>[,<intr>]]'
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Enable integrated read-only TFTP server.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-root
+  value_name: <dir>[,<iface>]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Export files by TFTP only from the specified subtree.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-unique-root
+  value_name: ip|mac
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Add client IP or hardware address to tftp-root.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-secure
+  group: 'Valid options are:'
+  description: Allow access only to files owned by the user running dnsmasq.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-no-fail
+  group: 'Valid options are:'
+  description: Do not terminate the service if TFTP directories are inaccessible.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-max
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Maximum number of concurrent TFTP transfers (defaults to 50).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-mtu
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Maximum MTU to use for TFTP transfers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-no-blocksize
+  group: 'Valid options are:'
+  description: Disable the TFTP blocksize extension.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-lowercase
+  group: 'Valid options are:'
+  description: Convert TFTP filenames to lowercase
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-port-range
+  value_name: <start>,<end>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Ephemeral port range for use by TFTP transfers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tftp-single-port
+  group: 'Valid options are:'
+  description: Use only one port for TFTP server.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --log-dhcp
+  group: 'Valid options are:'
+  description: Extra logging for DHCP.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --log-async
+  value_name: <integer>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Enable async. logging; optionally set queue length.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stop-dns-rebind
+  group: 'Valid options are:'
+  description: Stop DNS rebinding. Filter private IP ranges when resolving.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rebind-localhost-ok
+  group: 'Valid options are:'
+  description: Allow rebinding of 127.0.0.0/8, for RBL servers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rebind-domain-ok
+  value_name: /<domain>/
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Inhibit DNS-rebind protection on this domain.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --all-servers
+  group: 'Valid options are:'
+  description: Always perform DNS queries to all servers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-match
+  value_name: set:<tag>,<optspec>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set tag if client includes matching option in request.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-name-match
+  value_name: set:<tag>,<string>[*]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set tag if client provides given name.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-alternate-port
+  value_name: <ports>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Use alternative ports for DHCP.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --naptr-record
+  value_name: <name>,<naptr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify NAPTR DNS record.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --min-port
+  value_name: <port>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify lowest port available for DNS query transmission.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-port
+  value_name: <port>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify highest port available for DNS query transmission.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-fqdn
+  group: 'Valid options are:'
+  description: Use only fully qualified domain names for DHCP clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-generate-names
+  value_name: tag:<tag>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Generate hostnames based on MAC address for nameless clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-proxy
+  value_name: <ipaddr>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Use these DHCP relays as full proxies.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-relay
+  value_name: <local-addr>,<server>[,<iface>]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Relay DHCP requests to a remote server
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cname
+  value_name: <alias>,<target>[,<ttl>]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify alias name for LOCAL DNS name.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pxe-prompt
+  value_name: <prompt>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Prompt to send to PXE clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pxe-service
+  value_name: <service>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Boot service for PXE menu.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --test
+  group: 'Valid options are:'
+  description: Check configuration syntax.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-mac
+  value_name: base64|text
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Add requestor's MAC address to forwarded DNS queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-mac
+  group: 'Valid options are:'
+  description: Strip MAC information from queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-subnet
+  value_name: <v4 pref>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Add specified IP subnet to forwarded DNS queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-subnet
+  group: 'Valid options are:'
+  description: Strip ECS information from queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-cpe-id
+  value_name: <text>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Add client identification to forwarded DNS queries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --proxy-dnssec
+  group: 'Valid options are:'
+  description: Proxy DNSSEC validation results from upstream nameservers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-sequential-ip
+  group: 'Valid options are:'
+  description: Attempt to allocate sequential IP addresses to DHCP clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-ignore-clid
+  group: 'Valid options are:'
+  description: Ignore client identifier option sent by DHCP clients.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --conntrack
+  group: 'Valid options are:'
+  description: Copy connection-track mark from queries to upstream connections.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-client-update
+  group: 'Valid options are:'
+  description: Allow DHCP clients to do their own DDNS updates.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-ra
+  group: 'Valid options are:'
+  description: Send router-advertisements for interfaces doing DHCPv6
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-duid
+  value_name: <enterprise>,<duid>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify DUID_EN-type DHCPv6 server DUID
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --host-record
+  value_name: <name>,<address>[,<ttl>]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify host (A/AAAA and PTR) records
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dynamic-host
+  value_name: <name>
+  value_kind: Required
+  group: 'Valid options are:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --caa-record
+  value_name: <name>,<flags>,<tag>,<value>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify certification authority authorization record
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dns-rr
+  value_name: <name>,<RR-number>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify arbitrary DNS resource record
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bind-dynamic
+  group: 'Valid options are:'
+  description: Bind to interfaces in use - check for new interfaces
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auth-server
+  value_name: <NS>,<interface>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Export local names to global DNS
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auth-zone
+  value_name: <domain>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Domain to export to global DNS
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auth-ttl
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set TTL for authoritative replies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auth-soa
+  value_name: <serial>[,...]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set authoritative zone information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auth-sec-servers
+  value_name: <NS>[,<NS>...]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Secondary authoritative nameservers for forward domains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auth-peer
+  value_name: <ipaddr>[,<ipaddr>...]
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Peers which are allowed to do zone transfer
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ipset
+  value_name: /<domain>[/<domain>...]/<ipset>...
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify ipsets to which matching domains should be added
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nftset
+  value_name: /<domain>[/<domain>...]/<nftset>...
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify nftables sets to which matching domains should be added
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --connmark-allowlist-enable
+  value_name: <mask>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Enable filtering of DNS queries with connection-track marks.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --connmark-allowlist
+  value_name: <connmark>
+  value_kind: Required
+  group: 'Valid options are:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --synth-domain
+  value_name: <domain>,<range>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify a domain and address range for synthesised names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dnssec
+  group: 'Valid options are:'
+  description: Activate DNSSEC validation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --trust-anchor
+  value_name: <domain>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify trust anchor key digest.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dnssec-debug
+  group: 'Valid options are:'
+  description: Disable upstream checking for DNSSEC debugging.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dnssec-check-unsigned
+  group: 'Valid options are:'
+  description: Ensure answers without DNSSEC are in unsigned zones.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dnssec-no-timecheck
+  group: 'Valid options are:'
+  description: Don't check DNSSEC signature timestamps until first cache-reload
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dnssec-timestamp
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Timestamp file to verify system clock for DNSSEC
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dnssec-limits
+  value_name: <limit>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set resource limits for DNSSEC validation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ra-param
+  value_name: <iface>
+  value_kind: Required
+  group: 'Valid options are:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet-dhcp
+  group: 'Valid options are:'
+  description: Do not log routine DHCP.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet-dhcp6
+  group: 'Valid options are:'
+  description: Do not log routine DHCPv6.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet-ra
+  group: 'Valid options are:'
+  description: Do not log RA.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --log-debug
+  group: 'Valid options are:'
+  description: Log debugging information.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --local-service
+  group: 'Valid options are:'
+  description: Accept queries only from directly-connected networks.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dns-loop-detect
+  group: 'Valid options are:'
+  description: Detect and remove DNS forwarding loops.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-address
+  value_name: <ipaddr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Ignore DNS responses containing ipaddr.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-ttl
+  value_name: <ttl>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Set TTL in DNS responses with DHCP-derived addresses.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-reply-delay
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Delay DHCP replies for at least number of seconds.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dhcp-rapid-commit
+  group: 'Valid options are:'
+  description: Enables DHCPv4 Rapid Commit option.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dumpfile
+  value_name: <path>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Path to debug packet dump file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dumpmask
+  value_name: <hex>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Mask which packets to dump.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --script-on-renewal
+  group: 'Valid options are:'
+  description: Call dhcp-script when lease expiry changes.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --umbrella
+  value_name: <optspec>
+  value_kind: Optional
+  group: 'Valid options are:'
+  description: Send Cisco Umbrella identifiers including remote IP.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet-tftp
+  group: 'Valid options are:'
+  description: Do not log routine TFTP.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-round-robin
+  group: 'Valid options are:'
+  description: Suppress round-robin ordering of DNS records.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-0x20-encode
+  group: 'Valid options are:'
+  description: Suppress DNS bit 0x20 encoding.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --do-0x20-encode
+  group: 'Valid options are:'
+  description: Enable DNS bit 0x20 encoding.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-ident
+  group: 'Valid options are:'
+  description: Do not add CHAOS TXT records.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cache-rr
+  value_name: <RR-type>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Cache this DNS resource record type.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-tcp-connections
+  value_name: <integer>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Maximum number of concurrent tcp connections.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
