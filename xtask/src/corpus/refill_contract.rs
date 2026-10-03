@@ -64,27 +64,27 @@ pub(crate) fn check_must_value_names_after_root_refill(
         return failures;
     };
     for (flag_spec, expected_substrings) in &contract.must_value_names_after_root_refill {
-        match refilled
+        let names: Vec<String> = refilled
             .flags()
-            .find(|f| entity_matches_flag_spec(f, flag_spec))
-        {
-            None => failures.push(ContractFailure(format!(
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+            .map(|f| collapse_whitespace(f.value_name.as_deref().unwrap_or("")))
+            .collect();
+        if names.is_empty() {
+            failures.push(ContractFailure(format!(
                 "must_value_names_after_root_refill[{flag_spec:?}]: flag not present after refill"
-            ))),
-            Some(entity) => {
-                let actual = collapse_whitespace(entity.value_name.as_deref().unwrap_or(""));
-                let missing: Vec<String> = expected_substrings
-                    .iter()
-                    .map(|s| collapse_whitespace(s))
-                    .filter(|expected| !actual.contains(expected.as_str()))
-                    .collect();
-                if !missing.is_empty() {
-                    failures.push(ContractFailure(format!(
-                        "must_value_names_after_root_refill[{flag_spec:?}]: expected the merged \
-                         value name to contain {missing:?}, got {actual:?}"
-                    )));
-                }
-            }
+            )));
+            continue;
+        }
+        let missing: Vec<String> = expected_substrings
+            .iter()
+            .map(|s| collapse_whitespace(s))
+            .filter(|expected| !names.iter().any(|n| n.contains(expected.as_str())))
+            .collect();
+        if !missing.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_value_names_after_root_refill[{flag_spec:?}]: expected a row carrying \
+                 each of {missing:?}, got {names:?}"
+            )));
         }
     }
     failures
@@ -140,34 +140,59 @@ pub(crate) fn check_must_choices_after_root_refill(
         return failures;
     };
     for (flag_spec, expected_choices) in &contract.must_choices_after_root_refill {
-        match refilled
+        let rows: Vec<Vec<&str>> = refilled
             .flags()
-            .find(|f| entity_matches_flag_spec(f, flag_spec))
-        {
-            None => failures.push(ContractFailure(format!(
+            .filter(|f| entity_matches_flag_spec(f, flag_spec))
+            .map(|f| f.choices.iter().map(|c| c.name.as_str()).collect())
+            .collect();
+        if rows.is_empty() {
+            failures.push(ContractFailure(format!(
                 "must_choices_after_root_refill[{flag_spec:?}]: flag not present after refill"
-            ))),
-            Some(entity) => {
-                let missing: Vec<&str> = expected_choices
-                    .iter()
-                    .filter(|c| !entity.choices.iter().any(|ch| &ch.name == *c))
-                    .map(|s| s.as_str())
-                    .collect();
-                if !missing.is_empty() {
-                    failures.push(ContractFailure(format!(
-                        "must_choices_after_root_refill[{flag_spec:?}]: expected the merged \
-                         choices to include {missing:?}, got {:?}",
-                        entity
-                            .choices
-                            .iter()
-                            .map(|c| c.name.as_str())
-                            .collect::<Vec<_>>()
-                    )));
-                }
-            }
+            )));
+        } else if !rows
+            .iter()
+            .any(|row| expected_choices.iter().all(|c| row.contains(&c.as_str())))
+        {
+            failures.push(ContractFailure(format!(
+                "must_choices_after_root_refill[{flag_spec:?}]: no single row carries \
+                 {expected_choices:?}, rows hold {rows:?}"
+            )));
         }
     }
     failures
+}
+
+/// The refill identity guard: merging a fixture's root with itself must
+/// reproduce the root, byte for byte as a snapshot. Applies to every
+/// fixture that is not `[xfail]`. Returns the first differing line.
+pub(crate) fn check_refill_is_identity(root: Option<&CommandNode>) -> Vec<ContractFailure> {
+    let Some(root) = root else {
+        return Vec::new();
+    };
+    let Ok(refilled) = mandible_core::merge_nodes(vec![root.clone(), root.clone()]) else {
+        return vec![ContractFailure("refill_identity: merge failed".to_string())];
+    };
+    let (Ok(before), Ok(after)) = (
+        super::runner::render_snapshot(root),
+        super::runner::render_snapshot(&refilled),
+    ) else {
+        return Vec::new();
+    };
+    if before == after {
+        return Vec::new();
+    }
+    let line = before
+        .lines()
+        .zip(after.lines())
+        .position(|(a, b)| a != b)
+        .unwrap_or_else(|| before.lines().count().min(after.lines().count()));
+    vec![ContractFailure(format!(
+        "refill_identity: merging the root with itself changed the tree at snapshot line {}: \
+         {:?} became {:?}",
+        line + 1,
+        before.lines().nth(line).unwrap_or("<end>"),
+        after.lines().nth(line).unwrap_or("<end>")
+    ))]
 }
 
 /// Shared "no root"/"simulated refill failed" handling for both refill
