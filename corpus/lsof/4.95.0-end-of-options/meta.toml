@@ -27,7 +27,3 @@ must_contain_flags = ["--", "-T"]
 
 [contract.must_one_row_in_group]
 "" = ["--"]
-
-[xfail]
-broken = true
-reason = "S-187: the usage synopsis `[--]` stays a second, undescribed `--` row beside the table row `-- end option scan`"

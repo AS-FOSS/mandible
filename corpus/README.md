@@ -633,6 +633,18 @@ Every fixture that is not `[xfail]` also gets one unlisted check: merging
 its root with itself must reproduce the root as a snapshot. A failure
 names the first changed snapshot line.
 
+### Exactly one row under a heading: `must_one_row_in_group`
+
+```toml
+[contract.must_one_row_in_group]
+"generic raw video demuxer AVOptions:" = ["-framerate"]
+"" = ["--"]
+```
+
+Keyed by group label (`""` is no group), each spelling must have exactly
+one row under it, in the parse and after the refill simulation. It fails
+on zero rows too. See docs/shapes.md S-187.
+
 ### What `--bless` does and does not assert: `verdict_scope`
 
 `--bless` freezes the *entire* tree into `expected.snap` — node summaries,

@@ -31,7 +31,3 @@ must_contain_flags = ["-keep_ass_markup", "-framerate", "-raw_packet_size", "-li
 "AV1 Annex B/low overhead OBU demuxer AVOptions:" = ["-framerate"]
 "Binary text demuxer AVOptions:" = ["-framerate"]
 "bitpacked demuxer AVOptions:" = ["-framerate"]
-
-[xfail]
-broken = true
-reason = "S-187: a block printed repeatedly under one heading renders its rows once per print; identical rows under one heading must fold to one"

@@ -1626,7 +1626,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-096
 - looks like: |
       --			Only file names after this
-- tools: vim.basic, nvim, lldb-server, lldb-server-18
+- tools: vim.basic, nvim, lldb-server, lldb-server-18, lsof, awk
 - handling: Fixed. `parse_flag_spec`'s `try_bare_sigil` reads a
   bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
   verbatim). Only a real terminator (nothing left, or whitespace/an alias
@@ -1652,6 +1652,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and `args` (optional, repeatable), and a `-- word word` flag row that
   restates those operands is dropped as a flag and describes `program`.
   `corpus/lldb-server/18.1.3-dashdash` is promoted.
+  Round 14: the usage-synopsis dedupe (`flag_spelling_already_present`)
+  matched only dashed spellings, so the synopsis `[--]` stayed a second,
+  undescribed `--` beside the table row (`corpus/lsof/4.95.0-end-of-options`);
+  a dashless spelling now matches by name, which also folds awk's `--`
+  repeated across two synopsis forms.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
@@ -4455,3 +4460,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools (dnsmasq 25 flags, dpkg, dpkg-buildpackage, dpkg-genbuildinfo,
   dpkg-genchanges, pmap), no flag, positional or subcommand count
   moved; each read against raw help.
+
+### S-187: a block printed repeatedly under one heading is one block
+
+- id: S-187
+- looks like: |
+      generic raw video demuxer AVOptions:
+        -framerate         <video_rate> .D.........  (default "25")
+      generic raw video demuxer AVOptions:
+        -framerate         <video_rate> .D.........  (default "25")
+- tools: ffplay, ffprobe
+- handling: Fixed. Rows identical in every field under the identical
+  heading fold to one, at the first occurrence's position
+  (`help_text::fold_repeats`, every entity kind). Rows that differ in any
+  field, rows under different headings and rows with no heading stay
+  separate. Fixture `corpus/ffplay/6.1.1-3ubuntu5-repeat`, contract
+  `must_one_row_in_group`.
+- fleet: ffplay 1136 to 818 flags, ffprobe 1128 to 810; the folded rows
+  are exact repeats in the raw help and each is still rendered once.
