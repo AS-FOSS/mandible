@@ -55,7 +55,7 @@ mod usage_command_table;
 mod usage_optional_word;
 mod usage_signs;
 
-use avoption::recover_avoption_type_column;
+use avoption::{is_avoption_row_text, recover_avoption_type_column};
 use backfill::*;
 use bullets::*;
 pub use emit::*;

@@ -1,0 +1,105 @@
+name: ffplay
+description: Simple media player
+usage:
+- 'usage: ffplay [options] input_file'
+positionals:
+- name: input_file
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -L
+  group: 'Main options:'
+  description: show license
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  value_name: topic
+  value_kind: Required
+  group: 'Main options:'
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flags
+  value_name: flags
+  value_kind: Required
+  group: 'AVCodecContext AVOptions:'
+  description: (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ch_layout
+  value_name: channel_layout
+  value_kind: Required
+  group: 'AVCodecContext AVOptions:'
+  description: ED..A......
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -channel_layout
+  value_name: channel_layout
+  value_kind: Required
+  group: 'AVCodecContext AVOptions:'
+  description: (default 0x0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -request_channel_layout
+  value_name: channel_layout
+  value_kind: Required
+  group: 'AVCodecContext AVOptions:'
+  description: (default 0x0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -srtp_in_suite
+  value_name: string
+  value_kind: Required
+  group: 'srtp AVOptions:'
+  description: .D.........
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -srtp_in_params
+  value_name: string
+  value_kind: Required
+  group: 'srtp AVOptions:'
+  description: .D.........
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ch_layout
+  value_name: channel_layout
+  value_kind: Required
+  group: 'pcm demuxer AVOptions:'
+  description: .D.........
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -playlist
+  value_name: int
+  value_kind: Required
+  group: 'bluray AVOptions:'
+  description: (from -1 to 99999) (default -1)
+  provenance:
+    sources:
+    - help-text
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.9
+children_filled: true

@@ -268,7 +268,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
             oldgnu
             pax
             posix
-- tools: tar, automake, cp
+- tools: tar, automake, cp, ffplay
 - handling: An indented list nested under a flag is that flag's choices, never
   subcommands. A per-value description, when the source documents one, is kept
   on the value rather than dropped, and a block with no plausible owning flag
@@ -278,7 +278,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   excluded from the second proof, since no real placeholder is a single
   letter); automake's Warning categories heading and cp's VERSION_CONTROL
   block both name no flag literally and attach bare names only to the trailing
-  flag as a base fallback, never a description. See S-025 for the still-open
+  flag as a base fallback, never a description. A row that opens
+  `<type> ED.VAS.....` is an option of its own AVOptions section and never a
+  choice (`corpus/ffplay/6.1.1-3ubuntu5-section-bound`), so `ffplay`'s
+  AVFilter rows no longer become 1348 choices of libdc1394's `-framerate`.
+  Those rows are dropped, since they are filter options and not flags of the
+  tool. See S-025 for the still-open
   morphological-variant gap this leaves.
 - fleet: not measured
 
@@ -302,7 +307,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/ffplay/6.1.1-3ubuntu5-avoptions`) makes `<type>` the value name
   and drops the capability column from the flag row's description: the
   column is a fixed-position bitmask the help never explains (no legend
-  in the output), and it is kept on the described choice rows beneath.
+  in the output), and it is kept on the described choice rows beneath. A
+  row whose only text is the column keeps it as the description
+  (`corpus/ffplay/6.1.1-3ubuntu5-capability-only`).
 - fleet: moved ffplay, ffmpeg and ffprobe, 0 flag-count, subcommand-count and positional losses on a full-`PATH` sweep-diff of 2270 tools, 2026-10-03, nine controls byte-identical. Every AVOptions row carries `<type>` as its value name; the 26 `ffplay` rows whose description was only the capability column now have none.
 
 ### S-016: headingless invocation table naming the tool itself

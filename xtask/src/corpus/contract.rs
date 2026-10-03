@@ -276,13 +276,7 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
-    for flag in b.must_not_attach_choices.keys() {
-        if !n.must_not_attach_choices.contains_key(flag) {
-            lines.push(format!(
-                "CONTRACT WEAKENED: {label} must_not_attach_choices[{flag:?}] (assertion removed)"
-            ));
-        }
-    }
+    lines.extend(super::not_attach_choices::weakened_lines(label, b, n));
 
     // `must_display_name`: same rule as `must_describe` above — a string
     // value has no natural stronger/weaker ordering, so only its outright
@@ -644,21 +638,7 @@ fn check_contract_scalar_fields(
         }
     }
 
-    for (flag_spec, forbidden) in &contract.must_not_attach_choices {
-        let carried: Vec<&str> = root
-            .flags()
-            .filter(|f| entity_matches_flag_spec(f, flag_spec))
-            .flat_map(|f| f.choices.iter())
-            .filter(|c| forbidden.iter().any(|x| x == &c.name))
-            .map(|c| c.name.as_str())
-            .collect();
-        if !carried.is_empty() {
-            failures.push(ContractFailure(format!(
-                "must_not_attach_choices[{flag_spec:?}]: carries {}",
-                carried.join(", ")
-            )));
-        }
-    }
+    failures.extend(super::not_attach_choices::failures(contract, root));
 
     // The other negative-claim shape: not "this spelling was invented",
     // but "these spellings, which really exist, must not have been folded

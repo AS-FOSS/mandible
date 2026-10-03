@@ -980,6 +980,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'AVCodecContext AVOptions:'
+  description: ED..A......
   provenance:
     sources:
     - help-text
@@ -4807,6 +4808,7 @@ flags:
   value_name: string
   value_kind: Required
   group: 'srtp AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -4815,6 +4817,7 @@ flags:
   value_name: string
   value_kind: Required
   group: 'srtp AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -6346,6 +6349,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'dfpwm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7669,6 +7673,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7695,6 +7700,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7721,6 +7727,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7747,6 +7754,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7773,6 +7781,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7799,6 +7808,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7825,6 +7835,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7851,6 +7862,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7877,6 +7889,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7903,6 +7916,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7929,6 +7943,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7955,6 +7970,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -7981,6 +7997,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8007,6 +8024,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8033,6 +8051,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8059,6 +8078,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8085,6 +8105,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8111,6 +8132,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8137,6 +8159,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8163,6 +8186,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8189,6 +8213,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'pcm demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -8560,6 +8585,7 @@ flags:
   value_name: channel_layout
   value_kind: Required
   group: 'sln demuxer AVOptions:'
+  description: .D.........
   provenance:
     sources:
     - help-text
@@ -11043,1355 +11069,6 @@ flags:
   - -framerate
   value_name: string
   value_kind: Required
-  choices:
-  - thread_type
-  - enable
-  - threads
-  - extra_hw_frames
-  - action
-  - level_in
-  - mode
-  - threshold
-  - ratio
-  - attack
-  - release
-  - makeup
-  - knee
-  - link
-  - detection
-  - level_sc
-  - mix
-  - contrast
-  - cue
-  - preroll
-  - buffer
-  - nb_samples
-  - ns
-  - duration
-  - d
-  - overlap
-  - o
-  - curve1
-  - c1
-  - curve2
-  - c2
-  - split
-  - order
-  - level
-  - gain
-  - precision
-  - level_out
-  - bits
-  - dc
-  - aa
-  - samples
-  - lfo
-  - lforange
-  - lforate
-  - window
-  - w
-  - arorder
-  - a
-  - t
-  - burst
-  - b
-  - method
-  - m
-  - hsize
-  - n
-  - stages
-  - seed
-  - delays
-  - all
-  - type
-  - transfer
-  - channels
-  - dfrequency
-  - dqfactor
-  - tfrequency
-  - tqfactor
-  - range
-  - dftype
-  - tftype
-  - direction
-  - auto
-  - sensitivity
-  - basefreq
-  - in_gain
-  - out_gain
-  - decays
-  - exprs
-  - channel_layout
-  - c
-  - amount
-  - drive
-  - blend
-  - freq
-  - ceil
-  - listen
-  - start_sample
-  - ss
-  - start_time
-  - st
-  - curve
-  - silence
-  - unity
-  - noise_reduction
-  - nr
-  - noise_floor
-  - nf
-  - noise_type
-  - nt
-  - band_noise
-  - bn
-  - residual_floor
-  - rf
-  - track_noise
-  - tn
-  - track_residual
-  - tr
-  - output_mode
-  - om
-  - adaptivity
-  - ad
-  - floor_offset
-  - fo
-  - noise_link
-  - nl
-  - band_multiplier
-  - bm
-  - sample_noise
-  - sn
-  - gain_smooth
-  - gs
-  - real
-  - imag
-  - win_size
-  - win_func
-  - dry
-  - wet
-  - length
-  - gtype
-  - irgain
-  - irfmt
-  - maxir
-  - response
-  - channel
-  - size
-  - rate
-  - minp
-  - maxp
-  - nbirs
-  - ir
-  - irload
-  - sample_fmts
-  - f
-  - sample_rates
-  - r
-  - channel_layouts
-  - cl
-  - shift
-  - sigma
-  - levels
-  - wavet
-  - percent
-  - profile
-  - adaptive
-  - softness
-  - zeros
-  - z
-  - poles
-  - p
-  - gains
-  - k
-  - format
-  - process
-  - e
-  - normalize
-  - nb_inputs
-  - limit
-  - asc
-  - asc_level
-  - latency
-  - frequency
-  - width_type
-  - width
-  - transform
-  - loop
-  - start
-  - time
-  - inputs
-  - key
-  - value
-  - function
-  - expr
-  - file
-  - direct
-  - weights
-  - params
-  - curves
-  - mgain
-  - fscale
-  - colors
-  - strength
-  - s
-  - patch
-  - research
-  - output
-  - smooth
-  - mu
-  - eps
-  - leakage
-  - out_mode
-  - packet_size
-  - pad_len
-  - whole_len
-  - pad_dur
-  - whole_dur
-  - delay
-  - decay
-  - speed
-  - clip
-  - diff
-  - iterations
-  - offset_l
-  - offset_r
-  - timing
-  - bpm
-  - ms
-  - hz
-  - sample_rate
-  - lambda
-  - delta
-  - model
-  - timestamps
-  - outputs
-  - commands
-  - filename
-  - nb_out_samples
-  - pad
-  - tb
-  - param
-  - oversample
-  - measure
-  - hmm
-  - dict
-  - lm
-  - lmctl
-  - lmname
-  - logfn
-  - metadata
-  - reset
-  - measure_overall
-  - map
-  - boost
-  - feedback
-  - cutoff
-  - slope
-  - centerf
-  - qfactor
-  - tempo
-  - starti
-  - end
-  - endi
-  - start_pts
-  - end_pts
-  - durationi
-  - end_sample
-  - algo
-  - bind_address
-  - csg
-  - blocksize
-  - g
-  - a0
-  - a1
-  - a2
-  - b0
-  - b1
-  - b2
-  - fcut
-  - feed
-  - speeds
-  - depths
-  - attacks
-  - points
-  - soft-knee
-  - volume
-  - mm
-  - cm
-  - temp
-  - block_size
-  - i
-  - limitergain
-  - original
-  - enhance
-  - voice
-  - framelen
-  - gausssize
-  - peak
-  - maxgain
-  - targetrms
-  - coupling
-  - correctdc
-  - altboundary
-  - compress
-  - h
-  - v
-  - video
-  - meter
-  - framelog
-  - dualmono
-  - panlaw
-  - target
-  - gauge
-  - scale
-  - integrated
-  - lra_low
-  - lra_high
-  - sample_peak
-  - true_peak
-  - gain_entry
-  - accuracy
-  - wfunc
-  - fixed
-  - multi
-  - zero_phase
-  - dumpfile
-  - dumpscale
-  - fft2
-  - min_phase
-  - depth
-  - regen
-  - shape
-  - phase
-  - interp
-  - side_gain
-  - middle_source
-  - middle_phase
-  - left_delay
-  - left_balance
-  - left_gain
-  - left_phase
-  - right_delay
-  - right_balance
-  - right_gain
-  - right_phase
-  - process_stereo
-  - cdt_ms
-  - force_pe
-  - analyze_mode
-  - bits_per_sample
-  - lfe
-  - hrir
-  - plugin
-  - controls
-  - l
-  - lra
-  - tp
-  - measured_i
-  - measured_lra
-  - measured_tp
-  - measured_thresh
-  - offset
-  - linear
-  - dual_mono
-  - print_format
-  - args
-  - track_gain
-  - track_peak
-  - pitch
-  - transients
-  - detector
-  - smoothing
-  - formant
-  - pitchq
-  - noise
-  - mono
-  - start_periods
-  - start_duration
-  - start_threshold
-  - start_silence
-  - start_mode
-  - stop_periods
-  - stop_duration
-  - stop_threshold
-  - stop_silence
-  - stop_mode
-  - timestamp
-  - sofa
-  - rotation
-  - elevation
-  - radius
-  - speakers
-  - lfegain
-  - framesize
-  - interpolate
-  - minphase
-  - anglestep
-  - radstep
-  - expansion
-  - compression
-  - raise
-  - fall
-  - invert
-  - rms
-  - balance_in
-  - balance_out
-  - softclip
-  - mutel
-  - muter
-  - phasel
-  - phaser
-  - slev
-  - sbal
-  - mlev
-  - mpan
-  - base
-  - sclevel
-  - bmode_in
-  - bmode_out
-  - crossfeed
-  - drymix
-  - chl_out
-  - chl_in
-  - lfe_low
-  - lfe_high
-  - lfe_mode
-  - angle
-  - focus
-  - fc_in
-  - fc_out
-  - fl_in
-  - fl_out
-  - fr_in
-  - fr_out
-  - sl_in
-  - sl_out
-  - sr_in
-  - sr_out
-  - bl_in
-  - bl_out
-  - br_in
-  - br_out
-  - bc_in
-  - bc_out
-  - lfe_in
-  - lfe_out
-  - allx
-  - ally
-  - fcx
-  - flx
-  - frx
-  - blx
-  - brx
-  - slx
-  - srx
-  - bcx
-  - fcy
-  - fly
-  - fry
-  - bly
-  - bry
-  - sly
-  - sry
-  - bcy
-  - eval
-  - replaygain
-  - taps
-  - preset
-  - bands
-  - magnitude
-  - amplitude
-  - color
-  - colour
-  - density
-  - list_voices
-  - text
-  - textfile
-  - hp
-  - lp
-  - beta
-  - att
-  - round
-  - hptaps
-  - lptaps
-  - beep_factor
-  - x
-  - y
-  - qoffset
-  - clear
-  - eof_action
-  - shortest
-  - repeatlast
-  - ts_sync_mode
-  - factor
-  - tolerance
-  - low
-  - high
-  - planes
-  - original_size
-  - fontsdir
-  - alpha
-  - shaping
-  - similarity
-  - min_val
-  - window_size
-  - bitplane
-  - filter
-  - pic_th
-  - pixel_black_th
-  - pix_th
-  - thresh
-  - c0_mode
-  - c1_mode
-  - c2_mode
-  - c3_mode
-  - all_mode
-  - c0_expr
-  - c1_expr
-  - c2_expr
-  - c3_expr
-  - all_expr
-  - c0_opacity
-  - c1_opacity
-  - c2_opacity
-  - c3_opacity
-  - all_opacity
-  - period_min
-  - period_max
-  - block_pct
-  - block_width
-  - block_height
-  - block
-  - bstep
-  - group
-  - mstep
-  - thmse
-  - hdthr
-  - estim
-  - ref
-  - luma_radius
-  - lr
-  - luma_power
-  - chroma_radius
-  - cr
-  - chroma_power
-  - cp
-  - alpha_radius
-  - ar
-  - alpha_power
-  - ap
-  - parity
-  - deint
-  - dist_x
-  - dist_y
-  - yuv
-  - thres
-  - sizew
-  - sizeh
-  - stepw
-  - steph
-  - threy
-  - threu
-  - threv
-  - distance
-  - cbh
-  - cbv
-  - crh
-  - crv
-  - edge
-  - system
-  - cie
-  - gamuts
-  - intensity
-  - corrgamma
-  - showwhite
-  - gamma
-  - fill
-  - mv
-  - qp
-  - mv_type
-  - mvt
-  - frame_type
-  - ft
-  - rs
-  - bs
-  - rm
-  - gm
-  - rh
-  - gh
-  - bh
-  - pl
-  - rr
-  - rg
-  - rb
-  - ra
-  - gr
-  - gg
-  - gb
-  - ga
-  - br
-  - bg
-  - bb
-  - ba
-  - ag
-  - ab
-  - pc
-  - pa
-  - rc
-  - by
-  - rcw
-  - gmw
-  - byw
-  - rl
-  - bl
-  - saturation
-  - analyze
-  - hue
-  - lightness
-  - rimin
-  - gimin
-  - bimin
-  - aimin
-  - rimax
-  - gimax
-  - bimax
-  - aimax
-  - romin
-  - gomin
-  - bomin
-  - aomin
-  - romax
-  - gomax
-  - bomax
-  - aomax
-  - preserve
-  - patch_size
-  - nb_patches
-  - kernel
-  - src
-  - dst
-  - space
-  - primaries
-  - trc
-  - fast
-  - dither
-  - wpadapt
-  - iall
-  - ispace
-  - irange
-  - iprimaries
-  - itrc
-  - temperature
-  - impulse
-  - cover
-  - out_w
-  - out_h
-  - keep_aspect
-  - exact
-  - skip
-  - reset_count
-  - max_outliers
-  - mv_threshold
-  - master
-  - red
-  - green
-  - blue
-  - psfile
-  - plot
-  - axis
-  - opacity
-  - components
-  - blur
-  - cycle
-  - dupthresh
-  - scthresh
-  - blockx
-  - blocky
-  - ppsrc
-  - chroma
-  - mixed
-  - lt
-  - tl
-  - tc
-  - ct
-  - threshold0
-  - threshold1
-  - threshold2
-  - threshold3
-  - bypass
-  - show
-  - denoise
-  - filter_type
-  - dnn_backend
-  - input
-  - rx
-  - ry
-  - search
-  - opencl
-  - tripod
-  - debug
-  - adaptive_crop
-  - refine_features
-  - smooth_strength
-  - expand
-  - brightness
-  - first_field
-  - pattern
-  - start_frame
-  - coordinates
-  - backend_configs
-  - options
-  - async
-  - confidence
-  - labels
-  - height
-  - thickness
-  - replace
-  - box_source
-  - m1
-  - fg1
-  - m2
-  - fg2
-  - m3
-  - fg3
-  - m4
-  - fg4
-  - min
-  - max
-  - slide
-  - fontfile
-  - fontcolor
-  - fontcolor_expr
-  - boxcolor
-  - bordercolor
-  - shadowcolor
-  - box
-  - boxborderw
-  - line_spacing
-  - fontsize
-  - text_align
-  - boxw
-  - boxh
-  - shadowx
-  - shadowy
-  - borderw
-  - tabsize
-  - basetime
-  - font
-  - y_align
-  - timecode
-  - tc24hmax
-  - timecode_rate
-  - reload
-  - fix_bounds
-  - start_number
-  - text_source
-  - text_shaping
-  - ft_load_flags
-  - codebook_length
-  - nb_steps
-  - pal8
-  - use_alpha
-  - gamma_r
-  - gamma_g
-  - gamma_b
-  - gamma_weight
-  - rslope
-  - redge
-  - ecost
-  - mcost
-  - dcost
-  - exposure
-  - black
-  - nb_frames
-  - prev
-  - next
-  - hint
-  - field
-  - mchroma
-  - y0
-  - y1
-  - combmatch
-  - combdbg
-  - cthresh
-  - combpel
-  - left
-  - right
-  - top
-  - bottom
-  - object
-  - mipmaps
-  - xmin
-  - ymin
-  - xmax
-  - ymax
-  - discard
-  - s0
-  - s1
-  - s2
-  - s3
-  - d0
-  - d1
-  - d2
-  - d3
-  - pix_fmts
-  - fps
-  - interp_start
-  - interp_end
-  - scene
-  - flags
-  - step
-  - first
-  - last
-  - filter_name
-  - filter_params
-  - quality
-  - use_bframe_qp
-  - steps
-  - lum_expr
-  - lum
-  - cb_expr
-  - cb
-  - cr_expr
-  - alpha_expr
-  - red_expr
-  - green_expr
-  - blue_expr
-  - interpolation
-  - difford
-  - minknorm
-  - sub
-  - guidance
-  - clut
-  - antibanding
-  - level_height
-  - scale_height
-  - display_mode
-  - levels_mode
-  - fgopacity
-  - bgopacity
-  - colors_mode
-  - luma_spatial
-  - chroma_spatial
-  - luma_tmp
-  - chroma_tmp
-  - sat
-  - val
-  - rw
-  - gw
-  - bw
-  - derive_device
-  - reverse
-  - device
-  - intl_thres
-  - prog_thres
-  - rep_thres
-  - half_life
-  - luma_mode
-  - chroma_mode
-  - alpha_mode
-  - luma_swap
-  - ls
-  - chroma_swap
-  - cs
-  - alpha_swap
-  - as
-  - scan
-  - lowpass
-  - sharp
-  - twoway
-  - cx
-  - cy
-  - k1
-  - k2
-  - fc
-  - crop_x
-  - crop_y
-  - crop_w
-  - crop_h
-  - pos_x
-  - pos_y
-  - pos_w
-  - pos_h
-  - normalize_sar
-  - pad_crop_ratio
-  - fillcolor
-  - corner_rounding
-  - extra_opts
-  - colorspace
-  - color_primaries
-  - color_trc
-  - upscaler
-  - downscaler
-  - frame_mixer
-  - lut_entries
-  - antiringing
-  - sigmoid
-  - apply_filmgrain
-  - deband
-  - deband_threshold
-  - deband_radius
-  - deband_grain
-  - peak_detect
-  - smoothing_period
-  - minimum_peak
-  - percentile
-  - gamut_mode
-  - tonemapping
-  - gamut_warning
-  - gamut_clipping
-  - intent
-  - tonemapping_mode
-  - overshoot
-  - hybrid_mix
-  - dithering
-  - dither_lut_size
-  - dither_temporal
-  - cones
-  - cone-strength
-  - skip_aa
-  - polar_cutoff
-  - disable_linear
-  - disable_builtin
-  - force_icc_lut
-  - force_dither
-  - disable_fbos
-  - elasticity
-  - reference
-  - c0
-  - c3
-  - u
-  - undershoot
-  - sum
-  - mapping
-  - map0s
-  - map0p
-  - map1s
-  - map1p
-  - map2s
-  - map2p
-  - map3s
-  - map3p
-  - mb_size
-  - search_param
-  - mi_mode
-  - mc_mode
-  - me_mode
-  - me
-  - vsbmc
-  - scd
-  - scd_threshold
-  - structure
-  - keep
-  - hi
-  - lo
-  - frac
-  - negate_alpha
-  - s4
-  - p1
-  - p2
-  - p3
-  - p4
-  - nsize
-  - nns
-  - qual
-  - etype
-  - pscrn
-  - all_seed
-  - all_strength
-  - alls
-  - all_flags
-  - allf
-  - c0_seed
-  - c0_strength
-  - c0s
-  - c0_flags
-  - c0f
-  - c1_seed
-  - c1_strength
-  - c1s
-  - c1_flags
-  - c1f
-  - c2_seed
-  - c2_strength
-  - c2s
-  - c2_flags
-  - c2f
-  - c3_seed
-  - c3_strength
-  - c3s
-  - c3_flags
-  - c3f
-  - blackpt
-  - whitept
-  - independence
-  - tx
-  - ty
-  - tw
-  - th
-  - sc
-  - luma_strength
-  - chroma_strength
-  - aspect
-  - max_colors
-  - stats_mode
-  - bayer_scale
-  - diff_mode
-  - new
-  - alpha_threshold
-  - debug_kdtree
-  - x0
-  - x1
-  - x2
-  - y2
-  - x3
-  - y3
-  - sense
-  - frames
-  - wx
-  - wy
-  - subfilters
-  - inplace
-  - saturatio
-  - source
-  - index
-  - stats_file
-  - stats_version
-  - output_max
-  - jl
-  - jr
-  - jt
-  - jb
-  - sb
-  - mp
-  - scan_min
-  - scan_max
-  - spw
-  - chp
-  - thr_b
-  - thr_w
-  - m0
-  - rv
-  - gv
-  - bv
-  - ah
-  - av
-  - ow
-  - oh
-  - bilinear
-  - lpfr
-  - cpfr
-  - interl
-  - in_color_matrix
-  - out_color_matrix
-  - in_range
-  - out_range
-  - in_v_chr_pos
-  - in_h_chr_pos
-  - out_v_chr_pos
-  - out_h_chr_pos
-  - param0
-  - param1
-  - interp_algo
-  - passthrough
-  - scaler
-  - sc_pass
-  - horizontal
-  - vertical
-  - hpos
-  - vpos
-  - reds
-  - yellows
-  - greens
-  - cyans
-  - blues
-  - magentas
-  - whites
-  - neutrals
-  - blacks
-  - dar
-  - field_mode
-  - sar
-  - sharpness
-  - shx
-  - shy
-  - checksum
-  - map0
-  - map1
-  - map2
-  - map3
-  - stat
-  - out
-  - detectmode
-  - th_d
-  - th_dc
-  - th_xh
-  - th_di
-  - th_it
-  - print_summary
-  - luma_threshold
-  - chroma_threshold
-  - scale_factor
-  - compute_chroma
-  - frame_skip_ratio
-  - ref_projection
-  - main_projection
-  - ref_stereo
-  - main_stereo
-  - ref_pad
-  - main_pad
-  - use_tape
-  - heatmap_str
-  - in
-  - charenc
-  - stream_index
-  - si
-  - force_style
-  - wrap_unicode
-  - envelope
-  - ecolor
-  - ec
-  - log
-  - layout
-  - margin
-  - padding
-  - init_padding
-  - tonemap
-  - desat
-  - matrix
-  - stop
-  - dir
-  - end_frame
-  - luma_msize_x
-  - lx
-  - luma_msize_y
-  - ly
-  - luma_amount
-  - la
-  - chroma_msize_x
-  - chroma_msize_y
-  - chroma_amount
-  - ca
-  - alpha_msize_x
-  - ax
-  - alpha_msize_y
-  - ay
-  - alpha_amount
-  - codec
-  - in_stereo
-  - out_stereo
-  - in_forder
-  - out_forder
-  - in_frot
-  - out_frot
-  - in_pad
-  - out_pad
-  - fin_pad
-  - fout_pad
-  - yaw
-  - roll
-  - rorder
-  - h_fov
-  - v_fov
-  - d_fov
-  - h_flip
-  - v_flip
-  - d_flip
-  - ih_flip
-  - iv_flip
-  - in_trans
-  - out_trans
-  - ih_fov
-  - iv_fov
-  - id_fov
-  - h_offset
-  - v_offset
-  - alpha_mask
-  - reset_rot
-  - nsteps
-  - min_r
-  - max_r
-  - graticule
-  - lthreshold
-  - hthreshold
-  - tint0
-  - t0
-  - tint1
-  - t1
-  - rbal
-  - gbal
-  - bbal
-  - rlum
-  - glum
-  - blum
-  - alternate
-  - result
-  - shakiness
-  - stepsize
-  - mincontrast
-  - optalgo
-  - maxshift
-  - maxangle
-  - crop
-  - relative
-  - zoom
-  - optzoom
-  - zoomspeed
-  - interpol
-  - mirror
-  - display
-  - fl
-  - fitmode
-  - fm
-  - secondary
-  - transition
-  - grid
-  - rangein
-  - rin
-  - primariesin
-  - pin
-  - transferin
-  - tin
-  - matrixin
-  - chromal
-  - chromalin
-  - cin
-  - npl
-  - agamma
-  - param_a
-  - param_b
-  - grid_tile_size
-  - rule
-  - random_seed
-  - scroll
-  - start_full
-  - full
-  - stitch
-  - framerate
-  - c4
-  - c5
-  - c6
-  - c7
-  - nb_colors
-  - mold
-  - life_color
-  - death_color
-  - mold_color
-  - maxiter
-  - start_x
-  - start_y
-  - start_scale
-  - end_scale
-  - bailout
-  - morphxf
-  - morphyf
-  - morphamp
-  - outer
-  - inner
-  - test
-  - max_frames
-  - complement
-  - co
-  - jump
-  - decimals
-  - xo
-  - yo
-  - to
-  - k0
-  - kx
-  - ky
-  - kt
-  - kxt
-  - kyt
-  - kxy
-  - kx2
-  - ky2
-  - kt2
-  - ku
-  - kv
-  - fov
-  - xzoom
-  - yzoom
-  - zzoom
-  - xpos
-  - ypos
-  - zpos
-  - dmode
-  - ascale
-  - acount
-  - rheight
-  - hmode
-  - gc
-  - bc
-  - mpc
-  - phasing
-  - ac
-  - gf
-  - bf
-  - af
-  - draw
-  - swap
-  - unsafe
-  - bar_h
-  - axis_h
-  - sono_h
-  - fullhd
-  - sono_v
-  - bar_v
-  - volume2
-  - sono_g
-  - bar_g
-  - gamma2
-  - bar_t
-  - timeclamp
-  - endfreq
-  - coeffclamp
-  - tlength
-  - count
-  - fcount
-  - axisfile
-  - csp
-  - cscheme
-  - iscale
-  - imin
-  - imax
-  - logb
-  - deviation
-  - pps
-  - bar
-  - averaging
-  - cmode
-  - minamp
-  - data
-  - orientation
-  - legend
-  - drange
-  - dm
-  - dmc
-  - ds
-  - split_channels
-  - fr
-  - samplerate
-  - sr
-  - period
-  - dl
-  - fg
-  - format_name
-  - seek_point
-  - sp
-  - streams
-  - discontinuity
-  - dec_threads
-  - format_opts
-  - time_base
-  - sample_fmt
-  - video_size
-  - pix_fmt
-  - pixel_aspect
-  - frame_rate
-  - channel_counts
-  - ch_layouts
   group: 'libdc1394 indev AVOptions:'
   description: (default "ntsc")
   provenance:

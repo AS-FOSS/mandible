@@ -50,6 +50,7 @@ use std::time::{Duration, Instant};
 
 mod contract;
 mod markdown;
+mod not_attach_choices;
 mod refill_contract;
 mod report;
 mod runner;

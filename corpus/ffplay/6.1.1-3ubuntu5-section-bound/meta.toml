@@ -1,10 +1,10 @@
 # Excerpt of corpus/ffplay/6.1.1-3ubuntu5 (one flag with choices, the
-# capability-only rows, the libdc1394 section and the first AVFilter blocks).
+# libdc1394 section and the first AVFilter blocks).
 # Raw: the libdc1394 section ends at `-framerate <string> .D......... (default "ntsc")`,
 # and the next heading `AVFilter AVOptions:` opens rows without a dash
 # (`thread_type <flags> ..F........ ...` with `slice`), which are not
-# libdc1394's values. Broken: the AVFilter and abench rows attach to
-# libdc1394's `-framerate` as choices.
+# libdc1394's values; they are option rows of their own sections and
+# never choices of the flag above.
 
 [bless]
 provenance = "agent"
@@ -29,7 +29,3 @@ must_contain_flags = ["-flags", "-framerate"]
 
 [contract.must_not_attach_choices]
 "-framerate" = ["thread_type", "slice", "enable", "threads", "extra_hw_frames", "action", "start", "stop"]
-
-[xfail]
-broken = true
-reason = "[S-014] a choices block with no proven owner attaches to the last flag emitted, however far that flag sits above it: AVFilter and abench rows become choices of libdc1394's -framerate (1348 in the full capture). A fix bounds the block to the section its owner row sits in."
