@@ -970,6 +970,15 @@ allowlist below.
    declined. Rule 0's thirteen-program list is checked first, and it wins
    unconditionally before this gate runs at all.
 
+   A fourth bit, `help_word_attested`, admits one closed case (§16,
+   docs/shapes.md S-187). It marks a node that the same help text named by
+   invocation and that also prints a strict `<tool> help <COMMAND>` line.
+   The line must open with the tool's own name, so a sentence such as
+   "See 'git help <command>'" never matches. The bit admits exactly one
+   probe, `help <word>` (rule 2c), and never `<word> --help`. The word
+   `help` itself is never marked. Rule 0's thirteen-program list is checked
+   first here too, since `help <word>` is never exactly `["--help"]`.
+
 1. **Never invoke a bare binary.** An argv is never empty. Running an
    arbitrary binary with no arguments is how you launch a REPL, block on
    stdin, start a daemon, or trigger a tool whose no-argument default is an
@@ -1026,6 +1035,13 @@ allowlist below.
    gets recorded on the node, never what argv gets constructed, so neither
    needs an amendment on its own.
 
+   **2c. `InertArgv::HelpSubcommand`, the `help <word>` probe.** The argv is
+   `help <words...>`, sent only for a node whose `help_word_attested` bit is
+   true. `words` is the path of a word the tool's own text named by
+   invocation line, never a guessed one, and `help` is never one of them.
+   The word is one argument, so the probe cannot be read as a bare
+   invocation. The answer is parsed like any other node document.
+
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 
 4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On
@@ -1060,7 +1076,8 @@ allowlist below.
 6. **Sanitized environment, and a new session.** Clear `LESS`; set (not
    merely clear) `PAGER`, `MANPAGER`, `GIT_PAGER`, `SYSTEMD_PAGER` to `cat`,
    since several ecosystems read an *unset* pager variable as "go find one
-   yourself"; set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`,
+   yourself"; set `BROWSER=true`, a no-op program, so a `help <word>` probe
+   cannot open a browser; set `TERM=dumb`, `NO_COLOR=1`, `COLUMNS=100`,
    `LC_ALL=C.UTF-8`. Spawn the probe as the leader of a brand-new session,
    not merely a new process group: `process_group(0)` alone leaves the
    child in mandible's own session, so its controlling terminal stays
@@ -3058,6 +3075,14 @@ with zero losses, the nine control tools byte-identical, a green corpus, and
 every moved tool read against its raw help. The pull request states the tool
 count. The rule must still be general. A tool-name-keyed rule stays
 forbidden by §1. This supersedes the per-fix below-bar exceptions above.
+
+**`help <word>` is a probe shape for words the same help attests (2026-10-04, maintainer-approved).**
+A help text that prints a strict `<tool> help <COMMAND>` line says the tool
+answers `help <word>`. Each subcommand that text names by invocation line
+gains `help_word_attested` and is probed as `help <word>`, which gives it its
+flags and descriptions (`brew`, issue #163). The word `help` is excluded. Rule
+0's list wins. `BROWSER=true` joins the pager variables in the probe
+environment. Docs/shapes.md S-187.
 
 **Removing a fabricated flag is a fix, not a sweep loss (2026-10-03).** The
 sweep-diff counts any flag that disappears as a loss. `chattr`'s `-+` was
