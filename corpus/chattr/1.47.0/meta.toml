@@ -19,7 +19,4 @@ exit_code = 1
 expected_framework = "generic"
 must_contain_flags = ["-R", "-V", "-f"]
 must_not_contain_flags = ["-+"]
-
-[xfail]
-broken = true
-reason = "the usage group [-+=aAcCdDeijPsStTuFx] is one operator from -+= followed by attribute letters, an optional operand before files. It reads as a flag spelled -+ (the = taken as a value separator) with value aAcCdDeijPsStTuFx. A fix reads a bracket that opens with a run of sign characters and continues with letters as an operand, kept verbatim since the help gives it no name. The fix is ready but removes the fabricated -+ flag, which the sweep-diff counts as a flag-count loss, so it awaits a maintainer ruling."
+must_contain_positionals = ["-+=aAcCdDeijPsStTuFx", "files..."]
