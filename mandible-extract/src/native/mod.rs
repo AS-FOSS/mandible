@@ -840,17 +840,7 @@ mod tests {
         // happens after the gate passes, not the gate itself, which is
         // proven separately against the real production check.
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("cobrashim.sh");
-        std::fs::write(
-            &path,
-            "#!/bin/sh\ncase \"$1\" in\n  __complete) printf 'build\\tbuild the thing\\n:0\\n' ;;\n  *) echo 'no' ;;\nesac\n",
-        )
-        .unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        let path = crate::test_shim::write_shim(dir.path(), "cobrashim.sh", "#!/bin/sh\ncase \"$1\" in\n  __complete) printf 'build\\tbuild the thing\\n:0\\n' ;;\n  *) echo 'no' ;;\nesac\n");
 
         let tier =
             NativeTier::new_with_evidence(Arc::new(LiveProbe), Arc::new(FixedEvidence(true)));

@@ -27,21 +27,13 @@
 //! list — is protected too, so the shim here is named after something
 //! mundane and hypothetical instead.
 
+mod common;
+
 use mandible_extract::native::NativeTier;
 use mandible_extract::{ExtractionTier, ResolvedTool};
-use std::io::Write;
 
 fn write_named_shim(dir: &std::path::Path, name: &str, script: &str) -> std::path::PathBuf {
-    let path = dir.join(name);
-    let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(script.as_bytes()).unwrap();
-    drop(f);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
-    path
+    common::write_shim(dir, name, script)
 }
 
 /// A shim that answers `__complete` exactly the way a genuine cobra tool

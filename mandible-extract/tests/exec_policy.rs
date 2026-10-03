@@ -9,8 +9,9 @@
 use mandible_extract::exec::{run_inert, ExecError, InertArgv};
 use mandible_extract::help_text::HelpTextTier;
 use mandible_extract::{ExtractError, ExtractionTier, NodeHints, ResolvedTool};
-use std::io::Write;
 use std::path::Path;
+
+mod common;
 use std::time::Duration;
 
 // --- [M-17]: the `/dev/tty` hazard, closed structurally, not just
@@ -229,20 +230,10 @@ mod dev_tty_hazard {
 /// and need custom argv-dependent behaviour rather than the fixed
 /// argv-dumping script `write_shim` always installs.
 fn write_named_shim(dir: &Path, name: &str, script: &str) -> std::path::PathBuf {
-    let path = dir.join(name);
-    let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(script.as_bytes()).unwrap();
-    drop(f);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
-    path
+    common::write_shim(dir, name, script)
 }
 
 fn write_shim(dir: &std::path::Path) -> std::path::PathBuf {
-    let path = dir.join("shim.sh");
     let script = r#"#!/bin/sh
 echo "ARGC:$#"
 i=0
@@ -260,15 +251,7 @@ else
     echo "STDIN:EOF"
 fi
 "#;
-    let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(script.as_bytes()).unwrap();
-    drop(f);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
-    path
+    common::write_shim(dir, "shim.sh", script)
 }
 
 /// Rule 1 (never bare) + rule 2 (only inert shapes): drive every

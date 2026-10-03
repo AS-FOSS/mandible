@@ -269,17 +269,11 @@ mod tests {
         // A shim shell script whose --help output carries argparse's
         // distinctive marker, exercising real argv construction.
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("shim.sh");
-        std::fs::write(
-            &path,
+        let path = crate::test_shim::write_shim(
+            dir.path(),
+            "shim.sh",
             "#!/bin/sh\necho 'usage: shim [-h]'\necho\necho 'show this help message and exit'\n",
-        )
-        .unwrap();
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-        }
+        );
         let tool = ResolvedTool {
             name: "shim".to_string(),
             path: Some(path),

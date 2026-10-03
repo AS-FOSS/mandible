@@ -27,22 +27,13 @@
 //! against ("silently refusing the permitted shape would quietly undo the
 //! coverage this rule now allows").
 
+mod common;
+
 use mandible_extract::completion_script::CompletionScriptTier;
 use mandible_extract::{ExtractionTier, ResolvedTool};
-use std::io::Write;
-use std::path::Path;
 
-fn write_named_shim(dir: &Path, name: &str, script: &str) -> std::path::PathBuf {
-    let path = dir.join(name);
-    let mut f = std::fs::File::create(&path).unwrap();
-    f.write_all(script.as_bytes()).unwrap();
-    drop(f);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
-    path
+fn write_named_shim(dir: &std::path::Path, name: &str, script: &str) -> std::path::PathBuf {
+    common::write_shim(dir, name, script)
 }
 
 /// A shim that would answer `completion <shell>` perfectly well — with a
