@@ -1,0 +1,14 @@
+Usage: brew edit [options] [formula|cask|tap ...]
+
+Open a formula, cask or tap in the editor set by $EDITOR or
+$HOMEBREW_EDITOR, or open the Homebrew repository for editing if no argument
+is provided.
+
+      --formula, --formulae        Treat all named arguments as formulae.
+      --cask, --casks              Treat all named arguments as casks.
+      --print-path                 Print the file path to be edited, without
+                                   opening an editor.
+  -d, --debug                      Display any debugging information.
+  -q, --quiet                      Make some output more quiet.
+  -v, --verbose                    Make some output more verbose.
+  -h, --help                       Show this message.

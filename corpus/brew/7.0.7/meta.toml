@@ -1,0 +1,83 @@
+# Captured from Homebrew 7.0.7 on the dev box through the probe environment
+# (sanitized env, null stdin, own session). The root text is the same bytes
+# as corpus/brew/7.0.2. The root names 13 subcommands by invocation line and
+# prints `brew help [COMMAND]`, so each of 12 words (every name but `help`)
+# is probed as `brew help <word>` (docs/shapes.md S-187, spec section 6
+# rule 2). Reported in issue #163: the subcommands rendered with no flags and
+# no descriptions.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "brew"
+version = "7.0.7"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["brew", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["brew", "help", "search"]
+stdout = "help-search.txt"
+
+[[capture]]
+argv = ["brew", "help", "info"]
+stdout = "help-info.txt"
+
+[[capture]]
+argv = ["brew", "help", "install"]
+stdout = "help-install.txt"
+
+[[capture]]
+argv = ["brew", "help", "update"]
+stdout = "help-update.txt"
+
+[[capture]]
+argv = ["brew", "help", "upgrade"]
+stdout = "help-upgrade.txt"
+
+[[capture]]
+argv = ["brew", "help", "uninstall"]
+stdout = "help-uninstall.txt"
+
+[[capture]]
+argv = ["brew", "help", "list"]
+stdout = "help-list.txt"
+
+[[capture]]
+argv = ["brew", "help", "config"]
+stdout = "help-config.txt"
+
+[[capture]]
+argv = ["brew", "help", "doctor"]
+stdout = "help-doctor.txt"
+
+[[capture]]
+argv = ["brew", "help", "create"]
+stdout = "help-create.txt"
+
+[[capture]]
+argv = ["brew", "help", "edit"]
+stdout = "help-edit.txt"
+
+[[capture]]
+argv = ["brew", "help", "commands"]
+stdout = "help-commands.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 12
+
+[contract.must_contain_flags_by_path]
+install = ["--debug", "--force", "--verbose", "--dry-run", "--formula", "--ignore-dependencies"]
+search = ["--formula", "--cask", "--desc"]
+upgrade = ["--debug", "--force", "--verbose"]
+
+[xfail]
+broken = true
+reason = "[S-187] `brew help <word>` is never probed, so every subcommand renders with no flags and no description"
+issue = "https://github.com/AS-FOSS/mandible/issues/163"

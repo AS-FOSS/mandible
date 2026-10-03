@@ -1,0 +1,9 @@
+Usage: brew config, --config
+
+Show Homebrew and system configuration info useful for debugging. If you file a
+bug report, you will be required to provide this information.
+
+  -d, --debug                      Display any debugging information.
+  -q, --quiet                      Make some output more quiet.
+  -v, --verbose                    Make some output more verbose.
+  -h, --help                       Show this message.
