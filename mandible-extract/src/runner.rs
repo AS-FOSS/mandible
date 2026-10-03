@@ -180,6 +180,7 @@ impl Runner {
         let root_hints = NodeHints {
             heading_attested: true,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         };
 
         for tier in &self.tiers {
@@ -242,6 +243,7 @@ impl Runner {
             heading_attested: existing.heading_attested,
             // Same reasoning: mirrors the node's own S-167 bit (spec §6 rule 0).
             abbrev_probe_attested: existing.abbrev_probe_attested,
+            help_word_attested: existing.help_word_attested,
         };
         let mut candidates = vec![existing];
         let mut statuses = Vec::new();

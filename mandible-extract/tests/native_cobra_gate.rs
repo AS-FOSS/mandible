@@ -108,6 +108,7 @@ fn extract_node_errors_rather_than_probing_when_never_detected() {
         mandible_extract::NodeHints {
             heading_attested: true,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         },
     );
     assert!(

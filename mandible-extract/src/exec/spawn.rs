@@ -186,6 +186,8 @@ pub fn run_inert(
     cmd.env("MANPAGER", "cat");
     cmd.env("GIT_PAGER", "cat");
     cmd.env("SYSTEMD_PAGER", "cat");
+    // A `help <word>` probe must never open a browser: `true` is a no-op.
+    cmd.env("BROWSER", "true");
     for (key, default_subpath) in TOOLCHAIN_RESOLUTION_VARS {
         match std::env::var_os(key) {
             // Explicitly set: pass it through unchanged.
@@ -815,6 +817,7 @@ mod tests {
             "MANPAGER=cat",
             "GIT_PAGER=cat",
             "SYSTEMD_PAGER=cat",
+            "BROWSER=true",
         ] {
             assert!(
                 env_text.contains(forced),

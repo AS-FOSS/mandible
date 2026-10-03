@@ -490,6 +490,7 @@ exit 1
     let attested = NodeHints {
         heading_attested: true,
         abbrev_probe_attested: false,
+        help_word_attested: false,
     };
 
     let (raw, flag) = mandible_extract::help_text::raw_help(&tool, &path, attested)
@@ -555,6 +556,7 @@ exit 1
             NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("the shim always answers one of the two probes it's asked for");
@@ -605,6 +607,7 @@ fn never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shape
         NodeHints {
             heading_attested: true,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         },
     );
 
@@ -662,6 +665,7 @@ fn non_attested_subcommand_word_is_never_probed_at_all() {
         NodeHints {
             heading_attested: false,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         },
     );
 
@@ -715,6 +719,7 @@ exit 1
             NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("an attested word's --help probe must still run and succeed");
@@ -763,6 +768,7 @@ exit 1
             NodeHints {
                 heading_attested: false,
                 abbrev_probe_attested: true,
+                help_word_attested: false,
             },
         )
         .expect("an abbrev_probe_attested word's --help probe must still run and succeed");
@@ -804,6 +810,7 @@ fn rule_0_still_refuses_an_abbrev_probe_attested_word_naming_a_never_probe_tool(
         NodeHints {
             heading_attested: false,
             abbrev_probe_attested: true,
+            help_word_attested: false,
         },
     );
 
@@ -868,6 +875,7 @@ exit 1
             NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("root probe must succeed");
@@ -896,6 +904,7 @@ exit 1
         NodeHints {
             heading_attested: device.heading_attested,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         },
     );
     assert!(
@@ -943,6 +952,7 @@ exit 1
             NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("root probe must succeed");
@@ -960,6 +970,7 @@ exit 1
             NodeHints {
                 heading_attested: node.heading_attested,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         );
         assert!(
@@ -968,6 +979,173 @@ exit 1
             node.name
         );
     }
+}
+
+/// Root help text for the `help <word>` tests: an invocation block that names
+/// `search` and `install`, plus the given `help` line.
+fn help_word_root_script(help_line: &str) -> String {
+    format!(
+        r#"#!/bin/sh
+if [ "$1" = "--help" ]; then
+    cat <<'HELPEOF'
+Example usage:
+  pkgtool search TEXT
+  pkgtool install NAME...
+
+Further help:
+  pkgtool commands
+  {help_line}
+HELPEOF
+    exit 0
+fi
+if [ "$1" = "help" ] && [ "$2" = "search" ]; then
+    touch "$0.help_search_ran"
+    cat <<'HELPEOF'
+Usage: pkgtool search [options] text
+
+Search for text.
+
+      --formula    Search for formulae.
+  -v, --verbose    Make some output more verbose.
+HELPEOF
+    exit 0
+fi
+echo "$@" >> "$0.unexpected"
+echo "unexpected argv: $@" >&2
+exit 1
+"#
+    )
+}
+
+/// S-187, spec section 6 rule 2: a strict `pkgtool help [COMMAND]` line makes
+/// each invocation-attested word probeable as `help <word>` and no other
+/// shape. Driven through the real root extraction and the real argv.
+#[test]
+fn help_word_child_is_probed_as_help_word_and_never_as_word_dash_dash_help() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(
+        dir.path(),
+        "pkgtool",
+        &help_word_root_script("pkgtool help [COMMAND]"),
+    );
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkgtool".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let root = tier
+        .extract_node(&tool, &["pkgtool".to_string()], attested())
+        .expect("root probe must succeed");
+    let search = root
+        .subcommands
+        .iter()
+        .find(|n| n.name == "search")
+        .expect("search is named by the invocation block");
+    assert!(search.invocation_attested && !search.heading_attested);
+    assert!(search.help_word_attested);
+    let help = root.subcommands.iter().find(|n| n.name == "help").unwrap();
+    assert!(!help.help_word_attested, "`help help` asks nothing new");
+
+    let node = tier
+        .extract_node(
+            &tool,
+            &["pkgtool".to_string(), "search".to_string()],
+            NodeHints {
+                heading_attested: search.heading_attested,
+                abbrev_probe_attested: false,
+                help_word_attested: search.help_word_attested,
+            },
+        )
+        .expect("`help search` must be probed and parsed");
+    let long_flags: Vec<&str> = node.flags().filter_map(|f| f.long()).collect();
+    assert!(long_flags.contains(&"formula"), "{long_flags:?}");
+    assert!(dir.path().join("pkgtool.help_search_ran").exists());
+
+    // The word the text attests only by invocation is never sent as
+    // `<word> --help`, and an unattested word stays declined.
+    let install = tier.extract_node(
+        &tool,
+        &["pkgtool".to_string(), "install".to_string()],
+        NodeHints {
+            heading_attested: false,
+            abbrev_probe_attested: false,
+            help_word_attested: false,
+        },
+    );
+    assert!(install.is_err(), "{install:?}");
+    assert!(
+        !dir.path().join("pkgtool.unexpected").exists(),
+        "an argv outside the allowlist reached the shim"
+    );
+}
+
+/// git prints "See 'git help <command>' ..." in a sentence. A sentence never
+/// opens the gate, so no child is marked and none is probed.
+#[test]
+fn a_sentence_quoting_help_command_never_opens_the_help_word_gate() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(
+        dir.path(),
+        "pkgtool",
+        &help_word_root_script("See 'pkgtool help <command>' to read about a specific subcommand."),
+    );
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkgtool".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let root = tier
+        .extract_node(&tool, &["pkgtool".to_string()], attested())
+        .expect("root probe must succeed");
+    assert!(root.subcommands.iter().all(|n| !n.help_word_attested));
+    let result = tier.extract_node(
+        &tool,
+        &["pkgtool".to_string(), "search".to_string()],
+        NodeHints {
+            heading_attested: false,
+            abbrev_probe_attested: false,
+            help_word_attested: false,
+        },
+    );
+    assert!(result.is_err(), "{result:?}");
+    assert!(!dir.path().join("pkgtool.help_search_ran").exists());
+}
+
+/// Rule 0 still wins: the `help <word>` argv is never exactly `["--help"]`,
+/// so a never-probe program is refused before anything spawns.
+#[test]
+fn rule_0_refuses_a_help_word_probe_naming_a_never_probe_tool() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(
+        dir.path(),
+        "pkill",
+        "#!/bin/sh\ntouch \"$0.ran\"\necho ran\n",
+    );
+    let tier = HelpTextTier::default();
+    let tool = ResolvedTool {
+        name: "pkill".to_string(),
+        path: Some(shim.clone()),
+        version: None,
+    };
+    let result = tier.extract_node(
+        &tool,
+        &["pkill".to_string(), "sub".to_string()],
+        NodeHints {
+            heading_attested: false,
+            abbrev_probe_attested: false,
+            help_word_attested: true,
+        },
+    );
+    assert!(
+        matches!(
+            result,
+            Err(ExtractError::Exec(ExecError::RefusedUnsafeTool { .. }))
+        ),
+        "{result:?}"
+    );
+    assert!(!dir.path().join("pkill.ran").exists());
 }
 
 /// Shared with the "prove the negative fails without the fix" check below:
@@ -1050,6 +1228,7 @@ fn attested() -> NodeHints {
     NodeHints {
         heading_attested: true,
         abbrev_probe_attested: false,
+        help_word_attested: false,
     }
 }
 
