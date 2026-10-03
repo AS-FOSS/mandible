@@ -2954,7 +2954,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   vacuously on the raw, unrefilled tree; `must_value_names_after_root_refill`
   and `must_choices_after_root_refill` (`corpus/README.md`) simulate the
   real app's own root refill and are the fields that actually state the
-  claim.
+  claim. Rows from one source document never share a bucket: a refill
+  keeps each invocation form's `--type` row with its own value, and the
+  union applies only across sources (docs/design.md §16, "Rows of one
+  document are different rows").
 - fleet: `same-spelling-fold-loss`
   (`xtask/src/detector/same_spelling_fold_loss.rs`), widened to also flag
   two same-identity entities that both take a value but name it

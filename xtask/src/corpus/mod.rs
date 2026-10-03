@@ -348,28 +348,16 @@ pub(crate) struct ContractMeta {
     /// field could check which label a subcommand actually landed under.
     #[serde(default)]
     must_subcommand_group: std::collections::BTreeMap<String, String>,
-    /// Every substring a root flag's value name must carry after this
-    /// fixture's root is refilled the way the running app refills it
-    /// (`Warmer::submit_root_fill`, always merging `existing` against a
-    /// fresh reprobe). Keyed by the flag's own spelling. `must_value_name`
-    /// alone cannot state this: it passes off the raw, unrefilled tree,
-    /// where a multi-form tool's forms are still separate entities each
-    /// already naming their own value. See `refill_contract.rs` and
-    /// docs/shapes.md S-147.
+    /// Every substring must appear in the value name of some row carrying
+    /// the flag's spelling, after this fixture's root is refilled the way
+    /// the running app refills it (`Warmer::submit_root_fill`). Keyed by
+    /// the flag's own spelling. See `refill_contract.rs` and docs/shapes.md
+    /// S-147.
     #[serde(default)]
     must_value_names_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
-    /// Every value a root flag's `choices` must carry after this
-    /// fixture's root is refilled the same way
-    /// `must_value_names_after_root_refill` simulates. Keyed by the
-    /// flag's own spelling. `must_attach_choices` alone cannot state this
-    /// claim for a same-spelling merge bucket: it walks the raw,
-    /// unrefilled tree, where `--type`'s several invocation forms are
-    /// still separate entities and `.find()` sees only the first one's
-    /// own (possibly empty) `choices`. S-147 follow-up
-    /// (docs/design.md §16): a bucket whose forms disagree about
-    /// a value name unions every literal one into `choices`, and this is
-    /// the only field that can see the union actually happened. See
-    /// `refill_contract.rs`.
+    /// Every listed value must appear in the `choices` of one single row
+    /// carrying the flag's spelling, after the same refill. Keyed by the
+    /// flag's own spelling. See `refill_contract.rs`.
     #[serde(default)]
     must_choices_after_root_refill: std::collections::BTreeMap<String, Vec<String>>,
     /// Which dimensions of this fixture's tree a human actually verified

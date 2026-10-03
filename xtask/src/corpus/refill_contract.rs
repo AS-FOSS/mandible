@@ -9,12 +9,9 @@
 //! fixture's own root — the same "existing plus a fresh reprobe" shape
 //! `Runner::fill_node`'s own contract always produces.
 
-// Every listed substring must then appear in the named flag's merged
-// `value_name` (matched the way `must_value_name` matches: substring,
-// whitespace-collapsed on both sides). See docs/shapes.md S-147:
-// `merge_entity_bucket` unions every distinct value name across the
-// bucket instead of picking one, and this is the only field that can
-// see the union actually happened.
+// Every listed substring must appear in the `value_name` of some row
+// carrying the named spelling (substring, whitespace-collapsed on both
+// sides). See docs/shapes.md S-147.
 
 use super::contract::{collapse_whitespace, entity_matches_flag_spec, ContractFailure};
 use super::ContractMeta;
