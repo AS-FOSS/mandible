@@ -257,6 +257,7 @@ flags:
   - -t
   value_name: <tag>
   value_kind: Required
+  description: Edit file where tag is defined
   provenance:
     sources:
     - help-text-synopsis
@@ -264,6 +265,7 @@ flags:
   - -q
   value_name: errorfile
   value_kind: Optional
+  description: Edit file with first error
   provenance:
     sources:
     - help-text-synopsis

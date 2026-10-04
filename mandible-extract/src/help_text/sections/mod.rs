@@ -52,6 +52,7 @@ mod spelling;
 mod test_support;
 mod usage;
 mod usage_command_table;
+mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
 
@@ -81,6 +82,7 @@ use spelling::*;
 use test_support::*;
 use usage::*;
 use usage_command_table::*;
+use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;

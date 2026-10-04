@@ -3154,6 +3154,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and the single-space cut (`gdk-pixbuf-thumbnailer`) need different
   thresholds to both fire without one eating a real two-word operand name
   (S-132/S-154's own shape) or a docopt alternation tail.
+- fixed in part (round 15): a usage form that introduces exactly one bare
+  (unbracketed) flag and carries plain prose behind a wide gap hands that
+  prose to the flag as its description (`vim.basic`'s `-t tag` and `-q
+  [errorfile]`, `nvim`'s `-t <tag>`/`-q [errorfile]`). A two-space gap counts
+  when it ends at the column a sibling form's wide gap already set
+  (`-q [errorfile]  edit file ...`). The usage text keeps the prose, so
+  nothing is dropped. `fdisk`, `gdk-pixbuf-thumbnailer` (no flag in the form)
+  and the `ranlib` family stay under the open part below.
 - fleet: `usage-form-trailing-description`
   (`xtask/src/detector/usage_form_trailing_description.rs`) reads 4
   tools/6 findings on the 162-fixture `corpus/` tree (not a full-`PATH`

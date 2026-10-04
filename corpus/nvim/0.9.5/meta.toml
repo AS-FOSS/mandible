@@ -63,3 +63,7 @@ must_contain_flags = ["--", "+", "-c"]
 [contract.must_value_name]
 "-q" = "errorfile"
 "-V" = "file"
+
+[contract.must_describe]
+"-t" = "Edit file where tag is defined"
+"-q" = "Edit file with first error"

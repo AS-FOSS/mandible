@@ -373,6 +373,7 @@ flags:
   - -t
   value_name: tag
   value_kind: Required
+  description: edit file where tag is defined
   provenance:
     sources:
     - help-text-synopsis
@@ -380,6 +381,7 @@ flags:
   - -q
   value_name: errorfile
   value_kind: Optional
+  description: edit file with first error
   provenance:
     sources:
     - help-text-synopsis

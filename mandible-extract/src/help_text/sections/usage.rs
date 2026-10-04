@@ -770,6 +770,7 @@ fn is_dash_prefixed_option_list_placeholder(token: &str) -> bool {
 
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     let mut out: Vec<Entity> = Vec::new();
+    let prose_columns = usage_prose_column(usage_lines);
     // Running depth of an open parenthesized alternation group (LVM's
     // "any one of these is required" convention), re-derived here rather
     // than passed in since `usage_lines` alone determines the same
@@ -810,6 +811,10 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
         }
         let segments = usage_segments(line);
         let mut seg_idx = 0usize;
+        let line_start = out.len();
+        // Index of a flag read from a bare (unbracketed) token on this
+        // line: the one a trailing description can belong to.
+        let mut bare_flag_at: Option<usize> = None;
         while seg_idx < segments.len() {
             if out.len() >= MAX_RECOVERED_ENTRIES {
                 return out;
@@ -906,6 +911,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                                     &mut out,
                                     parse_flag_spec(&format!("{tok} {value}")),
                                 );
+                                bare_flag_at = out.len().checked_sub(1);
                             }
                             seg_idx += 1;
                             continue;
@@ -933,6 +939,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                                             &mut out,
                                             parse_flag_spec(&format!("{tok} [{member}]")),
                                         );
+                                        bare_flag_at = out.len().checked_sub(1);
                                         seg_idx += 1;
                                         continue;
                                     }
@@ -940,10 +947,12 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                             }
                         }
                         push_usage_token(&mut out, tok);
+                        bare_flag_at = out.len().checked_sub(1);
                     }
                 }
             }
         }
+        describe_form_flag(&mut out, line, line_start, bare_flag_at, &prose_columns);
     }
     out
 }
