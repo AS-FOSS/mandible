@@ -2347,8 +2347,6 @@ Known gaps are tracked as issues; busybox's applet list is
 
 ## [Unreleased]
 
-## [0.8.2] - 2026-10-05
-
 ## [0.7.0] - 2026-09-05
 
 ### Added (batch 6 part 6, framework-support workflow)
