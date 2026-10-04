@@ -4646,3 +4646,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   known node name (S-037's own limit) and when the word is a path, a bracket
   or a flag. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-195: a usage form's own one-line description, indented under it with no punctuation
+
+- id: S-195
+- looks like: |
+      Usage: /usr/bin/ranlib [options] archive
+       Generate an index to speed access to archives
+- tools: gcc-ranlib-13, ranlib, gcc-ranlib, aarch64-linux-gnu-ranlib, aarch64-linux-gnu-gcc-ranlib, aarch64-linux-gnu-gcc-ranlib-13
+- handling: Fixed, and the S-152 `ranlib` remainder with it. A line indented
+  under the usage form that is five or more plain words with a capital first
+  letter, no terminal punctuation, no flag, no ALL-CAPS placeholder and no
+  column gap is the form's description, not synopsis. It leaves the usage
+  entry (which lets the `archive` operand reach the tree) and is relocated to
+  the head of the node description, so nothing is dropped. `unzip`'s wrapped
+  continuation (`... to exdir;`) carries brackets and closing punctuation and
+  stays in usage. Fixtures: `corpus/gcc-ranlib-13/2.42`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.

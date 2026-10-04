@@ -1,0 +1,74 @@
+name: gcc-ranlib-13
+description: |-
+  Generate an index to speed access to archives
+
+  /usr/bin/ranlib: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>
+usage:
+- 'Usage: /usr/bin/ranlib [options] archive'
+positionals:
+- name: archive
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  group: 'The options are:'
+  description: Read options from <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --plugin
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Load the specified plugin
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  group: 'The options are:'
+  description: Use zero for symbol map timestamp (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  group: 'The options are:'
+  description: Use an actual symbol map timestamp
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  group: 'The options are:'
+  description: Update the archive's symbol map timestamp
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'The options are:'
+  description: Print this help message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  group: 'The options are:'
+  description: Print version information
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
