@@ -3,8 +3,7 @@
 All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project intends to adhere to [Semantic Versioning](https://semver.org/)
-once it reaches a published 0.1.0 release.
+and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
@@ -2344,8 +2343,6 @@ Known gaps are tracked as issues; busybox's applet list is
 
 <details>
 <summary>Development history</summary>
-
-## [Unreleased]
 
 ## [0.7.0] - 2026-09-05
 
