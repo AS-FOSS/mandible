@@ -27,13 +27,6 @@ flags:
     sources:
     - help-text
 - spellings:
-  - --id
-  value_name: <id>
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text
-- spellings:
   - --file
   value_name: <file>
   value_kind: Required
