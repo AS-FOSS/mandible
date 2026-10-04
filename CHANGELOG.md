@@ -8,7 +8,7 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
-## [0.8.2] - 2026-10-04
+## [0.8.2] - 2026-10-05
 
 ### Fixed
 
@@ -2347,7 +2347,7 @@ Known gaps are tracked as issues; busybox's applet list is
 
 ## [Unreleased]
 
-## [0.8.2] - 2026-10-04
+## [0.8.2] - 2026-10-05
 
 ## [0.7.0] - 2026-09-05
 
