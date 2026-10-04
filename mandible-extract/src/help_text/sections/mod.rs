@@ -1533,6 +1533,11 @@ fn emit_heading_block(
             .clone()
             .or_else(|| meaningful_flag_group(heading.clone()))
             .filter(|g| !text_is_already_root_description(g, st.result));
+        let row_indent = leading_whitespace(lines[flags_start]);
+        st.resume_group = group
+            .clone()
+            .filter(|_| i < lines.len() && leading_whitespace(lines[i]) > row_indent)
+            .map(|g| (g, row_indent));
         let (seen, clean) = emit_flags_block(
             group,
             entries,
@@ -1793,6 +1798,30 @@ struct BodyScan<'a> {
     /// options:` headings, its `gzip (default)` sub-label). Taken by the
     /// very next loop iteration whether or not it is used. See S-146.
     pending_bare_label: Option<String>,
+    /// The heading group and row indent of a headed flags block that ended
+    /// at a nested table under its last row; the rows resuming at that
+    /// indent keep the group. See docs/shapes.md S-188.
+    resume_group: Option<(String, usize)>,
+}
+
+impl BodyScan<'_> {
+    /// The group a flag row resuming at its block's own indent keeps; lines
+    /// nested deeper leave it pending. See docs/shapes.md S-188.
+    fn take_resume_group(&mut self, line: &str) -> Option<String> {
+        let indent_here = leading_whitespace(line);
+        match self.resume_group.take()? {
+            (group, indent)
+                if indent == indent_here && looks_like_flag_start(line.trim_start()) =>
+            {
+                Some(group)
+            }
+            kept if indent_here > kept.1 => {
+                self.resume_group = Some(kept);
+                None
+            }
+            _ => None,
+        }
+    }
 }
 
 fn scan_entries(
@@ -1856,6 +1885,7 @@ fn scan_entries(
         clean_entries: 0usize,
         command_group: None,
         pending_bare_label: None,
+        resume_group: None,
     };
     while i < lines.len() {
         let line = lines[i];
@@ -1878,6 +1908,7 @@ fn scan_entries(
         // turns out to be the headingless flags block it was set for, so
         // a label can never survive to name some later, unrelated block.
         let pending_group = st.pending_bare_label.take();
+        let pending_group = pending_group.or_else(|| st.take_resume_group(line));
         // Headingless flags block: sed has no Options: heading at all; the
         // current line already looks like a flag entry, so it is scanned
         // in place. See S-052.

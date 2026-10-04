@@ -1,0 +1,37 @@
+Usage: jpackage <options>
+
+Sample usages:
+--------------
+    Generate an application package suitable for the host system:
+        For a modular application:
+            jpackage -n name -p modulePath -m moduleName/className
+        For a non-modular application:
+            jpackage -i inputDir -n name \
+                --main-class className --main-jar myJar.jar
+        From a pre-built application image:
+            jpackage -n name --app-image appImageDir
+    Generate an application image:
+        For a modular application:
+            jpackage --type app-image -n name -p modulePath \
+                -m moduleName/className
+        For a non-modular application:
+            jpackage --type app-image -i inputDir -n name \
+                --main-class className --main-jar myJar.jar
+        To provide your own options to jlink, run jlink separately:
+            jlink --output appRuntimeImage -p modulePath \
+                --add-modules moduleName \
+                --no-header-files [<additional jlink options>...]
+            jpackage --type app-image -n name \
+                -m moduleName/className --runtime-image appRuntimeImage
+    Generate a Java runtime package:
+        jpackage -n name --runtime-image <runtime-image>
+
+Generic Options:
+  @<filename> 
+          Read options and/or mode from a file 
+          This option can be used multiple times.
+  --type -t <type> 
+          The type of package to create
+          Valid values are: {"app-image", "rpm", "deb"} 
+          If this option is not specified a platform dependent
+          default type will be created.

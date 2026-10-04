@@ -10,6 +10,10 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- [S-187] A block printed repeatedly under one heading (`ffplay`, `ffprobe` AVOptions, `rg`, `jpackage`) shows each identical row once.
+- [S-096] The usage synopsis `[--]` merges into the described `--` row (`lsof`, `tree`, `awk`, `getopt`) instead of adding a second one.
+- [S-188] Rows after a flag's nested choice table stay under their emulation heading (`ld`'s `--no-apply-dynamic-relocs`, `-z force-bti`, `-z pac-plt` under `aarch64elf:`).
+- [S-147] A flag that one help text prints in several sections keeps every row on screen after the background refill (`mandible ffplay` shows 1136 flags instead of 558, `mandible lsof` shows `-T` twice).
 - [S-176] A single-dash row that no usage line names reads as a boolean with its whole row as the description, instead of a value guessed from its first word (`mandible host`'s `-A`, `-s`, `-U`, `-4`, `-6`).
 - [S-180] A value or operand spelled as an alternation of angle placeholders keeps every alternative (`mandible numastat`'s `-p <PID>|<pattern>`, `mandible dmsetup`'s `load`).
 - [S-181] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..` (`mandible savelog`, `mandible bzip2`, `mandible xz`, `mandible streamzip`).
