@@ -1,0 +1,26 @@
+# Guards the S-074 hanging-indent continuation (6139a4f): the wrapped usage line
+# `--size=SZ [--times=NUM] ...` once read as a second `--size` entity beside the
+# real `--size=SZ|-s` row.
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sg_test_rwbuf"
+version = "1.20"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2"
+
+[[capture]]
+argv = ["sg_test_rwbuf", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--addrd", "--addwr", "--quick", "--size", "--times"]
+must_contain_positionals = ["DEVICE", "SZ", "AW", "AR"]
+
+[contract.must_one_row_in_group]
+"where:" = ["--size"]
+
+[contract.must_describe]
+"--size" = "size of buffer (in bytes) to write then read back"

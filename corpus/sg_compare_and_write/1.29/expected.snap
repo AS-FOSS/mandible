@@ -1,0 +1,161 @@
+name: sg_compare_and_write
+usage:
+- 'Usage: sg_compare_and_write [--dpo] [--fua] [--fua_nv] [--grpnum=GN] [--help] --in=IF|--inc=IF [--inw=WF] --lba=LBA [--num=NUM] [--quiet] [--timeout=TO] [--verbose] [--version] [--wrprotect=WP] [--xferlen=LEN] DEVICE'
+positionals:
+- name: DEVICE
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --dpo
+  - -d
+  group: 'where:'
+  description: 'set the dpo bit in cdb (def: clear)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fua
+  - -f
+  group: 'where:'
+  description: 'set the fua bit in cdb (def: clear)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fua_nv
+  - -F
+  group: 'where:'
+  description: 'set the fua_nv bit in cdb (def: clear)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --grpnum
+  - -g
+  value_name: GN
+  value_kind: Required
+  group: 'where:'
+  description: 'GN is GROUP NUMBER to set in cdb (def: 0)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -h
+  group: 'where:'
+  description: print out usage message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --in
+  - -i
+  value_name: IF
+  value_kind: Required
+  group: 'where:'
+  description: IF is a file containing a compare buffer and optionally a write buffer (when --inw=WF is not given)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --inc
+  - -C
+  value_name: IF
+  value_kind: Required
+  group: 'where:'
+  description: The same as the --in option
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --inw
+  - -D
+  value_name: WF
+  value_kind: Required
+  group: 'where:'
+  description: WF is a file containing a write buffer
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lba
+  - -l
+  value_name: LBA
+  value_kind: Required
+  group: 'where:'
+  description: LBA of the first block to compare and write
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --num
+  - -n
+  value_name: NUM
+  value_kind: Required
+  group: 'where:'
+  description: 'number of blocks to compare/write (def: 1)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quiet
+  - -q
+  group: 'where:'
+  description: suppress MISCOMPARE report to stderr, still sets exit status of 14
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --timeout
+  - -t
+  value_name: TO
+  value_kind: Required
+  group: 'where:'
+  description: 'timeout for the command (def: 60 secs)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  group: 'where:'
+  description: increase verbosity (use '-vv' for more)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  - -V
+  group: 'where:'
+  description: print version string then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wrprotect
+  - -w
+  value_name: WP
+  value_kind: Required
+  group: 'where:'
+  description: 'write protect information (def: 0)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --xferlen
+  - -x
+  value_name: LEN
+  value_kind: Required
+  group: 'where:'
+  description: number of bytes to transfer. Default is (2 * NUM * 512) or 1024 when NUM is 1
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
