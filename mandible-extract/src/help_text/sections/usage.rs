@@ -1016,6 +1016,12 @@ pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Enti
                 || (candidate.short().is_some()
                     && is_abbrev_bracket
                     && s.name.chars().next() == candidate.short())
+                // A dashless spelling (`--`, `+w`) is the same item by name.
+                || (matches!(s.dashes, Dashes::None)
+                    && candidate
+                        .spellings
+                        .iter()
+                        .any(|c| matches!(c.dashes, Dashes::None) && c.name == s.name))
         })
     })
 }

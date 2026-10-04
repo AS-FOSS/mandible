@@ -1,0 +1,157 @@
+Usage: /usr/bin/ld [options] file...
+Options:
+  -a KEYWORD                  Shared library control for HP/UX compatibility
+/usr/bin/ld: emulation specific options:
+ELF emulations:
+  --build-id[=STYLE]          Generate build ID note
+  --package-metadata[=JSON]   Generate package metadata note
+  --compress-debug-sections=[none|zlib|zlib-gnu|zlib-gabi|zstd]
+			      Compress DWARF debug sections
+                                Default: none
+  -z common-page-size=SIZE    Set common page size to SIZE
+  -z max-page-size=SIZE       Set maximum page size to SIZE
+  -z defs                     Report unresolved symbols in object files
+  -z undefs                   Ignore unresolved symbols in object files
+  -z muldefs                  Allow multiple definitions
+  -z stack-size=SIZE          Set size of stack segment
+  -z execstack                Mark executable as requiring executable stack
+  -z noexecstack              Mark executable as not requiring executable stack
+  --warn-execstack-objects    Generate a warning if an object file requests an executable stack
+  --warn-execstack            Generate a warning if creating an executable stack (default)
+  --no-warn-execstack         Do not generate a warning if creating an executable stack
+  --error-execstack           Turn warnings about executable stacks into errors
+  --no-error-execstack         Do not turn warnings about executable stacks into errors
+  --warn-rwx-segments         Generate a warning if a LOAD segment has RWX permissions (default)
+  --no-warn-rwx-segments      Do not generate a warning if a LOAD segments has RWX permissions
+  --error-rwx-segments        Turn warnings about loadable RWX segments into errors
+  --no-error-rwx-segments     Do not turn warnings about loadable RWX segments into errors
+  -z unique-symbol            Avoid duplicated local symbol names
+  -z nounique-symbol          Keep duplicated local symbol names (default)
+  -z globalaudit              Mark executable requiring global auditing
+  -z start-stop-gc            Enable garbage collection on __start/__stop
+  -z nostart-stop-gc          Don't garbage collect __start/__stop (default)
+  -z start-stop-visibility=V  Set visibility of built-in __start/__stop symbols
+                                to DEFAULT, PROTECTED, HIDDEN or INTERNAL
+  -z sectionheader            Generate section header (default)
+  -z nosectionheader          Do not generate section header
+  --audit=AUDITLIB            Specify a library to use for auditing
+  -Bgroup                     Selects group name lookup rules for DSO
+  --disable-new-dtags         Disable new dynamic tags
+  --enable-new-dtags          Enable new dynamic tags
+  --eh-frame-hdr              Create .eh_frame_hdr section
+  --no-eh-frame-hdr           Do not create .eh_frame_hdr section
+  --exclude-libs=LIBS         Make all symbols in LIBS hidden
+  --hash-style=STYLE          Set hash style to sysv/gnu/both.  Default: both
+  -P AUDITLIB, --depaudit=AUDITLIB
+                              Specify a library to use for auditing dependencies
+  -z combreloc                Merge dynamic relocs into one section and sort
+  -z nocombreloc              Don't merge dynamic relocs into one section
+  -z global                   Make symbols in DSO available for subsequently
+                                loaded objects
+  -z initfirst                Mark DSO to be initialized first at runtime
+  -z interpose                Mark object to interpose all DSOs but executable
+  -z unique                   Mark DSO to be loaded at most once by default, and only in the main namespace
+  -z nounique                 Don't mark DSO as a loadable at most once
+  -z lazy                     Mark object lazy runtime binding (default)
+  -z loadfltr                 Mark object requiring immediate process
+  -z nocopyreloc              Don't create copy relocs
+  -z nodefaultlib             Mark object not to use default search paths
+  -z nodelete                 Mark DSO non-deletable at runtime
+  -z nodlopen                 Mark DSO not available to dlopen
+  -z nodump                   Mark DSO not available to dldump
+  -z now                      Mark object non-lazy runtime binding
+  -z origin                   Mark object requiring immediate $ORIGIN
+                                processing at runtime
+  -z relro                    Create RELRO program header (default)
+  -z norelro                  Don't create RELRO program header
+  -z separate-code            Create separate code program header
+  -z noseparate-code          Don't create separate code program header (default)
+  -z common                   Generate common symbols with STT_COMMON type
+  -z nocommon                 Generate common symbols with STT_OBJECT type
+  -z text                     Treat DT_TEXTREL in output as error
+  -z notext                   Don't treat DT_TEXTREL in output as error (default)
+  -z textoff                  Don't treat DT_TEXTREL in output as error (default)
+aarch64linux: 
+  --no-enum-size-warning      Don't warn about objects with incompatible
+                                enum sizes
+  --no-wchar-size-warning     Don't warn about objects with incompatible
+                                wchar_t sizes
+  --pic-veneer                Always generate PIC interworking veneers
+  --stub-group-size=N         Maximum size of a group of input sections that
+                                can be handled by one stub section.  A negative
+                                value locates all stubs after their branches
+                                (with a group size of -N), while a positive
+                                value allows two groups of input sections, one
+                                before, and one after each stub section.
+                                Values of +/-1 indicate the linker should
+                                choose suitable defaults.
+  --fix-cortex-a53-835769      Fix erratum 835769
+  --fix-cortex-a53-843419[=full|adr|adrp]      Fix erratum 843419 and optionally specify which workaround to use.
+                                               full (default): Use both ADRP and ADR workaround, this will 
+                                                 increase the size of your binaries.
+                                               adr: Only use the ADR workaround, this will not cause any increase
+                                                 in binary size but linking will fail if the referenced address is
+                                                 out of range of an ADR instruction.  This will remove the need of using
+                                                 a veneer and results in both performance and size benefits.
+                                               adrp: Use only the ADRP workaround, this will never rewrite your ADRP
+                                                 instruction into an ADR.  As such the workaround will always use a
+                                                 veneer and this will give you both a performance and size overhead.
+  --no-apply-dynamic-relocs    Do not apply link-time values for dynamic relocations
+  -z force-bti                  Turn on Branch Target Identification mechanism and generate PLTs with BTI. Generate warnings for missing BTI on inputs
+  -z pac-plt                    Protect PLTs with Pointer Authentication.
+aarch64elf: 
+  --no-enum-size-warning      Don't warn about objects with incompatible
+                                enum sizes
+  --no-wchar-size-warning     Don't warn about objects with incompatible
+                                wchar_t sizes
+  --pic-veneer                Always generate PIC interworking veneers
+  --stub-group-size=N         Maximum size of a group of input sections that
+                                can be handled by one stub section.  A negative
+                                value locates all stubs after their branches
+                                (with a group size of -N), while a positive
+                                value allows two groups of input sections, one
+                                before, and one after each stub section.
+                                Values of +/-1 indicate the linker should
+                                choose suitable defaults.
+  --fix-cortex-a53-835769      Fix erratum 835769
+  --fix-cortex-a53-843419[=full|adr|adrp]      Fix erratum 843419 and optionally specify which workaround to use.
+                                               full (default): Use both ADRP and ADR workaround, this will 
+                                                 increase the size of your binaries.
+                                               adr: Only use the ADR workaround, this will not cause any increase
+                                                 in binary size but linking will fail if the referenced address is
+                                                 out of range of an ADR instruction.  This will remove the need of using
+                                                 a veneer and results in both performance and size benefits.
+                                               adrp: Use only the ADRP workaround, this will never rewrite your ADRP
+                                                 instruction into an ADR.  As such the workaround will always use a
+                                                 veneer and this will give you both a performance and size overhead.
+  --no-apply-dynamic-relocs    Do not apply link-time values for dynamic relocations
+  -z force-bti                  Turn on Branch Target Identification mechanism and generate PLTs with BTI. Generate warnings for missing BTI on inputs
+  -z pac-plt                    Protect PLTs with Pointer Authentication.
+aarch64elf32: 
+  --no-enum-size-warning      Don't warn about objects with incompatible
+                                enum sizes
+  --no-wchar-size-warning     Don't warn about objects with incompatible
+                                wchar_t sizes
+  --pic-veneer                Always generate PIC interworking veneers
+  --stub-group-size=N         Maximum size of a group of input sections that
+                                can be handled by one stub section.  A negative
+                                value locates all stubs after their branches
+                                (with a group size of -N), while a positive
+                                value allows two groups of input sections, one
+                                before, and one after each stub section.
+                                Values of +/-1 indicate the linker should
+                                choose suitable defaults.
+  --fix-cortex-a53-835769      Fix erratum 835769
+  --fix-cortex-a53-843419[=full|adr|adrp]      Fix erratum 843419 and optionally specify which workaround to use.
+                                               full (default): Use both ADRP and ADR workaround, this will 
+                                                 increase the size of your binaries.
+                                               adr: Only use the ADR workaround, this will not cause any increase
+                                                 in binary size but linking will fail if the referenced address is
+                                                 out of range of an ADR instruction.  This will remove the need of using
+                                                 a veneer and results in both performance and size benefits.
+                                               adrp: Use only the ADRP workaround, this will never rewrite your ADRP
+                                                 instruction into an ADR.  As such the workaround will always use a
+                                                 veneer and this will give you both a performance and size overhead.
+  --no-apply-dynamic-relocs    Do not apply link-time values for dynamic relocations
+  -z force-bti                  Turn on Branch Target Identification mechanism and generate PLTs with BTI. Generate warnings for missing BTI on inputs
+  -z pac-plt                    Protect PLTs with Pointer Authentication.
