@@ -1620,7 +1620,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       +			Start at end of file
       +<lnum>		Start at line <lnum>
-- tools: vim.basic, vim, vi, view, rvim, rview, ex, nvim, vim.tiny, vimdiff
+- tools: vim.basic, vim, vi, view, rvim, rview, ex, nvim, vim.tiny, vimdiff, pr
 - handling: Fixed. `scan_flags_block` (`mandible-extract/src/help_text/sections/flag_rows.rs`)
   admits a `+`/`+<placeholder>` row as an entry only beside a flag-shaped
   neighbor row (`has_flag_shaped_plus_neighbor`, the same evidence the
@@ -1632,7 +1632,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   reverted attempt widened unconditionally and fabricated flags on
   `git-lfs` (an AsciiDoc list-continuation marker) and `date` (a
   `%`-conversion-modifier table row) with. Distinct from S-086, the
-  plus-or-minus alternation.
+  plus-or-minus alternation. A `+` row that joins `, --long` to an ALL-CAPS
+  placeholder (`+FIRST_PAGE[:LAST_PAGE], --pages=...`) needs no neighbor
+  (`plus_row_names_long_alias`), and may open a headingless block
+  (`corpus/pr/9.4`).
 - fleet: sweep-diff against unmodified `origin/main`: 20 flag(s) gained
   across 10 tool(s), 0 lost, 2026-09-04. Every gain checked against the
   tool's own `--help` text. `git-lfs` and `date` unchanged (0 flags each,
@@ -4567,3 +4570,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: not measured; the raw-capture grep for the row shape finds `jinfo`
   alone among 2301 captures (pre-check sweep of the 14 tools with a
   pipe-joined row: zero other changes).
+
+### S-191: ALL-CAPS placeholder after a single dash is one spelling
+
+- id: S-191
+- looks like: |
+      -COLUMN, --columns=COLUMN
+- tools: pr
+- handling: Fixed. An ALL-CAPS run of three or more letters after one dash,
+  which the same row names again as `=RUN`, is one single-dash spelling
+  (`-COLUMN`), not `-C` with the value `OLUMN`. The comma-glued value rule
+  (S-116) skips an all-uppercase run, so the value stays `COLUMN`.
+  `corpus/pr/9.4` pins it. `grep`'s `-NUM` row is unchanged: the repeat sits
+  in its description, outside the spec cell.
+- fleet: pre-check sweep of the 36 tools with a `+`-led or `-WORD` row: `pr`
+  alone moved, zero losses.

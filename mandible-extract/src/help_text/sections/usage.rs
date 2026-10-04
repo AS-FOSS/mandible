@@ -927,8 +927,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                                 if let [member] = members.as_slice() {
                                     // `[options]` is the "flags go here" word, never
                                     // a value (corpus/brew/7.0.7-search-alias, S-189).
-                                    if names_a_value(member)
-                                        && !is_option_list_placeholder(member)
+                                    if names_a_value(member) && !is_option_list_placeholder(member)
                                     {
                                         push_usage_flag(
                                             &mut out,

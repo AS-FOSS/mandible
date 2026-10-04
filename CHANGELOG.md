@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-191] `-COLUMN, --columns=COLUMN` is one spelling `-COLUMN` with value `COLUMN`, not an invented `-C` (`mandible pr`).
+- [S-095] A `+FIRST_PAGE[:LAST_PAGE], --pages=...` row is a flag with both spellings (`mandible pr`'s `--pages`).
 - [S-060] A command-table row with no flag keeps its `[<options>]` operand (`mandible dmsetup`'s `stats`).
 - [S-189] A usage line `brew search, -S [options] ...` no longer gives `-S` the invented value `options` (#163, `mandible brew`).
 - [S-190] A pipe-joined alias group with its description one space after (`-? | -h | --help | -help to print this help message`) is one value-free flag with its description (`mandible jinfo`).

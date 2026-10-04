@@ -94,3 +94,62 @@ pub(super) fn parse_plus_minus_pair_spec(spec_text: &str) -> Option<(FlagSpec, S
     spec.fully_consumed = tail.fully_consumed;
     Some((spec, String::new()))
 }
+
+/// Byte length of the `+word` run in `rest` (the token minus its `+`): letters,
+/// digits and `-`, or an ALL-CAPS placeholder with `_` and one balanced
+/// bracket group (`pr`'s `+FIRST_PAGE[:LAST_PAGE]`). See docs/shapes.md S-095.
+pub(super) fn plus_word_len(rest: &str) -> usize {
+    let plain = rest
+        .char_indices()
+        .find(|(_, c)| !(c.is_ascii_alphanumeric() || *c == '-'))
+        .map_or(rest.len(), |(i, _)| i);
+    let caps_end = rest
+        .char_indices()
+        .find(|(_, c)| !(c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_'))
+        .map_or(rest.len(), |(i, _)| i);
+    let is_caps = caps_end > 0 && rest.starts_with(|c: char| c.is_ascii_uppercase());
+    if !is_caps {
+        return plain;
+    }
+    let tail = &rest[caps_end..];
+    if tail.is_empty() || !tail.starts_with('[') {
+        return plain.max(caps_end);
+    }
+    let mut depth = 0usize;
+    for (i, c) in tail.char_indices() {
+        match c {
+            '[' => depth += 1,
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    return caps_end + i + 1;
+                }
+            }
+            c if c.is_whitespace() => break,
+            _ => {}
+        }
+    }
+    plain.max(caps_end)
+}
+
+/// True when a `+`-led row's own text joins a `,` to a `--long` alias
+/// (`+FIRST_PAGE[:LAST_PAGE], --pages=...`): flag evidence with no
+/// neighbor needed. See docs/shapes.md S-095.
+pub(super) fn plus_row_names_long_alias(trimmed: &str) -> bool {
+    let mut words = trimmed.split_whitespace();
+    let (Some(first), Some(second)) = (words.next(), words.next()) else {
+        return false;
+    };
+    first.ends_with(',')
+        && is_claimed_plus_token(first.trim_end_matches(','))
+        && second
+            .strip_prefix("--")
+            .and_then(|r| r.chars().next())
+            .is_some_and(|c| c.is_ascii_alphabetic())
+}
+
+/// True when `trimmed` opens a headingless flags block: an ordinary flag
+/// start, or a self-evident `+` alias row.
+pub(super) fn starts_headingless_block(trimmed: &str) -> bool {
+    looks_like_flag_start(trimmed) || plus_row_names_long_alias(trimmed)
+}

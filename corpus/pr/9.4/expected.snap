@@ -1,0 +1,226 @@
+name: pr
+description: Paginate or columnate FILE(s) for printing.
+usage:
+- 'Usage: pr [OPTION]... [FILE]...'
+positionals:
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - +FIRST_PAGE[:LAST_PAGE]
+  - --pages
+  value_name: FIRST_PAGE[:LAST_PAGE]
+  value_kind: Required
+  description: begin [stop] printing with page FIRST_[LAST_]PAGE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -COLUMN
+  - --columns
+  value_name: COLUMN
+  value_kind: Required
+  description: output COLUMN columns and print columns down, unless -a is used. Balance number of lines in the columns on each page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --across
+  description: print columns across rather than down, used together with -COLUMN
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --show-control-chars
+  description: use hat notation (^G) and octal backslash notation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --double-space
+  description: double space the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --date-format
+  value_name: FORMAT
+  value_kind: Required
+  description: use FORMAT for the header date
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --expand-tabs
+  value_name: '[CHAR[WIDTH]]'
+  value_kind: Optional
+  description: expand input CHARs (TABs) to tab WIDTH (8)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - -f
+  - --form-feed
+  description: use form feeds instead of newlines to separate pages (by a 3-line page header with -F or a 5-line header and trailer without -F)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --header
+  value_name: HEADER
+  value_kind: Required
+  description: use a centered HEADER instead of filename in page header, -h "" prints a blank line, don't use -h""
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --output-tabs
+  value_name: '[CHAR[WIDTH]]'
+  value_kind: Optional
+  description: replace spaces with CHARs (TABs) to tab WIDTH (8)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  - --join-lines
+  description: merge full lines, turns off -W line truncation, no column alignment, --sep-string[=STRING] sets separators
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --length
+  value_name: PAGE_LENGTH
+  value_kind: Required
+  description: set the page length to PAGE_LENGTH (66) lines (default number of lines of text 56, and with -F 63). implies -t if PAGE_LENGTH <= 10
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --merge
+  description: print all files in parallel, one in each column, truncate lines, but join lines of full length with -J
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --number-lines
+  value_name: '[SEP[DIGITS]]'
+  value_kind: Optional
+  description: number lines, use DIGITS (5) digits, then SEP (TAB), default counting starts with 1st line of input file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --first-line-number
+  value_name: NUMBER
+  value_kind: Required
+  description: start counting with NUMBER at 1st line of first page printed (see +FIRST_PAGE)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --indent
+  value_name: MARGIN
+  value_kind: Required
+  description: offset each line with MARGIN (zero) spaces, do not affect -w or -W, MARGIN will be added to PAGE_WIDTH
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --no-file-warnings
+  description: omit warning when a file cannot be opened
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --separator
+  value_name: CHAR
+  value_kind: Optional
+  description: separate columns by a single character, default for CHAR is the <TAB> character without -w and 'no char' with -w. -s[CHAR] turns off line truncation of all 3 column options (-COLUMN|-a -COLUMN|-m) except -w is set
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --sep-string
+  value_name: STRING
+  value_kind: Optional
+  description: 'separate columns by STRING, without -S: Default separator <TAB> with -J and <space> otherwise (same as -S" "), no effect on column options'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --omit-header
+  description: omit page headers and trailers; implied if PAGE_LENGTH <= 10
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --omit-pagination
+  description: omit page headers and trailers, eliminate any pagination by form feeds set in input files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --show-nonprinting
+  description: use octal backslash notation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --width
+  value_name: PAGE_WIDTH
+  value_kind: Required
+  description: set page width to PAGE_WIDTH (72) characters for multiple text-column output only, -s[char] turns off (72)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --page-width
+  value_name: PAGE_WIDTH
+  value_kind: Required
+  description: set page width to PAGE_WIDTH (72) characters always, truncate lines, except -J option is set, no interference with -S or -s
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

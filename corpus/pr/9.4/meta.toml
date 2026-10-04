@@ -43,7 +43,7 @@ stdout = "help.txt"
 # document's own "Mandatory arguments to long options are mandatory for
 # short options too." line is one of Tier A''s marker strings for it).
 expected_framework = "GNU argp/getopt_long"
-must_contain_flags = ["--pages"]
+must_contain_flags = ["--pages", "+FIRST_PAGE[:LAST_PAGE]", "-COLUMN"]
 must_not_contain_flags = ["-C"]
 
 [contract.must_value_name]
@@ -53,7 +53,3 @@ must_not_contain_flags = ["-C"]
 "--expand-tabs" = "expand input CHARs"
 "--output-tabs" = "replace spaces with CHARs"
 "--number-lines" = "number lines, use DIGITS"
-
-[xfail]
-broken = true
-reason = "+FIRST_PAGE/--pages is dropped entirely, the only + -led row in the document; -COLUMN/--columns invents a short spelling -C by reading COLUMN's leading letter as the flag and the rest as the value name"
