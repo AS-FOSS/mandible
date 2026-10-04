@@ -123,10 +123,10 @@ enum Outcome {
 }
 
 /// Run the corpus suite. `bless` rewrites every fixture's `expected.snap`
-/// to match its freshly-extracted tree instead of checking it — blessing
-/// an `[xfail]` fixture is legal (spec's promotion workflow blesses
-/// before removing `[xfail]`; the strict-xfail check on the next plain
-/// run reminds a contributor to remove it).
+/// to match its freshly-extracted tree instead of checking it. An
+/// `[xfail]` fixture is skipped (named in the output, snapshot never
+/// written or touched); promoting one means removing `[xfail]` first,
+/// then blessing.
 ///
 /// `format` selects a checking run's report: [`ScoreFormat::Text`] is the
 /// plain per-fixture lines; [`ScoreFormat::Markdown`] additionally builds
@@ -245,6 +245,13 @@ fn run_fixtures(
         }
 
         if bless {
+            // An `[xfail]` fixture has no expected tree yet: blessing the
+            // parser's current (wrong) output would turn it into a guarded
+            // wrong tree. Skip it and leave any existing snapshot alone.
+            if fixture.meta.xfail.as_ref().is_some_and(|x| x.broken) {
+                lines.push(format!("skipped {} ([xfail])", fixture.label));
+                continue;
+            }
             match &root {
                 Some(root) => {
                     let rendered = render_snapshot(root)?;
@@ -444,7 +451,14 @@ fn finalize_report(
 
     lines.push(String::new());
     if bless {
-        lines.push(format!("blessed {} fixture(s)", fixtures.len()));
+        let bless_skipped = fixtures
+            .iter()
+            .filter(|f| f.meta.xfail.as_ref().is_some_and(|x| x.broken))
+            .count();
+        lines.push(format!(
+            "blessed {} fixture(s), skipped {bless_skipped} [xfail]",
+            fixtures.len() - bless_skipped
+        ));
     } else {
         let ok_provenance = provenance_split_label(provenance_counts(
             fixture_rows

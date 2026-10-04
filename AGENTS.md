@@ -130,9 +130,9 @@ its note in `meta.toml`. It never becomes a bullet in an issue. A fixture is
 executable and it survives; a bullet rots and nobody rereads it. The note says
 what looks broken and what a fix would need. See `corpus/README.md`.
 
-An xfail fixture has no `expected.snap`. `xtask corpus --bless` invents one
-anyway, so check `git status` after any bless and delete it. Committing one
-silently converts an xfail into a guarded wrong tree.
+An xfail fixture has no `expected.snap`. `xtask corpus --bless` skips every
+`[xfail]` fixture and says so; to promote one, remove `[xfail]` first, then
+bless.
 
 ### 3.5 Green gates do not mean it works
 
@@ -313,7 +313,7 @@ request. This is a lookup, not a judgment call at the end of a round.
 | `mandible-tui/` | capture before and after pty screens (§3.6) and attach them |
 | `mandible/` | check the CLI surface against spec §2 and regenerate completions |
 | `xtask/` | update `docs/instruments.md` if an instrument's question changed |
-| `corpus/` | check `git status` for invented xfail snapshots (§3.4) |
+| `corpus/` | confirm no `[xfail]` fixture gained an `expected.snap` (§3.4) |
 | `audit/` | keep the submission path shape that `check_submissions.sh` enforces |
 | `scripts/` | watch the guard fail before committing it (§3.7) |
 | `.github/` | remember a workflow edit pushed to main runs nothing; verify on a pull request |
