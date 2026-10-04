@@ -1626,7 +1626,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-096
 - looks like: |
       --			Only file names after this
-- tools: vim.basic, nvim, lldb-server, lldb-server-18, lsof, awk
+- tools: vim.basic, nvim, lldb-server, lldb-server-18, lsof, tree, awk, gawk, nawk, getopt
 - handling: Fixed. `parse_flag_spec`'s `try_bare_sigil` reads a
   bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
   verbatim). Only a real terminator (nothing left, or whitespace/an alias
@@ -1652,11 +1652,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and `args` (optional, repeatable), and a `-- word word` flag row that
   restates those operands is dropped as a flag and describes `program`.
   `corpus/lldb-server/18.1.3-dashdash` is promoted.
-  Round 14: the usage-synopsis dedupe (`flag_spelling_already_present`)
-  matched only dashed spellings, so the synopsis `[--]` stayed a second,
-  undescribed `--` beside the table row (`corpus/lsof/4.95.0-end-of-options`);
-  a dashless spelling now matches by name, which also folds awk's `--`
-  repeated across two synopsis forms.
+  The usage-synopsis dedupe (`flag_spelling_already_present`) matches a
+  dashless spelling by name, so the synopsis `[--]` merges into the
+  described table row instead of staying a second, undescribed `--`
+  (`corpus/lsof/4.95.0-end-of-options`); awk's `--` repeated across two
+  synopsis forms folds the same way.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
@@ -4469,12 +4469,36 @@ entry's `tools` field and nothing else. It does not get a new entry.
         -framerate         <video_rate> .D.........  (default "25")
       generic raw video demuxer AVOptions:
         -framerate         <video_rate> .D.........  (default "25")
-- tools: ffplay, ffprobe
+- tools: ffplay, ffprobe, rg, jpackage, update-xmlcatalog, llvm-symbolizer-18, llvm-addr2line-18, mpathpersist
 - handling: Fixed. Rows identical in every field under the identical
   heading fold to one, at the first occurrence's position
-  (`help_text::fold_repeats`, every entity kind). Rows that differ in any
-  field, rows under different headings and rows with no heading stay
-  separate. Fixture `corpus/ffplay/6.1.1-3ubuntu5-repeat`, contract
+  (`help_text::fold_repeats`, every entity kind). Rows with no heading are
+  under the identical (absent) heading and fold the same way. Rows that
+  differ in any field and rows under different headings stay separate.
+  Fixture `corpus/ffplay/6.1.1-3ubuntu5-repeat`, contract
   `must_one_row_in_group`.
-- fleet: ffplay 1136 to 818 flags, ffprobe 1128 to 810; the folded rows
-  are exact repeats in the raw help and each is still rendered once.
+- fleet: ffplay 1136 to 818 flags, ffprobe 1128 to 810 (both excluded from
+  the sweep diff at the 10 s cap, measured by the classifier), rg 142 to
+  136, jpackage 51 to 49, llvm-symbolizer-18 and llvm-addr2line-18 46 to
+  45, update-xmlcatalog 14 to 13, awk, gawk, nawk and getopt 1 each; the
+  folded rows are exact repeats in the raw help and each is still
+  rendered once. lsof and tree lose their doubled `--` under S-096.
+
+### S-188: rows after a flag's nested choice table keep the heading
+
+- id: S-188
+- looks like: |
+      aarch64linux:
+        --fix-cortex-a53-843419[=full|adr|adrp]      Fix erratum 843419
+                                                     full (default): Use both
+                                                     adr: Only use the ADR
+        --no-apply-dynamic-relocs    Do not apply link-time values
+- tools: ld, ld.bfd, aarch64-linux-gnu-ld, aarch64-linux-gnu-ld.bfd
+- handling: Fixed. A headed flags block that ends at a nested table under
+  its last row hands the nested lines to the block scanner; the flag rows
+  resuming at the block's own indent take the block's heading as their
+  group (`BodyScan::resume_group`) instead of reading as a headingless
+  block. Fixture `corpus/ld/2.42-emulations`.
+- fleet: ld, ld.bfd and the two aarch64-linux-gnu names carry
+  `--no-apply-dynamic-relocs`, `-z force-bti` and `-z pac-plt` under each
+  emulation heading instead of 21 group-less repeats; no flag count moved.

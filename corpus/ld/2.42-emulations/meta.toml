@@ -26,7 +26,3 @@ must_contain_flags = ["--no-apply-dynamic-relocs", "--fix-cortex-a53-843419"]
 "aarch64linux:" = ["--no-apply-dynamic-relocs", "--fix-cortex-a53-843419"]
 "aarch64elf:" = ["--no-apply-dynamic-relocs"]
 "aarch64elf32:" = ["--no-apply-dynamic-relocs"]
-
-[xfail]
-broken = true
-reason = "[S-188] rows after a flag's nested choice table lose the emulation heading, so `--no-apply-dynamic-relocs`, `-z force-bti` and `-z pac-plt` render with no group and repeat once per emulation. A fix keeps the heading's group across the nested table."
