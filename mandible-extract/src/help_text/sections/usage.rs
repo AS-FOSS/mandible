@@ -2483,7 +2483,12 @@ mod tests {
             .expect("-q recovered");
         assert_eq!(q.value_name.as_deref(), Some("errorfile"));
         assert_eq!(q.value_kind, mandible_core::ValueKind::Optional);
-        assert!(q.description.is_none(), "a usage line describes nothing");
+        // The form's own trailing prose is the flag's description, even at
+        // a two-space gap (S-152).
+        assert_eq!(
+            q.description.as_ref().map(|d| d.as_str()),
+            Some("edit file with first error")
+        );
 
         let nvim = parse(
             "Usage:\n  \
@@ -2498,6 +2503,10 @@ mod tests {
             .expect("-q recovered");
         assert_eq!(q.value_name.as_deref(), Some("errorfile"));
         assert_eq!(q.value_kind, mandible_core::ValueKind::Optional);
+        assert_eq!(
+            q.description.as_ref().map(|d| d.as_str()),
+            Some("Edit file with first error")
+        );
     }
 
     /// A bracket group with more than one member is an alternation, not a
