@@ -931,7 +931,7 @@ fn finish_positional_recovery(
     } else {
         std::collections::HashSet::new()
     };
-    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line)
+    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line, false)
 }
 
 /// The leading prose before the usage block, as the node description.

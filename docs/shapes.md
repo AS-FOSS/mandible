@@ -1034,13 +1034,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-060
 - looks like: |
       no verbatim excerpt in source
-- tools: tar, pkgconf, dpkg-statoverride, vim, git
+- tools: tar, pkgconf, dpkg-statoverride, vim, git, dmsetup
 - handling: A usage synopsis can name its own option list with a word such as options or
   arguments rather than naming a real operand. A short fixed list of such
   words is excluded from becoming a fabricated positional. The list
   deliberately omits args and arg, since git and other tools use those words
-  as genuine forwarded operands.
-- fleet: not measured, vim anchor case confirmed with the maintainer, 2026-08-13
+  as genuine forwarded operands. A command-table row that owns no flag
+  keeps the word as an optional operand, since there is no option list for
+  it to stand for (`stats <command> [<options>] [<device>...]`,
+  `corpus/dmsetup/1.02.185-create-stats`).
+- fleet: not measured, vim anchor case confirmed with the maintainer, 2026-08-13.
+  Flagless-row rule: a sweep of the 192 tools with an indented row naming an
+  option-list word moved `dmsetup` alone.
 
 ### S-061: continuation line too deep for a new flag entry
 
