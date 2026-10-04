@@ -4587,3 +4587,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
   in its description, outside the spec cell.
 - fleet: pre-check sweep of the 36 tools with a `+`-led or `-WORD` row: `pr`
   alone moved, zero losses.
+
+### S-192: a short flag row whose description is only a second short flag
+
+- id: S-192
+- looks like: |
+      -u <username> -p <password>
+- tools: pastebinit
+- handling: Fixed. A row of one short flag with a value, whose description
+  text is exactly another short flag and its value, is two flags on one row
+  and neither has a description. The second was read as the first's
+  description and never reached the tree. Both flags must be single-dash
+  single-character spellings, so a long flag in the description position
+  (`--id <id> --local <local>` on a wrapped usage line) is untouched.
+  Fixtures: `corpus/pastebinit/1.6.2`, `corpus/pastebinit/audit-seed2`.
+- fleet: not measured

@@ -312,6 +312,13 @@ pub(super) fn emit_flags_with(
                 }
             }
         }
+        // S-192: a description that is only a second flag spec (`-u <user>
+        // -p <pass>`) is a second flag on the row, never prose.
+        if let Some(second) = description_is_second_flag(&spec, &description) {
+            push_flag_entity(spec, "", &choice_names, group.clone(), is_argparse, out);
+            push_flag_entity(second, "", &[], group.clone(), is_argparse, out);
+            continue;
+        }
         push_flag_entity(
             spec,
             &description,
@@ -322,6 +329,23 @@ pub(super) fn emit_flags_with(
         );
     }
     (seen, clean)
+}
+
+/// The spec `text` reads as when the whole of it is one flag and its value
+/// (`-p <password>`) and nothing else, both short. See docs/shapes.md S-192.
+fn description_is_second_flag(first: &FlagSpec, text: &str) -> Option<FlagSpec> {
+    let only_short = |s: &FlagSpec| {
+        !s.spellings.is_empty()
+            && s.short().is_some()
+            && s.spellings.len() == 1
+            && s.long().is_none()
+    };
+    let text = text.trim();
+    if !text.starts_with('-') || !only_short(first) {
+        return None;
+    }
+    let spec = parse_flag_spec(text);
+    (spec.fully_consumed && only_short(&spec)).then_some(spec)
 }
 
 /// Build and push one [`Entity`] from an already-parsed [`FlagSpec`],

@@ -125,7 +125,14 @@ flags:
   value_name: <username>
   value_kind: Required
   group: 'Optional arguments (not supported by all pastebins):'
-  description: -p <password>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: <password>
+  value_kind: Required
+  group: 'Optional arguments (not supported by all pastebins):'
   provenance:
     sources:
     - help-text

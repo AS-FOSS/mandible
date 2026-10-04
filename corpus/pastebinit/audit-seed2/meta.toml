@@ -18,16 +18,7 @@ exit_code = 1
 
 [contract]
 expected_framework = "generic"
-# "-u <username> -p <password>" is one physical line defining two flags.
-# Verified: it becomes a single entry (short='u', value_name='<username>',
-# description='-p <password>') — `-p` is dropped as its own flag entirely,
-# swallowed as literal description text on `-u`. Several other lines also
-# lose their description to a misread value_name (e.g. "-l List all
-# supported pastebins" -> value_name='List', description gone), matching
-# the reviewer's "description of flags are missing" note, but `-p`'s total
-# disappearance is the cleanest currently-failing, unambiguous check.
-must_contain_flags = ["-p"]
-
-[xfail]
-broken = true
-reason = "description of flags are missing"
+# "-u <username> -p <password>" is one physical line defining two flags
+# (S-192): both must reach the tree.
+must_contain_flags = ["-u", "-p"]
+must_describe = { "-l" = "List all supported pastebins" }
