@@ -1,0 +1,36 @@
+# Excerpt of corpus/dmsetup/1.02.185 (the command table, trimmed).
+# Raw: `[-n|--notable|--table {<table>|<table_file>}]` is two flags, `-n|--notable`
+# and `--table` with a brace value. `stats <command> [<options>] [<device>...]`
+# has an optional `<options>` operand ahead of the devices.
+# Broken: `create` folds `--notable` and `--table` into one flag, and `stats`
+# loses `[<options>]`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dmsetup"
+version = "1.02.185"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+[[capture]]
+argv = ["dmsetup", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags", "subcommands"]
+
+[contract.must_contain_flags_by_path]
+create = ["--notable", "--table", "--major", "--uuid"]
+
+[contract.must_contain_positionals_by_path]
+stats = ["command", "options", "device..."]
+
+[xfail]
+broken = true
+reason = "[S-060] `stats <command> [<options>] [<device>...]` loses the `[<options>]` operand, which the usage-word rule reads as the tool's own option list although the node has no flags. `create` also fuses `-n|--notable` and `--table {<table>|<table_file>}` into one flag; no contract field asserts that split by path yet. AGENTS section 3.9."
+

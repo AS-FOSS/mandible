@@ -1,0 +1,175 @@
+name: ffplay
+description: Simple media player
+usage:
+- 'usage: ffplay [options] input_file'
+positionals:
+- name: input_file
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -L
+  group: 'Main options:'
+  description: show license
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  value_name: topic
+  value_kind: Required
+  group: 'Main options:'
+  description: show help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flags
+  value_name: flags
+  value_kind: Required
+  choices:
+  - name: unaligned
+    description: .D.V....... allow decoders to produce unaligned output
+  - name: gray
+    description: ED.V....... only decode/encode grayscale
+  - name: low_delay
+    description: ED.V....... force low delay
+  - name: bitexact
+    description: ED.VAS..... use only bitexact functions (except (I)DCT)
+  - name: output_corrupt
+    description: .D.V....... Output even potentially corrupted frames
+  - name: drop_changed
+    description: .D.VA.....P Drop frames whose parameters differ from first decoded frame
+  group: 'AVCodecContext AVOptions:'
+  description: (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -video_size
+  value_name: string
+  value_kind: Required
+  group: 'libdc1394 indev AVOptions:'
+  description: A string describing frame size, such as 640x480 or hd720. (default "qvga")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -pixel_format
+  value_name: string
+  value_kind: Required
+  group: 'libdc1394 indev AVOptions:'
+  description: (default "uyvy422")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -framerate
+  value_name: string
+  value_kind: Required
+  group: 'libdc1394 indev AVOptions:'
+  description: (default "ntsc")
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - thread_type
+  value_name: flags
+  value_kind: Required
+  choices:
+  - name: slice
+    description: ..F........
+  group: 'AVFilter AVOptions:'
+  description: Allowed thread types (default slice)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - enable
+  value_name: string
+  value_kind: Required
+  group: 'AVFilter AVOptions:'
+  description: set enable expression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - threads
+  value_name: int
+  value_kind: Required
+  group: 'AVFilter AVOptions:'
+  description: Allowed number of threads (from 0 to INT_MAX) (default 0)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - extra_hw_frames
+  value_name: int
+  value_kind: Required
+  group: 'AVFilter AVOptions:'
+  description: Number of extra hardware frames to allocate for the user (from -1 to INT_MAX) (default -1)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - action
+  value_name: int
+  value_kind: Required
+  choices:
+  - name: start
+    description: 0 ..F.A...... start timer
+  - name: stop
+    description: 1 ..F.A...... stop timer
+  group: 'abench AVOptions:'
+  description: set action (from 0 to 1) (default start)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - level_in
+  value_name: double
+  value_kind: Required
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set input gain (from 0.015625 to 64) (default 1)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - mode
+  value_name: int
+  value_kind: Required
+  choices:
+  - name: downward
+    description: 0 ..F.A....T.
+  - name: upward
+    description: 1 ..F.A....T.
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set mode (from 0 to 1) (default downward)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - threshold
+  value_name: double
+  value_kind: Required
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set threshold (from 0.000976563 to 1) (default 0.125)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - ratio
+  value_name: double
+  value_kind: Required
+  group: 'acompressor/sidechaincompress AVOptions:'
+  description: set ratio (from 1 to 20) (default 2)
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

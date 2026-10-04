@@ -277,6 +277,8 @@ fn new_field_weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) -> 
         }
     }
 
+    lines.extend(super::not_attach_choices::weakened_lines(label, b, n));
+
     // `must_display_name`: same rule as `must_describe` above — a string
     // value has no natural stronger/weaker ordering, so only its outright
     // removal is reported.
@@ -636,6 +638,8 @@ fn check_contract_scalar_fields(
             )));
         }
     }
+
+    failures.extend(super::not_attach_choices::failures(contract, root));
 
     // The other negative-claim shape: not "this spelling was invented",
     // but "these spellings, which really exist, must not have been folded

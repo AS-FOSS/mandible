@@ -1,0 +1,38 @@
+name: dnsmasq
+usage:
+- 'Usage: dnsmasq [options]'
+flags:
+- spellings:
+  - -M
+  - --dhcp-boot
+  value_name: <bootp opts>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify BOOTP options to DHCP server.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  - --dhcp-mac
+  value_name: set:<tag>,<mac address>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Map MAC address (with wildcards) to option set.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --shared-network
+  value_name: <iface>|<addr>,<addr>
+  value_kind: Required
+  group: 'Valid options are:'
+  description: Specify extra networks sharing a broadcast domain for DHCP
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -871,6 +871,9 @@ pub(super) fn emit_choices(
         if candidates.len() >= MAX_RECOVERED_ENTRIES {
             break;
         }
+        if is_avoption_row_text(desc_text) {
+            continue;
+        }
         let desc = non_empty_string(desc_text);
         // Real listings sometimes alias several values on one line
         // (`"none, off       never make backups"`); each comma-separated
