@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-161] A spaced-slash alias row (`-W / --warn [LINT]`) is one flag carrying both spellings and its real value (`mandible cargo-clippy`'s `-W`, `-A`, `-D`, `-F`).
 - [S-031] The second `-T` row of a column-aligned table keeps its own description (`mandible lsof`'s `-T fqs TCP/TPI Fl,Q,St (s) info`).
 
 ## [0.8.2] - 2026-10-05

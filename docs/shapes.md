@@ -3502,21 +3502,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
           -W / --warn [LINT]       Set lint warnings
           -A / --allow [LINT]      Set lint allowed
 - tools: cargo-clippy
-- handling: Open on its own tool, widened underneath. S-144 taught
-  `join_slash_alias` (`mandible-extract/src/help_text/sections/bullets.rs`)
-  to rewrite a spaced `/` between two flag-shaped tokens into the ordinary
-  comma-joined alias `parse_flag_spec` already reads, and gated it on the
-  lowdown bullet marker. Round 10 lifted that gate: the evidence is narrow
-  enough on its own (the separator must be exactly `/` with one space each
+- handling: Fixed. S-144 taught `join_slash_alias`
+  (`mandible-extract/src/help_text/sections/bullets.rs`) to rewrite a spaced
+  `/` between two flag-shaped tokens into the ordinary comma-joined alias
+  `parse_flag_spec` already reads, and round 10 ungated it from the lowdown
+  bullet marker (the separator must be exactly `/` with one space each
   side, and what follows must itself be flag-shaped, so a path or the word
-  "input/output" in a description is never touched), so `emit_flags_with`
-  calls it on any option-table row now.
-  It does not reach `cargo-clippy`, whose four rows are read by a different
-  row reader, so `-W` still takes the literal `/` as its value name and
-  `--warn`, `--allow`, `--deny` and `--forbid` still reach the tree nowhere.
-  `corpus/cargo-clippy/0.1.97` is the `[xfail]` fixture that states it, with
-  `must_contain_flags` naming all four long spellings and
-  `must_not_value_name` naming the `/` on all four short ones.
+  "input/output" in a description is never touched). `emit_flags_with`
+  calls it on any option-table row. It still missed `cargo-clippy` because
+  the row text arrives indented and the repair read the empty text before
+  the first space as the spelling; it now skips the indent. `-W` carries
+  `--warn` and the value `[LINT]`, and likewise `-A`, `-D`, `-F`.
+  `corpus/cargo-clippy/0.1.97` pins it.
 - fleet: `slash-joined-alias-outside-bullet`
   (`xtask/src/detector/slash_joined_alias_outside_bullet.rs`) reads 1 tool/4
   findings on a full-`PATH` sweep of 2323 tools, 2026-09-13, unchanged by the
