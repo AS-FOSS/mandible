@@ -1551,13 +1551,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: cmp [options]
       Valid options are:
 - tools: openssl (roughly 150 subcommands in this shape, cmp among them), mkfs.fat,
-  tune2fs, btrfs-convert, xfs_scrub, encguess, ntfssecaudit
+  tune2fs, btrfs-convert, xfs_scrub, encguess, ntfssecaudit, bzless, bzmore
 - handling: Some tools print diagnostic banner lines to one stream and their entire real
   help document to the other, so testing only whether a stream is non-empty
   picks the wrong one. Each stream is judged on its own structural
   plausibility, preferring the one that actually looks like help output when
   the two disagree, defaulting to stdout on every other combination including
-  a tie. The raw verbatim pane keeps both streams separate and labelled rather
+  a tie, except that a stdout of one non-blank line (`bzless`'s
+  `------> --help <------`) yields to a stderr that parses to any entries.
+  The raw verbatim pane keeps both streams separate and labelled rather
   than merging them.
 - fleet: 200 of 656 fleet-wide fabrications attributed to a second copy of this rule
   drifting out of sync, not dated

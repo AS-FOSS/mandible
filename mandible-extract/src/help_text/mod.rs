@@ -593,6 +593,17 @@ fn probe_help_text_confession_aware(
     }
 }
 
+/// Entries a parse of `text` yields: flags, subcommands, usage lines.
+fn structure_size(text: &str) -> usize {
+    let parsed = sections::parse_with_profile(text, None, None);
+    parsed.flags.len() + parsed.subcommands.len() + parsed.usage.len()
+}
+
+/// One non-blank line, nothing else (`------> --help <------`).
+fn is_one_line_banner(text: &str) -> bool {
+    text.lines().filter(|l| !l.trim().is_empty()).count() == 1
+}
+
 /// D1.3.1: is `text` plausibly real help output, not a tool acting on an
 /// unrecognized argument or rendering a man page under a different guise?
 /// Reuses [`sections::parse_with_profile`] (spec §7 Tier B step 3), which
@@ -686,6 +697,9 @@ pub fn pick_stream(stdout: &[u8], stderr: &[u8]) -> String {
     // stderr. Every other combination, including both help-shaped, keeps
     // stdout.
     if !looks_like_help_output(&stdout_text) && looks_like_help_output(&stderr_text) {
+        stderr_text
+    } else if is_one_line_banner(&stdout_text) && structure_size(&stderr_text) > 0 {
+        // A single banner line never outweighs a document (S-091).
         stderr_text
     } else {
         stdout_text
