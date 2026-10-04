@@ -2901,7 +2901,8 @@ own treatment of a value-kind or description disagreement (docs/shapes.md
 S-102) — declined because a union keeps every same-spelling flag on the
 row a reader expects it on, while a per-form split would multiply
 `--type` into seven rows for one spelling. Fixture: `corpus/lvcreate/
-2.03.16`. Docs/shapes.md S-147.
+2.03.16`. Docs/shapes.md S-147. Superseded for rows from one document by
+"Rows of one document are different rows" (2026-10-04) below.
 **The numbered-variadic-tail fix ships below the five-tool bar
 (2026-09-12).** `numbered-variadic-usage-tail` (docs/shapes.md S-136)
 moves 3 tools, apt-sortpkgs, apt-extracttemplates and apt-mark, with zero
@@ -3065,6 +3066,20 @@ invented from the operand `[-+=aAcCdDeijPsStTuFx]`, and the change that
 removed it read as one lost flag. A lost flag counts as a fix when raw help
 shows the tool never documented it and a fixture asserts it is gone
 (`corpus/chattr/1.47.0`). Every other lost flag is still a loss.
+
+**Rows of one document are different rows (2026-10-04).** `ffplay` prints
+`-framerate` once per format section, 75 times, and the TUI showed 558 of
+its 1136 flags: the background refill merges a node with its own
+re-extraction, and `merge_entity_lists` bucketed every same-spelling row
+into one, unioning their choices. Within one source document, two rows in
+different sections are two flags, as the author printed them. Entities and
+subcommands now merge by spelling only across sources: each is keyed by its
+identity plus its occurrence index in its own list, so merging a node with
+its own re-extraction is an identity. This supersedes the 2026-09-07 union
+for rows from one document; `lsof` documenting `-T` twice now shows twice.
+`corpus/lvcreate/2.03.16` asserts that a refill keeps each invocation
+form's `--type` value on its own row. `cargo xtask corpus` also fails any
+non-`[xfail]` fixture whose root changes when merged with itself.
 
 1. **Cold-start cost is the top UX risk.** 10–25 s for cobra-heavy tools if
    extraction is eager [M-3]. Mitigated by lazy per-node extraction (§5.2),

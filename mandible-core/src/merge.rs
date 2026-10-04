@@ -224,8 +224,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
 }
 
 /// Merge entities by identity across several candidate lists (already
-/// alias-paired, for flags), applying the two-axis authority resolution per
-/// field.
+/// alias-paired, for flags), resolving each field by two-axis authority.
 ///
 /// Identity is [`entity_identity`]'s: the kind, then the long name, else the
 /// short letter, else the bare name a dashless kind carries, else the
@@ -233,12 +232,22 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
 /// positional called `verbose` and a `--verbose` flag stay two items.
 /// Relative order within each kind is the order of first appearance, which
 /// is what the snapshot's per-kind sections are written in.
+///
+/// Two entities of one list never share a bucket (docs/design.md §16).
 pub fn merge_entity_lists(lists: Vec<Vec<Entity>>) -> Vec<Entity> {
-    let mut order: Vec<(EntityKind, String)> = Vec::new();
-    let mut buckets: HashMap<(EntityKind, String), Vec<Entity>> = HashMap::new();
+    type Key = ((EntityKind, String), usize);
+    let mut order: Vec<Key> = Vec::new();
+    let mut buckets: HashMap<Key, Vec<Entity>> = HashMap::new();
     for list in lists {
+        // Two entities of one list are two rows the document printed, so
+        // they never share a bucket: the k-th occurrence of an identity
+        // meets only the k-th occurrence in another list.
+        let mut seen: HashMap<(EntityKind, String), usize> = HashMap::new();
         for entity in list {
-            let key = entity_identity(&entity);
+            let identity = entity_identity(&entity);
+            let occurrence = seen.entry(identity.clone()).or_insert(0);
+            let key = (identity, *occurrence);
+            *occurrence += 1;
             if !buckets.contains_key(&key) {
                 order.push(key.clone());
             }
@@ -426,6 +435,20 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     if bucket.len() == 1 {
         return bucket.pop().expect("len checked");
     }
+    // Copies of one entity merge to that entity: a refill of a node with
+    // its own re-extraction must be an identity, spelling order and
+    // abbreviations included.
+    let mut first = bucket[0].clone();
+    if bucket[1..].iter().all(|e| {
+        let mut same = e.clone();
+        same.provenance = first.provenance.clone();
+        same == first
+    }) {
+        for e in &bucket[1..] {
+            first.provenance.absorb(&e.provenance);
+        }
+        return first;
+    }
 
     // The spelling halves are resolved **independently**, exactly as they
     // were when they were four separate `Flag` fields, and only then
@@ -547,20 +570,27 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
 pub fn merge_subcommand_lists(
     lists: Vec<Vec<CommandNode>>,
 ) -> Result<Vec<CommandNode>, MergeError> {
-    let mut order: Vec<String> = Vec::new();
-    let mut buckets: HashMap<String, Vec<CommandNode>> = HashMap::new();
+    let mut order: Vec<(String, usize)> = Vec::new();
+    let mut buckets: HashMap<(String, usize), Vec<CommandNode>> = HashMap::new();
     for list in lists {
+        // Same rule as `merge_entity_lists`: two rows of one list are two
+        // rows the document printed, so only the k-th occurrence of a name
+        // meets the k-th occurrence of another list.
+        let mut seen: HashMap<String, usize> = HashMap::new();
         for c in list {
-            if !buckets.contains_key(&c.name) {
-                order.push(c.name.clone());
+            let occurrence = seen.entry(c.name.clone()).or_insert(0);
+            let key = (c.name.clone(), *occurrence);
+            *occurrence += 1;
+            if !buckets.contains_key(&key) {
+                order.push(key.clone());
             }
-            buckets.entry(c.name.clone()).or_default().push(c);
+            buckets.entry(key).or_default().push(c);
         }
     }
     order
         .into_iter()
-        .map(|name| {
-            let bucket = buckets.remove(&name).expect("key came from this map");
+        .map(|key| {
+            let bucket = buckets.remove(&key).expect("key came from this map");
             merge_nodes(bucket)
         })
         .collect()
@@ -1428,5 +1458,52 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["linear", "raid1", "mirror"]
         );
+    }
+
+    fn framerate(value_name: &str, group: &str) -> Entity {
+        let mut e = Entity::flag_long("framerate", Provenance::single(Source::HelpText));
+        e.value_kind = ValueKind::Required;
+        e.value_name = Some(value_name.to_string());
+        e.group = Some(group.to_string());
+        e
+    }
+
+    /// One document's repeated spelling stays one row per occurrence, and
+    /// merging a list with itself changes nothing.
+    #[test]
+    fn rows_of_one_list_never_share_a_bucket_and_self_merge_is_identity() {
+        let list = vec![
+            framerate("rate_a", "Main"),
+            framerate("rate_b", "Rtp"),
+            framerate("rate_c", "Dv"),
+        ];
+        let merged = merge_entity_lists(vec![list.clone(), list.clone()]);
+        assert_eq!(merged, list);
+    }
+
+    /// Across lists the k-th occurrence meets only the k-th occurrence.
+    #[test]
+    fn the_kth_occurrence_merges_with_the_kth_of_another_list() {
+        let mut first = framerate("rate_a", "Main");
+        first.description = Some(Text::sanitize("from another source"));
+        let merged = merge_entity_lists(vec![
+            vec![framerate("rate_a", "Main"), framerate("rate_b", "Rtp")],
+            vec![first],
+        ]);
+        assert_eq!(merged.len(), 2);
+        assert!(merged[0].description.is_some());
+        assert!(merged[1].description.is_none());
+        assert_eq!(merged[1].value_name.as_deref(), Some("rate_b"));
+    }
+
+    /// An entity that carries its own value name and choices merges with
+    /// a copy of itself without moving the name into the choices.
+    #[test]
+    fn an_entity_with_a_value_name_and_choices_merges_with_itself() {
+        let mut e = Entity::flag_long("flags", Provenance::single(Source::HelpText));
+        e.value_kind = ValueKind::Required;
+        e.value_name = Some("flags".to_string());
+        e.choices = vec![Choice::bare("gray"), Choice::bare("low_delay")];
+        assert_eq!(merge_entity_bucket(vec![e.clone(), e.clone()]), e);
     }
 }

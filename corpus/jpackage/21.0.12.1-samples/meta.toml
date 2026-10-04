@@ -1,0 +1,26 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jpackage"
+version = "21.0.12.1"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.1"
+
+# Excerpt of the 21.0.12.1 capture: its `Sample usages:` block, whose
+# backslash-wrapped second lines (`--main-class className --main-jar ...`)
+# are continuations of the invocation above them, never option rows.
+
+[[capture]]
+argv = ["jpackage", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--type", "@"]
+must_not_contain_flags = ["--main-class", "--main-jar", "--add-modules", "--no-header-files"]
+
+[xfail]
+broken = true
+reason = "a line following a backslash-ended line is that line's continuation, but its dash-led tail (`--main-class className --main-jar myJar.jar`, `--add-modules moduleName`) is read as option rows with no group. A fix keeps a backslash tail out of the flag-row scan."
