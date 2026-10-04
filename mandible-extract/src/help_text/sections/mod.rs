@@ -629,6 +629,27 @@ fn resume_after_bare_label(
     (i, false)
 }
 
+/// True when the line after the blank at `i` is a bracket flag row.
+fn blank_resumes_bracket_row(lines: &[&str], i: usize) -> bool {
+    lines.get(i + 1).is_some_and(|next| {
+        let t = next.trim_start();
+        !t.is_empty() && looks_like_bracket_flag_row(t)
+    })
+}
+
+/// Column where the first argument after the tool's own name starts on
+/// `line`, spaces only. A flag-led line indented to exactly this column
+/// continues the synopsis (S-074, `corpus/pptpsetup/audit-seed2`).
+fn hanging_column(line: &str, name: &str) -> Option<usize> {
+    let at = line.find(name)?;
+    if line[..at].contains('\t') {
+        return None;
+    }
+    let after = &line[at + name.len()..];
+    let gap = after.len() - after.trim_start_matches(' ').len();
+    (gap > 0 && after.len() > gap).then_some(at + name.len() + gap)
+}
+
 fn scan_usage_section(
     lines: &[&str],
     start: usize,
@@ -664,6 +685,8 @@ fn scan_usage_section(
     let mut force_new_entry_after_separator = false;
     // See [`UsageScan::recovered_bare_root_stanza`].
     let mut recovered_bare_root_stanza = false;
+    // Column the open entry's first argument starts at (S-074).
+    let mut hang_col = tool_name.and_then(|n| hanging_column(lines[start], n));
     i += 1;
     if seed_is_bare {
         let (next, recovered) = resume_after_bare_label(
@@ -688,20 +711,11 @@ fn scan_usage_section(
                 paren_group_depth = 0;
                 just_closed_paren_group = false;
             }
-            if just_closed_paren_group {
-                just_closed_paren_group = false;
-                if let Some(next) = lines.get(i + 1) {
-                    let t = next.trim_start();
-                    if !t.is_empty() && looks_like_bracket_flag_row(t) {
-                        // The group's trailing bracket-row flags
-                        // continue after exactly one blank line —
-                        // vgchange's `( ... )` then a blank line then
-                        // `[ -A|--autobackup y|n ]`, still the same
-                        // stanza. See S-088.
-                        i += 1;
-                        continue;
-                    }
-                }
+            if std::mem::take(&mut just_closed_paren_group) && blank_resumes_bracket_row(lines, i) {
+                // The group's trailing bracket-row flags continue after
+                // exactly one blank line (vgchange, S-088).
+                i += 1;
+                continue;
             }
             // Some tools write their unlabelled synopsis as one stanza
             // per operation mode: a description line, an own-name
@@ -809,6 +823,9 @@ fn scan_usage_section(
         });
         let starts_new_entry = is_marker || is_own_name || force_new_entry_after_separator;
         force_new_entry_after_separator = false;
+        if starts_new_entry {
+            hang_col = tool_name.and_then(|n| hanging_column(l, n));
+        }
 
         // A line the one above it ended with a backslash is a
         // continuation by the tool's own explicit statement, and no
@@ -825,7 +842,7 @@ fn scan_usage_section(
             // flag rows sit one space under `Usage:` with no `Options:`
             // heading, and all 13 used to land in `usage` with zero
             // flags parsed. See S-074.
-            if looks_like_flag_start(trimmed_start) {
+            if looks_like_flag_start(trimmed_start) && hang_col != Some(leading_whitespace(l)) {
                 break;
             }
             // A section heading ends the usage block no matter how

@@ -1253,12 +1253,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-074
 - looks like: |
          curl [options...] <url>
-- tools: curl
+- tools: curl, pptpsetup, ssh-keygen
 - handling: Curl indents its thirteen flag rows by one space directly under its usage
   line, with no blank separator and no Options heading. A usage continuation
   line is only ever an alternative invocation form and never opens with a
   dash, so a continuation line that reads as a flag entry ends the usage block
-  instead of being absorbed into it.
+  instead of being absorbed into it. Exception: a line indented to exactly
+  the column where the entry's first argument starts, the hanging indent of
+  a wrapped synopsis (`pptpsetup --create <T> ...` over `--username <U>`),
+  continues the entry.
 - fleet: not measured
 
 ### S-075: heading indented underneath its own synopsis

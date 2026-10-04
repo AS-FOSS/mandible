@@ -38,4 +38,4 @@ must_contain_flags = ["-U"]
 
 [xfail]
 broken = true
-reason = "this help text just prints out all the possible combinations together with tools name. kind of got parsed, but i feel like incomplete"
+reason = "[S-087] -U is lost inside the two-character cluster [-hU] (read as a value of -h); deliberate lower bound, MIN_CLUSTER_MEMBERS is 3 because two-character clusters are half real flags"
