@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-192] A row `-u <username> -p <password>` reads as two flags instead of `-u` with the description `-p <password>` (`mandible pastebinit`).
 - [S-074] A wrapped usage line whose continuation opens with a flag at the hanging indent stays one synopsis (`mandible pptpsetup` gains `--delete`, `--password`, `--encrypt`, `--start`; `mandible ssh-keygen`'s `-Y verify` form is whole).
 - [S-152] A usage form that names one flag and ends in prose gives the flag that prose as its description (`mandible vim` and `mandible nvim` describe `-t` and `-q`).
+- [S-193] A flag row whose description starts one space after its value, at the table's column, keeps that description (`mandible tcpretrans.bt` and the other bpftrace scripts `--include`, `mandible nstat` `--interval`, `mandible Xvfb` `-pixdepths`).
+- [S-194] A usage line that repeats the first form's program word starts its own form (`mandible tcpretrans.bt` shows three forms and the `filename` operand).
 - [S-191] `-COLUMN, --columns=COLUMN` is one spelling `-COLUMN` with value `COLUMN`, not an invented `-C` (`mandible pr`).
 - [S-095] A `+FIRST_PAGE[:LAST_PAGE], --pages=...` row is a flag with both spellings (`mandible pr`'s `--pages`).
 - [S-060] A command-table row with no flag keeps its `[<options>]` operand (`mandible dmsetup`'s `stats`).

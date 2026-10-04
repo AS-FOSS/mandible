@@ -1,6 +1,14 @@
 name: tcpaccept.bt
 usage:
-- bpftrace [options] filename bpftrace [options] - <stdin input> bpftrace [options] -e 'program'
+- bpftrace [options] filename
+- '    bpftrace [options] - <stdin input>'
+- '    bpftrace [options] -e ''program'''
+positionals:
+- name: filename
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -B
@@ -53,6 +61,7 @@ flags:
   - --include
   value_name: FILE
   value_kind: Required
+  description: 'add an #include file before preprocessing'
   provenance:
     sources:
     - help-text

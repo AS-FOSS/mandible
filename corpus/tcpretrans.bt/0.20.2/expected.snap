@@ -1,4 +1,4 @@
-name: opensnoop.bt
+name: tcpretrans.bt
 usage:
 - bpftrace [options] filename
 - '    bpftrace [options] - <stdin input>'

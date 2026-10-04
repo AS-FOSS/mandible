@@ -61,6 +61,7 @@ flags:
   - --include
   value_name: FILE
   value_kind: Required
+  description: 'add an #include file before preprocessing'
   provenance:
     sources:
     - help-text

@@ -94,3 +94,35 @@ pub(super) fn usage_prose_column(usage_lines: &[String]) -> Vec<usize> {
     cols.dedup();
     cols
 }
+
+/// True when `line` opens with the same bare program word the first usage
+/// form opened with, and that word is not the node's own name (the cases
+/// `starts_with_tool_name*` already own): a `bpftrace` script's three
+/// forms all open `bpftrace [options] ...` under node `tcpretrans.bt`, and
+/// each is its own form, not a wrapped continuation of the one above. Needs
+/// the node's name known, like S-037's own rule. See docs/shapes.md S-194.
+pub(super) fn repeats_first_form_program_word(
+    line: &str,
+    first_entry: Option<&String>,
+    tool_name: Option<&str>,
+) -> bool {
+    if tool_name.is_none() {
+        return false;
+    }
+    let Some(word) = first_entry.and_then(|e| {
+        e.split_whitespace()
+            .find(|w| !w.eq_ignore_ascii_case("usage:") && !w.eq_ignore_ascii_case("or:"))
+    }) else {
+        return false;
+    };
+    let bare = word.len() >= 2
+        && word.chars().next().is_some_and(char::is_alphabetic)
+        && word
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    bare && line
+        .split_whitespace()
+        .next()
+        .is_some_and(|first| first == word)
+        && line.split_whitespace().nth(1).is_some()
+}

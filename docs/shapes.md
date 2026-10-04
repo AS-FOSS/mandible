@@ -4613,3 +4613,36 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`--id <id> --local <local>` on a wrapped usage line) is untouched.
   Fixtures: `corpus/pastebinit/1.6.2`, `corpus/pastebinit/audit-seed2`.
 - fleet: not measured
+
+### S-193: a flag row's description starts one space after its value, at the table's column
+
+- id: S-193
+- looks like: |
+      -I DIR         add the directory to the include search path
+      --include FILE add an #include file before preprocessing
+- tools: bpftrace, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, tcpretrans.bt, threadsnoop.bt, Xvfb, nstat
+- handling: Fixed. A row with no column gap of its own, in a block where at
+  least three flag rows (and at least half of the gapped ones) start their
+  description at one byte column, is split at that column when the text
+  before it is a two- or three-token flag spec and the text after reads as a
+  sentence (three or more words, opening with a letter). The whole line used
+  to read as the spec and the description never reached the tree. Tab-aligned
+  blocks are left alone. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-194: every usage form opens with the same program word, not the node's name
+
+- id: S-194
+- looks like: |
+      USAGE:
+          bpftrace [options] filename
+          bpftrace [options] - <stdin input>
+          bpftrace [options] -e 'program'
+- tools: tcpretrans.bt, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, threadsnoop.bt
+- handling: Fixed. With the node's name known, a usage line that opens with
+  the same bare program word the first form opened with starts its own form
+  instead of joining the one above, so the three forms stay three entries and
+  the first form's operand (`filename`) reaches the tree. Refused without a
+  known node name (S-037's own limit) and when the word is a path, a bracket
+  or a flag. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.

@@ -36,6 +36,7 @@ mod backfill;
 mod bullets;
 mod emit;
 mod entry;
+mod flag_row_column;
 mod flag_rows;
 mod heading;
 mod invocation_block;
@@ -63,6 +64,7 @@ use backfill::*;
 use bullets::*;
 pub use emit::*;
 pub use entry::*;
+use flag_row_column::*;
 use flag_rows::*;
 pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
@@ -819,10 +821,11 @@ fn scan_usage_section(
         }
         let is_marker =
             starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
-        let is_own_name = tool_name.is_some_and(|name| {
-            starts_with_tool_name(trimmed_start, name)
-                || starts_with_tool_name_spelled_differently(trimmed_start, name)
-        });
+        let is_own_name =
+            tool_name.is_some_and(|name| {
+                starts_with_tool_name(trimmed_start, name)
+                    || starts_with_tool_name_spelled_differently(trimmed_start, name)
+            }) || repeats_first_form_program_word(trimmed_start, usage_entries.first(), tool_name);
         let starts_new_entry = is_marker || is_own_name || force_new_entry_after_separator;
         force_new_entry_after_separator = false;
         if starts_new_entry {

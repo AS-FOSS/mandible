@@ -531,6 +531,7 @@ flags:
     - help-text
 - spellings:
   - -pixdepths
+  description: support given pixmap depths
   provenance:
     sources:
     - help-text
