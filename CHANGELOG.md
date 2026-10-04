@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-04
+
 ### Fixed
 
 - [S-187] A block printed repeatedly under one heading (`ffplay`, `ffprobe` AVOptions, `rg`, `jpackage`) shows each identical row once.
@@ -2344,6 +2346,8 @@ Known gaps are tracked as issues; busybox's applet list is
 <summary>Development history</summary>
 
 ## [Unreleased]
+
+## [0.8.2] - 2026-10-04
 
 ## [0.7.0] - 2026-09-05
 
