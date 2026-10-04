@@ -55,7 +55,9 @@ mod usage_command_table;
 mod usage_optional_word;
 mod usage_signs;
 
-use avoption::recover_avoption_type_column;
+use avoption::{
+    is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
+};
 use backfill::*;
 use bullets::*;
 pub use emit::*;
@@ -84,13 +86,13 @@ use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
-/// from a single probe's output. Real `--help` output never remotely
-/// approaches this. Defends against a degenerate input: instmodsh's
-/// free-running REPL banner parsed into 58,663 duplicate "subcommands"
+/// from a single probe's output. Real `--help` output stays below it
+/// (ffplay's full AVOptions help is 4806 flags). Defends against a
+/// degenerate input: instmodsh's free-running REPL banner parsed into 58,663 duplicate "subcommands"
 /// before this cap. Capping (and deduplicating) at the point of recovery,
 /// rather than bounding cost after the fact, keeps one pathological tool
 /// from slowing the whole pipeline. See S-072.
-const MAX_RECOVERED_ENTRIES: usize = 4096;
+const MAX_RECOVERED_ENTRIES: usize = 8192;
 
 /// Everything recovered from one `--help` invocation's output.
 #[derive(Debug, Default)]
@@ -1165,6 +1167,12 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
                 st.result.try_push_subcommand(node);
             }
             return i;
+        }
+    }
+
+    if is_avoptions_heading(heading) {
+        if let Some(end) = scan_avoption_section(lines, i, heading, st.result) {
+            return end;
         }
     }
 

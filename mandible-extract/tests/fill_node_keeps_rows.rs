@@ -97,7 +97,8 @@ fn spelling_rows(node: &CommandNode, name: &str) -> Vec<Option<String>> {
 }
 
 /// `(heading, row text)` for every AVOptions row of the raw help, the
-/// first print of an identical row under an identical heading only.
+/// first print of an identical row under an identical heading only. Filter
+/// option rows are dashless at a three-space indent; their choices sit deeper.
 fn raw_avoption_rows(help: &str) -> Vec<(String, String)> {
     let mut heading = String::new();
     let mut seen = std::collections::HashSet::new();
@@ -105,8 +106,15 @@ fn raw_avoption_rows(help: &str) -> Vec<(String, String)> {
     for line in help.lines() {
         if line.ends_with("AVOptions:") && !line.starts_with(' ') {
             heading = line.to_string();
-        } else if line.starts_with("  -") && !heading.is_empty() {
-            let name = line.split_whitespace().next().unwrap().to_string();
+        } else if (line.starts_with("  -") || line.starts_with("   ") && !line.starts_with("    "))
+            && !heading.is_empty()
+        {
+            let token = line.split_whitespace().next().unwrap();
+            let name = if token.starts_with('-') {
+                token.to_string()
+            } else {
+                format!("-{token}")
+            };
             if seen.insert((heading.clone(), line.to_string())) {
                 out.push((heading.clone(), name));
             }

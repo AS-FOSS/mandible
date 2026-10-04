@@ -1,0 +1,40 @@
+Simple media player
+usage: ffplay [options] input_file
+
+Main options:
+-L                  show license
+-h topic            show help
+
+AVCodecContext AVOptions:
+  -flags             <flags>      ED.VAS..... (default 0)
+     unaligned                    .D.V....... allow decoders to produce unaligned output
+     gray                         ED.V....... only decode/encode grayscale
+     low_delay                    ED.V....... force low delay
+     bitexact                     ED.VAS..... use only bitexact functions (except (I)DCT)
+     output_corrupt               .D.V....... Output even potentially corrupted frames
+     drop_changed                 .D.VA.....P Drop frames whose parameters differ from first decoded frame
+
+libdc1394 indev AVOptions:
+  -video_size        <string>     .D......... A string describing frame size, such as 640x480 or hd720. (default "qvga")
+  -pixel_format      <string>     .D.........  (default "uyvy422")
+  -framerate         <string>     .D.........  (default "ntsc")
+
+AVFilter AVOptions:
+   thread_type       <flags>      ..F........ Allowed thread types (default slice)
+     slice                        ..F........
+   enable            <string>     ..F......T. set enable expression
+   threads           <int>        ..F........ Allowed number of threads (from 0 to INT_MAX) (default 0)
+   extra_hw_frames   <int>        ..F........ Number of extra hardware frames to allocate for the user (from -1 to INT_MAX) (default -1)
+
+abench AVOptions:
+   action            <int>        ..F.A...... set action (from 0 to 1) (default start)
+     start           0            ..F.A...... start timer
+     stop            1            ..F.A...... stop timer
+
+acompressor/sidechaincompress AVOptions:
+   level_in          <double>     ..F.A....T. set input gain (from 0.015625 to 64) (default 1)
+   mode              <int>        ..F.A....T. set mode (from 0 to 1) (default downward)
+     downward        0            ..F.A....T.
+     upward          1            ..F.A....T.
+   threshold         <double>     ..F.A....T. set threshold (from 0.000976563 to 1) (default 0.125)
+   ratio             <double>     ..F.A....T. set ratio (from 1 to 20) (default 2)
