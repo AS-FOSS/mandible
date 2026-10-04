@@ -56,4 +56,4 @@ must_not_contain_flags = ["-C"]
 
 [xfail]
 broken = true
-reason = "three nested-bracket alias rows (-e/--expand-tabs, -i/--output-tabs, -n/--number-lines) each keep only the short spelling and lose the closing bracket off their value name; +FIRST_PAGE/--pages is dropped entirely, the only + -led row in the document; -COLUMN/--columns invents a short spelling -C by reading COLUMN's leading letter as the flag and the rest as the value name"
+reason = "+FIRST_PAGE/--pages is dropped entirely, the only + -led row in the document; -COLUMN/--columns invents a short spelling -C by reading COLUMN's leading letter as the flag and the rest as the value name"
