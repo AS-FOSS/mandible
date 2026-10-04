@@ -1,0 +1,16 @@
+# Tests that write a script and run it. On macOS the first exec of a fresh
+# file waits for a system scan, and scans queue when many such tests start
+# at once, pushing a probe past its timeout (#136). One at a time there.
+[test-groups]
+shim-exec = { max-threads = 1 }
+
+[[profile.default.overrides]]
+platform = 'cfg(target_os = "macos")'
+filter = '''
+package(mandible-extract) & (
+    test(/^exec::/) | test(/^framework::tests::/) | test(/^native::tests::/)
+    | test(/^help_text::tests::/)
+    | binary(exec_policy) | binary(completion_script_gate) | binary(native_cobra_gate)
+)
+'''
+test-group = 'shim-exec'
