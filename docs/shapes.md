@@ -558,12 +558,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -l List all supported pastebins
       --md5 Control MD5 generation
-- tools: pastebinit, apt-ftparchive
+- tools: pastebinit, apt-ftparchive, lsof
 - handling: find_sentence_start_gap recognizes a bare boolean flag followed directly by
   its description, so the description's own leading capitalized word, List,
   Print, Control, is read as prose rather than a fabricated required value.
   Originally written for apt-ftparchive's --md5 row and later found to already
   cover pastebinit's own rows.
+  A lone row of a column-aligned block (lsof's `-T fqs TCP/TPI Fl,Q,St (s) info`)
+  splits after its one lowercase value when a capital-led description follows
+  (find_column_block_value_gap).
 - fleet: not measured
 
 ### S-032: whole usage block with no per-flag table at all

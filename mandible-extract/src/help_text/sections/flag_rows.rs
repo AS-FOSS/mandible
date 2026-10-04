@@ -1180,7 +1180,16 @@ pub(super) fn scan_flags_block(
                         entries.push((s, d, Vec::new()));
                     }
                     None => {
-                        let (s, d) = split_single_column_entry(line);
+                        let gap = multi_column
+                            .then(|| find_column_block_value_gap(line))
+                            .flatten();
+                        let (s, d) = match gap {
+                            Some(g) => {
+                                let (s, d) = split_at_column(line, Some(g));
+                                (s.to_string(), d)
+                            }
+                            None => split_single_column_entry(line),
+                        };
                         entries.push((s, d, Vec::new()));
                     }
                 }

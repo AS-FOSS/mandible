@@ -355,6 +355,26 @@ pub(super) fn find_sentence_start_gap(line: &str) -> Option<usize> {
     None
 }
 
+/// Gap for one row of a block whose other rows sit in recurring columns:
+/// `-T fqs TCP/TPI Fl,Q,St (s) info`, a flag, one bare lowercase value,
+/// then a capital-led description of at least two words. Consulted only
+/// for such a block, where the lone row's missing column is the outlier.
+/// See docs/shapes.md S-031 and corpus/lsof/4.95.0-two-t.
+pub(super) fn find_column_block_value_gap(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let mut words = trimmed.split(' ');
+    let flag = words.next()?;
+    let value = words.next()?;
+    let first = words.next()?;
+    let flag_ok = flag.len() >= 2
+        && flag.starts_with('-')
+        && flag.chars().skip(1).all(|c| c.is_ascii_alphanumeric());
+    let value_ok = !value.is_empty() && value.chars().all(|c| c.is_ascii_lowercase());
+    let desc_ok = first.starts_with(|c: char| c.is_ascii_uppercase()) && words.next().is_some();
+    (flag_ok && value_ok && desc_ok)
+        .then(|| line.len() - trimmed.len() + flag.len() + 1 + value.len())
+}
+
 /// True if `token` reads as the first word of an English sentence rather
 /// than as a value placeholder: an uppercase letter followed by at least
 /// one, and nothing but, lowercase letters. All-caps (`PATH`), mixed
