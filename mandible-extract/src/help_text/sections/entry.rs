@@ -197,7 +197,50 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     }
     // Last resort, same precondition: `-c or --copyright text...`. See
     // `find_or_alias_single_space_gap`.
-    find_or_alias_single_space_gap(line)
+    if let Some(col) = find_or_alias_single_space_gap(line) {
+        return Some(col);
+    }
+    find_pipe_alias_single_space_gap(line)
+}
+
+/// Last-resort gap for a pipe-joined alias group whose description sits one
+/// space after the last spelling: `-? | -h | --help | -help to print this
+/// help message`. Cuts right after the last spelling when the row is two
+/// or more bare spellings joined by ` | ` followed by at least two words, the
+/// first not a placeholder, so `-a | -b FILE` stays that flag's value. Only
+/// consulted when every other finder found nothing. See docs/shapes.md
+/// S-190 and corpus/jinfo/17.0.20.
+pub(super) fn find_pipe_alias_single_space_gap(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let mut end = line.len() - trimmed.len();
+    let mut words = trimmed.split(' ').peekable();
+    let mut spellings = 0usize;
+    let bare = |w: &str| {
+        w.len() >= 2
+            && w.starts_with('-')
+            && w[1..]
+                .chars()
+                .all(|c| !c.is_whitespace() && !"=[]<>|,/".contains(c))
+    };
+    loop {
+        let w = words.next()?;
+        if !bare(w) {
+            return None;
+        }
+        spellings += 1;
+        end += w.len();
+        if words.peek() == Some(&"|") {
+            words.next();
+            end += 3;
+            continue;
+        }
+        break;
+    }
+    let rest: Vec<&str> = words.collect();
+    let prose_first = rest
+        .first()
+        .is_some_and(|w| !w.starts_with(['<', '[']) && w.chars().any(|c| c.is_ascii_lowercase()));
+    (spellings >= 2 && rest.len() >= 2 && prose_first).then_some(end)
 }
 
 /// Last-resort gap for a value-free `-x or --long description` row whose

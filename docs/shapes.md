@@ -4542,3 +4542,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
   cannot see this change. 2301 captures hold two strict lines (`gem`, `jfr`),
   plus `brew`, which is not in the captures.
+
+### S-190: pipe-joined alias group, one-space description gap
+
+- id: S-190
+- looks like: |
+      -? | -h | --help | -help to print this help message
+- tools: jinfo
+- handling: Fixed. `find_pipe_alias_single_space_gap` is the last finder in
+  `find_description_gap`'s chain, so it runs only when every other finder
+  found nothing: two or more bare spellings joined by ` | `, then at least
+  two words, the first not a bracketed placeholder and carrying a lowercase
+  letter. The description starts after the last spelling, so the group is
+  one value-free flag with its own text instead of the word `to` read as a
+  value. A lone trailing token (`-a | -b FILE`) stays that flag's value.
+  `corpus/jinfo/17.0.20` pins it.
+- fleet: not measured; the raw-capture grep for the row shape finds `jinfo`
+  alone among 2301 captures (pre-check sweep of the 14 tools with a
+  pipe-joined row: zero other changes).
