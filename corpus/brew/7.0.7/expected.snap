@@ -139,8 +139,6 @@ subcommands:
       - help-text
   - spellings:
     - -S
-    value_name: options
-    value_kind: Optional
     provenance:
       sources:
       - help-text-synopsis

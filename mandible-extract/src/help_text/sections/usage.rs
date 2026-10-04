@@ -912,7 +912,11 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                         if parse_bundled_shorts(tok).is_none() && tok != "--" {
                             if let Some(UsageSegment::Group(members)) = segments.get(seg_idx) {
                                 if let [member] = members.as_slice() {
-                                    if names_a_value(member) {
+                                    // `[options]` is the "flags go here" word, never
+                                    // a value (corpus/brew/7.0.7-search-alias, S-189).
+                                    if names_a_value(member)
+                                        && !is_option_list_placeholder(member)
+                                    {
                                         push_usage_flag(
                                             &mut out,
                                             parse_flag_spec(&format!("{tok} [{member}]")),

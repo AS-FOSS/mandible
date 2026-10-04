@@ -1,0 +1,134 @@
+name: brew
+usage:
+- 'Usage: brew search, -S [options] text|/regex/ [...]'
+flags:
+- spellings:
+  - --formula
+  - --formulae
+  description: Search for formulae.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cask
+  - --casks
+  description: Search for casks.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --desc
+  description: Search for formulae with a description matching text and casks with a name or description matching text.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pull-request
+  description: Search for GitHub pull requests containing text.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --open
+  description: Search for only open GitHub pull requests.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --closed
+  description: Search for only closed GitHub pull requests.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --alpine
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --repology
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --macports
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fink
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --opensuse
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fedora
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --archlinux
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debian
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ubuntu
+  description: Search for text in the given database.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  description: Display any debugging information.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: Make some output more quiet.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Make some output more verbose.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Show this message.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

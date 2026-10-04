@@ -4535,13 +4535,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `jfr help metadata` is probed and its prose reads, but its wrapped usage
   block and headingless flag rows yield no flags (`corpus/jfr/17.0.20`,
   xfail). `gem` prints the line, names no word by invocation, and gains
-  nothing. A usage line `Usage: brew search, -S [options] ...` gives the
-  alias `-S` an invented optional value (`corpus/brew/7.0.7-search-alias`,
-  xfail). The prose paragraph after a `Usage:` line is not read as the
-  node description. Fixtures: `corpus/brew/7.0.7`, `corpus/jfr/17.0.20`.
+  nothing. A bare flag followed by a one-member bracket group never takes
+  an option-list word (`[options]`, `[flags]`) as its value, so `Usage: brew
+  search, -S [options] ...` keeps `-S` value-free
+  (`corpus/brew/7.0.7-search-alias`). The prose paragraph after a
+  `Usage:` line is not read as the node description. Fixtures: `corpus/brew/7.0.7`, `corpus/jfr/17.0.20`.
 - fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
   cannot see this change. 2301 captures hold two strict lines (`gem`, `jfr`),
-  plus `brew`, which is not in the captures.
+  plus `brew`, which is not in the captures. The `-S [options]` guard: the
+  raw-capture grep finds only the two brew fixtures.
 
 ### S-190: pipe-joined alias group, one-space description gap
 
