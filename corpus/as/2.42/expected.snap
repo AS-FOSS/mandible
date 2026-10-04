@@ -401,7 +401,7 @@ flags:
     - help-text
 - spellings:
   - -mabi
-  value_name: <abi
+  value_name: <abi name>
   value_kind: Required
   group: 'AArch64-specific assembler options:'
   description: specify for ABI <abi name>
@@ -410,7 +410,7 @@ flags:
     - help-text
 - spellings:
   - -mcpu
-  value_name: <cpu
+  value_name: <cpu name>
   value_kind: Required
   group: 'AArch64-specific assembler options:'
   description: assemble for CPU <cpu name>
@@ -419,7 +419,7 @@ flags:
     - help-text
 - spellings:
   - -march
-  value_name: <arch
+  value_name: <arch name>
   value_kind: Required
   group: 'AArch64-specific assembler options:'
   description: assemble for architecture <arch name>

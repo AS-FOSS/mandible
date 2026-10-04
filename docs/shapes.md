@@ -268,7 +268,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
             oldgnu
             pax
             posix
-- tools: tar, automake, cp
+- tools: tar, automake, cp, ffplay
 - handling: An indented list nested under a flag is that flag's choices, never
   subcommands. A per-value description, when the source documents one, is kept
   on the value rather than dropped, and a block with no plausible owning flag
@@ -278,7 +278,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   excluded from the second proof, since no real placeholder is a single
   letter); automake's Warning categories heading and cp's VERSION_CONTROL
   block both name no flag literally and attach bare names only to the trailing
-  flag as a base fallback, never a description. See S-025 for the still-open
+  flag as a base fallback, never a description. A row that opens
+  `<type> ED.VAS.....` is an option of its own AVOptions section and never a
+  choice (`corpus/ffplay/6.1.1-3ubuntu5-section-bound`), so `ffplay`'s
+  AVFilter rows no longer become 1348 choices of libdc1394's `-framerate`.
+  Inside a section headed `... AVOptions:` those rows are the section's own
+  options: each is emitted as a dashless flag spelled as printed, grouped
+  under the heading, with the deeper value rows as its choices
+  (`corpus/ffplay/6.1.1-3ubuntu5-avfilter-options`). See S-025 for the still-open
   morphological-variant gap this leaves.
 - fleet: not measured
 
@@ -302,7 +309,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/ffplay/6.1.1-3ubuntu5-avoptions`) makes `<type>` the value name
   and drops the capability column from the flag row's description: the
   column is a fixed-position bitmask the help never explains (no legend
-  in the output), and it is kept on the described choice rows beneath.
+  in the output), and it is kept on the described choice rows beneath. A
+  row whose only text is the column keeps it as the description
+  (`corpus/ffplay/6.1.1-3ubuntu5-capability-only`).
 - fleet: moved ffplay, ffmpeg and ffprobe, 0 flag-count, subcommand-count and positional losses on a full-`PATH` sweep-diff of 2270 tools, 2026-10-03, nine controls byte-identical. Every AVOptions row carries `<type>` as its value name; the 26 `ffplay` rows whose description was only the capability column now have none.
 
 ### S-016: headingless invocation table naming the tool itself
@@ -1626,7 +1635,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-096
 - looks like: |
       --			Only file names after this
-- tools: vim.basic, nvim, lldb-server, lldb-server-18
+- tools: vim.basic, nvim, lldb-server, lldb-server-18, lsof, tree, awk, gawk, nawk, getopt
 - handling: Fixed. `parse_flag_spec`'s `try_bare_sigil` reads a
   bare `--` fragment as spelling `--` (`Dashes::None`, so it renders
   verbatim). Only a real terminator (nothing left, or whitespace/an alias
@@ -1652,6 +1661,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and `args` (optional, repeatable), and a `-- word word` flag row that
   restates those operands is dropped as a flag and describes `program`.
   `corpus/lldb-server/18.1.3-dashdash` is promoted.
+  The usage-synopsis dedupe (`flag_spelling_already_present`) matches a
+  dashless spelling by name, so the synopsis `[--]` merges into the
+  described table row instead of staying a second, undescribed `--`
+  (`corpus/lsof/4.95.0-end-of-options`); awk's `--` repeated across two
+  synopsis forms folds the same way.
 - fleet: `end-of-options-marker` (`xtask/src/end_of_options_marker.rs`) fell
   from 26 tool(s)/26 finding(s) to 0/0 in a full-PATH sweep, 2026-09-03
   (`step3-sweepdiff-plus-prefixed-option.txt`): 0 losses. Ratchet-gated at
@@ -2954,7 +2968,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   vacuously on the raw, unrefilled tree; `must_value_names_after_root_refill`
   and `must_choices_after_root_refill` (`corpus/README.md`) simulate the
   real app's own root refill and are the fields that actually state the
-  claim.
+  claim. Rows from one source document never share a bucket: a refill
+  keeps each invocation form's `--type` row with its own value, and the
+  union applies only across sources (docs/design.md §16, "Rows of one
+  document are different rows").
 - fleet: `same-spelling-fold-loss`
   (`xtask/src/detector/same_spelling_fold_loss.rs`), widened to also flag
   two same-identity entities that both take a value but name it
@@ -4439,19 +4456,62 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --dhcp-range=<ipaddr>,...
       --dhcp-pxe-vendor=<vendor>[,...]
       --shared-network=<iface>|<addr>,<addr>
-- tools: dnsmasq, dpkg, dpkg-buildpackage, dpkg-genbuildinfo, dpkg-genchanges, pmap
+- tools: dnsmasq, dpkg, dpkg-buildpackage, dpkg-genbuildinfo, dpkg-genchanges, pmap, as
 - handling: Fixed. An angle placeholder (and a glued `|<other>` run)
   keeps a comma-list tail that follows it with no whitespace: `,...`,
   `,<name>` (repeated) or `[,...]` / `[,<name>]`
   (`glued_list_tail`). The tail says the value is a comma-separated
   list, so dropping it lost information. A comma followed by anything
-  else (`,-f`, an alias) is not a tail. Still open: a placeholder whose
-  angle group holds a space (`set:<tag>,<mac address>`) is cut at the
-  space, as before.
+  else (`,-f`, an alias) is not a tail. A value token whose last `<` has
+  no `>` before the whitespace cut (`set:<tag>,<mac address>`) runs on to
+  the next `>` when at most three plain words sit between
+  (`unclosed_angle_end`).
 - fleet: 6 tools changed value names in the full-`PATH` sweep of 2270
   tools (dnsmasq 25 flags, dpkg, dpkg-buildpackage, dpkg-genbuildinfo,
   dpkg-genchanges, pmap), no flag, positional or subcommand count
   moved; each read against raw help.
+
+### S-187: a block printed repeatedly under one heading is one block
+
+- id: S-187
+- looks like: |
+      generic raw video demuxer AVOptions:
+        -framerate         <video_rate> .D.........  (default "25")
+      generic raw video demuxer AVOptions:
+        -framerate         <video_rate> .D.........  (default "25")
+- tools: ffplay, ffprobe, rg, jpackage, update-xmlcatalog, llvm-symbolizer-18, llvm-addr2line-18, mpathpersist
+- handling: Fixed. Rows identical in every field under the identical
+  heading fold to one, at the first occurrence's position
+  (`help_text::fold_repeats`, every entity kind). Rows with no heading are
+  under the identical (absent) heading and fold the same way. Rows that
+  differ in any field and rows under different headings stay separate.
+  Fixture `corpus/ffplay/6.1.1-3ubuntu5-repeat`, contract
+  `must_one_row_in_group`.
+- fleet: ffplay 1136 to 818 flags, ffprobe 1128 to 810 (both excluded from
+  the sweep diff at the 10 s cap, measured by the classifier), rg 142 to
+  136, jpackage 51 to 49, llvm-symbolizer-18 and llvm-addr2line-18 46 to
+  45, update-xmlcatalog 14 to 13, awk, gawk, nawk and getopt 1 each; the
+  folded rows are exact repeats in the raw help and each is still
+  rendered once. lsof and tree lose their doubled `--` under S-096.
+
+### S-188: rows after a flag's nested choice table keep the heading
+
+- id: S-188
+- looks like: |
+      aarch64linux:
+        --fix-cortex-a53-843419[=full|adr|adrp]      Fix erratum 843419
+                                                     full (default): Use both
+                                                     adr: Only use the ADR
+        --no-apply-dynamic-relocs    Do not apply link-time values
+- tools: ld, ld.bfd, aarch64-linux-gnu-ld, aarch64-linux-gnu-ld.bfd
+- handling: Fixed. A headed flags block that ends at a nested table under
+  its last row hands the nested lines to the block scanner; the flag rows
+  resuming at the block's own indent take the block's heading as their
+  group (`BodyScan::resume_group`) instead of reading as a headingless
+  block. Fixture `corpus/ld/2.42-emulations`.
+- fleet: ld, ld.bfd and the two aarch64-linux-gnu names carry
+  `--no-apply-dynamic-relocs`, `-z force-bti` and `-z pac-plt` under each
+  emulation heading instead of 21 group-less repeats; no flag count moved.
 
 ### S-189: a strict `<tool> help <COMMAND>` line opens `help <word>` probes
 
@@ -4482,4 +4542,3 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
   cannot see this change. 2301 captures hold two strict lines (`gem`, `jfr`),
   plus `brew`, which is not in the captures.
-

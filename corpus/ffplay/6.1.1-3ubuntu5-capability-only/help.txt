@@ -1,0 +1,22 @@
+Simple media player
+usage: ffplay [options] input_file
+
+Main options:
+-L                  show license
+-h topic            show help
+
+AVCodecContext AVOptions:
+  -flags             <flags>      ED.VAS..... (default 0)
+  -ch_layout         <channel_layout> ED..A......
+  -channel_layout    <channel_layout> ED..A...... (default 0x0)
+  -request_channel_layout <channel_layout> .D..A...... (default 0x0)
+
+srtp AVOptions:
+  -srtp_in_suite     <string>     .D......... 
+  -srtp_in_params    <string>     .D......... 
+
+pcm demuxer AVOptions:
+  -ch_layout         <channel_layout> .D......... 
+
+bluray AVOptions:
+  -playlist          <int>        .D.........  (from -1 to 99999) (default -1)

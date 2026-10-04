@@ -1,0 +1,764 @@
+name: ld
+description: 'Options: /usr/bin/ld: emulation specific options: ELF emulations:'
+usage:
+- 'Usage: /usr/bin/ld [options] file...'
+flags:
+- spellings:
+  - -a
+  value_name: KEYWORD
+  value_kind: Required
+  description: Shared library control for HP/UX compatibility
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --build-id
+  value_name: STYLE
+  value_kind: Optional
+  group: 'ELF emulations:'
+  description: Generate build ID note
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --package-metadata
+  value_name: JSON
+  value_kind: Optional
+  group: 'ELF emulations:'
+  description: Generate package metadata note
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --compress-debug-sections
+  value_name: '[none|zlib|zlib-gnu|zlib-gabi|zstd]'
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: 'Compress DWARF debug sections Default: none'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: common-page-size=SIZE
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Set common page size to SIZE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: max-page-size=SIZE
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Set maximum page size to SIZE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: defs
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Report unresolved symbols in object files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: undefs
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Ignore unresolved symbols in object files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: muldefs
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Allow multiple definitions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: stack-size=SIZE
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Set size of stack segment
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: execstack
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark executable as requiring executable stack
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: noexecstack
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark executable as not requiring executable stack
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --warn-execstack-objects
+  group: 'ELF emulations:'
+  description: Generate a warning if an object file requests an executable stack
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --warn-execstack
+  group: 'ELF emulations:'
+  description: Generate a warning if creating an executable stack (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-warn-execstack
+  group: 'ELF emulations:'
+  description: Do not generate a warning if creating an executable stack
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --error-execstack
+  group: 'ELF emulations:'
+  description: Turn warnings about executable stacks into errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-error-execstack
+  group: 'ELF emulations:'
+  description: Do not turn warnings about executable stacks into errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --warn-rwx-segments
+  group: 'ELF emulations:'
+  description: Generate a warning if a LOAD segment has RWX permissions (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-warn-rwx-segments
+  group: 'ELF emulations:'
+  description: Do not generate a warning if a LOAD segments has RWX permissions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --error-rwx-segments
+  group: 'ELF emulations:'
+  description: Turn warnings about loadable RWX segments into errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-error-rwx-segments
+  group: 'ELF emulations:'
+  description: Do not turn warnings about loadable RWX segments into errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: unique-symbol
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Avoid duplicated local symbol names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nounique-symbol
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Keep duplicated local symbol names (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: globalaudit
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark executable requiring global auditing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: start-stop-gc
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Enable garbage collection on __start/__stop
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nostart-stop-gc
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't garbage collect __start/__stop (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: start-stop-visibility=V
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Set visibility of built-in __start/__stop symbols to DEFAULT, PROTECTED, HIDDEN or INTERNAL
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: sectionheader
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Generate section header (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nosectionheader
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Do not generate section header
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --audit
+  value_name: AUDITLIB
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Specify a library to use for auditing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  value_name: group
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Selects group name lookup rules for DSO
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-new-dtags
+  group: 'ELF emulations:'
+  description: Disable new dynamic tags
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-new-dtags
+  group: 'ELF emulations:'
+  description: Enable new dynamic tags
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --eh-frame-hdr
+  group: 'ELF emulations:'
+  description: Create .eh_frame_hdr section
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-eh-frame-hdr
+  group: 'ELF emulations:'
+  description: Do not create .eh_frame_hdr section
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exclude-libs
+  value_name: LIBS
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Make all symbols in LIBS hidden
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hash-style
+  value_name: STYLE
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: 'Set hash style to sysv/gnu/both. Default: both'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --depaudit
+  value_name: AUDITLIB
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Specify a library to use for auditing dependencies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: combreloc
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Merge dynamic relocs into one section and sort
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nocombreloc
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't merge dynamic relocs into one section
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: global
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Make symbols in DSO available for subsequently loaded objects
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: initfirst
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark DSO to be initialized first at runtime
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: interpose
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark object to interpose all DSOs but executable
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: unique
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark DSO to be loaded at most once by default, and only in the main namespace
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nounique
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't mark DSO as a loadable at most once
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: lazy
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark object lazy runtime binding (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: loadfltr
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark object requiring immediate process
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nocopyreloc
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't create copy relocs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nodefaultlib
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark object not to use default search paths
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nodelete
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark DSO non-deletable at runtime
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nodlopen
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark DSO not available to dlopen
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nodump
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark DSO not available to dldump
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: now
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark object non-lazy runtime binding
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: origin
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Mark object requiring immediate $ORIGIN processing at runtime
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: relro
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Create RELRO program header (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: norelro
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't create RELRO program header
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: separate-code
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Create separate code program header
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: noseparate-code
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't create separate code program header (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: common
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Generate common symbols with STT_COMMON type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: nocommon
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Generate common symbols with STT_OBJECT type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: text
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Treat DT_TEXTREL in output as error
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: notext
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't treat DT_TEXTREL in output as error (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: textoff
+  value_kind: Required
+  group: 'ELF emulations:'
+  description: Don't treat DT_TEXTREL in output as error (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-enum-size-warning
+  group: 'aarch64linux:'
+  description: Don't warn about objects with incompatible enum sizes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-wchar-size-warning
+  group: 'aarch64linux:'
+  description: Don't warn about objects with incompatible wchar_t sizes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pic-veneer
+  group: 'aarch64linux:'
+  description: Always generate PIC interworking veneers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stub-group-size
+  value_name: N
+  value_kind: Required
+  group: 'aarch64linux:'
+  description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-cortex-a53-835769
+  group: 'aarch64linux:'
+  description: Fix erratum 835769
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-cortex-a53-843419
+  value_name: full|adr|adrp
+  value_kind: Optional
+  group: 'aarch64linux:'
+  description: Fix erratum 843419 and optionally specify which workaround to use.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-apply-dynamic-relocs
+  group: 'aarch64linux:'
+  description: Do not apply link-time values for dynamic relocations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: force-bti
+  value_kind: Required
+  group: 'aarch64linux:'
+  description: Turn on Branch Target Identification mechanism and generate PLTs with BTI. Generate warnings for missing BTI on inputs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: pac-plt
+  value_kind: Required
+  group: 'aarch64linux:'
+  description: Protect PLTs with Pointer Authentication.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-enum-size-warning
+  group: 'aarch64elf:'
+  description: Don't warn about objects with incompatible enum sizes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-wchar-size-warning
+  group: 'aarch64elf:'
+  description: Don't warn about objects with incompatible wchar_t sizes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pic-veneer
+  group: 'aarch64elf:'
+  description: Always generate PIC interworking veneers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stub-group-size
+  value_name: N
+  value_kind: Required
+  group: 'aarch64elf:'
+  description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-cortex-a53-835769
+  group: 'aarch64elf:'
+  description: Fix erratum 835769
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-cortex-a53-843419
+  value_name: full|adr|adrp
+  value_kind: Optional
+  group: 'aarch64elf:'
+  description: Fix erratum 843419 and optionally specify which workaround to use.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-apply-dynamic-relocs
+  group: 'aarch64elf:'
+  description: Do not apply link-time values for dynamic relocations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: force-bti
+  value_kind: Required
+  group: 'aarch64elf:'
+  description: Turn on Branch Target Identification mechanism and generate PLTs with BTI. Generate warnings for missing BTI on inputs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: pac-plt
+  value_kind: Required
+  group: 'aarch64elf:'
+  description: Protect PLTs with Pointer Authentication.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-enum-size-warning
+  group: 'aarch64elf32:'
+  description: Don't warn about objects with incompatible enum sizes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-wchar-size-warning
+  group: 'aarch64elf32:'
+  description: Don't warn about objects with incompatible wchar_t sizes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pic-veneer
+  group: 'aarch64elf32:'
+  description: Always generate PIC interworking veneers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stub-group-size
+  value_name: N
+  value_kind: Required
+  group: 'aarch64elf32:'
+  description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-cortex-a53-835769
+  group: 'aarch64elf32:'
+  description: Fix erratum 835769
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-cortex-a53-843419
+  value_name: full|adr|adrp
+  value_kind: Optional
+  group: 'aarch64elf32:'
+  description: Fix erratum 843419 and optionally specify which workaround to use.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-apply-dynamic-relocs
+  group: 'aarch64elf32:'
+  description: Do not apply link-time values for dynamic relocations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: force-bti
+  value_kind: Required
+  group: 'aarch64elf32:'
+  description: Turn on Branch Target Identification mechanism and generate PLTs with BTI. Generate warnings for missing BTI on inputs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: pac-plt
+  value_kind: Required
+  group: 'aarch64elf32:'
+  description: Protect PLTs with Pointer Authentication.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -38,17 +38,12 @@ must_not_contain_positionals = ["COMMON_OPTIONS"]
 [contract.must_flag_group]
 "--mirrorlog" = "Create a raid1 or mirror LV."
 
-# docs/shapes.md S-147 follow-up (ruled 2026-09-07 "queue"): thirteen
-# invocation forms all reach the tree spelled `--type`, each naming a
-# different literal value, either directly (`--type raid`) or via a
-# bracket row's own trailing choice list (`raid1|mirror`).
-# `must_attach_choices` alone cannot state this claim — it walks the raw,
-# unrefilled tree, where `.find()` sees only the first form's own,
-# usually-empty `choices`. The claim only means something once the same
-# background root-refill the running app always performs
-# (`Warmer::submit_root_fill`) folds every form into one bucket, which is
-# what `must_choices_after_root_refill` simulates. No form ever names
-# `--type`'s value with a capitalised token, so the merged flag carries no
-# placeholder at all rather than a fabricated `<type>`.
+# docs/shapes.md S-147: thirteen invocation forms each print their own
+# `--type` row, naming one literal value directly (`--type raid`) or via a
+# bracket row's own choice list (`raid1|mirror`). A root refill must keep
+# every form's value on its own row, with the bracket list on its own row.
+[contract.must_value_names_after_root_refill]
+"--type" = ["linear", "striped", "raid", "raid10", "snapshot", "thin-pool", "cache-pool", "thin", "vdo", "cache", "writecache"]
+
 [contract.must_choices_after_root_refill]
-"--type" = ["linear", "striped", "raid1", "mirror", "raid", "raid10", "snapshot", "thin-pool", "cache-pool", "thin", "vdo", "cache", "writecache"]
+"--type" = ["raid1", "mirror"]

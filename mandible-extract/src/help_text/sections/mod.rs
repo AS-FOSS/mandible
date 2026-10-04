@@ -55,7 +55,9 @@ mod usage_command_table;
 mod usage_optional_word;
 mod usage_signs;
 
-use avoption::recover_avoption_type_column;
+use avoption::{
+    is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
+};
 use backfill::*;
 use bullets::*;
 pub use emit::*;
@@ -84,13 +86,13 @@ use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
-/// from a single probe's output. Real `--help` output never remotely
-/// approaches this. Defends against a degenerate input: instmodsh's
-/// free-running REPL banner parsed into 58,663 duplicate "subcommands"
+/// from a single probe's output. Real `--help` output stays below it
+/// (ffplay's full AVOptions help is 4806 flags). Defends against a
+/// degenerate input: instmodsh's free-running REPL banner parsed into 58,663 duplicate "subcommands"
 /// before this cap. Capping (and deduplicating) at the point of recovery,
 /// rather than bounding cost after the fact, keeps one pathological tool
 /// from slowing the whole pipeline. See S-072.
-const MAX_RECOVERED_ENTRIES: usize = 4096;
+const MAX_RECOVERED_ENTRIES: usize = 8192;
 
 /// Everything recovered from one `--help` invocation's output.
 #[derive(Debug, Default)]
@@ -1168,6 +1170,12 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         }
     }
 
+    if is_avoptions_heading(heading) {
+        if let Some(end) = scan_avoption_section(lines, i, heading, st.result) {
+            return end;
+        }
+    }
+
     let (end, entries) = scan_bare_block(lines, i, heading_indent, allow_dash_separator);
     i = end;
     if is_ignorable_heading(heading) {
@@ -1525,6 +1533,11 @@ fn emit_heading_block(
             .clone()
             .or_else(|| meaningful_flag_group(heading.clone()))
             .filter(|g| !text_is_already_root_description(g, st.result));
+        let row_indent = leading_whitespace(lines[flags_start]);
+        st.resume_group = group
+            .clone()
+            .filter(|_| i < lines.len() && leading_whitespace(lines[i]) > row_indent)
+            .map(|g| (g, row_indent));
         let (seen, clean) = emit_flags_block(
             group,
             entries,
@@ -1785,6 +1798,30 @@ struct BodyScan<'a> {
     /// options:` headings, its `gzip (default)` sub-label). Taken by the
     /// very next loop iteration whether or not it is used. See S-146.
     pending_bare_label: Option<String>,
+    /// The heading group and row indent of a headed flags block that ended
+    /// at a nested table under its last row; the rows resuming at that
+    /// indent keep the group. See docs/shapes.md S-188.
+    resume_group: Option<(String, usize)>,
+}
+
+impl BodyScan<'_> {
+    /// The group a flag row resuming at its block's own indent keeps; lines
+    /// nested deeper leave it pending. See docs/shapes.md S-188.
+    fn take_resume_group(&mut self, line: &str) -> Option<String> {
+        let indent_here = leading_whitespace(line);
+        match self.resume_group.take()? {
+            (group, indent)
+                if indent == indent_here && looks_like_flag_start(line.trim_start()) =>
+            {
+                Some(group)
+            }
+            kept if indent_here > kept.1 => {
+                self.resume_group = Some(kept);
+                None
+            }
+            _ => None,
+        }
+    }
 }
 
 fn scan_entries(
@@ -1848,6 +1885,7 @@ fn scan_entries(
         clean_entries: 0usize,
         command_group: None,
         pending_bare_label: None,
+        resume_group: None,
     };
     while i < lines.len() {
         let line = lines[i];
@@ -1870,6 +1908,7 @@ fn scan_entries(
         // turns out to be the headingless flags block it was set for, so
         // a label can never survive to name some later, unrelated block.
         let pending_group = st.pending_bare_label.take();
+        let pending_group = pending_group.or_else(|| st.take_resume_group(line));
         // Headingless flags block: sed has no Options: heading at all; the
         // current line already looks like a flag entry, so it is scanned
         // in place. See S-052.

@@ -164,6 +164,11 @@ must_keep_separate = [["-w", "-X"], ["-C", "-CC"]]
 [contract.must_attach_choices]
 "--warnings" = ["gnu", "obsolete", "portability"]
 
+# A flag must NOT carry the named choice values. Every root flag with that
+# spelling is checked. Vacuous when the flag or the root is absent.
+[contract.must_not_attach_choices]
+"--warnings" = ["slice"]
+
 # A flag's rendered description must contain this text — substring match
 # after collapsing runs of whitespace on both sides to a single space
 # (descriptions wrap), case-sensitive. Makes description recovery
@@ -411,6 +416,11 @@ when any listed value is not among the choices attached to it, naming
 either the missing flag or the missing values. A fixture that produces no
 root fails this exactly as it fails `must_contain_flags`.
 
+`[contract.must_not_attach_choices]` is its negative twin: it names values
+that no root flag of that spelling may carry, so a block that overran into
+another section's flag fails by name. A tree with no root, or no such flag,
+satisfies it vacuously.
+
 ### A flag's description says what it should: `must_describe`
 
 A flag can carry a description and still carry the wrong one — text
@@ -607,38 +617,43 @@ listed substring, naming what was expected and what survived instead. A
 fixture that produces no root fails this exactly as it fails
 `must_value_name`.
 
-S-147's own follow-up ruling (2026-09-07 "queue", docs/design.md §16)
-narrowed what this field can still claim about `lvcreate`'s own `--type`:
-a merge bucket whose forms disagree about a *literal* value now unions
-every one of them into `choices` instead, rendering one placeholder
-(`<type>`, or none, never a comma list of literals) beside the union —
-see `must_choices_after_root_refill` below for that half. This field
-still states its own claim correctly for a bucket disagreeing about a
-genuine, capitalised placeholder name.
+A refill keeps rows of one document apart, so a flag documented once
+per invocation form keeps one row per form. The check passes when every
+listed substring appears in the `value_name` of some row carrying the
+spelling. `lvcreate`'s `--type` lists one value per form.
 
 ### Choices after the real app's own root refill: `must_choices_after_root_refill`
 
-The `choices` twin of `must_value_names_after_root_refill`, for the same
-S-147 follow-up: a same-spelling bucket whose forms each name a different
-*literal* value (`linear`, `striped`, `raid10`, ...) unions every one,
-plus any `choices` a bracket-row form already carried, into one list on
-the refilled entity. `must_attach_choices` alone cannot see this: it
-walks the raw, unrefilled tree, where `.find()` sees only the first
-invocation form's own entity and its usually-empty `choices`.
+The `choices` twin of `must_value_names_after_root_refill`. A bracket row
+such as `--type raid1|mirror` carries its list on its own row, and
+`must_attach_choices` finds only the first row with the spelling.
 
 ```toml
 [contract.must_choices_after_root_refill]
-"--type" = ["linear", "striped", "raid1", "mirror", "raid", "raid10", "snapshot", "thin-pool", "cache-pool", "thin", "vdo", "cache", "writecache"]
+"--type" = ["raid1", "mirror"]
 ```
 
-`cargo xtask corpus` simulates the same refill
-`must_value_names_after_root_refill` does and checks the named flag's
-*merged* `choices` for every listed value (matched the way
-`must_attach_choices` matches: exact name, no substring). `cargo xtask
-corpus` fails when the flag is absent from the refilled tree, or when
-the merged choices are missing any listed value, naming what was
-expected and what the merged choices actually held. A fixture that
-produces no root fails this exactly as it fails `must_attach_choices`.
+`cargo xtask corpus` simulates the same refill and passes when one single
+row carries every listed value (exact name, no substring). It fails when
+the flag is absent from the refilled tree or no row carries them all,
+naming the choices each row held. A fixture that produces no root fails
+this exactly as it fails `must_attach_choices`.
+
+Every fixture that is not `[xfail]` also gets one unlisted check: merging
+its root with itself must reproduce the root as a snapshot. A failure
+names the first changed snapshot line.
+
+### Exactly one row under a heading: `must_one_row_in_group`
+
+```toml
+[contract.must_one_row_in_group]
+"generic raw video demuxer AVOptions:" = ["-framerate"]
+"" = ["--"]
+```
+
+Keyed by group label (`""` is no group), each spelling must have exactly
+one row under it, in the parse and after the refill simulation. It fails
+on zero rows too. See docs/shapes.md S-187.
 
 ### What `--bless` does and does not assert: `verdict_scope`
 

@@ -14,6 +14,7 @@
 //! profile. See [`build_node`] for the staged degradation this produces.
 
 pub mod confession;
+mod fold_repeats;
 mod grammar;
 mod help_word;
 mod profile;
@@ -984,6 +985,8 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     node.set_positionals(parsed.positionals);
     node.set_modifiers(parsed.modifiers);
     node.set_env_vars(parsed.env_vars);
+    // Identical rows under one heading are one row. See docs/shapes.md S-187.
+    fold_repeats::fold_repeated_rows(&mut node.entities);
     node.subcommands = parsed.subcommands;
     help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete

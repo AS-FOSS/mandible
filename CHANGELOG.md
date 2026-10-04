@@ -10,6 +10,10 @@ once it reaches a published 0.1.0 release.
 
 ### Fixed
 
+- [S-187] A block printed repeatedly under one heading (`ffplay`, `ffprobe` AVOptions, `rg`, `jpackage`) shows each identical row once.
+- [S-096] The usage synopsis `[--]` merges into the described `--` row (`lsof`, `tree`, `awk`, `getopt`) instead of adding a second one.
+- [S-188] Rows after a flag's nested choice table stay under their emulation heading (`ld`'s `--no-apply-dynamic-relocs`, `-z force-bti`, `-z pac-plt` under `aarch64elf:`).
+- [S-147] A flag that one help text prints in several sections keeps every row on screen after the background refill (`mandible ffplay` shows 1136 flags instead of 558, `mandible lsof` shows `-T` twice).
 - [S-176] A single-dash row that no usage line names reads as a boolean with its whole row as the description, instead of a value guessed from its first word (`mandible host`'s `-A`, `-s`, `-U`, `-4`, `-6`).
 - [S-180] A value or operand spelled as an alternation of angle placeholders keeps every alternative (`mandible numastat`'s `-p <PID>|<pattern>`, `mandible dmsetup`'s `load`).
 - [S-181] A `-1 .. -9` row reads as nine flags instead of `-1` with value `..` (`mandible savelog`, `mandible bzip2`, `mandible xz`, `mandible streamzip`).
@@ -20,6 +24,8 @@ once it reaches a published 0.1.0 release.
 - [S-086] A plus-or-minus row (`+|-w`, `+f|-f`, `+|-r [t[m<fmt>]]`) is one flag carrying both `+x` and `-x` spellings with the row's own description (`mandible lsof`'s `-e`, `-f`, `-L`, `-M`, `-r`, `-w`).
 - [S-036] A packed multi-column row reads `+X` and `--` cells as cells of their own and keeps each cell's value placeholder out of its description (`mandible lsof`'s `+c`, `+d`, `+D`, `+m`, `--`, `-c c`; `mandible unzip`'s `-O CHARSET`).
 - [S-015] An AVOptions row takes its `<type>` token as the value name and keeps the capability column out of the description (`mandible ffplay`'s `-framerate`, `-linespeed`).
+- [S-015] An AVOptions row whose only text is the capability column keeps it as the description (`mandible ffplay`'s `-ch_layout`, `-srtp_in_suite`).
+- [S-014] An AVOptions-shaped row never becomes a choice of the flag above its section: `mandible ffplay`'s libdc1394 `-framerate` no longer carries 1348 AVFilter option names, and those options show as dashless flags in their own `AVFilter AVOptions:`-style groups with their values.
 - [S-184] `mandible dmsetup` keeps `create`'s `-m|--minor` beside `-j|--major`, shows `resume`'s `--addnodeonresume` and `--addnodeoncreate` as two flags, and `remove`, `suspend`, `resume`, `wipe_table`, `rename` and `dmstats create` keep their trailing operands (`device...`, `new_name_or_uuid`, `file_path`).
 - [S-185] `mandible chattr` shows its `[-+=aAcCdDeijPsStTuFx]` mode as an operand instead of a fabricated `-+` flag.
 - [S-134] A value-free `-c or --copyright text...` row is one flag with both spellings and its own description instead of `-c` taking the word `or` as a value (`mandible icupkg`'s `-c`, #142).
@@ -28,6 +34,7 @@ once it reaches a published 0.1.0 release.
 - [S-096] A `[[--] program args...]` usage group is an optional separator then positional operands, and the `-- program args` row describes `program` instead of being a flag (`mandible lldb-server gdbserver`).
 - [S-189] A subcommand that a tool's help names by invocation line gains its flags and descriptions when the same help prints `<tool> help <COMMAND>`, by asking `<tool> help <word>` (`mandible brew install` shows its 50 flags, #163).
 - [S-179] A headed block of undescribed `<tool> <word>` invocation lines names its words as subcommands, listed but never probed (`mandible brew`'s search, info, install, update, upgrade, uninstall, list, config, doctor, create, edit, commands, help, #163).
+- [S-186] A value placeholder whose angle group holds a space keeps the whole group (`mandible dnsmasq`'s `--dhcp-mac=set:<tag>,<mac address>`, `mandible as`'s `-mabi=<abi name>`).
 
 ## [0.8.1] - 2026-10-02
 
