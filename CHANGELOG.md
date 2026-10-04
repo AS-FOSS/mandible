@@ -8,6 +8,8 @@ once it reaches a published 0.1.0 release.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-05
+
 ### Fixed
 
 - [S-187] A block printed repeatedly under one heading (`ffplay`, `ffprobe` AVOptions, `rg`, `jpackage`) shows each identical row once.
