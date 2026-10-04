@@ -1,7 +1,7 @@
 # Captured from OpenJDK 17.0.20 on the dev box through the probe
 # environment. The root prints `jfr help [<command>] (aliases --help, -h,
 # -?)`, so each word its own text attests by invocation is probed as
-# `jfr help <word>` (docs/shapes.md S-187, spec section 6 rule 2).
+# `jfr help <word>` (docs/shapes.md S-189, spec section 6 rule 2).
 
 [bless]
 provenance = "agent"
@@ -52,4 +52,4 @@ disassemble = ["--output", "--max-chunks", "--max-size"]
 
 [xfail]
 broken = true
-reason = "[S-187] `jfr help <word>` is probed and its prose and usage head are read, but a wrapped usage block followed by headingless `--flag <value>   text` rows yields no flags, and `jfr print` is read as root usage rather than a node"
+reason = "[S-189] `jfr help <word>` is probed and its prose and usage head are read, but a wrapped usage block followed by headingless `--flag <value>   text` rows yields no flags, and `jfr print` is read as root usage rather than a node"

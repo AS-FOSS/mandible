@@ -132,7 +132,7 @@ pub struct CommandNode {
     pub abbrev_probe_attested: bool,
     /// True when this node's word was named by invocation and the same help
     /// text prints a strict `<tool> help <COMMAND>` line (docs/shapes.md
-    /// S-187). Admits exactly one probe, `help <word>`, never `<word> --help`
+    /// S-189). Admits exactly one probe, `help <word>`, never `<word> --help`
     /// (spec §6 rule 2).
     pub help_word_attested: bool,
     /// The binary this node was discovered as, when it was found by the

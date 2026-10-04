@@ -26,7 +26,7 @@ once it reaches a published 0.1.0 release.
 - [S-186] A value placeholder keeps its comma-list tail (`--dhcp-range=<ipaddr>,...`, `--dhcp-pxe-vendor=<vendor>[,...]`, `--shared-network=<iface>|<addr>,<addr>`) instead of showing only the first part (`mandible dnsmasq`, `mandible dpkg`, `mandible pmap`).
 - [S-153] A trailing operand behind a `[--]` marker or alone on a wrapped usage line reaches the tree, and a `name  text` table row describes it (`mandible lsof`'s `names`, `mandible icupkg`'s `infilename` and `outfilename`).
 - [S-096] A `[[--] program args...]` usage group is an optional separator then positional operands, and the `-- program args` row describes `program` instead of being a flag (`mandible lldb-server gdbserver`).
-- [S-187] A subcommand that a tool's help names by invocation line gains its flags and descriptions when the same help prints `<tool> help <COMMAND>`, by asking `<tool> help <word>` (`mandible brew install` shows its 50 flags, #163).
+- [S-189] A subcommand that a tool's help names by invocation line gains its flags and descriptions when the same help prints `<tool> help <COMMAND>`, by asking `<tool> help <word>` (`mandible brew install` shows its 50 flags, #163).
 - [S-179] A headed block of undescribed `<tool> <word>` invocation lines names its words as subcommands, listed but never probed (`mandible brew`'s search, info, install, update, upgrade, uninstall, list, config, doctor, create, edit, commands, help, #163).
 
 ## [0.8.1] - 2026-10-02

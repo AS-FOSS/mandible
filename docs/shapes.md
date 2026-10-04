@@ -4453,9 +4453,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   dpkg-genchanges, pmap), no flag, positional or subcommand count
   moved; each read against raw help.
 
-### S-187: a strict `<tool> help <COMMAND>` line opens `help <word>` probes
+### S-189: a strict `<tool> help <COMMAND>` line opens `help <word>` probes
 
-- id: S-187
+- id: S-189
 - looks like: |
       Further help:
         brew commands

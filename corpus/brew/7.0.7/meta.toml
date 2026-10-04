@@ -2,7 +2,7 @@
 # (sanitized env, null stdin, own session). The root text is the same bytes
 # as corpus/brew/7.0.2. The root names 13 subcommands by invocation line and
 # prints `brew help [COMMAND]`, so each of 12 words (every name but `help`)
-# is probed as `brew help <word>` (docs/shapes.md S-187, spec section 6
+# is probed as `brew help <word>` (docs/shapes.md S-189, spec section 6
 # rule 2). Reported in issue #163: the subcommands rendered with no flags and
 # no descriptions.
 

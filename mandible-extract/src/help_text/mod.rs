@@ -106,7 +106,7 @@ use std::time::Duration;
 const EXTRACT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The probe label returned for a `help <word>` probe (spec §6 rule 2,
-/// docs/shapes.md S-187). [`render_argv`] turns it into the typed argv.
+/// docs/shapes.md S-189). [`render_argv`] turns it into the typed argv.
 pub const HELP_WORD_PROBE: &str = "help <word>";
 
 /// The argv a human would type for a probe of `words` that answered under

@@ -1017,7 +1017,7 @@ exit 1
     )
 }
 
-/// S-187, spec section 6 rule 2: a strict `pkgtool help [COMMAND]` line makes
+/// S-189, spec section 6 rule 2: a strict `pkgtool help [COMMAND]` line makes
 /// each invocation-attested word probeable as `help <word>` and no other
 /// shape. Driven through the real root extraction and the real argv.
 #[test]

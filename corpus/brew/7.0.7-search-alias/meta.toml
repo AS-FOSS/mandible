@@ -28,5 +28,5 @@ must_contain_flags = ["--formula", "--cask", "--desc"]
 
 [xfail]
 broken = true
-reason = "[S-187] `Usage: brew search, -S [options] ...` gives the alias spelling -S the invented optional value `options`"
+reason = "[S-189] `Usage: brew search, -S [options] ...` gives the alias spelling -S the invented optional value `options`"
 issue = "https://github.com/AS-FOSS/mandible/issues/163"

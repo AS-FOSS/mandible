@@ -1,4 +1,4 @@
-//! The `<tool> help <COMMAND>` gate (spec §6 rule 2, docs/shapes.md S-187).
+//! The `<tool> help <COMMAND>` gate (spec §6 rule 2, docs/shapes.md S-189).
 //!
 //! A help text that prints a strict line `<tool> help <COMMAND>` (or the
 //! `[COMMAND]`, bare `COMMAND` and trailing-parenthetical spellings) says the

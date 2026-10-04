@@ -971,7 +971,7 @@ allowlist below.
    unconditionally before this gate runs at all.
 
    A fourth bit, `help_word_attested`, admits one closed case (§16,
-   docs/shapes.md S-187). It marks a node that the same help text named by
+   docs/shapes.md S-189). It marks a node that the same help text named by
    invocation and that also prints a strict `<tool> help <COMMAND>` line.
    The line must open with the tool's own name, so a sentence such as
    "See 'git help <command>'" never matches. The bit admits exactly one
@@ -3082,7 +3082,7 @@ answers `help <word>`. Each subcommand that text names by invocation line
 gains `help_word_attested` and is probed as `help <word>`, which gives it its
 flags and descriptions (`brew`, issue #163). The word `help` is excluded. Rule
 0's list wins. `BROWSER=true` joins the pager variables in the probe
-environment. Docs/shapes.md S-187.
+environment. Docs/shapes.md S-189.
 
 **Removing a fabricated flag is a fix, not a sweep loss (2026-10-03).** The
 sweep-diff counts any flag that disappears as a loss. `chattr`'s `-+` was
