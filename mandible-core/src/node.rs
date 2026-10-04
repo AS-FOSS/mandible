@@ -130,6 +130,11 @@ pub struct CommandNode {
     /// recognizer; `heading_attested` keeps meaning what its own doc
     /// comment says.
     pub abbrev_probe_attested: bool,
+    /// True when this node's word was named by invocation and the same help
+    /// text prints a strict `<tool> help <COMMAND>` line (docs/shapes.md
+    /// S-189). Admits exactly one probe, `help <word>`, never `<word> --help`
+    /// (spec §6 rule 2).
+    pub help_word_attested: bool,
     /// The binary this node was discovered as, when it was found by the
     /// `<parent>-<sub>` PATH convention rather than documented by its
     /// parent's own help text (spec §5.4) — e.g. `Some("cargo-clippy")` on
@@ -301,6 +306,7 @@ impl CommandNode {
             heading_attested: false,
             invocation_attested: false,
             abbrev_probe_attested: false,
+            help_word_attested: false,
             discovered_binary: None,
             confession: None,
             same_as_ancestor: false,

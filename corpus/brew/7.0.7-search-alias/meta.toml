@@ -1,0 +1,32 @@
+# The text of `brew help search` (Homebrew 7.0.7) replayed as the root
+# document, to isolate one parse. The usage line `Usage: brew search, -S
+# [options] text|/regex/ [...]` names `-S` as the command's alias spelling.
+# The usage-flag reader binds the next operand, `[options]`, to `-S` as its
+# optional value, which the help never says. A fix needs the reader to treat
+# a flag spelling that follows `<word>,` as an alias with no value.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "brew"
+version = "7.0.7"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["brew", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--formula", "--cask", "--desc"]
+
+[contract.must_not_value_name]
+"-S" = "options"
+
+[xfail]
+broken = true
+reason = "[S-189] `Usage: brew search, -S [options] ...` gives the alias spelling -S the invented optional value `options`"
+issue = "https://github.com/AS-FOSS/mandible/issues/163"

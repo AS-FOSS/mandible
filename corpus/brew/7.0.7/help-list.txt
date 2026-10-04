@@ -1,0 +1,50 @@
+Usage: brew list, ls [options] [installed_formula|installed_cask ...]
+
+List all installed formulae and casks. If formula is provided, summarise the
+paths within its current keg. If cask is provided, list its artifacts.
+
+      --formula, --formulae        List only formulae, or treat all named
+                                   arguments as formulae.
+      --cask, --casks              List only casks, or treat all named arguments
+                                   as casks.
+      --full-name                  Print formulae with fully-qualified names.
+                                   Unless --full-name, --versions or
+                                   --pinned are passed, other options (i.e.
+                                   -1, -l, -r and -t) are passed to
+                                   ls(1) which produces the actual output.
+      --versions                   Show the version number for installed
+                                   formulae, or only the specified formulae if
+                                   formula are provided.
+      --json                       Output installed formulae and casks with
+                                   versions, linked and opt-linked formula
+                                   versions and pinned versions as JSON using
+                                   the fast Bash command path. Requires
+                                   --versions, no named arguments and jq.
+      --multiple                   Only show formulae with multiple versions
+                                   installed. Implies --versions.
+      --pinned                     List only pinned packages, or only the
+                                   specified (pinned) packages if formula or
+                                   cask are provided. See also pin, unpin.
+      --installed-on-request       List the formulae installed on request.
+      --no-installed-on-request    List the formulae not installed on request
+                                   (i.e. installed as dependencies).
+      --poured-from-bottle         List the formulae installed from a bottle.
+      --built-from-source          List the formulae compiled from source.
+  -1                               Force output to be one entry per line. This
+                                   is the default when output is not to a
+                                   terminal.
+  -l                               List formulae and/or casks in long format.
+                                   Has no effect when a formula or cask name is
+                                   passed as an argument.
+  -r                               Reverse the order of formula and/or cask
+                                   sorting to list the oldest entries first. Has
+                                   no effect when a formula or cask name is
+                                   passed as an argument.
+  -t                               Sort formulae and/or casks by time modified,
+                                   listing most recently modified first. Has no
+                                   effect when a formula or cask name is passed
+                                   as an argument.
+  -d, --debug                      Display any debugging information.
+  -q, --quiet                      Make some output more quiet.
+  -v, --verbose                    Make some output more verbose.
+  -h, --help                       Show this message.

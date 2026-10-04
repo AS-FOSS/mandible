@@ -16,6 +16,7 @@
 pub mod confession;
 mod fold_repeats;
 mod grammar;
+mod help_word;
 mod profile;
 mod sections;
 
@@ -104,6 +105,25 @@ use std::time::Duration;
 
 /// Wall-clock cap for an `extract_node` probe (spec §6 rule 4).
 const EXTRACT_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// The probe label returned for a `help <word>` probe (spec §6 rule 2,
+/// docs/shapes.md S-189). [`render_argv`] turns it into the typed argv.
+pub const HELP_WORD_PROBE: &str = "help <word>";
+
+/// The argv a human would type for a probe of `words` that answered under
+/// `flag`: `<tool> help <words>` for [`HELP_WORD_PROBE`], else
+/// `<tool> <words> <flag>`.
+pub fn render_argv(tool: &str, words: &[String], flag: &str) -> String {
+    let mut parts = vec![tool.to_string()];
+    if flag == HELP_WORD_PROBE {
+        parts.push("help".to_string());
+        parts.extend(words.iter().cloned());
+    } else {
+        parts.extend(words.iter().cloned());
+        parts.push(flag.to_string());
+    }
+    parts.join(" ")
+}
 
 /// Hard cap on lines kept for level-3 verbatim degradation (spec §7 Tier B
 /// step 3). Mirrors `sections::MAX_RECOVERED_ENTRIES`'s reasoning: a
@@ -433,6 +453,26 @@ fn probe_help_text_reporting_flag(
     // `abbrev_probe_attested` admits ONLY a node the S-167 recognizer
     // produced (docs/design.md §16); it never widens `heading_attested`'s
     // own meaning and never admits `invocation_attested` in general.
+    if !words.is_empty()
+        && !hints.heading_attested
+        && !hints.abbrev_probe_attested
+        && hints.help_word_attested
+    {
+        let out = probe.run(
+            tool_path,
+            &InertArgv::HelpSubcommand {
+                words: words.to_vec(),
+            },
+            EXTRACT_TIMEOUT,
+        )?;
+        if out.stdout.is_empty() && out.stderr.is_empty() {
+            return Err(ExtractError::Other(format!(
+                "`help {}` printed nothing",
+                words.join(" ")
+            )));
+        }
+        return Ok((pick_stream(&out.stdout, &out.stderr), HELP_WORD_PROBE));
+    }
     if !words.is_empty() && !hints.heading_attested && !hints.abbrev_probe_attested {
         return Err(ExtractError::Other(format!(
             "refusing to probe `{} --help`: {:?} is not heading_attested, so it may be a \
@@ -707,6 +747,23 @@ fn raw_probe_streams(
     // Same gate as `probe_help_text_reporting_flag`, including the S-167
     // widening (docs/design.md §16): `abbrev_probe_attested` admits only
     // that recognizer's own nodes.
+    if !words.is_empty()
+        && !hints.heading_attested
+        && !hints.abbrev_probe_attested
+        && hints.help_word_attested
+    {
+        let out = probe.run(
+            tool_path,
+            &InertArgv::HelpSubcommand {
+                words: words.to_vec(),
+            },
+            EXTRACT_TIMEOUT,
+        )?;
+        return Ok(RawProbeOutcome::Streams(
+            RawStreams::from_output(&out),
+            HELP_WORD_PROBE.to_string(),
+        ));
+    }
     if !words.is_empty() && !hints.heading_attested && !hints.abbrev_probe_attested {
         return Ok(RawProbeOutcome::NotAttested);
     }
@@ -857,6 +914,7 @@ fn not_attested_fallback(
         NodeHints {
             heading_attested: true,
             abbrev_probe_attested: false,
+            help_word_attested: false,
         },
     ) {
         if !root_streams.is_empty() {
@@ -930,6 +988,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     // Identical rows under one heading are one row. See docs/shapes.md S-187.
     fold_repeats::fold_repeated_rows(&mut node.entities);
     node.subcommands = parsed.subcommands;
+    help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct
     // subcommands" — one level, not recursive) — whatever the
@@ -1011,6 +1070,7 @@ mod tests {
     const ATTESTED: NodeHints = NodeHints {
         heading_attested: true,
         abbrev_probe_attested: false,
+        help_word_attested: false,
     };
 
     fn fixture(name: &str) -> String {
@@ -1060,6 +1120,7 @@ mod tests {
             NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("`pkill --help` is the one permitted shape and must be shown");
@@ -1074,6 +1135,7 @@ mod tests {
             NodeHints {
                 heading_attested: true,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect_err("a positional path must still be refused");
@@ -1121,6 +1183,7 @@ mod tests {
             NodeHints {
                 heading_attested: false,
                 abbrev_probe_attested: false,
+                help_word_attested: false,
             },
         )
         .expect("a not-attested refusal must resolve to Ok with an explanation, not Err");

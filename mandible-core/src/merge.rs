@@ -186,6 +186,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     // being true because another, lower-authority source also contributed a
     // field.
     let abbrev_probe_attested = candidates.iter().any(|c| c.abbrev_probe_attested);
+    let help_word_attested = candidates.iter().any(|c| c.help_word_attested);
 
     let mut provenance = Provenance::default();
     for c in &candidates {
@@ -215,6 +216,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         heading_attested,
         invocation_attested,
         abbrev_probe_attested,
+        help_word_attested,
         discovered_binary,
         confession,
         same_as_ancestor,
