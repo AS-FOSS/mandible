@@ -4903,3 +4903,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a `--tools` pre-check over 222 tools (the round's touched tools, the Java
   tools, the autotools and the nine controls) moved only automake and
   automake-1.16, each read against its raw help; no other corpus fixture changed.
+### S-207: a comma row of independent long options, each documented again as its own row
+
+- id: S-207
+- looks like: |
+      --warn-constructors, --error-execstack, --warn-execstack, --warn-rwx-segments
+                                  Warn if global constructors/destructors are seen
+      --warn-execstack            Generate a warning if creating an executable stack
+- tools: ld
+- handling: Fixed. A flag row of three or more long spellings, at least two
+  of which another flag of the same node already carries, loses those
+  spellings; the row keeps the rest and its description, and the others keep
+  the rows that document them. Nothing the help says is dropped. A genuine
+  alias row (`-Bstatic, -dn, -non_shared, -static`) has no spelling
+  documented elsewhere and is untouched. Fixtures: `corpus/ld/2.42`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.

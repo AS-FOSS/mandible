@@ -2,7 +2,8 @@
 # carries ten independent long options separated by commas, and the row's
 # own grammar reads as an alias list. The same document's
 # `-Bstatic, -dn, -non_shared, -static` row IS a genuine alias run, so a
-# fix must separate the first without splitting the second.
+# fix must separate the first without splitting the second. Nine of the
+# row's ten spellings are documented again as rows of their own (S-207).
 
 [bless]
 provenance = "agent"
@@ -23,7 +24,3 @@ must_keep_separate = [
     ["--warn-execstack", "--no-warn-execstack"],
     ["--error-rwx-segments", "--warn-rwx-segments"],
 ]
-
-[xfail]
-broken = true
-reason = "a row of ten independent long options separated by commas reads as one multi-spelling entity, because the row's own grammar says alias list while the tool means 'any of these'. No shape-level evidence distinguishes it from a genuine alias row such as this same document's -Bstatic, -dn, -non_shared, -static. A fix needs evidence outside the row."

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-207] A comma row of independent long options that the help documents again as rows of their own keeps only the spellings it alone documents (`mandible ld`'s `--warn-constructors` row, #102).
 - [S-193] A command row whose description starts one space after its operands, at its table's column, is a subcommand (`mandible systemctl` gains `set-property`, `mount-image`, `service-log-target`).
 - [S-206] A grid of file names under `Files automatically distributed if found:` is no longer the choices of `--force-missing`: it reads in the description (`mandible automake`; #102).
 - [S-205] A heading's `key=<placeholder>` rows are dashless flags with their choices or value (`mandible jfr configure`: `gc`, `locking-threshold <timespan>`, ...).

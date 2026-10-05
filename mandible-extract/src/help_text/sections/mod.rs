@@ -56,6 +56,7 @@ mod preamble;
 mod repair;
 mod scan;
 mod spelling;
+mod spellings_documented_elsewhere;
 #[cfg(test)]
 mod test_support;
 mod usage;
@@ -2479,6 +2480,7 @@ fn parse_body(
     // `choices`, gated on the raw ` or ` row's own literal text.
     fold_or_joined_choice_rows(raw, &mut result.flags);
     attach_description_tail_choices(&mut result.flags);
+    spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its
     // `-word` sibling when the ordinary repair above could not recover a
     // bare, unbracketed value (Xvfb's own `+extension name` /
