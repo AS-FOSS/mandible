@@ -3771,6 +3771,20 @@ mod tests {
         assert_eq!(pads("mytool", &["    mytool [OPTIONS] FILE"]), vec![0]);
     }
 
+    /// A form that names the node and then its aliases (`brew search, -S`)
+    /// is not prefixed with the node's name a second time.
+    #[test]
+    fn a_usage_form_naming_the_node_with_an_alias_list_does_not_prepend() {
+        assert_eq!(
+            usage_form("search", "Usage: brew search, -S [options] text|/regex/ [...]").1,
+            "brew search, -S [options] text|/regex/ [...]"
+        );
+        assert_eq!(
+            usage_form("update", "Usage: brew update, up [options]").1,
+            "brew update, up [options]"
+        );
+    }
+
     /// Cobra prints the full command path, not just the leaf name; the
     /// node name must not double-prepend when it already appears in that
     /// path. See [`usage_form`].

@@ -4918,3 +4918,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   alias row (`-Bstatic, -dn, -non_shared, -static`) has no spelling
   documented elsewhere and is untouched. Fixtures: `corpus/ld/2.42`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-208: a usage form names the node and then its aliases, comma-joined
+
+- id: S-208
+- looks like: |
+      Usage: brew search, -S [options] text|/regex/ [...]
+- tools: brew
+- handling: Fixed. The node's own word followed by a comma still names the
+  node when the detail pane shapes a usage line, so the form shows as printed
+  (`brew search, -S [options] ...`) instead of with the node's name
+  prepended a second time (`search brew search, -S ...`). The tree keeps the
+  usage text unchanged. Fixtures: `corpus/brew/7.0.7-search-alias` (tree),
+  `a_usage_form_naming_the_node_with_an_alias_list_does_not_prepend` (pane).
+- fleet: not measured; a pane-only change the coverage sweep cannot see.
