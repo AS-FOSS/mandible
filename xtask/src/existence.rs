@@ -355,6 +355,9 @@ fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
     let lines: Vec<&str> = raw.lines().collect();
     let mut out = Vec::new();
     let mut open = Continuation::None;
+    // The program word the open block's first form uses; an alias prints
+    // its target's name (`iptables-nft` prints `iptables`).
+    let mut prog: Option<&str> = None;
     for (idx, &line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
         // LVM's `vg*`/`lv*`/`pv*` family writes a bare invocation line with
@@ -375,6 +378,7 @@ fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
                 text: line,
                 opens_with_program_name: true,
             });
+            prog = trimmed.split_whitespace().find(|t| !t.ends_with(':'));
             open = match trimmed
                 .split_once(':')
                 .is_some_and(|(_, rest)| rest.trim().is_empty())
@@ -385,16 +389,23 @@ fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
             continue;
         }
         let indented = line.starts_with([' ', '\t']) && !trimmed.is_empty();
-        let continues = indented
-            && match open {
-                Continuation::None => false,
-                Continuation::Anything => true,
-                Continuation::NotationOnly => is_bracketed(trimmed),
-            };
+        // The next invocation form of a multi-form usage block repeats the
+        // program name (`iptables -I chain [rulenum] ...`, `rpcinfo -p
+        // [host]`), indented or not (`ebtables`).
+        let own_form = !matches!(open, Continuation::None)
+            && (starts_with_tool_name(trimmed, root_name)
+                || prog.is_some_and(|p| trimmed.split_whitespace().next() == Some(p)));
+        let continues = own_form
+            || (indented
+                && match open {
+                    Continuation::None => false,
+                    Continuation::Anything => true,
+                    Continuation::NotationOnly => is_bracketed(trimmed),
+                });
         if continues {
             out.push(SynopsisLine {
                 text: line,
-                opens_with_program_name: matches!(open, Continuation::Anything),
+                opens_with_program_name: own_form || matches!(open, Continuation::Anything),
             });
         } else {
             open = Continuation::None;
@@ -2269,6 +2280,22 @@ mod tests {
         let attested = attested_operand_positions(raw, "vgextend");
         assert!(!attested.contains("is"), "{attested:?}");
         assert!(!attested.contains("tool"), "{attested:?}");
+    }
+
+    /// Every further form of a multi-form usage block repeats the program
+    /// name; the operands it writes (`rulenum`, `versnum`) are attested.
+    #[test]
+    fn a_later_form_that_repeats_the_program_name_attests_its_operands() {
+        let raw = "Usage: iptables -[ACD] chain rule-specification [options]\n       iptables -R chain rulenum rule-specification [options]\n";
+        let attested = attested_operand_positions(raw, "iptables");
+        assert!(attested.contains("rulenum"), "{attested:?}");
+        let raw = "Usage:\nebtables -[ADI] chain rule-specification [options]\nebtables -D chain rulenum\n\nCommands:\nebtables -x outside\n";
+        let attested = attested_operand_positions(raw, "ebtables");
+        assert!(attested.contains("rulenum"), "{attested:?}");
+        assert!(!attested.contains("outside"), "{attested:?}");
+        let raw = "Usage: iptables -[ACD] chain\n       iptables -R chain rulenum\n";
+        let attested = attested_operand_positions(raw, "iptables-nft");
+        assert!(attested.contains("rulenum"), "{attested:?}");
     }
 
     // --- H2: a multi-word positional in the synopsis -------------------
