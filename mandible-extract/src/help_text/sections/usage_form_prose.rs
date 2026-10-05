@@ -157,7 +157,9 @@ pub(super) fn is_form_description_line(line: &str, base_indent: usize) -> bool {
 /// instead of dropped.
 pub(super) fn form_description_lines(lines: &[&str], start: usize, end: usize) -> Vec<String> {
     let base_indent = leading_whitespace(lines[start]);
-    lines[start + 1..end.min(lines.len())]
+    lines
+        .get(start + 1..end.min(lines.len()))
+        .unwrap_or_default()
         .iter()
         .filter(|l| is_form_description_line(l, base_indent))
         .map(|l| l.trim().to_string())
