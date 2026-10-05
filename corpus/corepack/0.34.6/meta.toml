@@ -1,0 +1,21 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "corepack"
+version = "0.34.6"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["corepack", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_not_contain_positionals = ["disable"]
+must_not_describe_root = ["Remove the Corepack shims"]
+
+[xfail]
+broken = true
+reason = "S-195 reads each command row's description line as the usage form's description: `disable` becomes a root positional and the disable description heads the root description"
