@@ -1,0 +1,24 @@
+# Variant of corpus/jinfo/17.0.20. The `<no option>` row describes the bare
+# invocation; it is not a flag and belongs in the root description.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jinfo"
+version = "17.0.20"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["jinfo", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_describe_root = ["to print both VM flags and system properties"]
+
+[xfail]
+broken = true
+reason = "[S-201] the `<no option>` row, which describes the bare invocation, is dropped; no tree field carries its text"

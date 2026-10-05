@@ -322,6 +322,18 @@ own rule. `cargo xtask corpus` fails when any listed text is still
 present, naming it. Satisfied vacuously by a tree with no root or no
 description at all, the same reasoning `must_not_contain_flags` uses.
 
+### Stating that the root description carries text: `must_describe_root`
+
+The positive mirror of `must_not_describe_root`, built for `corpus/jinfo/17.0.20`: the
+`<no option>` row describes the bare invocation and belongs in the root description.
+
+```toml
+must_describe_root = ["to print both VM flags and system properties"]
+```
+
+Every listed string must occur in `root.description`, whitespace-collapsed on both
+sides, `must_describe`'s own rule. A fixture that produces no root fails.
+
 ### Stating that a flag group is not an invocation line: `must_not_contain_flag_group_prefixes`
 
 `must_not_contain_flags` and `must_not_contain_usage_text` say nothing

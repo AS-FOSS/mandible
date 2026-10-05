@@ -105,6 +105,11 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
                 &n.must_not_describe_root,
             ),
             (
+                "must_describe_root",
+                &b.must_describe_root,
+                &n.must_describe_root,
+            ),
+            (
                 "must_contain_positionals",
                 &b.must_contain_positionals,
                 &n.must_contain_positionals,
@@ -438,6 +443,7 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
         ));
     }
     failures.extend(subcommand::missing_root_failures(contract));
+    failures.extend(describe_root::missing_root_failures(contract));
     // `must_not_describe`, like `must_not_contain_flags`, is a negative
     // claim satisfied vacuously by no tree at all — omitted here for the
     // same reason `check_contract_missing_root`'s own doc comment gives.
@@ -590,6 +596,7 @@ fn check_contract_scalar_fields(
     }
 
     failures.extend(check_must_not_describe_root(contract, root));
+    failures.extend(describe_root::check(contract, root));
 
     // The group-label mirror of the negative claim above: no root flag's
     // own `group` may start with one of these spellings — the invented

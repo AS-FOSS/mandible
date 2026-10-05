@@ -1,0 +1,29 @@
+# Excerpt of corpus/jfr/17.0.20: the `jfr help configure` text as the root.
+# `option=value` and `event-setting=value` are described operands, and the
+# `Options for default.jfc:` block lists the operand keys with their values.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jfr"
+version = "17.0.20"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["jfr", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--interactive", "--verbose", "--input", "--ouput"]
+must_contain_positionals = ["option=value", "event-setting=value", "gc", "locking-threshold", "class-loading"]
+
+[contract.must_describe_positional]
+"option=value" = "The option value to modify"
+"event-setting=value" = "The event setting value to modify"
+
+[xfail]
+broken = true
+reason = "[S-202] the described operand rows `option=value` and `event-setting=value`, and the `Options for default.jfc:` key=value block, are dropped"
