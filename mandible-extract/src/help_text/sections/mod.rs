@@ -41,6 +41,7 @@ mod flag_row_column;
 mod flag_rows;
 mod heading;
 mod invocation_block;
+mod key_value_operands;
 mod layout;
 mod multiword;
 mod no_option_row;
@@ -73,6 +74,7 @@ use flag_row_column::*;
 use flag_rows::*;
 pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
+use key_value_operands::recover_key_value_operands;
 pub use layout::*;
 use multiword::*;
 use no_option_row::take_no_option_row;
@@ -2378,6 +2380,7 @@ fn parse_body(
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
+    recover_key_value_operands(&mut result.positionals, &result.usage, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block

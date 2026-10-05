@@ -4787,3 +4787,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jinfo/17.0.20-no-option`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found one tool
   with the row (`jinfo`).
+
+### S-202: `key=value` operands declared in the usage line
+
+- id: S-202
+- looks like: |
+      jfr configure [--interactive] [option=value]* [event-setting=value]*
+
+        option=value            The option value to modify.
+      Options for default.jfc:
+
+        gc=<off|normal|detailed|high|all>
+        locking-threshold=<timespan>
+- tools: jfr
+- handling: Fixed. A `key=value` word in the usage line (`[option=value]*`)
+  declares an operand, never a flag. Each indented row that opens with that
+  word, a column gap and a description becomes a repeatable positional that
+  keeps the description. Under a heading ending in `:`, every following
+  `key=<...>` row becomes a positional named by its key: `<a|b|c>` members
+  are its choices, a single `<timespan>` is its value placeholder, and the
+  heading is its group. Both rules need a `key=value` word in the usage line,
+  so a `dd`-style `bs=BYTES` table with no such usage stays as it was.
+  Fixture: `corpus/jfr/17.0.20-configure`.
+- fleet: a `--tools` pre-check over 1270 tools moved none, because it reads
+  each tool's root and `jfr configure` is a subcommand page. The 329 corpus
+  capture files hold one such page (`jfr help configure`).
+

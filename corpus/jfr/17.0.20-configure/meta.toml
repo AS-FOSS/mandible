@@ -23,7 +23,3 @@ must_contain_positionals = ["option=value", "event-setting=value", "gc", "lockin
 [contract.must_describe_positional]
 "option=value" = "The option value to modify"
 "event-setting=value" = "The event setting value to modify"
-
-[xfail]
-broken = true
-reason = "[S-202] the described operand rows `option=value` and `event-setting=value`, and the `Options for default.jfc:` key=value block, are dropped"

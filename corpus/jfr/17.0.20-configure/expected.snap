@@ -1,0 +1,102 @@
+name: jfr
+description: Configures a .jfc file
+usage:
+- jfr configure [--interactive] [--verbose] [--input <files>] [--output <file>] [option=value]* [event-setting=value]*
+positionals:
+- name: option=value
+  variadic: true
+  description: The option value to modify. For available options, see listed input files below.
+  provenance:
+    sources:
+    - help-text
+- name: event-setting=value
+  variadic: true
+  description: 'The event setting value to modify. Use the form: <event-name>#<setting-name>=<value> To add a new event setting, prefix the event name with ''+''.'
+  provenance:
+    sources:
+    - help-text
+- name: gc
+  provenance:
+    sources:
+    - help-text
+- name: allocation-profiling
+  provenance:
+    sources:
+    - help-text
+- name: compiler
+  provenance:
+    sources:
+    - help-text
+- name: method-profiling
+  provenance:
+    sources:
+    - help-text
+- name: thread-dump
+  provenance:
+    sources:
+    - help-text
+- name: exceptions
+  provenance:
+    sources:
+    - help-text
+- name: memory-leaks
+  provenance:
+    sources:
+    - help-text
+- name: locking-threshold
+  provenance:
+    sources:
+    - help-text
+- name: file-threshold
+  provenance:
+    sources:
+    - help-text
+- name: socket-threshold
+  provenance:
+    sources:
+    - help-text
+- name: class-loading
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --interactive
+  description: Interactive mode where the configuration is determined by a set of questions.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  description: Displays the modified settings.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --input
+  value_name: <files>
+  value_kind: Required
+  description: A comma-separated list of .jfc files from which the new configuration is based. If no file is specified, the default file in the JDK is used (default.jfc). If 'none' is specified, the new configuration starts empty.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ouput
+  value_name: <file>
+  value_kind: Required
+  description: The filename of the generated output file. If not specified, the filename custom.jfc will be used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output
+  value_name: <file>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.19
+children_filled: true

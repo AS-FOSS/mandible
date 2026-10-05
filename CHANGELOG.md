@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-202] A `key=value` word in a usage line is an operand: `mandible jfr configure` shows `option=value` and `event-setting=value` with their descriptions and the `Options for default.jfc:` keys with their values.
 - [S-201] A `<no option>` row describes the bare invocation and joins the description instead of vanishing (`mandible jinfo`).
 - [S-172] A single-dash word that a usage line spells on two or more lines is one option, not a short flag with a fabricated value (`mandible cgi-fcgi`'s `-connect`, `-start`, `-bind`; `mandible jarsigner`'s `-verify`).
 - [S-200] A single-dash row whose value is a glued run of placeholders keeps the whole value, and same-spelling rows keep their own (`mandible jinfo`'s `-flag [+|-]<name>` and `-flag <name>=<value>`).
