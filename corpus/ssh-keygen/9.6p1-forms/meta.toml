@@ -1,0 +1,38 @@
+# The 9.6p1 capture read form by form. Each usage form is its own
+# invocation: a flag keeps the placeholder each form gives it, a flag that
+# selects the form by a fixed word owns those words as choices, and the
+# operands that close a form are positionals.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ssh-keygen"
+version = "9.6p1"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["ssh-keygen", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["-t", "-Y", "-M", "-f", "-s", "-I", "-n", "-z", "-D", "-r"]
+must_contain_positionals = ["output_file", "file..."]
+
+[contract.must_attach_choices]
+"-t" = ["dsa", "ecdsa", "ecdsa-sk", "ed25519", "ed25519-sk", "rsa"]
+"-Y" = ["find-principals", "match-principals", "check-novalidate", "sign", "verify"]
+"-M" = ["generate", "screen"]
+
+[contract.must_not_attach_choices]
+"-n" = ["principals", "namespace"]
+"-f" = ["keyfile", "input_keyfile"]
+
+[xfail]
+broken = true
+reason = "[S-197] per-usage-form reading: -t keeps only dsa, -Y and -M keep one form word, operands output_file and file are missing"
