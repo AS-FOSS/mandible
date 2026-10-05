@@ -35,6 +35,7 @@ mod avoption;
 mod backfill;
 mod bullets;
 mod dashless_key_flags;
+mod command_row_column;
 mod description_choices;
 mod emit;
 mod entry;

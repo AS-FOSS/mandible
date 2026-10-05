@@ -632,7 +632,7 @@ fn looks_like_operand_placeholder_run(rest: &str) -> bool {
 /// swallowed here. `docs/design.md` §7 Tier B rule 7 still applies to the
 /// name alone; only the name is checked against it, never the operand
 /// text. See docs/shapes.md S-129.
-fn command_name_with_operand_placeholders(trimmed: &str) -> Option<(&str, &str)> {
+pub(super) fn command_name_with_operand_placeholders(trimmed: &str) -> Option<(&str, &str)> {
     let (first, rest) = trimmed.split_once(char::is_whitespace)?;
     let name = strip_optional_modifier_suffix(first);
     if !is_command_name_shaped(name) {

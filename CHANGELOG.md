@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-193] A command row whose description starts one space after its operands, at its table's column, is a subcommand (`mandible systemctl` gains `set-property`, `mount-image`, `service-log-target`).
 - [S-206] A grid of file names under `Files automatically distributed if found:` is no longer the choices of `--force-missing`: it reads in the description (`mandible automake`; #102).
 - [S-205] A heading's `key=<placeholder>` rows are dashless flags with their choices or value (`mandible jfr configure`: `gc`, `locking-threshold <timespan>`, ...).
 - [S-204] A `=FILE` row closing a flag's sub-option table is its value form, not a choice: its text joins the flag's description instead of becoming a bare `FILE` choice (`mandible as`, `-a`; #102).

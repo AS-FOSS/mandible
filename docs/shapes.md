@@ -4623,14 +4623,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -I DIR         add the directory to the include search path
       --include FILE add an #include file before preprocessing
-- tools: bpftrace, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, tcpretrans.bt, threadsnoop.bt, Xvfb, nstat
+- tools: bpftrace, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, tcpretrans.bt, threadsnoop.bt, Xvfb, nstat, systemctl
 - handling: Fixed. A row with no column gap of its own, in a block where at
   least three flag rows (and at least half of the gapped ones) start their
   description at one byte column, is split at that column when the text
   before it is a two- or three-token flag spec and the text after reads as a
   sentence (three or more words, opening with a letter). The whole line used
   to read as the spec and the description never reached the tree. Tab-aligned
-  blocks are left alone. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
+  blocks are left alone. The same column splits a bare command row (a command
+  name and uppercase placeholders, then a sentence) in a command block, so
+  `set-property UNIT PROPERTY=VALUE... Sets ...` is a subcommand. Fixtures:
+  `corpus/tcpretrans.bt/0.20.2`, `corpus/systemctl/255`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
 
 ### S-194: every usage form opens with the same program word, not the node's name

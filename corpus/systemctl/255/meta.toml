@@ -11,7 +11,7 @@
 # — 74 total; (2) for each row, split off the name column at the first
 # run of two-or-more spaces before the summary column, and classified
 # that name column as single-token (no interior space) or multi-token.
-# The result: exactly 18 rows are single-token
+# The result before S-193 reached command rows: exactly 18 rows are single-token
 # (`preset-all`/`get-default`/`show-environment`/`daemon-reload`/
 # `daemon-reexec`/`is-system-running`/`default`/`rescue`/`emergency`/
 # `halt`/`poweroff`/`reboot`/`kexec`/`soft-reboot`/`suspend`/`hibernate`/
@@ -44,7 +44,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 min_subcommands = 74
 must_contain_flags = ["-h", "--version", "--system"]
-
-[xfail]
-broken = true
-reason = "fixed (round 6, atlas S-129): emit_subcommands now reads a row's leading token as the command name when the placeholder run after it is uppercase-led, recovering 71 of 74. The remaining 3 (set-property, mount-image, service-log-target) carry their description one space after the placeholder, narrower than every other row's gap, the single-space-description-column family's own shape on a plain flag row rather than a pipe-joined alias, so this parser's own fix does not reach them"
