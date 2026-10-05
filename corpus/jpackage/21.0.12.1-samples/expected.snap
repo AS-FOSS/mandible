@@ -1,0 +1,33 @@
+name: jpackage
+usage:
+- 'Usage: jpackage <options>'
+flags:
+- spellings:
+  - --type
+  value_name: app-image
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - '@'
+  value_name: <filename>
+  value_kind: Required
+  group: 'Generic Options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  - -t
+  value_name: <type>
+  value_kind: Required
+  description: 'The type of package to create Valid values are: {"app-image", "rpm", "deb"} If this option is not specified a platform dependent default type will be created.'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.2
+children_filled: true

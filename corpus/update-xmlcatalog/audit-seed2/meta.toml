@@ -33,10 +33,5 @@ expected_framework = "generic"
 # documented nowhere in this tool's output except on a backslash-continued
 # usage line, so it can only be in the tree if that line was read whole.
 must_contain_flags = ["--del"]
-# Four duplicate `--id` entries survive (six before this fix), from the two
-# *blank-line-separated* later synopsis groups this tool prints — a usage block still ends at a
-# blank line, and extending it across one would swallow `btrfs`'s
-# headingless command table (which sits under exactly that shape) and cost
-# every one of its subcommands. Recorded here rather than rounded off; the
-# entries carry no fabricated group any more, which is what the seed-5
-# review actually reported.
+# The `--id` rows once mined from the later synopsis groups' wrapped tails are
+# gone: a line after a backslash-ended line is never a flag row (S-011).

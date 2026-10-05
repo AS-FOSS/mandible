@@ -816,6 +816,15 @@ pub fn is_bare_or_form_separator(t: &str) -> bool {
     t.trim().trim_end_matches(':').eq_ignore_ascii_case("or")
 }
 
+/// True when `t` is an `Example usage:` / `Examples usage:` label, which
+/// [`starts_with_extended_usage_label`] also accepts.
+pub(super) fn is_example_usage_label(t: &str) -> bool {
+    starts_with_extended_usage_label(t)
+        && t.split_whitespace().next().is_some_and(|w| {
+            w.eq_ignore_ascii_case("example") || w.eq_ignore_ascii_case("examples")
+        })
+}
+
 /// True if `t`, trimmed, is a short label ending in the word `usage`
 /// (case-insensitive), a colon, and nothing else — `perlthanks`'s
 /// `Advanced usage:`, distinct from the literal `usage:`

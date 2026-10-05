@@ -1,0 +1,181 @@
+name: grub-mkimage
+description: Make a bootable image of GRUB.
+usage:
+- 'Usage: grub-mkimage [OPTION...] [OPTION]... [MODULES]'
+positionals:
+- name: MODULES
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -c
+  - --config
+  value_name: FILE
+  value_kind: Required
+  description: embed FILE as an early config
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --compression
+  value_kind: Required
+  choices:
+  - xz
+  - none
+  - auto
+  description: choose the compression to use for core image
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-shim-lock
+  description: disable shim_lock verifier
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --directory
+  value_name: DIR
+  value_kind: Required
+  description: use images and modules under DIR [default=/usr/lib/grub/<platform>]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --dtb
+  value_name: FILE
+  value_kind: Required
+  description: embed FILE as a device tree (DTB)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --pubkey
+  value_name: FILE
+  value_kind: Required
+  description: embed FILE as public key for signature checking
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: --memdisk=FILE embed FILE as a memdisk image
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --note
+  description: add NOTE segment for CHRP IEEE1275
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: FILE
+  value_kind: Required
+  description: output a generated image to FILE [default=stdout]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --format
+  value_name: FORMAT
+  value_kind: Required
+  choices:
+  - i386-coreboot
+  - i386-multiboot
+  - i386-pc
+  - i386-xen_pvh
+  - i386-pc-pxe
+  - i386-pc-eltorito
+  - i386-efi
+  - i386-ieee1275
+  - i386-qemu
+  - x86_64-efi
+  - i386-xen
+  - x86_64-xen
+  - mipsel-yeeloong-flash
+  - mipsel-fuloong2f-flash
+  - mipsel-loongson-elf
+  - powerpc-ieee1275
+  - sparc64-ieee1275-raw
+  - sparc64-ieee1275-cdcore
+  - sparc64-ieee1275-aout
+  - ia64-efi
+  - mips-arc
+  - mipsel-arc
+  - mipsel-qemu_mips-elf
+  - mips-qemu_mips-flash
+  - mipsel-qemu_mips-flash
+  - mips-qemu_mips-elf
+  - arm-uboot
+  - arm-coreboot-vexpress
+  - arm-coreboot-veyron
+  - arm-efi
+  - arm64-efi
+  - loongarch64-efi
+  - riscv32-efi
+  - riscv64-efi
+  description: generate an image in FORMAT
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --prefix
+  value_name: DIR
+  value_kind: Required
+  description: set prefix directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --sbat
+  value_name: FILE
+  value_kind: Required
+  description: SBAT metadata
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: print verbose messages.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - --help
+  description: give this help list
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --usage
+  description: give a short usage message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: print program version
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 0.84
+children_filled: true

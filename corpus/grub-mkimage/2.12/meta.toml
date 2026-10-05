@@ -22,15 +22,9 @@ min_status = "ok"
 
 [contract.must_attach_choices]
 "--compression" = ["xz", "none", "auto"]
-# [S-156] Open: still fails today. --format's own choices live only in its
-# description's "available formats:" tail, never attached as a real
-# choices list. This assertion is the fixture's own evidence that S-156
-# stays [xfail] below.
+# [S-156] --format's choices come from its description's "available
+# formats:" tail.
 "--format" = ["i386-coreboot", "i386-multiboot", "i386-pc", "i386-xen_pvh", "i386-pc-pxe", "i386-pc-eltorito", "i386-efi", "i386-ieee1275", "i386-qemu", "x86_64-efi", "i386-xen", "x86_64-xen", "mipsel-yeeloong-flash", "mipsel-fuloong2f-flash", "mipsel-loongson-elf", "powerpc-ieee1275", "sparc64-ieee1275-raw", "sparc64-ieee1275-cdcore", "sparc64-ieee1275-aout", "ia64-efi", "mips-arc", "mipsel-arc", "mipsel-qemu_mips-elf", "mips-qemu_mips-flash", "mipsel-qemu_mips-flash", "mips-qemu_mips-elf", "arm-uboot", "arm-coreboot-vexpress", "arm-coreboot-veyron", "arm-efi", "arm64-efi", "loongarch64-efi", "riscv32-efi", "riscv64-efi"]
 
 [contract.must_not_value_name]
 "--compression" = "xz|none|auto"
-
-[xfail]
-broken = true
-reason = "S-155 is fixed: --compression's paren-delimited alternation attaches as choices, asserted above. S-156 is open: --format's description continuation opens 'available formats:' and runs 33 comma-separated literal values to the end, never becoming --format's own choices; description-tail-enumerates-choices measures 1 genuine tool fleet-wide (a 36-tool sample built from a grep over audit/queue-captures for the four labels, plus rustc and tclobjnew-bpfcc), below the five-tool bar, so nothing ships for it this round."

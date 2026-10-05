@@ -44,6 +44,8 @@ stdout = "help-version.txt"
 expected_framework = "generic"
 min_status = "ok"
 min_subcommands = 6
+must_not_contain_flags = ["--xml", "--json", "--stack-depth"]
+must_not_contain_usage_text = ["jfr print"]
 
 [contract.must_contain_flags_by_path]
 metadata = ["--categories", "--events"]
@@ -52,4 +54,4 @@ disassemble = ["--output", "--max-chunks", "--max-size"]
 
 [xfail]
 broken = true
-reason = "[S-189] `jfr help <word>` is probed and its prose and usage head are read, but a wrapped usage block followed by headingless `--flag <value>   text` rows yields no flags, and `jfr print` is read as root usage rather than a node"
+reason = "[S-189] the first invocation block (`jfr print`) is read as the root usage with its flags, so `print` is not a node, and each node summary carries its wrapped synopsis tail ahead of the description; telling the first block of an invocation table from a usage line needs more than a general rule so far"

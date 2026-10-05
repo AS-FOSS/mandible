@@ -19,8 +19,4 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 must_contain_flags = ["--type", "@"]
-must_not_contain_flags = ["--main-class", "--main-jar", "--add-modules", "--no-header-files"]
-
-[xfail]
-broken = true
-reason = "a line following a backslash-ended line is that line's continuation, but its dash-led tail (`--main-class className --main-jar myJar.jar`, `--add-modules moduleName`) is read as option rows with no group. A fix keeps a backslash tail out of the flag-row scan."
+must_not_contain_flags = ["--main-class", "--main-jar", "--add-modules", "--no-header-files", "-m"]

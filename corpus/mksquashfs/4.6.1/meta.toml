@@ -70,3 +70,6 @@ must_usage_forms_min = 1
 "-Xhc" = "lz4"
 "-Xbcj" = "xz"
 "-Xcompression-level" = "zstd"
+
+[contract.must_attach_choices]
+"-Xbcj" = ["x86", "arm", "armthumb", "powerpc", "sparc", "ia64"]

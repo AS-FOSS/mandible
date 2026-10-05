@@ -34,6 +34,7 @@ use mandible_core::{
 mod avoption;
 mod backfill;
 mod bullets;
+mod description_choices;
 mod emit;
 mod entry;
 mod flag_row_column;
@@ -62,6 +63,7 @@ use avoption::{
 };
 use backfill::*;
 use bullets::*;
+use description_choices::attach_description_tail_choices;
 pub use emit::*;
 pub use entry::*;
 use flag_row_column::*;
@@ -1847,6 +1849,13 @@ impl BodyScan<'_> {
     }
 }
 
+/// True when the line above `i` ends in a backslash: line `i` is its
+/// continuation, never a row. See S-011 and
+/// corpus/jpackage/21.0.12.1-samples.
+fn follows_backslash_line(lines: &[&str], i: usize) -> bool {
+    i > 0 && lines[i - 1].trim_end().ends_with('\\')
+}
+
 fn scan_entries(
     inp: &BodyInput,
     tool_name: Option<&str>,
@@ -1912,7 +1921,7 @@ fn scan_entries(
     };
     while i < lines.len() {
         let line = lines[i];
-        if line.trim().is_empty() {
+        if line.trim().is_empty() || follows_backslash_line(lines, i) {
             i += 1;
             continue;
         }
@@ -2083,6 +2092,101 @@ fn scan_entries(
 /// have already been split out. `bnf_row_lines` records which row lines
 /// came from a `:=` BNF production rather than an ordinary column-gap
 /// heading, keyed on the row rather than the heading beside it.
+/// A synopsis above an `Example usage:` label wins over that label.
+fn without_example_label(
+    labelled: Option<usize>,
+    example: Option<usize>,
+    unlabelled: Option<usize>,
+) -> Option<usize> {
+    labelled.filter(|_| example.is_none() || unlabelled.is_none())
+}
+
+/// The labelled usage line, the unlabelled synopsis line, and the one
+/// of them the usage block starts at.
+fn locate_usage_start(
+    lines: &[&str],
+    tool_name: Option<&str>,
+) -> (Option<usize>, Option<usize>, Option<usize>) {
+    let labelled_usage_start = lines.iter().position(|l| {
+        let t = l.trim_start();
+        starts_with_usage_prefix(t)
+            || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
+            || starts_with_extended_usage_label(t)
+            || tool_name.is_some_and(|name| label_glued_to_tool_name(t, name).is_some())
+    });
+    // An `Example usage:` label heads sample invocations; a synopsis
+    // above it keeps the usage. See S-196 and corpus/jfr/17.0.20.
+    let example_label_at = labelled_usage_start.filter(|&at| is_example_usage_label(lines[at]));
+    let scan_end = example_label_at.unwrap_or(lines.len());
+    let unlabelled_synopsis_start = if example_label_at.is_some() || labelled_usage_start.is_none()
+    {
+        tool_name.and_then(|name| {
+            let body_start = lines
+                .iter()
+                .position(|l| {
+                    let t = l.trim_start();
+                    !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
+                })
+                .unwrap_or(lines.len());
+            // A manual loop, not `.position()`: a head shaped like one
+            // whole LVM invocation form — the tool's own name plus its
+            // flags on the same line — and labeled by a genuine prose
+            // sentence above it (`stanza_description_above`) must stop
+            // the search outright the moment it is seen, deferring the
+            // entire document to the per-heading stanza path. `.position()`
+            // would instead skip such a line and let a LATER, unlabeled
+            // line claim the primary entry, abandoning every earlier
+            // stanza (including this one) to neither path. Vgchange's own
+            // bare `vgchange` head (no flag of its own) never triggers
+            // this, since `stanza_description_above` requires one. See
+            // docs/shapes.md S-137.
+            let mut found = None;
+            for (idx, l) in lines[..body_start.min(scan_end)].iter().enumerate() {
+                // Excluded only when the form's own continuation is a
+                // bracket flag row: the per-heading path this defers to
+                // (`scan_flags_block`) reads that shape but not a
+                // parenthesized alternation group (`pvchange`'s own first
+                // form), which only the synopsis-fold path below still
+                // understands. Deferring that shape too would drop its
+                // flags rather than relabel them. See docs/shapes.md
+                // S-137.
+                let continuation_is_bracket_row = lines
+                    .get(idx + 1)
+                    .is_some_and(|n| looks_like_bracket_flag_row(n.trim_start()));
+                if continuation_is_bracket_row
+                    && stanza_description_above(lines, idx, Some(name)).is_some()
+                {
+                    break;
+                }
+                let t = l.trim_start();
+                // LVM's own emitter also writes a bare invocation line
+                // (`vgck` alone) with all docopt notation on the rows
+                // that continue it, invisible to
+                // `looks_like_unlabeled_synopsis_line` alone. A bare
+                // own-name line is accepted too, but only when the next
+                // physical line is unambiguous flag-row evidence. See
+                // S-005.
+                if looks_like_unlabeled_synopsis_line(t, name)
+                    || looks_like_bare_synopsis_head(lines, idx, name)
+                {
+                    found = Some(idx);
+                    break;
+                }
+            }
+            found
+        })
+    } else {
+        None
+    };
+    let labelled_usage_start = without_example_label(
+        labelled_usage_start,
+        example_label_at,
+        unlabelled_synopsis_start,
+    );
+    let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
+    (labelled_usage_start, unlabelled_synopsis_start, usage_start)
+}
+
 fn parse_body(
     raw: &str,
     profile: Option<&FrameworkProfile>,
@@ -2132,73 +2236,7 @@ fn parse_body(
     // Usage: nfsidmap [-vh] ...` (S-001); (3) only when neither appears,
     // an unlabelled synopsis bounded to the lines before the document's
     // real body starts.
-    let labelled_usage_start = lines.iter().position(|l| {
-        let t = l.trim_start();
-        starts_with_usage_prefix(t)
-            || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
-            || starts_with_extended_usage_label(t)
-            || tool_name.is_some_and(|name| label_glued_to_tool_name(t, name).is_some())
-    });
-    let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
-        tool_name.and_then(|name| {
-            let body_start = lines
-                .iter()
-                .position(|l| {
-                    let t = l.trim_start();
-                    !t.is_empty() && (looks_like_flag_start(t) || is_section_heading_line(t))
-                })
-                .unwrap_or(lines.len());
-            // A manual loop, not `.position()`: a head shaped like one
-            // whole LVM invocation form — the tool's own name plus its
-            // flags on the same line — and labeled by a genuine prose
-            // sentence above it (`stanza_description_above`) must stop
-            // the search outright the moment it is seen, deferring the
-            // entire document to the per-heading stanza path. `.position()`
-            // would instead skip such a line and let a LATER, unlabeled
-            // line claim the primary entry, abandoning every earlier
-            // stanza (including this one) to neither path. Vgchange's own
-            // bare `vgchange` head (no flag of its own) never triggers
-            // this, since `stanza_description_above` requires one. See
-            // docs/shapes.md S-137.
-            let mut found = None;
-            for (idx, l) in lines[..body_start].iter().enumerate() {
-                // Excluded only when the form's own continuation is a
-                // bracket flag row: the per-heading path this defers to
-                // (`scan_flags_block`) reads that shape but not a
-                // parenthesized alternation group (`pvchange`'s own first
-                // form), which only the synopsis-fold path below still
-                // understands. Deferring that shape too would drop its
-                // flags rather than relabel them. See docs/shapes.md
-                // S-137.
-                let continuation_is_bracket_row = lines
-                    .get(idx + 1)
-                    .is_some_and(|n| looks_like_bracket_flag_row(n.trim_start()));
-                if continuation_is_bracket_row
-                    && stanza_description_above(&lines, idx, Some(name)).is_some()
-                {
-                    break;
-                }
-                let t = l.trim_start();
-                // LVM's own emitter also writes a bare invocation line
-                // (`vgck` alone) with all docopt notation on the rows
-                // that continue it, invisible to
-                // `looks_like_unlabeled_synopsis_line` alone. A bare
-                // own-name line is accepted too, but only when the next
-                // physical line is unambiguous flag-row evidence. See
-                // S-005.
-                if looks_like_unlabeled_synopsis_line(t, name)
-                    || looks_like_bare_synopsis_head(&lines, idx, name)
-                {
-                    found = Some(idx);
-                    break;
-                }
-            }
-            found
-        })
-    } else {
-        None
-    };
-    let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
+    let (labelled_usage_start, _, usage_start) = locate_usage_start(&lines, tool_name);
     // A bare `Usage:` heading (nothing else on that line) whose following
     // rows each repeat the tool's own name plus one command word with an
     // optional-abbreviation suffix (`lldb-server`'s `v[ersion]`) names
@@ -2416,6 +2454,7 @@ fn parse_body(
     // [S-133] `-tl or --type l`-style rows: fold into one flag with
     // `choices`, gated on the raw ` or ` row's own literal text.
     fold_or_joined_choice_rows(raw, &mut result.flags);
+    attach_description_tail_choices(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its
     // `-word` sibling when the ordinary repair above could not recover a
     // bare, unbracketed value (Xvfb's own `+extension name` /

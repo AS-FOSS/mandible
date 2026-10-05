@@ -202,14 +202,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
       When a filename is '-', nano reads data
         from standard input.
 - tools: nano, update-xmlcatalog, dpkg, gcc, lto-dump, objdump, arptables,
-  fail2ban-client, wpa_cli, zic, bpfcc
+  fail2ban-client, wpa_cli, zic, bpfcc, jpackage
 - handling: Three shapes share one remedy family. A sentence that ends on the promoted
   line, GNU argp's mandatory-arguments notice among them, is suppressed as a
   group label while its block parses unchanged; a colon-terminated heading
   that happens to read as a full sentence, such as gcc's, is left alone
   because it never ends in a full stop. A backslash-marked wrap,
   update-xmlcatalog's synopsis among 7 tools and 16 distinct lines, gets the
-  same suppression. A sentence that continues onto the indented line is worse:
+  same suppression, and a line after a backslash-ended line is never read as a
+  flag row (jpackage's sample usages). A sentence that continues onto the
+  indented line is worse:
   dpkg's cross-reference sentence acquired both a fake section divider and a
   -f, --field option belonging to a different program, so the whole wrapped
   region is contained by a comma-terminated, multi-word, single-field line
@@ -3348,24 +3350,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -O, --format=FORMAT        generate an image in FORMAT
                                  available formats: i386-coreboot, i386-multiboot,
                                  i386-pc, i386-xen_pvh, i386-pc-eltorito,
-- tools: grub-mkimage
-- handling: Open defect, counted only. A flag description whose
-  continuation opens a labelled list (`available formats:`, `possible
-  values:`, `one of:`, `valid values:`) and then runs comma-separated
-  literal values to the end of the description would become that
-  entity's `choices`, with the label and list leaving the description.
-  Gated hard: the label must be the last such label in the description,
-  every member after it must match `^[a-z0-9][a-z0-9_.+-]*$`, there must
-  be at least three members, and the run must reach the end of the
-  description with nothing after it.
-- fleet: `description-tail-enumerates-choices` reads 0 labelled members
-  in the seed-7 audit (`NOT EVALUABLE`, both self-check directions held,
-  5 cases). A grep over `audit/queue-captures/*/0.std*` for the four
-  labels names 35 tools; the tree-level rule, checked against a
-  36-tool sample built from that grep plus `rustc` and
-  `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
-  five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
-  `[xfail]` for `--format`'s own description. 2026-09-12.
+- tools: grub-mkimage, grub-mkstandalone, grub-install, mksquashfs, sqfstar
+- handling: Fixed. A flag description whose tail is a labelled list
+  (`available <word>:`, `possible values:`, `valid values:`, `one of:`) of
+  comma-separated literal values becomes that flag's `choices`, with the
+  label and list leaving the description. Gated hard: the label must be the
+  last such label in the description, every member after it must match
+  `^[a-z0-9][a-z0-9_.+-]*$`, there must be at least three members, the run
+  must reach the end of the description (a final full stop is allowed), and
+  the flag must have no choices yet. Fixture: `corpus/grub-mkimage/2.12`.
+- fleet: 5 tools move on the PATH sweep subset, zero losses. 2026-10-05.
 
 ### S-157: a bare-word value placeholder after a single-dash-long spelling
 
@@ -4553,8 +4547,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   node is probed as `help <word>` and never as `<word> --help`
   (docs/design.md section 6 rule 2c), so it gains its own flags and
   description. A flag-bearing text still needs the parser to read it:
-  `jfr help metadata` is probed and its prose reads, but its wrapped usage
-  block and headingless flag rows yield no flags (`corpus/jfr/17.0.20`,
+  `jfr help metadata` is probed and its flag rows now read (S-196), while
+  `jfr print` is still read as the root usage (`corpus/jfr/17.0.20`,
   xfail). `gem` prints the line, names no word by invocation, and gains
   nothing. A bare flag followed by a one-member bracket group never takes
   an option-list word (`[options]`, `[flags]`) as its value, so `Usage: brew
@@ -4666,3 +4660,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
   usage form's description and are left as before. Fixtures:
   `corpus/gcc-ranlib-13/2.42`, `corpus/corepack/0.34.6` (still `[xfail]`).
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-196: an `Example usage:` label above sample lines hides the synopsis
+
+- id: S-196
+- looks like: |
+      Display event metadata
+       jfr metadata [--categories <filter>]
+                    [--events <filter>]
+      Example usage:
+       jfr metadata --events 'Thread*'
+- tools: jfr
+- handling: Fixed. The extended usage label (S-151) also accepts `Example
+  usage:`, so the first labelled line was the examples and the synopsis above
+  it was never the usage; its headingless flag rows then went unread. When
+  the label is an `Example(s) usage:` one and an unlabelled synopsis line
+  precedes it, the synopsis is the usage. A text whose only usage is the
+  `Example usage:` block keeps it (`corpus/brew/7.0.2`). Fixture:
+  `corpus/jfr/17.0.20`.
+- fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
+  cannot see this change. 2301 captures hold two such labels (`brew`, `jfr`).
