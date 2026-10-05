@@ -18,7 +18,3 @@ stderr = "help.stderr.txt"
 [contract]
 expected_framework = "generic"
 must_describe_root = ["to print both VM flags and system properties"]
-
-[xfail]
-broken = true
-reason = "[S-201] the `<no option>` row, which describes the bare invocation, is dropped; no tree field carries its text"

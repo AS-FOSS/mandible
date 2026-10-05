@@ -43,6 +43,7 @@ mod heading;
 mod invocation_block;
 mod layout;
 mod multiword;
+mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;
 mod per_form;
@@ -74,6 +75,7 @@ pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
 pub use layout::*;
 use multiword::*;
+use no_option_row::take_no_option_row;
 use numeric_range::{
     describe_positionals_from_name_rows, expand_numeric_range_flags,
     fold_separator_row_into_operand,
@@ -1936,6 +1938,10 @@ fn scan_entries(
                 continue;
             }
         }
+        if let Some(end) = take_no_option_row(lines, i, st.result, st.in_ignorable_section) {
+            i = end;
+            continue;
+        }
         // A label that named no rows of its own, set one line ago by
         // either a flush heading's own rewind or a bare single-entry
         // swallow (S-146). Taken (cleared) here whether or not this row
@@ -2069,22 +2075,16 @@ fn scan_entries(
         while i < lines.len() && lines[i].trim().is_empty() {
             i += 1;
         }
-        if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
-            let h = Heading {
-                line,
-                heading,
-                heading_indent,
-                heading_idx,
-            };
-            i = emit_flush_heading(lines, profile, &h, i, &mut st);
-            continue;
-        }
         let h = Heading {
             line,
             heading,
             heading_indent,
             heading_idx,
         };
+        if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+            i = emit_flush_heading(lines, profile, &h, i, &mut st);
+            continue;
+        }
         i = emit_heading_block(inp, tool_name, &h, i, &mut st);
     }
     (st.total_entries, st.clean_entries)

@@ -4770,3 +4770,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jinfo/17.0.20`.
 - fleet: a `--tools` pre-check moved jinfo only and lost none; the nine
   controls are byte-identical.
+### S-201: a `<no option>` row describes the bare invocation
+
+- id: S-201
+- looks like: |
+      where <option> is one of:
+          -flags               to print VM flags
+          <no option>          to print both VM flags and system properties
+- tools: jinfo
+- handling: Fixed. A row whose spelling is a bracketed phrase naming no
+  option (`<no option>`, `(no options)`, `[no arguments]`), followed by a
+  column gap and a description, is not a flag and ends the flag block. Its text
+  joins the node description as `With no option: <description>`, so nothing is
+  dropped. A one-space mention inside a sentence (`mksquashfs`'s `(no options)
+  (deprecated ...)`) is prose and is left alone. Fixture:
+  `corpus/jinfo/17.0.20-no-option`.
+- fleet: the corpus and a `--tools` pre-check over 1270 tools found one tool
+  with the row (`jinfo`).
