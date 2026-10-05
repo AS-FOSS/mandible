@@ -4986,8 +4986,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   form, and a `$ ` shell prompt before the tool's name no longer hides the
   real usage line. The commands heading over such a run now introduces its
   invocation table directly, so every row becomes a subcommand carrying the
-  heading as its group, and nothing is folded into usage. Fixtures:
-  `corpus/corepack/0.34.6`.
+  heading as its group. Each row's whole invocation line is its node's
+  usage form (a node named by two rows carries both lines), and a second
+  row's description is appended to the node's description after the first
+  row's summary. Fixtures: `corpus/corepack/0.34.6`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check;
   the full-`PATH` sweep decides.
 

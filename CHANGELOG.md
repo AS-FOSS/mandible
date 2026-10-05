@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - [S-212] Single-dash words such as `-Bdynamic, -dy, -call_shared`, `-Bsymbolic` and `-Tbss ADDRESS` are options of their own, not `-B` or `-T` with a value (`mandible ld`, `gold`, #102).
-- [S-211] A list of `<tool> <word> ...` command rows over their descriptions is the command list, not the usage (`mandible corepack` gains `disable` and `cache clean`, and its usage is `$ corepack <command>`).
+- [S-211] A list of `<tool> <word> ...` command rows over their descriptions is the command list, not the usage (`mandible corepack` gains `disable` and `cache clean`, and its usage is `$ corepack <command>`). Each command shows its own invocation line as usage.
 - [S-210] A syntax legend (`Probe specifier syntax:`, `Where:`) is shown in the description instead of becoming choices of unrelated flags (`mandible argdist-bpfcc`'s `-H`, `-I`).
 - [S-011] An indented example command line ending in a backslash stays in its flag's description (`mandible rg`'s `--color` and `--hyperlink-format` examples).
 - [S-209] A usage row `[-n|--notable|--table {<table>|<table_file>}]` is two flags, `-n|--notable` and `--table` with its value (`mandible dmsetup`'s `create`).

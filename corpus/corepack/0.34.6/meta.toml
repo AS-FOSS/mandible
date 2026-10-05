@@ -26,7 +26,3 @@ install = ["corepack install", "corepack install <-g,--global> [--cache-only] ..
 pack = ["corepack pack [--json] [-o,--output #0] ..."]
 use = ["corepack use <pattern>"]
 "cache clean" = ["corepack cache clean"]
-
-[xfail]
-broken = true
-reason = "[S-211] each command row's invocation line renders nowhere (the row is reduced to its name), and the second install row's description is lost"

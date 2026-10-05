@@ -73,12 +73,63 @@ pub(super) fn table_under_commands_heading(
         return None;
     }
     let (end, mut nodes, seen, clean) = scan_headingless_invocation_table(lines, first, name, raw)?;
+    attach_row_invocations(&mut nodes, &lines[first..end], name);
     if heading_can_name_a_group(heading) {
         for node in &mut nodes {
             node.group = Some(heading.to_string());
         }
     }
     Some((end, nodes, seen, clean))
+}
+
+/// Give each node the whole invocation line of every row that named it as
+/// its usage form, and a description a second row of the same node adds
+/// (`corepack install` over "Install the package manager..." and then
+/// `corepack install <-g,--global> ...` over "Install package managers on
+/// the system") as the node's description after the first row's summary.
+fn attach_row_invocations(nodes: &mut [CommandNode], rows: &[&str], name: &str) {
+    let base = indent(rows[0]);
+    let mut at = 0;
+    while at < rows.len() {
+        let line = rows[at];
+        at += 1;
+        let trimmed = line.trim_start();
+        if indent(line) != base || !starts_with_tool_name(trimmed, name) {
+            continue;
+        }
+        let Some(run) = invocation_table_row_run(trimmed, name) else {
+            continue;
+        };
+        let described = (at..rows.len())
+            .take_while(|&j| !rows[j].trim().is_empty() && indent(rows[j]) > base)
+            .count();
+        let desc = rows[at..at + described]
+            .iter()
+            .map(|l| l.trim())
+            .collect::<Vec<_>>()
+            .join(" ");
+        at += described;
+        let Some(mut node) = nodes.iter_mut().find(|n| n.name == run[0]) else {
+            continue;
+        };
+        if let Some(child) = run.get(1) {
+            let Some(inner) = node.subcommands.iter_mut().find(|n| n.name == *child) else {
+                continue;
+            };
+            node = inner;
+        }
+        let text = Text::sanitize(trimmed);
+        if !node.usage.contains(&text) {
+            node.usage.push(text);
+        }
+        let same = node.summary.as_ref().is_some_and(|s| s.as_str() == desc);
+        if !desc.is_empty() && node.summary.is_some() && !same {
+            node.description = Some(match node.description.take() {
+                Some(d) => Text::sanitize(&format!("{}\n{desc}", d.as_str())),
+                None => Text::sanitize(&desc),
+            });
+        }
+    }
 }
 
 /// The index after the region at `at` that is no heading: a hard-wrapped
