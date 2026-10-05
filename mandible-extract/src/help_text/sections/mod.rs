@@ -2139,14 +2139,19 @@ fn parse_body(
     // Usage: nfsidmap [-vh] ...` (S-001); (3) only when neither appears,
     // an unlabelled synopsis bounded to the lines before the document's
     // real body starts.
-    let labelled_usage_start = lines.iter().position(|l| {
+    let mut labelled_usage_start = lines.iter().position(|l| {
         let t = l.trim_start();
         starts_with_usage_prefix(t)
             || tool_name.is_some_and(|name| starts_with_name_prefixed_usage(t, name))
             || starts_with_extended_usage_label(t)
             || tool_name.is_some_and(|name| label_glued_to_tool_name(t, name).is_some())
     });
-    let unlabelled_synopsis_start = if labelled_usage_start.is_none() {
+    // An `Example usage:` label heads sample invocations; a synopsis
+    // above it keeps the usage. See S-196 and corpus/jfr/17.0.20.
+    let example_label_at = labelled_usage_start.filter(|&at| is_example_usage_label(lines[at]));
+    let unlabelled_synopsis_start = if labelled_usage_start.is_none() || example_label_at.is_some()
+    {
+        let scan_end = example_label_at.unwrap_or(lines.len());
         tool_name.and_then(|name| {
             let body_start = lines
                 .iter()
@@ -2168,7 +2173,7 @@ fn parse_body(
             // this, since `stanza_description_above` requires one. See
             // docs/shapes.md S-137.
             let mut found = None;
-            for (idx, l) in lines[..body_start].iter().enumerate() {
+            for (idx, l) in lines[..body_start.min(scan_end)].iter().enumerate() {
                 // Excluded only when the form's own continuation is a
                 // bracket flag row: the per-heading path this defers to
                 // (`scan_flags_block`) reads that shape but not a
@@ -2205,6 +2210,9 @@ fn parse_body(
     } else {
         None
     };
+    if example_label_at.is_some() && unlabelled_synopsis_start.is_some() {
+        labelled_usage_start = None;
+    }
     let usage_start = labelled_usage_start.or(unlabelled_synopsis_start);
     // A bare `Usage:` heading (nothing else on that line) whose following
     // rows each repeat the tool's own name plus one command word with an
