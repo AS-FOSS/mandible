@@ -35,4 +35,4 @@ must_contain_positionals = ["output_file", "file..."]
 
 [xfail]
 broken = true
-reason = "[S-198] per-usage-form reading: -Y and -M keep one form word, operands output_file and file are missing"
+reason = "[S-198] per-usage-form reading: operands output_file and file are missing"

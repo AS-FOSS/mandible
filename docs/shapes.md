@@ -4697,3 +4697,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   produced. Fixtures: `corpus/ssh-keygen/9.6p1`, `corpus/tcpdump/audit-seed2`.
 - fleet: a `--tools` pre-check over 255 tools (every corpus tool, every `sg_*`
   tool, the ssh family) moved two tools and lost none.
+
+### S-198: a flag that opens several usage forms with different lowercase words
+
+- id: S-198
+- looks like: |
+      ssh-keygen -M generate [-O option] output_file
+      ssh-keygen -M screen [-f input_file] [-O option] output_file
+      ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...
+      ssh-keygen -Y verify -f allowed_signers_file -I signer_identity
+- tools: ssh-keygen
+- handling: Fixed. A flag that directly follows the program word in two or more
+  forms, where every value the flag takes anywhere is a lowercase literal and
+  the values differ, selects the form by a fixed word. Those words are its
+  choices and `value_name` is cleared, as the S-147 merge does for the same
+  case. A flag deep in a form with different lowercase words (`-n principals`,
+  `-n namespace`) is a placeholder and is not read this way. Fixture:
+  `corpus/ssh-keygen/9.6p1`.
+- fleet: a `--tools` pre-check over 255 tools moved ssh-keygen only (`-M`,
+  `-Y`) and lost none.

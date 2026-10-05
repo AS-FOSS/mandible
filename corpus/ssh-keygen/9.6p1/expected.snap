@@ -207,8 +207,10 @@ flags:
     - help-text-synopsis
 - spellings:
   - -M
-  value_name: generate
   value_kind: Required
+  choices:
+  - generate
+  - screen
   provenance:
     sources:
     - help-text-synopsis
@@ -281,8 +283,13 @@ flags:
     - help-text-synopsis
 - spellings:
   - -Y
-  value_name: find-principals
   value_kind: Required
+  choices:
+  - find-principals
+  - match-principals
+  - check-novalidate
+  - sign
+  - verify
   provenance:
     sources:
     - help-text-synopsis

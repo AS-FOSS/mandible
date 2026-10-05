@@ -17,6 +17,7 @@ struct Occ {
     key: String,
     value: Option<String>,
     alts: Vec<String>,
+    head: bool,
 }
 
 /// Split the usage lines into one text per invocation form, program name
@@ -110,7 +111,7 @@ fn is_plain_word(w: &str) -> bool {
         && !w.contains(['|', '[', ']', '=', '{', '}'])
 }
 
-fn read_group(inner: &str, occs: &mut Vec<Occ>) {
+fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>) {
     if inner.contains('[') || inner.contains('=') || !inner.starts_with('-') {
         return;
     }
@@ -129,6 +130,7 @@ fn read_group(inner: &str, occs: &mut Vec<Occ>) {
             key: key.to_string(),
             value: value.map(str::to_string),
             alts: parts[1..].iter().map(|p| p.to_string()).collect(),
+            head,
         });
     }
 }
@@ -139,7 +141,7 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> Vec<Occ> {
     let mut i = 0;
     while i < toks.len() {
         match &toks[i] {
-            Tok::Group(inner) => read_group(inner, &mut occs),
+            Tok::Group(inner) => read_group(inner, i == 0, &mut occs),
             Tok::Word(w) if w.starts_with('-') && is_flag_word(w) => {
                 let value = match toks.get(i + 1) {
                     Some(Tok::Word(n)) if is_plain_word(n) && takes_value(w) => Some(n.clone()),
@@ -149,6 +151,7 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> Vec<Occ> {
                     key: w.clone(),
                     value: value.clone(),
                     alts: Vec::new(),
+                    head: i == 0,
                 });
                 i += usize::from(value.is_some());
             }
@@ -176,8 +179,9 @@ fn push_unique(list: &mut Vec<String>, name: &str) {
     }
 }
 
-/// The fixed words a flag lists as alternatives in one bracket.
-fn fixed_words(occs: &[&Occ]) -> Vec<String> {
+/// The fixed words a flag takes: listed as alternatives in one bracket, or
+/// the form-selecting words of a flag that opens two or more forms.
+fn fixed_words(occs: &[&Occ], multi: bool) -> Vec<String> {
     let mut words: Vec<String> = Vec::new();
     for o in occs.iter().filter(|o| !o.alts.is_empty()) {
         o.value
@@ -185,11 +189,24 @@ fn fixed_words(occs: &[&Occ]) -> Vec<String> {
             .chain(&o.alts)
             .for_each(|w| push_unique(&mut words, w));
     }
-    words
+    if !words.is_empty() || !multi {
+        return words;
+    }
+    let mut heads: Vec<String> = Vec::new();
+    for o in occs.iter().filter(|o| o.head) {
+        o.value.iter().for_each(|w| push_unique(&mut heads, w));
+    }
+    let all_words = occs
+        .iter()
+        .all(|o| o.value.as_deref().is_some_and(is_literal_choice_value));
+    if heads.len() >= 2 && all_words && occs.iter().filter(|o| o.head).count() >= 2 {
+        return heads;
+    }
+    Vec::new()
 }
 
-fn apply_flag(flag: &mut Entity, occs: &[&Occ]) {
-    let words = fixed_words(occs);
+fn apply_flag(flag: &mut Entity, occs: &[&Occ], multi: bool) {
+    let words = fixed_words(occs, multi);
     if words.is_empty() {
         return;
     }
@@ -209,6 +226,7 @@ fn apply_flag(flag: &mut Entity, occs: &[&Occ]) {
 /// reading dropped into `flags`. See S-197.
 pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity]) {
     let texts = split_forms(usage_lines);
+    let multi = texts.len() >= 2;
     let takes_value = |key: &str| {
         flags
             .iter()
@@ -222,7 +240,7 @@ pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity]) {
             .filter(|o| spells(flag, &o.key))
             .collect();
         if !mine.is_empty() {
-            apply_flag(flag, &mine);
+            apply_flag(flag, &mine, multi);
         }
     }
 }
