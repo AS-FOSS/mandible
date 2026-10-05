@@ -110,7 +110,10 @@ mod tests {
     #[test]
     fn an_unknown_path_fails_by_name() {
         let got = failures(&contract(), &CommandNode::new("tool", prov()));
-        assert_eq!(got[0].0, "must_keep_separate_by_path: no node at path \"sub\"");
+        assert_eq!(
+            got[0].0,
+            "must_keep_separate_by_path: no node at path \"sub\""
+        );
     }
 
     #[test]

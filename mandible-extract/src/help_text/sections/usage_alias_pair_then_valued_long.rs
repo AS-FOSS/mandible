@@ -19,7 +19,9 @@ fn is_bare_long(m: &str) -> bool {
 pub(super) fn split_alias_pair_then_valued_long(content: &str) -> Vec<&str> {
     let members = split_top_level_pipe(content);
     if let [short, long, valued] = members.as_slice() {
-        let (name, value) = valued.split_once(char::is_whitespace).unwrap_or((valued, ""));
+        let (name, value) = valued
+            .split_once(char::is_whitespace)
+            .unwrap_or((valued, ""));
         if is_bare_short(short)
             && is_bare_long(long)
             && is_bare_long(name)

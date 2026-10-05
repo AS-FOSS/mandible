@@ -3776,7 +3776,11 @@ mod tests {
     #[test]
     fn a_usage_form_naming_the_node_with_an_alias_list_does_not_prepend() {
         assert_eq!(
-            usage_form("search", "Usage: brew search, -S [options] text|/regex/ [...]").1,
+            usage_form(
+                "search",
+                "Usage: brew search, -S [options] text|/regex/ [...]"
+            )
+            .1,
             "brew search, -S [options] text|/regex/ [...]"
         );
         assert_eq!(
