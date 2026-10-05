@@ -39,6 +39,7 @@ mod command_row_column;
 mod description_choices;
 mod emit;
 mod entry;
+mod example_command_line;
 mod flag_row_column;
 mod flag_rows;
 mod heading;

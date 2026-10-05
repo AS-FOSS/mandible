@@ -202,7 +202,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       When a filename is '-', nano reads data
         from standard input.
 - tools: nano, update-xmlcatalog, dpkg, gcc, lto-dump, objdump, arptables,
-  fail2ban-client, wpa_cli, zic, bpfcc, jpackage
+  fail2ban-client, wpa_cli, zic, bpfcc, jpackage, rg
 - handling: Three shapes share one remedy family. A sentence that ends on the promoted
   line, GNU argp's mandatory-arguments notice among them, is suppressed as a
   group label while its block parses unchanged; a colon-terminated heading
@@ -210,7 +210,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   because it never ends in a full stop. A backslash-marked wrap,
   update-xmlcatalog's synopsis among 7 tools and 16 distinct lines, gets the
   same suppression, and a line after a backslash-ended line is never read as a
-  flag row (jpackage's sample usages). A sentence that continues onto the
+  flag row (jpackage's sample usages), and a deeper-indented line that ends
+  in ` \` and carries a quoted argument is an example command inside a
+  description, never a row (rg's `--colors 'path:none' \`). A sentence that continues onto the
   indented line is worse:
   dpkg's cross-reference sentence acquired both a fake section divider and a
   -f, --field option belonging to a different program, so the whole wrapped

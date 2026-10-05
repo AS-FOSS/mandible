@@ -17,14 +17,10 @@ verdict_scope = ["flags"]
 must_contain_flags = ["--colors", "--color"]
 
 # `--colors 'path:none' \` inside the --color description's example block
-# still opens a fabricated --colors row; its continued lines are no longer
-# rows of their own.
+# stays description text (S-011). Known gap: the wrapped `--vimgrep and
+# --json.` line still opens a fabricated --vimgrep row.
 [contract.must_describe]
 "--colors" = "This flag specifies color settings for use in the output"
 
 [contract.must_one_row_in_group]
 "OUTPUT OPTIONS:" = ["--colors"]
-
-[xfail]
-broken = true
-reason = "the indented example `--colors 'path:none' \\` (twice) opens a fabricated --colors row that swallows the continued lines and the next prose paragraph"
