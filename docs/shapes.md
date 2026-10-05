@@ -4948,3 +4948,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
   value follows the second member (`-U|--uid <uid>`), or with more members,
   is untouched. Fixtures: `corpus/dmsetup/1.02.185-create-stats`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-210: a syntax legend under its own heading read as a flag's value list
+
+- id: S-210
+- looks like: |
+      Probe specifier syntax:
+              {p,r,t,u}:{[library],category}:function(signature):type
+      Where:
+              p,r,t,u    -- probe at function entry, function exit
+              library    -- the library that contains the function
+- tools: argdist-bpfcc
+- handling: Fixed. A bare block under a heading ending in `syntax`, or made of
+  three or more `name  -- meaning` rows, is a legend, not a list of values:
+  its text joins the node description under its own heading and no flag
+  receives choices from it. A flush example command that continues onto
+  deeper lines (`argdist -H \`) no longer heads a block either, so its
+  description words stop becoming a flag's choices (`-I`'s `processes`);
+  jpackage's sample usages no longer invent a second `--type`. Fixtures:
+  `corpus/argdist-bpfcc/0.29.1`, `corpus/jpackage/21.0.12.1-samples`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
+  (135 tools: bpfcc, jdk, rg; argdist-bpfcc and jpackage moved).

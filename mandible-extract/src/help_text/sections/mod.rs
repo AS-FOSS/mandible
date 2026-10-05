@@ -57,6 +57,7 @@ mod preamble;
 mod repair;
 mod scan;
 mod spelling;
+mod syntax_legend;
 mod spellings_documented_elsewhere;
 #[cfg(test)]
 mod test_support;
@@ -1263,6 +1264,12 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         if st.result.subcommands.len() == before {
             set_pending_bare_label(st, sole_label, lines, i);
         }
+    } else if let Some(text) = syntax_legend::legend_paragraph(heading, &lines[block_start..i]) {
+        st.command_mode = false;
+        st.result.description = Some(match st.result.description.take() {
+            Some(d) => format!("{d}\n\n{text}"),
+            None => text,
+        });
     } else {
         st.command_mode = false;
         // A word grid no flag owns is prose about the tool (S-206).
@@ -2061,6 +2068,10 @@ fn scan_entries(
             }
         }
 
+        if let Some(end) = example_command_line::example_command_end(lines, i) {
+            i = end;
+            continue;
+        }
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;
