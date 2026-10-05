@@ -1,4 +1,7 @@
 # Excerpt of corpus/jfr/17.0.20: the `jfr help configure` text as the root.
+# The bytes come from `jfr help configure`, not `jfr --help`; `argv` stays
+# ["jfr", "--help"] only because the corpus runner builds the root from the
+# `--help` capture and yields no root for argv ["jfr", "help", "configure"].
 # `option=value` and `event-setting=value` are described operands, and the
 # `Options for default.jfc:` block lists the operand keys with their values.
 
