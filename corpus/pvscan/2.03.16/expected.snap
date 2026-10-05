@@ -9,7 +9,6 @@ usage:
 - pvscan --listvg PV [ COMMON_OPTIONS ]
 positionals:
 - name: COMMON_OPTIONS
-  required: true
   provenance:
     sources:
     - help-text

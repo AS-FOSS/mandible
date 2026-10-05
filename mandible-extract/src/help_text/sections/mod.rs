@@ -2415,7 +2415,7 @@ fn parse_body(
             // silently replaced by whichever entity happened to land
             // first.
         }
-        per_form::apply(&usage_lines, &mut result.flags);
+        per_form::apply(&usage_lines, &mut result.flags, &mut result.positionals);
         // A dash-prefixed usage word normally swallowed as the generic
         // "any option" placeholder, or a usage-derived flag already
         // misread as a short flag plus a fabricated value, is repaired or

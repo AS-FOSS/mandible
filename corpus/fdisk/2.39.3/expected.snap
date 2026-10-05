@@ -4,7 +4,6 @@ usage:
 - ' fdisk [options] -l [<disk>...] list partition table(s)'
 positionals:
 - name: disk
-  required: true
   provenance:
     sources:
     - help-text

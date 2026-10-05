@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-199] The operands that close a usage form are read per form, and an operand missing from some forms is no longer required (`mandible ssh-keygen` gains `output_file` and `file ...`, `mandible sg_test_rwbuf`'s `SZ` is optional, `awk` gains `file ...`).
 - [S-198] A flag that opens several usage forms with a different lowercase word each time owns those words as choices (`mandible ssh-keygen`'s `-Y` gets `sign`, `verify`, `find-principals`, `match-principals`, `check-novalidate`; `-M` gets `generate`, `screen`).
 - [S-197] A synopsis bracket `[-t dsa | ecdsa | rsa]` gives `-t` those words as choices instead of only the first (`mandible ssh-keygen`'s `-t`, `tcpdump`'s `-Q`).
 - [S-156] A description that ends in a labelled value list (`available formats: ...`) gives its flag those values as choices (`mandible grub-mkimage`'s `--format`, `grub-install`'s `--target`, `mksquashfs`'s `-Xbcj`).

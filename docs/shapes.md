@@ -4716,3 +4716,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/ssh-keygen/9.6p1`.
 - fleet: a `--tools` pre-check over 255 tools moved ssh-keygen only (`-M`,
   `-Y`) and lost none.
+
+### S-199: operands that close a usage form, and an operand only some forms have
+
+- id: S-199
+- looks like: |
+      ssh-keygen -M generate [-O option] output_file
+      ssh-keygen -k -f krl_file [-u] [-z version_number] file ...
+      sg_test_rwbuf [--addrd=AR] --size=SZ DEVICE
+      sg_test_rwbuf DEVICE SZ [AW] [AR]
+- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck
+- handling: Fixed. Each usage form is read on its own. A bare lowercase word or
+  bracketed operand after the form's last flag is an operand when the same name
+  closes two or more forms and no other lowercase word sits beside it (`list
+  partition table(s)` is prose). A flag value is never an operand: a bare flag
+  eats the next word when the flag takes a value. An operand that is missing
+  from some form, or bracketed in any, is not `required` at the root
+  (`sg_test_rwbuf`'s `SZ`, `cp`'s `DEST`, `ip`'s `OBJECT`). `required` has no
+  contract field, so the blessed snapshots pin it. Fixtures:
+  `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`.
+- fleet: a `--tools` pre-check over 255 tools gained operands on five tools
+  and lost none. It cannot see `required`; 21 corpus snapshots lost a
+  `required: true`, each read against its raw usage text.

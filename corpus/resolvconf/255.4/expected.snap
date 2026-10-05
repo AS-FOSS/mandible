@@ -5,6 +5,10 @@ usage:
 - resolvconf -d INTERFACE
 positionals:
 - name: FILE
+  provenance:
+    sources:
+    - help-text
+- name: INTERFACE
   required: true
   provenance:
     sources:

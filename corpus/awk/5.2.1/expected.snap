@@ -13,6 +13,12 @@ positionals:
   provenance:
     sources:
     - help-text
+- name: file
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -f

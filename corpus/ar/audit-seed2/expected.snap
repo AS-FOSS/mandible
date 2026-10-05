@@ -13,12 +13,10 @@ positionals:
     sources:
     - help-text
 - name: archive-file
-  required: true
   provenance:
     sources:
     - help-text
 - name: file
-  required: true
   variadic: true
   provenance:
     sources:

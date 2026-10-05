@@ -9,7 +9,6 @@ positionals:
     sources:
     - help-text
 - name: SZ
-  required: true
   provenance:
     sources:
     - help-text
