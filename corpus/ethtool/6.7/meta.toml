@@ -1,0 +1,26 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ethtool"
+version = "6.7"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["ethtool", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["--change", "--show-pause"]
+must_not_contain_positionals = ["a", "delete", "dump", "file", "offload", "phy", "settings", "tunable"]
+
+[contract.must_attach_choices]
+"--src" = ["aggregate", "emac", "pmac"]
+
+[xfail]
+broken = true
+reason = "keyword-argument lines and description words after the tab gap are read as root operands"

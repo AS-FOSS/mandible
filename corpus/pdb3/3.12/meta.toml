@@ -1,0 +1,25 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pdb3"
+version = "3.12"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["pdb3", "--help"]
+stdout = "help.txt"
+exit_code = 2
+
+[contract]
+expected_framework = "BSD-terse"
+min_status = "verbatim"
+must_contain_flags = ["-c", "-m"]
+
+[contract.must_not_attach_choices]
+"-m" = ["module", "pyfile"]
+
+[xfail]
+broken = true
+reason = "[-m module | pyfile] (a flag value and an operand) is read as a two-word choice list for -m"
