@@ -1,8 +1,6 @@
 # From issue 102 item 2 (choices-block ownership beyond literal matches).
-# "Warning categories include:" belongs to `-W, --warnings=CATEGORY`, but
-# the heading says "categories" where the flag's value name is CATEGORY,
-# so the morphological variant goes unproven and the block attaches
-# elsewhere.
+# "Warning categories include:" belongs to `-W, --warnings=CATEGORY`: the
+# heading names the plural of the flag's value placeholder (S-203).
 
 [bless]
 provenance = "agent"
@@ -22,6 +20,5 @@ stdout = "help.txt"
 [contract.must_attach_choices]
 "--warnings" = ["cross", "gnu", "obsolete", "override", "portability", "syntax"]
 
-[xfail]
-broken = true
-reason = "the 'Warning categories include:' block does not attach to -W, --warnings=CATEGORY. The heading says 'categories' where the flag's value name is CATEGORY, and #99 attaches a choices block only when the heading literally names the flag or contains its value_name as a word. A stem or plural rule needs a fleet measurement of its false-positive cost before it can be admitted."
+[contract.must_not_attach_choices]
+"--force-missing" = ["cross", "gnu", "obsolete", "override", "portability", "syntax"]

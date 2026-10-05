@@ -48,6 +48,7 @@ mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;
 mod per_form;
+mod plural_owner;
 mod plus_minus;
 mod preamble;
 mod repair;
@@ -83,6 +84,7 @@ use numeric_range::{
     fold_separator_row_into_operand,
 };
 use or_choice_fold::fold_or_joined_choice_rows;
+use plural_owner::plural_owner_index;
 use plus_minus::*;
 use preamble::*;
 use repair::*;

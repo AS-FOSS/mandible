@@ -4813,3 +4813,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
   each tool's root and `jfr configure` is a subcommand page. The 329 corpus
   capture files hold one such page (`jfr help configure`).
 
+### S-203: a choices block under a heading that names the plural of the value placeholder
+
+- id: S-203
+- looks like: |
+      -W, --warnings=CATEGORY  report the warnings falling in CATEGORY
+
+      Warning categories include:
+        cross                  cross compilation issues
+        no-CATEGORY            turn off warnings in CATEGORY
+- tools: automake, automake-1.16, aclocal, aclocal-1.16, autoconf, autoheader,
+  autom4te, autoreconf
+- handling: Fixed. Ownership of a choices block had two proofs, the heading
+  naming the flag or containing its value placeholder as a word. A third
+  proof accepts a heading that ends in `:` and holds the plural (`s`, `es`,
+  `ies`) of exactly one flag's placeholder of four or more letters. Two flags
+  with that placeholder prove nothing. A row `prefix-PLACEHOLDER` joins the
+  choices when the placeholder is the owner's own (`no-CATEGORY`); before this
+  the block fell to the last flag (`--force-missing`, `--melt`). Fixture:
+  `corpus/automake/1.16.5`.
+- fleet: a `--tools` pre-check over 1270 tools moved those 8, each read
+  against its raw help. No other corpus fixture changed.
+

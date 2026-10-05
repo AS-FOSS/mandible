@@ -1,0 +1,154 @@
+name: automake
+usage:
+- 'Usage: /usr/bin/automake [OPTION]... [Makefile]...'
+flags:
+- spellings:
+  - --help
+  group: 'Operation modes:'
+  description: print this help, then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Operation modes:'
+  description: print version number, then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  group: 'Operation modes:'
+  description: verbosely list files processed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-force
+  group: 'Operation modes:'
+  description: only update Makefile.in's that are out of date
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --warnings
+  value_name: CATEGORY
+  value_kind: Required
+  choices:
+  - name: cross
+    description: cross compilation issues
+  - name: gnu
+    description: GNU coding standards (default in gnu and gnits modes)
+  - name: obsolete
+    description: obsolete features or constructions (default)
+  - name: override
+    description: user redefinitions of Automake rules or variables
+  - name: portability
+    description: portability issues (default in gnu and gnits modes)
+  - name: portability-recursive
+    description: nested Make variables (default with -Wportability)
+  - name: extra-portability
+    description: extra portability issues related to obscure tools
+  - name: syntax
+    description: dubious syntactic constructs (default)
+  - name: unsupported
+    description: unsupported or incomplete features (default)
+  - name: all
+    description: all the warnings
+  - name: no-CATEGORY
+    description: turn off warnings in CATEGORY
+  - name: none
+    description: turn off all the warnings
+  - name: error
+    description: treat warnings as errors
+  group: 'Operation modes:'
+  description: report the warnings falling in CATEGORY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --ignore-deps
+  group: 'Dependency tracking:'
+  description: disable dependency tracking code
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --include-deps
+  group: 'Dependency tracking:'
+  description: enable dependency tracking code
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --foreign
+  group: 'Flavors:'
+  description: set strictness to foreign
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gnits
+  group: 'Flavors:'
+  description: set strictness to gnits
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gnu
+  group: 'Flavors:'
+  description: set strictness to gnu
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --add-missing
+  group: 'Library files:'
+  description: add missing standard files to package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --libdir
+  value_name: DIR
+  value_kind: Required
+  group: 'Library files:'
+  description: set directory storing library files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --print-libdir
+  group: 'Library files:'
+  description: print directory storing library files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --copy
+  group: 'Library files:'
+  description: with -a, copy missing files (default is symlink)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force-missing
+  choices:
+  - acconfig.h
+  - aclocal.m4
+  group: 'Library files:'
+  description: force update of standard files
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
