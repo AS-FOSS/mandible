@@ -794,8 +794,15 @@ flags:
   - -Xbcj
   value_name: filter1,filter2,...,filterN
   value_kind: Required
+  choices:
+  - x86
+  - arm
+  - armthumb
+  - powerpc
+  - sparc
+  - ia64
   group: xz
-  description: 'Compress using filter1,filter2,...,filterN in turn (in addition to no filter), and choose the best compression. Available filters: x86, arm, armthumb, powerpc, sparc, ia64'
+  description: Compress using filter1,filter2,...,filterN in turn (in addition to no filter), and choose the best compression.
   provenance:
     sources:
     - help-text

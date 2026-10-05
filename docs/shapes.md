@@ -3350,24 +3350,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -O, --format=FORMAT        generate an image in FORMAT
                                  available formats: i386-coreboot, i386-multiboot,
                                  i386-pc, i386-xen_pvh, i386-pc-eltorito,
-- tools: grub-mkimage
-- handling: Open defect, counted only. A flag description whose
-  continuation opens a labelled list (`available formats:`, `possible
-  values:`, `one of:`, `valid values:`) and then runs comma-separated
-  literal values to the end of the description would become that
-  entity's `choices`, with the label and list leaving the description.
-  Gated hard: the label must be the last such label in the description,
-  every member after it must match `^[a-z0-9][a-z0-9_.+-]*$`, there must
-  be at least three members, and the run must reach the end of the
-  description with nothing after it.
-- fleet: `description-tail-enumerates-choices` reads 0 labelled members
-  in the seed-7 audit (`NOT EVALUABLE`, both self-check directions held,
-  5 cases). A grep over `audit/queue-captures/*/0.std*` for the four
-  labels names 35 tools; the tree-level rule, checked against a
-  36-tool sample built from that grep plus `rustc` and
-  `tclobjnew-bpfcc`, reads 1 tool (grub-mkimage, 2 findings). Below the
-  five-tool bar. Not fixed this round; `corpus/grub-mkimage/2.12` stays
-  `[xfail]` for `--format`'s own description. 2026-09-12.
+- tools: grub-mkimage, grub-mkstandalone, grub-install, mksquashfs, sqfstar
+- handling: Fixed. A flag description whose tail is a labelled list
+  (`available <word>:`, `possible values:`, `valid values:`, `one of:`) of
+  comma-separated literal values becomes that flag's `choices`, with the
+  label and list leaving the description. Gated hard: the label must be the
+  last such label in the description, every member after it must match
+  `^[a-z0-9][a-z0-9_.+-]*$`, there must be at least three members, the run
+  must reach the end of the description (a final full stop is allowed), and
+  the flag must have no choices yet. Fixture: `corpus/grub-mkimage/2.12`.
+- fleet: 5 tools move on the PATH sweep subset, zero losses. 2026-10-05.
 
 ### S-157: a bare-word value placeholder after a single-dash-long spelling
 
