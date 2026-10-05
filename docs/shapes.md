@@ -4661,5 +4661,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   entry (which lets the `archive` operand reach the tree) and is relocated to
   the head of the node description, so nothing is dropped. `unzip`'s wrapped
   continuation (`... to exdir;`) carries brackets and closing punctuation and
-  stays in usage. Fixtures: `corpus/gcc-ranlib-13/2.42`.
+  stays in usage. Only under a labelled usage block: `corepack`'s command rows
+  (an unlabelled `corepack disable [...]` row, description beneath) are not a
+  usage form's description and are left as before. Fixtures:
+  `corpus/gcc-ranlib-13/2.42`, `corpus/corepack/0.34.6` (still `[xfail]`).
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.

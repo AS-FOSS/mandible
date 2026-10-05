@@ -154,8 +154,17 @@ pub(super) fn is_form_description_line(line: &str, base_indent: usize) -> bool {
 /// The description lines [`is_form_description_line`] finds in `lines`
 /// between the usage block's `start` and `end`, joined into one sentence
 /// per line, so a skipped line is relocated to the node description
-/// instead of dropped.
-pub(super) fn form_description_lines(lines: &[&str], start: usize, end: usize) -> Vec<String> {
+/// instead of dropped. Only under a labelled usage block: an unlabelled
+/// command row's description is not the form's own (`corepack`).
+pub(super) fn form_description_lines(
+    lines: &[&str],
+    labelled_usage_start: Option<usize>,
+    start: usize,
+    end: usize,
+) -> Vec<String> {
+    if labelled_usage_start.is_none() {
+        return Vec::new();
+    }
     let base_indent = leading_whitespace(lines[start]);
     lines
         .get(start + 1..end.min(lines.len()))

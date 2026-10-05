@@ -886,7 +886,7 @@ fn scan_usage_section(
             if leading_whitespace(l) > base_indent
                 && (is_prose_sentence(trimmed_start)
                     || looks_like_unpunctuated_description_continuation(l)
-                    || is_form_description_line(l, base_indent))
+                    || (labelled_usage_start.is_some() && is_form_description_line(l, base_indent)))
             {
                 i += 1;
                 continue;
@@ -2225,7 +2225,7 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
-        form_description = form_description_lines(&lines, start, i);
+        form_description = form_description_lines(&lines, labelled_usage_start, start, i);
         // An extended usage label (`Example usage:`) whose rows are all
         // `<tool> <word> ...` also names subcommands; the rows stay usage
         // forms too. S-179.
