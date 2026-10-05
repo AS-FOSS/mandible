@@ -931,7 +931,7 @@ fn finish_positional_recovery(
     } else {
         std::collections::HashSet::new()
     };
-    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line)
+    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line, false)
 }
 
 /// The leading prose before the usage block, as the node description.
@@ -1912,7 +1912,7 @@ fn scan_entries(
         // Headingless flags block: sed has no Options: heading at all; the
         // current line already looks like a flag entry, so it is scanned
         // in place. See S-052.
-        if looks_like_flag_start(line.trim_start()) {
+        if starts_headingless_block(line.trim_start()) {
             // Not a new row at all: a hard-wrapped prose sentence landed on
             // a dash-led word at its paragraph's own indent (zgrep's
             // excluded-options list, resolvconf's unsupported-options

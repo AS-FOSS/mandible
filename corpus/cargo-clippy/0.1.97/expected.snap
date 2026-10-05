@@ -1,0 +1,130 @@
+name: cargo-clippy
+description: Checks a package to catch common mistakes and improve your Rust code.
+usage:
+- cargo clippy [OPTIONS] [--] [<ARGS>...]
+positionals:
+- name: ARGS
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --no-deps
+  group: 'Common options:'
+  description: Run Clippy only on the given crate, without linting the dependencies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix
+  group: 'Common options:'
+  description: Automatically apply lint suggestions. This flag implies --no-deps and --all-targets
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'Common options:'
+  description: Print this message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'Common options:'
+  description: Print version info and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --explain
+  value_name: LINT
+  value_kind: Optional
+  group: 'Common options:'
+  description: Print the documentation for a given lint
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --warn
+  value_name: LINT
+  value_kind: Optional
+  group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
+  description: Set lint warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --allow
+  value_name: LINT
+  value_kind: Optional
+  group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
+  description: Set lint allowed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --deny
+  value_name: LINT
+  value_kind: Optional
+  group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
+  description: Set lint denied
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --forbid
+  value_name: LINT
+  value_kind: Optional
+  group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
+  description: Set lint forbidden
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --manifest-path
+  value_name: <PATH>
+  value_kind: Required
+  group: 'Manifest Options:'
+  description: Path to Cargo.toml
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --frozen
+  group: 'Manifest Options:'
+  description: Require Cargo.lock and cache are up to date
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --locked
+  group: 'Manifest Options:'
+  description: Require Cargo.lock is up to date
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --offline
+  group: 'Manifest Options:'
+  description: Run without accessing the network
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

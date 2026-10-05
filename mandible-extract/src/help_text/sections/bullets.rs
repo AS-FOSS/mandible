@@ -122,11 +122,12 @@ fn is_lowercase_bare_word(word: &str) -> bool {
 /// (S-161 lifted it out of that gate): the same narrow evidence is safe on
 /// any option-table row, called from [`super::emit::emit_flags_with`] too.
 pub(super) fn join_slash_alias(text: &str) -> String {
-    let Some(spec_end) = text.find(' ') else {
+    let lead = text.len() - text.trim_start().len();
+    let Some(spec_end) = text.get(lead..).and_then(|t| t.find(' ')).map(|i| lead + i) else {
         return text.to_string();
     };
     let (spec, rest) = text.split_at(spec_end);
-    if !spec.starts_with('-') {
+    if !spec.trim_start().starts_with('-') {
         return text.to_string();
     }
     let Some(after_sep) = rest.strip_prefix(" / ") else {

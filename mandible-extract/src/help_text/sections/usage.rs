@@ -255,9 +255,20 @@ pub(super) fn extract_positionals(
     usage_lines: &[String],
     primary_lines: std::collections::HashSet<usize>,
 ) -> Vec<Entity> {
-    extract_positionals_inner(usage_lines, primary_lines, false)
+    extract_positionals_inner(usage_lines, primary_lines, false, false)
 }
 
+/// [`extract_positionals`] for a node that owns no flag: an option-list
+/// word (`[<options>]`) then names nothing but itself, so it stays an
+/// operand. See docs/shapes.md S-060.
+pub(super) fn extract_positionals_of_flagless_node(
+    usage_lines: &[String],
+    primary_lines: std::collections::HashSet<usize>,
+) -> Vec<Entity> {
+    extract_positionals_inner(usage_lines, primary_lines, false, true)
+}
+
+/// `keep_option_list_words`: keep `[<options>]` as an operand (flagless node).
 /// `unlabelled_single_line`: true only for the one shape `extract_positionals`
 /// itself never sees anywhere else — a single-physical-line unlabelled
 /// synopsis (`memhog`). Kept as its own parameter, never inferred from
@@ -270,6 +281,7 @@ pub(super) fn extract_positionals_inner(
     usage_lines: &[String],
     primary_lines: std::collections::HashSet<usize>,
     unlabelled_single_line: bool,
+    keep_option_list_words: bool,
 ) -> Vec<Entity> {
     let mut seen = std::collections::HashSet::new();
     let mut out = Vec::new();
@@ -423,7 +435,8 @@ pub(super) fn extract_positionals_inner(
             } else {
                 continue;
             };
-            if name.is_empty() || is_option_list_placeholder(&name) || !seen.insert(name.clone()) {
+            let option_list_word = !keep_option_list_words && is_option_list_placeholder(&name);
+            if name.is_empty() || option_list_word || !seen.insert(name.clone()) {
                 continue;
             }
             let required = !token.contains('[') && !line.contains(&format!("[{token}"));
@@ -912,7 +925,10 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                         if parse_bundled_shorts(tok).is_none() && tok != "--" {
                             if let Some(UsageSegment::Group(members)) = segments.get(seg_idx) {
                                 if let [member] = members.as_slice() {
-                                    if names_a_value(member) {
+                                    // `[options]` is the "flags go here" word, never
+                                    // a value (corpus/brew/7.0.7-search-alias, S-189).
+                                    if names_a_value(member) && !is_option_list_placeholder(member)
+                                    {
                                         push_usage_flag(
                                             &mut out,
                                             parse_flag_spec(&format!("{tok} [{member}]")),

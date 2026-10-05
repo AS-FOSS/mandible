@@ -591,6 +591,10 @@ subcommands:
     provenance:
       sources:
       - help-text
+  - name: options
+    provenance:
+      sources:
+      - help-text
   - name: device
     variadic: true
     provenance:

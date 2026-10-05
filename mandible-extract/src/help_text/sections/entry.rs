@@ -197,7 +197,50 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     }
     // Last resort, same precondition: `-c or --copyright text...`. See
     // `find_or_alias_single_space_gap`.
-    find_or_alias_single_space_gap(line)
+    if let Some(col) = find_or_alias_single_space_gap(line) {
+        return Some(col);
+    }
+    find_pipe_alias_single_space_gap(line)
+}
+
+/// Last-resort gap for a pipe-joined alias group whose description sits one
+/// space after the last spelling: `-? | -h | --help | -help to print this
+/// help message`. Cuts right after the last spelling when the row is two
+/// or more bare spellings joined by ` | ` followed by at least two words, the
+/// first not a placeholder, so `-a | -b FILE` stays that flag's value. Only
+/// consulted when every other finder found nothing. See docs/shapes.md
+/// S-190 and corpus/jinfo/17.0.20.
+pub(super) fn find_pipe_alias_single_space_gap(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let mut end = line.len() - trimmed.len();
+    let mut words = trimmed.split(' ').peekable();
+    let mut spellings = 0usize;
+    let bare = |w: &str| {
+        w.len() >= 2
+            && w.starts_with('-')
+            && w[1..]
+                .chars()
+                .all(|c| !c.is_whitespace() && !"=[]<>|,/".contains(c))
+    };
+    loop {
+        let w = words.next()?;
+        if !bare(w) {
+            return None;
+        }
+        spellings += 1;
+        end += w.len();
+        if words.peek() == Some(&"|") {
+            words.next();
+            end += 3;
+            continue;
+        }
+        break;
+    }
+    let rest: Vec<&str> = words.collect();
+    let prose_first = rest
+        .first()
+        .is_some_and(|w| !w.starts_with(['<', '[']) && w.chars().any(|c| c.is_ascii_lowercase()));
+    (spellings >= 2 && rest.len() >= 2 && prose_first).then_some(end)
 }
 
 /// Last-resort gap for a value-free `-x or --long description` row whose
@@ -353,6 +396,26 @@ pub(super) fn find_sentence_start_gap(line: &str) -> Option<usize> {
         token_count += 1;
     }
     None
+}
+
+/// Gap for one row of a block whose other rows sit in recurring columns:
+/// `-T fqs TCP/TPI Fl,Q,St (s) info`, a flag, one bare lowercase value,
+/// then a capital-led description of at least two words. Consulted only
+/// for such a block, where the lone row's missing column is the outlier.
+/// See docs/shapes.md S-031 and corpus/lsof/4.95.0-two-t.
+pub(super) fn find_column_block_value_gap(line: &str) -> Option<usize> {
+    let trimmed = line.trim_start();
+    let mut words = trimmed.split(' ');
+    let flag = words.next()?;
+    let value = words.next()?;
+    let first = words.next()?;
+    let flag_ok = flag.len() >= 2
+        && flag.starts_with('-')
+        && flag.chars().skip(1).all(|c| c.is_ascii_alphanumeric());
+    let value_ok = !value.is_empty() && value.chars().all(|c| c.is_ascii_lowercase());
+    let desc_ok = first.starts_with(|c: char| c.is_ascii_uppercase()) && words.next().is_some();
+    (flag_ok && value_ok && desc_ok)
+        .then(|| line.len() - trimmed.len() + flag.len() + 1 + value.len())
 }
 
 /// True if `token` reads as the first word of an English sentence rather

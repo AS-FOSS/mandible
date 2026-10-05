@@ -2,8 +2,8 @@
 # Raw: `[-n|--notable|--table {<table>|<table_file>}]` is two flags, `-n|--notable`
 # and `--table` with a brace value. `stats <command> [<options>] [<device>...]`
 # has an optional `<options>` operand ahead of the devices.
-# Broken: `create` folds `--notable` and `--table` into one flag, and `stats`
-# loses `[<options>]`.
+# `stats` keeps `[<options>]` (S-060). `create` still shares one value across
+# `-n`, `--notable` and `--table`: the text does not say which takes it.
 
 [bless]
 provenance = "agent"
@@ -29,8 +29,3 @@ create = ["--notable", "--table", "--major", "--uuid"]
 
 [contract.must_contain_positionals_by_path]
 stats = ["command", "options", "device..."]
-
-[xfail]
-broken = true
-reason = "[S-060] `stats <command> [<options>] [<device>...]` loses the `[<options>]` operand, which the usage-word rule reads as the tool's own option list although the node has no flags. `create` also fuses `-n|--notable` and `--table {<table>|<table_file>}` into one flag; no contract field asserts that split by path yet. AGENTS section 3.9."
-

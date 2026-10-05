@@ -183,6 +183,7 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 if matches!(spelling.dashes, Dashes::Single)
                     && spelling.name.chars().count() > 1
                     && spelling.name.chars().all(|c| c.is_ascii_alphabetic())
+                    && !spelling.name.chars().all(|c| c.is_ascii_uppercase())
                     && tail.starts_with(',')
                 {
                     spec.value_prefix = Some(',');
@@ -635,6 +636,15 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
                 rest,
             ));
         }
+    }
+    // An ALL-CAPS run the row names again as `=RUN` is a placeholder
+    // spelling (`-COLUMN, --columns=COLUMN`), never `-C` plus a value
+    // `OLUMN`. See docs/shapes.md S-191.
+    if run.chars().count() >= 3
+        && run.chars().all(|c| c.is_ascii_uppercase() || c == '_')
+        && after_run.contains(&format!("={run}"))
+    {
+        return Some((Spelling::single_dash(run), after_run));
     }
     // A run of nothing but `#` (gcc's `-###`) is the whole spelling, never
     // truncated to one character. See docs/shapes.md S-118.

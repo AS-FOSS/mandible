@@ -76,7 +76,9 @@ pub(super) fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
     // real `-`-leading row at that same indent — a bare-word command
     // table has no such row and stays unaffected. See docs/shapes.md
     // S-046.
-    if looks_like_flag_start(lines[start]) || looks_like_bracket_flag_row(lines[start]) {
+    if starts_headingless_block(lines[start].trim_start())
+        || looks_like_bracket_flag_row(lines[start])
+    {
         return Some(start);
     }
     let base = leading_whitespace(lines[start]);
@@ -92,7 +94,7 @@ pub(super) fn flags_block_start(lines: &[&str], start: usize) -> Option<usize> {
         if indent < base {
             return None; // dedented out of the block
         }
-        if looks_like_flag_start(line) || looks_like_bracket_flag_row(line) {
+        if starts_headingless_block(line.trim_start()) || looks_like_bracket_flag_row(line) {
             return Some(offset);
         }
         // A row whose left token could not be either kind of entry does
@@ -448,7 +450,7 @@ pub(super) fn is_claimed_plus_token(token: &str) -> bool {
     }
     let mut chars = rest.chars();
     match chars.next() {
-        Some(c) if c.is_ascii_alphabetic() => chars.all(|c| c.is_ascii_alphanumeric() || c == '-'),
+        Some(c) if c.is_ascii_alphabetic() => plus_word_len(rest) == rest.len(),
         _ => false,
     }
 }
@@ -534,10 +536,7 @@ pub(super) fn parse_plus_sigil_spec(spec_text: &str) -> FlagSpec {
     // `+word` (S-163): the whole run is the spelling, verbatim, `+`
     // included — a second, distinct entity from any `-word` sibling the
     // table also carries, never a value glued onto a bare `+`.
-    let word_end = rest
-        .char_indices()
-        .find(|(_, c)| !(c.is_ascii_alphanumeric() || *c == '-'))
-        .map_or(rest.len(), |(i, _)| i);
+    let word_end = plus_word_len(rest);
     if word_end == 0 {
         return FlagSpec::default();
     }
@@ -889,7 +888,7 @@ fn collect_flags_block_rows<'a>(
             && inside_open_block
             && is_claimed_plus_token(first_word(trimmed).trim_end_matches(','))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE)
-            && has_flag_shaped_plus_neighbor(lines, i);
+            && (has_flag_shaped_plus_neighbor(lines, i) || plus_row_names_long_alias(trimmed));
 
         // The alternation-sigil row (S-163): same "indented, or already
         // inside an open block" evidence as the plus-sigil row above, no
@@ -1180,7 +1179,16 @@ pub(super) fn scan_flags_block(
                         entries.push((s, d, Vec::new()));
                     }
                     None => {
-                        let (s, d) = split_single_column_entry(line);
+                        let gap = multi_column
+                            .then(|| find_column_block_value_gap(line))
+                            .flatten();
+                        let (s, d) = match gap {
+                            Some(g) => {
+                                let (s, d) = split_at_column(line, Some(g));
+                                (s.to_string(), d)
+                            }
+                            None => split_single_column_entry(line),
+                        };
                         entries.push((s, d, Vec::new()));
                     }
                 }

@@ -1,0 +1,65 @@
+name: jinfo
+usage:
+- '    jinfo <option> <pid> (to connect to a running process)'
+positionals:
+- name: pid
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -flag
+  value_name: <name>
+  value_kind: Required
+  group: 'where <option> is one of:'
+  description: to print the value of the named VM flag
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flag
+  value_name: '[+|-]'
+  value_kind: Optional
+  group: 'where <option> is one of:'
+  description: to enable or disable the named VM flag
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flag
+  value_name: <name>
+  value_kind: Required
+  group: 'where <option> is one of:'
+  description: to set the named VM flag to the given value
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -flags
+  group: 'where <option> is one of:'
+  description: to print VM flags
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sysprops
+  group: 'where <option> is one of:'
+  description: to print Java system properties
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - -h
+  - --help
+  - -help
+  description: to print this help message
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

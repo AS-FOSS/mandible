@@ -1,0 +1,246 @@
+name: dmsetup
+usage:
+- dmsetup [--version] [-h|--help [-c|-C|--columns]]
+flags:
+- spellings:
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: help
+  flags:
+  - spellings:
+    - -c
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -C
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --columns
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: create
+  positionals:
+  - name: dev_name
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -j
+    - --major
+    value_name: <major>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -m
+    - --minor
+    value_name: <minor>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -U
+    - --uid
+    value_name: <uid>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -G
+    - --gid
+    value_name: <gid>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -M
+    - --mode
+    value_name: <octal_mode>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -u
+    - --uuid
+    value_name: <uuid>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --addnodeonresume
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --addnodeoncreate
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --readahead
+    value_name: '{[+]<sectors>|auto|none}'
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -n
+    - --notable
+    - --table
+    value_name: '{<table>|<table_file>}'
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --concise
+    value_name: <concise_device_spec_list>
+    value_kind: Optional
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: remove
+  positionals:
+  - name: device
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --deferred
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -f
+    - --force
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --retry
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: remove_all
+  flags:
+  - spellings:
+    - -f
+    - --force
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: deps
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -o
+    value_name: <options>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: stats
+  positionals:
+  - name: command
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: options
+    provenance:
+      sources:
+      - help-text
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: status
+  positionals:
+  - name: device
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --noflush
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --target
+    value_name: <target_type>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true

@@ -558,12 +558,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -l List all supported pastebins
       --md5 Control MD5 generation
-- tools: pastebinit, apt-ftparchive
+- tools: pastebinit, apt-ftparchive, lsof
 - handling: find_sentence_start_gap recognizes a bare boolean flag followed directly by
   its description, so the description's own leading capitalized word, List,
   Print, Control, is read as prose rather than a fabricated required value.
   Originally written for apt-ftparchive's --md5 row and later found to already
   cover pastebinit's own rows.
+  A lone row of a column-aligned block (lsof's `-T fqs TCP/TPI Fl,Q,St (s) info`)
+  splits after its one lowercase value when a capital-led description follows
+  (find_column_block_value_gap).
 - fleet: not measured
 
 ### S-032: whole usage block with no per-flag table at all
@@ -1031,13 +1034,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-060
 - looks like: |
       no verbatim excerpt in source
-- tools: tar, pkgconf, dpkg-statoverride, vim, git
+- tools: tar, pkgconf, dpkg-statoverride, vim, git, dmsetup
 - handling: A usage synopsis can name its own option list with a word such as options or
   arguments rather than naming a real operand. A short fixed list of such
   words is excluded from becoming a fabricated positional. The list
   deliberately omits args and arg, since git and other tools use those words
-  as genuine forwarded operands.
-- fleet: not measured, vim anchor case confirmed with the maintainer, 2026-08-13
+  as genuine forwarded operands. A command-table row that owns no flag
+  keeps the word as an optional operand, since there is no option list for
+  it to stand for (`stats <command> [<options>] [<device>...]`,
+  `corpus/dmsetup/1.02.185-create-stats`).
+- fleet: not measured, vim anchor case confirmed with the maintainer, 2026-08-13.
+  Flagless-row rule: a sweep of the 192 tools with an indented row naming an
+  option-list word moved `dmsetup` alone.
 
 ### S-061: continuation line too deep for a new flag entry
 
@@ -1612,7 +1620,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       +			Start at end of file
       +<lnum>		Start at line <lnum>
-- tools: vim.basic, vim, vi, view, rvim, rview, ex, nvim, vim.tiny, vimdiff
+- tools: vim.basic, vim, vi, view, rvim, rview, ex, nvim, vim.tiny, vimdiff, pr
 - handling: Fixed. `scan_flags_block` (`mandible-extract/src/help_text/sections/flag_rows.rs`)
   admits a `+`/`+<placeholder>` row as an entry only beside a flag-shaped
   neighbor row (`has_flag_shaped_plus_neighbor`, the same evidence the
@@ -1624,7 +1632,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   reverted attempt widened unconditionally and fabricated flags on
   `git-lfs` (an AsciiDoc list-continuation marker) and `date` (a
   `%`-conversion-modifier table row) with. Distinct from S-086, the
-  plus-or-minus alternation.
+  plus-or-minus alternation. A `+` row that joins `, --long` to an ALL-CAPS
+  placeholder (`+FIRST_PAGE[:LAST_PAGE], --pages=...`) needs no neighbor
+  (`plus_row_names_long_alias`), and may open a headingless block
+  (`corpus/pr/9.4`).
 - fleet: sweep-diff against unmodified `origin/main`: 20 flag(s) gained
   across 10 tool(s), 0 lost, 2026-09-04. Every gain checked against the
   tool's own `--help` text. `git-lfs` and `date` unchanged (0 flags each,
@@ -3499,21 +3510,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
           -W / --warn [LINT]       Set lint warnings
           -A / --allow [LINT]      Set lint allowed
 - tools: cargo-clippy
-- handling: Open on its own tool, widened underneath. S-144 taught
-  `join_slash_alias` (`mandible-extract/src/help_text/sections/bullets.rs`)
-  to rewrite a spaced `/` between two flag-shaped tokens into the ordinary
-  comma-joined alias `parse_flag_spec` already reads, and gated it on the
-  lowdown bullet marker. Round 10 lifted that gate: the evidence is narrow
-  enough on its own (the separator must be exactly `/` with one space each
+- handling: Fixed. S-144 taught `join_slash_alias`
+  (`mandible-extract/src/help_text/sections/bullets.rs`) to rewrite a spaced
+  `/` between two flag-shaped tokens into the ordinary comma-joined alias
+  `parse_flag_spec` already reads, and round 10 ungated it from the lowdown
+  bullet marker (the separator must be exactly `/` with one space each
   side, and what follows must itself be flag-shaped, so a path or the word
-  "input/output" in a description is never touched), so `emit_flags_with`
-  calls it on any option-table row now.
-  It does not reach `cargo-clippy`, whose four rows are read by a different
-  row reader, so `-W` still takes the literal `/` as its value name and
-  `--warn`, `--allow`, `--deny` and `--forbid` still reach the tree nowhere.
-  `corpus/cargo-clippy/0.1.97` is the `[xfail]` fixture that states it, with
-  `must_contain_flags` naming all four long spellings and
-  `must_not_value_name` naming the `/` on all four short ones.
+  "input/output" in a description is never touched). `emit_flags_with`
+  calls it on any option-table row. It still missed `cargo-clippy` because
+  the row text arrives indented and the repair read the empty text before
+  the first space as the spelling; it now skips the indent. `-W` carries
+  `--warn` and the value `[LINT]`, and likewise `-A`, `-D`, `-F`.
+  `corpus/cargo-clippy/0.1.97` pins it.
 - fleet: `slash-joined-alias-outside-bullet`
   (`xtask/src/detector/slash_joined_alias_outside_bullet.rs`) reads 1 tool/4
   findings on a full-`PATH` sweep of 2323 tools, 2026-09-13, unchanged by the
@@ -4535,10 +4543,45 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `jfr help metadata` is probed and its prose reads, but its wrapped usage
   block and headingless flag rows yield no flags (`corpus/jfr/17.0.20`,
   xfail). `gem` prints the line, names no word by invocation, and gains
-  nothing. A usage line `Usage: brew search, -S [options] ...` gives the
-  alias `-S` an invented optional value (`corpus/brew/7.0.7-search-alias`,
-  xfail). The prose paragraph after a `Usage:` line is not read as the
-  node description. Fixtures: `corpus/brew/7.0.7`, `corpus/jfr/17.0.20`.
+  nothing. A bare flag followed by a one-member bracket group never takes
+  an option-list word (`[options]`, `[flags]`) as its value, so `Usage: brew
+  search, -S [options] ...` keeps `-S` value-free
+  (`corpus/brew/7.0.7-search-alias`). The prose paragraph after a
+  `Usage:` line is not read as the node description. Fixtures: `corpus/brew/7.0.7`, `corpus/jfr/17.0.20`.
 - fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
   cannot see this change. 2301 captures hold two strict lines (`gem`, `jfr`),
-  plus `brew`, which is not in the captures.
+  plus `brew`, which is not in the captures. The `-S [options]` guard: the
+  raw-capture grep finds only the two brew fixtures.
+
+### S-190: pipe-joined alias group, one-space description gap
+
+- id: S-190
+- looks like: |
+      -? | -h | --help | -help to print this help message
+- tools: jinfo
+- handling: Fixed. `find_pipe_alias_single_space_gap` is the last finder in
+  `find_description_gap`'s chain, so it runs only when every other finder
+  found nothing: two or more bare spellings joined by ` | `, then at least
+  two words, the first not a bracketed placeholder and carrying a lowercase
+  letter. The description starts after the last spelling, so the group is
+  one value-free flag with its own text instead of the word `to` read as a
+  value. A lone trailing token (`-a | -b FILE`) stays that flag's value.
+  `corpus/jinfo/17.0.20` pins it.
+- fleet: not measured; the raw-capture grep for the row shape finds `jinfo`
+  alone among 2301 captures (pre-check sweep of the 14 tools with a
+  pipe-joined row: zero other changes).
+
+### S-191: ALL-CAPS placeholder after a single dash is one spelling
+
+- id: S-191
+- looks like: |
+      -COLUMN, --columns=COLUMN
+- tools: pr
+- handling: Fixed. An ALL-CAPS run of three or more letters after one dash,
+  which the same row names again as `=RUN`, is one single-dash spelling
+  (`-COLUMN`), not `-C` with the value `OLUMN`. The comma-glued value rule
+  (S-116) skips an all-uppercase run, so the value stays `COLUMN`.
+  `corpus/pr/9.4` pins it. `grep`'s `-NUM` row is unchanged: the repeat sits
+  in its description, outside the spec cell.
+- fleet: pre-check sweep of the 36 tools with a `+`-led or `-WORD` row: `pr`
+  alone moved, zero losses.
