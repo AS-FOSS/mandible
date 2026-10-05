@@ -118,7 +118,7 @@ pub(super) fn fold_valued_example_rows(flags: &mut Vec<Entity>, raw: &str) {
             }
             end += 1;
         }
-        if end - i - 1 >= 2 {
+        if end - i > 2 {
             let choices: Vec<Choice> = flags
                 .drain(i + 1..end)
                 .filter_map(|f| {
