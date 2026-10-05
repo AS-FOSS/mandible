@@ -60,6 +60,7 @@ mod spellings_documented_elsewhere;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_alias_pair_then_valued_long;
 mod usage_command_table;
 mod usage_form_prose;
 mod usage_optional_word;
@@ -99,6 +100,7 @@ use spelling::*;
 #[cfg(test)]
 use test_support::*;
 use usage::*;
+use usage_alias_pair_then_valued_long::split_alias_pair_then_valued_long;
 use usage_command_table::*;
 use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;

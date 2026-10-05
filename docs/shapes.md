@@ -4932,3 +4932,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   usage text unchanged. Fixtures: `corpus/brew/7.0.7-search-alias` (tree),
   `a_usage_form_naming_the_node_with_an_alias_list_does_not_prepend` (pane).
 - fleet: not measured; a pane-only change the coverage sweep cannot see.
+
+### S-209: a bracket row of a short and a long spelling, then a second long spelling with the value
+
+- id: S-209
+- looks like: |
+      [-n|--notable|--table {<table>|<table_file>}]
+- tools: dmsetup
+- handling: Fixed. A whole-line bracket row of exactly three `|` members, a
+  bare short spelling, a bare long spelling and a long spelling followed by
+  a value, is two flags: the first two are one option with two spellings and
+  no value, the third is its own option and keeps the value. A row whose
+  value follows the second member (`-U|--uid <uid>`), or with more members,
+  is untouched. Fixtures: `corpus/dmsetup/1.02.185-create-stats`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.

@@ -31,7 +31,3 @@ create = [["-n", "--table"], ["--notable", "--table"]]
 
 [contract.must_contain_positionals_by_path]
 stats = ["command", "options", "device..."]
-
-[xfail]
-broken = true
-reason = "[S-209] `-n|--notable|--table {<table>|<table_file>}` stays one fused flag; the synopsis writes `-n|--notable` and `--table {...}` as two options on one bracket group"

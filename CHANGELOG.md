@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-209] A usage row `[-n|--notable|--table {<table>|<table_file>}]` is two flags, `-n|--notable` and `--table` with its value (`mandible dmsetup`'s `create`).
 - [S-208] A usage line that names the command and then its aliases (`brew search, -S [options] ...`) shows as printed instead of with the command's name prepended again (`mandible brew`'s `search`, `info`, `update`).
 - [S-207] A comma row of independent long options that the help documents again as rows of their own keeps only the spellings it alone documents (`mandible ld`'s `--warn-constructors` row, #102).
 - [S-193] A command row whose description starts one space after its operands, at its table's column, is a subcommand (`mandible systemctl` gains `set-property`, `mount-image`, `service-log-target`).
