@@ -1,0 +1,30 @@
+# Excerpt of the 2.42 capture: single-dash rows. `-Bdynamic, -dy,
+# -call_shared` and `-Bstatic, -dn, -non_shared, -static` are alias runs of
+# multi-letter spellings; `-Bno-symbolic`, `-Bsymbolic` and
+# `-Bsymbolic-functions` are three rows of one letter with a different word
+# each. None is `-B` with a value.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ld"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.2"
+
+[[capture]]
+argv = ["ld", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags"]
+must_contain_flags = ["-Bdynamic", "-dy", "-call_shared", "-Bstatic", "-dn", "-non_shared", "-static", "-Bsymbolic", "-Bno-symbolic", "-Bsymbolic-functions"]
+must_not_contain_flags = ["-B"]
+
+[xfail]
+broken = true
+reason = "[S-212] the alias runs `-Bdynamic, -dy, -call_shared` and `-Bstatic, -dn, -non_shared, -static` and the `-Bsymbolic` rows come out as `-B` with a value (`dynamic,`, `static,`, `symbolic`); the alias spellings are lost"

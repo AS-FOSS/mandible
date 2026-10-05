@@ -1,0 +1,10 @@
+Usage: /usr/bin/ld [options] file...
+Options:
+  -assert KEYWORD             Ignored for SunOS compatibility
+  -Bdynamic, -dy, -call_shared
+                              Link against shared libraries
+  -Bstatic, -dn, -non_shared, -static
+                              Do not link against shared libraries
+  -Bno-symbolic               Don't bind global references locally
+  -Bsymbolic                  Bind global references locally
+  -Bsymbolic-functions        Bind global function references locally

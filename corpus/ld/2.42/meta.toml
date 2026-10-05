@@ -1,9 +1,10 @@
 # From issue 102 item 3 (list rows naming independent options). One row
 # carries ten independent long options separated by commas, and the row's
 # own grammar reads as an alias list. The same document's
-# `-Bstatic, -dn, -non_shared, -static` row IS a genuine alias run, so a
+# `-Bstatic, -dn, -non_shared, -static` row is a genuine alias run, so a
 # fix must separate the first without splitting the second. Nine of the
 # row's ten spellings are documented again as rows of their own (S-207).
+# The alias run itself parses as `-B` with a value; see `2.42-single-dash`.
 
 [bless]
 provenance = "agent"
