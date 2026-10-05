@@ -409,6 +409,15 @@ follows it for the missing-root case: "these spellings never fused" holds
 vacuously of a tree with no flags at all, so a fixture that produces no
 root satisfies it and is not reported.
 
+`must_keep_separate_by_path` is the same claim for a subcommand's own
+flags, keyed by the subcommand's path (space-separated, no tool name). A
+path that resolves to no node fails by name.
+
+```toml
+[contract.must_keep_separate_by_path]
+create = [["-n", "--table"]]
+```
+
 ### A flag must own its choices: `must_attach_choices`
 
 `--format`'s choice values belong to `--format`, not to whichever flag

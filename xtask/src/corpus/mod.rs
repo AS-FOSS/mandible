@@ -51,6 +51,7 @@ use std::time::{Duration, Instant};
 mod contract;
 mod describe_root;
 mod group_rows_contract;
+mod keep_separate_by_path;
 mod markdown;
 mod not_attach_choices;
 mod refill_contract;
@@ -250,6 +251,11 @@ pub(crate) struct ContractMeta {
     /// reasoning as `must_not_contain_flags`.
     #[serde(default)]
     must_keep_separate: Vec<Vec<String>>,
+    /// `must_keep_separate` for a subcommand's own flags, keyed by path the
+    /// way `must_contain_flags_by_path` is. A path that resolves to no node
+    /// is a failure.
+    #[serde(default)]
+    must_keep_separate_by_path: std::collections::BTreeMap<String, Vec<Vec<String>>>,
     /// A root flag's choice values it must carry, keyed by the flag's own
     /// spelling (matched the way `must_contain_flags` matches). A positive
     /// claim: the flag must exist and its `Entity::choices` must include
