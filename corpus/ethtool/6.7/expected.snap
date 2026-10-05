@@ -1,0 +1,473 @@
+name: ethtool
+description: ethtool version 6.7 The supported sub commands include --show-coalesce, --coalesce [queue_mask %x] SUB_COMMAND
+usage:
+- '        ethtool [ FLAGS ]  DEVNAME      Display standard information about device'
+- '        ethtool [ FLAGS ] -s|--change DEVNAME   Change generic options [ speed %d ] [ lanes %d ] [ duplex half|full ] [ port tp|aui|bnc|mii|fibre|da ] [ mdix auto|on|off ] [ autoneg on|off ] [ advertise %x[/%x] | mode on|off ... [--] ] [ phyad %d ] [ xcvr internal|external ] [ wol %d[/%d] | p|u|m|b|a|g|s|f|d... ] [ sopass %x:%x:%x:%x:%x:%x ] [ msglvl %d[/%d] | type on|off ... [--] ] [ master-slave preferred-master|preferred-slave|forced-master|forced-slave ]'
+- '        ethtool [ FLAGS ] -a|--show-pause DEVNAME       Show pause options [ --src aggregate | emac | pmac ]'
+- '        ethtool [ FLAGS ] -A|--pause DEVNAME    Set pause options [ autoneg on|off ] [ rx on|off ] [ tx on|off ]'
+- '        ethtool [ FLAGS ] -c|--show-coalesce DEVNAME    Show coalesce options'
+- '        ethtool [ FLAGS ] -C|--coalesce DEVNAME Set coalesce options [adaptive-rx on|off] [adaptive-tx on|off] [rx-usecs N] [rx-frames N] [rx-usecs-irq N] [rx-frames-irq N] [tx-usecs N] [tx-frames N] [tx-usecs-irq N] [tx-frames-irq N] [stats-block-usecs N] [pkt-rate-low N] [rx-usecs-low N] [rx-frames-low N] [tx-usecs-low N] [tx-frames-low N] [pkt-rate-high N] [rx-usecs-high N] [rx-frames-high N] [tx-usecs-high N] [tx-frames-high N] [sample-interval N] [cqe-mode-rx on|off] [cqe-mode-tx on|off] [tx-aggr-max-bytes N] [tx-aggr-max-frames N] [tx-aggr-time-usecs N]'
+- '        ethtool [ FLAGS ] -g|--show-ring DEVNAME        Query RX/TX ring parameters'
+- '        ethtool [ FLAGS ] -G|--set-ring DEVNAME Set RX/TX ring parameters [ rx N ] [ rx-mini N ] [ rx-jumbo N ] [ tx N ] [ rx-buf-len N ] [ tcp-data-split auto|on|off ] [ cqe-size N ] [ tx-push on|off ] [ rx-push on|off ] [ tx-push-buf-len N]'
+- '        ethtool [ FLAGS ] -k|--show-features|--show-offload DEVNAME     Get state of protocol offload and other features'
+- '        ethtool [ FLAGS ] -K|--features|--offload DEVNAME       Set protocol offload and other features FEATURE on|off ...'
+- '        ethtool [ FLAGS ] -i|--driver DEVNAME   Show driver information'
+- '        ethtool [ FLAGS ] -d|--register-dump DEVNAME    Do a register dump [ raw on|off ] [ file FILENAME ]'
+- '        ethtool [ FLAGS ] -e|--eeprom-dump DEVNAME      Do a EEPROM dump [ raw on|off ] [ offset N ] [ length N ]'
+- '        ethtool [ FLAGS ] -E|--change-eeprom DEVNAME    Change bytes in device EEPROM [ magic N ] [ offset N ] [ length N ] [ value N ]'
+- '        ethtool [ FLAGS ] -r|--negotiate DEVNAME        Restart N-WAY negotiation'
+- '        ethtool [ FLAGS ] -p|--identify DEVNAME Show visible port identification (e.g. blinking) [ TIME-IN-SECONDS ]'
+- '        ethtool [ FLAGS ] -t|--test DEVNAME     Execute adapter self test [ online | offline | external_lb ]'
+- '        ethtool [ FLAGS ] -S|--statistics DEVNAME       Show adapter statistics [ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ] [ --src aggregate | emac | pmac ]'
+- '        ethtool [ FLAGS ] --phy-statistics DEVNAME      Show phy statistics'
+- '        ethtool [ FLAGS ] -n|-u|--show-nfc|--show-ntuple DEVNAME        Show Rx network flow classification options or rules [ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 [context %d] | rule %d ]'
+- '        ethtool [ FLAGS ] -N|-U|--config-nfc|--config-ntuple DEVNAME    Configure Rx network flow classification options or rules rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 m|v|t|s|d|f|n|r... [context %d] | flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4|ip6|tcp6|udp6|ah6|esp6|sctp6 [ src %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ] [ dst %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ] [ proto %d [m %x] ] [ src-ip IP-ADDRESS [m IP-ADDRESS] ] [ dst-ip IP-ADDRESS [m IP-ADDRESS] ] [ tos %d [m %x] ] [ tclass %d [m %x] ] [ l4proto %d [m %x] ] [ src-port %d [m %x] ] [ dst-port %d [m %x] ] [ spi %d [m %x] ] [ vlan-etype %x [m %x] ] [ vlan %x [m %x] ] [ user-def %x [m %x] ] [ dst-mac %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ] [ action %d ] | [ vf %d queue %d ] [ context %d ] [ loc %d ] | delete %d'
+- '        ethtool [ FLAGS ] -T|--show-time-stamping DEVNAME       Show time stamping capabilities'
+- '        ethtool [ FLAGS ] -x|--show-rxfh-indir|--show-rxfh DEVNAME      Show Rx flow hash indirection table and/or RSS hash key [ context %d ]'
+- '        ethtool [ FLAGS ] -X|--set-rxfh-indir|--rxfh DEVNAME    Set Rx flow hash indirection table and/or RSS hash key [ context %d|new ] [ equal N | weight W0 W1 ... | default ] [ hkey %x:%x:%x:%x:%x:.... ] [ hfunc FUNC ] [ delete ]'
+- '        ethtool [ FLAGS ] -f|--flash DEVNAME    Flash firmware image from the specified file to a region on the device FILENAME [ REGION-NUMBER-TO-FLASH ]'
+- '        ethtool [ FLAGS ] -P|--show-permaddr DEVNAME    Show permanent hardware address'
+- '        ethtool [ FLAGS ] -w|--get-dump DEVNAME Get dump flag, data [ data FILENAME ]'
+- '        ethtool [ FLAGS ] -W|--set-dump DEVNAME Set dump flag of the device N'
+- '        ethtool [ FLAGS ] -l|--show-channels DEVNAME    Query Channels'
+- '        ethtool [ FLAGS ] -L|--set-channels DEVNAME     Set Channels [ rx N ] [ tx N ] [ other N ] [ combined N ]'
+- '        ethtool [ FLAGS ] --show-priv-flags DEVNAME     Query private flags'
+- '        ethtool [ FLAGS ] --set-priv-flags DEVNAME      Set private flags FLAG on|off ...'
+- '        ethtool [ FLAGS ] -m|--dump-module-eeprom|--module-info DEVNAME Query/Decode Module EEPROM information and optical diagnostics if available [ raw on|off ] [ hex on|off ] [ offset N ] [ length N ] [ page N ] [ bank N ] [ i2c N ]'
+- '        ethtool [ FLAGS ] --show-eee DEVNAME    Show EEE settings'
+- '        ethtool [ FLAGS ] --set-eee DEVNAME     Set EEE settings [ eee on|off ] [ advertise %x ] [ tx-lpi on|off ] [ tx-timer %d ]'
+- '        ethtool [ FLAGS ] --set-phy-tunable DEVNAME     Set PHY tunable [ downshift on|off [count N] ] [ fast-link-down on|off [msecs N] ] [ energy-detect-power-down on|off [msecs N] ]'
+- '        ethtool [ FLAGS ] --get-phy-tunable DEVNAME     Get PHY tunable [ downshift ] [ fast-link-down ] [ energy-detect-power-down ]'
+- '        ethtool [ FLAGS ] --get-tunable DEVNAME Get tunable [ rx-copybreak ] [ tx-copybreak ] [ tx-buf-size ] [ pfc-prevention-tout ]'
+- '        ethtool [ FLAGS ] --set-tunable DEVNAME Set tunable [ rx-copybreak N ] [ tx-copybreak N ] [ tx-buf-size N ] [ pfc-prevention-tout N ]'
+- '        ethtool [ FLAGS ] --reset DEVNAME       Reset components [ flags %x ] [ mgmt ] [ mgmt-shared ] [ irq ] [ irq-shared ] [ dma ] [ dma-shared ] [ filter ] [ filter-shared ] [ offload ] [ offload-shared ] [ mac ] [ mac-shared ] [ phy ] [ phy-shared ] [ ram ] [ ram-shared ] [ ap ] [ ap-shared ] [ dedicated ] [ all ]'
+- '        ethtool [ FLAGS ] --show-fec DEVNAME    Show FEC settings'
+- '        ethtool [ FLAGS ] --set-fec DEVNAME     Set FEC settings [ encoding auto|off|rs|baser|llrs [...] ]'
+- '        ethtool [ FLAGS ] -Q|--per-queue DEVNAME        Apply per-queue command.'
+positionals:
+- name: DEVNAME
+  provenance:
+    sources:
+    - help-text
+- name: FEATURE
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FILENAME
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: EEPROM
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: RSS
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FUNC
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: EEE
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: PHY
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FEC
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --debug
+  value_name: MASK
+  value_kind: Required
+  description: turn on debugging messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --json
+  description: enable JSON output format (not supported by all commands)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --include-statistics
+  description: request device statistics related to the command (not supported by all commands)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --change
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -a
+  - --show-pause
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --src
+  value_kind: Required
+  choices:
+  - aggregate
+  - emac
+  - pmac
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -A
+  - --pause
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  - --show-coalesce
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  - --coalesce
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -g
+  - --show-ring
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -G
+  - --set-ring
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -k
+  - --show-features
+  - --show-offload
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -K
+  - --features
+  - --offload
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -i
+  - --driver
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -d
+  - --register-dump
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -e
+  - --eeprom-dump
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -E
+  - --change-eeprom
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -r
+  - --negotiate
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  - --identify
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -t
+  - --test
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -S
+  - --statistics
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --all-groups
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --groups
+  value_name: eth-phy
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --phy-statistics
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -n
+  - -u
+  - --show-nfc
+  - --show-ntuple
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -N
+  - -U
+  - --config-nfc
+  - --config-ntuple
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -T
+  - --show-time-stamping
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -x
+  - --show-rxfh-indir
+  - --show-rxfh
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -X
+  - --set-rxfh-indir
+  - --rxfh
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -f
+  - --flash
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  - --show-permaddr
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -w
+  - --get-dump
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -W
+  - --set-dump
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -l
+  - --show-channels
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -L
+  - --set-channels
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --show-priv-flags
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --set-priv-flags
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -m
+  - --dump-module-eeprom
+  - --module-info
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --show-eee
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --set-eee
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --set-phy-tunable
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --get-phy-tunable
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --get-tunable
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --set-tunable
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --reset
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --show-fec
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --set-fec
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -Q
+  - --per-queue
+  value_name: DEVNAME
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.17
+children_filled: true

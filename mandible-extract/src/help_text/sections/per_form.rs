@@ -29,31 +29,43 @@ struct Op {
     word: bool,
 }
 
-/// `line` cut at its first run of three spaces outside brackets: the
-/// column gap a trailing description sits behind.
-fn cut_at_gap(line: &str) -> &str {
+/// `line` cut at its first run of three spaces or first tab outside
+/// brackets: the column gap a trailing description sits behind. The flag is
+/// set when the cut was a tab (`ethtool`'s `-s|--change DEVNAME<TAB>Change
+/// generic options`): the form is complete there, and the deeper-indented
+/// `[ keyword value ]` lines that follow are its keyword arguments, not
+/// more of the form.
+fn cut_at_gap(line: &str) -> (&str, bool) {
     let (mut depth, mut run) = (0i32, 0usize);
     for (i, c) in line.char_indices() {
         depth += i32::from(c == '[') - i32::from(c == ']');
         run = if c == ' ' { run + 1 } else { 0 };
+        if c == '\t' && depth <= 0 {
+            return (&line[..i], true);
+        }
         if run >= 3 && depth <= 0 {
-            return &line[..i + 1 - run];
+            return (&line[..i + 1 - run], false);
         }
     }
-    line
+    (line, false)
 }
 
 /// Split the usage lines into one text per invocation form, program name
-/// removed.
-fn split_forms(usage_lines: &[String]) -> Vec<String> {
+/// removed, and the keyword-argument lines below a form closed by a tab.
+fn split_forms(usage_lines: &[String]) -> (Vec<String>, Vec<String>) {
     let mut forms: Vec<String> = Vec::new();
-    let usage_lines: Vec<String> = usage_lines
+    let mut keywords: Vec<String> = Vec::new();
+    let usage_lines: Vec<(String, bool)> = usage_lines
         .iter()
-        .map(|l| cut_at_gap(l.trim()).to_string())
+        .map(|l| {
+            let (cut, tab) = cut_at_gap(l.trim());
+            (cut.to_string(), tab)
+        })
         .collect();
     let mut prog: Option<String> = None;
     let mut fresh = true;
-    for line in &usage_lines {
+    let mut closed = false;
+    for (line, tab) in &usage_lines {
         let mut t = line.trim();
         let lower = t.to_ascii_lowercase();
         if lower.starts_with("usage:") || lower.starts_with("or:") {
@@ -71,12 +83,16 @@ fn split_forms(usage_lines: &[String]) -> Vec<String> {
         if first == p.as_str() && (fresh || !forms.is_empty()) {
             forms.push(rest.to_string());
             fresh = false;
+            closed = *tab;
+        } else if closed {
+            keywords.push(t.to_string());
         } else if let Some(last) = forms.last_mut() {
             last.push(' ');
             last.push_str(t);
+            closed = *tab;
         }
     }
-    forms
+    (forms, keywords)
 }
 
 fn tokenize(form: &str) -> Vec<Tok> {
@@ -407,7 +423,7 @@ fn apply_operands(forms: &[Vec<Op>], positionals: &mut Vec<Entity>) {
 /// Read every usage form of `usage_lines` and fold what the first-seen
 /// reading dropped into `flags` and `positionals`. See S-197.
 pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity], positionals: &mut Vec<Entity>) {
-    let texts = split_forms(usage_lines);
+    let (texts, keywords) = split_forms(usage_lines);
     if texts.is_empty() {
         return;
     }
@@ -418,7 +434,13 @@ pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity], positionals: &
             .any(|f| spells(f, key) && f.value_kind != ValueKind::None)
     };
     let read: Vec<(Vec<Occ>, Vec<Op>)> = texts.iter().map(|t| read_form(t, &takes_value)).collect();
-    let (occs, ops): (Vec<_>, Vec<_>) = read.into_iter().unzip();
+    let (mut occs, ops): (Vec<_>, Vec<_>) = read.into_iter().unzip();
+    // Keyword arguments name flags (`[ --src a | b | c ]`) but no operand.
+    occs.extend(keywords.iter().map(|k| {
+        let mut o = read_form(k, &takes_value).0;
+        o.iter_mut().for_each(|o| o.head = false);
+        o
+    }));
     for flag in flags.iter_mut().filter(|f| synopsis_only(f)) {
         let mine: Vec<&Occ> = occs
             .iter()

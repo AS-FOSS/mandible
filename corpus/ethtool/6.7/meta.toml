@@ -21,6 +21,3 @@ must_not_contain_positionals = ["a", "delete", "dump", "file", "offload", "phy",
 [contract.must_attach_choices]
 "--src" = ["aggregate", "emac", "pmac"]
 
-[xfail]
-broken = true
-reason = "keyword-argument lines and description words after the tab gap are read as root operands"

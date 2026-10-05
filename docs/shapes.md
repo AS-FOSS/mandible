@@ -4735,8 +4735,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   eats the next word when the flag takes a value. An operand that is missing
   from some form, or bracketed in any, is not `required` at the root
   (`sg_test_rwbuf`'s `SZ`, `cp`'s `DEST`, `ip`'s `OBJECT`). `required` has no
-  contract field, so the blessed snapshots pin it. Fixtures:
-  `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`.
+  contract field, so the blessed snapshots pin it. A form line that ends in a
+  tab and a description (`ethtool -s|--change DEVNAME<TAB>Change generic
+  options`) closes the form: the deeper-indented `[ keyword value ]` lines
+  below it still give flags their choices (`[ --src a | b | c ]`) but name
+  no operand. Fixtures:
+  `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
+  `corpus/ethtool/6.7`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
   `required: true`, each read against its raw usage text.
