@@ -1,0 +1,3 @@
+sginfo: invalid option -- '-'
+Error: sginfo: Unknown option
+Usage: sginfo [-options] [device] [replacement_values]
