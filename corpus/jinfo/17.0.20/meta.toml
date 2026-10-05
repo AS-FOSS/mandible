@@ -88,6 +88,15 @@ stderr = "help.stderr.txt"
 # found no fingerprint and the generic layout engine handled it.
 expected_framework = "generic"
 
+[xfail]
+broken = true
+reason = "value placeholders are cut at the first space: `-flag [+|-]<name>` gets `[+|-]`, `-flag <name>=<value>` gets `<name>`"
+
+# The three `-flag` rows cannot be told apart by one key; must_value_name is
+# satisfied by any matching entity, so naming the two longer forms pins both rows.
+[contract.must_value_name]
+"-flag" = "[+|-]<name>"
+
 [contract.must_not_value_name]
 "-?" = "to"
 
