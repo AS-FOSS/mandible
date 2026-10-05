@@ -176,9 +176,12 @@ fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
         };
         let value = toks.get(1).copied().filter(|v| is_plain_word(v));
         let shape_ok = toks.len() == 1 || (toks.len() == 2 && value.is_some());
-        let alts_ok = parts[1..]
-            .iter()
-            .all(|p| value.is_some_and(is_literal_choice_value) && is_literal_choice_value(p));
+        // `[-m module | pyfile]` is a flag value or an operand, not a choice
+        // list: a list names at least three words.
+        let alts_ok = (parts.len() == 1 || parts.len() >= 3)
+            && parts[1..]
+                .iter()
+                .all(|p| value.is_some_and(is_literal_choice_value) && is_literal_choice_value(p));
         if shape_ok && alts_ok {
             occs.push(Occ {
                 key: key.to_string(),

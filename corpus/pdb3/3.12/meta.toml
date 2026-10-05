@@ -20,6 +20,3 @@ must_contain_flags = ["-c", "-m"]
 [contract.must_not_attach_choices]
 "-m" = ["module", "pyfile"]
 
-[xfail]
-broken = true
-reason = "[-m module | pyfile] (a flag value and an operand) is read as a two-word choice list for -m"

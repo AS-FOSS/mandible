@@ -4692,7 +4692,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   alternatives, is the flag's choice list when every word is a lowercase
   literal (`is_literal_choice_value`). The flag kept only the first word as its
   value before. A placeholder alternative (`sftp`'s `[-s subsystem | sftp_server]`)
-  fails the literal test, so the group is left alone. The pass lives in
+  fails the literal test, so the group is left alone, and so does a pair
+  (`pdb`'s `[-m module | pyfile]` is a value and an operand): a list names at
+  least three words. The pass lives in
   `help_text/sections/per_form.rs` and reads only flags a synopsis alone
   produced. Fixtures: `corpus/ssh-keygen/9.6p1`, `corpus/tcpdump/audit-seed2`.
 - fleet: a `--tools` pre-check over 255 tools (every corpus tool, every `sg_*`
