@@ -45,6 +45,7 @@ mod layout;
 mod multiword;
 mod numeric_range;
 mod or_choice_fold;
+mod per_form;
 mod plus_minus;
 mod preamble;
 mod repair;
@@ -2414,6 +2415,7 @@ fn parse_body(
             // silently replaced by whichever entity happened to land
             // first.
         }
+        per_form::apply(&usage_lines, &mut result.flags);
         // A dash-prefixed usage word normally swallowed as the generic
         // "any option" placeholder, or a usage-derived flag already
         // misread as a short flag plus a fabricated value, is repaired or

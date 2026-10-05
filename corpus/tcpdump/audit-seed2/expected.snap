@@ -218,8 +218,11 @@ flags:
     - help-text-synopsis
 - spellings:
   - -Q
-  value_name: in
   value_kind: Required
+  choices:
+  - in
+  - out
+  - inout
   provenance:
     sources:
     - help-text-synopsis

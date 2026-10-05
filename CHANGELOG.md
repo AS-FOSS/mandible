@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-197] A synopsis bracket `[-t dsa | ecdsa | rsa]` gives `-t` those words as choices instead of only the first (`mandible ssh-keygen`'s `-t`, `tcpdump`'s `-Q`).
 - [S-156] A description that ends in a labelled value list (`available formats: ...`) gives its flag those values as choices (`mandible grub-mkimage`'s `--format`, `grub-install`'s `--target`, `mksquashfs`'s `-Xbcj`).
 - [S-196] A synopsis above an `Example usage:` label stays the usage, so a `help <word>` page's flag rows reach their node (`mandible jfr`'s `configure` and `metadata`).
 - [S-011] A line after a backslash-ended line is that line's continuation, never a flag row (`mandible jpackage`'s sample usages, `update-xmlcatalog`'s repeated `--id`).

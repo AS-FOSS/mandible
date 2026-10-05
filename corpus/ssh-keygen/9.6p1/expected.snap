@@ -83,8 +83,14 @@ flags:
     - help-text-synopsis
 - spellings:
   - -t
-  value_name: dsa
   value_kind: Required
+  choices:
+  - dsa
+  - ecdsa
+  - ecdsa-sk
+  - ed25519
+  - ed25519-sk
+  - rsa
   provenance:
     sources:
     - help-text-synopsis

@@ -4680,3 +4680,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jfr/17.0.20`.
 - fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
   cannot see this change. 2301 captures hold two such labels (`brew`, `jfr`).
+
+### S-197: `[-t a | b | c]` in a synopsis lists the choices of `-t`
+
+- id: S-197
+- looks like: |
+      usage: ssh-keygen [-t dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa]
+      usage: tcpdump [ -Q in|out|inout ]
+- tools: ssh-keygen, tcpdump
+- handling: Fixed. One bracket holding a flag and its value word, then `|`
+  alternatives, is the flag's choice list when every word is a lowercase
+  literal (`is_literal_choice_value`). The flag kept only the first word as its
+  value before. A placeholder alternative (`sftp`'s `[-s subsystem | sftp_server]`)
+  fails the literal test, so the group is left alone. The pass lives in
+  `help_text/sections/per_form.rs` and reads only flags a synopsis alone
+  produced. Fixtures: `corpus/ssh-keygen/9.6p1`, `corpus/tcpdump/audit-seed2`.
+- fleet: a `--tools` pre-check over 255 tools (every corpus tool, every `sg_*`
+  tool, the ssh family) moved two tools and lost none.
