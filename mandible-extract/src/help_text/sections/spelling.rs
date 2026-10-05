@@ -329,6 +329,23 @@ pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     (spec.to_string(), desc)
 }
 
+/// True when `token`, trimmed, is a short flag spelling and nothing else —
+/// no abbreviation bracket, no value, no alias of its own
+/// ([`is_bare_flag_spelling`]) — and specifically the *short* half of that
+/// shape (a long spelling fails the "one character" arm of that predicate
+/// on its own).
+pub(super) fn is_unadorned_short(token: &str) -> bool {
+    let t = token.trim();
+    !t.starts_with("--") && is_bare_flag_spelling(t)
+}
+
+/// The long-spelling counterpart to [`is_unadorned_short`]: `--name` and
+/// nothing else.
+pub(super) fn is_unadorned_long(token: &str) -> bool {
+    let t = token.trim();
+    t.starts_with("--") && is_bare_flag_spelling(t)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -218,23 +218,6 @@ pub(super) fn looks_like_bnf_continuation_row(trimmed: &str) -> bool {
         .is_some_and(|rest| looks_like_flag_start(rest.trim_start()))
 }
 
-/// True when `token`, trimmed, is a short flag spelling and nothing else —
-/// no abbreviation bracket, no value, no alias of its own
-/// ([`is_bare_flag_spelling`]) — and specifically the *short* half of that
-/// shape (a long spelling fails the "one character" arm of that predicate
-/// on its own).
-pub(super) fn is_unadorned_short(token: &str) -> bool {
-    let t = token.trim();
-    !t.starts_with("--") && is_bare_flag_spelling(t)
-}
-
-/// The long-spelling counterpart to [`is_unadorned_short`]: `--name` and
-/// nothing else.
-pub(super) fn is_unadorned_long(token: &str) -> bool {
-    let t = token.trim();
-    t.starts_with("--") && is_bare_flag_spelling(t)
-}
-
 /// The opening delimiter that would match a given closing one.
 pub(super) fn matching_open(close: char) -> char {
     match close {
@@ -857,7 +840,8 @@ fn collect_flags_block_rows<'a>(
             break;
         }
 
-        let is_entry_start = (looks_like_flag_start(trimmed)
+        let is_entry_start = !follows_backslash_line(lines, i)
+            && (looks_like_flag_start(trimmed)
             || looks_like_bracket_flag_row(trimmed)
             // Gated like `split_bnf_alternation_row`: a leading `|`
             // introduces a BNF continuation (`dcb`'s wrapped `OPTIONS :=`),
@@ -871,8 +855,7 @@ fn collect_flags_block_rows<'a>(
             // The plus-or-minus row (S-086): the `+|-x` sigil is
             // unambiguous on its own.
             || starts_with_plus_minus_pair(trimmed))
-            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE)
-            && !(i > 0 && lines[i - 1].trim_end().ends_with('\\'));
+            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented
         // (a heading has none) **or** inside a block this scan has
