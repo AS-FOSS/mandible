@@ -258,17 +258,8 @@ pub(super) fn extract_positionals(
     extract_positionals_inner(usage_lines, primary_lines, false, false)
 }
 
-/// [`extract_positionals`] for a node that owns no flag: an option-list
-/// word (`[<options>]`) then names nothing but itself, so it stays an
-/// operand. See docs/shapes.md S-060.
-pub(super) fn extract_positionals_of_flagless_node(
-    usage_lines: &[String],
-    primary_lines: std::collections::HashSet<usize>,
-) -> Vec<Entity> {
-    extract_positionals_inner(usage_lines, primary_lines, false, true)
-}
-
-/// `keep_option_list_words`: keep `[<options>]` as an operand (flagless node).
+/// `keep_option_list_words`: keep `[<options>]` as an operand. A node that
+/// owns no flag passes true: the word then names nothing but itself (S-060).
 /// `unlabelled_single_line`: true only for the one shape `extract_positionals`
 /// itself never sees anywhere else — a single-physical-line unlabelled
 /// synopsis (`memhog`). Kept as its own parameter, never inferred from
