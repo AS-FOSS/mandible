@@ -4738,3 +4738,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
   `required: true`, each read against its raw usage text.
+
+### S-200: single-dash row whose value is a glued run of placeholder groups
+
+- id: S-200
+- looks like: |
+      -flag [+|-]<name>    to enable or disable the named VM flag
+      -flag <name>=<value> to set the named VM flag to the given value
+- tools: jinfo
+- handling: Fixed. A single-dash long option row (`-flag`) takes its value from
+  the row's own text, and the placeholder is the whole run of bracket and angle
+  groups glued together with no space, an `=` between groups allowed:
+  `[+|-]<name>`, `<name>=<value>`. A glued angle group makes the value
+  required. Two rows with the same spelling stay two rows. Fixture:
+  `corpus/jinfo/17.0.20`.
+- fleet: a `--tools` pre-check moved jinfo only and lost none; the nine
+  controls are byte-identical.

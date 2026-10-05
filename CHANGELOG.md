@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-200] A single-dash row whose value is a glued run of placeholders keeps the whole value, and same-spelling rows keep their own (`mandible jinfo`'s `-flag [+|-]<name>` and `-flag <name>=<value>`).
 - [S-199] The operands that close a usage form are read per form, and an operand missing from some forms is no longer required (`mandible ssh-keygen` gains `output_file` and `file ...`, `mandible sg_test_rwbuf`'s `SZ` is optional, `awk` gains `file ...`).
 - [S-198] A flag that opens several usage forms with a different lowercase word each time owns those words as choices (`mandible ssh-keygen`'s `-Y` gets `sign`, `verify`, `find-principals`, `match-principals`, `check-novalidate`; `-M` gets `generate`, `screen`).
 - [S-197] A synopsis bracket `[-t dsa | ecdsa | rsa]` gives `-t` those words as choices instead of only the first (`mandible ssh-keygen`'s `-t`, `tcpdump`'s `-Q`).

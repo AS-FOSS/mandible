@@ -923,17 +923,44 @@ pub(super) fn spaced_value_placeholder(raw: &str, name_token: &str) -> Option<(S
 /// of [`spaced_value_placeholder`], split out so each bracket kind's span
 /// search stays a one-liner.
 fn placeholder_at(hay: &[char], start: usize) -> Option<(String, ValueKind)> {
-    match *hay.get(start)? {
-        '<' => {
-            let close = (start..hay.len()).find(|&i| hay[i] == '>')?;
-            Some((hay[start..=close].iter().collect(), ValueKind::Required))
+    let first = *hay.get(start)?;
+    let close_of = |from: usize, close: char| (from..hay.len()).find(|&i| hay[i] == close);
+    let mut end = match first {
+        '<' => close_of(start, '>')?,
+        '[' => close_of(start, ']')?,
+        _ => return None,
+    };
+    let mut kind = if first == '<' {
+        ValueKind::Required
+    } else {
+        ValueKind::Optional
+    };
+    // Further groups glued on with no whitespace belong to the same
+    // placeholder: `[+|-]<name>`, `<name>=<value>`. A glued angle group
+    // makes the value required. See docs/shapes.md S-200.
+    loop {
+        let next = if hay.get(end + 1) == Some(&'=') {
+            end + 2
+        } else {
+            end + 1
+        };
+        let (close, is_angle) = match hay.get(next) {
+            Some('<') => ('>', true),
+            Some('[') => (']', false),
+            _ => break,
+        };
+        let Some(c) = close_of(next, close) else {
+            break;
+        };
+        if hay[next..c].iter().any(|ch| ch.is_whitespace()) {
+            break;
         }
-        '[' => {
-            let close = (start..hay.len()).find(|&i| hay[i] == ']')?;
-            Some((hay[start..=close].iter().collect(), ValueKind::Optional))
+        end = c;
+        if is_angle {
+            kind = ValueKind::Required;
         }
-        _ => None,
     }
+    Some((hay[start..=end].iter().collect(), kind))
 }
 
 /// The bare-word value name a single-dash-long-table row (S-145) documents
