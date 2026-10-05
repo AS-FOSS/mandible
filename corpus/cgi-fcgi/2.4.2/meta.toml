@@ -1,0 +1,24 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cgi-fcgi"
+version = "2.4.2"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["cgi-fcgi", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_positionals = ["appPath", "nServers"]
+must_not_contain_positionals = ["connName"]
+
+[xfail]
+broken = true
+reason = "the <connName> after -connect is a flag value, read as a root operand"
