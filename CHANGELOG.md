@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-011] A line after a backslash-ended line is that line's continuation, never a flag row (`mandible jpackage`'s sample usages, `update-xmlcatalog`'s repeated `--id`).
 - [S-091] A one-line banner on stdout no longer hides the real help on stderr (`mandible bzless`, `mandible bzmore` show bzip2's 23 flags instead of a `------` flag).
 - [S-192] A row `-u <username> -p <password>` reads as two flags instead of `-u` with the description `-p <password>` (`mandible pastebinit`).
 - [S-074] A wrapped usage line whose continuation opens with a flag at the hanging indent stays one synopsis (`mandible pptpsetup` gains `--delete`, `--password`, `--encrypt`, `--start`; `mandible ssh-keygen`'s `-Y verify` form is whole).

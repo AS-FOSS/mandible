@@ -1935,6 +1935,13 @@ fn scan_entries(
         // Headingless flags block: sed has no Options: heading at all; the
         // current line already looks like a flag entry, so it is scanned
         // in place. See S-052.
+        // The line after a backslash-ended line is that line's
+        // continuation, never a row. See S-011 and
+        // corpus/jpackage/21.0.12.1-samples.
+        if i > 0 && lines[i - 1].trim_end().ends_with('\\') {
+            i += 1;
+            continue;
+        }
         if starts_headingless_block(line.trim_start()) {
             // Not a new row at all: a hard-wrapped prose sentence landed on
             // a dash-led word at its paragraph's own indent (zgrep's

@@ -4,29 +4,6 @@ usage:
 - '    update-xmlcatalog <options> --del --root --type <type> --id <id>'
 flags:
 - spellings:
-  - --id
-  value_name: <id>
-  value_kind: Required
-  description: --local <local>
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - --id
-  value_name: <id>
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - --id
-  value_name: <id>
-  value_kind: Required
-  description: --file <file>
-  provenance:
-    sources:
-    - help-text
-- spellings:
   - --file
   value_name: <file>
   value_kind: Required

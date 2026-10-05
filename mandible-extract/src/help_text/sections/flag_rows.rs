@@ -871,7 +871,8 @@ fn collect_flags_block_rows<'a>(
             // The plus-or-minus row (S-086): the `+|-x` sigil is
             // unambiguous on its own.
             || starts_with_plus_minus_pair(trimmed))
-            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
+            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE)
+            && !(i > 0 && lines[i - 1].trim_end().ends_with('\\'));
 
         // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented
         // (a heading has none) **or** inside a block this scan has
