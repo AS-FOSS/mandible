@@ -4999,14 +4999,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
                                   Link against shared libraries
       -Bsymbolic                  Bind global references locally
       -Tbss ADDRESS               Set address of .bss section
-- tools: ld, gold, lto-dump
+- tools: ld, gold, lto-dump, sginfo
 - handling: Fixed. A run of four or more letters followed by `, -` and
   another single-dash spelling is one multi-letter spelling of an alias run
   (`-Bdynamic, -dy, -call_shared`, `-shared, -Bshareable`). Three or more
   table rows of one short letter, each glued to a different word and each
   with a description (`-Bsymbolic`, `-Bgroup`, `-Tbss`, gcc's `-Wcast-result`
   rows), are separate single-dash options; a value spaced after the name
-  (`-Tbss ADDRESS`) stays on the option. Fixtures: `corpus/ld/2.42-single-dash`,
-  `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`.
+  (`-Tbss ADDRESS`) stays on the option. The family needs one shared
+  indentation column: rows glued to a parent's `-Farg` placeholder and
+  indented deeper (`-Flogical`, `-Flba64`) are that flag's choices with
+  their descriptions. Fixtures: `corpus/ld/2.42-single-dash`,
+  `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`, `corpus/sginfo/2.43`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
   (224 tools; ld, gold and their aliases moved).

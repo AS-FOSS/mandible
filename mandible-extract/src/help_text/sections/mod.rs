@@ -2477,6 +2477,7 @@ fn parse_body(
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
     short_letter_word_family::split_short_letter_word_family(&mut result.flags, raw);
+    short_letter_word_family::fold_valued_example_rows(&mut result.flags, raw);
     // A narrower sibling of the repair above, admitted on its own
     // evidence rather than S-145's table-wide argument (atlas S-172): a
     // table-derived flag whose reconstructed name the tool's own usage

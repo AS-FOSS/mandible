@@ -24,6 +24,5 @@ verdict_scope = ["flags"]
 must_contain_flags = ["-F", "-6", "-t", "-u"]
 must_not_contain_flags = ["-Farg", "-Flogical", "-Flba64", "-Fphysical", "-Findex", "-Fhead"]
 
-[xfail]
-broken = true
-reason = "[S-212] the `-Farg` row and its deeper-indented `-Flogical`.. example lines come out as invented flags `-Farg`, `-Flogical`, ... instead of `-F` with value `arg`"
+[contract.must_attach_choices]
+"-F" = ["logical", "lba64", "physical", "index", "head"]
