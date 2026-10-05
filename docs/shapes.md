@@ -4969,3 +4969,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/argdist-bpfcc/0.29.1`, `corpus/jpackage/21.0.12.1-samples`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
   (135 tools: bpfcc, jdk, rg; argdist-bpfcc and jpackage moved).
+
+### S-211: a command list written as `<tool> <word> ...` rows, each over its description
+
+- id: S-211
+- looks like: |
+      $ corepack <command>
+
+      General commands
+
+        corepack disable [--install-directory #0] ...
+          Remove the Corepack shims from the install directory
+- tools: corepack
+- handling: Fixed. A run of three or more rows that start with the tool's
+  name, each followed by an indented prose description, is never the usage
+  form, and a `$ ` shell prompt before the tool's name no longer hides the
+  real usage line. The commands heading over such a run now introduces its
+  invocation table directly, so every row becomes a subcommand carrying the
+  heading as its group, and nothing is folded into usage. Fixtures:
+  `corpus/corepack/0.34.6`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check;
+  the full-`PATH` sweep decides.

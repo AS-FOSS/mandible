@@ -35,6 +35,7 @@ mod avoption;
 mod backfill;
 mod bullets;
 mod dashless_key_flags;
+mod command_list_rows;
 mod command_row_column;
 mod description_choices;
 mod emit;
@@ -2045,6 +2046,19 @@ fn scan_entries(
             }
         }
 
+        if let Some((end, nodes, seen, clean)) = tool_name.and_then(|name| {
+            command_list_rows::table_under_commands_heading(lines, i, name, raw, profile)
+        }) {
+            i = end;
+            st.total_entries += seen;
+            st.clean_entries += clean;
+            for node in nodes {
+                st.result.try_push_subcommand(node);
+            }
+            st.command_mode = false;
+            continue;
+        }
+
         // A run of ragged-indent command-table rows: a short-alias prefix
         // (`i, install`) ragged-indents some rows against their unaliased
         // siblings, which defeats every fixed-indent block scanner below
@@ -2193,7 +2207,10 @@ fn locate_usage_start(
                 {
                     break;
                 }
-                let t = l.trim_start();
+                if command_list_rows::is_command_list_row(lines, idx, name) {
+                    continue;
+                }
+                let t = command_list_rows::without_prompt(l.trim_start());
                 // LVM's own emitter also writes a bare invocation line
                 // (`vgck` alone) with all docopt notation on the rows
                 // that continue it, invisible to
