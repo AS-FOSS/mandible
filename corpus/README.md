@@ -544,6 +544,17 @@ contain the text, naming what was expected and what the summary actually
 is. A fixture that produces no root fails this exactly as it fails
 `must_contain_flags_by_path`.
 
+### A subcommand's usage lines: `must_contain_usage_by_path`
+
+Each listed text must be a substring of one of the node's `usage` entries
+(whitespace collapsed), keyed by path the way `must_contain_flags_by_path` is
+(docs/shapes.md S-211). A path with no node fails.
+
+```toml
+[contract.must_contain_usage_by_path]
+install = ["corepack install", "<-g,--global> [--cache-only]"]
+```
+
 ### A subcommand's own group: `must_subcommand_group`
 
 The subcommand mirror of `must_flag_group`: a subcommand's own

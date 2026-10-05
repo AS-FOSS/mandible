@@ -368,6 +368,11 @@ pub(crate) struct ContractMeta {
     /// field could check which label a subcommand actually landed under.
     #[serde(default)]
     must_subcommand_group: std::collections::BTreeMap<String, String>,
+    /// Usage lines a node must carry, keyed by path: each listed text must
+    /// be a substring of one of the node's `usage` entries, whitespace
+    /// collapsed (docs/shapes.md S-211).
+    #[serde(default)]
+    must_contain_usage_by_path: std::collections::BTreeMap<String, Vec<String>>,
     /// Every substring must appear in the value name of some row carrying
     /// the flag's spelling, after this fixture's root is refilled the way
     /// the running app refills it (`Warmer::submit_root_fill`). Keyed by

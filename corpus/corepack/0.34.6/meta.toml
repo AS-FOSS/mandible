@@ -18,3 +18,15 @@ min_subcommands = 7
 must_not_contain_flags = ["--install-directory"]
 must_not_contain_usage_text = ["Remove the Corepack shims"]
 must_not_describe_root = ["Remove the Corepack shims"]
+
+[contract.must_contain_usage_by_path]
+disable = ["corepack disable [--install-directory #0] ..."]
+enable = ["corepack enable [--install-directory #0] ..."]
+install = ["corepack install", "corepack install <-g,--global> [--cache-only] ..."]
+pack = ["corepack pack [--json] [-o,--output #0] ..."]
+use = ["corepack use <pattern>"]
+"cache clean" = ["corepack cache clean"]
+
+[xfail]
+broken = true
+reason = "[S-211] each command row's invocation line renders nowhere (the row is reduced to its name), and the second install row's description is lost"
