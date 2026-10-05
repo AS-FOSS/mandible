@@ -1,0 +1,67 @@
+usage: deadlock-bpfcc [-h] [--binary BINARY] [--dump-graph DUMP_GRAPH]
+                      [--verbose] [--lock-symbols LOCK_SYMBOLS]
+                      [--unlock-symbols UNLOCK_SYMBOLS] [-t THREADS]
+                      [-e EDGES] [-s STACKTRACES]
+                      pid
+
+Detect potential deadlocks (lock inversions) in a running binary.
+Must be run as root.
+
+positional arguments:
+  pid                   Pid to trace
+
+options:
+  -h, --help            show this help message and exit
+  --binary BINARY       If set, trace the mutexes from the binary at this
+                        path. For statically-linked binaries, this argument is
+                        not required. For dynamically-linked binaries, this
+                        argument is required and should be the path of the
+                        pthread library the binary is using. Example:
+                        /lib/x86_64-linux-gnu/libpthread.so.0
+  --dump-graph DUMP_GRAPH
+                        If set, this will dump the mutex graph to the
+                        specified file.
+  --verbose             Print statistics about the mutex wait graph.
+  --lock-symbols LOCK_SYMBOLS
+                        Comma-separated list of lock symbols to trace. Default
+                        is pthread_mutex_lock. These symbols cannot be inlined
+                        in the binary.
+  --unlock-symbols UNLOCK_SYMBOLS
+                        Comma-separated list of unlock symbols to trace.
+                        Default is pthread_mutex_unlock. These symbols cannot
+                        be inlined in the binary.
+  -t THREADS, --threads THREADS
+                        Specifies the maximum number of threads to trace.
+                        default 65536. Note. 40 bytes per thread.
+  -e EDGES, --edges EDGES
+                        Specifies the maximum number of edge cases that can be
+                        recorded. default 65536. Note. 88 bytes per edge case.
+  -s STACKTRACES, --stacktraces STACKTRACES
+                        Specifies the maximum number of stack traces that can
+                        be recorded. This number is rounded up to the next
+                        power of two.default 65536. Note. 1 kbytes vmalloced
+                        per stack trace.
+
+Examples:
+    deadlock 181                 # Analyze PID 181
+
+    deadlock 181 --binary /lib/x86_64-linux-gnu/libpthread.so.0
+                                 # Analyze PID 181 and locks from this binary.
+                                 # If tracing a process that is running from
+                                 # a dynamically-linked binary, this argument
+                                 # is required and should be the path to the
+                                 # pthread library.
+
+    deadlock 181 --verbose
+                                 # Analyze PID 181 and print statistics about
+                                 # the mutex wait graph.
+
+    deadlock 181 --lock-symbols my_mutex_lock1,my_mutex_lock2 \
+        --unlock-symbols my_mutex_unlock1,my_mutex_unlock2
+                                 # Analyze PID 181 and trace custom mutex
+                                 # symbols instead of pthread mutexes.
+
+    deadlock 181 --dump-graph graph.json
+                                 # Analyze PID 181 and dump the mutex wait
+                                 # graph to graph.json.
+    

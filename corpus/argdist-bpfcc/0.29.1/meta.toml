@@ -1,0 +1,36 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "argdist-bpfcc"
+version = "0.29.1"
+platform = "ubuntu-24.04"
+
+[[capture]]
+argv = ["argdist-bpfcc", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "argparse"
+min_status = "ok"
+verdict_scope = ["flags", "descriptions"]
+must_contain_flags = ["-H", "-C", "-I"]
+
+# The EXAMPLES block's `argdist -H ... \` and `argdist -p ... \` lines end in
+# a backslash, so the `-H` / `-C` lines after them are continuations.
+[contract.must_describe]
+"-H" = "probe specifier to capture histogram of"
+"-C" = "probe specifier to capture count of"
+
+[contract.must_one_row_in_group]
+"" = ["-H", "-C"]
+
+# `{p,r,t,u}` and the `Where:` legend of the "Probe specifier syntax:" block
+# are read as a choices list and attached to -H and -I.
+[contract.must_not_attach_choices]
+"-H" = ["r", "t"]
+"-I" = ["library", "category", "function"]
+
+[xfail]
+broken = true
+reason = "the Probe specifier syntax block's {p,r,t,u} and Where: legend attach as choices to -H and -I"

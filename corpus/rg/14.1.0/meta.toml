@@ -1,0 +1,30 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "rg"
+version = "14.1.0"
+platform = "ubuntu-24.04"
+
+[[capture]]
+argv = ["rg", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags"]
+must_contain_flags = ["--colors", "--color"]
+
+# `--colors 'path:none' \` inside the --color description's example block
+# still opens a fabricated --colors row; its continued lines are no longer
+# rows of their own.
+[contract.must_describe]
+"--colors" = "This flag specifies color settings for use in the output"
+
+[contract.must_one_row_in_group]
+"OUTPUT OPTIONS:" = ["--colors"]
+
+[xfail]
+broken = true
+reason = "the indented example `--colors 'path:none' \\` (twice) opens a fabricated --colors row that swallows the continued lines and the next prose paragraph"

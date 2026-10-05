@@ -1,0 +1,26 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "deadlock-bpfcc"
+version = "0.29.1"
+platform = "ubuntu-24.04"
+
+[[capture]]
+argv = ["deadlock-bpfcc", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "argparse"
+min_status = "ok"
+verdict_scope = ["flags", "descriptions"]
+must_contain_flags = ["--lock-symbols", "--unlock-symbols"]
+must_contain_positionals = ["pid"]
+
+# The Examples block's `--lock-symbols ... \` line ends in a backslash, so
+# the `--unlock-symbols` line after it is a continuation, not a second row.
+[contract.must_describe]
+"--unlock-symbols" = "Comma-separated list of unlock symbols to trace"
+
+[contract.must_one_row_in_group]
+"" = ["--lock-symbols", "--unlock-symbols"]
