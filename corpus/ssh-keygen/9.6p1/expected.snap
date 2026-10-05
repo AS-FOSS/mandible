@@ -25,16 +25,8 @@ usage:
 - '       ssh-keygen -Y match-principals -I signer_identity -f allowed_signers_file'
 - '       ssh-keygen -Y check-novalidate -n namespace -s signature_file'
 - '       ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...'
-- '       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity'
+- '       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity -n namespace -s signature_file [-r krl_file] [-O option]'
 flags:
-- spellings:
-  - -n
-  value_name: namespace
-  value_kind: Required
-  description: '[-O option]'
-  provenance:
-    sources:
-    - help-text
 - spellings:
   - -q
   provenance:
@@ -231,6 +223,13 @@ flags:
 - spellings:
   - -h
   value_name: U
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -n
+  value_name: principals
   value_kind: Required
   provenance:
     sources:

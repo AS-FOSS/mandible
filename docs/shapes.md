@@ -1253,12 +1253,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-074
 - looks like: |
          curl [options...] <url>
-- tools: curl
+- tools: curl, pptpsetup, ssh-keygen
 - handling: Curl indents its thirteen flag rows by one space directly under its usage
   line, with no blank separator and no Options heading. A usage continuation
   line is only ever an alternative invocation form and never opens with a
   dash, so a continuation line that reads as a flag entry ends the usage block
-  instead of being absorbed into it.
+  instead of being absorbed into it. Exception: a line indented to exactly
+  the column where the entry's first argument starts, the hanging indent of
+  a wrapped synopsis (`pptpsetup --create <T> ...` over `--username <U>`),
+  continues the entry.
 - fleet: not measured
 
 ### S-075: heading indented underneath its own synopsis
@@ -1551,13 +1554,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Usage: cmp [options]
       Valid options are:
 - tools: openssl (roughly 150 subcommands in this shape, cmp among them), mkfs.fat,
-  tune2fs, btrfs-convert, xfs_scrub, encguess, ntfssecaudit
+  tune2fs, btrfs-convert, xfs_scrub, encguess, ntfssecaudit, bzless, bzmore
 - handling: Some tools print diagnostic banner lines to one stream and their entire real
   help document to the other, so testing only whether a stream is non-empty
   picks the wrong one. Each stream is judged on its own structural
   plausibility, preferring the one that actually looks like help output when
   the two disagree, defaulting to stdout on every other combination including
-  a tie. The raw verbatim pane keeps both streams separate and labelled rather
+  a tie, except that a stdout of one non-blank line (`bzless`'s
+  `------> --help <------`) yields to a stderr that parses to any entries.
+  The raw verbatim pane keeps both streams separate and labelled rather
   than merging them.
 - fleet: 200 of 656 fleet-wide fabrications attributed to a second copy of this rule
   drifting out of sync, not dated
@@ -3149,6 +3154,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and the single-space cut (`gdk-pixbuf-thumbnailer`) need different
   thresholds to both fire without one eating a real two-word operand name
   (S-132/S-154's own shape) or a docopt alternation tail.
+- fixed in part (round 15): a usage form that introduces exactly one bare
+  (unbracketed) flag and carries plain prose behind a wide gap hands that
+  prose to the flag as its description (`vim.basic`'s `-t tag` and `-q
+  [errorfile]`, `nvim`'s `-t <tag>`/`-q [errorfile]`). A two-space gap counts
+  when it ends at the column a sibling form's wide gap already set
+  (`-q [errorfile]  edit file ...`). The usage text keeps the prose, so
+  nothing is dropped. `fdisk`, `gdk-pixbuf-thumbnailer` (no flag in the form)
+  and the `ranlib` family stay under the open part below.
 - fleet: `usage-form-trailing-description`
   (`xtask/src/detector/usage_form_trailing_description.rs`) reads 4
   tools/6 findings on the 162-fixture `corpus/` tree (not a full-`PATH`
@@ -4585,3 +4598,71 @@ entry's `tools` field and nothing else. It does not get a new entry.
   in its description, outside the spec cell.
 - fleet: pre-check sweep of the 36 tools with a `+`-led or `-WORD` row: `pr`
   alone moved, zero losses.
+
+### S-192: a short flag row whose description is only a second short flag
+
+- id: S-192
+- looks like: |
+      -u <username> -p <password>
+- tools: pastebinit
+- handling: Fixed. A row of one short flag with a value, whose description
+  text is exactly another short flag and its value, is two flags on one row
+  and neither has a description. The second was read as the first's
+  description and never reached the tree. Both flags must be single-dash
+  single-character spellings, so a long flag in the description position
+  (`--id <id> --local <local>` on a wrapped usage line) is untouched.
+  Fixtures: `corpus/pastebinit/1.6.2`, `corpus/pastebinit/audit-seed2`.
+- fleet: not measured
+
+### S-193: a flag row's description starts one space after its value, at the table's column
+
+- id: S-193
+- looks like: |
+      -I DIR         add the directory to the include search path
+      --include FILE add an #include file before preprocessing
+- tools: bpftrace, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, tcpretrans.bt, threadsnoop.bt, Xvfb, nstat
+- handling: Fixed. A row with no column gap of its own, in a block where at
+  least three flag rows (and at least half of the gapped ones) start their
+  description at one byte column, is split at that column when the text
+  before it is a two- or three-token flag spec and the text after reads as a
+  sentence (three or more words, opening with a letter). The whole line used
+  to read as the spec and the description never reached the tree. Tab-aligned
+  blocks are left alone. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-194: every usage form opens with the same program word, not the node's name
+
+- id: S-194
+- looks like: |
+      USAGE:
+          bpftrace [options] filename
+          bpftrace [options] - <stdin input>
+          bpftrace [options] -e 'program'
+- tools: tcpretrans.bt, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, threadsnoop.bt
+- handling: Fixed. With the node's name known, a usage line that opens with
+  the same bare program word the first form opened with starts its own form
+  instead of joining the one above, so the three forms stay three entries and
+  the first form's operand (`filename`) reaches the tree. Refused without a
+  known node name (S-037's own limit) and when the word is a path, a bracket
+  or a flag. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-195: a usage form's own one-line description, indented under it with no punctuation
+
+- id: S-195
+- looks like: |
+      Usage: /usr/bin/ranlib [options] archive
+       Generate an index to speed access to archives
+- tools: gcc-ranlib-13, ranlib, gcc-ranlib, aarch64-linux-gnu-ranlib, aarch64-linux-gnu-gcc-ranlib, aarch64-linux-gnu-gcc-ranlib-13
+- handling: Fixed, and the S-152 `ranlib` remainder with it. A line indented
+  under the usage form that is five or more plain words with a capital first
+  letter, no terminal punctuation, no flag, no ALL-CAPS placeholder and no
+  column gap is the form's description, not synopsis. It leaves the usage
+  entry (which lets the `archive` operand reach the tree) and is relocated to
+  the head of the node description, so nothing is dropped. `unzip`'s wrapped
+  continuation (`... to exdir;`) carries brackets and closing punctuation and
+  stays in usage. Only under a labelled usage block: `corepack`'s command rows
+  (an unlabelled `corepack disable [...]` row, description beneath) are not a
+  usage form's description and are left as before. Fixtures:
+  `corpus/gcc-ranlib-13/2.42`, `corpus/corepack/0.34.6` (still `[xfail]`).
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.

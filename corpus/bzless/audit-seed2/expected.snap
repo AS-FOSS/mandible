@@ -1,11 +1,155 @@
 name: bzless
-description: '------> --help <------'
+description: bzip2, a block-sorting file compressor. Version 1.0.8, 13-Jul-2019.
+usage:
+- 'usage: bzip2 [flags and input files in any order]'
 flags:
 - spellings:
-  - '------'
-  value_name: '>'
-  value_kind: Required
-  description: --help <------
+  - -h
+  - --help
+  description: print this message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --decompress
+  description: force decompression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --compress
+  description: force compression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --keep
+  description: keep (don't delete) input files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force
+  description: overwrite existing output files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --test
+  description: test compressed file integrity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --stdout
+  description: output to standard out
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: suppress noncritical error messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: be verbose (a 2nd -v gives more)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --license
+  description: display software version & license
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: display software version & license
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --small
+  description: use less memory (at most 2500k)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-1'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-2'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-3'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-5'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-7'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-8'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-9'
+  description: set block size to 100k .. 900k
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fast
+  description: alias for -1
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --best
+  description: alias for -9
   provenance:
     sources:
     - help-text

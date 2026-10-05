@@ -1,0 +1,26 @@
+# Guards the S-074 hanging-indent continuation (6139a4f): the wrapped usage line
+# `--in=IF|--inc=IF [--inw=WF] ...` once read as a flag entity `--in,--inc`
+# beside the real `--in=IF|-i IF` and `--inc=IF|-C IF` rows. Help goes to stderr.
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sg_compare_and_write"
+version = "1.29"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2"
+
+[[capture]]
+argv = ["sg_compare_and_write", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--in", "--inc", "--inw", "--lba", "--num", "--wrprotect"]
+must_contain_positionals = ["DEVICE"]
+must_keep_separate = [["--in", "--inc"]]
+
+[contract.must_describe]
+"--in" = "IF is a file containing a compare buffer"
+"--inc" = "The same as the --in option"

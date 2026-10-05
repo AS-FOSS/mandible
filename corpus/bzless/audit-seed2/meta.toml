@@ -17,13 +17,9 @@ stderr = "help.stderr.txt"
 
 [contract]
 expected_framework = "generic"
-# stdout is only a decorator banner ("------> --help <------"); the real
-# flag table is on stderr (bzip2's own --help, which bzless delegates
-# to). Verified the current tree parses the banner itself as ONE garbage
-# flag (long='----', value_name='>') and none of the real flags on
-# stderr — no flag has long=="help" at all right now.
-must_contain_flags = ["--help"]
-
-[xfail]
-broken = true
-reason = "it just is wrong, nothing was parsed and nothing shows, it only displays weird header decorator"
+# stdout is only a one-line decorator banner ("------> --help <------");
+# the real flag table is on stderr (bzip2's own --help). The stderr
+# document must win (S-091), not the banner read as a `------` flag.
+must_contain_flags = ["--help", "--decompress", "--best"]
+must_not_contain_flags = ["------"]
+must_describe = { "--help" = "print this message" }

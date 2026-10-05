@@ -1,0 +1,32 @@
+Corepack - 0.34.6
+
+  $ corepack <command>
+
+General commands
+
+  corepack cache clean
+    Cleans Corepack cache
+
+  corepack disable [--install-directory #0] ...
+    Remove the Corepack shims from the install directory
+
+  corepack enable [--install-directory #0] ...
+    Add the Corepack shims to the install directory
+
+  corepack install
+    Install the package manager configured in the local project
+
+  corepack install <-g,--global> [--cache-only] ...
+    Install package managers on the system
+
+  corepack pack [--json] [-o,--output #0] ...
+    Store package managers in a tarball
+
+  corepack up
+    Update the package manager used in the current project
+
+  corepack use <pattern>
+    Define the package manager to use for the current project
+
+You can also print more details about any of these commands by calling them with 
+the `-h,--help` flag right after the command name.

@@ -1,0 +1,101 @@
+name: sg_test_rwbuf
+usage:
+- 'Usage: sg_test_rwbuf [--addrd=AR] [--addwr=AW] [--help] [--quick] --size=SZ [--times=NUM] [--verbose] [--version] DEVICE'
+- '       sg_test_rwbuf DEVICE SZ [AW] [AR]'
+positionals:
+- name: DEVICE
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: SZ
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: AW
+  provenance:
+    sources:
+    - help-text
+- name: AR
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --addrd
+  - -r
+  value_name: AR
+  value_kind: Required
+  group: 'where:'
+  description: extra bytes to fetch during READ BUFFER
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --addwr
+  - -w
+  value_name: AW
+  value_kind: Required
+  group: 'where:'
+  description: extra bytes to send to WRITE BUFFER
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -l
+  group: 'where:'
+  description: output this usage message then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --quick
+  - -q
+  group: 'where:'
+  description: output read buffer size then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --size
+  - -s
+  value_name: SZ
+  value_kind: Required
+  group: 'where:'
+  description: size of buffer (in bytes) to write then read back
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --times
+  - -t
+  value_name: NUM
+  value_kind: Required
+  group: 'where:'
+  description: number of times to run test (default 1)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  group: 'where:'
+  description: increase verbosity of output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  - -V
+  group: 'where:'
+  description: output version then exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

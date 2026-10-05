@@ -1058,6 +1058,7 @@ pub(super) fn scan_flags_block(
         .collect();
     let dash_cells = dash_cells_are_flags(&entry_lines);
     let column_offsets = secondary_column_offsets(&entry_lines, dash_cells);
+    let desc_col = block_description_column(&entry_lines);
     let multi_column = !column_offsets.is_empty();
     let rows = rescue_column_rows(rows, &column_offsets);
     // Independent of, and subordinate to, `multi_column`: a block can pack
@@ -1187,7 +1188,9 @@ pub(super) fn scan_flags_block(
                                 let (s, d) = split_at_column(line, Some(g));
                                 (s.to_string(), d)
                             }
-                            None => split_single_column_entry(line),
+                            None => desc_col
+                                .and_then(|c| split_at_block_column(line, c))
+                                .unwrap_or_else(|| split_single_column_entry(line)),
                         };
                         entries.push((s, d, Vec::new()));
                     }

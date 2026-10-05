@@ -36,6 +36,7 @@ mod backfill;
 mod bullets;
 mod emit;
 mod entry;
+mod flag_row_column;
 mod flag_rows;
 mod heading;
 mod invocation_block;
@@ -52,6 +53,7 @@ mod spelling;
 mod test_support;
 mod usage;
 mod usage_command_table;
+mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
 
@@ -62,6 +64,7 @@ use backfill::*;
 use bullets::*;
 pub use emit::*;
 pub use entry::*;
+use flag_row_column::*;
 use flag_rows::*;
 pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
@@ -81,6 +84,7 @@ use spelling::*;
 use test_support::*;
 use usage::*;
 use usage_command_table::*;
+use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
@@ -629,6 +633,27 @@ fn resume_after_bare_label(
     (i, false)
 }
 
+/// True when the line after the blank at `i` is a bracket flag row.
+fn blank_resumes_bracket_row(lines: &[&str], i: usize) -> bool {
+    lines.get(i + 1).is_some_and(|next| {
+        let t = next.trim_start();
+        !t.is_empty() && looks_like_bracket_flag_row(t)
+    })
+}
+
+/// Column where the first argument after the tool's own name starts on
+/// `line`, spaces only. A flag-led line indented to exactly this column
+/// continues the synopsis (S-074, `corpus/pptpsetup/audit-seed2`).
+fn hanging_column(line: &str, name: &str) -> Option<usize> {
+    let at = line.find(name)?;
+    if line[..at].contains('\t') {
+        return None;
+    }
+    let after = &line[at + name.len()..];
+    let gap = after.len() - after.trim_start_matches(' ').len();
+    (gap > 0 && after.len() > gap).then_some(at + name.len() + gap)
+}
+
 fn scan_usage_section(
     lines: &[&str],
     start: usize,
@@ -664,6 +689,8 @@ fn scan_usage_section(
     let mut force_new_entry_after_separator = false;
     // See [`UsageScan::recovered_bare_root_stanza`].
     let mut recovered_bare_root_stanza = false;
+    // Column the open entry's first argument starts at (S-074).
+    let mut hang_col = tool_name.and_then(|n| hanging_column(lines[start], n));
     i += 1;
     if seed_is_bare {
         let (next, recovered) = resume_after_bare_label(
@@ -688,20 +715,11 @@ fn scan_usage_section(
                 paren_group_depth = 0;
                 just_closed_paren_group = false;
             }
-            if just_closed_paren_group {
-                just_closed_paren_group = false;
-                if let Some(next) = lines.get(i + 1) {
-                    let t = next.trim_start();
-                    if !t.is_empty() && looks_like_bracket_flag_row(t) {
-                        // The group's trailing bracket-row flags
-                        // continue after exactly one blank line —
-                        // vgchange's `( ... )` then a blank line then
-                        // `[ -A|--autobackup y|n ]`, still the same
-                        // stanza. See S-088.
-                        i += 1;
-                        continue;
-                    }
-                }
+            if std::mem::take(&mut just_closed_paren_group) && blank_resumes_bracket_row(lines, i) {
+                // The group's trailing bracket-row flags continue after
+                // exactly one blank line (vgchange, S-088).
+                i += 1;
+                continue;
             }
             // Some tools write their unlabelled synopsis as one stanza
             // per operation mode: a description line, an own-name
@@ -803,12 +821,16 @@ fn scan_usage_section(
         }
         let is_marker =
             starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
-        let is_own_name = tool_name.is_some_and(|name| {
-            starts_with_tool_name(trimmed_start, name)
-                || starts_with_tool_name_spelled_differently(trimmed_start, name)
-        });
+        let is_own_name =
+            tool_name.is_some_and(|name| {
+                starts_with_tool_name(trimmed_start, name)
+                    || starts_with_tool_name_spelled_differently(trimmed_start, name)
+            }) || repeats_first_form_program_word(trimmed_start, usage_entries.first(), tool_name);
         let starts_new_entry = is_marker || is_own_name || force_new_entry_after_separator;
         force_new_entry_after_separator = false;
+        if starts_new_entry {
+            hang_col = tool_name.and_then(|n| hanging_column(l, n));
+        }
 
         // A line the one above it ended with a backslash is a
         // continuation by the tool's own explicit statement, and no
@@ -825,7 +847,7 @@ fn scan_usage_section(
             // flag rows sit one space under `Usage:` with no `Options:`
             // heading, and all 13 used to land in `usage` with zero
             // flags parsed. See S-074.
-            if looks_like_flag_start(trimmed_start) {
+            if looks_like_flag_start(trimmed_start) && hang_col != Some(leading_whitespace(l)) {
                 break;
             }
             // A section heading ends the usage block no matter how
@@ -863,7 +885,8 @@ fn scan_usage_section(
             // usage text. See docs/shapes.md S-135.
             if leading_whitespace(l) > base_indent
                 && (is_prose_sentence(trimmed_start)
-                    || looks_like_unpunctuated_description_continuation(l))
+                    || looks_like_unpunctuated_description_continuation(l)
+                    || (labelled_usage_start.is_some() && is_form_description_line(l, base_indent)))
             {
                 i += 1;
                 continue;
@@ -2182,6 +2205,7 @@ fn parse_body(
     // subcommands, not usage forms. Tried before the ordinary usage scan
     // so it never gets a chance to fold these rows into `result.usage`
     // instead. See docs/shapes.md S-167.
+    let mut form_description: Vec<String> = Vec::new();
     let optional_word_table = labelled_usage_start.and_then(|start| {
         tool_name.and_then(|name| scan_usage_optional_word_table(&lines, start, name))
     });
@@ -2201,6 +2225,7 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        form_description = form_description_lines(&lines, labelled_usage_start, start, i);
         // An extended usage label (`Example usage:`) whose rows are all
         // `<tool> <word> ...` also names subcommands; the rows stay usage
         // forms too. S-179.
@@ -2286,6 +2311,7 @@ fn parse_body(
             });
         }
     }
+    description = with_form_description(description, &form_description);
     if let Some(description) = description {
         result.description = Some(description);
     }

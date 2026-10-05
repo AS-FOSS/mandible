@@ -1,0 +1,20 @@
+Usage: sg_test_rwbuf [--addrd=AR] [--addwr=AW] [--help] [--quick]
+                     --size=SZ [--times=NUM] [--verbose] [--version]
+                     DEVICE
+ or
+       sg_test_rwbuf DEVICE SZ [AW] [AR]
+  where:
+    --addrd=AR|-r    extra bytes to fetch during READ BUFFER
+    --addwr=AW|-w    extra bytes to send to WRITE BUFFER
+    --help|-l        output this usage message then exit
+    --quick|-q       output read buffer size then exit
+    --size=SZ|-s     size of buffer (in bytes) to write then read back
+    --times=NUM|-t   number of times to run test (default 1)
+    --verbose|-v     increase verbosity of output
+    --version|-V     output version then exit
+
+WARNING: If you access the device at the same time, e.g. because it's a
+ mounted hard disk, the device's buffer may be used by the device itself
+ for other data at the same time, and overwriting it may or may not
+ cause data corruption!
+(c) Douglas Gilbert, Kurt Garloff, 2000-2007, GNU GPL

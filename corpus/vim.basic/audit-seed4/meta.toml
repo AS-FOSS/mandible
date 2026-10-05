@@ -81,9 +81,6 @@ must_contain_flags = ["+", "--", "--help"]
 "-q" = "edit file with first error"
 "+" = "Start at end of file"
 
-[xfail]
-broken = true
-reason = "one defect remains. The usage alternatives `-t tag` and `-q [errorfile]` reach the tree without their own descriptions. Fixed: the end-of-options marker `--` (`mandible-extract/src/help_text/grammar.rs`'s `try_bare_sigil`), the parenthetical qualifier on `-r` (`sections/emit.rs`'s `repair_parenthetical_value`), the second bracketed value on `-V` (`grammar.rs`'s `try_value`), `-q`'s usage-line operand (`sections/usage.rs`'s `extract_usage_flags`), the `or`-joined alias on `-h` (`grammar.rs`'s `strip_or_alias_separator`), and the `+`-led option row `+`/`+<lnum>` (`flag_rows.rs`'s neighbor-gated `scan_flags_block` admission, docs/shapes.md S-095), all generic-parser repairs, 2026-09-03."
 
 # Fleet count: the unparsed-tail-operand detector fires on 150 tools
 # (150 flags) across a full-PATH sweep of 2318 tools, 2026-09-03, down from

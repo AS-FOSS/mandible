@@ -71,6 +71,7 @@ flags:
   - --interval
   value_name: SECS
   value_kind: Required
+  description: report average over the last SECS
   provenance:
     sources:
     - help-text

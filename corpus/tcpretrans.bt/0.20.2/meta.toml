@@ -64,11 +64,8 @@ stderr = "help.stderr.txt"
 
 [contract]
 expected_framework = "generic"
+must_usage_forms_min = 3
 must_contain_positionals = ["filename"]
 
 [contract.must_describe]
 "--include" = "add an #include file before preprocessing"
-
-[xfail]
-broken = true
-reason = "the three USAGE forms bpftrace documents join into one string with the USAGE: heading folded onto the first, and filename (the first form's own operand) is lost with no POSITIONALS section at all; --include FILE carries no description because its description column starts one space after the value, narrower than every other row's gap; no contract field asserts usage text"

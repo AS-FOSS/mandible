@@ -116,8 +116,9 @@ pub(super) fn scan_headingless_usage_command_table(
         // a self-closed bracket group (`[--force]`) never consumes the
         // operand behind it (`remove [--force] <device>...`). See S-169.
         let own_primary: std::collections::HashSet<usize> = (0..own_lines.len()).collect();
+        // A flagless command keeps `[<options>]` as an operand (S-060).
         let positionals = if flags.is_empty() {
-            extract_positionals_of_flagless_node(own_lines, own_primary)
+            extract_positionals_inner(own_lines, own_primary, false, true)
         } else {
             extract_positionals(own_lines, own_primary)
         };

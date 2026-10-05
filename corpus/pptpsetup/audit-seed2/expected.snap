@@ -1,15 +1,8 @@
 name: pptpsetup
 usage:
-- pptpsetup --create <TUNNEL> --server <SERVER> [--domain <DOMAIN>]
+- pptpsetup --create <TUNNEL> --server <SERVER> [--domain <DOMAIN>] --username <USERNAME> [--password <PASSWORD>] [--encrypt] [--start]
+- pptpsetup --delete <TUNNEL>
 flags:
-- spellings:
-  - --username
-  value_name: <USERNAME>
-  value_kind: Required
-  description: '[--password <PASSWORD>]'
-  provenance:
-    sources:
-    - help-text
 - spellings:
   - --create
   value_name: <TUNNEL>
@@ -27,6 +20,37 @@ flags:
 - spellings:
   - --domain
   value_name: <DOMAIN>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --username
+  value_name: <USERNAME>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --password
+  value_name: <PASSWORD>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --encrypt
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --start
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --delete
+  value_name: <TUNNEL>
   value_kind: Required
   provenance:
     sources:

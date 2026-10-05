@@ -1,0 +1,30 @@
+Usage: sg_compare_and_write [--dpo] [--fua] [--fua_nv] [--grpnum=GN] [--help]
+                            --in=IF|--inc=IF [--inw=WF] --lba=LBA [--num=NUM]
+                            [--quiet] [--timeout=TO] [--verbose] [--version]
+                            [--wrprotect=WP] [--xferlen=LEN] DEVICE
+  where:
+    --dpo|-d            set the dpo bit in cdb (def: clear)
+    --fua|-f            set the fua bit in cdb (def: clear)
+    --fua_nv|-F         set the fua_nv bit in cdb (def: clear)
+    --grpnum=GN|-g GN    GN is GROUP NUMBER to set in cdb (def: 0)
+    --help|-h           print out usage message
+    --in=IF|-i IF       IF is a file containing a compare buffer and
+                        optionally a write buffer (when --inw=WF is
+                        not given)
+    --inc=IF|-C IF      The same as the --in option
+    --inw=WF|-D WF      WF is a file containing a write buffer
+    --lba=LBA|-l LBA    LBA of the first block to compare and write
+    --num=NUM|-n NUM    number of blocks to compare/write (def: 1)
+    --quiet|-q          suppress MISCOMPARE report to stderr,
+                        still sets exit status of 14
+    --timeout=TO|-t TO    timeout for the command (def: 60 secs)
+    --verbose|-v        increase verbosity (use '-vv' for more)
+    --version|-V        print version string then exit
+    --wrprotect=WP|-w WP    write protect information (def: 0)
+    --xferlen=LEN|-x LEN    number of bytes to transfer. Default is
+                            (2 * NUM * 512) or 1024 when NUM is 1
+
+Performs a SCSI COMPARE AND WRITE operation. Sends a double size
+buffer, the first half is used to compare what is at LBA for NUM
+blocks. If and only if the comparison is equal, then the second
+half of the buffer is written to LBA for NUM blocks.

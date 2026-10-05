@@ -258,17 +258,8 @@ pub(super) fn extract_positionals(
     extract_positionals_inner(usage_lines, primary_lines, false, false)
 }
 
-/// [`extract_positionals`] for a node that owns no flag: an option-list
-/// word (`[<options>]`) then names nothing but itself, so it stays an
-/// operand. See docs/shapes.md S-060.
-pub(super) fn extract_positionals_of_flagless_node(
-    usage_lines: &[String],
-    primary_lines: std::collections::HashSet<usize>,
-) -> Vec<Entity> {
-    extract_positionals_inner(usage_lines, primary_lines, false, true)
-}
-
-/// `keep_option_list_words`: keep `[<options>]` as an operand (flagless node).
+/// `keep_option_list_words`: keep `[<options>]` as an operand. A node that
+/// owns no flag passes true: the word then names nothing but itself (S-060).
 /// `unlabelled_single_line`: true only for the one shape `extract_positionals`
 /// itself never sees anywhere else — a single-physical-line unlabelled
 /// synopsis (`memhog`). Kept as its own parameter, never inferred from
@@ -770,6 +761,7 @@ fn is_dash_prefixed_option_list_placeholder(token: &str) -> bool {
 
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     let mut out: Vec<Entity> = Vec::new();
+    let prose_columns = usage_prose_column(usage_lines);
     // Running depth of an open parenthesized alternation group (LVM's
     // "any one of these is required" convention), re-derived here rather
     // than passed in since `usage_lines` alone determines the same
@@ -810,6 +802,10 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
         }
         let segments = usage_segments(line);
         let mut seg_idx = 0usize;
+        let line_start = out.len();
+        // Index of a flag read from a bare (unbracketed) token on this
+        // line: the one a trailing description can belong to.
+        let mut bare_flag_at: Option<usize> = None;
         while seg_idx < segments.len() {
             if out.len() >= MAX_RECOVERED_ENTRIES {
                 return out;
@@ -906,6 +902,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                                     &mut out,
                                     parse_flag_spec(&format!("{tok} {value}")),
                                 );
+                                bare_flag_at = out.len().checked_sub(1);
                             }
                             seg_idx += 1;
                             continue;
@@ -933,6 +930,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                                             &mut out,
                                             parse_flag_spec(&format!("{tok} [{member}]")),
                                         );
+                                        bare_flag_at = out.len().checked_sub(1);
                                         seg_idx += 1;
                                         continue;
                                     }
@@ -940,10 +938,12 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                             }
                         }
                         push_usage_token(&mut out, tok);
+                        bare_flag_at = out.len().checked_sub(1);
                     }
                 }
             }
         }
+        describe_form_flag(&mut out, line, line_start, bare_flag_at, &prose_columns);
     }
     out
 }
@@ -2474,7 +2474,12 @@ mod tests {
             .expect("-q recovered");
         assert_eq!(q.value_name.as_deref(), Some("errorfile"));
         assert_eq!(q.value_kind, mandible_core::ValueKind::Optional);
-        assert!(q.description.is_none(), "a usage line describes nothing");
+        // The form's own trailing prose is the flag's description, even at
+        // a two-space gap (S-152).
+        assert_eq!(
+            q.description.as_ref().map(|d| d.as_str()),
+            Some("edit file with first error")
+        );
 
         let nvim = parse(
             "Usage:\n  \
@@ -2489,6 +2494,10 @@ mod tests {
             .expect("-q recovered");
         assert_eq!(q.value_name.as_deref(), Some("errorfile"));
         assert_eq!(q.value_kind, mandible_core::ValueKind::Optional);
+        assert_eq!(
+            q.description.as_ref().map(|d| d.as_str()),
+            Some("Edit file with first error")
+        );
     }
 
     /// A bracket group with more than one member is an alternation, not a
