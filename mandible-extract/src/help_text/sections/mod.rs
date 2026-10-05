@@ -62,6 +62,7 @@ mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
 mod usage_word_flags;
+mod value_form_row;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
@@ -90,6 +91,7 @@ use preamble::*;
 use repair::*;
 use scan::*;
 use spelling::*;
+use value_form_row::value_form_sub_row;
 #[cfg(test)]
 use test_support::*;
 use usage::*;

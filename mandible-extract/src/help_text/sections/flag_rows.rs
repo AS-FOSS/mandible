@@ -1231,6 +1231,12 @@ pub(super) fn scan_flags_block(
                         if !last.2.iter().any(|(n, _)| n == &name) {
                             last.2.push((name, Some(desc.to_string())));
                         }
+                    } else if let Some(form) = value_form_sub_row(text) {
+                        // An `=PLACEHOLDER` row is the flag's value form,
+                        // not a choice: its text joins the description.
+                        // See docs/shapes.md S-204.
+                        last.1.push(' ');
+                        last.1.push_str(&form);
                     } else if let Some(choice) = choices_sub_row_value(text) {
                         // llvm-ar's own `=value` sub-rows — see
                         // `choices_sub_row_value`. llvm-ar never documents

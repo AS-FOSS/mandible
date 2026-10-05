@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-204] A `=FILE` row closing a flag's sub-option table is its value form, not a choice: its text joins the flag's description instead of becoming a bare `FILE` choice (`mandible as`, `-a`; #102).
 - [S-203] A choices block under a heading that names the plural of a flag's value (`Warning categories include:` for `-W, --warnings=CATEGORY`) belongs to that flag, not the last one (`mandible automake`, `autoconf`, `autom4te`, `autoreconf`; #102).
 - [S-202] A `key=value` word in a usage line is an operand: `mandible jfr configure` shows `option=value` and `event-setting=value` with their descriptions and the `Options for default.jfc:` keys with their values.
 - [S-201] A `<no option>` row describes the bare invocation and joins the description instead of vanishing (`mandible jinfo`).

@@ -4835,3 +4835,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a `--tools` pre-check over 1270 tools moved those 8, each read
   against its raw help. No other corpus fixture changed.
 
+
+### S-204: an `=PLACEHOLDER` row inside a flag's sub-option table
+
+- id: S-204
+- looks like: |
+      -a[sub-option...]	  turn on listings
+                          s      include symbols
+                          =FILE  list to FILE (must be last sub-option)
+- tools: as
+- handling: Fixed. A sub-row opening with `=` and an all-caps placeholder word
+  (or `=<word>`), then a column gap and text, is the flag's value form, not a
+  choice (S-049 reads lowercase `=value` rows as choices). It left the choices
+  and its text joins the flag's description as `=FILE: list to FILE (must be
+  last sub-option)`. Fixture: `corpus/as/2.42-listing`. The flag has no field
+  for alternative value names yet.
+- fleet: a `--tools` pre-check over as, llvm-ar-18, ar, ld, objdump, readelf
+  moved only `as`, read against its raw help. No other corpus or audit capture
+  holds such a row.

@@ -23,8 +23,3 @@ must_attach_choices = { "-a" = ["c", "s"] }
 
 [contract.must_describe]
 "-a" = "list to FILE (must be last sub-option)"
-
-[xfail]
-broken = true
-reason = "the =FILE row of the -a sub-option table becomes a choice named FILE with no description; the = and the text are lost"
-issue = "https://github.com/AS-FOSS/mandible/issues/102"
