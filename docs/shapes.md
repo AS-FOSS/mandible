@@ -4990,3 +4990,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/corepack/0.34.6`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check;
   the full-`PATH` sweep decides.
+
+### S-212: single-dash words read as a short flag with a value
+
+- id: S-212
+- looks like: |
+      -Bdynamic, -dy, -call_shared
+                                  Link against shared libraries
+      -Bsymbolic                  Bind global references locally
+      -Tbss ADDRESS               Set address of .bss section
+- tools: ld, gold, lto-dump
+- handling: Fixed. A run of four or more letters followed by `, -` and
+  another single-dash spelling is one multi-letter spelling of an alias run
+  (`-Bdynamic, -dy, -call_shared`, `-shared, -Bshareable`). Three or more
+  table rows of one short letter, each glued to a different word and each
+  with a description (`-Bsymbolic`, `-Bgroup`, `-Tbss`, gcc's `-Wcast-result`
+  rows), are separate single-dash options; a value spaced after the name
+  (`-Tbss ADDRESS`) stays on the option. Fixtures: `corpus/ld/2.42-single-dash`,
+  `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
+  (224 tools; ld, gold and their aliases moved).

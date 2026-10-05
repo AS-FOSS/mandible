@@ -534,41 +534,36 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -B
-  value_name: dynamic,
-  value_kind: Required
+  - -Bdynamic
+  - -dy
+  - -call_shared
   description: Link against shared libraries
   provenance:
     sources:
     - help-text
 - spellings:
-  - -B
-  value_name: static,
-  value_kind: Required
+  - -Bstatic
+  - -dn
+  - -non_shared
+  - -static
   description: Do not link against shared libraries
   provenance:
     sources:
     - help-text
 - spellings:
-  - -B
-  value_name: no-symbolic
-  value_kind: Required
+  - -Bno-symbolic
   description: Don't bind global references locally
   provenance:
     sources:
     - help-text
 - spellings:
-  - -B
-  value_name: symbolic
-  value_kind: Required
+  - -Bsymbolic
   description: Bind global references locally
   provenance:
     sources:
     - help-text
 - spellings:
-  - -B
-  value_name: symbolic-functions
-  value_kind: Required
+  - -Bsymbolic-functions
   description: Bind global function references locally
   provenance:
     sources:
@@ -897,9 +892,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -s
-  value_name: hared,
-  value_kind: Required
+  - -shared
+  - -Bshareable
   description: Create a shared library
   provenance:
     sources:
@@ -994,48 +988,48 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -T
-  value_name: bss
+  - -Tbss
+  value_name: ADDRESS
   value_kind: Required
   description: Set address of .bss section
   provenance:
     sources:
     - help-text
 - spellings:
-  - -T
-  value_name: data
+  - -Tdata
+  value_name: ADDRESS
   value_kind: Required
   description: Set address of .data section
   provenance:
     sources:
     - help-text
 - spellings:
-  - -T
-  value_name: text
+  - -Ttext
+  value_name: ADDRESS
   value_kind: Required
   description: Set address of .text section
   provenance:
     sources:
     - help-text
 - spellings:
-  - -T
-  value_name: text-segment
+  - -Ttext-segment
+  value_name: ADDRESS
   value_kind: Required
   description: Set address of text segment
   provenance:
     sources:
     - help-text
 - spellings:
-  - -T
-  value_name: rodata-segment
+  - -Trodata-segment
+  value_name: ADDRESS
   value_kind: Required
   description: Set address of rodata segment
   provenance:
     sources:
     - help-text
 - spellings:
-  - -T
-  value_name: ldata-segment
+  - -Tldata-segment
+  value_name: ADDRESS
   value_kind: Required
   description: Set address of ldata segment
   provenance:
@@ -1513,9 +1507,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -B
-  value_name: group
-  value_kind: Required
+  - -Bgroup
   group: 'ELF emulations:'
   description: Selects group name lookup rules for DSO
   provenance:

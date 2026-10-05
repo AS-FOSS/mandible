@@ -144,27 +144,21 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: cast-result
-  value_kind: Required
+  - -Wcast-result
   group: 'The following options are specific to just the language D:'
   description: '[available in D]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: mismatched-special-enum
-  value_kind: Required
+  - -Wmismatched-special-enum
   group: 'The following options are specific to just the language D:'
   description: '[available in D]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: speculative
-  value_kind: Required
+  - -Wspeculative
   group: 'The following options are specific to just the language D:'
   description: '[disabled]'
   provenance:
@@ -629,270 +623,210 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: aliasing
-  value_kind: Required
+  - -Waliasing
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: align-commons
-  value_kind: Required
+  - -Walign-commons
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: ampersand
-  value_kind: Required
+  - -Wampersand
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: argument-mismatch
-  value_kind: Required
+  - -Wargument-mismatch
   group: 'The following options are specific to just the language Fortran:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: array-temporaries
-  value_kind: Required
+  - -Warray-temporaries
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: c-binding-type
-  value_kind: Required
+  - -Wc-binding-type
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: character-truncation
-  value_kind: Required
+  - -Wcharacter-truncation
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: compare-reals
-  value_kind: Required
+  - -Wcompare-reals
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: conversion-extra
-  value_kind: Required
+  - -Wconversion-extra
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: do-subscript
-  value_kind: Required
+  - -Wdo-subscript
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: frontend-loop-interchange
-  value_kind: Required
+  - -Wfrontend-loop-interchange
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: function-elimination
-  value_kind: Required
+  - -Wfunction-elimination
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: implicit-interface
-  value_kind: Required
+  - -Wimplicit-interface
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: implicit-procedure
-  value_kind: Required
+  - -Wimplicit-procedure
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: integer-division
-  value_kind: Required
+  - -Winteger-division
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: intrinsic-shadow
-  value_kind: Required
+  - -Wintrinsic-shadow
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: intrinsics-std
-  value_kind: Required
+  - -Wintrinsics-std
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: line-truncation
-  value_kind: Required
+  - -Wline-truncation
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: overwrite-recursive
-  value_kind: Required
+  - -Woverwrite-recursive
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: real-q-constant
-  value_kind: Required
+  - -Wreal-q-constant
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: realloc-lhs
-  value_kind: Required
+  - -Wrealloc-lhs
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: realloc-lhs-all
-  value_kind: Required
+  - -Wrealloc-lhs-all
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: surprising
-  value_kind: Required
+  - -Wsurprising
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: tabs
-  value_kind: Required
+  - -Wtabs
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: target-lifetime
-  value_kind: Required
+  - -Wtarget-lifetime
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: undefined-do-loop
-  value_kind: Required
+  - -Wundefined-do-loop
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: underflow
-  value_kind: Required
+  - -Wunderflow
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-dummy-argument
-  value_kind: Required
+  - -Wunused-dummy-argument
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: use-without-only
-  value_kind: Required
+  - -Wuse-without-only
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: zerotrip
-  value_kind: Required
+  - -Wzerotrip
   group: 'The following options are specific to just the language Fortran:'
   description: '[available in Fortran]'
   provenance:
@@ -1886,45 +1820,35 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: case-enum
-  value_kind: Required
+  - -Wcase-enum
   group: 'The following options are specific to just the language Modula-2:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pedantic-cast
-  value_kind: Required
+  - -Wpedantic-cast
   group: 'The following options are specific to just the language Modula-2:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pedantic-param-names
-  value_kind: Required
+  - -Wpedantic-param-names
   group: 'The following options are specific to just the language Modula-2:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: style
-  value_kind: Required
+  - -Wstyle
   group: 'The following options are specific to just the language Modula-2:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: uninit-variable-checking
-  value_kind: Required
+  - -Wuninit-variable-checking
   group: 'The following options are specific to just the language Modula-2:'
   description: '[disabled]'
   provenance:
@@ -1939,18 +1863,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-parameter
-  value_kind: Required
+  - -Wunused-parameter
   group: 'The following options are specific to just the language Modula-2:'
   description: '[available in Modula-2]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: verbose-unbounded
-  value_kind: Required
+  - -Wverbose-unbounded
   group: 'The following options are specific to just the language Modula-2:'
   description: '[disabled]'
   provenance:
@@ -2613,27 +2533,21 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: NSObject-attribute
-  value_kind: Required
+  - -WNSObject-attribute
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: abi
-  value_kind: Required
+  - -Wabi
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: abi-tag
-  value_kind: Required
+  - -Wabi-tag
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
@@ -2648,27 +2562,21 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: absolute-value
-  value_kind: Required
+  - -Wabsolute-value
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: address
-  value_kind: Required
+  - -Waddress
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: address-of-packed-member
-  value_kind: Required
+  - -Waddress-of-packed-member
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -2692,9 +2600,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: all
-  value_kind: Required
+  - -Wall
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
@@ -2710,18 +2616,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: alloc-zero
-  value_kind: Required
+  - -Walloc-zero
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: alloca
-  value_kind: Required
+  - -Walloca
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
@@ -2737,18 +2639,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: arith-conversion
-  value_kind: Required
+  - -Warith-conversion
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: array-compare
-  value_kind: Required
+  - -Warray-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -2772,18 +2670,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: assign-intercept
-  value_kind: Required
+  - -Wassign-intercept
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: bad-function-cast
-  value_kind: Required
+  - -Wbad-function-cast
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
@@ -2799,36 +2693,28 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: bool-compare
-  value_kind: Required
+  - -Wbool-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: bool-operation
-  value_kind: Required
+  - -Wbool-operation
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: builtin-declaration-mismatch
-  value_kind: Required
+  - -Wbuiltin-declaration-mismatch
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: builtin-macro-redefined
-  value_kind: Required
+  - -Wbuiltin-macro-redefined
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -2925,45 +2811,35 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: c11-c2x-compat
-  value_kind: Required
+  - -Wc11-c2x-compat
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: c90-c99-compat
-  value_kind: Required
+  - -Wc90-c99-compat
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: c99-c11-compat
-  value_kind: Required
+  - -Wc99-c11-compat
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: cast-function-type
-  value_kind: Required
+  - -Wcast-function-type
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: cast-qual
-  value_kind: Required
+  - -Wcast-qual
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -2987,72 +2863,56 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: changes-meaning
-  value_kind: Required
+  - -Wchanges-meaning
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: char-subscripts
-  value_kind: Required
+  - -Wchar-subscripts
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: chkp
-  value_kind: Required
+  - -Wchkp
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: class-conversion
-  value_kind: Required
+  - -Wclass-conversion
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: class-memaccess
-  value_kind: Required
+  - -Wclass-memaccess
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: clobbered
-  value_kind: Required
+  - -Wclobbered
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: comma-subscript
-  value_kind: Required
+  - -Wcomma-subscript
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: comment
-  value_kind: Required
+  - -Wcomment
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3067,63 +2927,49 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: conditionally-supported
-  value_kind: Required
+  - -Wconditionally-supported
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: conversion
-  value_kind: Required
+  - -Wconversion
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: conversion-null
-  value_kind: Required
+  - -Wconversion-null
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: cpp
-  value_kind: Required
+  - -Wcpp
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: ctad-maybe-unsupported
-  value_kind: Required
+  - -Wctad-maybe-unsupported
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: ctor-dtor-privacy
-  value_kind: Required
+  - -Wctor-dtor-privacy
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: dangling-else
-  value_kind: Required
+  - -Wdangling-else
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3147,162 +2993,126 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: dangling-reference
-  value_kind: Required
+  - -Wdangling-reference
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: date-time
-  value_kind: Required
+  - -Wdate-time
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: declaration-after-statement
-  value_kind: Required
+  - -Wdeclaration-after-statement
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: delete-incomplete
-  value_kind: Required
+  - -Wdelete-incomplete
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: delete-non-virtual-dtor
-  value_kind: Required
+  - -Wdelete-non-virtual-dtor
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: deprecated
-  value_kind: Required
+  - -Wdeprecated
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: deprecated-copy
-  value_kind: Required
+  - -Wdeprecated-copy
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: deprecated-copy-dtor
-  value_kind: Required
+  - -Wdeprecated-copy-dtor
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: deprecated-enum-enum-conversion
-  value_kind: Required
+  - -Wdeprecated-enum-enum-conversion
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: deprecated-enum-float-conversion
-  value_kind: Required
+  - -Wdeprecated-enum-float-conversion
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: designated-init
-  value_kind: Required
+  - -Wdesignated-init
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: discarded-array-qualifiers
-  value_kind: Required
+  - -Wdiscarded-array-qualifiers
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: discarded-qualifiers
-  value_kind: Required
+  - -Wdiscarded-qualifiers
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: div-by-zero
-  value_kind: Required
+  - -Wdiv-by-zero
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: double-promotion
-  value_kind: Required
+  - -Wdouble-promotion
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: duplicate-decl-specifier
-  value_kind: Required
+  - -Wduplicate-decl-specifier
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: duplicated-branches
-  value_kind: Required
+  - -Wduplicated-branches
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: duplicated-cond
-  value_kind: Required
+  - -Wduplicated-cond
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3318,54 +3128,42 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: empty-body
-  value_kind: Required
+  - -Wempty-body
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: endif-labels
-  value_kind: Required
+  - -Wendif-labels
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: enum-compare
-  value_kind: Required
+  - -Wenum-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: enum-conversion
-  value_kind: Required
+  - -Wenum-conversion
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: enum-int-mismatch
-  value_kind: Required
+  - -Wenum-int-mismatch
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: error
-  value_kind: Required
+  - -Werror
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
@@ -3380,54 +3178,42 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: exceptions
-  value_kind: Required
+  - -Wexceptions
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: expansion-to-defined
-  value_kind: Required
+  - -Wexpansion-to-defined
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: extra
-  value_kind: Required
+  - -Wextra
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, Fortran, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: extra-semi
-  value_kind: Required
+  - -Wextra-semi
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: float-conversion
-  value_kind: Required
+  - -Wfloat-conversion
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: float-equal
-  value_kind: Required
+  - -Wfloat-equal
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3442,36 +3228,28 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-contains-nul
-  value_kind: Required
+  - -Wformat-contains-nul
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-diag
-  value_kind: Required
+  - -Wformat-diag
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-extra-args
-  value_kind: Required
+  - -Wformat-extra-args
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-nonliteral
-  value_kind: Required
+  - -Wformat-nonliteral
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3495,18 +3273,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-security
-  value_kind: Required
+  - -Wformat-security
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-signedness
-  value_kind: Required
+  - -Wformat-signedness
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3530,18 +3304,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-y2k
-  value_kind: Required
+  - -Wformat-y2k
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: format-zero-length
-  value_kind: Required
+  - -Wformat-zero-length
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -3557,450 +3327,350 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: frame-address
-  value_kind: Required
+  - -Wframe-address
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: if-not-aligned
-  value_kind: Required
+  - -Wif-not-aligned
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: ignored-attributes
-  value_kind: Required
+  - -Wignored-attributes
   group: 'The following options are language-related:'
   description: '[available in C, C++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: ignored-qualifiers
-  value_kind: Required
+  - -Wignored-qualifiers
   group: 'The following options are language-related:'
   description: '[available in C, C++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: implicit
-  value_kind: Required
+  - -Wimplicit
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: implicit-function-declaration
-  value_kind: Required
+  - -Wimplicit-function-declaration
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: implicit-int
-  value_kind: Required
+  - -Wimplicit-int
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: inaccessible-base
-  value_kind: Required
+  - -Winaccessible-base
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: incompatible-pointer-types
-  value_kind: Required
+  - -Wincompatible-pointer-types
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: infinite-recursion
-  value_kind: Required
+  - -Winfinite-recursion
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: inherited-variadic-ctor
-  value_kind: Required
+  - -Winherited-variadic-ctor
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: init-list-lifetime
-  value_kind: Required
+  - -Winit-list-lifetime
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: init-self
-  value_kind: Required
+  - -Winit-self
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: int-conversion
-  value_kind: Required
+  - -Wint-conversion
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: int-in-bool-context
-  value_kind: Required
+  - -Wint-in-bool-context
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: int-to-pointer-cast
-  value_kind: Required
+  - -Wint-to-pointer-cast
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: interference-size
-  value_kind: Required
+  - -Winterference-size
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: invalid-constexpr
-  value_kind: Required
+  - -Winvalid-constexpr
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: invalid-imported-macros
-  value_kind: Required
+  - -Winvalid-imported-macros
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: invalid-offsetof
-  value_kind: Required
+  - -Winvalid-offsetof
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: invalid-pch
-  value_kind: Required
+  - -Winvalid-pch
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: invalid-utf8
-  value_kind: Required
+  - -Winvalid-utf8
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: jump-misses-init
-  value_kind: Required
+  - -Wjump-misses-init
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: literal-suffix
-  value_kind: Required
+  - -Wliteral-suffix
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: logical-not-parentheses
-  value_kind: Required
+  - -Wlogical-not-parentheses
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: logical-op
-  value_kind: Required
+  - -Wlogical-op
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: long-long
-  value_kind: Required
+  - -Wlong-long
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: main
-  value_kind: Required
+  - -Wmain
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: maybe-uninitialized
-  value_kind: Required
+  - -Wmaybe-uninitialized
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: memset-elt-size
-  value_kind: Required
+  - -Wmemset-elt-size
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: memset-transposed-args
-  value_kind: Required
+  - -Wmemset-transposed-args
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: misleading-indentation
-  value_kind: Required
+  - -Wmisleading-indentation
   group: 'The following options are language-related:'
   description: '[available in C, C++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: mismatched-dealloc
-  value_kind: Required
+  - -Wmismatched-dealloc
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: mismatched-new-delete
-  value_kind: Required
+  - -Wmismatched-new-delete
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: mismatched-tags
-  value_kind: Required
+  - -Wmismatched-tags
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-attributes
-  value_kind: Required
+  - -Wmissing-attributes
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-braces
-  value_kind: Required
+  - -Wmissing-braces
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-declarations
-  value_kind: Required
+  - -Wmissing-declarations
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-field-initializers
-  value_kind: Required
+  - -Wmissing-field-initializers
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-include-dirs
-  value_kind: Required
+  - -Wmissing-include-dirs
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-parameter-type
-  value_kind: Required
+  - -Wmissing-parameter-type
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-prototypes
-  value_kind: Required
+  - -Wmissing-prototypes
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-requires
-  value_kind: Required
+  - -Wmissing-requires
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-template-keyword
-  value_kind: Required
+  - -Wmissing-template-keyword
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: multichar
-  value_kind: Required
+  - -Wmultichar
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: multiple-inheritance
-  value_kind: Required
+  - -Wmultiple-inheritance
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: multistatement-macros
-  value_kind: Required
+  - -Wmultistatement-macros
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: namespaces
-  value_kind: Required
+  - -Wnamespaces
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: narrowing
-  value_kind: Required
+  - -Wnarrowing
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: nested-externs
-  value_kind: Required
+  - -Wnested-externs
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
@@ -4031,54 +3701,42 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: noexcept
-  value_kind: Required
+  - -Wnoexcept
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: noexcept-type
-  value_kind: Required
+  - -Wnoexcept-type
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: non-template-friend
-  value_kind: Required
+  - -Wnon-template-friend
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: non-virtual-dtor
-  value_kind: Required
+  - -Wnon-virtual-dtor
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: nonnull
-  value_kind: Required
+  - -Wnonnull
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: nonnull-compare
-  value_kind: Required
+  - -Wnonnull-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -4094,63 +3752,49 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: objc-root-class
-  value_kind: Required
+  - -Wobjc-root-class
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: old-style-cast
-  value_kind: Required
+  - -Wold-style-cast
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: old-style-declaration
-  value_kind: Required
+  - -Wold-style-declaration
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: old-style-definition
-  value_kind: Required
+  - -Wold-style-definition
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: openacc-parallelism
-  value_kind: Required
+  - -Wopenacc-parallelism
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: openmp-simd
-  value_kind: Required
+  - -Wopenmp-simd
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: overlength-strings
-  value_kind: Required
+  - -Woverlength-strings
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -4174,288 +3818,224 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: override-init
-  value_kind: Required
+  - -Woverride-init
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: override-init-side-effects
-  value_kind: Required
+  - -Woverride-init-side-effects
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: packed-bitfield-compat
-  value_kind: Required
+  - -Wpacked-bitfield-compat
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: packed-not-aligned
-  value_kind: Required
+  - -Wpacked-not-aligned
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: parentheses
-  value_kind: Required
+  - -Wparentheses
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pedantic
-  value_kind: Required
+  - -Wpedantic
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, Modula-2, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pessimizing-move
-  value_kind: Required
+  - -Wpessimizing-move
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pmf-conversions
-  value_kind: Required
+  - -Wpmf-conversions
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pointer-arith
-  value_kind: Required
+  - -Wpointer-arith
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pointer-compare
-  value_kind: Required
+  - -Wpointer-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pointer-sign
-  value_kind: Required
+  - -Wpointer-sign
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pointer-to-int-cast
-  value_kind: Required
+  - -Wpointer-to-int-cast
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: pragmas
-  value_kind: Required
+  - -Wpragmas
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: prio-ctor-dtor
-  value_kind: Required
+  - -Wprio-ctor-dtor
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: property-assign-default
-  value_kind: Required
+  - -Wproperty-assign-default
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: protocol
-  value_kind: Required
+  - -Wprotocol
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: range-loop-construct
-  value_kind: Required
+  - -Wrange-loop-construct
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: redundant-decls
-  value_kind: Required
+  - -Wredundant-decls
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: redundant-move
-  value_kind: Required
+  - -Wredundant-move
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: redundant-tags
-  value_kind: Required
+  - -Wredundant-tags
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: register
-  value_kind: Required
+  - -Wregister
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: reorder
-  value_kind: Required
+  - -Wreorder
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: restrict
-  value_kind: Required
+  - -Wrestrict
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: return-type
-  value_kind: Required
+  - -Wreturn-type
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, Modula-2, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: scalar-storage-order
-  value_kind: Required
+  - -Wscalar-storage-order
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: selector
-  value_kind: Required
+  - -Wselector
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: self-move
-  value_kind: Required
+  - -Wself-move
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sequence-point
-  value_kind: Required
+  - -Wsequence-point
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: shadow-ivar
-  value_kind: Required
+  - -Wshadow-ivar
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: shift-count-negative
-  value_kind: Required
+  - -Wshift-count-negative
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: shift-count-overflow
-  value_kind: Required
+  - -Wshift-count-overflow
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: shift-negative-value
-  value_kind: Required
+  - -Wshift-negative-value
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -4479,72 +4059,56 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sign-compare
-  value_kind: Required
+  - -Wsign-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sign-conversion
-  value_kind: Required
+  - -Wsign-conversion
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sign-promo
-  value_kind: Required
+  - -Wsign-promo
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sized-deallocation
-  value_kind: Required
+  - -Wsized-deallocation
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sizeof-array-argument
-  value_kind: Required
+  - -Wsizeof-array-argument
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sizeof-array-div
-  value_kind: Required
+  - -Wsizeof-array-div
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sizeof-pointer-div
-  value_kind: Required
+  - -Wsizeof-pointer-div
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sizeof-pointer-memaccess
-  value_kind: Required
+  - -Wsizeof-pointer-memaccess
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -4560,18 +4124,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: strict-flex-arrays
-  value_kind: Required
+  - -Wstrict-flex-arrays
   group: 'The following options are language-related:'
   description: '[available in C, C++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: strict-null-sentinel
-  value_kind: Required
+  - -Wstrict-null-sentinel
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
@@ -4587,27 +4147,21 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: strict-prototypes
-  value_kind: Required
+  - -Wstrict-prototypes
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: strict-selector-match
-  value_kind: Required
+  - -Wstrict-selector-match
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: string-compare
-  value_kind: Required
+  - -Wstring-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
@@ -4631,27 +4185,21 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: stringop-overread
-  value_kind: Required
+  - -Wstringop-overread
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: stringop-truncation
-  value_kind: Required
+  - -Wstringop-truncation
   group: 'The following options are language-related:'
   description: '[available in C, C++, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: subobject-linkage
-  value_kind: Required
+  - -Wsubobject-linkage
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
@@ -4667,198 +4215,154 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: suggest-override
-  value_kind: Required
+  - -Wsuggest-override
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: switch
-  value_kind: Required
+  - -Wswitch
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: switch-bool
-  value_kind: Required
+  - -Wswitch-bool
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: switch-default
-  value_kind: Required
+  - -Wswitch-default
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: switch-enum
-  value_kind: Required
+  - -Wswitch-enum
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: switch-outside-range
-  value_kind: Required
+  - -Wswitch-outside-range
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: sync-nand
-  value_kind: Required
+  - -Wsync-nand
   group: 'The following options are language-related:'
   description: '[available in C, C++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: synth
-  value_kind: Required
+  - -Wsynth
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: system-headers
-  value_kind: Required
+  - -Wsystem-headers
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: tautological-compare
-  value_kind: Required
+  - -Wtautological-compare
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: templates
-  value_kind: Required
+  - -Wtemplates
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: terminate
-  value_kind: Required
+  - -Wterminate
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: traditional
-  value_kind: Required
+  - -Wtraditional
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: traditional-conversion
-  value_kind: Required
+  - -Wtraditional-conversion
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: trigraphs
-  value_kind: Required
+  - -Wtrigraphs
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: undeclared-selector
-  value_kind: Required
+  - -Wundeclared-selector
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: undef
-  value_kind: Required
+  - -Wundef
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unicode
-  value_kind: Required
+  - -Wunicode
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: uninitialized
-  value_kind: Required
+  - -Wuninitialized
   group: 'The following options are language-related:'
   description: '[available in C, C++, Fortran, LTO, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unknown-pragmas
-  value_kind: Required
+  - -Wunknown-pragmas
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unsuffixed-float-constants
-  value_kind: Required
+  - -Wunsuffixed-float-constants
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused
-  value_kind: Required
+  - -Wunused
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -4882,99 +4386,77 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-local-typedefs
-  value_kind: Required
+  - -Wunused-local-typedefs
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-macros
-  value_kind: Required
+  - -Wunused-macros
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-result
-  value_kind: Required
+  - -Wunused-result
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++, Rust]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-variable
-  value_kind: Required
+  - -Wunused-variable
   group: 'The following options are language-related:'
   description: '[available in C, C++, Modula-2, ObjC, ObjC++, Rust]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: useless-cast
-  value_kind: Required
+  - -Wuseless-cast
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: varargs
-  value_kind: Required
+  - -Wvarargs
   group: 'The following options are language-related:'
   description: '[available in C, C++, D, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: variadic-macros
-  value_kind: Required
+  - -Wvariadic-macros
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: vexing-parse
-  value_kind: Required
+  - -Wvexing-parse
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: virtual-inheritance
-  value_kind: Required
+  - -Wvirtual-inheritance
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: virtual-move-assign
-  value_kind: Required
+  - -Wvirtual-move-assign
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: vla
-  value_kind: Required
+  - -Wvla
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -4990,63 +4472,49 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: vla-parameter
-  value_kind: Required
+  - -Wvla-parameter
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: volatile
-  value_kind: Required
+  - -Wvolatile
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: volatile-register-var
-  value_kind: Required
+  - -Wvolatile-register-var
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: write-strings
-  value_kind: Required
+  - -Wwrite-strings
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: xor-used-as-pow
-  value_kind: Required
+  - -Wxor-used-as-pow
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: zero-as-null-pointer-constant
-  value_kind: Required
+  - -Wzero-as-null-pointer-constant
   group: 'The following options are language-related:'
   description: '[available in C++, ObjC++]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: zero-length-bounds
-  value_kind: Required
+  - -Wzero-length-bounds
   group: 'The following options are language-related:'
   description: '[available in C, C++, ObjC, ObjC++]'
   provenance:
@@ -9190,432 +8658,336 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: aggregate-return
-  value_kind: Required
+  - -Waggregate-return
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: aggressive-loop-optimizations
-  value_kind: Required
+  - -Waggressive-loop-optimizations
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-allocation-size
-  value_kind: Required
+  - -Wanalyzer-allocation-size
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-deref-before-check
-  value_kind: Required
+  - -Wanalyzer-deref-before-check
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-double-fclose
-  value_kind: Required
+  - -Wanalyzer-double-fclose
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-double-free
-  value_kind: Required
+  - -Wanalyzer-double-free
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-exposure-through-output-file
-  value_kind: Required
+  - -Wanalyzer-exposure-through-output-file
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-exposure-through-uninit-copy
-  value_kind: Required
+  - -Wanalyzer-exposure-through-uninit-copy
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-access-mode-mismatch
-  value_kind: Required
+  - -Wanalyzer-fd-access-mode-mismatch
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-double-close
-  value_kind: Required
+  - -Wanalyzer-fd-double-close
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-leak
-  value_kind: Required
+  - -Wanalyzer-fd-leak
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-phase-mismatch
-  value_kind: Required
+  - -Wanalyzer-fd-phase-mismatch
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-type-mismatch
-  value_kind: Required
+  - -Wanalyzer-fd-type-mismatch
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-use-after-close
-  value_kind: Required
+  - -Wanalyzer-fd-use-after-close
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-fd-use-without-check
-  value_kind: Required
+  - -Wanalyzer-fd-use-without-check
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-file-leak
-  value_kind: Required
+  - -Wanalyzer-file-leak
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-free-of-non-heap
-  value_kind: Required
+  - -Wanalyzer-free-of-non-heap
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-imprecise-fp-arithmetic
-  value_kind: Required
+  - -Wanalyzer-imprecise-fp-arithmetic
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-infinite-recursion
-  value_kind: Required
+  - -Wanalyzer-infinite-recursion
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-jump-through-null
-  value_kind: Required
+  - -Wanalyzer-jump-through-null
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-malloc-leak
-  value_kind: Required
+  - -Wanalyzer-malloc-leak
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-mismatching-deallocation
-  value_kind: Required
+  - -Wanalyzer-mismatching-deallocation
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-null-argument
-  value_kind: Required
+  - -Wanalyzer-null-argument
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-null-dereference
-  value_kind: Required
+  - -Wanalyzer-null-dereference
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-out-of-bounds
-  value_kind: Required
+  - -Wanalyzer-out-of-bounds
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-possible-null-argument
-  value_kind: Required
+  - -Wanalyzer-possible-null-argument
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-possible-null-dereference
-  value_kind: Required
+  - -Wanalyzer-possible-null-dereference
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-putenv-of-auto-var
-  value_kind: Required
+  - -Wanalyzer-putenv-of-auto-var
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-shift-count-negative
-  value_kind: Required
+  - -Wanalyzer-shift-count-negative
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-shift-count-overflow
-  value_kind: Required
+  - -Wanalyzer-shift-count-overflow
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-stale-setjmp-buffer
-  value_kind: Required
+  - -Wanalyzer-stale-setjmp-buffer
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-tainted-allocation-size
-  value_kind: Required
+  - -Wanalyzer-tainted-allocation-size
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-tainted-array-index
-  value_kind: Required
+  - -Wanalyzer-tainted-array-index
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-tainted-assertion
-  value_kind: Required
+  - -Wanalyzer-tainted-assertion
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-tainted-divisor
-  value_kind: Required
+  - -Wanalyzer-tainted-divisor
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-tainted-offset
-  value_kind: Required
+  - -Wanalyzer-tainted-offset
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-tainted-size
-  value_kind: Required
+  - -Wanalyzer-tainted-size
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-too-complex
-  value_kind: Required
+  - -Wanalyzer-too-complex
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-unsafe-call-within-signal-handler
-  value_kind: Required
+  - -Wanalyzer-unsafe-call-within-signal-handler
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-use-after-free
-  value_kind: Required
+  - -Wanalyzer-use-after-free
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-use-of-pointer-in-stale-stack-frame
-  value_kind: Required
+  - -Wanalyzer-use-of-pointer-in-stale-stack-frame
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-use-of-uninitialized-value
-  value_kind: Required
+  - -Wanalyzer-use-of-uninitialized-value
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-va-arg-type-mismatch
-  value_kind: Required
+  - -Wanalyzer-va-arg-type-mismatch
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-va-list-exhausted
-  value_kind: Required
+  - -Wanalyzer-va-list-exhausted
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-va-list-leak
-  value_kind: Required
+  - -Wanalyzer-va-list-leak
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-va-list-use-after-va-end
-  value_kind: Required
+  - -Wanalyzer-va-list-use-after-va-end
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-write-to-const
-  value_kind: Required
+  - -Wanalyzer-write-to-const
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: analyzer-write-to-string-literal
-  value_kind: Required
+  - -Wanalyzer-write-to-string-literal
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
@@ -9630,36 +9002,28 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: attribute-warning
-  value_kind: Required
+  - -Wattribute-warning
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: attributes
-  value_kind: Required
+  - -Wattributes
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: cannot-profile
-  value_kind: Required
+  - -Wcannot-profile
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: cast-align
-  value_kind: Required
+  - -Wcast-align
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
@@ -9675,45 +9039,35 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: complain-wrong-lang
-  value_kind: Required
+  - -Wcomplain-wrong-lang
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: coverage-invalid-line-number
-  value_kind: Required
+  - -Wcoverage-invalid-line-number
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: coverage-mismatch
-  value_kind: Required
+  - -Wcoverage-mismatch
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: deprecated-declarations
-  value_kind: Required
+  - -Wdeprecated-declarations
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: disabled-optimization
-  value_kind: Required
+  - -Wdisabled-optimization
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
@@ -9729,36 +9083,28 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: free-nonheap-object
-  value_kind: Required
+  - -Wfree-nonheap-object
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: hsa
-  value_kind: Required
+  - -Whsa
   group: 'The following options control compiler warning messages:'
   description: '[ignored]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: inline
-  value_kind: Required
+  - -Winline
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: invalid-memory-model
-  value_kind: Required
+  - -Winvalid-memory-model
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
@@ -9774,18 +9120,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: lto-type-mismatch
-  value_kind: Required
+  - -Wlto-type-mismatch
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: missing-profile
-  value_kind: Required
+  - -Wmissing-profile
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
@@ -9816,63 +9158,49 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: null-dereference
-  value_kind: Required
+  - -Wnull-dereference
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: odr
-  value_kind: Required
+  - -Wodr
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: overflow
-  value_kind: Required
+  - -Woverflow
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: packed
-  value_kind: Required
+  - -Wpacked
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: padded
-  value_kind: Required
+  - -Wpadded
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: return-local-addr
-  value_kind: Required
+  - -Wreturn-local-addr
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: shadow
-  value_kind: Required
+  - -Wshadow
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
@@ -9905,9 +9233,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: stack-protector
-  value_kind: Required
+  - -Wstack-protector
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
@@ -9984,144 +9310,112 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: suggest-final-methods
-  value_kind: Required
+  - -Wsuggest-final-methods
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: suggest-final-types
-  value_kind: Required
+  - -Wsuggest-final-types
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: switch-unreachable
-  value_kind: Required
+  - -Wswitch-unreachable
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: trampolines
-  value_kind: Required
+  - -Wtrampolines
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: trivial-auto-var-init
-  value_kind: Required
+  - -Wtrivial-auto-var-init
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: tsan
-  value_kind: Required
+  - -Wtsan
   group: 'The following options control compiler warning messages:'
   description: '[enabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: type-limits
-  value_kind: Required
+  - -Wtype-limits
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unreachable-code
-  value_kind: Required
+  - -Wunreachable-code
   group: 'The following options control compiler warning messages:'
   description: '[ignored]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unsafe-loop-optimizations
-  value_kind: Required
+  - -Wunsafe-loop-optimizations
   group: 'The following options control compiler warning messages:'
   description: '[ignored]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-but-set-parameter
-  value_kind: Required
+  - -Wunused-but-set-parameter
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-but-set-variable
-  value_kind: Required
+  - -Wunused-but-set-variable
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-function
-  value_kind: Required
+  - -Wunused-function
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-label
-  value_kind: Required
+  - -Wunused-label
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: unused-value
-  value_kind: Required
+  - -Wunused-value
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: use-after-free
-  value_kind: Required
+  - -Wuse-after-free
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: vector-operation-performance
-  value_kind: Required
+  - -Wvector-operation-performance
   group: 'The following options control compiler warning messages:'
   description: '[disabled]'
   provenance:
@@ -12146,9 +11440,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -W
-  value_name: fatal-errors
-  value_kind: Required
+  - -Wfatal-errors
   group: 'The following options are language-independent:'
   description: '[disabled]'
   provenance:

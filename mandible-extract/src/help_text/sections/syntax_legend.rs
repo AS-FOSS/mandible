@@ -12,7 +12,11 @@ fn is_legend_row(row: &str) -> bool {
 
 /// The paragraph (heading, then the block dedented) when `block` is a legend.
 pub(super) fn legend_paragraph(heading: &str, block: &[&str]) -> Option<String> {
-    let rows: Vec<&str> = block.iter().copied().filter(|l| !l.trim().is_empty()).collect();
+    let rows: Vec<&str> = block
+        .iter()
+        .copied()
+        .filter(|l| !l.trim().is_empty())
+        .collect();
     if rows.is_empty() {
         return None;
     }
@@ -31,5 +35,9 @@ pub(super) fn legend_paragraph(heading: &str, block: &[&str]) -> Option<String> 
         .iter()
         .map(|l| format!("  {}", l[floor..].trim_end()))
         .collect();
-    Some(format!("{}:\n{}", heading.trim().trim_end_matches(':'), body.join("\n")))
+    Some(format!(
+        "{}:\n{}",
+        heading.trim().trim_end_matches(':'),
+        body.join("\n")
+    ))
 }

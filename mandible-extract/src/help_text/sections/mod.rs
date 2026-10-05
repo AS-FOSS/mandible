@@ -57,9 +57,10 @@ mod plus_minus;
 mod preamble;
 mod repair;
 mod scan;
+mod short_letter_word_family;
 mod spelling;
-mod syntax_legend;
 mod spellings_documented_elsewhere;
+mod syntax_legend;
 #[cfg(test)]
 mod test_support;
 mod usage;
@@ -2046,19 +2047,6 @@ fn scan_entries(
             }
         }
 
-        if let Some((end, nodes, seen, clean)) = tool_name.and_then(|name| {
-            command_list_rows::table_under_commands_heading(lines, i, name, raw, profile)
-        }) {
-            i = end;
-            st.total_entries += seen;
-            st.clean_entries += clean;
-            for node in nodes {
-                st.result.try_push_subcommand(node);
-            }
-            st.command_mode = false;
-            continue;
-        }
-
         // A run of ragged-indent command-table rows: a short-alias prefix
         // (`i, install`) ragged-indents some rows against their unaliased
         // siblings, which defeats every fixed-indent block scanner below
@@ -2082,10 +2070,6 @@ fn scan_entries(
             }
         }
 
-        if let Some(end) = example_command_line::example_command_end(lines, i) {
-            i = end;
-            continue;
-        }
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;
@@ -2114,7 +2098,7 @@ fn scan_entries(
         // A hard-wrapped prose sentence, whose second physical line the
         // indentation-alone heading rule would otherwise hand to the
         // flags scanner. Fenced whole.
-        if let Some(end) = wrapped_prose_region_end(lines, heading_idx) {
+        if let Some(end) = command_list_rows::region_end(inp, tool_name, heading_idx, &mut st) {
             i = end;
             continue;
         }
@@ -2492,6 +2476,7 @@ fn parse_body(
     // by the time this one runs the repeated-character family is already
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
+    short_letter_word_family::split_short_letter_word_family(&mut result.flags, raw);
     // A narrower sibling of the repair above, admitted on its own
     // evidence rather than S-145's table-wide argument (atlas S-172): a
     // table-derived flag whose reconstructed name the tool's own usage

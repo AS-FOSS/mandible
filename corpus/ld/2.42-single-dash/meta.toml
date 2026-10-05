@@ -24,7 +24,3 @@ min_status = "ok"
 verdict_scope = ["flags"]
 must_contain_flags = ["-Bdynamic", "-dy", "-call_shared", "-Bstatic", "-dn", "-non_shared", "-static", "-Bsymbolic", "-Bno-symbolic", "-Bsymbolic-functions"]
 must_not_contain_flags = ["-B"]
-
-[xfail]
-broken = true
-reason = "[S-212] the alias runs `-Bdynamic, -dy, -call_shared` and `-Bstatic, -dn, -non_shared, -static` and the `-Bsymbolic` rows come out as `-B` with a value (`dynamic,`, `static,`, `symbolic`); the alias spellings are lost"

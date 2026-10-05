@@ -4,7 +4,7 @@
 # `-Bstatic, -dn, -non_shared, -static` row is a genuine alias run, so a
 # fix must separate the first without splitting the second. Nine of the
 # row's ten spellings are documented again as rows of their own (S-207).
-# The alias run itself parses as `-B` with a value; see `2.42-single-dash`.
+# The single-dash alias runs and `-B`/`-T` word rows: `2.42-single-dash` (S-212).
 
 [bless]
 provenance = "agent"

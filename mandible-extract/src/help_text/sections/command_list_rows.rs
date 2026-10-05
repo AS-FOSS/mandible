@@ -31,7 +31,9 @@ pub(super) fn is_command_list_row(lines: &[&str], idx: usize, name: &str) -> boo
         return false;
     }
     let mut first = idx;
-    while first >= 3 && lines[first - 1].trim().is_empty() && is_described_row(lines, first - 3, name)
+    while first >= 3
+        && lines[first - 1].trim().is_empty()
+        && is_described_row(lines, first - 3, name)
     {
         first -= 3;
     }
@@ -77,4 +79,31 @@ pub(super) fn table_under_commands_heading(
         }
     }
     Some((end, nodes, seen, clean))
+}
+
+/// The index after the region at `at` that is no heading: a hard-wrapped
+/// prose sentence, a flush example command that continues onto deeper
+/// lines, or the invocation table under a flush commands heading.
+pub(super) fn region_end(
+    inp: &BodyInput,
+    tool_name: Option<&str>,
+    at: usize,
+    st: &mut BodyScan,
+) -> Option<usize> {
+    if let Some(end) = wrapped_prose_region_end(inp.lines, at) {
+        return Some(end);
+    }
+    if let Some(end) = super::example_command_line::example_command_end(inp.lines, at) {
+        return Some(end);
+    }
+    let name = tool_name?;
+    let (end, nodes, seen, clean) =
+        table_under_commands_heading(inp.lines, at, name, inp.raw, inp.profile)?;
+    st.total_entries += seen;
+    st.clean_entries += clean;
+    for node in nodes {
+        st.result.try_push_subcommand(node);
+    }
+    st.command_mode = false;
+    Some(end)
 }
