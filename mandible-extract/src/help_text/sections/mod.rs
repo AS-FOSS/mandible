@@ -99,7 +99,7 @@ use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
-use value_form_row::value_form_sub_row;
+use value_form_row::{mark_sole_equals_rows, value_form_sub_row};
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output stays below it

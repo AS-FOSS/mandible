@@ -1,0 +1,18 @@
+# Every row of an llvm cl::opt enum table is `=`-prefixed (`=DPP`, `=<empty>`):
+# those rows are literal choices, never a value form (S-204 stays out of them).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "llvm-profdata-18"
+version = "18.1.3"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["llvm-profdata-18", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_attach_choices = { "--profile-correlate" = ["debug-info", "binary"], "--amdgpu-atomic-optimizer-strategy" = ["DPP", "Iterative", "None"] }

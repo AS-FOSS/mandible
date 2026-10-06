@@ -4,6 +4,36 @@
 //! description. See docs/shapes.md S-204 and corpus/as/2.42-listing.
 
 use super::entry::find_description_gap;
+use super::flag_rows::FlagsBlockRow;
+
+/// Per row: `true` for the one continuation row that is the sole
+/// `=`-prefixed row of its run of continuation rows (a flag's sub-option
+/// table whose other rows are not `=`-prefixed). A table where every row
+/// is `=`-prefixed (an llvm cl::opt enum) names literal choices, so none
+/// of its rows qualify.
+pub(super) fn mark_sole_equals_rows(rows: &[FlagsBlockRow<'_>]) -> Vec<bool> {
+    let mut marks = vec![false; rows.len()];
+    let mut i = 0;
+    while i < rows.len() {
+        if !matches!(rows[i], FlagsBlockRow::Continuation(..)) {
+            i += 1;
+            continue;
+        }
+        let mut j = i;
+        let mut equals = Vec::new();
+        while let Some(FlagsBlockRow::Continuation(text, _)) = rows.get(j) {
+            if text.starts_with('=') {
+                equals.push(j);
+            }
+            j += 1;
+        }
+        if let [only] = equals[..] {
+            marks[only] = j - i > 1;
+        }
+        i = j;
+    }
+    marks
+}
 
 /// `=NAME: description` for a sub-row `=NAME  description` where NAME is an
 /// all-caps placeholder word (or `<word>`), else `None`.
@@ -55,5 +85,21 @@ mod tests {
     fn lowercase_equals_value_stays_a_choice() {
         assert!(value_form_sub_row("=default            -   default").is_none());
         assert!(value_form_sub_row("=FILE").is_none());
+    }
+}
+
+#[cfg(test)]
+mod table_tests {
+    use super::*;
+
+    #[test]
+    fn only_a_sole_equals_row_among_other_rows_qualifies() {
+        let c = |t| FlagsBlockRow::Continuation(t, t);
+        let a = [c("c  omit"), c("s  symbols"), c("=FILE  list to FILE")];
+        assert_eq!(mark_sole_equals_rows(&a), [false, false, true]);
+        let b = [c("=DPP  x"), c("=Iterative  y"), c("=None  z")];
+        assert_eq!(mark_sole_equals_rows(&b), [false, false, false]);
+        let lone = [c("=FILE  list")];
+        assert_eq!(mark_sole_equals_rows(&lone), [false]);
     }
 }

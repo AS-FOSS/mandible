@@ -4850,6 +4850,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and its text joins the flag's description as `=FILE: list to FILE (must be
   last sub-option)`. Fixture: `corpus/as/2.42-listing`. The flag has no field
   for alternative value names yet.
+  Only the sole `=`-prefixed row of a table whose other rows are not
+  `=`-prefixed qualifies: an llvm cl::opt enum table (every row `=`-prefixed,
+  `=DPP`) lists literal choices. Fixture: `corpus/llvm-profdata-18/18.1.3`.
 - fleet: a `--tools` pre-check over as, llvm-ar-18, ar, ld, objdump, readelf
   moved only `as`, read against its raw help. No other corpus or audit capture
   holds such a row.
