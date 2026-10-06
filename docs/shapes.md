@@ -4826,7 +4826,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   choices when the placeholder is the owner's own (`no-CATEGORY`); before this
   the block fell to the last flag (`--force-missing`, `--melt`). The same
   proof accepts a heading that holds a flag's long spelling as a word, singular
-  or plural (`Languages include:` for `-l, --language=LANG`), and a block it
+  or plural (`Languages include:` for `-l, --language=LANG`) when the word ends
+  its phrase and the flag takes a value (`Show text segmentation:` does not own
+  for `--text`; `Typical components:` does not for the valueless `--components`),
+  and a block it
   owns may name its rows in quotes (`'Autoconf'`): the quotes drop and the
   description stays, never for an unowned block. Fixtures:
   `corpus/automake/1.16.5`, `corpus/autom4te/2.71`.

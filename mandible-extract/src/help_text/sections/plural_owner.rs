@@ -24,23 +24,35 @@ fn plural_forms(word: &str) -> Vec<String> {
     forms
 }
 
-/// True when `word` is, as a whole word, `long` or one of its plurals.
+/// Words that may follow a noun naming the block's subject: the noun then ends
+/// its phrase (`digest algorithm and ...`, `Languages include:`), where a
+/// following content word makes it a modifier (`text segmentation`).
+const PHRASE_END: [&str; 20] = [
+    "and", "or", "include", "includes", "are", "is", "for", "of", "to", "in", "as", "by", "with",
+    "that", "which", "choices", "values", "names", "can", "may",
+];
+
+/// True when `long` or one of its plurals is a whole word of `words` that ends
+/// its noun phrase.
 fn names_word(words: &[&str], long: &str) -> bool {
-    words.contains(&long)
-        || plural_forms(long)
-            .iter()
-            .any(|p| words.contains(&p.as_str()))
+    let plurals = plural_forms(long);
+    words.iter().enumerate().any(|(i, w)| {
+        (*w == long || plurals.iter().any(|p| p == w))
+            && words.get(i + 1).is_none_or(|n| PHRASE_END.contains(n))
+    })
 }
 
-/// True when the heading names a long spelling of `flag` (`language`).
+/// True when the heading names a long spelling of `flag` (`language`) and the
+/// flag takes a value: a flag without one has no choices to own.
 fn heading_names_long(words: &[&str], flag: &Entity) -> bool {
-    flag.spellings.iter().any(|s| {
-        let name = s.name.to_lowercase();
-        s.dashes != mandible_core::Dashes::None
-            && name.chars().count() > 3
-            && name.chars().all(|c| c.is_ascii_alphabetic())
-            && names_word(words, &name)
-    })
+    flag.value_kind != mandible_core::ValueKind::None
+        && flag.spellings.iter().any(|s| {
+            let name = s.name.to_lowercase();
+            s.dashes != mandible_core::Dashes::None
+                && name.chars().count() > 3
+                && name.chars().all(|c| c.is_ascii_alphabetic())
+                && names_word(words, &name)
+        })
 }
 
 /// The index of the one flag whose value placeholder's plural, or whose
@@ -156,6 +168,27 @@ mod tests {
         assert_eq!(plural_owner_index("Languages include:", &flags), Some(1));
         assert_eq!(plural_owner_index("Language choices:", &flags), Some(1));
         assert_eq!(plural_owner_index("Other things:", &flags), None);
+    }
+
+    #[test]
+    fn a_long_spelling_that_modifies_another_noun_owns_nothing() {
+        let flags = vec![flag("kind", "KIND"), flag("text", "STRING")];
+        let h = "Show text segmentation as determined by Pango:";
+        assert_eq!(plural_owner_index(h, &flags), None);
+        let flags = vec![flag("algorithm", "TYPE")];
+        let h = "DIGEST determines the digest algorithm and default output format:";
+        assert_eq!(plural_owner_index(h, &flags), Some(0));
+    }
+
+    #[test]
+    fn a_flag_without_a_value_owns_no_block() {
+        let mut components = flag("components", "X");
+        components.value_kind = ValueKind::None;
+        components.value_name = None;
+        assert_eq!(
+            plural_owner_index("Typical components:", &[components]),
+            None
+        );
     }
 
     #[test]
