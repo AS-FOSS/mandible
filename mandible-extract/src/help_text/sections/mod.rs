@@ -72,6 +72,7 @@ mod usage_signs;
 mod usage_word_flags;
 mod value_form_row;
 mod word_grid;
+mod wrapped_flag_line;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,

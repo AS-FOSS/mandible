@@ -19,13 +19,9 @@ stdout = "help.txt"
 expected_framework = "generic"
 min_status = "ok"
 verdict_scope = ["flags"]
-must_contain_flags = ["--multiline", "--multiline-dotall", "--vimgrep", "--count"]
+must_contain_flags = ["--multiline", "--multiline-dotall", "--vimgrep", "--color"]
 
 [contract.must_describe]
 "--multiline" = "Alternatively, the --multiline-dotall flag may be passed to make the \"dot all\" behavior"
 "--multiline-dotall" = "isn't enabled with the -U/--multiline flag. Normally, a . will match any character except line terminators."
-"--vimgrep" = "--vimgrep and --json."
-
-[xfail]
-broken = true
-reason = "a wrapped description line starting with a flag spelling opens a fabricated row and ends the real row's description"
+"--color" = "For example, --vimgrep and --json."
