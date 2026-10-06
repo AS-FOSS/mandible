@@ -20,8 +20,8 @@ flags:
     - help-text
 - spellings:
   - -flag
-  value_name: '[+|-]'
-  value_kind: Optional
+  value_name: '[+|-]<name>'
+  value_kind: Required
   group: 'where <option> is one of:'
   description: to enable or disable the named VM flag
   provenance:
@@ -29,7 +29,7 @@ flags:
     - help-text
 - spellings:
   - -flag
-  value_name: <name>
+  value_name: <name>=<value>
   value_kind: Required
   group: 'where <option> is one of:'
   description: to set the named VM flag to the given value
