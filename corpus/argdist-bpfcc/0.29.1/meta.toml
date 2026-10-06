@@ -25,12 +25,8 @@ must_contain_flags = ["-H", "-C", "-I"]
 [contract.must_one_row_in_group]
 "" = ["-H", "-C"]
 
-# `{p,r,t,u}` and the `Where:` legend of the "Probe specifier syntax:" block
-# are read as a choices list and attached to -H and -I.
+# The "Probe specifier syntax:" block and its `Where:` legend (S-210) join the
+# node description; they are not choices of -H or -I.
 [contract.must_not_attach_choices]
 "-H" = ["r", "t"]
 "-I" = ["library", "category", "function"]
-
-[xfail]
-broken = true
-reason = "the Probe specifier syntax block's {p,r,t,u} and Where: legend attach as choices to -H and -I"

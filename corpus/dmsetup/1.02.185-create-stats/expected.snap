@@ -117,6 +117,10 @@ subcommands:
   - spellings:
     - -n
     - --notable
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
     - --table
     value_name: '{<table>|<table_file>}'
     value_kind: Required

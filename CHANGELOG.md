@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-011] A wrapped description line that begins with a flag spelling (`-U/--multiline flag.`) continues its description instead of opening a row (`mandible rg` loses about 27 fabricated flag rows, `pod2man`'s `--center`).
+- [S-212] Single-dash words such as `-Bdynamic, -dy, -call_shared`, `-Bsymbolic` and `-Tbss ADDRESS` are options of their own, not `-B` or `-T` with a value (`mandible ld`, `gold`, #102).
+- [S-211] A list of `<tool> <word> ...` command rows over their descriptions is the command list, not the usage (`mandible corepack` gains `disable` and `cache clean`, and its usage is `$ corepack <command>`). Each command shows its own invocation line as usage.
+- [S-210] A syntax legend (`Probe specifier syntax:`, `Where:`) is shown in the description instead of becoming choices of unrelated flags (`mandible argdist-bpfcc`'s `-H`, `-I`).
+- [S-011] An indented example command line ending in a backslash stays in its flag's description (`mandible rg`'s `--color` and `--hyperlink-format` examples).
+- [S-209] A usage row `[-n|--notable|--table {<table>|<table_file>}]` is two flags, `-n|--notable` and `--table` with its value (`mandible dmsetup`'s `create`).
+- [S-208] A usage line that names the command and then its aliases (`brew search, -S [options] ...`) shows as printed instead of with the command's name prepended again (`mandible brew`'s `search`, `info`, `update`).
+- [S-207] A comma row of independent long options that the help documents again as rows of their own keeps only the spellings it alone documents (`mandible ld`'s `--warn-constructors` row, #102).
+- [S-193] A command row whose description starts one space after its operands, at its table's column, is a subcommand (`mandible systemctl` gains `set-property`, `mount-image`, `service-log-target`).
 - [S-206] A grid of file names under `Files automatically distributed if found:` is no longer the choices of `--force-missing`: it reads in the description (`mandible automake`; #102).
 - [S-205] A heading's `key=<placeholder>` rows are dashless flags with their choices or value (`mandible jfr configure`: `gc`, `locking-threshold <timespan>`, ...).
 - [S-204] A `=FILE` row closing a flag's sub-option table is its value form, not a choice: its text joins the flag's description instead of becoming a bare `FILE` choice (`mandible as`, `-a`; #102).

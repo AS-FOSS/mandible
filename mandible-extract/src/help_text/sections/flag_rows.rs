@@ -2,6 +2,8 @@
 //! splits into entries (packed rows, BNF alternations, bracket groups),
 //! and where a nested entry table interrupts a row's description.
 
+use super::example_command_line::is_example_command_line;
+use super::wrapped_flag_line::continues_wrapped_description;
 use super::*;
 
 /// True when `line` opens a BNF grammar production — `LABEL := ...`, with
@@ -841,6 +843,8 @@ fn collect_flags_block_rows<'a>(
         }
 
         let is_entry_start = !follows_backslash_line(lines, i)
+            && !continues_wrapped_description(&rows, current_entry_line, line)
+            && !is_example_command_line(trimmed, indent, min_entry_indent)
             && (looks_like_flag_start(trimmed)
             || looks_like_bracket_flag_row(trimmed)
             // Gated like `split_bnf_alternation_row`: a leading `|`

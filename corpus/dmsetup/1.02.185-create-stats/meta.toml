@@ -2,8 +2,7 @@
 # Raw: `[-n|--notable|--table {<table>|<table_file>}]` is two flags, `-n|--notable`
 # and `--table` with a brace value. `stats <command> [<options>] [<device>...]`
 # has an optional `<options>` operand ahead of the devices.
-# `stats` keeps `[<options>]` (S-060). `create` still shares one value across
-# `-n`, `--notable` and `--table`: the text does not say which takes it.
+# `stats` keeps `[<options>]` (S-060).
 
 [bless]
 provenance = "agent"
@@ -26,6 +25,9 @@ verdict_scope = ["flags", "subcommands"]
 
 [contract.must_contain_flags_by_path]
 create = ["--notable", "--table", "--major", "--uuid"]
+
+[contract.must_keep_separate_by_path]
+create = [["-n", "--table"], ["--notable", "--table"]]
 
 [contract.must_contain_positionals_by_path]
 stats = ["command", "options", "device..."]

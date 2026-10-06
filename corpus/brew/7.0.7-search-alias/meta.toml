@@ -1,7 +1,7 @@
 # The text of `brew help search` (Homebrew 7.0.7) replayed as the root
 # document, to isolate one parse. The usage line `Usage: brew search, -S
 # [options] text|/regex/ [...]` names `-S` as the command's alias spelling.
-# `[options]` is the usage word for "flags go here", so `-S` keeps no value.
+# The pane shows that line as printed (S-208). `[options]` is the usage word for "flags go here", so `-S` keeps no value.
 
 [bless]
 provenance = "agent"

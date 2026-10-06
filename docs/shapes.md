@@ -202,7 +202,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       When a filename is '-', nano reads data
         from standard input.
 - tools: nano, update-xmlcatalog, dpkg, gcc, lto-dump, objdump, arptables,
-  fail2ban-client, wpa_cli, zic, bpfcc, jpackage
+  fail2ban-client, wpa_cli, zic, bpfcc, jpackage, rg, pod2man
 - handling: Three shapes share one remedy family. A sentence that ends on the promoted
   line, GNU argp's mandatory-arguments notice among them, is suppressed as a
   group label while its block parses unchanged; a colon-terminated heading
@@ -210,7 +210,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   because it never ends in a full stop. A backslash-marked wrap,
   update-xmlcatalog's synopsis among 7 tools and 16 distinct lines, gets the
   same suppression, and a line after a backslash-ended line is never read as a
-  flag row (jpackage's sample usages). A sentence that continues onto the
+  flag row (jpackage's sample usages), and a deeper-indented line that ends
+  in ` \` and carries a quoted argument is an example command inside a
+  description, never a row (rg's `--colors 'path:none' \`), and a wrapped line
+  that begins with a flag spelling and repeats the indent of the description
+  line above it continues that description (rg's `-U/--multiline flag.`,
+  pod2man's `--official below.`). A sentence that continues onto the
   indented line is worse:
   dpkg's cross-reference sentence acquired both a fake section divider and a
   -f, --field option belonging to a different program, so the whole wrapped
@@ -4623,14 +4628,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -I DIR         add the directory to the include search path
       --include FILE add an #include file before preprocessing
-- tools: bpftrace, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, tcpretrans.bt, threadsnoop.bt, Xvfb, nstat
+- tools: bpftrace, killsnoop.bt, naptime.bt, opensnoop.bt, tcpaccept.bt, tcpretrans.bt, threadsnoop.bt, Xvfb, nstat, systemctl
 - handling: Fixed. A row with no column gap of its own, in a block where at
   least three flag rows (and at least half of the gapped ones) start their
   description at one byte column, is split at that column when the text
   before it is a two- or three-token flag spec and the text after reads as a
   sentence (three or more words, opening with a letter). The whole line used
   to read as the spec and the description never reached the tree. Tab-aligned
-  blocks are left alone. Fixtures: `corpus/tcpretrans.bt/0.20.2`.
+  blocks are left alone. The same column splits a bare command row (a command
+  name and uppercase placeholders, then a sentence) in a command block, so
+  `set-property UNIT PROPERTY=VALUE... Sets ...` is a subcommand. Fixtures:
+  `corpus/tcpretrans.bt/0.20.2`, `corpus/systemctl/255`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
 
 ### S-194: every usage form opens with the same program word, not the node's name
@@ -4900,3 +4908,132 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a `--tools` pre-check over 222 tools (the round's touched tools, the Java
   tools, the autotools and the nine controls) moved only automake and
   automake-1.16, each read against its raw help; no other corpus fixture changed.
+### S-207: a comma row of independent long options, each documented again as its own row
+
+- id: S-207
+- looks like: |
+      --warn-constructors, --error-execstack, --warn-execstack, --warn-rwx-segments
+                                  Warn if global constructors/destructors are seen
+      --warn-execstack            Generate a warning if creating an executable stack
+- tools: ld
+- handling: Fixed. A flag row of three or more long spellings, at least two
+  of which another flag of the same node already carries, loses those
+  spellings; the row keeps the rest and its description, and the others keep
+  the rows that document them. Nothing the help says is dropped. A genuine
+  alias row (`-Bstatic, -dn, -non_shared, -static`) has no spelling
+  documented elsewhere and is untouched. Fixtures: `corpus/ld/2.42`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-208: a usage form names the node and then its aliases, comma-joined
+
+- id: S-208
+- looks like: |
+      Usage: brew search, -S [options] text|/regex/ [...]
+- tools: brew
+- handling: Fixed. The node's own word followed by a comma still names the
+  node when the detail pane shapes a usage line, so the form shows as printed
+  (`brew search, -S [options] ...`) instead of with the node's name
+  prepended a second time (`search brew search, -S ...`). The tree keeps the
+  usage text unchanged. Fixtures: `corpus/brew/7.0.7-search-alias` (tree),
+  `a_usage_form_naming_the_node_with_an_alias_list_does_not_prepend` (pane).
+- fleet: not measured; a pane-only change the coverage sweep cannot see.
+
+### S-209: a bracket row of a short and a long spelling, then a second long spelling with the value
+
+- id: S-209
+- looks like: |
+      [-n|--notable|--table {<table>|<table_file>}]
+- tools: dmsetup
+- handling: Fixed. A whole-line bracket row of exactly three `|` members, a
+  bare short spelling, a bare long spelling and a long spelling followed by
+  a value, is two flags: the first two are one option with two spellings and
+  no value, the third is its own option and keeps the value. A row whose
+  value follows the second member (`-U|--uid <uid>`), or with more members,
+  is untouched. Fixtures: `corpus/dmsetup/1.02.185-create-stats`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+
+### S-210: a syntax legend under its own heading read as a flag's value list
+
+- id: S-210
+- looks like: |
+      Probe specifier syntax:
+              {p,r,t,u}:{[library],category}:function(signature):type
+      Where:
+              p,r,t,u    -- probe at function entry, function exit
+              library    -- the library that contains the function
+- tools: argdist-bpfcc
+- handling: Fixed. A bare block under a heading ending in `syntax`, or made of
+  three or more `name  -- meaning` rows, is a legend, not a list of values:
+  its text joins the node description under its own heading and no flag
+  receives choices from it. A flush example command that continues onto
+  deeper lines (`argdist -H \`) no longer heads a block either, so its
+  description words stop becoming a flag's choices (`-I`'s `processes`);
+  jpackage's sample usages no longer invent a second `--type`. Fixtures:
+  `corpus/argdist-bpfcc/0.29.1`, `corpus/jpackage/21.0.12.1-samples`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
+  (135 tools: bpfcc, jdk, rg; argdist-bpfcc and jpackage moved).
+
+### S-211: a command list written as `<tool> <word> ...` rows, each over its description
+
+- id: S-211
+- looks like: |
+      $ corepack <command>
+
+      General commands
+
+        corepack disable [--install-directory #0] ...
+          Remove the Corepack shims from the install directory
+- tools: corepack
+- handling: Fixed. A run of three or more rows that start with the tool's
+  name, each followed by an indented prose description, is never the usage
+  form, and a `$ ` shell prompt before the tool's name no longer hides the
+  real usage line. The commands heading over such a run now introduces its
+  invocation table directly, so every row becomes a subcommand carrying the
+  heading as its group. Each row's whole invocation line is its node's
+  usage form (a node named by two rows carries both lines), and a second
+  row's description is appended to the node's description after the first
+  row's summary. Fixtures: `corpus/corepack/0.34.6`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check;
+  the full-`PATH` sweep decides.
+
+### S-212: single-dash words read as a short flag with a value
+
+- id: S-212
+- looks like: |
+      -Bdynamic, -dy, -call_shared
+                                  Link against shared libraries
+      -Bsymbolic                  Bind global references locally
+      -Tbss ADDRESS               Set address of .bss section
+- tools: ld, gold, lto-dump, sginfo
+- handling: Fixed. A run of four or more letters followed by `, -` and
+  another single-dash spelling is one multi-letter spelling of an alias run
+  (`-Bdynamic, -dy, -call_shared`, `-shared, -Bshareable`). Three or more
+  table rows of one short letter, each glued to a different word and each
+  with a description (`-Bsymbolic`, `-Bgroup`, `-Tbss`, gcc's `-Wcast-result`
+  rows), are separate single-dash options; a value spaced after the name
+  (`-Tbss ADDRESS`) stays on the option. The family needs one shared
+  indentation column: rows glued to a parent's `-Farg` placeholder and
+  indented deeper (`-Flogical`, `-Flba64`) are that flag's choices with
+  their descriptions. Fixtures: `corpus/ld/2.42-single-dash`,
+  `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`, `corpus/sginfo/2.43`.
+- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
+  (224 tools; ld, gold and their aliases moved).
+
+### S-213: a heading drawn between two runs of box-drawing glyphs
+
+- id: S-213
+- looks like: |
+      ━━━ Options ━━━━━━━━━━━━━━━━━━━━━━
+        --install-directory #0    Where the shims are located
+- tools: corepack
+- handling: Fixed. A line of two or more box-drawing glyphs, a plain-word
+  label and two or more glyphs again is the heading its label names, and is
+  rewritten to `Label:` before layout analysis, so `Options` is the generic
+  label (no group) rather than the whole rule kept as the flag's group. The
+  page is `corepack disable --help` / `enable --help`; it is not reached
+  live while design section 6 rule 0 does not probe `invocation_attested`
+  command rows (maintainer decision), so `corpus/corepack/0.34.6-disable-page`
+  pins the page text and `corpus/corepack/0.34.6-subcommands` stays
+  `[xfail]` on the probe gate.
+- fleet: not measured; no PATH tool prints this heading in the sweep
+  pre-check (yarn, pnpm, npm, controls unchanged).

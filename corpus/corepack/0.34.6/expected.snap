@@ -1,0 +1,88 @@
+name: corepack
+description: Corepack - 0.34.6
+usage:
+- $ corepack <command>
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: cache
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+  subcommands:
+  - name: clean
+    summary: Cleans Corepack cache
+    usage:
+    - corepack cache clean
+    provenance:
+      sources:
+      - help-text
+    invocation_attested: true
+- name: disable
+  summary: Remove the Corepack shims from the install directory
+  usage:
+  - 'corepack disable [--install-directory #0] ...'
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: enable
+  summary: Add the Corepack shims to the install directory
+  usage:
+  - 'corepack enable [--install-directory #0] ...'
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: install
+  summary: Install the package manager configured in the local project
+  description: Install package managers on the system
+  usage:
+  - corepack install
+  - corepack install <-g,--global> [--cache-only] ...
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: pack
+  summary: Store package managers in a tarball
+  usage:
+  - 'corepack pack [--json] [-o,--output #0] ...'
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: up
+  summary: Update the package manager used in the current project
+  usage:
+  - corepack up
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true
+- name: use
+  summary: Define the package manager to use for the current project
+  usage:
+  - corepack use <pattern>
+  group: General commands
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

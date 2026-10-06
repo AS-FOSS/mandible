@@ -1,0 +1,1044 @@
+name: systemctl
+usage:
+- systemctl [OPTIONS...] COMMAND ...
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: Show this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Show package version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --system
+  description: Connect to system manager
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --user
+  description: Connect to user service manager
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --host
+  value_name: '[USER@]HOST'
+  value_kind: Required
+  description: Operate on remote host
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --machine
+  value_name: CONTAINER
+  value_kind: Required
+  description: Operate on a local container
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --type
+  value_name: TYPE
+  value_kind: Required
+  description: List units of a particular type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --state
+  value_name: STATE
+  value_kind: Required
+  description: List units with particular LOAD or SUB or ACTIVE state
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --failed
+  description: Shortcut for --state=failed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --property
+  value_name: NAME
+  value_kind: Required
+  description: Show only properties by this name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  value_name: NAME
+  value_kind: Required
+  description: Equivalent to --value --property=NAME
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --all
+  description: Show all properties/all units currently in memory, including dead/empty ones. To list all units installed on the system, use 'list-unit-files' instead.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --full
+  description: Don't ellipsize unit names on output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --recursive
+  description: Show unit list of host and local containers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reverse
+  description: Show reverse dependencies with 'list-dependencies'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --with-dependencies
+  description: Show unit dependencies with 'status', 'cat', 'list-units', and 'list-unit-files'.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --job-mode
+  value_name: MODE
+  value_kind: Required
+  description: Specify how to deal with already queued jobs, when queueing a new job
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --show-transaction
+  description: When enqueuing a unit job, show full transaction
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-types
+  description: When showing sockets, explicitly show their type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --value
+  description: When showing properties, only print the value
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --check-inhibitors
+  value_name: MODE
+  value_kind: Required
+  description: Whether to check inhibitors before shutting down, sleeping, or hibernating
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  description: Shortcut for --check-inhibitors=no
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --kill-whom
+  value_name: WHOM
+  value_kind: Required
+  description: Whom to send signal to
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --kill-value
+  value_name: INT
+  value_kind: Required
+  description: Signal value to enqueue
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --signal
+  value_name: SIGNAL
+  value_kind: Required
+  description: Which signal to send
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --what
+  value_name: RESOURCES
+  value_kind: Required
+  description: Which types of resources to remove
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --now
+  description: Start or stop unit after enabling or disabling it
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dry-run
+  description: 'Only print what would be done Currently supported by verbs: halt, poweroff, reboot, kexec, soft-reboot, suspend, hibernate, suspend-then-hibernate, hybrid-sleep, default, rescue, emergency, and exit.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: Suppress output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-warn
+  description: Suppress several warnings shown by default
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wait
+  description: For (re)start, wait until service stopped again For is-system-running, wait until startup is completed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-block
+  description: Do not wait until operation finished
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-wall
+  description: Don't send wall message before halt/power-off/reboot
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-reload
+  description: Don't reload daemon after en-/dis-abling unit files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --legend
+  value_name: BOOL
+  value_kind: Required
+  description: Enable/disable the legend (column headers and hints)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-pager
+  description: Do not pipe output into a pager
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-ask-password
+  description: Do not ask for system passwords
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --global
+  description: Edit/enable/disable/mask default user unit files globally
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --runtime
+  description: Edit/enable/disable/mask unit files temporarily until next reboot
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force
+  description: When enabling unit files, override existing symlinks When shutting down, execute action immediately
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --preset-mode
+  value_name: ''
+  value_kind: Required
+  description: Apply only enable, only disable, or all presets
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --root
+  value_name: PATH
+  value_kind: Required
+  description: Edit/enable/disable/mask unit files in the specified root directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --image
+  value_name: PATH
+  value_kind: Required
+  description: Edit/enable/disable/mask unit files in the specified disk image
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --image-policy
+  value_name: POLICY
+  value_kind: Required
+  description: Specify disk image dissection policy
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --lines
+  value_name: INTEGER
+  value_kind: Required
+  description: Number of journal entries to show
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: STRING
+  value_kind: Required
+  description: Change journal output mode (short, short-precise, short-iso, short-iso-precise, short-full, short-monotonic, short-unix, short-delta, verbose, export, json, json-pretty, json-sse, cat)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --firmware-setup
+  description: Tell the firmware to show the setup menu on next boot
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --boot-loader-menu
+  value_name: TIME
+  value_kind: Required
+  description: Boot into boot loader menu on next boot
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --boot-loader-entry
+  value_name: NAME
+  value_kind: Required
+  description: Boot into a specific boot loader entry on next boot
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --plain
+  description: Print unit dependencies as a list instead of a tree
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --timestamp
+  value_name: FORMAT
+  value_kind: Required
+  description: Change format of printed timestamps (pretty, unix, us, utc, us+utc)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --read-only
+  description: Create read-only bind mount
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mkdir
+  description: Create directory before mounting, if missing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --marked
+  description: Restart/reload previously marked units
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --drop-in
+  value_name: NAME
+  value_kind: Required
+  description: Edit unit files using the specified drop-in file name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --when
+  value_name: TIME
+  value_kind: Required
+  description: Schedule halt/power-off/reboot/kexec action after a certain timestamp
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: list-units
+  summary: List units currently in memory
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-automounts
+  summary: List automount units currently in memory, ordered by path
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-paths
+  summary: List path units currently in memory, ordered by path
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-sockets
+  summary: List socket units currently in memory, ordered by address
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-timers
+  summary: List timer units currently in memory, ordered by next elapse
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: is-active
+  summary: Check whether units are active
+  usage:
+  - PATTERN...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: is-failed
+  summary: Check whether units are failed or system is in degraded state
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: status
+  summary: Show runtime status of one or more units
+  usage:
+  - '[PATTERN...|PID...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Show properties of one or more units/jobs or the manager
+  usage:
+  - '[PATTERN...|JOB...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cat
+  summary: Show files and drop-ins of specified units
+  usage:
+  - PATTERN...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: help
+  summary: Show manual for one or more units
+  usage:
+  - PATTERN...|PID...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-dependencies
+  summary: Recursively show units which are required or wanted by the units or by which those units are required or wanted
+  usage:
+  - '[UNIT...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: start
+  summary: Start (activate) one or more units
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: stop
+  summary: Stop (deactivate) one or more units
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reload
+  summary: Reload one or more units
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restart
+  summary: Start or restart one or more units
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: try-restart
+  summary: Restart one or more units if active
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reload-or-restart
+  summary: Reload one or more units if possible, otherwise start or restart
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: try-reload-or-restart
+  summary: If active, reload one or more units, if supported, otherwise restart
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: isolate
+  summary: Start one unit and stop all others
+  usage:
+  - UNIT
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: kill
+  summary: Send signal to processes of a unit
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: clean
+  summary: Clean runtime, cache, state, logs or configuration of unit
+  usage:
+  - UNIT...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: freeze
+  summary: Freeze execution of unit processes
+  usage:
+  - PATTERN...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: thaw
+  summary: Resume execution of a frozen unit
+  usage:
+  - PATTERN...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: set-property
+  summary: Sets one or more properties of a unit
+  usage:
+  - UNIT PROPERTY=VALUE...
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bind
+  summary: Bind-mount a path from the host into a unit's namespace
+  usage:
+  - UNIT PATH [PATH]
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mount-image
+  summary: Mount an image from the host into a unit's namespace
+  usage:
+  - UNIT PATH [PATH [OPTS]]
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: service-log-level
+  summary: Get/set logging threshold for service
+  usage:
+  - SERVICE [LEVEL]
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: service-log-target
+  summary: Get/set logging target for service
+  usage:
+  - SERVICE [TARGET]
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reset-failed
+  summary: Reset failed state for all, one, or more units
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: whoami
+  summary: Return unit caller or specified PIDs are part of
+  usage:
+  - '[PID...]'
+  group: 'Unit Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-unit-files
+  summary: List installed unit files
+  usage:
+  - '[PATTERN...]'
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: enable
+  summary: Enable one or more unit files
+  usage:
+  - '[UNIT...|PATH...]'
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: disable
+  summary: Disable one or more unit files
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reenable
+  summary: Reenable one or more unit files
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: preset
+  summary: Enable/disable one or more unit files based on preset configuration
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: preset-all
+  summary: Enable/disable all unit files based on preset configuration
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: is-enabled
+  summary: Check whether unit files are enabled
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mask
+  summary: Mask one or more units
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unmask
+  summary: Unmask one or more units
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: link
+  summary: Link one or more units files into the search path
+  usage:
+  - PATH...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: revert
+  summary: Revert one or more unit files to vendor version
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add-wants
+  summary: Add 'Wants' dependency for the target on specified one or more units
+  usage:
+  - TARGET UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add-requires
+  summary: Add 'Requires' dependency for the target on specified one or more units
+  usage:
+  - TARGET UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: edit
+  summary: Edit one or more unit files
+  usage:
+  - UNIT...
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: get-default
+  summary: Get the name of the default target
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: set-default
+  summary: Set the default target
+  usage:
+  - TARGET
+  group: 'Unit File Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-machines
+  summary: List local containers and host
+  usage:
+  - '[PATTERN...]'
+  group: 'Machine Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list-jobs
+  summary: List jobs
+  usage:
+  - '[PATTERN...]'
+  group: 'Job Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cancel
+  summary: Cancel all, one, or more jobs
+  usage:
+  - '[JOB...]'
+  group: 'Job Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show-environment
+  summary: Dump environment
+  group: 'Environment Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: set-environment
+  summary: Set one or more environment variables
+  usage:
+  - VARIABLE=VALUE...
+  group: 'Environment Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unset-environment
+  summary: Unset one or more environment variables
+  usage:
+  - VARIABLE...
+  group: 'Environment Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: import-environment
+  summary: Import all or some environment variables
+  usage:
+  - VARIABLE...
+  group: 'Environment Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: daemon-reload
+  summary: Reload systemd manager configuration
+  group: 'Manager State Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: daemon-reexec
+  summary: Reexecute systemd manager
+  group: 'Manager State Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log-level
+  summary: Get/set logging threshold for manager
+  usage:
+  - '[LEVEL]'
+  group: 'Manager State Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log-target
+  summary: Get/set logging target for manager
+  usage:
+  - '[TARGET]'
+  group: 'Manager State Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: service-watchdogs
+  summary: Get/set service watchdog state
+  usage:
+  - '[BOOL]'
+  group: 'Manager State Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: is-system-running
+  summary: Check whether system is fully running
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: default
+  summary: Enter system default mode
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rescue
+  summary: Enter system rescue mode
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: emergency
+  summary: Enter system emergency mode
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: halt
+  summary: Shut down and halt the system
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: poweroff
+  summary: Shut down and power-off the system
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reboot
+  summary: Shut down and reboot the system
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: kexec
+  summary: Shut down and reboot the system with kexec
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: soft-reboot
+  summary: Shut down and reboot userspace
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: exit
+  summary: Request user instance or container exit
+  usage:
+  - '[EXIT_CODE]'
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch-root
+  summary: Change to a different root file system
+  usage:
+  - '[ROOT [INIT]]'
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: suspend
+  summary: Suspend the system
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hibernate
+  summary: Hibernate the system
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hybrid-sleep
+  summary: Hibernate and suspend the system
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: suspend-then-hibernate
+  summary: Suspend the system, wake after a period of time, and hibernate
+  group: 'System Commands:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

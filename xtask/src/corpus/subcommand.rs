@@ -16,6 +16,11 @@ pub(super) fn missing_root_failures(contract: &ContractMeta) -> Vec<ContractFail
             "must_describe_subcommand: no root produced".into(),
         ));
     }
+    if !contract.must_contain_usage_by_path.is_empty() {
+        failures.push(ContractFailure(
+            "must_contain_usage_by_path: no root produced".into(),
+        ));
+    }
     if !contract.must_subcommand_group.is_empty() {
         failures.push(ContractFailure(
             "must_subcommand_group: no root produced".into(),
@@ -34,6 +39,7 @@ pub(super) fn missing_root_failures(contract: &ContractMeta) -> Vec<ContractFail
 pub(super) fn check_all(contract: &ContractMeta, root: &CommandNode) -> Vec<ContractFailure> {
     let mut failures = check_must_describe_subcommand(contract, root);
     failures.extend(check_must_subcommand_group(contract, root));
+    failures.extend(check_must_contain_usage_by_path(contract, root));
     failures.extend(check_must_contain_positionals_by_path(contract, root));
     failures
 }
@@ -60,6 +66,43 @@ fn check_must_contain_positionals_by_path(
         if !missing.is_empty() {
             failures.push(ContractFailure(format!(
                 "must_contain_positionals_by_path[{path:?}]: missing {}",
+                missing.join(", ")
+            )));
+        }
+    }
+    failures
+}
+
+/// `must_contain_usage_by_path`: each text must sit inside one of the
+/// node's usage entries (whitespace collapsed on both sides).
+fn check_must_contain_usage_by_path(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (path, texts) in &contract.must_contain_usage_by_path {
+        let Some(node) = find_node_by_path(root, path) else {
+            failures.push(ContractFailure(format!(
+                "must_contain_usage_by_path: no node at path {path:?}"
+            )));
+            continue;
+        };
+        let usage: Vec<String> = node
+            .usage
+            .iter()
+            .map(|u| collapse_whitespace(u.as_str()))
+            .collect();
+        let missing: Vec<&str> = texts
+            .iter()
+            .filter(|t| {
+                let want = collapse_whitespace(t);
+                !usage.iter().any(|u| u.contains(&want))
+            })
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_contain_usage_by_path[{path:?}]: missing {}",
                 missing.join(", ")
             )));
         }
@@ -146,6 +189,20 @@ pub(super) fn contract_weakened_lines(
         if !n.must_describe_subcommand.contains_key(path) {
             lines.push(format!(
                 "CONTRACT WEAKENED: {label} must_describe_subcommand[{path:?}] (assertion removed)"
+            ));
+        }
+    }
+    for (path, base_texts) in &b.must_contain_usage_by_path {
+        let now = n.must_contain_usage_by_path.get(path);
+        let missing: Vec<&str> = base_texts
+            .iter()
+            .filter(|t| !now.is_some_and(|v| v.iter().any(|x| x == *t)))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_contain_usage_by_path[{path:?}] (dropped: {})",
+                missing.join(", ")
             ));
         }
     }

@@ -42,6 +42,7 @@ pub(super) fn split_entries<'a>(
         .min()
         .unwrap_or(0);
 
+    let desc_col = super::command_row_column::entry_description_column(block_lines, baseline);
     let mut entries: Vec<(&str, String)> = Vec::new();
     for line in block_lines {
         if line.trim().is_empty() {
@@ -58,7 +59,10 @@ pub(super) fn split_entries<'a>(
         let indent = leading_whitespace(line);
         let is_new_entry = indent <= baseline + 1;
         if is_new_entry {
-            let (spec, desc) = split_entry_line(line, allow_dash_separator);
+            let column_split = desc_col
+                .and_then(|c| super::command_row_column::split_command_row_at_column(line, c));
+            let (spec, desc) =
+                column_split.unwrap_or_else(|| split_entry_line(line, allow_dash_separator));
             entries.push((spec, desc));
         } else if let Some(last) = entries.last_mut() {
             last.1.push(' ');

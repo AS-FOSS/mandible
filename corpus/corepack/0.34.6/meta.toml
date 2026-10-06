@@ -14,11 +14,15 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 must_not_contain_positionals = ["disable"]
-min_subcommands = 6
+min_subcommands = 7
 must_not_contain_flags = ["--install-directory"]
 must_not_contain_usage_text = ["Remove the Corepack shims"]
 must_not_describe_root = ["Remove the Corepack shims"]
 
-[xfail]
-broken = true
-reason = "the first command row (`corepack disable [--install-directory #0] ...`) is taken as the usage form: its description is folded into usage, `disable` is missing from the subcommands, and the row's flag becomes a root flag"
+[contract.must_contain_usage_by_path]
+disable = ["corepack disable [--install-directory #0] ..."]
+enable = ["corepack enable [--install-directory #0] ..."]
+install = ["corepack install", "corepack install <-g,--global> [--cache-only] ..."]
+pack = ["corepack pack [--json] [-o,--output #0] ..."]
+use = ["corepack use <pattern>"]
+"cache clean" = ["corepack cache clean"]

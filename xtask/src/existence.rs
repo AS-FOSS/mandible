@@ -360,6 +360,8 @@ fn synopsis_lines<'a>(raw: &'a str, root_name: &str) -> Vec<SynopsisLine<'a>> {
     let mut prog: Option<&str> = None;
     for (idx, &line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
+        // A shell prompt before the tool's name (`$ corepack <command>`, S-211).
+        let trimmed = trimmed.strip_prefix("$ ").map_or(trimmed, str::trim_start);
         // LVM's `vg*`/`lv*`/`pv*` family writes a bare invocation line with
         // no notation (`vgextend VG PV ...`); accepted only when the next
         // physical line is unambiguous flag-row evidence.

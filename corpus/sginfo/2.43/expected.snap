@@ -1,0 +1,243 @@
+name: sginfo
+flags:
+- spellings:
+  - '-6'
+  group: 'Allowed options are:'
+  description: 'Do 6 byte mode sense and select commands (def: 10 bytes).'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  group: 'Allowed options are:'
+  description: 'Display inquiry info, serial # and all mode pages.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  group: 'Allowed options are:'
+  description: Similar to '-a' but displays all subpages as well.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  group: 'Allowed options are:'
+  description: Access Caching Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  group: 'Allowed options are:'
+  description: Access Control Mode Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  group: 'Allowed options are:'
+  description: 'Display defect lists (default format: index).'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  group: 'Allowed options are:'
+  description: Access Disconnect-Reconnect Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  group: 'Allowed options are:'
+  description: Access Read-Write Error Recovery page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  group: 'Allowed options are:'
+  description: Access Control Extension page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  group: 'Allowed options are:'
+  description: Access Format Device Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  value_name: arg
+  value_kind: Required
+  choices:
+  - name: logical
+    description: logical block addresses (32 bit)
+  - name: lba64
+    description: logical block addresses (64 bit)
+  - name: physical
+    description: physical blocks
+  - name: index
+    description: defect bytes from index
+  - name: head
+    description: sort by head
+  group: 'Allowed options are:'
+  description: 'Format of the defect list:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  group: 'Allowed options are:'
+  description: Access Rigid Disk Drive Geometry Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -G
+  group: 'Allowed options are:'
+  description: 'Display ''grown'' defect list (default format: index).'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  group: 'Allowed options are:'
+  description: Display information from INQUIRY command.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  group: 'Allowed options are:'
+  description: Access Informational Exception page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  group: 'Allowed options are:'
+  description: List known scsi devices on the system [DEPRECATED]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  group: 'Allowed options are:'
+  description: Access Notch and Partition Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  group: 'Allowed options are:'
+  description: Negate (stop) storing to saved page (active with -R).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  group: 'Allowed options are:'
+  description: Access Power Condition Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  group: 'Allowed options are:'
+  description: List known raw scsi devices on the system
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  group: 'Allowed options are:'
+  description: Display serial number (from INQUIRY VPD page).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: <pn[,sp]>
+  value_kind: Required
+  group: 'Allowed options are:'
+  description: Access mode page <pn> [subpage <sp>] and decode.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  group: 'Allowed options are:'
+  description: Trace commands (for debugging, double for more)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  value_name: <pn[,sp]>
+  value_kind: Required
+  group: 'Allowed options are:'
+  description: Access mode page <pn> [subpage <sp>], output in hex
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  group: 'Allowed options are:'
+  description: Show version number
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  group: 'Allowed options are:'
+  description: Access Verify Error Recovery Page.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  group: 'Allowed options are:'
+  description: single fetch mode pages (rather than double fetch)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: Access modifiable fields instead of current values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  description: Access manufacturer defaults instead of current values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  description: Access saved defaults instead of current values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  description: Use list (space separated values) rather than table.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  description: 'Replace parameters - best used with -X (expert use only) [replacement parameters placed after device on command line] sginfo version: 2.43 [20190913]; See man page for more details.'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

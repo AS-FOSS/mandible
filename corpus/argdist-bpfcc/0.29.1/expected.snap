@@ -1,0 +1,138 @@
+name: argdist-bpfcc
+description: |-
+  Probe specifier syntax:
+    {p,r,t,u}:{[library],category}:function(signature):type[,type...]:expr[,expr...][:filter]][#label]
+
+  Where:
+    p,r,t,u -- probe at function entry, function exit, kernel
+          tracepoint, or USDT probe
+          in exit probes: can use $retval, $entry(param), $latency
+    library -- the library that contains the function
+          (leave empty for kernel functions)
+    category -- the category of the kernel tracepoint (e.g. net, sched)
+    function -- the function name to trace (or tracepoint name)
+    signature -- the function's parameters, as in the C header
+    type -- the type of the expression to collect (supports multiple)
+    expr -- the expression to collect (supports multiple)
+    filter -- the filter that is applied to collected values
+    label -- the label for this probe in the resulting output
+usage:
+- 'usage: argdist-bpfcc [-h] [-p PID] [-t TID] [-z STRING_SIZE] [-i INTERVAL] [-d DURATION] [-n COUNT] [-v] [-c] [-T TOP] [-H specifier] [-C specifier] [-I header]'
+flags:
+- spellings:
+  - -h
+  - --help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --pid
+  value_name: PID
+  value_kind: Required
+  description: id of the process to trace (optional)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --tid
+  value_name: TID
+  value_kind: Required
+  description: id of the thread to trace (optional)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --string-size
+  value_name: STRING_SIZE
+  value_kind: Required
+  description: maximum string size to read from char* arguments
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --interval
+  value_name: INTERVAL
+  value_kind: Required
+  description: output interval, in seconds (default 1 second)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --duration
+  value_name: DURATION
+  value_kind: Required
+  description: total duration of trace, in seconds
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --number
+  value_name: COUNT
+  value_kind: Required
+  description: number of outputs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: print resulting BPF program code before executing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --cumulative
+  description: do not clear histograms and freq counts at each interval
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --top
+  value_name: TOP
+  value_kind: Required
+  description: number of top results to show (not applicable to histograms)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --histogram
+  value_name: specifier
+  value_kind: Required
+  description: probe specifier to capture histogram of (see examples below)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --count
+  value_name: specifier
+  value_kind: Required
+  description: probe specifier to capture count of (see examples below)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --include
+  value_name: header
+  value_kind: Required
+  description: additional header files to include in the BPF program as either full path, or relative to relative to current working directory, or relative to default kernel header search path
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.37
+children_filled: true

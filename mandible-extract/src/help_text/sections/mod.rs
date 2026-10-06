@@ -34,10 +34,13 @@ use mandible_core::{
 mod avoption;
 mod backfill;
 mod bullets;
+mod command_list_rows;
+mod command_row_column;
 mod dashless_key_flags;
 mod description_choices;
 mod emit;
 mod entry;
+mod example_command_line;
 mod flag_row_column;
 mod flag_rows;
 mod heading;
@@ -53,11 +56,16 @@ mod plural_owner;
 mod plus_minus;
 mod preamble;
 mod repair;
+mod rule_heading;
 mod scan;
+mod short_letter_word_family;
 mod spelling;
+mod spellings_documented_elsewhere;
+mod syntax_legend;
 #[cfg(test)]
 mod test_support;
 mod usage;
+mod usage_alias_pair_then_valued_long;
 mod usage_command_table;
 mod usage_form_prose;
 mod usage_optional_word;
@@ -65,6 +73,7 @@ mod usage_signs;
 mod usage_word_flags;
 mod value_form_row;
 mod word_grid;
+mod wrapped_flag_line;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
@@ -97,6 +106,7 @@ use spelling::*;
 #[cfg(test)]
 use test_support::*;
 use usage::*;
+use usage_alias_pair_then_valued_long::split_alias_pair_then_valued_long;
 use usage_command_table::*;
 use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
@@ -389,6 +399,7 @@ pub fn parse_with_profile(
     // gaps) must see the plain row, not the decorated one. See docs/shapes.md
     // S-143, S-144.
     let raw = rewrite_lowdown_bullets(&raw, tool_name);
+    let raw = rule_heading::rewrite_rule_bracketed_headings(&raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it. Doing it here, once, keeps the recovered
@@ -1258,6 +1269,12 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         if st.result.subcommands.len() == before {
             set_pending_bare_label(st, sole_label, lines, i);
         }
+    } else if let Some(text) = syntax_legend::legend_paragraph(heading, &lines[block_start..i]) {
+        st.command_mode = false;
+        st.result.description = Some(match st.result.description.take() {
+            Some(d) => format!("{d}\n\n{text}"),
+            None => text,
+        });
     } else {
         st.command_mode = false;
         // A word grid no flag owns is prose about the tool (S-206).
@@ -2084,7 +2101,7 @@ fn scan_entries(
         // A hard-wrapped prose sentence, whose second physical line the
         // indentation-alone heading rule would otherwise hand to the
         // flags scanner. Fenced whole.
-        if let Some(end) = wrapped_prose_region_end(lines, heading_idx) {
+        if let Some(end) = command_list_rows::region_end(inp, tool_name, heading_idx, &mut st) {
             i = end;
             continue;
         }
@@ -2177,7 +2194,10 @@ fn locate_usage_start(
                 {
                     break;
                 }
-                let t = l.trim_start();
+                if command_list_rows::is_command_list_row(lines, idx, name) {
+                    continue;
+                }
+                let t = command_list_rows::without_prompt(l.trim_start());
                 // LVM's own emitter also writes a bare invocation line
                 // (`vgck` alone) with all docopt notation on the rows
                 // that continue it, invisible to
@@ -2459,6 +2479,8 @@ fn parse_body(
     // by the time this one runs the repeated-character family is already
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
+    short_letter_word_family::split_short_letter_word_family(&mut result.flags, raw);
+    short_letter_word_family::fold_valued_example_rows(&mut result.flags, raw);
     // A narrower sibling of the repair above, admitted on its own
     // evidence rather than S-145's table-wide argument (atlas S-172): a
     // table-derived flag whose reconstructed name the tool's own usage
@@ -2478,6 +2500,7 @@ fn parse_body(
     // `choices`, gated on the raw ` or ` row's own literal text.
     fold_or_joined_choice_rows(raw, &mut result.flags);
     attach_description_tail_choices(&mut result.flags);
+    spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its
     // `-word` sibling when the ordinary repair above could not recover a
     // bare, unbracketed value (Xvfb's own `+extension name` /

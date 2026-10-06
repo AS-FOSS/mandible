@@ -1,0 +1,51 @@
+name: ld
+description: 'Options:'
+usage:
+- 'Usage: /usr/bin/ld [options] file...'
+flags:
+- spellings:
+  - -assert
+  description: Ignored for SunOS compatibility
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Bdynamic
+  - -dy
+  - -call_shared
+  description: Link against shared libraries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Bstatic
+  - -dn
+  - -non_shared
+  - -static
+  description: Do not link against shared libraries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Bno-symbolic
+  description: Don't bind global references locally
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Bsymbolic
+  description: Bind global references locally
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Bsymbolic-functions
+  description: Bind global function references locally
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

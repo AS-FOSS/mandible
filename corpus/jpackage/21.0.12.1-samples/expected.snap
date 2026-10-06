@@ -3,13 +3,6 @@ usage:
 - 'Usage: jpackage <options>'
 flags:
 - spellings:
-  - --type
-  value_name: app-image
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
   - '@'
   value_name: <filename>
   value_kind: Required

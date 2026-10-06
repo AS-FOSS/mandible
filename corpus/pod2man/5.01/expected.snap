@@ -7,14 +7,7 @@ flags:
   - --center
   value_name: string
   value_kind: Required
-  description: '[1.00] Sets the centered page header for the ".TH" macro to string. The default is "User Contributed Perl Documentation", but also see'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - --official
-  value_name: below.
-  value_kind: Required
+  description: '[1.00] Sets the centered page header for the ".TH" macro to string. The default is "User Contributed Perl Documentation", but also see --official below.'
   provenance:
     sources:
     - help-text
@@ -117,14 +110,7 @@ flags:
   - --rquote
   value_name: quote
   value_kind: Required
-  description: '[4.08] Sets the quote marks used to surround C<> text. --lquote sets the left quote mark and --rquote sets the right quote mark. Either may also be set to the special value "none", in which case no quote mark is added on that side of C<> text (but the font is still changed for troff output). Also see the --quotes option, which can be used to set both quotes at once. If both --quotes and one of the other options is set,'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - --lquote
-  value_name: or
-  value_kind: Required
+  description: '[4.08] Sets the quote marks used to surround C<> text. --lquote sets the left quote mark and --rquote sets the right quote mark. Either may also be set to the special value "none", in which case no quote mark is added on that side of C<> text (but the font is still changed for troff output). Also see the --quotes option, which can be used to set both quotes at once. If both --quotes and one of the other options is set, --lquote or --rquote overrides --quotes.'
   provenance:
     sources:
     - help-text

@@ -685,6 +685,18 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             after_run,
         ));
     }
+    // A run of four or more letters followed by `, -` and a further
+    // single-dash spelling is one multi-letter spelling of an alias run
+    // (`-Bdynamic, -dy, -call_shared`), never `-B` plus a value. See
+    // docs/shapes.md S-212 and corpus/ld/2.42-single-dash.
+    if run.chars().count() >= 4
+        && run.chars().all(|c| c.is_ascii_alphabetic())
+        && after_run
+            .strip_prefix(", -")
+            .is_some_and(|rest| !rest.starts_with('-') && !rest.is_empty())
+    {
+        return Some((Spelling::single_dash(run), after_run));
+    }
     // No abbreviation bracket: an ordinary one-character short flag;
     // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;

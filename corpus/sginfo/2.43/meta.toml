@@ -1,0 +1,28 @@
+# `-Farg` is a row of the short flag `-F` whose value placeholder is `arg`,
+# followed by deeper-indented example lines `-Flogical`, `-Flba64`, ... that
+# list the values `-F` takes. `arg` is the placeholder, not a glued word.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sginfo"
+version = "2.43"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["sginfo", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 2
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags"]
+must_contain_flags = ["-F", "-6", "-t", "-u"]
+must_not_contain_flags = ["-Farg", "-Flogical", "-Flba64", "-Fphysical", "-Findex", "-Fhead"]
+
+[contract.must_attach_choices]
+"-F" = ["logical", "lba64", "physical", "index", "head"]

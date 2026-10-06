@@ -115,6 +115,9 @@ pub(super) fn bracket_row_flag_specs(content: &str) -> Vec<FlagSpec> {
     if pieces.len() == 1 {
         pieces = split_long_only_alternation(content);
     }
+    if pieces.len() == 1 {
+        pieces = split_alias_pair_then_valued_long(content);
+    }
     if pieces.len() > 1 {
         return pieces.into_iter().map(parse_flag_spec).collect();
     }

@@ -126,8 +126,11 @@ pub(super) fn usage_naming_span(text: &str, name: &str) -> Option<(usize, usize)
         if looks_like_option_or_placeholder(token) {
             return None;
         }
-        if word_names_node(token, name) {
-            return Some((start, end));
+        // The node's own word followed by its alias list (`brew search,
+        // -S [options]`) still names the node; the comma stays in place.
+        let word = token.strip_suffix(',').unwrap_or(token);
+        if word_names_node(word, name) {
+            return Some((start, start + word.len()));
         }
         cursor = end;
     }

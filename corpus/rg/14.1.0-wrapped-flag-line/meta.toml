@@ -1,0 +1,27 @@
+# A wrapped description line that begins with a flag spelling
+# (`-U/--multiline flag.`, `--multiline-dotall flag may be passed ...`) sits
+# at its row's description indent: it continues the description and opens no
+# row of its own.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "rg"
+version = "14.1.0"
+platform = "ubuntu-24.04"
+
+[[capture]]
+argv = ["rg", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags"]
+must_contain_flags = ["--multiline", "--multiline-dotall", "--vimgrep", "--color"]
+
+[contract.must_describe]
+"--multiline" = "Alternatively, the --multiline-dotall flag may be passed to make the \"dot all\" behavior"
+"--multiline-dotall" = "isn't enabled with the -U/--multiline flag. Normally, a . will match any character except line terminators."
+"--color" = "For example, --vimgrep and --json."
