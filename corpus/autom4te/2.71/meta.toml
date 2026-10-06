@@ -1,0 +1,34 @@
+# `autom4te --help`: "Languages include:" documents `-l, --language=LANG`,
+# one quoted language name per row with a description. The heading names the
+# flag's long spelling (singular `language`), so the block is that flag's
+# choices with their descriptions (S-203).
+
+[bless]
+provenance = "agent"
+
+[xfail]
+broken = true
+reason = "the Languages include: block is dropped; its four quoted names are -l, --language's choices"
+
+[tool]
+name = "autom4te"
+version = "2.71"
+platform = "ubuntu-24.04"
+captured_with = "TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8 autom4te --help"
+
+[[capture]]
+argv = ["autom4te", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_contain_flags = ["--language", "--warnings"]
+
+[contract.must_attach_choices]
+"--language" = ["Autoconf", "Autotest", "M4sh", "M4sugar"]
+
+[contract.must_not_attach_choices]
+"--warnings" = ["Autoconf", "Autotest", "M4sh", "M4sugar"]
+"--melt" = ["Autoconf", "Autotest", "M4sh", "M4sugar"]
+
+[contract.must_describe]
+"--language" = "specify the set of M4 macros to use"

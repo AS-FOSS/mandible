@@ -1,9 +1,15 @@
 # From issue 102 item 2 (choices-block ownership beyond literal matches).
 # "Warning categories include:" belongs to `-W, --warnings=CATEGORY`: the
-# heading names the plural of the flag's value placeholder (S-203).
+# heading names the plural of the flag's value placeholder (S-203). The
+# "Files automatically distributed" grids are not choices of -f: their file
+# names render in the root description instead (S-206).
 
 [bless]
 provenance = "agent"
+
+[xfail]
+broken = true
+reason = "the Files automatically distributed grids attach acconfig.h and aclocal.m4 to -f as choices and render nowhere else"
 
 [tool]
 name = "automake"
@@ -16,9 +22,14 @@ argv = ["automake", "--help"]
 stdout = "help.txt"
 
 [contract]
+must_describe_root = [
+    "Files automatically distributed if found (always): ABOUT-GNU TODO install-sh mdate-sh ABOUT-NLS ar-lib libversion.in missing BACKLOG compile ltcf-c.sh mkinstalldirs",
+    "Files automatically distributed if found (as .md if needed): AUTHORS[.md] INSTALL[.md] README[.md] THANKS[.md] ChangeLog[.md] NEWS[.md]",
+    "Files automatically distributed if found (under certain conditions): README-alpha[.md] config.h.bot configure configure.in acconfig.h config.h.top configure.ac stamp-vti aclocal.m4",
+]
 
 [contract.must_attach_choices]
 "--warnings" = ["cross", "gnu", "obsolete", "override", "portability", "syntax"]
 
 [contract.must_not_attach_choices]
-"--force-missing" = ["cross", "gnu", "obsolete", "override", "portability", "syntax"]
+"--force-missing" = ["cross", "gnu", "obsolete", "override", "portability", "syntax", "acconfig.h", "aclocal.m4"]
