@@ -15,50 +15,6 @@ positionals:
   provenance:
     sources:
     - help-text
-- name: gc
-  provenance:
-    sources:
-    - help-text
-- name: allocation-profiling
-  provenance:
-    sources:
-    - help-text
-- name: compiler
-  provenance:
-    sources:
-    - help-text
-- name: method-profiling
-  provenance:
-    sources:
-    - help-text
-- name: thread-dump
-  provenance:
-    sources:
-    - help-text
-- name: exceptions
-  provenance:
-    sources:
-    - help-text
-- name: memory-leaks
-  provenance:
-    sources:
-    - help-text
-- name: locking-threshold
-  provenance:
-    sources:
-    - help-text
-- name: file-threshold
-  provenance:
-    sources:
-    - help-text
-- name: socket-threshold
-  provenance:
-    sources:
-    - help-text
-- name: class-loading
-  provenance:
-    sources:
-    - help-text
 flags:
 - spellings:
   - --interactive
@@ -85,6 +41,126 @@ flags:
   value_name: <file>
   value_kind: Required
   description: The filename of the generated output file. If not specified, the filename custom.jfc will be used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - gc
+  value_kind: Required
+  choices:
+  - off
+  - normal
+  - detailed
+  - high
+  - all
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - allocation-profiling
+  value_kind: Required
+  choices:
+  - off
+  - low
+  - medium
+  - high
+  - maximum
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - compiler
+  value_kind: Required
+  choices:
+  - off
+  - normal
+  - detailed
+  - all
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - method-profiling
+  value_kind: Required
+  choices:
+  - off
+  - normal
+  - high
+  - max
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - thread-dump
+  value_kind: Required
+  choices:
+  - off
+  - once
+  - 60s
+  - 10s
+  - 1s
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - exceptions
+  value_kind: Required
+  choices:
+  - off
+  - errors
+  - all
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - memory-leaks
+  value_kind: Required
+  choices:
+  - off
+  - types
+  - stack-traces
+  - gc-roots
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - locking-threshold
+  value_name: <timespan>
+  value_kind: Required
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - file-threshold
+  value_name: <timespan>
+  value_kind: Required
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - socket-threshold
+  value_name: <timespan>
+  value_kind: Required
+  group: 'Options for default.jfc:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - class-loading
+  value_kind: Required
+  choices:
+  - 'true'
+  - 'false'
+  group: 'Options for default.jfc:'
   provenance:
     sources:
     - help-text

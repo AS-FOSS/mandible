@@ -4795,19 +4795,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
       jfr configure [--interactive] [option=value]* [event-setting=value]*
 
         option=value            The option value to modify.
-      Options for default.jfc:
-
-        gc=<off|normal|detailed|high|all>
-        locking-threshold=<timespan>
 - tools: jfr
 - handling: Fixed. A `key=value` word in the usage line (`[option=value]*`)
   declares an operand, never a flag. Each indented row that opens with that
   word, a column gap and a description becomes a repeatable positional that
-  keeps the description. Under a heading ending in `:`, every following
-  `key=<...>` row becomes a positional named by its key: `<a|b|c>` members
-  are its choices, a single `<timespan>` is its value placeholder, and the
-  heading is its group. Both rules need a `key=value` word in the usage line,
-  so a `dd`-style `bs=BYTES` table with no such usage stays as it was.
+  keeps the description. The rule needs a `key=value` word in the usage line,
+  so a `dd`-style `bs=BYTES` table with no such usage stays as it was. The
+  `key=<...>` list under a heading is not an operand: see S-205.
   Fixture: `corpus/jfr/17.0.20-configure`.
 - fleet: a `--tools` pre-check over 1270 tools moved none, because it reads
   each tool's root and `jfr configure` is a subcommand page. The 329 corpus
@@ -4856,3 +4850,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a `--tools` pre-check over as, llvm-ar-18, ar, ld, objdump, readelf
   moved only `as`, read against its raw help. No other corpus or audit capture
   holds such a row.
+
+### S-205: a heading's `key=<placeholder>` rows are dashless flags
+
+- id: S-205
+- looks like: |
+      Options for default.jfc:
+
+        gc=<off|normal|detailed|high|all>
+
+        locking-threshold=<timespan>
+- tools: jfr
+- handling: Fixed. Under a heading ending in `:`, two or more rows that are each
+  one identifier, `=` and one `<placeholder>` are flags with no dash
+  (`Dashes::None`, like the `@file` argfile flag, spec 4.5). The key is the
+  spelling; `<a|b|c>` literal members are its choices, any other placeholder
+  its value name; the heading is its group. The `=` is not stored: the row
+  renders `locking-threshold <timespan>`, one space behind the spelling
+  (spec 9.3 rule 6). Not keyed to `jfr`: any such block qualifies.
+  Fixture: `corpus/jfr/17.0.20-configure`.
+- fleet: a `--tools` pre-check over 222 tools (every tool the round has
+  touched, the Java tools and the nine controls) moved none. No corpus or
+  audit capture other than the two `jfr configure` pages holds such a block.

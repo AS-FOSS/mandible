@@ -34,6 +34,7 @@ use mandible_core::{
 mod avoption;
 mod backfill;
 mod bullets;
+mod dashless_key_flags;
 mod description_choices;
 mod emit;
 mod entry;
@@ -69,6 +70,7 @@ use avoption::{
 };
 use backfill::*;
 use bullets::*;
+use dashless_key_flags::recover_dashless_key_flags;
 use description_choices::attach_description_tail_choices;
 pub use emit::*;
 pub use entry::*;
@@ -2385,6 +2387,7 @@ fn parse_body(
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
     recover_key_value_operands(&mut result.positionals, &result.usage, &lines);
+    recover_dashless_key_flags(&mut result.flags, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block

@@ -19,10 +19,6 @@ captured_with = "probe environment, setsid, null stdin"
 argv = ["jfr", "--help"]
 stdout = "help.txt"
 
-[xfail]
-broken = true
-reason = "the Options for default.jfc: keys are read as operands; they are dashless flags with choices or a value placeholder"
-
 [contract]
 expected_framework = "generic"
 must_contain_flags = ["--interactive", "--verbose", "--input", "--ouput", "gc", "allocation-profiling", "compiler", "method-profiling", "thread-dump", "exceptions", "memory-leaks", "locking-threshold", "file-threshold", "socket-threshold", "class-loading"]
