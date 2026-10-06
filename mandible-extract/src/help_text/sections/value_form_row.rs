@@ -35,9 +35,17 @@ pub(super) fn mark_sole_equals_rows(rows: &[FlagsBlockRow<'_>]) -> Vec<bool> {
     marks
 }
 
-/// `=NAME: description` for a sub-row `=NAME  description` where NAME is an
-/// all-caps placeholder word (or `<word>`), else `None`.
-pub(super) fn value_form_sub_row(trimmed: &str) -> Option<String> {
+/// ` =NAME: description` (leading space, ready to append to a description)
+/// for a sub-row `=NAME  description` where NAME is an all-caps placeholder
+/// word (or `<word>`) and `sole` marks the table's only `=` row, else `None`.
+pub(super) fn value_form_sub_row(trimmed: &str, sole: bool) -> Option<String> {
+    if !sole {
+        return None;
+    }
+    row_form(trimmed).map(|form| format!(" {form}"))
+}
+
+fn row_form(trimmed: &str) -> Option<String> {
     let rest = trimmed.strip_prefix('=')?;
     let gap = find_description_gap(trimmed)?;
     let name = trimmed.get(..gap)?.trim_end();
@@ -72,19 +80,19 @@ mod tests {
     #[test]
     fn all_caps_value_form_becomes_description_text() {
         assert_eq!(
-            value_form_sub_row("=FILE  list to FILE (must be last sub-option)").as_deref(),
-            Some("=FILE: list to FILE (must be last sub-option)")
+            value_form_sub_row("=FILE  list to FILE (must be last sub-option)", true).as_deref(),
+            Some(" =FILE: list to FILE (must be last sub-option)")
         );
         assert_eq!(
-            value_form_sub_row("=<file>  list to file").as_deref(),
-            Some("=<file>: list to file")
+            value_form_sub_row("=<file>  list to file", true).as_deref(),
+            Some(" =<file>: list to file")
         );
     }
 
     #[test]
     fn lowercase_equals_value_stays_a_choice() {
-        assert!(value_form_sub_row("=default            -   default").is_none());
-        assert!(value_form_sub_row("=FILE").is_none());
+        assert!(value_form_sub_row("=default            -   default", true).is_none());
+        assert!(value_form_sub_row("=FILE", true).is_none());
     }
 }
 
