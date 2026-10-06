@@ -247,11 +247,7 @@ fn is_dots(w: &str) -> bool {
     !w.is_empty() && w.chars().all(|c| c == '.')
 }
 
-fn read_form(
-    text: &str,
-    takes_value: &dyn Fn(&str) -> bool,
-    is_spelled: &dyn Fn(&str) -> bool,
-) -> (Vec<Occ>, Vec<Op>) {
+fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<Op>) {
     let toks = tokenize(text);
     let (mut occs, mut ops) = (Vec::new(), Vec::new());
     let (mut last_flag, mut prev_made_op): (Option<usize>, bool) = (None, false);
@@ -283,21 +279,11 @@ fn read_form(
                     Some(Tok::Word(n)) if known && is_plain_word(n) => Some(n.clone()),
                     _ => None,
                 };
-                // `-connect <connName>`: a single-dash word no flag spells
-                // (the row reader split it as `-c` `onnect`) still owns the
-                // `<name>` after it.
-                let angle_value = known
-                    && !takes
-                    && !is_spelled(w)
-                    && matches!(toks.get(i + 1), Some(Tok::Word(n)) if n.starts_with('<') && n.ends_with('>'));
-                let eaten = angle_value
-                    || match next {
-                        Some(Tok::Word(n)) => {
-                            value.is_some() || (!known && operand_name(n).is_some())
-                        }
-                        Some(Tok::Group(g)) => known && is_single_operand(g),
-                        None => false,
-                    };
+                let eaten = match next {
+                    Some(Tok::Word(n)) => value.is_some() || (!known && operand_name(n).is_some()),
+                    Some(Tok::Group(g)) => known && is_single_operand(g),
+                    None => false,
+                };
                 if known {
                     occs.push(Occ {
                         key: w.clone(),
@@ -447,15 +433,11 @@ pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity], positionals: &
             .iter()
             .any(|f| spells(f, key) && f.value_kind != ValueKind::None)
     };
-    let is_spelled = |key: &str| flags.iter().any(|f| spells(f, key));
-    let read: Vec<(Vec<Occ>, Vec<Op>)> = texts
-        .iter()
-        .map(|t| read_form(t, &takes_value, &is_spelled))
-        .collect();
+    let read: Vec<(Vec<Occ>, Vec<Op>)> = texts.iter().map(|t| read_form(t, &takes_value)).collect();
     let (mut occs, ops): (Vec<_>, Vec<_>) = read.into_iter().unzip();
     // Keyword arguments name flags (`[ --src a | b | c ]`) but no operand.
     occs.extend(keywords.iter().map(|k| {
-        let mut o = read_form(k, &takes_value, &is_spelled).0;
+        let mut o = read_form(k, &takes_value).0;
         o.iter_mut().for_each(|o| o.head = false);
         o
     }));

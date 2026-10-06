@@ -4748,8 +4748,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tab and a description (`ethtool -s|--change DEVNAME<TAB>Change generic
   options`) closes the form: the deeper-indented `[ keyword value ]` lines
   below it still give flags their choices (`[ --src a | b | c ]`) but name
-  no operand. A single-dash word no flag spells (`-connect`, split by the
-  row reader) owns the `<name>` after it, so it is no operand. Fixtures:
+  no operand. Fixtures:
   `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
   `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
