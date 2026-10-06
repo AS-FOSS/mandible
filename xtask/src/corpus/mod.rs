@@ -23,7 +23,7 @@
 //!   `must_contain_positionals`, `must_contain_positionals_by_path`,
 //!   `must_contain_modifiers`,   `must_not_contain_flags`, `must_not_contain_positionals`,
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
-//!   `must_not_describe_root`,
+//!   `must_not_describe_root`, `must_describe_root`,
 //!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe`, `must_usage_forms_min`,
 //!   `must_not_contain_flag_group_prefixes`, `must_flag_group`,
@@ -49,6 +49,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 mod contract;
+mod describe_root;
 mod group_rows_contract;
 mod markdown;
 mod not_attach_choices;
@@ -222,6 +223,10 @@ pub(crate) struct ContractMeta {
     /// uses. See docs/shapes.md S-162.
     #[serde(default)]
     must_not_describe_root: Vec<String>,
+    /// Text the root's own `description` must carry; the positive mirror
+    /// of `must_not_describe_root`, same whitespace-collapsed substring rule.
+    #[serde(default)]
+    must_describe_root: Vec<String>,
     /// Spellings no root flag's own `group` may **start with** — the
     /// group-label mirror of `must_not_contain_flags`, added for
     /// `lvcreate`'s own shape (docs/shapes.md S-137): the unfixed parser

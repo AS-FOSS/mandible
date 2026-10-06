@@ -1,0 +1,1565 @@
+name: llvm-profdata-18
+description: 'OVERVIEW: LLVM profile data'
+usage:
+- 'USAGE: llvm-profdata-18 [subcommand] [options]'
+flags:
+- spellings:
+  - --color
+  group: 'Color Options:'
+  description: Use colors in output (default=autodetect)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --aarch64-neon-syntax
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - generic
+  - apple
+  group: 'General options:'
+  description: 'Choose style of NEON code to emit from AArch64 backend:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --aarch64-use-aa
+  group: 'General options:'
+  description: Enable the use of AA during codegen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --abort-on-max-devirt-iterations-reached
+  group: 'General options:'
+  description: Abort when the max iterations for devirtualization CGSCC repeat pass is reached
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --allow-ginsert-as-artifact
+  group: 'General options:'
+  description: Allow G_INSERT to be considered an artifact. Hack around AMDGPU test infinite loops.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-atomic-optimizer-strategy
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - DPP
+  - Iterative
+  - None
+  group: 'General options:'
+  description: Select DPP or Iterative strategy for scan
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-bypass-slow-div
+  group: 'General options:'
+  description: Skip 64-bit divide for dynamic 32-bit values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-disable-loop-alignment
+  group: 'General options:'
+  description: Do not align and prefetch loops
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-dpp-combine
+  group: 'General options:'
+  description: Enable DPP combiner
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-dump-hsa-metadata
+  group: 'General options:'
+  description: Dump AMDGPU HSA Metadata
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-enable-merge-m0
+  group: 'General options:'
+  description: Merge and hoist M0 initializations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-enable-power-sched
+  group: 'General options:'
+  description: Enable scheduling to minimize mAI power bursts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-kernarg-preload-count
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: How many kernel arguments to preload onto SGPRs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-promote-alloca-to-vector-limit
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum byte size to consider promote alloca to vector
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-sdwa-peephole
+  group: 'General options:'
+  description: Enable SDWA peepholer
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-use-aa-in-codegen
+  group: 'General options:'
+  description: Enable the use of AA during codegen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-verify-hsa-metadata
+  group: 'General options:'
+  description: Verify AMDGPU HSA Metadata
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --amdgpu-vgpr-index-mode
+  group: 'General options:'
+  description: Use GPR indexing mode instead of movrel for vector indexing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --arm-add-build-attributes
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --arm-implicit-it
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - always
+  - never
+  - arm
+  - thumb
+  group: 'General options:'
+  description: Allow conditional instructions outdside of an IT block
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --asm-show-inst
+  group: 'General options:'
+  description: Emit internal instruction representation to assembly file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --atomic-counter-update-promoted
+  group: 'General options:'
+  description: Do counter update using atomic fetch add for promoted counters only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --atomic-first-counter
+  group: 'General options:'
+  description: Use atomic fetch add for first counter in a function (usually the entry counter)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bounds-checking-single-trap
+  group: 'General options:'
+  description: Use one trap block per function
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bounds-checking-unique-traps
+  group: 'General options:'
+  description: Always use one trap per check
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bpf-stack-size
+  value_name: <int>
+  value_kind: Required
+  group: 'General options:'
+  description: Specify the BPF stack size limit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cfg-hide-cold-paths
+  value_name: <number>
+  value_kind: Required
+  group: 'General options:'
+  description: Hide blocks with relative frequency below the given value
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cfg-hide-deoptimize-paths
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cfg-hide-unreachable-paths
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cost-kind
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - throughput
+  - latency
+  - code-size
+  - size-latency
+  group: 'General options:'
+  description: Target cost kind
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cs-profile-generate
+  group: 'General options:'
+  description: Perform context sensitive PGO instrumentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cs-profile-path
+  value_name: <string>
+  value_kind: Required
+  group: 'General options:'
+  description: Context sensitive profile file path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debug-info-correlate
+  group: 'General options:'
+  description: Use debug info to correlate profiles. (Deprecated, use -profile-correlate=debug-info)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debugify-func-limit
+  value_name: <ulong>
+  value_kind: Required
+  group: 'General options:'
+  description: Set max number of processed functions per pass.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debugify-level
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - locations
+  - location
+  group: 'General options:'
+  description: Kind of debug info to add
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debugify-quiet
+  group: 'General options:'
+  description: Suppress verbose debugify output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-auto-upgrade-debug-info
+  group: 'General options:'
+  description: Disable autoupgrade of debug info
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-i2p-p2i-opt
+  group: 'General options:'
+  description: Disables inttoptr/ptrtoint roundtrip optimization
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-promote-alloca-to-lds
+  group: 'General options:'
+  description: Disable promote alloca to LDS
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-promote-alloca-to-vector
+  group: 'General options:'
+  description: Disable promote alloca to vector
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --do-counter-promotion
+  group: 'General options:'
+  description: Do counter register promotion
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dot-cfg-mssa
+  value_name: <file name for generated dot file>
+  value_kind: Required
+  group: 'General options:'
+  description: file name for generated dot file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dwarf-version
+  value_name: <int>
+  value_kind: Required
+  group: 'General options:'
+  description: Dwarf version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dwarf64
+  group: 'General options:'
+  description: Generate debugging info in the 64-bit DWARF format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --emit-compact-unwind-non-canonical
+  group: 'General options:'
+  description: Whether to try to emit Compact Unwind for non canonical entries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --emit-dwarf-unwind
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - always
+  - no-compact-unwind
+  - default
+  group: 'General options:'
+  description: Whether to emit DWARF EH frame entries.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --emscripten-cxx-exceptions-allowed
+  value_name: <string>
+  value_kind: Required
+  group: 'General options:'
+  description: The list of function names in which Emscripten-style exception handling is enabled (see emscripten EMSCRIPTEN_CATCHING_ALLOWED options)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-cse-in-irtranslator
+  group: 'General options:'
+  description: Should enable CSE in irtranslator
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-cse-in-legalizer
+  group: 'General options:'
+  description: Should enable CSE in Legalizer
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-emscripten-cxx-exceptions
+  group: 'General options:'
+  description: WebAssembly Emscripten-style exception handling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-emscripten-sjlj
+  group: 'General options:'
+  description: WebAssembly Emscripten-style setjmp/longjmp handling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-gvn-hoist
+  group: 'General options:'
+  description: Enable the GVN hoisting pass (default = off)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-gvn-memdep
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-gvn-sink
+  group: 'General options:'
+  description: Enable the GVN sinking pass (default = off)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-load-in-loop-pre
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-load-pre
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-loop-simplifycfg-term-folding
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-name-compression
+  group: 'General options:'
+  description: Enable name/filename string compression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-split-backedge-in-load-pre
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-split-loopiv-heuristic
+  group: 'General options:'
+  description: Enable loop iv regalloc heuristic
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --experimental-debug-variable-locations
+  group: 'General options:'
+  description: Use experimental new value-tracking variable locations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --experimental-debuginfo-iterators
+  group: 'General options:'
+  description: Enable communicating debuginfo positions through iterators, eliminating intrinsics
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fatal-warnings
+  group: 'General options:'
+  description: Treat warnings as errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --force-tail-folding-style
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - none
+  - data
+  - data-without-lane-mask
+  - data-and-control
+  - data-and-control-without-rt-check
+  group: 'General options:'
+  description: Force the tail folding style
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fs-profile-debug-bw-threshold
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Only show debug message if the source branch weight is greater than this value.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fs-profile-debug-prob-diff-threshold
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Only show debug message if the branch probility is greater than this value (in percentage).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --generate-merged-base-profiles
+  group: 'General options:'
+  description: When generating nested context-sensitive profiles, always generate extra base profile for function with all its context profiles merged into it.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --gpsize
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Global Pointer Addressing Size. The default size is 8.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hash-based-counter-split
+  group: 'General options:'
+  description: Rename counter variable of a comdat function based on cfg hash
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hexagon-rdf-limit
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hot-cold-split
+  group: 'General options:'
+  description: Enable hot-cold splitting pass
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --import-all-index
+  group: 'General options:'
+  description: Import all external functions in index.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --incremental-linker-compatible
+  group: 'General options:'
+  description: When used with filetype=obj, emit an object file which can be used with an incremental linker
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-code-sinking
+  group: 'General options:'
+  description: Enable code sinking
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-guard-widening-window
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: How wide an instruction window to bypass looking for another guard
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-max-num-phis
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum number phis to handle in intptr/ptrint folding
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-max-sink-users
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum number of undroppable users for instruction sinking
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-maxarray-size
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum array size considered when doing a combine
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-negator-enabled
+  group: 'General options:'
+  description: Should we attempt to sink negations?
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instcombine-negator-max-depth
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: What is the maximal lookup depth when trying to check for viability of negation sinking.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --instrprof-atomic-counter-update-all
+  group: 'General options:'
+  description: Make all profile counter updates atomic (for testing only)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --internalize-public-api-file
+  value_name: <filename>
+  value_kind: Required
+  group: 'General options:'
+  description: A file containing list of symbol names to preserve
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --internalize-public-api-list
+  value_name: <list>
+  value_kind: Required
+  group: 'General options:'
+  description: A list of symbol names to preserve
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --iterative-counter-promotion
+  group: 'General options:'
+  description: Allow counter promotion across the whole loop nest.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lto-aix-system-assembler
+  value_name: <path>
+  value_kind: Required
+  group: 'General options:'
+  description: Path to a system assembler, picked up on AIX only
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lto-embed-bitcode
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - none
+  - optimized
+  - post-merge-pre-opt
+  group: 'General options:'
+  description: Embed LLVM bitcode in object files produced by LTO
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lto-pass-remarks-filter
+  value_name: <regex>
+  value_kind: Required
+  group: 'General options:'
+  description: Only record optimization remarks from passes whose names match the given regular expression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lto-pass-remarks-format
+  value_name: <format>
+  value_kind: Required
+  group: 'General options:'
+  description: 'The format used for serializing remarks (default: YAML)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lto-pass-remarks-output
+  value_name: <filename>
+  value_kind: Required
+  group: 'General options:'
+  description: Output filename for pass remarks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --matrix-default-layout
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - column-major
+  - row-major
+  group: 'General options:'
+  description: Sets the default matrix layout
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --matrix-print-after-transpose-opt
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-counter-promotions
+  value_name: <int>
+  value_kind: Required
+  group: 'General options:'
+  description: Max number of allowed counter promotions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --max-counter-promotions-per-loop
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Max number counter promotions per loop to avoid increasing register pressure too much
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mc-relax-all
+  group: 'General options:'
+  description: When used with filetype=obj, relax all fixups in the emitted object file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mcabac
+  group: 'General options:'
+  description: tbd
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --merror-missing-parenthesis
+  group: 'General options:'
+  description: Error for missing parenthesis around predicate registers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --merror-noncontigious-register
+  group: 'General options:'
+  description: Error for register names that aren't contigious
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mhvx
+  group: 'General options:'
+  description: Enable Hexagon Vector eXtensions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mhvx
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - v60
+  - v62
+  - v65
+  - v66
+  - v67
+  - v68
+  - v69
+  - v71
+  - v73
+  group: 'General options:'
+  description: Enable Hexagon Vector eXtensions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mips-compact-branches
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - never
+  - optimal
+  - always
+  group: 'General options:'
+  description: 'MIPS Specific: Compact branch policy.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mips16-constant-islands
+  group: 'General options:'
+  description: Enable mips16 constant islands.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mips16-hard-float
+  group: 'General options:'
+  description: Enable mips16 hard float.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mir-strip-debugify-only
+  group: 'General options:'
+  description: Should mir-strip-debug only strip debug info from debugified modules by default
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --misexpect-tolerance
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Prevents emiting diagnostics when profile counts are within N% of the threshold..
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mno-compound
+  group: 'General options:'
+  description: Disable looking for compound instructions for Hexagon
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mno-fixup
+  group: 'General options:'
+  description: Disable fixing up resolved relocations for Hexagon
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mno-ldc1-sdc1
+  group: 'General options:'
+  description: Expand double precision loads and stores to their single precision counterparts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mno-pairing
+  group: 'General options:'
+  description: Disable looking for duplex instructions for Hexagon
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mwarn-missing-parenthesis
+  group: 'General options:'
+  description: Warn for missing parenthesis around predicate registers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mwarn-noncontigious-register
+  group: 'General options:'
+  description: Warn for register names that arent contigious
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mwarn-sign-mismatch
+  group: 'General options:'
+  description: Warn for mismatching a signed and unsigned value
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-deprecated-warn
+  group: 'General options:'
+  description: Suppress all deprecated warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-discriminators
+  group: 'General options:'
+  description: Disable generation of discriminator information.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-type-check
+  group: 'General options:'
+  description: Suppress type errors (Wasm)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-warn
+  group: 'General options:'
+  description: Suppress all warnings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nvptx-sched4reg
+  group: 'General options:'
+  description: 'NVPTX Specific: schedule for register pressue'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --object-size-offset-visitor-max-visit-instructions
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum number of instructions for ObjectSizeOffsetVisitor to look at
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pgo-block-coverage
+  group: 'General options:'
+  description: Use this option to enable basic block coverage instrumentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pgo-temporal-instrumentation
+  group: 'General options:'
+  description: Use this option to enable temporal instrumentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pgo-view-block-coverage-graph
+  group: 'General options:'
+  description: Create a dot file of CFGs with block coverage inference information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --poison-checking-function-local
+  group: 'General options:'
+  description: Check that returns are non-poison (for testing)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --print-pipeline-passes
+  group: 'General options:'
+  description: Print a '-passes' compatible string describing the pipeline (best-effort only).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --profile-correlate
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - debug-info
+  - binary
+  group: 'General options:'
+  description: Use debug info or binary file to correlate profiles. =<empty> - No profile correlation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --r600-ir-structurize
+  group: 'General options:'
+  description: Use StructurizeCFG IR pass
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --riscv-add-build-attributes
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --riscv-use-aa
+  group: 'General options:'
+  description: Enable the use of AA during codegen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --runtime-counter-relocation
+  group: 'General options:'
+  description: Enable relocating counters at runtime.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --safepoint-ir-verifier-print-only
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sample-profile-check-record-coverage
+  value_name: <N>
+  value_kind: Required
+  group: 'General options:'
+  description: Emit a warning if less than N% of records in the input profile are matched to the IR.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sample-profile-check-sample-coverage
+  value_name: <N>
+  value_kind: Required
+  group: 'General options:'
+  description: Emit a warning if less than N% of samples in the input profile are matched to the IR.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sample-profile-max-propagate-iterations
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum number of iterations to go through when propagating sample block/edge weights through the CFG.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --skip-ret-exit-block
+  group: 'General options:'
+  description: Suppress counter promotion if exit blocks contain ret.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --speculative-counter-promotion-max-exiting
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: The max number of exiting blocks of a loop to allow speculative counter promotion
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --speculative-counter-promotion-to-loop
+  group: 'General options:'
+  description: When the option is false, if the target block is in a loop, the promotion will be disallowed unless the promoted counter update can be further/iteratively promoted into an acyclic region.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --summary-file
+  value_name: <string>
+  value_kind: Required
+  group: 'General options:'
+  description: The summary file to use for function importing.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sve-tail-folding
+  value_name: <string>
+  value_kind: Required
+  choices:
+  - name: disabled
+    description: (Initial) No loop types will vectorize using tail-folding
+  - name: default
+    description: (Initial) Uses the default tail-folding settings for the target CPU
+  - name: all
+    description: (Initial) All legal loop types will vectorize using tail-folding
+  - name: simple
+    description: (Initial) Use tail-folding for simple loops (not reductions or recurrences)
+  - name: reductions
+    description: Use tail-folding for loops containing reductions
+  - name: noreductions
+    description: Inverse of above
+  - name: recurrences
+    description: Use tail-folding for loops containing fixed order recurrences
+  - name: reverse
+    description: Use tail-folding for loops requiring reversed predicates
+  - name: noreverse
+    description: Inverse of above
+  group: 'General options:'
+  description: 'Control the use of vectorisation using tail-folding for SVE where the option is specified in the form (Initial)[+(Flag1|Flag2|...)]: norecurrences Inverse of above'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tail-predication
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - disabled
+  - enabled-no-reductions
+  - enabled
+  - force-enabled-no-reductions
+  - force-enabled
+  group: 'General options:'
+  description: MVE tail-predication pass options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --thinlto-assume-merged
+  group: 'General options:'
+  description: Assume the input has already undergone ThinLTO function importing and the other pre-optimization pipeline changes.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --threads
+  value_name: <int>
+  value_kind: Required
+  group: 'General options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type-based-intrinsic-cost
+  group: 'General options:'
+  description: Calculate intrinsics cost based only on argument types
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verify-region-info
+  group: 'General options:'
+  description: Verify region info (time consuming)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vp-counters-per-site
+  value_name: <number>
+  value_kind: Required
+  group: 'General options:'
+  description: The average number of profile counters allocated per value profiling site.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vp-static-alloc
+  group: 'General options:'
+  description: Do static counter allocation for value profiler
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wasm-enable-eh
+  group: 'General options:'
+  description: WebAssembly exception handling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wasm-enable-sjlj
+  group: 'General options:'
+  description: WebAssembly setjmp/longjmp handling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --x86-align-branch
+  value_name: <string>
+  value_kind: Required
+  choices:
+  - name: jcc
+    description: indicates conditional jumps
+  - name: fused
+    description: indicates fused conditional jumps
+  - name: jmp
+    description: indicates direct unconditional jumps
+  - name: call
+    description: indicates direct and indirect calls
+  - name: ret
+    description: indicates rets
+  group: 'General options:'
+  description: 'Specify types of branches to align (plus separated list of types): indirect indicates indirect unconditional jumps'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --x86-align-branch-boundary
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Control how the assembler should align branches with NOP. If the boundary's size is not 0, it should be a power of 2 and no less than 32. Branches will be aligned to prevent from being across or against the boundary of specified size. The default value 0 does not align branches.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --x86-branches-within-32B-boundaries
+  group: 'General options:'
+  description: Align selected instructions to mitigate negative performance impact of Intel's micro code update for errata skx102. May break assumptions about labels corresponding to particular instructions, and should be used with caution.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --x86-pad-max-prefix-size
+  value_name: <uint>
+  value_kind: Required
+  group: 'General options:'
+  description: Maximum number of prefixes to use for padding
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  group: 'Generic Options:'
+  description: Display available options (--help-hidden for more)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-list
+  group: 'Generic Options:'
+  description: Display list of available options (--help-list-hidden for more)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Generic Options:'
+  description: Display the version of this program
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly
+  group: Configure the polly loop optimizer
+  description: Enable the polly optimizer (with -O1, -O2 or -O3)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-2nd-level-tiling
+  group: Configure the polly loop optimizer
+  description: Enable a 2nd level loop of loop tiling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-ast-print-accesses
+  group: Configure the polly loop optimizer
+  description: Print memory access functions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-context
+  value_name: <isl parameter set>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Provide additional constraints on the context parameters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-dce-precise-steps
+  value_name: <int>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: The number of precise steps between two approximating iterations. (A value of -1 schedules another approximation stage before the actual dead code elimination.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-delicm-max-ops
+  value_name: <int>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Maximum number of isl operations to invest for lifetime analysis; 0=no limit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-detect-full-functions
+  group: Configure the polly loop optimizer
+  description: Allow the detection of full functions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-dump-after
+  group: Configure the polly loop optimizer
+  description: Dump module after Polly transformations into a file suffixed with "-after"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-dump-after-file
+  value_name: <string>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Dump module after Polly transformations to the given file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-dump-before
+  group: Configure the polly loop optimizer
+  description: Dump module before Polly transformations into a file suffixed with "-before"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-dump-before-file
+  value_name: <string>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Dump module before Polly transformations to the given file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-enable-simplify
+  group: Configure the polly loop optimizer
+  description: Simplify SCoP after optimizations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-ignore-func
+  value_name: <string>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Ignore functions that match a regex. Multiple regexes can be comma separated. Scop detection will ignore all functions that match ANY of the regexes provided.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-isl-arg
+  value_name: <argument>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Option passed to ISL
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-matmul-opt
+  group: Configure the polly loop optimizer
+  description: Perform optimizations of matrix multiplications based on pattern matching
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-on-isl-error-abort
+  group: Configure the polly loop optimizer
+  description: Abort if an isl error is encountered
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-only-func
+  value_name: <string>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Only run on functions that match a regex. Multiple regexes can be comma separated. Scop detection will run on all functions that match ANY of the regexes provided.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-only-region
+  value_name: <identifier>
+  value_kind: Required
+  group: Configure the polly loop optimizer
+  description: Only run on certain regions (The provided identifier must appear in the name of the region's entry block
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-only-scop-detection
+  group: Configure the polly loop optimizer
+  description: Only run scop detection, but no other optimizations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-optimized-scops
+  group: Configure the polly loop optimizer
+  description: Polly - Dump polyhedral description of Scops optimized with the isl scheduling optimizer and the set of post-scheduling transformations is applied on the schedule tree
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-parallel
+  group: Configure the polly loop optimizer
+  description: Generate thread parallel code (isl codegen only)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-parallel-force
+  group: Configure the polly loop optimizer
+  description: Force generation of thread parallel code ignoring any cost model
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-pattern-matching-based-opts
+  group: Configure the polly loop optimizer
+  description: Perform optimizations based on pattern matching
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-postopts
+  group: Configure the polly loop optimizer
+  description: Apply post-rescheduling optimizations such as tiling (requires -polly-reschedule)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-pragma-based-opts
+  group: Configure the polly loop optimizer
+  description: Apply user-directed transformation from metadata
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-pragma-ignore-depcheck
+  group: Configure the polly loop optimizer
+  description: Skip the dependency check for pragma-based transformations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-process-unprofitable
+  group: Configure the polly loop optimizer
+  description: Process scops that are unlikely to benefit from Polly optimizations.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-register-tiling
+  group: Configure the polly loop optimizer
+  description: Enable register tiling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-report
+  group: Configure the polly loop optimizer
+  description: Print information about the activities of Polly
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-reschedule
+  group: Configure the polly loop optimizer
+  description: Optimize SCoPs using ISL
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-show
+  group: Configure the polly loop optimizer
+  description: Highlight the code regions that will be optimized in a (CFG BBs and LLVM-IR instructions)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-show-only
+  group: Configure the polly loop optimizer
+  description: Highlight the code regions that will be optimized in a (CFG only BBs)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-stmt-granularity
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - bb
+  - scalar-indep
+  - store
+  group: Configure the polly loop optimizer
+  description: Algorithm to use for splitting basic blocks into multiple statements
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-tc-opt
+  group: Configure the polly loop optimizer
+  description: Perform optimizations of tensor contractions based on pattern matching
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-tiling
+  group: Configure the polly loop optimizer
+  description: Enable loop tiling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --polly-vectorizer
+  value_name: <value>
+  value_kind: Required
+  choices:
+  - none
+  - stripmine
+  group: Configure the polly loop optimizer
+  description: Select the vectorization strategy
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: merge
+  summary: Takes several profiles and merge them together. See detailed documentation in https://llvm.org/docs/CommandGuide/llvm-profdata.html#profdata-merge
+  group: 'SUBCOMMANDS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: order
+  summary: Reads temporal profiling traces from a profile and outputs a function order that reduces the number of page faults for those traces. See detailed documentation in https://llvm.org/docs/CommandGuide/llvm-profdata.html#profdata-order
+  group: 'SUBCOMMANDS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: overlap
+  summary: Computes and displays the overlap between two profiles. See detailed documentation in https://llvm.org/docs/CommandGuide/llvm-profdata.html#profdata-overlap
+  group: 'SUBCOMMANDS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Takes a profile data file and displays the profiles. See detailed documentation in https://llvm.org/docs/CommandGuide/llvm-profdata.html#profdata-show
+  group: 'SUBCOMMANDS:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

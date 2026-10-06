@@ -683,11 +683,11 @@ pub(super) fn command_mode_seed(text: &str, profile: Option<&FrameworkProfile>) 
 /// `automake`'s `"Warning categories include:"` block to
 /// `-f, --force-missing` instead of `-W, --warnings` ten lines earlier —
 /// no adjacency signal tells those two shapes apart, so the fallback is
-/// gone. Ownership requires either the heading naming the flag's long
-/// spelling literally, or containing one flag's `value_name` verbatim as
-/// a whole word (case-insensitive, never a stem/plural match — that's
-/// exactly the `automake` false positive). Both proofs scan `flags` in
-/// order and take the first hit. See spec §7 Tier B rule 4.
+/// gone. Ownership requires the heading naming the flag's long spelling
+/// literally, or containing one flag's `value_name` verbatim as a whole
+/// word (case-insensitive), or, third, [`plural_owner_index`]: the plural
+/// of exactly one flag's placeholder (S-203). The first two scan `flags`
+/// in order and take the first hit. See spec §7 Tier B rule 4.
 pub(super) fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<usize> {
     let lower = heading.to_lowercase();
     if let Some(idx) = flags.iter().position(|f| {
@@ -696,7 +696,7 @@ pub(super) fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<
     }) {
         return Some(idx);
     }
-    flags.iter().position(|f| {
+    let word_match = flags.iter().position(|f| {
         f.value_name.as_ref().is_some_and(|vn| {
             // A one-character value_name is never a real placeholder —
             // it's the signature of an unrelated parser artifact
@@ -705,7 +705,8 @@ pub(super) fn find_owning_flag_index(heading: &str, flags: &[Entity]) -> Option<
             // genuine GNU-style placeholder is a whole word already.
             vn.chars().count() > 1 && heading_contains_word(&lower, vn)
         })
-    })
+    });
+    word_match.or_else(|| plural_owner_index(heading, flags))
 }
 
 /// True when `word` appears in `lower_haystack` as a whole token — split

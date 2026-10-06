@@ -1075,6 +1075,7 @@ pub(super) fn scan_flags_block(
     // computed once, with the whole block's rows in view, so the folding
     // loop below can route each without its own lookahead.
     let choice_list_rows = mark_choice_list_rows(&rows);
+    let sole_eq = mark_sole_equals_rows(&rows);
     for (row_idx, row) in rows.into_iter().enumerate() {
         let plus_sigil_row = matches!(row, FlagsBlockRow::PlusSigil(_));
         let alt_sigil_row = matches!(row, FlagsBlockRow::AlternationSigil(_));
@@ -1231,6 +1232,11 @@ pub(super) fn scan_flags_block(
                         if !last.2.iter().any(|(n, _)| n == &name) {
                             last.2.push((name, Some(desc.to_string())));
                         }
+                    } else if let Some(form) = value_form_sub_row(text, sole_eq[row_idx]) {
+                        // An `=PLACEHOLDER` row is the flag's value form,
+                        // not a choice: its text joins the description.
+                        // See docs/shapes.md S-204.
+                        last.1.push_str(&form);
                     } else if let Some(choice) = choices_sub_row_value(text) {
                         // llvm-ar's own `=value` sub-rows — see
                         // `choices_sub_row_value`. llvm-ar never documents

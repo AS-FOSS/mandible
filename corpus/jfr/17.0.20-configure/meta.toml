@@ -1,0 +1,33 @@
+# Excerpt of corpus/jfr/17.0.20: the `jfr help configure` text as the root.
+# The bytes come from `jfr help configure`, not `jfr --help`; `argv` stays
+# ["jfr", "--help"] only because the corpus runner builds the root from the
+# `--help` capture and yields no root for argv ["jfr", "help", "configure"].
+# `option=value` and `event-setting=value` are described operands. The keys
+# under `Options for default.jfc:` are dashless flags (`gc=<off|...>`), each
+# with its value placeholder or `<a|b|c>` choices; they are not operands.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jfr"
+version = "17.0.20"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["jfr", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--interactive", "--verbose", "--input", "--ouput", "gc", "allocation-profiling", "compiler", "method-profiling", "thread-dump", "exceptions", "memory-leaks", "locking-threshold", "file-threshold", "socket-threshold", "class-loading"]
+must_contain_positionals = ["option=value", "event-setting=value"]
+must_not_contain_positionals = ["gc", "allocation-profiling", "compiler", "method-profiling", "thread-dump", "exceptions", "memory-leaks", "locking-threshold", "file-threshold", "socket-threshold", "class-loading"]
+
+[contract.must_attach_choices]
+"gc" = ["off", "normal", "detailed", "high", "all"]
+
+[contract.must_describe_positional]
+"option=value" = "The option value to modify"
+"event-setting=value" = "The event setting value to modify"

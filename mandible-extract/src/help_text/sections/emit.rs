@@ -909,6 +909,10 @@ pub(super) fn emit_choices(
                 continue;
             }
             seen += 1;
+            if super::plural_owner::is_owned_only_name(name) {
+                candidates.push((name.to_string(), desc.clone()));
+                continue;
+            }
             if !is_command_name_shaped(name) {
                 out.saw_unattributable_content = true;
                 continue;
@@ -920,7 +924,20 @@ pub(super) fn emit_choices(
     if candidates.is_empty() {
         return (seen, clean);
     }
-    match find_owning_flag_index(heading, &out.flags) {
+    let owner = find_owning_flag_index(heading, &out.flags);
+    let before = candidates.len();
+    let quoted_kept = candidates
+        .iter()
+        .filter(|(n, _)| owner.is_some() && super::plural_owner::is_quoted_word(n))
+        .count();
+    candidates = super::plural_owner::keep_owned_placeholders(candidates, owner, out);
+    clean += candidates
+        .iter()
+        .filter(|(n, _)| super::plural_owner::is_prefixed_placeholder(n))
+        .count()
+        + quoted_kept;
+    out.saw_unattributable_content |= before > candidates.len();
+    match owner {
         Some(idx) => {
             // Proven ownership (a literal `--name` match or a value_name
             // word match) — full names and descriptions, both trustworthy.
@@ -1495,14 +1512,12 @@ mod tests {
     }
 
     /// `automake --help`'s real shape: `"Warning categories include:"`
-    /// documents `-W, --warnings=CATEGORY` several rows earlier, but the
-    /// heading names no flag literally and "categories" is not an exact
-    /// word match for `CATEGORY` — ownership is unproven, so `-f,
-    /// --force-missing` must never receive a description for text that is
-    /// not its own. Bare names still attach (base's byte-for-byte
-    /// behavior), but never a description. See docs/shapes.md S-014.
+    /// documents `-W, --warnings=CATEGORY` several rows earlier. The heading
+    /// names the plural of the one placeholder, so `--warnings` owns the
+    /// block and `-f, --force-missing` receives nothing. See docs/shapes.md
+    /// S-203.
     #[test]
-    fn automake_style_unproven_block_never_attaches_a_description() {
+    fn automake_style_plural_heading_attaches_to_the_placeholder_owner() {
         let raw = "Usage: widget [OPTION]... [FILE]...\n\nOperation modes:\n  \
                    -W, --warnings=CATEGORY  report the warnings falling in CATEGORY\n  \
                    -f, --force-missing    force update of standard files\n\n\
@@ -1512,30 +1527,10 @@ mod tests {
                    obsolete               obsolete features or constructions\n";
         let parsed = parse(raw);
         let warnings = flag_named(&parsed, "warnings");
-        assert!(
-            warnings.choices.is_empty(),
-            "the true owner must never receive a fuzzy/stem-matched attachment: {:?}",
-            warnings.choices
-        );
-        let force_missing = flag_named(&parsed, "force-missing");
-        let names: Vec<&str> = force_missing
-            .choices
-            .iter()
-            .map(|c| c.name.as_str())
-            .collect();
-        assert_eq!(
-            names,
-            vec!["cross", "gnu", "obsolete"],
-            "base's own byte-for-byte behavior: bare names still attach to the fallback flag"
-        );
-        assert!(
-            force_missing
-                .choices
-                .iter()
-                .all(|c| c.description.is_none()),
-            "an unproven owner must never carry a description, right or wrong: {:?}",
-            force_missing.choices
-        );
+        let names: Vec<&str> = warnings.choices.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, vec!["cross", "gnu", "obsolete"]);
+        assert!(warnings.choices.iter().all(|c| c.description.is_some()));
+        assert!(flag_named(&parsed, "force-missing").choices.is_empty());
     }
 
     /// `cp --help`'s real shape: the trailing `VERSION_CONTROL` enum

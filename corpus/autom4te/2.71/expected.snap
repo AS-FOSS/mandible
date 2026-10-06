@@ -1,0 +1,203 @@
+name: autom4te
+usage:
+- 'Usage: /usr/bin/autom4te [OPTION]... [FILES]'
+positionals:
+- name: FILES
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  group: 'Operation modes:'
+  description: print this help, then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'Operation modes:'
+  description: print version number, then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  group: 'Operation modes:'
+  description: verbosely report processing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  group: 'Operation modes:'
+  description: don't remove temporary files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: FILE
+  value_kind: Required
+  group: 'Operation modes:'
+  description: save output in FILE (defaults to '-', stdout)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force
+  group: 'Operation modes:'
+  description: don't rely on cached values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --warnings
+  value_name: CATEGORY
+  value_kind: Required
+  choices:
+  - name: cross
+    description: cross compilation issues
+  - name: gnu
+    description: GNU coding standards (default in gnu and gnits modes)
+  - name: obsolete
+    description: obsolete features or constructions (default)
+  - name: override
+    description: user redefinitions of Automake rules or variables
+  - name: portability
+    description: portability issues (default in gnu and gnits modes)
+  - name: portability-recursive
+    description: nested Make variables (default with -Wportability)
+  - name: extra-portability
+    description: extra portability issues related to obscure tools
+  - name: syntax
+    description: dubious syntactic constructs (default)
+  - name: unsupported
+    description: unsupported or incomplete features (default)
+  - name: all
+    description: all the warnings
+  - name: no-CATEGORY
+    description: turn off warnings in CATEGORY
+  - name: none
+    description: turn off all the warnings
+  - name: error
+    description: treat warnings as errors
+  group: 'Operation modes:'
+  description: report the warnings falling in CATEGORY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --language
+  value_name: LANG
+  value_kind: Required
+  choices:
+  - name: Autoconf
+    description: create Autoconf configure scripts
+  - name: Autotest
+    description: create Autotest test suites
+  - name: M4sh
+    description: create M4sh shell scripts
+  - name: M4sugar
+    description: create M4sugar output
+  group: 'Operation modes:'
+  description: specify the set of M4 macros to use
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --cache
+  value_name: DIRECTORY
+  value_kind: Required
+  group: 'Operation modes:'
+  description: preserve results for future runs in DIRECTORY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-cache
+  group: 'Operation modes:'
+  description: disable the cache
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --mode
+  value_name: OCTAL
+  value_kind: Required
+  group: 'Operation modes:'
+  description: change the non trace output file mode (0666)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --melt
+  group: 'Operation modes:'
+  description: don't use M4 frozen files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --prepend-include
+  value_name: DIR
+  value_kind: Required
+  group: 'Library directories:'
+  description: prepend directory DIR to search path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --include
+  value_name: DIR
+  value_kind: Required
+  group: 'Library directories:'
+  description: append directory DIR to search path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --trace
+  value_name: MACRO[:FORMAT]
+  value_kind: Required
+  group: 'Tracing:'
+  description: report the MACRO invocations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --preselect
+  value_name: MACRO
+  value_kind: Required
+  group: 'Tracing:'
+  description: prepare to trace MACRO in a future run
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --freeze
+  group: 'Freezing:'
+  description: produce an M4 frozen state file for FILES
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

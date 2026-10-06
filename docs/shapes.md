@@ -4770,3 +4770,133 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jinfo/17.0.20`.
 - fleet: a `--tools` pre-check moved jinfo only and lost none; the nine
   controls are byte-identical.
+### S-201: a `<no option>` row describes the bare invocation
+
+- id: S-201
+- looks like: |
+      where <option> is one of:
+          -flags               to print VM flags
+          <no option>          to print both VM flags and system properties
+- tools: jinfo
+- handling: Fixed. A row whose spelling is a bracketed phrase naming no
+  option (`<no option>`, `(no options)`, `[no arguments]`), followed by a
+  column gap and a description, is not a flag and ends the flag block. Its text
+  joins the node description as `With no option: <description>`, so nothing is
+  dropped. A one-space mention inside a sentence (`mksquashfs`'s `(no options)
+  (deprecated ...)`) is prose and is left alone. Fixture:
+  `corpus/jinfo/17.0.20-no-option`.
+- fleet: the corpus and a `--tools` pre-check over 1270 tools found one tool
+  with the row (`jinfo`).
+
+### S-202: `key=value` operands declared in the usage line
+
+- id: S-202
+- looks like: |
+      jfr configure [--interactive] [option=value]* [event-setting=value]*
+
+        option=value            The option value to modify.
+- tools: jfr
+- handling: Fixed. A `key=value` word in the usage line (`[option=value]*`)
+  declares an operand, never a flag. Each indented row that opens with that
+  word, a column gap and a description becomes a repeatable positional that
+  keeps the description. The rule needs a `key=value` word in the usage line,
+  so a `dd`-style `bs=BYTES` table with no such usage stays as it was. The
+  `key=<...>` list under a heading is not an operand: see S-205.
+  Fixture: `corpus/jfr/17.0.20-configure`.
+- fleet: a `--tools` pre-check over 1270 tools moved none, because it reads
+  each tool's root and `jfr configure` is a subcommand page. The 329 corpus
+  capture files hold one such page (`jfr help configure`).
+
+### S-203: a choices block under a heading that names the plural of the value placeholder
+
+- id: S-203
+- looks like: |
+      -W, --warnings=CATEGORY  report the warnings falling in CATEGORY
+
+      Warning categories include:
+        cross                  cross compilation issues
+        no-CATEGORY            turn off warnings in CATEGORY
+- tools: automake, automake-1.16, aclocal, aclocal-1.16, autoconf, autoheader,
+  autom4te, autoreconf
+- handling: Fixed. Ownership of a choices block had two proofs, the heading
+  naming the flag or containing its value placeholder as a word. A third
+  proof accepts a heading that ends in `:` and holds the plural (`s`, `es`,
+  `ies`) of exactly one flag's placeholder of four or more letters. Two flags
+  with that placeholder prove nothing. A row `prefix-PLACEHOLDER` joins the
+  choices when the placeholder is the owner's own (`no-CATEGORY`); before this
+  the block fell to the last flag (`--force-missing`, `--melt`). The same
+  proof accepts a heading that holds a flag's long spelling as a word, singular
+  or plural (`Languages include:` for `-l, --language=LANG`) when the word ends
+  its phrase and the flag takes a value (`Show text segmentation:` does not own
+  for `--text`; `Typical components:` does not for the valueless `--components`),
+  and a block it
+  owns may name its rows in quotes (`'Autoconf'`): the quotes drop and the
+  description stays, never for an unowned block. Fixtures:
+  `corpus/automake/1.16.5`, `corpus/autom4te/2.71`.
+- fleet: a `--tools` pre-check over 1270 tools moved those 8, each read
+  against its raw help. No other corpus fixture changed.
+
+
+### S-204: an `=PLACEHOLDER` row inside a flag's sub-option table
+
+- id: S-204
+- looks like: |
+      -a[sub-option...]	  turn on listings
+                          s      include symbols
+                          =FILE  list to FILE (must be last sub-option)
+- tools: as
+- handling: Fixed. A sub-row opening with `=` and an all-caps placeholder word
+  (or `=<word>`), then a column gap and text, is the flag's value form, not a
+  choice (S-049 reads lowercase `=value` rows as choices). It left the choices
+  and its text joins the flag's description as `=FILE: list to FILE (must be
+  last sub-option)`. Fixture: `corpus/as/2.42-listing`. The flag has no field
+  for alternative value names yet.
+  Only the sole `=`-prefixed row of a table whose other rows are not
+  `=`-prefixed qualifies: an llvm cl::opt enum table (every row `=`-prefixed,
+  `=DPP`) lists literal choices. Fixture: `corpus/llvm-profdata-18/18.1.3`.
+- fleet: a `--tools` pre-check over as, llvm-ar-18, ar, ld, objdump, readelf
+  moved only `as`, read against its raw help. No other corpus or audit capture
+  holds such a row.
+
+### S-205: a heading's `key=<placeholder>` rows are dashless flags
+
+- id: S-205
+- looks like: |
+      Options for default.jfc:
+
+        gc=<off|normal|detailed|high|all>
+
+        locking-threshold=<timespan>
+- tools: jfr
+- handling: Fixed. Under a heading ending in `:`, two or more rows that are each
+  one identifier, `=` and one `<placeholder>` are flags with no dash
+  (`Dashes::None`, like the `@file` argfile flag, spec 4.5). The key is the
+  spelling; `<a|b|c>` literal members are its choices, any other placeholder
+  its value name; the heading is its group. The `=` is not stored: the row
+  renders `locking-threshold <timespan>`, one space behind the spelling
+  (spec 9.3 rule 6). Not keyed to `jfr`: any such block qualifies.
+  Fixture: `corpus/jfr/17.0.20-configure`.
+- fleet: a `--tools` pre-check over 222 tools (every tool the round has
+  touched, the Java tools and the nine controls) moved none. No corpus or
+  audit capture other than the two `jfr configure` pages holds such a block.
+
+### S-206: a word grid no flag owns is root description text
+
+- id: S-206
+- looks like: |
+      -f, --force-missing    force update of standard files
+
+      Files automatically distributed if found (always):
+        ABOUT-GNU           TODO                install-sh          mdate-sh
+        ABOUT-NLS           ar-lib              libversion.in       missing
+- tools: automake, automake-1.16
+- handling: Fixed. Under a heading ending in `:` that no flag owns, rows of
+  single words in columns (two or more rows, the first with three or more
+  cells, cells split on two spaces or a tab, no phrase in any cell) are not
+  choices of the flag above. The heading and every word, in reading order,
+  join the node description. Before this `-f, --force-missing` carried
+  `acconfig.h` and `aclocal.m4` and the other file names rendered nowhere.
+  Fixture: `corpus/automake/1.16.5`.
+- fleet: a `--tools` pre-check over 222 tools (the round's touched tools, the Java
+  tools, the autotools and the nine controls) moved only automake and
+  automake-1.16, each read against its raw help; no other corpus fixture changed.

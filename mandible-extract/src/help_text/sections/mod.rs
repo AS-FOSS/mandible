@@ -34,6 +34,7 @@ use mandible_core::{
 mod avoption;
 mod backfill;
 mod bullets;
+mod dashless_key_flags;
 mod description_choices;
 mod emit;
 mod entry;
@@ -41,11 +42,14 @@ mod flag_row_column;
 mod flag_rows;
 mod heading;
 mod invocation_block;
+mod key_value_operands;
 mod layout;
 mod multiword;
+mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;
 mod per_form;
+mod plural_owner;
 mod plus_minus;
 mod preamble;
 mod repair;
@@ -59,12 +63,15 @@ mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
 mod usage_word_flags;
+mod value_form_row;
+mod word_grid;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
 };
 use backfill::*;
 use bullets::*;
+use dashless_key_flags::recover_dashless_key_flags;
 use description_choices::attach_description_tail_choices;
 pub use emit::*;
 pub use entry::*;
@@ -72,13 +79,16 @@ use flag_row_column::*;
 use flag_rows::*;
 pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
+use key_value_operands::recover_key_value_operands;
 pub use layout::*;
 use multiword::*;
+use no_option_row::take_no_option_row;
 use numeric_range::{
     describe_positionals_from_name_rows, expand_numeric_range_flags,
     fold_separator_row_into_operand,
 };
 use or_choice_fold::fold_or_joined_choice_rows;
+use plural_owner::plural_owner_index;
 use plus_minus::*;
 use preamble::*;
 use repair::*;
@@ -92,6 +102,8 @@ use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
+use value_form_row::{mark_sole_equals_rows, value_form_sub_row};
+use word_grid::take_word_grid;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output stays below it
@@ -1203,6 +1215,7 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         }
     }
 
+    let block_start = i;
     let (end, entries) = scan_bare_block(lines, i, heading_indent, allow_dash_separator);
     i = end;
     if is_ignorable_heading(heading) {
@@ -1247,6 +1260,12 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         }
     } else {
         st.command_mode = false;
+        // A word grid no flag owns is prose about the tool (S-206).
+        if find_owning_flag_index(heading, &st.result.flags).is_none()
+            && take_word_grid(heading, &lines[block_start..end], st.result)
+        {
+            return i;
+        }
         set_pending_bare_label(st, sole_label, lines, i);
         let (seen, clean) = emit_choices(heading, entries, st.result);
         st.total_entries += seen;
@@ -1936,6 +1955,10 @@ fn scan_entries(
                 continue;
             }
         }
+        if let Some(end) = take_no_option_row(lines, i, st.result, st.in_ignorable_section) {
+            i = end;
+            continue;
+        }
         // A label that named no rows of its own, set one line ago by
         // either a flush heading's own rewind or a bare single-entry
         // swallow (S-146). Taken (cleared) here whether or not this row
@@ -2069,22 +2092,16 @@ fn scan_entries(
         while i < lines.len() && lines[i].trim().is_empty() {
             i += 1;
         }
-        if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
-            let h = Heading {
-                line,
-                heading,
-                heading_indent,
-                heading_idx,
-            };
-            i = emit_flush_heading(lines, profile, &h, i, &mut st);
-            continue;
-        }
         let h = Heading {
             line,
             heading,
             heading_indent,
             heading_idx,
         };
+        if i >= lines.len() || leading_whitespace(lines[i]) <= heading_indent {
+            i = emit_flush_heading(lines, profile, &h, i, &mut st);
+            continue;
+        }
         i = emit_heading_block(inp, tool_name, &h, i, &mut st);
     }
     (st.total_entries, st.clean_entries)
@@ -2378,6 +2395,8 @@ fn parse_body(
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
+    recover_key_value_operands(&mut result.positionals, &result.usage, &lines);
+    recover_dashless_key_flags(&mut result.flags, &lines);
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block

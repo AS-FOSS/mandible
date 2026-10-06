@@ -1,0 +1,25 @@
+# Variant of corpus/as/2.42 (issue 102 item 5). The `=FILE` row closing the
+# `-a[sub-option...]` table is the flag's value form, not a choice: its text
+# stays with the flag's description.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "as"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.6.1"
+
+[[capture]]
+argv = ["as", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_attach_choices = { "-a" = ["c", "s"] }
+
+[contract.must_not_attach_choices]
+"-a" = ["FILE"]
+
+[contract.must_describe]
+"-a" = "list to FILE (must be last sub-option)"

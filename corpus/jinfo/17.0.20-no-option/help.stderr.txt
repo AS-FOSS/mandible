@@ -1,0 +1,12 @@
+Usage:
+    jinfo <option> <pid>
+       (to connect to a running process)
+
+where <option> is one of:
+    -flag <name>         to print the value of the named VM flag
+    -flag [+|-]<name>    to enable or disable the named VM flag
+    -flag <name>=<value> to set the named VM flag to the given value
+    -flags               to print VM flags
+    -sysprops            to print Java system properties
+    <no option>          to print both VM flags and system properties
+    -? | -h | --help | -help to print this help message
