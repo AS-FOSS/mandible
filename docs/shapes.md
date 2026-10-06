@@ -4824,8 +4824,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `ies`) of exactly one flag's placeholder of four or more letters. Two flags
   with that placeholder prove nothing. A row `prefix-PLACEHOLDER` joins the
   choices when the placeholder is the owner's own (`no-CATEGORY`); before this
-  the block fell to the last flag (`--force-missing`, `--melt`). Fixture:
-  `corpus/automake/1.16.5`.
+  the block fell to the last flag (`--force-missing`, `--melt`). The same
+  proof accepts a heading that holds a flag's long spelling as a word, singular
+  or plural (`Languages include:` for `-l, --language=LANG`), and a block it
+  owns may name its rows in quotes (`'Autoconf'`): the quotes drop and the
+  description stays, never for an unowned block. Fixtures:
+  `corpus/automake/1.16.5`, `corpus/autom4te/2.71`.
 - fleet: a `--tools` pre-check over 1270 tools moved those 8, each read
   against its raw help. No other corpus fixture changed.
 
@@ -4872,3 +4876,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a `--tools` pre-check over 222 tools (every tool the round has
   touched, the Java tools and the nine controls) moved none. No corpus or
   audit capture other than the two `jfr configure` pages holds such a block.
+
+### S-206: a word grid no flag owns is root description text
+
+- id: S-206
+- looks like: |
+      -f, --force-missing    force update of standard files
+
+      Files automatically distributed if found (always):
+        ABOUT-GNU           TODO                install-sh          mdate-sh
+        ABOUT-NLS           ar-lib              libversion.in       missing
+- tools: automake, automake-1.16
+- handling: Fixed. Under a heading ending in `:` that no flag owns, rows of
+  single words in columns (two or more rows, the first with three or more
+  cells, cells split on two spaces or a tab, no phrase in any cell) are not
+  choices of the flag above. The heading and every word, in reading order,
+  join the node description. Before this `-f, --force-missing` carried
+  `acconfig.h` and `aclocal.m4` and the other file names rendered nowhere.
+  Fixture: `corpus/automake/1.16.5`.
+- fleet: a `--tools` pre-check over 222 tools (the round's touched tools, the Java
+  tools, the autotools and the nine controls) moved only automake and
+  automake-1.16, each read against its raw help; no other corpus fixture changed.

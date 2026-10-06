@@ -6,10 +6,6 @@
 [bless]
 provenance = "agent"
 
-[xfail]
-broken = true
-reason = "the Languages include: block is dropped; its four quoted names are -l, --language's choices"
-
 [tool]
 name = "autom4te"
 version = "2.71"

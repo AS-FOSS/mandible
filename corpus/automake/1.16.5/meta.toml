@@ -7,10 +7,6 @@
 [bless]
 provenance = "agent"
 
-[xfail]
-broken = true
-reason = "the Files automatically distributed grids attach acconfig.h and aclocal.m4 to -f as choices and render nowhere else"
-
 [tool]
 name = "automake"
 version = "1.16.5"

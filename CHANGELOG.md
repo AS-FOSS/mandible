@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-206] A grid of file names under `Files automatically distributed if found:` is no longer the choices of `--force-missing`: it reads in the description (`mandible automake`; #102).
 - [S-205] A heading's `key=<placeholder>` rows are dashless flags with their choices or value (`mandible jfr configure`: `gc`, `locking-threshold <timespan>`, ...).
 - [S-204] A `=FILE` row closing a flag's sub-option table is its value form, not a choice: its text joins the flag's description instead of becoming a bare `FILE` choice (`mandible as`, `-a`; #102).
-- [S-203] A choices block under a heading that names the plural of a flag's value (`Warning categories include:` for `-W, --warnings=CATEGORY`) belongs to that flag, not the last one (`mandible automake`, `autoconf`, `autom4te`, `autoreconf`; #102).
+- [S-203] A choices block under a heading that names the plural of a flag's value (`Warning categories include:` for `-W, --warnings=CATEGORY`) belongs to that flag, not the last one (`mandible automake`, `autoconf`, `autom4te`, `autoreconf`; #102), and a block under a heading naming a flag's long spelling (`Languages include:`) is that flag's choices, quoted names included (`mandible autom4te`).
 - [S-202] A `key=value` word in a usage line is an operand: `mandible jfr configure` shows `option=value` and `event-setting=value` with their descriptions.
 - [S-201] A `<no option>` row describes the bare invocation and joins the description instead of vanishing (`mandible jinfo`).
 - [S-172] A single-dash word that a usage line spells on two or more lines is one option, not a short flag with a fabricated value (`mandible cgi-fcgi`'s `-connect`, `-start`, `-bind`; `mandible jarsigner`'s `-verify`).

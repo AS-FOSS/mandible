@@ -1,7 +1,9 @@
 //! Third ownership proof for a choices block: the introducing heading
 //! names the plural of exactly one flag's value placeholder
-//! (`Warning categories include:` under `-W, --warnings=CATEGORY`).
-//! See docs/shapes.md S-203 and corpus/automake/1.16.5.
+//! (`Warning categories include:` under `-W, --warnings=CATEGORY`), or
+//! names that flag's long spelling as a word, singular or plural
+//! (`Languages include:` under `-l, --language=LANG`).
+//! See docs/shapes.md S-203, corpus/automake/1.16.5, corpus/autom4te/2.71.
 
 use super::ParsedHelp;
 use mandible_core::Entity;
@@ -22,8 +24,27 @@ fn plural_forms(word: &str) -> Vec<String> {
     forms
 }
 
-/// The index of the one flag whose value placeholder's plural is a whole
-/// word of `heading`. `None` when no flag or several distinct flags match.
+/// True when `word` is, as a whole word, `long` or one of its plurals.
+fn names_word(words: &[&str], long: &str) -> bool {
+    words.contains(&long)
+        || plural_forms(long)
+            .iter()
+            .any(|p| words.contains(&p.as_str()))
+}
+
+/// True when the heading names a long spelling of `flag` (`language`).
+fn heading_names_long(words: &[&str], flag: &Entity) -> bool {
+    flag.spellings.iter().any(|s| {
+        let name = s.name.to_lowercase();
+        s.dashes != mandible_core::Dashes::None
+            && name.chars().count() > 3
+            && name.chars().all(|c| c.is_ascii_alphabetic())
+            && names_word(words, &name)
+    })
+}
+
+/// The index of the one flag whose value placeholder's plural, or whose
+/// long spelling, is a whole word of `heading`. `None` when no flag or several distinct flags match.
 pub(super) fn plural_owner_index(heading: &str, flags: &[Entity]) -> Option<usize> {
     if !heading.trim_end().ends_with(':') {
         return None;
@@ -34,14 +55,15 @@ pub(super) fn plural_owner_index(heading: &str, flags: &[Entity]) -> Option<usiz
         .filter(|w| !w.is_empty())
         .collect();
     let mut hits = flags.iter().enumerate().filter(|(_, f)| {
-        f.value_name.as_deref().is_some_and(|vn| {
-            let word = placeholder_word(vn);
-            word.chars().count() > 3
-                && word.chars().all(char::is_alphabetic)
-                && plural_forms(&word)
-                    .iter()
-                    .any(|p| words.contains(&p.as_str()))
-        })
+        heading_names_long(&words, f)
+            || f.value_name.as_deref().is_some_and(|vn| {
+                let word = placeholder_word(vn);
+                word.chars().count() > 3
+                    && word.chars().all(char::is_alphabetic)
+                    && plural_forms(&word)
+                        .iter()
+                        .any(|p| words.contains(&p.as_str()))
+            })
     });
     let first = hits.next()?.0;
     hits.next().is_none().then_some(first)
@@ -58,8 +80,30 @@ pub(super) fn is_prefixed_placeholder(name: &str) -> bool {
         && rest.chars().all(|c| c.is_ascii_uppercase() || c == '_')
 }
 
+/// `'Autoconf'`: one alphanumeric word inside matching single or double
+/// quotes. A quoted name is a value of the flag that owns its block, never a
+/// guess for the last flag.
+pub(super) fn is_quoted_word(name: &str) -> bool {
+    let mut chars = name.chars();
+    let (Some(open), Some(close)) = (chars.next(), chars.next_back()) else {
+        return false;
+    };
+    matches!(open, '\'' | '"')
+        && open == close
+        && name.chars().count() > 2
+        && name[1..name.len() - 1]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+}
+
+/// A row name only a proven owner may take: `no-CATEGORY` or `'Autoconf'`.
+pub(super) fn is_owned_only_name(name: &str) -> bool {
+    is_prefixed_placeholder(name) || is_quoted_word(name)
+}
+
 /// Drops the `prefix-PLACEHOLDER` rows whose placeholder is not the proven
-/// owner's own value name; every other row stays, in order.
+/// owner's own value name, and the quoted rows nobody owns, and strips the
+/// quotes off the rest; every other row stays, in order.
 pub(super) fn keep_owned_placeholders(
     rows: Vec<(String, Option<String>)>,
     owner: Option<usize>,
@@ -70,10 +114,17 @@ pub(super) fn keep_owned_placeholders(
         .map(placeholder_word);
     rows.into_iter()
         .filter(|(name, _)| {
+            if is_quoted_word(name) {
+                return owner.is_some();
+            }
             !is_prefixed_placeholder(name)
                 || name
                     .split_once('-')
                     .is_some_and(|(_, rest)| owner_value.as_deref() == Some(&rest.to_lowercase()))
+        })
+        .map(|(name, desc)| match is_quoted_word(&name) {
+            true => (name[1..name.len() - 1].to_string(), desc),
+            false => (name, desc),
         })
         .collect()
 }
@@ -100,6 +151,14 @@ mod tests {
     }
 
     #[test]
+    fn the_long_spelling_as_a_heading_word_owns_the_block() {
+        let flags = vec![flag("warnings", "CATEGORY"), flag("language", "LANG")];
+        assert_eq!(plural_owner_index("Languages include:", &flags), Some(1));
+        assert_eq!(plural_owner_index("Language choices:", &flags), Some(1));
+        assert_eq!(plural_owner_index("Other things:", &flags), None);
+    }
+
+    #[test]
     fn two_matching_flags_prove_nothing() {
         let both = vec![flag("a", "CATEGORY"), flag("b", "category")];
         assert_eq!(plural_owner_index("Categories include:", &both), None);
@@ -111,6 +170,17 @@ mod tests {
         assert!(!is_prefixed_placeholder("no-category"));
         assert!(!is_prefixed_placeholder("NO-CATEGORY"));
         assert!(!is_prefixed_placeholder("CATEGORY"));
+    }
+
+    #[test]
+    fn quoted_words_are_owned_only() {
+        assert!(is_quoted_word("'Autoconf'"));
+        assert!(is_quoted_word("\"M4sh\""));
+        assert!(!is_quoted_word("''"));
+        assert!(!is_quoted_word("'two words'"));
+        let rows = vec![("'M4sh'".to_string(), None)];
+        let out = ParsedHelp::default();
+        assert!(keep_owned_placeholders(rows.clone(), None, &out).is_empty());
     }
 
     #[test]

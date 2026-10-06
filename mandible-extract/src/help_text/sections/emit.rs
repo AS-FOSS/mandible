@@ -909,7 +909,7 @@ pub(super) fn emit_choices(
                 continue;
             }
             seen += 1;
-            if super::plural_owner::is_prefixed_placeholder(name) {
+            if super::plural_owner::is_owned_only_name(name) {
                 candidates.push((name.to_string(), desc.clone()));
                 continue;
             }
@@ -926,11 +926,16 @@ pub(super) fn emit_choices(
     }
     let owner = find_owning_flag_index(heading, &out.flags);
     let before = candidates.len();
+    let quoted_kept = candidates
+        .iter()
+        .filter(|(n, _)| owner.is_some() && super::plural_owner::is_quoted_word(n))
+        .count();
     candidates = super::plural_owner::keep_owned_placeholders(candidates, owner, out);
     clean += candidates
         .iter()
         .filter(|(n, _)| super::plural_owner::is_prefixed_placeholder(n))
-        .count();
+        .count()
+        + quoted_kept;
     out.saw_unattributable_content |= before > candidates.len();
     match owner {
         Some(idx) => {

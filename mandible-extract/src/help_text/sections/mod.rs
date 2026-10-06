@@ -64,6 +64,7 @@ mod usage_optional_word;
 mod usage_signs;
 mod usage_word_flags;
 mod value_form_row;
+mod word_grid;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
@@ -102,6 +103,7 @@ pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
 use value_form_row::{mark_sole_equals_rows, value_form_sub_row};
+use word_grid::take_word_grid;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output stays below it
@@ -1213,6 +1215,7 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         }
     }
 
+    let block_start = i;
     let (end, entries) = scan_bare_block(lines, i, heading_indent, allow_dash_separator);
     i = end;
     if is_ignorable_heading(heading) {
@@ -1257,6 +1260,12 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         }
     } else {
         st.command_mode = false;
+        // A word grid no flag owns is prose about the tool (S-206).
+        if find_owning_flag_index(heading, &st.result.flags).is_none()
+            && take_word_grid(heading, &lines[block_start..end], st.result)
+        {
+            return i;
+        }
         set_pending_bare_label(st, sole_label, lines, i);
         let (seen, clean) = emit_choices(heading, entries, st.result);
         st.total_entries += seen;
