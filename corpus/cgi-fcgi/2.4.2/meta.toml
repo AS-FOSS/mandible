@@ -19,6 +19,3 @@ min_status = "verbatim"
 must_contain_positionals = ["appPath", "nServers"]
 must_not_contain_positionals = ["connName"]
 
-[xfail]
-broken = true
-reason = "the <connName> after -connect is a flag value, read as a root operand"
