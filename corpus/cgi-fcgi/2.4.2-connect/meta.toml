@@ -1,0 +1,22 @@
+# Same capture as cgi-fcgi/2.4.2. The single-dash words `-connect`, `-start`
+# and `-bind` are one option each, not `-c`, `-s`, `-b` with a glued value.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cgi-fcgi"
+version = "2.4.2-connect"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.4.1"
+
+[[capture]]
+argv = ["cgi-fcgi", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-connect", "-start", "-bind"]
+must_not_contain_flags = ["-c", "-s", "-b"]

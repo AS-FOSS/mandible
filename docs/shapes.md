@@ -4002,7 +4002,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       usage: /usr/bin/lshw [-format] [-options ...]
       Usage: fuser ... [-k [-i] [-SIGNAL]] NAME...
-- tools: lshw, fuser
+- tools: lshw, fuser, cgi-fcgi, jarsigner
 - handling: A single-dash-long spelling that stands alone as its own bracketed
   token in a usage line — never joined to a separate value by a space, an
   `=`, or a bracket of its own — reached the tree split into a short flag
@@ -4036,6 +4036,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`sections/repair.rs`), memhog having no fixture of its own; that
   test's doc comment states the one label it adds to memhog's text and
   why a bare `parse` needs it.
+
+  A usage-derived flag is admitted by a different evidence source, since
+  its own usage line cannot attest itself: the whole word (`-connect`,
+  `-start`, `-bind`; `-verify`) stands alone on two or more distinct
+  document lines, lowercase throughout, with a tail of three or more
+  characters. A short flag with a glued value is not also written as a
+  separate token on a second line. The value is the `<placeholder>` that
+  follows the word in every usage occurrence, else none
+  (`usage_word_flags.rs`). Fixture: `corpus/cgi-fcgi/2.4.2-connect`.
 - fleet: `usage-attested-single-dash-long`
   (`xtask/src/detector/usage_attested_single_dash_long.rs`) measures against
   the parse (a swallowed-value split whose name a usage line independently
@@ -4680,3 +4689,84 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jfr/17.0.20`.
 - fleet: the full-`PATH` coverage sweep reads each tool's root only, so it
   cannot see this change. 2301 captures hold two such labels (`brew`, `jfr`).
+
+### S-197: `[-t a | b | c]` in a synopsis lists the choices of `-t`
+
+- id: S-197
+- looks like: |
+      usage: ssh-keygen [-t dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa]
+      usage: tcpdump [ -Q in|out|inout ]
+- tools: ssh-keygen, tcpdump
+- handling: Fixed. One bracket holding a flag and its value word, then `|`
+  alternatives, is the flag's choice list when every word is a lowercase
+  literal (`is_literal_choice_value`). The flag kept only the first word as its
+  value before. A placeholder alternative (`sftp`'s `[-s subsystem | sftp_server]`)
+  fails the literal test, so the group is left alone, and so does a pair
+  (`pdb`'s `[-m module | pyfile]` is a value and an operand): a list names at
+  least three words. The pass lives in
+  `help_text/sections/per_form.rs` and reads only flags a synopsis alone
+  produced. Fixtures: `corpus/ssh-keygen/9.6p1`, `corpus/tcpdump/audit-seed2`.
+- fleet: a `--tools` pre-check over 255 tools (every corpus tool, every `sg_*`
+  tool, the ssh family) moved two tools and lost none.
+
+### S-198: a flag that opens several usage forms with different lowercase words
+
+- id: S-198
+- looks like: |
+      ssh-keygen -M generate [-O option] output_file
+      ssh-keygen -M screen [-f input_file] [-O option] output_file
+      ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...
+      ssh-keygen -Y verify -f allowed_signers_file -I signer_identity
+- tools: ssh-keygen
+- handling: Fixed. A flag that directly follows the program word in two or more
+  forms, where every value the flag takes anywhere is a lowercase literal and
+  the values differ, selects the form by a fixed word. Those words are its
+  choices and `value_name` is cleared, as the S-147 merge does for the same
+  case. A flag deep in a form with different lowercase words (`-n principals`,
+  `-n namespace`) is a placeholder and is not read this way. Fixture:
+  `corpus/ssh-keygen/9.6p1`.
+- fleet: a `--tools` pre-check over 255 tools moved ssh-keygen only (`-M`,
+  `-Y`) and lost none.
+
+### S-199: operands that close a usage form, and an operand only some forms have
+
+- id: S-199
+- looks like: |
+      ssh-keygen -M generate [-O option] output_file
+      ssh-keygen -k -f krl_file [-u] [-z version_number] file ...
+      sg_test_rwbuf [--addrd=AR] --size=SZ DEVICE
+      sg_test_rwbuf DEVICE SZ [AW] [AR]
+- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck
+- handling: Fixed. Each usage form is read on its own. A bare lowercase word or
+  bracketed operand after the form's last flag is an operand when the same name
+  closes two or more forms and no other lowercase word sits beside it (`list
+  partition table(s)` is prose). A flag value is never an operand: a bare flag
+  eats the next word when the flag takes a value. An operand that is missing
+  from some form, or bracketed in any, is not `required` at the root
+  (`sg_test_rwbuf`'s `SZ`, `cp`'s `DEST`, `ip`'s `OBJECT`). `required` has no
+  contract field, so the blessed snapshots pin it. A form line that ends in a
+  tab and a description (`ethtool -s|--change DEVNAME<TAB>Change generic
+  options`) closes the form: the deeper-indented `[ keyword value ]` lines
+  below it still give flags their choices (`[ --src a | b | c ]`) but name
+  no operand. Fixtures:
+  `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
+  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`.
+- fleet: a `--tools` pre-check over 255 tools gained operands on five tools
+  and lost none. It cannot see `required`; 21 corpus snapshots lost a
+  `required: true`, each read against its raw usage text.
+
+### S-200: single-dash row whose value is a glued run of placeholder groups
+
+- id: S-200
+- looks like: |
+      -flag [+|-]<name>    to enable or disable the named VM flag
+      -flag <name>=<value> to set the named VM flag to the given value
+- tools: jinfo
+- handling: Fixed. A single-dash long option row (`-flag`) takes its value from
+  the row's own text, and the placeholder is the whole run of bracket and angle
+  groups glued together with no space, an `=` between groups allowed:
+  `[+|-]<name>`, `<name>=<value>`. A glued angle group makes the value
+  required. Two rows with the same spelling stay two rows. Fixture:
+  `corpus/jinfo/17.0.20`.
+- fleet: a `--tools` pre-check moved jinfo only and lost none; the nine
+  controls are byte-identical.

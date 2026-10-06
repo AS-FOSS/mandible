@@ -6,7 +6,6 @@ usage:
 - '       fuser -V'
 positionals:
 - name: NAME
-  required: true
   variadic: true
   provenance:
     sources:

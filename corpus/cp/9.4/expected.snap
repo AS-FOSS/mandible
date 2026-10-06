@@ -11,12 +11,10 @@ positionals:
     sources:
     - help-text
 - name: DEST
-  required: true
   provenance:
     sources:
     - help-text
 - name: DIRECTORY
-  required: true
   provenance:
     sources:
     - help-text

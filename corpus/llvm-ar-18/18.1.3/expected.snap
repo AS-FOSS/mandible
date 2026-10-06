@@ -5,7 +5,6 @@ usage:
 - '       llvm-ar-18 -M [<mri-script]'
 positionals:
 - name: archive
-  required: true
   provenance:
     sources:
     - help-text

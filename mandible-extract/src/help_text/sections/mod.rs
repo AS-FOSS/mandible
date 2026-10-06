@@ -45,6 +45,7 @@ mod layout;
 mod multiword;
 mod numeric_range;
 mod or_choice_fold;
+mod per_form;
 mod plus_minus;
 mod preamble;
 mod repair;
@@ -57,6 +58,7 @@ mod usage_command_table;
 mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
+mod usage_word_flags;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
@@ -2414,6 +2416,8 @@ fn parse_body(
             // silently replaced by whichever entity happened to land
             // first.
         }
+        usage_word_flags::repair(&usage_lines, raw, &mut result.flags);
+        per_form::apply(&usage_lines, &mut result.flags, &mut result.positionals);
         // A dash-prefixed usage word normally swallowed as the generic
         // "any option" placeholder, or a usage-derived flag already
         // misread as a short flag plus a fabricated value, is repaired or

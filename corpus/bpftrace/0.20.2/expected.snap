@@ -5,7 +5,6 @@ usage:
 - '    bpftrace [options] -e ''program'''
 positionals:
 - name: filename
-  required: true
   provenance:
     sources:
     - help-text

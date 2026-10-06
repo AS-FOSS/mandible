@@ -10,7 +10,6 @@ positionals:
     sources:
     - help-text
 - name: pid
-  required: true
   variadic: true
   provenance:
     sources:

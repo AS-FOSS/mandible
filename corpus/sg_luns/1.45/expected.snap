@@ -5,7 +5,6 @@ usage:
 - '       sg_luns    --test=ALUN [--decode] [--hex] [--lu_cong] [--verbose]'
 positionals:
 - name: DEVICE
-  required: true
   provenance:
     sources:
     - help-text

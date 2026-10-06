@@ -4,7 +4,6 @@ usage:
 - '       ip [ -force ] -batch filename'
 positionals:
 - name: OBJECT
-  required: true
   provenance:
     sources:
     - help-text

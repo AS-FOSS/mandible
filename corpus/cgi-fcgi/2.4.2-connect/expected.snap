@@ -1,0 +1,46 @@
+name: cgi-fcgi
+description: Missing application pathname Missing -connect <connName> where <connName> is either the pathname of a UNIX domain socket or (if -bind is given) a hostName:portNumber specification or (if -start is given) a :portNumber specification (uses local host).
+usage:
+- '    cgi-fcgi -f <cmdPath> , or'
+- '    cgi-fcgi -connect <connName> <appPath> [<nServers>] , or'
+- '    cgi-fcgi -start -connect <connName> <appPath> [<nServers>] , or'
+- '    cgi-fcgi -bind -connect <connName> ,'
+positionals:
+- name: appPath
+  provenance:
+    sources:
+    - help-text
+- name: nServers
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -f
+  value_name: <cmdPath>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -connect
+  value_name: <connName>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -start
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -bind
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -3044,9 +3044,10 @@ mod tests {
         assert!(!parsed.positionals[0].repeatable, "member-name");
         assert!(!parsed.positionals[1].required, "count");
         assert!(!parsed.positionals[1].repeatable, "count");
-        assert!(parsed.positionals[2].required, "archive-file");
+        // The `-M` form has neither, so neither is required (S-199).
+        assert!(!parsed.positionals[2].required, "archive-file");
         assert!(!parsed.positionals[2].repeatable, "archive-file");
-        assert!(parsed.positionals[3].required, "file");
+        assert!(!parsed.positionals[3].required, "file");
         assert!(parsed.positionals[3].repeatable, "file");
     }
 
