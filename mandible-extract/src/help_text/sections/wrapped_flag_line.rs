@@ -1,17 +1,11 @@
-//! A wrapped description line that begins with a flag spelling.
-//!
-//! A description that wraps can land a flag reference at the start of a
-//! physical line (`-U/--multiline flag.`). Row detection reads that as a
-//! new row, fabricating a flag and ending the real row's description. Such
-//! a line sits at the indent the description's previous line already used,
-//! deeper than its row, so it continues that description. See docs/shapes.md
-//! S-011.
+//! A wrapped description line that begins with a flag spelling
+//! (`-U/--multiline flag.`) at its description's indent continues that
+//! description; it opens no row. corpus/rg/14.1.0-wrapped-flag-line, S-011.
 
 use super::flag_rows::FlagsBlockRow;
 use super::leading_whitespace;
 
-/// True when `line` (about to be classified) repeats the indent of the
-/// description line just before it and sits deeper than the open row.
+/// `line` repeats the previous description line's indent, deeper than its row.
 pub(super) fn continues_wrapped_description(
     rows: &[FlagsBlockRow<'_>],
     current_entry_line: Option<&str>,
