@@ -1,0 +1,39 @@
+# Same root text as 0.34.6, plus `corepack disable --help` and `corepack
+# enable --help` captured as the tool prints them (ANSI escapes included,
+# no TTY). Corepack's command rows are recovered as `invocation_attested`,
+# which design section 6 rule 0 does not yet admit for probing, so the
+# replay never serves these two files; they pin what the subcommand pages
+# must parse to once that gate is decided.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "corepack"
+version = "0.34.6-subcommands"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, null stdin, no TTY, ANSI kept"
+
+[[capture]]
+argv = ["corepack", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["corepack", "disable", "--help"]
+stdout = "help-disable.txt"
+
+[[capture]]
+argv = ["corepack", "enable", "--help"]
+stdout = "help-enable.txt"
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 7
+
+[contract.must_contain_flags_by_path]
+disable = ["--install-directory"]
+enable = ["--install-directory"]
+
+[xfail]
+broken = true
+reason = "[S-211] corepack's command rows are recovered as invocation_attested, which design section 6 rule 0 does not admit for probing, so `corepack disable --help` and `corepack enable --help` are never sent; admitting them needs a new attestation field and a section 6 amendment (maintainer decision)"
