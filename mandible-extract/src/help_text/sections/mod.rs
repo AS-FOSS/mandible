@@ -34,9 +34,9 @@ use mandible_core::{
 mod avoption;
 mod backfill;
 mod bullets;
-mod dashless_key_flags;
 mod command_list_rows;
 mod command_row_column;
+mod dashless_key_flags;
 mod description_choices;
 mod emit;
 mod entry;
