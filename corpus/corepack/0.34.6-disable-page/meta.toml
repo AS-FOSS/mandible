@@ -27,7 +27,3 @@ must_contain_flags = ["--install-directory"]
 
 [contract.must_flag_group]
 "--install-directory" = ""
-
-[xfail]
-broken = true
-reason = "[S-213] the page's `━━━ Options ━━━` rule-bracketed heading is kept verbatim as the flag's group instead of reading as the generic Options label"

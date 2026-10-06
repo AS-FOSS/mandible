@@ -56,6 +56,7 @@ mod plural_owner;
 mod plus_minus;
 mod preamble;
 mod repair;
+mod rule_heading;
 mod scan;
 mod short_letter_word_family;
 mod spelling;
@@ -398,6 +399,7 @@ pub fn parse_with_profile(
     // gaps) must see the plain row, not the decorated one. See docs/shapes.md
     // S-143, S-144.
     let raw = rewrite_lowdown_bullets(&raw, tool_name);
+    let raw = rule_heading::rewrite_rule_bracketed_headings(&raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it. Doing it here, once, keeps the recovered

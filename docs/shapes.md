@@ -5018,3 +5018,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`, `corpus/sginfo/2.43`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
   (224 tools; ld, gold and their aliases moved).
+
+### S-213: a heading drawn between two runs of box-drawing glyphs
+
+- id: S-213
+- looks like: |
+      ━━━ Options ━━━━━━━━━━━━━━━━━━━━━━
+        --install-directory #0    Where the shims are located
+- tools: corepack
+- handling: Fixed. A line of two or more box-drawing glyphs, a plain-word
+  label and two or more glyphs again is the heading its label names, and is
+  rewritten to `Label:` before layout analysis, so `Options` is the generic
+  label (no group) rather than the whole rule kept as the flag's group. The
+  page is `corepack disable --help` / `enable --help`; it is not reached
+  live while design section 6 rule 0 does not probe `invocation_attested`
+  command rows (maintainer decision), so `corpus/corepack/0.34.6-disable-page`
+  pins the page text and `corpus/corepack/0.34.6-subcommands` stays
+  `[xfail]` on the probe gate.
+- fleet: not measured; no PATH tool prints this heading in the sweep
+  pre-check (yarn, pnpm, npm, controls unchanged).

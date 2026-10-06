@@ -1,0 +1,16 @@
+name: corepack
+description: Remove the Corepack shims from the install directory
+flags:
+- spellings:
+  - --install-directory
+  value_name: '#0'
+  value_kind: Required
+  description: Where the shims are located
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.25
+children_filled: true
