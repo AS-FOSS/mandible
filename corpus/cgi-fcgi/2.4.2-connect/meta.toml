@@ -1,5 +1,5 @@
-# Same capture as cgi-fcgi/2.4.2. The single-dash word `-connect` is read as
-# `-c` with the value `onnect`.
+# Same capture as cgi-fcgi/2.4.2. The single-dash words `-connect`, `-start`
+# and `-bind` are one option each, not `-c`, `-s`, `-b` with a glued value.
 
 [bless]
 provenance = "agent"
@@ -18,9 +18,5 @@ exit_code = 1
 
 [contract]
 expected_framework = "generic"
-must_contain_flags = ["-connect"]
-must_not_contain_flags = ["-c"]
-
-[xfail]
-broken = true
-reason = "the usage word -connect is read as -c with the value onnect; a single-dash word in a synopsis with no row of its own needs evidence that it is one multi-letter option"
+must_contain_flags = ["-connect", "-start", "-bind"]
+must_not_contain_flags = ["-c", "-s", "-b"]

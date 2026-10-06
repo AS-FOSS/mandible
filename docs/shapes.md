@@ -4002,7 +4002,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       usage: /usr/bin/lshw [-format] [-options ...]
       Usage: fuser ... [-k [-i] [-SIGNAL]] NAME...
-- tools: lshw, fuser
+- tools: lshw, fuser, cgi-fcgi, jarsigner
 - handling: A single-dash-long spelling that stands alone as its own bracketed
   token in a usage line — never joined to a separate value by a space, an
   `=`, or a bracket of its own — reached the tree split into a short flag
@@ -4036,6 +4036,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`sections/repair.rs`), memhog having no fixture of its own; that
   test's doc comment states the one label it adds to memhog's text and
   why a bare `parse` needs it.
+
+  A usage-derived flag is admitted by a different evidence source, since
+  its own usage line cannot attest itself: the whole word (`-connect`,
+  `-start`, `-bind`; `-verify`) stands alone on two or more distinct
+  document lines, lowercase throughout, with a tail of three or more
+  characters. A short flag with a glued value is not also written as a
+  separate token on a second line. The value is the `<placeholder>` that
+  follows the word in every usage occurrence, else none
+  (`usage_word_flags.rs`). Fixture: `corpus/cgi-fcgi/2.4.2-connect`.
 - fleet: `usage-attested-single-dash-long`
   (`xtask/src/detector/usage_attested_single_dash_long.rs`) measures against
   the parse (a swallowed-value split whose name a usage line independently
