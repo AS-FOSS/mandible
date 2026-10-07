@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-07
+
 ### Fixed
 
 - [S-011] A wrapped description line that begins with a flag spelling (`-U/--multiline flag.`) continues its description instead of opening a row (`mandible rg` loses about 27 fabricated flag rows, `pod2man`'s `--center`).
