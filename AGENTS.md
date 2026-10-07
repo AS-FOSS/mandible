@@ -343,6 +343,15 @@ parser fixes visually rather than by fixture green.
 the workflow run whose tag matches the tag you just pushed. Decide nothing.
 Release timing and content are the maintainer's call.
 
+**Crediting contributors.** Credit every outside contributor in the release
+that ships their work, exactly once. That covers each merged pull request and
+each fixed issue they reported. When the workflow has published the release,
+check the Contributors list in its body against the external pull requests
+merged and the issues fixed since the previous tag. The list is generated, and
+it repeats a reporter whose issue an earlier section also cites. Tell the
+maintainer which credits are repeated or missing, so they can edit the body.
+Names go in the release body only, never in the CHANGELOG.
+
 ---
 
 ## 5. Maintaining this file
