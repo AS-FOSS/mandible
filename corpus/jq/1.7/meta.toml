@@ -16,7 +16,3 @@ exit_code = 0
 expected_framework = "generic"
 must_contain_flags = ["--null-input", "--args", "--jsonargs"]
 must_contain_positionals = ["jq filter", "file...", "strings...", "JSON_TEXTS..."]
-
-[xfail]
-broken = true
-reason = "[S-227] only JSON_TEXTS survives; `<jq filter>`, `[file...]` and `[strings...]` from the other usage forms are lost, and the usage label is followed by a tab, which ended the first form"

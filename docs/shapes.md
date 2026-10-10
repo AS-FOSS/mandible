@@ -4744,7 +4744,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       ssh-keygen -k -f krl_file [-u] [-z version_number] file ...
       sg_test_rwbuf [--addrd=AR] --size=SZ DEVICE
       sg_test_rwbuf DEVICE SZ [AW] [AR]
-- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck
+- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck, git, jq, xdg-open
 - handling: Fixed. Each usage form is read on its own. A bare lowercase word or
   bracketed operand after the form's last flag is an operand when the same name
   closes two or more forms and no other lowercase word sits beside it (`list
@@ -4756,9 +4756,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tab and a description (`ethtool -s|--change DEVNAME<TAB>Change generic
   options`) closes the form: the deeper-indented `[ keyword value ]` lines
   below it still give flags their choices (`[ --src a | b | c ]`) but name
-  no operand. Fixtures:
+  no operand. An operand written in brackets, in angle brackets (`<jq
+  filter>` keeps its space), in a brace group (`{ file | URL }`) or in capitals
+  is admitted from a single form, after the form's last flag or its
+  `[options]` placeholder, and a nested group (`[<upstream> [<branch>]]`)
+  names one operand per name; a new operand takes its place in usage order.
+  A tab after the `Usage:` label is not a description gap. Fixtures:
   `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
-  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`.
+  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`, `corpus/jq/1.7`,
+  `corpus/xdg-open/user`, `corpus/git/2.43.0-operands`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
   `required: true`, each read against its raw usage text.
@@ -5037,3 +5043,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `[xfail]` on the probe gate.
 - fleet: not measured; no PATH tool prints this heading in the sweep
   pre-check (yarn, pnpm, npm, controls unchanged).
+
+### S-226: a flag that opens a parenthesised group takes its value inside the group
+
+- id: S-226
+- looks like: |
+      [(--trailer <token>[(=|:)<value>])...] [-S[<keyid>]] [--] [<pathspec>...]
+- tools: git
+- handling: Fixed. A usage word that opens a paren group and then spells a
+  flag (`(--trailer`) is read as that flag, so the next word is its value and
+  not an operand. `git commit` no longer shows a `token...` operand.
+  Fixture: `corpus/git/2.43.0-operands`.
+- fleet: see the S-199 measurement for this change.

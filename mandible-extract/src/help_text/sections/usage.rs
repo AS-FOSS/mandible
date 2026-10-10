@@ -327,6 +327,12 @@ pub(super) fn extract_positionals_inner(
         let mut bare_group_raw = String::new();
         for token in line.split_whitespace() {
             let cleaned = token.trim_matches(|c| c == '[' || c == ']' || c == '.');
+            // A flag opening a paren group (`(--trailer <token>...)`) is
+            // still a flag, so its value is not an operand (S-226).
+            let cleaned = match cleaned.strip_prefix('(') {
+                Some(r) if r.starts_with('-') => r,
+                _ => cleaned,
+            };
             let opens = token.matches('[').count() as i32;
             let closes = token.matches(']').count() as i32;
             let in_open_flag_value = open_flag_value_depth > 0;

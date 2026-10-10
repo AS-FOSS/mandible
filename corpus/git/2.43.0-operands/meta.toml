@@ -39,7 +39,3 @@ min_status = "ok"
 [contract.must_contain_positionals_by_path]
 commit = ["pathspec..."]
 rebase = ["upstream", "branch"]
-
-[xfail]
-broken = true
-reason = "[S-226] `git rebase` shows only `branch`, because `<upstream>` in `[<upstream> [<branch>]]` is read as the value of `--keep-base`; `git commit` shows a positional `token...`, which is the value of `--trailer`"

@@ -8,6 +8,10 @@ positionals:
   provenance:
     sources:
     - help-text
+- name: stdin input
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -B

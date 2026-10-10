@@ -1,0 +1,896 @@
+name: git
+usage:
+- 'usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>] [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare] [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>] <command> [<args>]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: args
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -v
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --exec-path
+  value_name: <path>
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --html-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --man-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --info-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --paginate
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --no-pager
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --no-replace-objects
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --bare
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --git-dir
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --work-tree
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --namespace
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --config-env
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: clone
+  summary: Clone a repository into a new directory
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Create an empty Git repository or reinitialize an existing one
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add
+  summary: Add file contents to the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mv
+  summary: Move or rename a file, a directory, or a symlink
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restore
+  summary: Restore working tree files
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rm
+  summary: Remove files from the working tree and from the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bisect
+  summary: Use binary search to find the commit that introduced a bug
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff
+  summary: Show changes between commits, commit and working tree, etc
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: grep
+  summary: Print lines matching a pattern
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log
+  summary: Show commit logs
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Show various types of objects
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: status
+  summary: Show the working tree status
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: branch
+  summary: List, create, or delete branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: commit
+  summary: Record changes to the repository
+  usage:
+  - 'usage: git commit [-a | --interactive | --patch] [-s] [-v] [-u<mode>] [--amend] [--dry-run] [(-c | -C | --squash) <commit> | --fixup [(amend|reword):]<commit>)] [-F <file> | -m <msg>] [--reset-author] [--allow-empty] [--allow-empty-message] [--no-verify] [-e] [--author=<author>] [--date=<date>] [--cleanup=<mode>] [--[no-]status] [-i | -o] [--pathspec-from-file=<file> [--pathspec-file-nul]] [(--trailer <token>[(=|:)<value>])...] [-S[<keyid>]] [--] [<pathspec>...]'
+  positionals:
+  - name: pathspec
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: suppress summary after successful commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -v
+    - --[no-]verbose
+    description: show diff in commit message template
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -F
+    - --[no-]file
+    value_name: <file>
+    value_kind: Required
+    group: Commit message options
+    description: read message from file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]author
+    value_name: <author>
+    value_kind: Required
+    group: Commit message options
+    description: override author for commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]date
+    value_name: <date>
+    value_kind: Required
+    group: Commit message options
+    description: override date for commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -m
+    - --[no-]message
+    value_name: <message>
+    value_kind: Required
+    group: Commit message options
+    description: commit message
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -c
+    - --[no-]reedit-message
+    value_name: <commit>
+    value_kind: Required
+    group: Commit message options
+    description: reuse and edit message from specified commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -C
+    - --[no-]reuse-message
+    value_name: <commit>
+    value_kind: Required
+    group: Commit message options
+    description: reuse message from specified commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]fixup
+    value_name: amend|reword
+    value_kind: Required
+    group: Commit message options
+    description: use autosquash formatted message to fixup or amend/reword specified commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]squash
+    value_name: <commit>
+    value_kind: Required
+    group: Commit message options
+    description: use autosquash formatted message to squash specified commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reset-author
+    group: Commit message options
+    description: the commit is authored by me now (used with -C/-c/--amend)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --trailer
+    value_name: <trailer>
+    value_kind: Required
+    group: Commit message options
+    description: add custom trailer(s)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -s
+    - --[no-]signoff
+    group: Commit message options
+    description: add a Signed-off-by trailer
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -t
+    - --[no-]template
+    value_name: <file>
+    value_kind: Required
+    group: Commit message options
+    description: use specified template file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -e
+    - --[no-]edit
+    group: Commit message options
+    description: force edit of commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]cleanup
+    value_name: <mode>
+    value_kind: Required
+    group: Commit message options
+    description: 'how to strip spaces and #comments from message'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]status
+    group: Commit message options
+    description: include status in commit message template
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -S
+    - --[no-]gpg-sign
+    value_name: <key-id>
+    value_kind: Optional
+    group: Commit message options
+    description: GPG sign commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -a
+    - --[no-]all
+    group: Commit contents options
+    description: commit all changed files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -i
+    - --[no-]include
+    group: Commit contents options
+    description: add specified files to index for commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]interactive
+    group: Commit contents options
+    description: interactively add files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -p
+    - --[no-]patch
+    group: Commit contents options
+    description: interactively add changes
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -o
+    - --[no-]only
+    group: Commit contents options
+    description: commit only specified files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -n
+    - --no-verify
+    group: Commit contents options
+    description: bypass pre-commit and commit-msg hooks
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --verify
+    group: Commit contents options
+    description: opposite of --no-verify
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]dry-run
+    group: Commit contents options
+    description: show what would be committed
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]short
+    group: Commit contents options
+    description: show status concisely
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]branch
+    group: Commit contents options
+    description: show branch information
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ahead-behind
+    group: Commit contents options
+    description: compute full ahead/behind values
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]porcelain
+    group: Commit contents options
+    description: machine-readable output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]long
+    group: Commit contents options
+    description: show status in long format (default)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -z
+    - --[no-]null
+    group: Commit contents options
+    description: terminate entries with NUL
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]amend
+    group: Commit contents options
+    description: amend previous commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-post-rewrite
+    group: Commit contents options
+    description: bypass post-rewrite hook
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --post-rewrite
+    group: Commit contents options
+    description: opposite of --no-post-rewrite
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -u
+    - --[no-]untracked-files
+    value_name: <mode>
+    value_kind: Optional
+    group: Commit contents options
+    description: 'show untracked files, optional modes: all, normal, no. (Default: all)'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]pathspec-from-file
+    value_name: <file>
+    value_kind: Required
+    group: Commit contents options
+    description: read pathspec from file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]pathspec-file-nul
+    group: Commit contents options
+    description: with --pathspec-from-file, pathspec elements are separated with NUL character
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --allow-empty
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --allow-empty-message
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: merge
+  summary: Join two or more development histories together
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rebase
+  summary: Reapply commits on top of another base tip
+  usage:
+  - 'usage: git rebase [-i] [options] [--exec <cmd>] [--onto <newbase> | --keep-base] [<upstream> [<branch>]]'
+  - '   or: git rebase [-i] [options] [--exec <cmd>] [--onto <newbase>] --root [<branch>]'
+  - '   or: git rebase --continue | --abort | --skip | --edit-todo'
+  positionals:
+  - name: upstream
+    provenance:
+      sources:
+      - help-text
+  - name: branch
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --[no-]onto
+    value_name: <revision>
+    value_kind: Required
+    description: rebase onto given branch instead of upstream
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]keep-base
+    description: use the merge-base of upstream and branch as the current base
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-verify
+    description: allow pre-rebase hook to run
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --verify
+    description: opposite of --no-verify
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: be quiet. implies --no-stat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -v
+    - --[no-]verbose
+    description: display a diffstat of what changed upstream
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -n
+    - --no-stat
+    description: do not show diffstat of what changed upstream
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stat
+    description: opposite of --no-stat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]signoff
+    description: add a Signed-off-by trailer to each commit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]committer-date-is-author-date
+    description: make committer date match author date
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reset-author-date
+    description: ignore author date and use current date
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -C
+    - --[no-]whitespace
+    value_name: <n>
+    value_kind: Required
+    description: passed to 'git apply'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ignore-whitespace
+    description: ignore changes in whitespace
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -f
+    - --[no-]force-rebase
+    description: cherry-pick all commits, even if unchanged
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-ff
+    description: cherry-pick all commits, even if unchanged
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ff
+    description: opposite of --no-ff
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --continue
+    description: continue
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --skip
+    description: skip current patch and continue
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --abort
+    description: abort and check out the original branch
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --quit
+    description: abort but keep HEAD where it is
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --edit-todo
+    description: edit the todo list during an interactive rebase
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --show-current-patch
+    description: show the patch file being applied or merged
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --apply
+    description: use apply strategies to rebase
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -m
+    - --merge
+    description: use merging strategies to rebase
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -i
+    - --interactive
+    description: let the user edit the list of commits to rebase
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]rerere-autoupdate
+    description: update the index with reused conflict resolution if possible
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --empty
+    value_kind: Required
+    choices:
+    - drop
+    - keep
+    - ask
+    description: how to handle commits that become empty
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]autosquash
+    description: move commits that begin with squash!/fixup! under -i
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]update-refs
+    description: update branches that point to commits that are being rebased
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -S
+    - --[no-]gpg-sign
+    value_name: <key-id>
+    value_kind: Optional
+    description: GPG-sign commits
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]autostash
+    description: automatically stash/stash pop before and after
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -x
+    - --[no-]exec
+    value_name: <exec>
+    value_kind: Required
+    description: add exec lines after each commit of the editable list
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -r
+    - --[no-]rebase-merges
+    value_name: <mode>
+    value_kind: Optional
+    description: try to rebase merges instead of skipping them
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]fork-point
+    description: use 'merge-base --fork-point' to refine upstream
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -s
+    - --[no-]strategy
+    value_name: <strategy>
+    value_kind: Required
+    description: use the given merge strategy
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -X
+    - --[no-]strategy-option
+    value_name: <option>
+    value_kind: Required
+    description: pass the argument through to the merge strategy
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]root
+    description: rebase all reachable commits up to the root(s)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reschedule-failed-exec
+    description: automatically re-schedule any `exec` that fails
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reapply-cherry-picks
+    description: apply all changes, even those already present upstream
+    provenance:
+      sources:
+      - help-text
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: reset
+  summary: Reset current HEAD to the specified state
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch
+  summary: Switch branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: tag
+  summary: Create, list, delete or verify a tag object signed with GPG
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch
+  summary: Download objects and refs from another repository
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pull
+  summary: Fetch from and integrate with another repository or a local branch
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: push
+  summary: Update remote refs along with associated objects
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

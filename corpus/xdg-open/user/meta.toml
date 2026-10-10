@@ -16,7 +16,3 @@ exit_code = 0
 expected_framework = "generic"
 must_contain_flags = ["--help", "--manual", "--version"]
 must_contain_positionals = ["file", "URL"]
-
-[xfail]
-broken = true
-reason = "[S-962] `xdg-open { file | URL }` keeps only URL; the brace group names two alternative operands"
