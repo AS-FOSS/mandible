@@ -1,0 +1,65 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "clone", "--help"]
+stdout = "clone-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "clone", "-h"]
+stdout = "clone-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "rm", "--help"]
+stdout = "rm-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "rm", "-h"]
+stdout = "rm-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "grep", "--help"]
+stdout = "grep-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "grep", "-h"]
+stdout = "grep-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "diff", "--help"]
+stdout = "diff-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "diff", "-h"]
+stdout = "diff-h.txt"
+exit_code = 129
+
+[xfail]
+broken = true
+reason = "git -h option rows: don't read as a value, nested --stat bracket loses one, -NUM becomes -N value UM, ( and ) rows are not flags"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--paginate"]
+
+[contract.must_contain_flags_by_path]
+grep = ["-NUM", "--not", "("]
