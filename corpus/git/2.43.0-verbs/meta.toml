@@ -1,0 +1,88 @@
+# Variant of corpus/git/2.43.0-commands. Usage lines that each open with a different
+# literal verb name that command's subcommands (git bisect start / (good|bad) / run ...),
+# and git bisect's --term-(new|bad)=<term> spells two flags (docs/shapes.md S-215, S-216).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["git", "help", "-a"]
+stdout = "help-a.txt"
+
+[[capture]]
+argv = ["git", "help", "-g"]
+stdout = "help-g.txt"
+
+[[capture]]
+argv = ["git", "bisect", "-h"]
+stdout = "bisect-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "bundle", "-h"]
+stdout = "bundle-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "commit-graph", "-h"]
+stdout = "commit-graph-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "reflog", "-h"]
+stdout = "reflog-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "remote", "-h"]
+stdout = "remote-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "stash", "-h"]
+stdout = "stash-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "worktree", "-h"]
+stdout = "worktree-h.txt"
+exit_code = 129
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 100
+
+[contract.must_contain_flags_by_path]
+"bisect start" = ["--no-checkout", "--first-parent", "--term-new", "--term-bad", "--term-old", "--term-good"]
+"bisect terms" = ["--term-good", "--term-bad"]
+"remote add" = ["--mirror"]
+"stash push" = ["--patch"]
+"stash drop" = ["--quiet"]
+"worktree add" = ["--detach"]
+"bundle create" = ["--version"]
+"commit-graph write" = ["--append"]
+"reflog expire" = ["--stale-fix"]
+
+[contract.must_contain_positionals_by_path]
+"bisect run" = ["cmd"]
+"bisect good" = ["rev"]
+"bisect bad" = ["rev"]
+"bisect replay" = ["logfile"]
+"remote rename" = ["old", "new"]
+"worktree move" = ["worktree", "new-path"]
+"commit-graph verify" = []
+
+[xfail]
+broken = true
+reason = "git's usage forms open with different verbs (start, good|bad, run, ...) but none is a subcommand node, and --term-(new|bad) is read as a fabricated flag"
