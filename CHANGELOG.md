@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
+
 ## [0.8.3] - 2026-10-07
 
 ### Fixed

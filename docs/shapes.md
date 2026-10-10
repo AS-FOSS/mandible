@@ -5037,3 +5037,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `[xfail]` on the probe gate.
 - fleet: not measured; no PATH tool prints this heading in the sweep
   pre-check (yarn, pnpm, npm, controls unchanged).
+
+### S-214: a root sentence naming `'<tool> help <option>'` listings
+
+- id: S-214
+- looks like: |
+      'git help -a' and 'git help -g' list available subcommands and some
+      concept guides.
+- tools: git
+- handling: Fixed. A root text sentence that quotes one or two
+  `'<tool> help <option>'` invocations and says they list subcommands or
+  commands opens those invocations as probes (docs/design.md section 6 rule
+  2d, `listing_probe.rs`). The listed rows are appended to the root's own
+  list; rows under a group heading naming interfaces, formats, protocols,
+  guides or concepts are dropped. "See 'git help <command>'", pnpm's "use
+  'pnpm help -a' to list all commands" and snap's "run 'snap help --all'"
+  do not match. `mandible git remote`, `stash`, `worktree` and `bundle` now
+  open their own pages. Fixture: `corpus/git/2.43.0-commands`.
+- fleet: see the round-17 sweep: git gains its listed commands; no other
+  tool moves.

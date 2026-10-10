@@ -20,6 +20,10 @@ argv = ["git", "help", "-a"]
 stdout = "help-a.txt"
 
 [[capture]]
+argv = ["git", "help", "-g"]
+stdout = "help-g.txt"
+
+[[capture]]
 argv = ["git", "remote", "--help"]
 stdout = "remote-help.txt"
 
@@ -65,7 +69,3 @@ remote = ["git remote add"]
 stash = ["git stash list"]
 worktree = ["git worktree add"]
 bundle = ["git bundle create"]
-
-[xfail]
-broken = true
-reason = "only the 23 commands of the short --help are subcommands; the full list is behind the `git help -a` the root text names"

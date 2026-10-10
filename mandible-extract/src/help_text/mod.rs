@@ -17,6 +17,7 @@ pub mod confession;
 mod fold_repeats;
 mod grammar;
 mod help_word;
+mod listing_probe;
 mod profile;
 mod sections;
 
@@ -417,6 +418,16 @@ impl ExtractionTier for HelpTextTier {
             .or_else(|| framework::identify_from_help_text(&raw));
         let mut node = build_node(&node_name, &raw, detected, &tool.name);
         node.confession = confession;
+        if words.is_empty() {
+            // Spec §6 rule 2d: the root's own listing invocations.
+            listing_probe::probe_and_merge(
+                self.probe.as_ref(),
+                tool_path,
+                &raw,
+                &tool.name,
+                &mut node.subcommands,
+            );
+        }
         Ok(node)
     }
 
