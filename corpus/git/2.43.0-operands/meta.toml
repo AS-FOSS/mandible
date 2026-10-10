@@ -1,0 +1,45 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2"
+
+[[capture]]
+argv = ["git", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "commit", "--help"]
+stdout = "commit-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "commit", "-h"]
+stdout = "commit-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "rebase", "--help"]
+stdout = "rebase-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "rebase", "-h"]
+stdout = "rebase-h.txt"
+exit_code = 129
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+
+[contract.must_contain_positionals_by_path]
+commit = ["pathspec..."]
+rebase = ["upstream", "branch"]
+
+[xfail]
+broken = true
+reason = "[S-226] `git rebase` shows only `branch`, because `<upstream>` in `[<upstream> [<branch>]]` is read as the value of `--keep-base`; `git commit` shows a positional `token...`, which is the value of `--trailer`"

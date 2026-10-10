@@ -1,0 +1,22 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jq"
+version = "1.7"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2"
+
+[[capture]]
+argv = ["jq", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--null-input", "--args", "--jsonargs"]
+must_contain_positionals = ["jq filter", "file...", "strings...", "JSON_TEXTS..."]
+
+[xfail]
+broken = true
+reason = "[S-227] only JSON_TEXTS survives; `<jq filter>`, `[file...]` and `[strings...]` from the other usage forms are lost, and the usage label is followed by a tab, which ended the first form"
