@@ -5056,3 +5056,43 @@ entry's `tools` field and nothing else. It does not get a new entry.
   open their own pages. Fixture: `corpus/git/2.43.0-commands`.
 - fleet: see the round-17 sweep: git gains its listed commands; no other
   tool moves.
+
+### S-215: usage forms that each open with a different verb name that command's subcommands
+
+- id: S-215
+- looks like: |
+      usage: git bisect start [--no-checkout] [<bad> [<good>...]]
+         or: git bisect (good|bad) [<rev>...]
+         or: git bisect run <cmd> [<arg>...]
+- tools: git (bisect, bundle, commit-graph, reflog, remote, stash, worktree)
+- handling: Fixed. In a labelled usage block, forms that open (after the
+  command path they all share) with two or more distinct bare lowercase
+  words, or a parenthesized alternation of them, name those words as
+  subcommands (`usage_verbs.rs`). A word after a flag, a `<placeholder>`,
+  an UPPERCASE word and a bracketed word (`[push`, `[show]`) are never
+  verbs; a closed group of flags before the word (`[-v | --verbose] show`)
+  is skipped. As in S-179 and S-211 the nodes are `invocation_attested`,
+  listed and never probed. As in S-169 each node carries the forms that
+  name it as its usage and the flags and operands those forms spell; the
+  parent keeps everything it read from the same forms. Fixtures:
+  `corpus/git/2.43.0-verbs`; `corpus/git-history/2.55.0` is the
+  maintainer's man-page capture, rendered verbatim by design (the `-h`
+  forms behind fixup, reword and split are not captured; the unit test
+  `git_history_forms_give_three_verbs_with_choice_valued_flags` pins them).
+- fleet: see the round-17 sweep.
+
+### S-216: flag spellings written with parenthesized alternatives
+
+- id: S-216
+- looks like: |
+      [--term-(new|bad)=<term> --term-(old|good)=<term>]
+      [(-m | --message) <message>]
+      [--update-refs=(branches|head)]
+- tools: git (bisect, stash, worktree)
+- handling: Fixed. In a usage line, `--name-(a|b)rest` spells one flag per
+  alternative; a parenthesized list of dash-led words with an optional
+  `<placeholder>` is one flag with those spellings and that value; a value
+  `=(a|b|c)` of literal words is read like `={a|b|c}` (`usage_flag_alternation.rs`).
+  Before, `--term- (new`, `--message` valued `)` and `--update-refs` valued
+  `(branches` were fabricated. Fixture: `corpus/git/2.43.0-verbs`.
+- fleet: see the round-17 sweep.

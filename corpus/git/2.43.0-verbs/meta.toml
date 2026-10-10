@@ -24,9 +24,17 @@ argv = ["git", "help", "-g"]
 stdout = "help-g.txt"
 
 [[capture]]
+argv = ["git", "bisect", "--help"]
+stdout = "bisect-help.txt"
+
+[[capture]]
 argv = ["git", "bisect", "-h"]
 stdout = "bisect-h.txt"
 exit_code = 129
+
+[[capture]]
+argv = ["git", "bundle", "--help"]
+stdout = "bundle-help.txt"
 
 [[capture]]
 argv = ["git", "bundle", "-h"]
@@ -34,9 +42,17 @@ stdout = "bundle-h.txt"
 exit_code = 129
 
 [[capture]]
+argv = ["git", "commit-graph", "--help"]
+stdout = "commit-graph-help.txt"
+
+[[capture]]
 argv = ["git", "commit-graph", "-h"]
 stdout = "commit-graph-h.txt"
 exit_code = 129
+
+[[capture]]
+argv = ["git", "reflog", "--help"]
+stdout = "reflog-help.txt"
 
 [[capture]]
 argv = ["git", "reflog", "-h"]
@@ -44,14 +60,26 @@ stdout = "reflog-h.txt"
 exit_code = 129
 
 [[capture]]
+argv = ["git", "remote", "--help"]
+stdout = "remote-help.txt"
+
+[[capture]]
 argv = ["git", "remote", "-h"]
 stdout = "remote-h.txt"
 exit_code = 129
 
 [[capture]]
+argv = ["git", "stash", "--help"]
+stdout = "stash-help.txt"
+
+[[capture]]
 argv = ["git", "stash", "-h"]
 stdout = "stash-h.txt"
 exit_code = 129
+
+[[capture]]
+argv = ["git", "worktree", "--help"]
+stdout = "worktree-help.txt"
 
 [[capture]]
 argv = ["git", "worktree", "-h"]
@@ -67,7 +95,7 @@ min_subcommands = 100
 "bisect start" = ["--no-checkout", "--first-parent", "--term-new", "--term-bad", "--term-old", "--term-good"]
 "bisect terms" = ["--term-good", "--term-bad"]
 "remote add" = ["--mirror"]
-"stash push" = ["--patch"]
+"stash save" = ["--patch"]
 "stash drop" = ["--quiet"]
 "worktree add" = ["--detach"]
 "bundle create" = ["--version"]
@@ -81,8 +109,3 @@ min_subcommands = 100
 "bisect replay" = ["logfile"]
 "remote rename" = ["old", "new"]
 "worktree move" = ["worktree", "new-path"]
-"commit-graph verify" = []
-
-[xfail]
-broken = true
-reason = "git's usage forms open with different verbs (start, good|bad, run, ...) but none is a subcommand node, and --term-(new|bad) is read as a fabricated flag"

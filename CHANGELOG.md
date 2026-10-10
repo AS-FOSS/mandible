@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
+- [S-215] Usage forms that each open with a different verb name that command's subcommands, each with its own usage, flags and operands (`mandible git bisect` lists `start`, `good`, `bad`, `run`; `git stash`, `remote`, `worktree`, `bundle`, `reflog`, `commit-graph` likewise).
+- [S-216] A usage flag written `--term-(new|bad)=<term>`, `(-m | --message) <message>` or `--update-refs=(branches|head)` is read as the flags and value it spells, not as a fabricated `--term- (new` or a value `)`.
 
 ## [0.8.3] - 2026-10-07
 

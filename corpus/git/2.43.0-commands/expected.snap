@@ -344,6 +344,108 @@ subcommands:
     confidence: 0.5
   children_filled: true
   heading_attested: true
+  subcommands:
+  - name: create
+    usage:
+    - git bundle create [-q | --quiet | --progress] [--version=<version>] <file> <git-rev-list-args>
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: git-rev-list-args
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -q
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --version
+      value_name: <version>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: verify
+    usage:
+    - git bundle verify [-q | --quiet] <file>
+    flags:
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: list-heads
+    usage:
+    - git bundle list-heads <file> [<refname>...]
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: refname
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: unbundle
+    usage:
+    - git bundle unbundle [--progress] <file> [<refname>...]
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: refname
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
 - name: checkout
   summary: Switch branches or restore working tree files
   group: Main Porcelain Commands
@@ -539,8 +641,9 @@ subcommands:
       sources:
       - help-text-synopsis
   - spellings:
+    - -m
     - --message
-    value_name: )
+    value_name: <message>
     value_kind: Required
     provenance:
       sources:
@@ -564,6 +667,211 @@ subcommands:
     confidence: 0.5
   children_filled: true
   heading_attested: true
+  subcommands:
+  - name: list
+    usage:
+    - git stash list [<log-options>]
+    positionals:
+    - name: log-options
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
+    positionals:
+    - name: stash
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -u
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --include-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --only-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: drop
+    usage:
+    - git stash drop [-q | --quiet] [<stash>]
+    flags:
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: pop
+    usage:
+    - git stash pop [--index] [-q | --quiet] [<stash>]
+    flags:
+    - spellings:
+      - --index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: apply
+    usage:
+    - git stash apply [--index] [-q | --quiet] [<stash>]
+    flags:
+    - spellings:
+      - --index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: branch
+    usage:
+    - git stash branch <branchname> [<stash>]
+    positionals:
+    - name: branchname
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: stash
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: save
+    usage:
+    - git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet] [-u | --include-untracked] [-a | --all] [<message>]
+    flags:
+    - spellings:
+      - -p
+      - --patch
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -S
+      - --staged
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -k
+      - --[no-]keep-index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -u
+      - --include-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -a
+      - --all
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: clear
+    usage:
+    - git stash clear
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: create
+    usage:
+    - git stash create [<message>]
+    positionals:
+    - name: message
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: store
+    usage:
+    - git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+    flags:
+    - spellings:
+      - -m
+      - --message
+      value_name: <message>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
 - name: submodule
   summary: Initialize, update or inspect submodules
   group: Main Porcelain Commands
@@ -629,8 +937,13 @@ subcommands:
       sources:
       - help-text-synopsis
   - spellings:
+    - -b
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
     - -B
-    value_name: )
+    value_name: <new-branch>
     value_kind: Required
     provenance:
       sources:
@@ -669,6 +982,197 @@ subcommands:
     confidence: 0.5
   children_filled: true
   heading_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - git worktree add [-f] [--detach] [--checkout] [--lock [--reason <string>]] [--orphan] [(-b | -B) <new-branch>] <path> [<commit-ish>]
+    positionals:
+    - name: path
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: commit-ish
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -f
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --detach
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --checkout
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --lock
+      value_name: --reason <string>
+      value_kind: Optional
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --orphan
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -b
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -B
+      value_name: <new-branch>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: list
+    usage:
+    - git worktree list [-v | --porcelain [-z]]
+    flags:
+    - spellings:
+      - -v
+      - --porcelain
+      value_name: -z
+      value_kind: Optional
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: lock
+    usage:
+    - git worktree lock [--reason <string>] <worktree>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --reason
+      value_name: <string>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: move
+    usage:
+    - git worktree move <worktree> <new-path>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: new-path
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: prune
+    usage:
+    - git worktree prune [-n] [-v] [--expire <expire>]
+    flags:
+    - spellings:
+      - -n
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -v
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --expire
+      value_name: <expire>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: remove
+    usage:
+    - git worktree remove [-f] <worktree>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -f
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: repair
+    usage:
+    - git worktree repair [<path>...]
+    positionals:
+    - name: path
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: unlock
+    usage:
+    - git worktree unlock <worktree>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
 - name: config
   summary: Get and set repository or global options
   group: Ancillary Commands / Manipulators
@@ -869,6 +1373,307 @@ subcommands:
     confidence: 0.5
   children_filled: true
   heading_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags] [--mirror=<fetch|push>] <name> <url>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: url
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -t
+      value_name: <branch>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -m
+      value_name: <master>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -f
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --tags
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --no-tags
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --mirror
+      value_name: <fetch
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: rename
+    usage:
+    - git remote rename [--[no-]progress] <old> <new>
+    positionals:
+    - name: old
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: new
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --[no-]progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: remove
+    usage:
+    - git remote remove <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set-head
+    usage:
+    - git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: branch
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --auto
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -d
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --delete
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - git remote [-v | --verbose] show [-n] <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -n
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -v
+      - --verbose
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: prune
+    usage:
+    - git remote prune [-n | --dry-run] <name>
+    flags:
+    - spellings:
+      - -n
+      - --dry-run
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: update
+    usage:
+    - git remote [-v | --verbose] update [-p | --prune] [(<group> | <remote>)...]
+    positionals:
+    - name: remote
+      required: true
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -p
+      - --prune
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -v
+      - --verbose
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set-branches
+    usage:
+    - git remote set-branches [--add] <name> <branch>...
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: branch
+      required: true
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --add
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: get-url
+    usage:
+    - git remote get-url [--push] [--all] <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --push
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --all
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set-url
+    usage:
+    - git remote set-url [--push] <name> <newurl> [<oldurl>]
+    - git remote set-url --add <name> <newurl>
+    - git remote set-url --delete <name> <url>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: newurl
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: oldurl
+      provenance:
+        sources:
+        - help-text
+    - name: url
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --push
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --add
+      value_name: <name>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --delete
+      value_name: <name>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
 - name: repack
   summary: Pack unpacked objects in a repository
   group: Ancillary Commands / Manipulators

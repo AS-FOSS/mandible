@@ -771,6 +771,8 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     // which has no notion of a comma-terminated alternative. See S-088.
     let mut paren_group_depth: i32 = 0;
     for line in usage_lines {
+        let expanded = super::usage_flag_alternation::expand(line);
+        let line = &*expanded;
         let trimmed = line.trim();
         if paren_group_depth > 0 || looks_like_paren_alternation_open(trimmed) {
             paren_group_depth += paren_depth_delta(trimmed);
