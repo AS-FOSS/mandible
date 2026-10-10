@@ -5112,3 +5112,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
   a parenthesised value with alphanumeric text glued after the `)` is one
   placeholder kept as printed (`(+|-)x`), where the `x` was dropped.
 - fleet: full-PATH sweep, zero losses; no PATH tool moved.
+
+### S-224: a punctuation short spelling beside its long spelling in an aligned column
+
+- id: S-224
+- looks like: |
+      -%             --stateflags            Show some states on the title bar
+      -_             --minibar               Show a feedback bar at the bottom
+- tools: nano
+- handling: Fixed. In an aligned spelling column (S-082) a short spelling of
+  one punctuation character (`-%`, `-_`, and nano 8's `-!`, `-/`) is a
+  spelling cell like any other, so it pairs with the long spelling beside it,
+  as `-0, --zero` does. Before, the long spelling led the description.
+  `is_flag_shaped` itself is unchanged. Fixture: `corpus/nano/7.2` and the
+  synthetic `corpus/nano/7.2-punct` (nano 8's two added rows).
+- fleet: pending

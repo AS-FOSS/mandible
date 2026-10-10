@@ -1,0 +1,25 @@
+# Synthetic variant of nano/7.2: help.txt is 7.2's capture with two rows
+# added after `-_`, the two rows nano 8 prints for its `-!` and `-/` short
+# options (` -!  --magic  Try libmagic to determine syntax` and
+# ` -/  --modernbindings  Use better-known key bindings`). The rows' text is
+# nano 8's; their position in the table is a guess. Pins that a short
+# spelling made of one punctuation character pairs with its long spelling
+# like `-0, --zero`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nano"
+version = "7.2-punct"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["nano", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--stateflags", "--minibar", "--magic", "--modernbindings", "--zero"]

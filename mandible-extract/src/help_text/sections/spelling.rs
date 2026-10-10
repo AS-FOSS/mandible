@@ -34,7 +34,9 @@ pub(super) fn is_spelling_only_cell(cell: &str) -> bool {
     let token = first_word(cell);
     // Plain `-`-initial spellings only; `+d`/`+|-x` (lsof) are flag-shaped
     // but never spelled as a second aligned column.
-    if !token.starts_with('-') || !is_flag_shaped(token) {
+    if !token.starts_with('-')
+        || !(is_flag_shaped(token) || super::punct_short::is_punct_short(token))
+    {
         return false;
     }
     let rest = cell.strip_prefix(token).unwrap_or("").trim();

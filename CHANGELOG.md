@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-221] `-NUM` is one option, not `-N` with the value `UM`, when its description names `NUM` (`mandible grep`, `git grep`).
 - [S-222] The `(` and `)` rows of `git grep`'s option table are flags, and the flags after them leave the group named `)`.
 - [S-223] A value written `(+|-)x` is shown whole (`mandible git add`'s `--chmod`).
+- [S-224] A punctuation short option beside its long one is one option (`mandible nano`'s `-%, --stateflags` and `-_, --minibar`).
 
 ## [0.8.3] - 2026-10-07
 
