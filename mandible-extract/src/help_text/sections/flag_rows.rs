@@ -857,8 +857,8 @@ fn collect_flags_block_rows<'a>(
             // ordinary continuation. See docs/shapes.md S-043.
             || (heading_is_bnf && looks_like_bnf_continuation_row(trimmed))
             // The plus-or-minus row (S-086): the `+|-x` sigil is
-            // unambiguous on its own.
-            || starts_with_plus_minus_pair(trimmed))
+            // unambiguous on its own; and the bare `(`/`)` rows (S-222).
+            || super::paren_flag_rows::sigil_row(trimmed, indent, min_entry_indent))
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented

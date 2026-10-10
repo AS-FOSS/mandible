@@ -275,7 +275,9 @@ pub(super) fn emit_flags_with(
         // knows, on any option-table row, not only a lowdown bullet's own
         // (S-144's gated version of the same repair).
         let spec_text = super::bullets::join_slash_alias(&spec_text);
-        let mut spec = if is_plus_sigil.get(idx).copied().unwrap_or(false) {
+        let mut spec = if let Some(paren) = super::paren_flag_rows::paren_spec(&spec_text) {
+            paren
+        } else if is_plus_sigil.get(idx).copied().unwrap_or(false) {
             parse_plus_sigil_spec(&spec_text)
         } else {
             parse_flag_spec(&spec_text)
@@ -289,6 +291,7 @@ pub(super) fn emit_flags_with(
             continue;
         }
         let mut description = desc_text;
+        super::caps_single_dash::repair_caps_single_dash(&mut spec, &spec_text, &description);
         if let Some(broken) = spec.value_name.clone() {
             // A paren-delimited alternation of literal values
             // (`--compression=(xz|none|auto)`, S-155) reads as `xz|none|auto`
@@ -1119,6 +1122,13 @@ fn repair_parenthetical_value(spec_text: &str, broken_value: &str) -> Option<Par
     let close = open + spec_text[open..].find(')')?;
     let inner = spec_text[open + 1..close].trim();
     let full = spec_text[open..=close].to_string();
+    if let Some(value_name) = super::paren_flag_rows::glued_parenthetical(spec_text, close) {
+        return Some(ParentheticalRepair {
+            value_name: Some(value_name),
+            value_kind: ValueKind::Required,
+            qualifier_text: None,
+        });
+    }
     let mut words = inner.split_whitespace();
     let first = words.next()?;
     if words.clone().next().is_none() {

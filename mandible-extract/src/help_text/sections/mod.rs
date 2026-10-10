@@ -34,6 +34,7 @@ use mandible_core::{
 mod avoption;
 mod backfill;
 mod bullets;
+mod caps_single_dash;
 mod command_list_rows;
 mod command_row_column;
 mod dashless_key_flags;
@@ -51,6 +52,7 @@ mod multiword;
 mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;
+mod paren_flag_rows;
 mod per_form;
 mod plural_owner;
 mod plus_minus;

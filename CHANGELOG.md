@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [S-220] A value spec nested several levels deep is kept as printed (`mandible git diff`'s `--stat[=<width>[,<name-width>[,<count>]]]`, `strace --tips`, `lspci -s`, `fzf-tmux -p`).
+- [S-221] `-NUM` is one option, not `-N` with the value `UM`, when its description names `NUM` (`mandible grep`, `git grep`).
+- [S-222] The `(` and `)` rows of `git grep`'s option table are flags, and the flags after them leave the group named `)`.
+- [S-223] A value written `(+|-)x` is shown whole (`mandible git add`'s `--chmod`).
+
 ## [0.8.3] - 2026-10-07
 
 ### Fixed

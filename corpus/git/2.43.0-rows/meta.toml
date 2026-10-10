@@ -52,9 +52,15 @@ argv = ["git", "diff", "-h"]
 stdout = "diff-h.txt"
 exit_code = 129
 
-[xfail]
-broken = true
-reason = "git -h option rows: don't read as a value, nested --stat bracket loses one, -NUM becomes -N value UM, ( and ) rows are not flags"
+[[capture]]
+argv = ["git", "add", "--help"]
+stdout = "add-help.txt"
+exit_code = 0
+
+[[capture]]
+argv = ["git", "add", "-h"]
+stdout = "add-h.txt"
+exit_code = 129
 
 [contract]
 expected_framework = "generic"

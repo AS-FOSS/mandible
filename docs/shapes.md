@@ -4603,7 +4603,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`-COLUMN`), not `-C` with the value `OLUMN`. The comma-glued value rule
   (S-116) skips an all-uppercase run, so the value stays `COLUMN`.
   `corpus/pr/9.4` pins it. `grep`'s `-NUM` row is unchanged: the repeat sits
-  in its description, outside the spec cell.
+  in its description, outside the spec cell (read by S-221).
 - fleet: pre-check sweep of the 36 tools with a `+`-led or `-WORD` row: `pr`
   alone moved, zero losses.
 
@@ -5037,3 +5037,58 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `[xfail]` on the probe gate.
 - fleet: not measured; no PATH tool prints this heading in the sweep
   pre-check (yarn, pnpm, npm, controls unchanged).
+
+### S-220: a value spec nested more than one level deep
+
+- id: S-220
+- looks like: |
+      --stat[=<width>[,<name-width>[,<count>]]]
+      -s [[[[<domain>]:]<bus>]:][<slot>][.[<func>]]
+- tools: git (diff), fzf-tmux, lspci, strace
+- handling: Fixed. The nested-bracket matchers (S-119, S-174) now match by
+  depth at any level, so a spec is kept as printed; S-119's own matcher
+  refuses a content with a second `[` and leaves it to the depth matcher.
+  The old S-119 reading dropped the last `]` of `--stat`, and the first-`]`
+  reading cut `-p [WIDTH[%][,HEIGHT[%]]]` at `WIDTH[%`.
+- fleet: full-PATH sweep, zero losses; the tools above moved.
+
+### S-221: an all-caps word glued to one dash that its own description names
+
+- id: S-221
+- looks like: |
+      -NUM                  shortcut for -C NUM
+      -NUM                      same as --context=NUM
+- tools: git (grep), grep, egrep, fgrep, rgrep
+- handling: Fixed. A single-spelling row that is exactly `-RUN` (all caps,
+  three or more letters) and whose description names `RUN` as a whole word is
+  one single-dash spelling, not `-N` with the value `UM`. S-191 needed the
+  word repeated as `=RUN` in the spec cell; the description naming it tells it
+  from a short flag with a glued value (`-DNAME`). `git archive`'s
+  `-NUM  set compression level` names the word nowhere and stays `-N UM`.
+- fleet: full-PATH sweep, zero losses; the four grep tools moved.
+
+### S-222: bare `(` and `)` rows in an option table
+
+- id: S-222
+- looks like: |
+      --not
+      (
+      )
+      -q, --[no-]quiet      indicate hit with exit status without output
+- tools: git (grep)
+- handling: Fixed. A lone `(` or `)` at the table's entry indent right after a
+  flag row is a flag row with no dash, like the argfile `@` sigil. The `(` used
+  to end the block and the `)` to open a group, so both rows vanished and the
+  flags below them sat in a group named `)`.
+- fleet: full-PATH sweep, zero losses; no other tool moved.
+
+### S-223: a parenthesised value choice with text glued after it
+
+- id: S-223
+- looks like: |
+      --[no-]chmod (+|-)x   override the executable bit of the listed files
+- tools: git (add)
+- handling: Fixed. A `|` inside an unclosed `(` is not an alias separator, and
+  a parenthesised value with alphanumeric text glued after the `)` is one
+  placeholder kept as printed (`(+|-)x`), where the `x` was dropped.
+- fleet: full-PATH sweep, zero losses; no PATH tool moved.
