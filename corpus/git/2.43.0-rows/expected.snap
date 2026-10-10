@@ -161,8 +161,7 @@ subcommands:
       - help-text
   - spellings:
     - --[no-]reject-shallow
-    value_name: don't
-    value_kind: Required
+    description: don't clone shallow repository
     provenance:
       sources:
       - help-text
@@ -522,8 +521,7 @@ subcommands:
       - help-text
   - spellings:
     - --[no-]ignore-removal
-    value_name: ignore
-    value_kind: Required
+    description: ignore paths removed in the working tree (same as --no-all)
     provenance:
       sources:
       - help-text
@@ -541,8 +539,7 @@ subcommands:
       - help-text
   - spellings:
     - --[no-]ignore-missing
-    value_name: check
-    value_kind: Required
+    description: check if - even missing - files are ignored in dry run
     provenance:
       sources:
       - help-text
@@ -646,8 +643,7 @@ subcommands:
       - help-text
   - spellings:
     - --[no-]ignore-unmatch
-    value_name: exit
-    value_kind: Required
+    description: exit with a zero status even if nothing matched
     provenance:
       sources:
       - help-text
@@ -1108,9 +1104,8 @@ subcommands:
       - help-text
   - spellings:
     - --ignore-space-at-eol
-    value_name: ignore
-    value_kind: Required
     group: Diff algorithm options
+    description: ignore changes in whitespace at EOL
     provenance:
       sources:
       - help-text

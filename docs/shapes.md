@@ -5038,6 +5038,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: not measured; no PATH tool prints this heading in the sweep
   pre-check (yarn, pnpm, npm, controls unchanged).
 
+### S-219: a lone long spelling that overruns its table's description column
+
+- id: S-219
+- looks like: |
+      --[no-]ignore-unmatch exit with a zero status even if nothing matched
+      --[no-]reject-shallow don't clone shallow repository
+- tools: git (clone, rm, diff), capsh, clang, clang++, clang-18, clang++-18, clang-cpp-18, gpgparsemail, grub-install, grub-mknetdir, grub-mkrescue, grub-mkstandalone, gzip, gunzip, zcat, uncompress, llvm-cxxfilt-18, llvm-dlltool-18, llvm-dwarfutil-18, llvm-objdump-18, locale-gen, run-parts, rustdoc, tar
+- handling: Fixed. S-193's agreeing-column split also applies to a row whose
+  whole spec is one spelling: a spelling longer than the column leaves one
+  space before the description, so the first word of the description (`don't`,
+  `exit`, `Don't`) was read as the flag's value and the description lost.
+  The one-token split needs the text after the column to open with a word
+  that carries a lowercase letter and to hold no `, -` alias, so a value
+  followed by a second spelling (`--skip-cleaning-files FILES, --skip-masking-files
+  FILES`) stays one spec. Fixture: `corpus/git/2.43.0-rows`; `corpus/tar/1.35`
+  re-blessed (`--exclude-caches-under` and `--exclude-tag-all` gain their
+  descriptions and lose a fabricated value).
+- fleet: full-PATH sweep (2270 tools matched), zero losses; the tools above moved (each read against
+  its raw `--help`).
+
 ### S-220: a value spec nested more than one level deep
 
 - id: S-220

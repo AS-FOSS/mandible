@@ -35,7 +35,8 @@ pub(super) fn block_description_column(entry_lines: &[&str]) -> Option<usize> {
     (agree >= MIN_AGREEING_ROWS && agree * 2 >= cols.len()).then_some(best)
 }
 
-/// `line` split at `col`, when it has no gap of its own, the text before
+/// `line` split at `col`, when it has no gap of its own (a lone long spelling
+/// that overruns the column included), the text before
 /// `col` is a short flag spec and the text after reads as a sentence.
 pub(super) fn split_at_block_column(line: &str, col: usize) -> Option<(String, String)> {
     if find_description_gap(line).is_some() || !line.is_char_boundary(col) || col < 2 {
@@ -49,6 +50,16 @@ pub(super) fn split_at_block_column(line: &str, col: usize) -> Option<(String, S
     let tokens = spec.split_whitespace().count();
     let sentence = right.split_whitespace().count() >= 3
         && right.chars().next().is_some_and(char::is_alphabetic);
-    (spec.starts_with('-') && (2..=3).contains(&tokens) && sentence)
+    // A lone spelling is split only when the text after it opens with a
+    // word, not with the spelling's own value (`--skip-files FILES, --skip
+    // FILES`): that first word carries a lowercase letter and no alias
+    // follows.
+    let lone_ok = tokens > 1
+        || (right
+            .split_whitespace()
+            .next()
+            .is_some_and(|w| w.chars().any(char::is_lowercase))
+            && !right.contains(", -"));
+    (spec.starts_with('-') && (1..=3).contains(&tokens) && sentence && lone_ok)
         .then(|| (spec.to_string(), right.trim().to_string()))
 }
