@@ -1,0 +1,71 @@
+# Variant of corpus/git/2.43.0. git's root help ends "'git help -a' and 'git help -g'
+# list available subcommands"; `git help -a` is the full command list, so
+# remote, stash, worktree and bundle are root subcommands (docs/shapes.md S-214).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["git", "help", "-a"]
+stdout = "help-a.txt"
+
+[[capture]]
+argv = ["git", "remote", "--help"]
+stdout = "remote-help.txt"
+
+[[capture]]
+argv = ["git", "remote", "-h"]
+stdout = "remote-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "stash", "--help"]
+stdout = "stash-help.txt"
+
+[[capture]]
+argv = ["git", "stash", "-h"]
+stdout = "stash-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "worktree", "--help"]
+stdout = "worktree-help.txt"
+
+[[capture]]
+argv = ["git", "worktree", "-h"]
+stdout = "worktree-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "bundle", "--help"]
+stdout = "bundle-help.txt"
+
+[[capture]]
+argv = ["git", "bundle", "-h"]
+stdout = "bundle-h.txt"
+exit_code = 129
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 100
+
+[contract.must_contain_usage_by_path]
+remote = ["git remote add"]
+stash = ["git stash list"]
+worktree = ["git worktree add"]
+bundle = ["git bundle create"]
+
+[xfail]
+broken = true
+reason = "only the 23 commands of the short --help are subcommands; the full list is behind the `git help -a` the root text names"
