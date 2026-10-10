@@ -49,6 +49,7 @@ mod invocation_block;
 mod key_value_operands;
 mod layout;
 mod multiword;
+mod multiword_value_row;
 mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-222] The `(` and `)` rows of `git grep`'s option table are flags, and the flags after them leave the group named `)`.
 - [S-223] A value written `(+|-)x` is shown whole (`mandible git add`'s `--chmod`).
 - [S-224] A punctuation short option beside its long one is one option (`mandible nano`'s `-%, --stateflags` and `-_, --minibar`).
+- [S-225] A value of two plain words keeps both (`mandible jq`'s `--arg name value`, `--slurpfile name file`).
 
 ## [0.8.3] - 2026-10-07
 

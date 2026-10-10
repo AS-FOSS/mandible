@@ -1,0 +1,256 @@
+name: jq
+description: jq - commandline JSON processor [version 1.7]
+usage:
+- 'Usage:  jq [options] <jq filter> [file...]'
+- '        jq [options] --args <jq filter> [strings...]'
+- '        jq [options] --jsonargs <jq filter> [JSON_TEXTS...]'
+positionals:
+- name: JSON_TEXTS
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -n
+  - --null-input
+  group: 'Command options:'
+  description: use `null` as the single input value;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --raw-input
+  group: 'Command options:'
+  description: read each line as string instead of JSON;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --slurp
+  group: 'Command options:'
+  description: read all inputs into an array and use it as the single input value;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --compact-output
+  group: 'Command options:'
+  description: compact instead of pretty-printed output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --raw-output
+  group: 'Command options:'
+  description: output strings without escapes and quotes;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raw-output0
+  group: 'Command options:'
+  description: implies -r and output NUL after each output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --join-output
+  group: 'Command options:'
+  description: implies -r and output without newline after each output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --ascii-output
+  group: 'Command options:'
+  description: output strings by only ASCII characters using escape sequences;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --sort-keys
+  group: 'Command options:'
+  description: sort keys of each object on output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --color-output
+  group: 'Command options:'
+  description: colorize JSON output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --monochrome-output
+  group: 'Command options:'
+  description: disable colored output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tab
+  group: 'Command options:'
+  description: use tabs for indentation;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --indent
+  value_name: n
+  value_kind: Required
+  group: 'Command options:'
+  description: use n spaces for indentation (max 7 spaces);
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --unbuffered
+  group: 'Command options:'
+  description: flush output stream after each output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stream
+  group: 'Command options:'
+  description: parse the input value in streaming fashion;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stream-errors
+  group: 'Command options:'
+  description: implies --stream and report parse error as an array;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --seq
+  group: 'Command options:'
+  description: parse input/output as application/json-seq;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --from-file
+  value_name: file
+  value_kind: Required
+  group: 'Command options:'
+  description: load filter from the file;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  value_name: directory
+  value_kind: Required
+  group: 'Command options:'
+  description: search modules from the directory;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --arg
+  value_name: name value
+  value_kind: Required
+  group: 'Command options:'
+  description: set $name to the string value;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --argjson
+  value_name: name value
+  value_kind: Required
+  group: 'Command options:'
+  description: set $name to the JSON value;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --slurpfile
+  value_name: name file
+  value_kind: Required
+  group: 'Command options:'
+  description: set $name to an array of JSON values read from the file;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rawfile
+  value_name: name file
+  value_kind: Required
+  group: 'Command options:'
+  description: set $name to string contents of file;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --args
+  group: 'Command options:'
+  description: consume remaining arguments as positional string values;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --jsonargs
+  group: 'Command options:'
+  description: consume remaining arguments as positional JSON values;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --exit-status
+  group: 'Command options:'
+  description: set exit status code based on the output;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'Command options:'
+  description: show the version;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --build-configuration
+  group: 'Command options:'
+  description: show jq's build configuration;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'Command options:'
+  description: show the help;
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --
+  group: 'Command options:'
+  description: terminates argument processing;
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

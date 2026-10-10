@@ -5127,3 +5127,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `is_flag_shaped` itself is unchanged. Fixture: `corpus/nano/7.2` and the
   synthetic `corpus/nano/7.2-punct` (nano 8's two added rows).
 - fleet: pending
+
+### S-225: a value of two plain words in the spec cell
+
+- id: S-225
+- looks like: |
+      --arg name value      set $name to the string value;
+      --slurpfile name file set $name to an array of JSON values read
+- tools: jq
+- handling: Fixed. When the grammar reads the first word after the spellings
+  as the value and leaves one more plain lowercase word unconsumed, the value
+  is both words (`name value`), as caffeinate's `-w Process ID` already is
+  (S-131). Before, the second word was dropped from the row altogether.
+  Fixture: `corpus/jq/1.7`.
+- fleet: pending

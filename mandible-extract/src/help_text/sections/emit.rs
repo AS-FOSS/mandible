@@ -292,6 +292,7 @@ pub(super) fn emit_flags_with(
         }
         let mut description = desc_text;
         super::caps_single_dash::repair_caps_single_dash(&mut spec, &spec_text, &description);
+        super::multiword_value_row::extend_multiword_value(&mut spec, &spec_text);
         if let Some(broken) = spec.value_name.clone() {
             // A paren-delimited alternation of literal values
             // (`--compression=(xz|none|auto)`, S-155) reads as `xz|none|auto`
