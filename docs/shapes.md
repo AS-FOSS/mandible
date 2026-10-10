@@ -4744,7 +4744,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       ssh-keygen -k -f krl_file [-u] [-z version_number] file ...
       sg_test_rwbuf [--addrd=AR] --size=SZ DEVICE
       sg_test_rwbuf DEVICE SZ [AW] [AR]
-- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck, git, jq, xdg-open
+- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck, git, jq, xdg-open, apt-cache, busybox, choom, chown, flock, groff, jps, jstat, rpcinfo, runuser, scriptreplay, ssh-agent, xxd
 - handling: Fixed. Each usage form is read on its own. A bare lowercase word or
   bracketed operand after the form's last flag is an operand when the same name
   closes two or more forms and no other lowercase word sits beside it (`list
@@ -4767,7 +4767,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/xdg-open/user`, `corpus/git/2.43.0-operands`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
-  `required: true`, each read against its raw usage text.
+  `required: true`, each read against its raw usage text. A full-PATH sweep
+  (2271 tools) for the single-form extension gained operands on 26 tools
+  and lost none; each was read against its raw usage.
 
 ### S-200: single-dash row whose value is a glued run of placeholder groups
 
@@ -5054,4 +5056,6 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag (`(--trailer`) is read as that flag, so the next word is its value and
   not an operand. `git commit` no longer shows a `token...` operand.
   Fixture: `corpus/git/2.43.0-operands`.
-- fleet: see the S-199 measurement for this change.
+- fleet: a full-PATH sweep (2271 tools) lost no flags, subcommands or
+  operands and moved no tool for this rule; `git commit` is reached only
+  through its subcommand probe, which the sweep records do not list.
