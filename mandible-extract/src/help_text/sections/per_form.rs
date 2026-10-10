@@ -232,8 +232,13 @@ fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
     if inner.contains('|') {
         return;
     }
+    // `[search expression]` names one multi-word operand: not two.
+    let words: Vec<&str> = inner.split_whitespace().collect();
+    if !nested && words.len() >= 2 && words.iter().all(|w| name_is_lower(w) && !w.contains('.')) {
+        return;
+    }
     let mut group: Vec<Op> = Vec::new();
-    for w in inner.split_whitespace() {
+    for w in words {
         if w.chars().all(|c| c == '.') {
             if let Some(last) = group.last_mut() {
                 last.repeatable = true;
@@ -358,13 +363,15 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
                 if name_is_lower(w) {
                     lowers.push(i);
                 }
+                let after_flag =
+                    i > 0 && matches!(&toks[i - 1], Tok::Word(p) if p.starts_with('-'));
                 if let Some(name) = operand_name(w) {
                     ops.push(Op {
                         name,
                         required: true,
                         repeatable: w.ends_with(".."),
                         admit: false,
-                        angle: !name_is_lower(w),
+                        angle: !name_is_lower(w) && !after_flag,
                         at: 0,
                         word: name_is_lower(w),
                     });
@@ -379,7 +386,7 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
     }
     for op in &mut ops {
         let in_run = op.word && lowers.iter().any(|&a| a + 1 == op.at || op.at + 1 == a);
-        let boundary = last_flag.max(options_at);
+        let boundary = last_flag.or(options_at);
         op.admit |= boundary.is_some_and(|l| op.at > l) && !in_run;
     }
     (occs, ops)

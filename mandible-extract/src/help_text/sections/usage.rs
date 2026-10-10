@@ -330,7 +330,7 @@ pub(super) fn extract_positionals_inner(
             // A flag opening a paren group (`(--trailer <token>...)`) is
             // still a flag, so its value is not an operand (S-226).
             let cleaned = match cleaned.strip_prefix('(') {
-                Some(r) if r.starts_with('-') => r,
+                Some(r) if r.starts_with('-') && !token.contains(')') => r,
                 _ => cleaned,
             };
             let opens = token.matches('[').count() as i32;
