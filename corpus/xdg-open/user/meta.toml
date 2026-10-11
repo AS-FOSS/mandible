@@ -18,7 +18,3 @@ must_contain_flags = ["--help", "--manual", "--version"]
 must_contain_positionals = ["file", "URL"]
 must_describe_root = ["opens a file or URL in the user's preferred application"]
 must_not_describe_root = ["Synopsis"]
-
-[xfail]
-broken = true
-reason = "the root description reads \"Synopsis\" (a heading word at column 0) while the real one, the indented lead lines before it, is dropped (r18 item 10b)"

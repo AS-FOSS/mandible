@@ -61,6 +61,7 @@ mod plus_minus;
 mod preamble;
 mod punct_short;
 mod repair;
+mod root_prose;
 mod rule_heading;
 mod scan;
 mod short_letter_word_family;
@@ -1027,6 +1028,7 @@ fn extract_description(
             if !starts_with_usage_prefix(t)
                 && !in_usage_block(j)
                 && !looks_like_bnf_production_line(t)
+                && !root_prose::is_bare_heading_word(lines, j)
             {
                 current.push(l);
             }
@@ -2403,6 +2405,17 @@ fn parse_body(
             Some(d) => format!("{text}\n\n{d}"),
             None => text,
         });
+    }
+    if description.is_none() {
+        description = root_prose::indented_lead(&lines);
+    }
+    if usage_start.is_some() {
+        if let Some(text) = root_prose::prose_after_usage(&lines, description_bound) {
+            description = Some(match description {
+                Some(d) => format!("{d}\n\n{text}"),
+                None => text,
+            });
+        }
     }
     description = with_form_description(description, &form_description);
     if let Some(description) = description {

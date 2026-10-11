@@ -1,4 +1,5 @@
 name: mkfs.bfs
+description: Make an SCO bfs filesystem.
 usage:
 - 'Usage: mkfs.bfs [options] device [block-count]'
 positionals:

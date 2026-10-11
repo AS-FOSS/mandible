@@ -5294,3 +5294,40 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `cd` and the other builtin wrappers are absent from this box: the
   full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
   distro that ships `/usr/bin/cd`.
+
+### S-235: prose after the usage block and a blank line
+
+- id: S-235
+- looks like: |
+      Usage: /usr/bin/automake [OPTION]... [Makefile]...
+
+      Generate Makefile.in for configure from Makefile.am.
+
+      Operation modes:
+- tools: automake, jq, find, apt-get, rsync, sg_inq
+- handling: Fixed. Plain column-0 paragraphs between the usage block and the
+  first heading, flag row, indented line or column-gapped row join the root
+  description (after the lead prose, before any word grid or trailer). A
+  short unpunctuated line that labels an indented block (`General commands`)
+  is not prose. Rows right under a bare `Usage:` label are not prose.
+  Fixtures: `corpus/automake/1.16.5-prose`, `corpus/jq/1.7-prose`,
+  `corpus/find/4.9.0-prose`.
+- fleet: moved the root description of several hundred tools that had no
+  description or only the lead line; no flag, subcommand or operand moved.
+
+### S-236: an indented lead above a bare heading word
+
+- id: S-236
+- looks like: |
+         xdg-open - opens a file or URL in the user's preferred
+         application
+
+      Synopsis
+
+         xdg-open { file | URL }
+- tools: xdg-open, gh, ping, tracepath
+- handling: Fixed. A column-0 capitalised single word whose next line is
+  indented (`Synopsis`, `Usage`, `USAGE`) is a heading, never the description;
+  the indented paragraph that opens the document before it is the
+  description. Fixture: `corpus/xdg-open/user` (the maintainer's capture).
+- fleet: moved the root description of `xdg-open`, `gh`, `ping`, `tracepath`.

@@ -1,5 +1,8 @@
 name: pr
-description: Paginate or columnate FILE(s) for printing.
+description: |-
+  Paginate or columnate FILE(s) for printing.
+
+  With no FILE, or when FILE is -, read standard input.
 usage:
 - 'Usage: pr [OPTION]... [FILE]...'
 positionals:

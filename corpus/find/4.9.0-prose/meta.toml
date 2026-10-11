@@ -14,7 +14,3 @@ exit_code = 0
 
 [contract]
 must_describe_root = ["Default path is the current directory; default expression is -print."]
-
-[xfail]
-broken = true
-reason = "prose after the usage block and a blank line (before the first heading) is dropped from the root description; relocated by the root-description rule (r18 item 10e)"

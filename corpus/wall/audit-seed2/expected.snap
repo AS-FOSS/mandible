@@ -1,4 +1,5 @@
 name: wall
+description: Write a message to all users.
 usage:
 - ' wall [options] [<file> | <message>]'
 positionals:

@@ -1,4 +1,5 @@
 name: systemctl
+description: Query or send control commands to the system manager.
 usage:
 - systemctl [OPTIONS...] COMMAND ...
 positionals:

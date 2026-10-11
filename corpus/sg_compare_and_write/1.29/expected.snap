@@ -1,4 +1,5 @@
 name: sg_compare_and_write
+description: Performs a SCSI COMPARE AND WRITE operation. Sends a double size buffer, the first half is used to compare what is at LBA for NUM blocks. If and only if the comparison is equal, then the second half of the buffer is written to LBA for NUM blocks.
 usage:
 - 'Usage: sg_compare_and_write [--dpo] [--fua] [--fua_nv] [--grpnum=GN] [--help] --in=IF|--inc=IF [--inw=WF] --lba=LBA [--num=NUM] [--quiet] [--timeout=TO] [--verbose] [--version] [--wrprotect=WP] [--xferlen=LEN] DEVICE'
 positionals:

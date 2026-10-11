@@ -14,7 +14,3 @@ exit_code = 0
 
 [contract]
 must_describe_root = ["Generate Makefile.in for configure from Makefile.am."]
-
-[xfail]
-broken = true
-reason = "prose after the usage block and a blank line (before the first heading) is dropped from the root description; relocated by the root-description rule (r18 item 9)"

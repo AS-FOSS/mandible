@@ -1,4 +1,5 @@
 name: curl
+description: This is not the full help, this menu is stripped into categories. Use "--help category" to get an overview of all categories. For all options use the manual or "--help all".
 usage:
 - 'Usage: curl [options...] <url>'
 positionals:

@@ -1,4 +1,5 @@
 name: systemd-creds
+description: Display and Process Credentials.
 usage:
 - systemd-creds [OPTIONS...] COMMAND ...
 positionals:

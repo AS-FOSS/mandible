@@ -1,5 +1,7 @@
 name: argdist-bpfcc
 description: |-
+  Trace a function and display a summary of its parameter values.
+
   Probe specifier syntax:
     {p,r,t,u}:{[library],category}:function(signature):type[,type...]:expr[,expr...][:filter]][#label]
 

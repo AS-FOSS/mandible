@@ -1,0 +1,562 @@
+name: find
+description: |-
+  Default path is the current directory; default expression is -print. Expression may consist of: operators, options, tests, and actions.
+
+  Operators (decreasing precedence; -and is implicit where no others are given):
+    ( EXPR ) ! EXPR -not EXPR EXPR1 -a EXPR2 EXPR1 -and EXPR2
+    EXPR1 -o EXPR2 EXPR1 -or EXPR2 EXPR1 , EXPR2
+usage:
+- 'Usage: /usr/bin/find [-H] [-L] [-P] [-Olevel] [-D debugopts] [path...] [expression]'
+positionals:
+- name: path
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: expression
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -daystart
+  group: 'Positional options (always true):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -follow
+  group: 'Positional options (always true):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nowarn
+  group: 'Positional options (always true):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -regextype
+  group: 'Positional options (always true):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -warn
+  group: 'Positional options (always true):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -depth
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -files0-from
+  value_name: FILE
+  value_kind: Required
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -maxdepth
+  value_name: LEVELS
+  value_kind: Required
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mindepth
+  value_name: LEVELS
+  value_kind: Required
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mount
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noleaf
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xdev
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ignore_readdir_race
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noignore_readdir_race
+  group: 'Normal options (always true, specified before other expressions):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -amin
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -anewer
+  value_name: FILE
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -atime
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cmin
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cnewer
+  value_name: FILE
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -context
+  value_name: CONTEXT
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ctime
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -empty
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -false
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fstype
+  value_name: TYPE
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -gid
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -group
+  value_name: NAME
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ilname
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -iname
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -inum
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -iwholename
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -iregex
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -links
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -lname
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mmin
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -mtime
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -name
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -newer
+  value_name: FILE
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nouser
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nogroup
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -path
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -perm
+  value_name: '[-/]MODE'
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -regex
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -readable
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -writable
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -executable
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -wholename
+  value_name: PATTERN
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -size
+  value_name: N[bcwkMG]
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -true
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -type
+  value_name: '[bcdpflsD]'
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -uid
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -used
+  value_name: N
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -user
+  value_name: NAME
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -xtype
+  value_name: '[bcdpfls]'
+  value_kind: Required
+  group: 'Tests (N can be +N or -N or N):'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -delete
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -print0
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -printf
+  value_name: FORMAT
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fprintf
+  value_name: FILE FORMAT
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -print
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fprint0
+  value_name: FILE
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fprint
+  value_name: FILE
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ls
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fls
+  value_name: FILE
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -prune
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -quit
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -exec
+  value_name: COMMAND ; | COMMAND {} +
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ok
+  value_name: COMMAND ;
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -execdir
+  value_name: COMMAND ; | COMMAND {} +
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -okdir
+  value_name: COMMAND ;
+  value_kind: Required
+  group: 'Actions:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  group: 'Other common options:'
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Other common options:'
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -L
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -O
+  value_name: level
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -D
+  value_name: debugopts
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
