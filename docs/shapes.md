@@ -5346,3 +5346,20 @@ entry's `tools` field and nothing else. It does not get a new entry.
   Fixture: `corpus/krb5-config/1.20.1`.
 - fleet: only krb5-config and krb5-config.mit of the 2440 round-17 raw
   captures print this shape.
+
+### S-232: a labelled value list under a heading that names one flag
+
+- id: S-232
+- looks like: |
+      Valid units for [-u] flag:
+        Decimal prefix, bits per second:  bps, kbps, Mbps, Gbps
+        Auto-scaled prefix: auto-binary-bits, auto-binary-bytes
+- tools: speedtest
+- handling: Fixed. When every line of the block is `Label: v1, v2, ...` and
+  the heading names a flag that has no choices yet, every value of every line
+  is a choice of that flag and the line's label is its description. Before,
+  the last line alone reached the flag, and without its first value. A block
+  with a line of another shape keeps the previous reading.
+  Fixture: `corpus/speedtest/1.2.0.84`.
+- fleet: 1 tool of the 2440 round-17 raw captures prints a `Valid ... for
+  [-x] flag:` heading with labelled lines (speedtest).

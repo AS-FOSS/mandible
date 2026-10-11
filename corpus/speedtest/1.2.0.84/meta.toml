@@ -18,7 +18,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 min_status = "ok"
 must_attach_choices = { "--unit" = ["bps", "Gbps", "GiB/s", "auto-binary-bits", "auto-binary-bytes", "auto-decimal-bits", "auto-decimal-bytes"] }
-
-[xfail]
-broken = true
-reason = "the last line of the units block loses auto-binary-bits"

@@ -49,6 +49,7 @@ mod flag_rows;
 mod heading;
 mod invocation_block;
 mod key_value_operands;
+mod labelled_values;
 mod layout;
 mod multiword;
 mod multiword_value_row;
@@ -1293,6 +1294,9 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         if find_owning_flag_index(heading, &st.result.flags).is_none()
             && take_word_grid(heading, &lines[block_start..end], st.result)
         {
+            return i;
+        }
+        if labelled_values::take_labelled_values(heading, &lines[block_start..end], st.result) {
             return i;
         }
         if find_owning_flag_index(heading, &st.result.flags).is_none()
