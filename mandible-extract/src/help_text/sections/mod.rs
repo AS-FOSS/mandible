@@ -75,12 +75,14 @@ mod syntax_legend;
 mod test_support;
 mod usage;
 mod usage_alias_pair_then_valued_long;
+mod usage_bracket_word_run;
 mod usage_command_table;
 mod usage_flag_alternation;
 mod usage_flag_forms;
 mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
+mod usage_tab_table;
 pub(crate) mod usage_verbs;
 mod usage_word_flags;
 mod value_form_row;
@@ -943,6 +945,7 @@ fn scan_usage_section(
             if leading_whitespace(l) <= base_indent
                 && !looks_like_usage_fragment(trimmed_start)
                 && bracket_group_depth <= 0
+                && !usage_tab_table::continues_tab_description(lines, i)
             {
                 break;
             }
@@ -996,7 +999,9 @@ fn finish_positional_recovery(
     } else {
         std::collections::HashSet::new()
     };
-    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line, false)
+    let cleaned = usage_tab_table::positional_lines(usage_lines);
+    let lines = cleaned.as_deref().unwrap_or(usage_lines);
+    extract_positionals_inner(lines, primary_lines, unlabelled_single_line, false)
 }
 
 /// The leading prose before the usage block, as the node description.
@@ -2481,7 +2486,8 @@ fn parse_body(
     // joined display form), deliberately, so the join cannot change what
     // this recovers.
     if !usage_lines.is_empty() {
-        for flag in extract_usage_flags(&usage_lines) {
+        let cut_forms = usage_tab_table::flag_lines(&usage_lines);
+        for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(&usage_lines)) {
             if result.flags.len() >= MAX_RECOVERED_ENTRIES {
                 break;
             }
@@ -2502,6 +2508,8 @@ fn parse_body(
         }
         usage_word_flags::repair(&usage_lines, raw, &mut result.flags);
         per_form::apply(&usage_lines, &mut result.flags, &mut result.positionals);
+        usage_tab_table::attach_descriptions(&usage_lines, &mut result.flags);
+        usage_bracket_word_run::repair(&usage_lines, &mut result.flags);
         // A dash-prefixed usage word normally swallowed as the generic
         // "any option" placeholder, or a usage-derived flag already
         // misread as a short flag plus a fabricated value, is repaired or
