@@ -5,7 +5,7 @@
 //!
 //! `--help`/`-h` is not reliably read-only (spec §6 rule 8). Every probe
 //! runs with its working directory, `HOME`, `TMPDIR`, and the writable XDG
-//! base-directory variables all pointed at one scratch `TempDir`, created
+//! base-directory variables all pointed into one scratch `TempDir` under `$HOME/.cache/mandible`, created
 //! fresh per invocation and removed recursively when it returns. Applied
 //! uniformly to every probe, never a per-tool exclusion list (spec §1).
 //! Not a complete guarantee: a tool writing to an absolute path baked into
@@ -22,6 +22,7 @@ pub mod containment;
 mod policy;
 mod probe;
 mod reap;
+mod scratch_root;
 mod spawn;
 
 pub use policy::InertArgv;

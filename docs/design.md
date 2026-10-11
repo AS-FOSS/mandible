@@ -1125,6 +1125,20 @@ allowlist below.
    directory cannot be built, the probe is refused with a named error,
    never run against the inherited environment.
 
+   The scratch root is always `$HOME/.cache/mandible`, on every OS, with one
+   `mnd-` directory per probe inside it (mode 0700). Neither `TMPDIR` nor
+   `XDG_CACHE_HOME` is consulted, since either may name a shared directory.
+   The reason is upward search: a tool run from the scratch directory may
+   look in every parent for project files (`pnpm start --help` runs the
+   `start` script of the nearest `package.json`). Under `/tmp`, any local
+   user could plant that file; under the home directory, only the user and
+   root can write above the probe. A crash leaves its directory behind, so
+   the first probe of a run removes `mnd-` directories older than one hour
+   from that root, without following symlinks. Residual: a tool that walks
+   up still reaches the user's own files above `~/.cache`, such as
+   `~/package.json` or a dotfiles repository at `~/.git`. This is a known
+   limit.
+
    Full containment needs OS-level sandboxing; until then this is a
    documented limit, not a closed one. The timeout kills the probe's
    process group, which a `setsid`ing child leaves, so anything that
@@ -1163,8 +1177,10 @@ allowlist below.
    mangled hybrid path on screen. Matching is on this invocation's exact
    path, never a pattern, so a temp path a tool legitimately prints is
    untouched. Residual: a path a tool wraps across two lines at the
-   `COLUMNS` this policy sets cannot be matched; the scratch prefix is kept
-   short to make that rare.
+   `COLUMNS` this policy sets cannot be matched. The scratch path is longer
+   than a temp path (`$HOME/.cache/mandible/mnd-XXXXXX/<subdir>`), so the
+   prefix is kept short, and the masked form (`$HOME`, `$PWD`) is what the
+   reader sees whenever the path stays on one line.
 
 10. **Refuse to start at all under uid 0.** The binary checks its effective
     uid before the TUI, `--doctor`, or `--report` resolves a tool, and
@@ -3053,6 +3069,15 @@ explicit upper bound on the raw text rather than a tree-level count.
 Both ship: `corpus/memhog/2.0.18` and `corpus/host/9.18.39` promote out
 of (or never enter) `[xfail]`, every contract field they name passes,
 and the corpus sweep and named controls stay byte-identical.
+
+**Probe scratch lives under the home directory (2026-10-12, maintainer-approved).**
+Scratch directories were made under `$TMPDIR` or `/tmp`. A tool that
+searches upward from its working directory for project files then ran a
+file another local user planted there: `pnpm start --help` runs the nearest
+`package.json`'s `start` script. The root is now `$HOME/.cache/mandible`
+with no fallback and no `TMPDIR` or `XDG_CACHE_HOME` lookup (§6 rule 8).
+Files the user owns above `~/.cache` stay reachable; that limit is recorded
+there.
 
 ### Deferred, with the reason each is not simply undone
 
