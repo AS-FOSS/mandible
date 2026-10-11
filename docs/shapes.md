@@ -5381,3 +5381,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/llvm-profdata-18/18.1.3`, `corpus/llvm-ar-18/18.1.3`.
 - fleet: 8 tools print `=<empty>`; every llvm tool with a cl::opt enum table
   moves (descriptions gained).
+
+### S-234: `Possible values:` followed by `* name: text` bullets in a description
+
+- id: S-234
+- looks like: |
+      --style <components>
+          Configure which elements ... to display.
+
+          Possible values:
+
+            * default: enables recommended style components (default).
+            * full: enables all available components.
+- tools: batcat
+- handling: Fixed. A description ending in `Possible values:` and then at
+  least two `* name: text` (or `* name (text)`) bullets gives the flag those
+  names as choices, each bullet's text the choice's description. A bullet's
+  wrapped second line joins its text. The label and bullets leave the
+  description, which keeps the text before them; the `values:` lines show
+  them. A tail that is not wholly of this shape is left alone.
+  Fixture: `corpus/batcat/0.24.0`.
+- fleet: 1 tool of the 2440 round-17 raw captures prints `Possible values:`
+  with `*` bullets (batcat, two flags). The clap `- name: text` bullet form
+  (cargo-generate-rpm's `--auto-req`) is a different shape, not read here.

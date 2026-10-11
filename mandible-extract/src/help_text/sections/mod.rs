@@ -35,6 +35,7 @@ mod avoption;
 mod backfill;
 mod bracket_rows;
 mod builtin_usage;
+mod bullet_values;
 mod bullets;
 mod caps_single_dash;
 mod command_list_rows;
@@ -2530,6 +2531,7 @@ fn parse_body(
     // [S-133] `-tl or --type l`-style rows: fold into one flag with
     // `choices`, gated on the raw ` or ` row's own literal text.
     fold_or_joined_choice_rows(raw, &mut result.flags);
+    bullet_values::attach_bullet_value_choices(&mut result.flags);
     attach_description_tail_choices(&mut result.flags);
     spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its

@@ -26,7 +26,3 @@ must_contain_flags = ["--style", "--nonprintable-notation", "--color"]
 
 [contract.must_describe]
 "--style" = "Configure which elements"
-
-[xfail]
-broken = true
-reason = "the Possible values bullets stay inside the description; no choices"
