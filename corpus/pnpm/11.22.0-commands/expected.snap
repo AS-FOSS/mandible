@@ -1,8 +1,8 @@
 name: pnpm
 description: |-
-  Version 11.22.0
-
   These are common pnpm commands used in various situations, use 'pnpm help -a' to list all commands
+
+  Version 11.22.0
 usage:
 - 'Usage: pnpm [command] [flags]'
 - '       pnpm [ -h | --help | -v | --version ]'

@@ -5530,3 +5530,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   11 `options:`, 4 `NAME:`, 3 `Description:`, 27 other labels); none gained
   text. Command-list labels (`Commands are:`, `Supported commands are:`) and
   `Where:` have no group to render as.
+
+### S-250: a bare version line leads the description
+
+- id: S-250
+- looks like: |
+      Version 11.22.0
+      Usage: pnpm store <command>
+
+      Reads and performs actions on pnpm store that is on the current filesystem.
+- tools: pnpm (and its subcommand pages), pnpx, pnx, pn
+- handling: Fixed. A description whose first paragraph is a single `Version
+  <number>` line and which has more text behind it prints that text first and
+  the version line after it, as its last paragraph. Nothing is dropped. A
+  description that is only the version line is left alone. The clap
+  `name 1.2.3` banner (S-068) is unchanged. Fixtures: `corpus/pnpm/11.22.0`,
+  `corpus/pnpm/11.22.0-commands`, `corpus/pnpm/11.22.0-banner`.
+- fleet: replaying the 2233 round-17 raw captures changed the root description
+  of four tools (pnpm, pn, pnpx, pnx), each only by moving the version line;
+  no other capture opens with such a line.

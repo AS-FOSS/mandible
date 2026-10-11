@@ -2435,6 +2435,7 @@ fn parse_body(
         }
     }
     description = with_form_description(description, &form_description);
+    description = description.map(|d| preamble::version_banner_last(&d));
     if let Some(description) = description {
         result.description = Some(description);
     }

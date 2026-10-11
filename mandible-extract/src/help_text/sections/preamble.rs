@@ -33,6 +33,35 @@ pub(super) fn is_banner_paragraph(paragraph: &[&str]) -> bool {
     paragraph.iter().any(|line| line_has_contact_info(line))
 }
 
+/// True if `paragraph` is a single `Version 11.22.0` line: the word
+/// `version` (any case, optional colon) and a version-shaped token, nothing
+/// else. The page's own prose, when it has any, comes first; the line stays
+/// in the description behind it. See docs/shapes.md S-250.
+pub(super) fn is_version_banner_paragraph(paragraph: &[&str]) -> bool {
+    let [line] = paragraph else {
+        return false;
+    };
+    let mut words = line.split_whitespace();
+    let (Some(label), Some(version), None) = (words.next(), words.next(), words.next()) else {
+        return false;
+    };
+    label.trim_end_matches(':').eq_ignore_ascii_case("version") && looks_like_version_token(version)
+}
+
+/// pnpm's `Version 11.22.0` opens every page ahead of the prose that
+/// describes it: the prose leads, the version line follows, nothing is
+/// dropped. A description that is only the version line is left as it is.
+pub(super) fn version_banner_last(description: &str) -> String {
+    let Some((first, rest)) = description.split_once("\n\n") else {
+        return description.to_string();
+    };
+    if is_version_banner_paragraph(&[first]) && !rest.trim().is_empty() {
+        format!("{}\n\n{first}", rest.trim_end())
+    } else {
+        description.to_string()
+    }
+}
+
 /// True if `line` is exactly two whitespace-separated tokens, a
 /// name-shaped one followed by a version-shaped one (`"zoxide 0.9.9"`).
 /// Exactly two and no more, so a sentence merely mentioning a version

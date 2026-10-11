@@ -1,8 +1,8 @@
 name: pnpm
 description: |-
-  Version 11.22.0
-
   These are common pnpm commands used in various situations, use 'pnpm help -a' to list all commands
+
+  Version 11.22.0
 usage:
 - 'Usage: pnpm [command] [flags]'
 - '       pnpm [ -h | --help | -v | --version ]'
@@ -93,9 +93,9 @@ subcommands:
 - name: audit
   summary: Checks for known security issues with the installed packages
   description: |-
-    Version 11.22.0
-
     Checks for known security issues with the installed packages.
+
+    Version 11.22.0
   usage:
   - 'Usage: pnpm audit [options]'
   - '       pnpm audit signatures [options]'

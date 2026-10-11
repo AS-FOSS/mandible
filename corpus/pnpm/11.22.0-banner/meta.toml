@@ -29,7 +29,3 @@ min_subcommands = 45
 must_contain_flags = ["--recursive"]
 # Prose first, banner after it: the substring spans the paragraph break.
 must_describe_root = ["use 'pnpm help -a' to list all commands Version 11.22.0"]
-
-[xfail]
-broken = true
-reason = "the leading 'Version N' banner line is read as the first paragraph of the description, ahead of the page's real prose"
