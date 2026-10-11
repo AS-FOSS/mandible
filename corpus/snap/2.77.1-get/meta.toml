@@ -1,0 +1,31 @@
+# The bytes come from `snap get --help`, not `snap --help`; `argv` stays ["snap", "--help"] only
+# because the corpus runner builds the root from the `--help` capture (the jfr/17.0.20-configure
+# precedent). The prose between the usage form and the option table, with its three `$ snap get`
+# example blocks, is the page's description (docs/shapes.md S-251); example lines are never entities.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "snap"
+version = "2.77.1"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["snap", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-t", "-d", "-l", "--default", "--wait-for"]
+must_describe_root = [
+    "The get command prints configuration options for the provided snap.",
+    "$ snap get snap-name username frank",
+    "If multiple option names are provided, the corresponding values are returned:",
+    "Nested values may be retrieved via a dotted path: $ snap get snap-name author.name frank",
+]
+
+[xfail]
+broken = true
+reason = "the description prose and the `$ snap get` example blocks are dropped from the root description"
