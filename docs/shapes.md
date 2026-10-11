@@ -5551,3 +5551,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`<pattern>^...`, `<param>=<constraint>`). Before, the tail was dropped.
   Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get`.
 - fleet: full-PATH sweep pending.
+
+### S-246: a `Valid <noun>:` line lists the values of the flag that points at it
+
+- id: S-246
+- looks like: |
+      -f, --format=ARG   Output format (see below for valid formats)
+      ...
+       Valid output formats: human-readable (default), csv, tsv, json, jsonl, json-pretty
+- tools: speedtest
+- handling: Fixed. A line `Valid <words> <noun>: v1, v2, ...` outside any
+  table gives its values, in order, as the choices of the one choice-less
+  flag whose description says `valid <noun>`; a `(default)` note is that
+  choice's description. Zero or several such flags leave the line alone.
+  Fixture: `corpus/speedtest/1.2.0.84`.
+- fleet: full-PATH sweep pending.

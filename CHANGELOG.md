@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-246] `mandible speedtest` lists the formats printed in its `Valid output formats:` line (`human-readable (default)`, `csv`, `tsv`, `json`, `jsonl`, `json-pretty`) as the values of `-f, --format`.
 - [S-245] A value placeholder keeps the text printed right after it: `mandible pnpm install` shows `--filter <pattern>...` and `<pattern>^...`, `snap get` shows `--with=<param>=<constraint>`, `dpkg` shows `-L <package>...`.
 - [S-243] `mandible ethtool` shows each operation's description and its setting rows (`-s|--change` lists `[ speed %d ] [ duplex half|full ] ...`), keeps the 15 operations after `-Q` (`--cable-test`, `--set-pse`, `--monitor`, ...), and no longer lists `EEPROM`, `RSS`, `EEE`, `PHY`, `FEC` and `FUNC` as operands; `--groups` offers `eth-phy`, `eth-mac`, `eth-ctrl`, `rmon`.
 - [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.

@@ -18,7 +18,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 min_status = "ok"
 must_attach_choices = { "--format" = ["human-readable", "csv", "tsv", "json", "jsonl", "json-pretty"], "--unit" = ["bps", "Gbps", "GiB/s", "auto-binary-bits", "auto-binary-bytes", "auto-decimal-bits", "auto-decimal-bytes"] }
-
-[xfail]
-broken = true
-reason = "[S-246] the `Valid output formats:` line is not attached to -f, which points to it"

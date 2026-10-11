@@ -85,6 +85,7 @@ mod usage_signs;
 mod usage_tab_table;
 pub(crate) mod usage_verbs;
 mod usage_word_flags;
+mod valid_values_line;
 mod value_form_row;
 mod value_tail_row;
 mod word_grid;
@@ -2554,6 +2555,7 @@ fn parse_body(
     fold_or_joined_choice_rows(raw, &mut result.flags);
     bullet_values::attach_bullet_value_choices(&mut result.flags);
     attach_description_tail_choices(&mut result.flags);
+    valid_values_line::attach(&lines, &mut result.flags);
     spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its
     // `-word` sibling when the ordinary repair above could not recover a
