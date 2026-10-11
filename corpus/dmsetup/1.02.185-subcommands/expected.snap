@@ -14,6 +14,21 @@ flags:
     sources:
     - help-text-synopsis
 - spellings:
+  - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --columns
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
   - -v
   - --verbose
   provenance:
@@ -100,21 +115,6 @@ flags:
     - help-text-synopsis
 - spellings:
   - --retry
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -c
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - -C
-  provenance:
-    sources:
-    - help-text-synopsis
-- spellings:
-  - --columns
   provenance:
     sources:
     - help-text-synopsis

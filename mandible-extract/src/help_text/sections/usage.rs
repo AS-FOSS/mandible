@@ -765,6 +765,9 @@ fn is_dash_prefixed_option_list_placeholder(token: &str) -> bool {
         .is_some_and(is_option_list_placeholder)
 }
 
+use super::usage_flag_forms as forms;
+pub(super) use forms::split_top_level_pipe;
+
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     let mut out: Vec<Entity> = Vec::new();
     let prose_columns = usage_prose_column(usage_lines);
@@ -777,6 +780,9 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     // which has no notion of a comma-terminated alternative. See S-088.
     let mut paren_group_depth: i32 = 0;
     for line in usage_lines {
+        let normalized = forms::normalize(line);
+        let expanded = super::usage_flag_alternation::expand(&normalized);
+        let line = &*expanded;
         let trimmed = line.trim();
         if paren_group_depth > 0 || looks_like_paren_alternation_open(trimmed) {
             paren_group_depth += paren_depth_delta(trimmed);
@@ -901,6 +907,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                                     if !value.is_empty()
                                         && !value.starts_with('-')
                                         && !value.starts_with('(')
+                                        && !forms::is_operand_elsewhere(usage_lines, value)
                             );
                         if attach_value {
                             if let Some(UsageSegment::Bare(value)) = segments.get(seg_idx) {
@@ -951,6 +958,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
         }
         describe_form_flag(&mut out, line, line_start, bare_flag_at, &prose_columns);
     }
+    super::usage_flag_alternation::restore_paren_values(usage_lines, &mut out);
     out
 }
 
@@ -1270,35 +1278,6 @@ pub(super) fn matched_group(
         j += 1;
     }
     None
-}
-
-/// Split a group's content on `|` at that content's own nesting depth 0, so
-/// a nested `[...]`/`{...}` (an optional value spec, or a value alternation,
-/// on one of the alternatives) is never itself split on. Empty fragments (a
-/// stray leading/trailing `|`, or `||`) are dropped.
-///
-/// Both delimiter pairs count toward the depth. Counting only brackets read
-/// `[--color={always|never}]` as the two alternatives `--color={always` and
-/// `never}`, emitting a flag whose value was the fragment `{always`. See
-/// S-088.
-pub(super) fn split_top_level_pipe(content: &str) -> Vec<&str> {
-    let mut out = Vec::new();
-    let mut depth = 0i32;
-    let mut start = 0usize;
-    for (i, c) in content.char_indices() {
-        match c {
-            '[' | '{' => depth += 1,
-            ']' | '}' => depth -= 1,
-            '|' if depth == 0 => {
-                out.push(content[start..i].trim());
-                start = i + c.len_utf8();
-            }
-            _ => {}
-        }
-    }
-    out.push(content[start..].trim());
-    out.retain(|s| !s.is_empty());
-    out
 }
 
 #[cfg(test)]

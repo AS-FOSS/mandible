@@ -1,0 +1,3227 @@
+name: git
+usage:
+- 'usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>] [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare] [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>] <command> [<args>]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: args
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -v
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --exec-path
+  value_name: <path>
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --html-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --man-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --info-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --paginate
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --no-pager
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --no-replace-objects
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --bare
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --git-dir
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --work-tree
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --namespace
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --config-env
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: clone
+  summary: Clone a repository into a new directory
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Create an empty Git repository or reinitialize an existing one
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add
+  summary: Add file contents to the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mv
+  summary: Move or rename a file, a directory, or a symlink
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restore
+  summary: Restore working tree files
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rm
+  summary: Remove files from the working tree and from the index
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bisect
+  summary: Use binary search to find the commit that introduced a bug
+  usage:
+  - 'usage: git bisect start [--term-(new|bad)=<term> --term-(old|good)=<term>]    [--no-checkout] [--first-parent] [<bad> [<good>...]] [--]    [<pathspec>...]'
+  - '   or: git bisect (good|bad) [<rev>...]'
+  - '   or: git bisect terms [--term-good | --term-bad]'
+  - '   or: git bisect skip [(<rev>|<range>)...]'
+  - '   or: git bisect next'
+  - '   or: git bisect reset [<commit>]'
+  - '   or: git bisect visualize'
+  - '   or: git bisect replay <logfile>'
+  - '   or: git bisect log'
+  - '   or: git bisect run <cmd> [<arg>...]'
+  positionals:
+  - name: bad
+    provenance:
+      sources:
+      - help-text
+  - name: good
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: pathspec
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: rev
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: commit
+    provenance:
+      sources:
+      - help-text
+  - name: logfile
+    provenance:
+      sources:
+      - help-text
+  - name: cmd
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: arg
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --term-new
+    value_name: <term>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --term-bad
+    value_name: <term>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --term-old
+    value_name: <term>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --term-good
+    value_name: <term>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --no-checkout
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --first-parent
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: start
+    usage:
+    - git bisect start [--term-(new|bad)=<term> --term-(old|good)=<term>] [--no-checkout] [--first-parent] [<bad> [<good>...]] [--] [<pathspec>...]
+    positionals:
+    - name: bad
+      provenance:
+        sources:
+        - help-text
+    - name: good
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    - name: pathspec
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --term-new
+      value_name: <term>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --term-bad
+      value_name: <term>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --term-old
+      value_name: <term>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --term-good
+      value_name: <term>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --no-checkout
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --first-parent
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: good
+    usage:
+    - git bisect (good|bad) [<rev>...]
+    positionals:
+    - name: rev
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: bad
+    usage:
+    - git bisect (good|bad) [<rev>...]
+    positionals:
+    - name: rev
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: terms
+    usage:
+    - git bisect terms [--term-good | --term-bad]
+    flags:
+    - spellings:
+      - --term-good
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --term-bad
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: skip
+    usage:
+    - git bisect skip [(<rev>|<range>)...]
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: next
+    usage:
+    - git bisect next
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: reset
+    usage:
+    - git bisect reset [<commit>]
+    positionals:
+    - name: commit
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: visualize
+    usage:
+    - git bisect visualize
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: replay
+    usage:
+    - git bisect replay <logfile>
+    positionals:
+    - name: logfile
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: log
+    usage:
+    - git bisect log
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: run
+    usage:
+    - git bisect run <cmd> [<arg>...]
+    positionals:
+    - name: cmd
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: arg
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: diff
+  summary: Show changes between commits, commit and working tree, etc
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: grep
+  summary: Print lines matching a pattern
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: log
+  summary: Show commit logs
+  usage:
+  - 'usage: git log [<options>] [<revision-range>] [[--] <path>...]'
+  - '   or: git show [<options>] <object>...'
+  positionals:
+  - name: revision-range
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: object
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: suppress diff output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]source
+    description: show source
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]use-mailmap
+    description: use mail map file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]mailmap
+    description: alias of --use-mailmap
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --clear-decorations
+    description: clear all previously-defined decoration filters
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs
+    value_name: <pattern>
+    value_kind: Required
+    description: only decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs-exclude
+    value_name: <pattern>
+    value_kind: Required
+    description: do not decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate
+    value_name: '...'
+    value_kind: Optional
+    description: decorate options
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -L
+    value_name: <range:file>
+    value_kind: Required
+    description: trace the evolution of line range <start>,<end> or function :<funcname> in <file>
+    provenance:
+      sources:
+      - help-text
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: show
+  summary: Show various types of objects
+  usage:
+  - 'usage: git log [<options>] [<revision-range>] [[--] <path>...]'
+  - '   or: git show [<options>] <object>...'
+  positionals:
+  - name: revision-range
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: object
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: suppress diff output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]source
+    description: show source
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]use-mailmap
+    description: use mail map file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]mailmap
+    description: alias of --use-mailmap
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --clear-decorations
+    description: clear all previously-defined decoration filters
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs
+    value_name: <pattern>
+    value_kind: Required
+    description: only decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs-exclude
+    value_name: <pattern>
+    value_kind: Required
+    description: do not decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate
+    value_name: '...'
+    value_kind: Optional
+    description: decorate options
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -L
+    value_name: <range:file>
+    value_kind: Required
+    description: trace the evolution of line range <start>,<end> or function :<funcname> in <file>
+    provenance:
+      sources:
+      - help-text
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: status
+  summary: Show the working tree status
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: branch
+  summary: List, create, or delete branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: commit
+  summary: Record changes to the repository
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge
+  summary: Join two or more development histories together
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rebase
+  summary: Reapply commits on top of another base tip
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reset
+  summary: Reset current HEAD to the specified state
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch
+  summary: Switch branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: tag
+  summary: Create, list, delete or verify a tag object signed with GPG
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch
+  summary: Download objects and refs from another repository
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pull
+  summary: Fetch from and integrate with another repository or a local branch
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: push
+  summary: Update remote refs along with associated objects
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: am
+  summary: Apply a series of patches from a mailbox
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: archive
+  summary: Create an archive of files from a named tree
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bundle
+  summary: Move objects and refs by archive
+  usage:
+  - 'usage: git bundle create [-q | --quiet | --progress] [--version=<version>] <file> <git-rev-list-args>'
+  - '   or: git bundle verify [-q | --quiet] <file>'
+  - '   or: git bundle list-heads <file> [<refname>...]'
+  - '   or: git bundle unbundle [--progress] <file> [<refname>...]'
+  positionals:
+  - name: file
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: git-rev-list-args
+    provenance:
+      sources:
+      - help-text
+  - name: refname
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -q
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --quiet
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --progress
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --version
+    value_name: <version>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: create
+    usage:
+    - git bundle create [-q | --quiet | --progress] [--version=<version>] <file> <git-rev-list-args>
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: git-rev-list-args
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -q
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --version
+      value_name: <version>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: verify
+    usage:
+    - git bundle verify [-q | --quiet] <file>
+    flags:
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: list-heads
+    usage:
+    - git bundle list-heads <file> [<refname>...]
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: refname
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: unbundle
+    usage:
+    - git bundle unbundle [--progress] <file> [<refname>...]
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: refname
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: checkout
+  summary: Switch branches or restore working tree files
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cherry-pick
+  summary: Apply the changes introduced by some existing commits
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: citool
+  summary: Graphical alternative to git-commit
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: clean
+  summary: Remove untracked files from the working tree
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: describe
+  summary: Give an object a human readable name based on an available ref
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: format-patch
+  summary: Prepare patches for e-mail submission
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: gc
+  summary: Cleanup unnecessary files and optimize the local repository
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: gitk
+  summary: The Git repository browser
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: gui
+  summary: A portable graphical interface to Git
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: maintenance
+  summary: Run tasks to optimize Git repository data
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: notes
+  summary: Add or inspect object notes
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: range-diff
+  summary: Compare two commit ranges (e.g. two versions of a branch)
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: revert
+  summary: Revert some existing commits
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: scalar
+  summary: A tool for managing large Git repositories
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: shortlog
+  summary: Summarize 'git log' output
+  usage:
+  - 'usage: git shortlog [<options>] [<revision-range>] [[--] <path>...]'
+  - '   or: git log --pretty=short | git shortlog [<options>]'
+  positionals:
+  - name: revision-range
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -c
+    - --[no-]committer
+    description: group by committer rather than author
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -n
+    - --[no-]numbered
+    description: sort output according to the number of commits per author
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -s
+    - --[no-]summary
+    description: suppress commit descriptions, only provides commit count
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -e
+    - --[no-]email
+    description: show the email address of each author
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -w
+    value_name: '[<w>[,<i1>[,<i2>]]]'
+    value_kind: Optional
+    description: linewrap output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]group
+    value_name: <field>
+    value_kind: Required
+    description: group by field
+    provenance:
+      sources:
+      - help-text
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: sparse-checkout
+  summary: Reduce your working tree to a subset of tracked files
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: stash
+  summary: Stash the changes in a dirty working directory away
+  usage:
+  - 'usage: git stash list [<log-options>]'
+  - '   or: git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]'
+  - '   or: git stash drop [-q | --quiet] [<stash>]'
+  - '   or: git stash pop [--index] [-q | --quiet] [<stash>]'
+  - '   or: git stash apply [--index] [-q | --quiet] [<stash>]'
+  - '   or: git stash branch <branchname> [<stash>]'
+  - '   or: git stash [push [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet] [-u | --include-untracked] [-a | --all] [(-m | --message) <message>] [--pathspec-from-file=<file> [--pathspec-file-nul]] [--] [<pathspec>...]]'
+  - '   or: git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet] [-u | --include-untracked] [-a | --all] [<message>]'
+  - '   or: git stash clear'
+  - '   or: git stash create [<message>]'
+  - '   or: git stash store [(-m | --message) <message>] [-q | --quiet] <commit>'
+  positionals:
+  - name: log-options
+    provenance:
+      sources:
+      - help-text
+  - name: stash
+    provenance:
+      sources:
+      - help-text
+  - name: diff-options
+    provenance:
+      sources:
+      - help-text
+  - name: branchname
+    provenance:
+      sources:
+      - help-text
+  - name: message
+    provenance:
+      sources:
+      - help-text
+  - name: commit
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -u
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --include-untracked
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --only-untracked
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -q
+    - --quiet
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --index
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -p
+    - --patch
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -S
+    - --staged
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -k
+    - --[no-]keep-index
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -a
+    - --all
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -m
+    - --message
+    value_name: <message>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --pathspec-from-file
+    value_name: <file>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --pathspec-file-nul
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: list
+    usage:
+    - git stash list [<log-options>]
+    positionals:
+    - name: log-options
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
+    positionals:
+    - name: stash
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -u
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --include-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --only-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: drop
+    usage:
+    - git stash drop [-q | --quiet] [<stash>]
+    flags:
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: pop
+    usage:
+    - git stash pop [--index] [-q | --quiet] [<stash>]
+    flags:
+    - spellings:
+      - --index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: apply
+    usage:
+    - git stash apply [--index] [-q | --quiet] [<stash>]
+    flags:
+    - spellings:
+      - --index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: branch
+    usage:
+    - git stash branch <branchname> [<stash>]
+    positionals:
+    - name: branchname
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: stash
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: save
+    usage:
+    - git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet] [-u | --include-untracked] [-a | --all] [<message>]
+    flags:
+    - spellings:
+      - -p
+      - --patch
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -S
+      - --staged
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -k
+      - --[no-]keep-index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -u
+      - --include-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -a
+      - --all
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: clear
+    usage:
+    - git stash clear
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: create
+    usage:
+    - git stash create [<message>]
+    positionals:
+    - name: message
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: store
+    usage:
+    - git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+    flags:
+    - spellings:
+      - -m
+      - --message
+      value_name: <message>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: submodule
+  summary: Initialize, update or inspect submodules
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: worktree
+  summary: Manage multiple working trees
+  usage:
+  - 'usage: git worktree add [-f] [--detach] [--checkout] [--lock [--reason <string>]] [--orphan] [(-b | -B) <new-branch>] <path> [<commit-ish>]'
+  - '   or: git worktree list [-v | --porcelain [-z]]'
+  - '   or: git worktree lock [--reason <string>] <worktree>'
+  - '   or: git worktree move <worktree> <new-path>'
+  - '   or: git worktree prune [-n] [-v] [--expire <expire>]'
+  - '   or: git worktree remove [-f] <worktree>'
+  - '   or: git worktree repair [<path>...]'
+  - '   or: git worktree unlock <worktree>'
+  positionals:
+  - name: path
+    provenance:
+      sources:
+      - help-text
+  - name: commit-ish
+    provenance:
+      sources:
+      - help-text
+  - name: worktree
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: new-path
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -f
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --detach
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --checkout
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --lock
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --reason
+    value_name: <string>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --orphan
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -b
+    value_name: <new-branch>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -B
+    value_name: <new-branch>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -v
+    - --porcelain
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -z
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -n
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --expire
+    value_name: <expire>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: Main Porcelain Commands
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - git worktree add [-f] [--detach] [--checkout] [--lock [--reason <string>]] [--orphan] [(-b | -B) <new-branch>] <path> [<commit-ish>]
+    positionals:
+    - name: path
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: commit-ish
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -f
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --detach
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --checkout
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --lock
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --reason
+      value_name: <string>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --orphan
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -b
+      value_name: <new-branch>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -B
+      value_name: <new-branch>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: list
+    usage:
+    - git worktree list [-v | --porcelain [-z]]
+    flags:
+    - spellings:
+      - -v
+      - --porcelain
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -z
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: lock
+    usage:
+    - git worktree lock [--reason <string>] <worktree>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --reason
+      value_name: <string>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: move
+    usage:
+    - git worktree move <worktree> <new-path>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: new-path
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: prune
+    usage:
+    - git worktree prune [-n] [-v] [--expire <expire>]
+    flags:
+    - spellings:
+      - -n
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -v
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --expire
+      value_name: <expire>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: remove
+    usage:
+    - git worktree remove [-f] <worktree>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -f
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: repair
+    usage:
+    - git worktree repair [<path>...]
+    positionals:
+    - name: path
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: unlock
+    usage:
+    - git worktree unlock <worktree>
+    positionals:
+    - name: worktree
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: config
+  summary: Get and set repository or global options
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fast-export
+  summary: Git data exporter
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fast-import
+  summary: Backend for fast Git data importers
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: filter-branch
+  summary: Rewrite branches
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mergetool
+  summary: Run merge conflict resolution tools to resolve merge conflicts
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pack-refs
+  summary: Pack heads and tags for efficient repository access
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: prune
+  summary: Prune all unreachable objects from the object database
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reflog
+  summary: Manage reflog information
+  usage:
+  - 'usage: git reflog [show] [<log-options>] [<ref>]'
+  - '   or: git reflog expire [--expire=<time>] [--expire-unreachable=<time>] [--rewrite] [--updateref] [--stale-fix] [--dry-run | -n] [--verbose] [--all [--single-worktree] | <refs>...]'
+  - '   or: git reflog delete [--rewrite] [--updateref] [--dry-run | -n] [--verbose] <ref>@{<specifier>}...'
+  - '   or: git reflog exists <ref>'
+  positionals:
+  - name: log-options
+    provenance:
+      sources:
+      - help-text
+  - name: ref
+    provenance:
+      sources:
+      - help-text
+  - name: refs
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --expire
+    value_name: <time>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --expire-unreachable
+    value_name: <time>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --rewrite
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --updateref
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --stale-fix
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -n
+    - --dry-run
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --verbose
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --all
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --single-worktree
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: expire
+    usage:
+    - git reflog expire [--expire=<time>] [--expire-unreachable=<time>] [--rewrite] [--updateref] [--stale-fix] [--dry-run | -n] [--verbose] [--all [--single-worktree] | <refs>...]
+    positionals:
+    - name: refs
+      required: true
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --expire
+      value_name: <time>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --expire-unreachable
+      value_name: <time>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --rewrite
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --updateref
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --stale-fix
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -n
+      - --dry-run
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --verbose
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --all
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --single-worktree
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: delete
+    usage:
+    - git reflog delete [--rewrite] [--updateref] [--dry-run | -n] [--verbose] <ref>@{<specifier>}...
+    positionals:
+    - name: ref
+      required: true
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --rewrite
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --updateref
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -n
+      - --dry-run
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --verbose
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: exists
+    usage:
+    - git reflog exists <ref>
+    positionals:
+    - name: ref
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: remote
+  summary: Manage set of tracked repositories
+  usage:
+  - 'usage: git remote [-v | --verbose]'
+  - '   or: git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags] [--mirror=<fetch|push>] <name> <url>'
+  - '   or: git remote rename [--[no-]progress] <old> <new>'
+  - '   or: git remote remove <name>'
+  - '   or: git remote set-head <name> (-a | --auto | -d | --delete | <branch>)'
+  - '   or: git remote [-v | --verbose] show [-n] <name>'
+  - '   or: git remote prune [-n | --dry-run] <name>'
+  - '   or: git remote [-v | --verbose] update [-p | --prune] [(<group> | <remote>)...]'
+  - '   or: git remote set-branches [--add] <name> <branch>...'
+  - '   or: git remote get-url [--push] [--all] <name>'
+  - '   or: git remote set-url [--push] <name> <newurl> [<oldurl>]'
+  - '   or: git remote set-url --add <name> <newurl>'
+  - '   or: git remote set-url --delete <name> <url>'
+  positionals:
+  - name: name
+    provenance:
+      sources:
+      - help-text
+  - name: url
+    provenance:
+      sources:
+      - help-text
+  - name: old
+    provenance:
+      sources:
+      - help-text
+  - name: new
+    provenance:
+      sources:
+      - help-text
+  - name: branch
+    provenance:
+      sources:
+      - help-text
+  - name: remote
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: newurl
+    provenance:
+      sources:
+      - help-text
+  - name: oldurl
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -v
+    - --[no-]verbose
+    description: be verbose; must be placed before a subcommand
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -t
+    value_name: <branch>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -m
+    value_name: <master>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -f
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --tags
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --no-tags
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --mirror
+    value_name: <fetch|push>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --[no-]progress
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -a
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --auto
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -d
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --delete
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -n
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -p
+    - --prune
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --add
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --push
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --all
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags] [--mirror=<fetch|push>] <name> <url>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: url
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -t
+      value_name: <branch>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -m
+      value_name: <master>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -f
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --tags
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --no-tags
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --mirror
+      value_name: <fetch|push>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: rename
+    usage:
+    - git remote rename [--[no-]progress] <old> <new>
+    positionals:
+    - name: old
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: new
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --[no-]progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: remove
+    usage:
+    - git remote remove <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set-head
+    usage:
+    - git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: branch
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -a
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --auto
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -d
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --delete
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - git remote [-v | --verbose] show [-n] <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -n
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -v
+      - --verbose
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: prune
+    usage:
+    - git remote prune [-n | --dry-run] <name>
+    flags:
+    - spellings:
+      - -n
+      - --dry-run
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: update
+    usage:
+    - git remote [-v | --verbose] update [-p | --prune] [(<group> | <remote>)...]
+    positionals:
+    - name: remote
+      required: true
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -p
+      - --prune
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -v
+      - --verbose
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set-branches
+    usage:
+    - git remote set-branches [--add] <name> <branch>...
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: branch
+      required: true
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --add
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: get-url
+    usage:
+    - git remote get-url [--push] [--all] <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --push
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --all
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set-url
+    usage:
+    - git remote set-url [--push] <name> <newurl> [<oldurl>]
+    - git remote set-url --add <name> <newurl>
+    - git remote set-url --delete <name> <url>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: newurl
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: oldurl
+      provenance:
+        sources:
+        - help-text
+    - name: url
+      required: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - --push
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --add
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --delete
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: repack
+  summary: Pack unpacked objects in a repository
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: replace
+  summary: Create, list, delete refs to replace objects
+  group: Ancillary Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: annotate
+  summary: Annotate file lines with commit information
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: blame
+  summary: Show what revision and author last modified each line of a file
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bugreport
+  summary: Collect information for user to file a bug report
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: count-objects
+  summary: Count unpacked number of objects and their disk consumption
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diagnose
+  summary: Generate a zip archive of diagnostic information
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: difftool
+  summary: Show changes using common diff tools
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fsck
+  summary: Verifies the connectivity and validity of the objects in the database
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: gitweb
+  summary: Git web interface (web frontend to Git repositories)
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: help
+  summary: Display help information about Git
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: instaweb
+  summary: Instantly browse your working repository in gitweb
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge-tree
+  summary: Perform merge without touching index or working tree
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rerere
+  summary: Reuse recorded resolution of conflicted merges
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show-branch
+  summary: Show branches and their commits
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: verify-commit
+  summary: Check the GPG signature of commits
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: verify-tag
+  summary: Check the GPG signature of tags
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: version
+  summary: Display version information about Git
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: whatchanged
+  summary: Show logs with differences each commit introduces
+  group: Ancillary Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: archimport
+  summary: Import a GNU Arch repository into Git
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cvsexportcommit
+  summary: Export a single commit to a CVS checkout
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cvsimport
+  summary: Salvage your data out of another SCM people love to hate
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cvsserver
+  summary: A CVS server emulator for Git
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: imap-send
+  summary: Send a collection of patches from stdin to an IMAP folder
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: p4
+  summary: Import from and submit to Perforce repositories
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: quiltimport
+  summary: Applies a quilt patchset onto the current branch
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: request-pull
+  summary: Generates a summary of pending changes
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: send-email
+  summary: Send a collection of patches as emails
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: svn
+  summary: Bidirectional operation between a Subversion repository and Git
+  group: Interacting with Others
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: apply
+  summary: Apply a patch to files and/or to the index
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: checkout-index
+  summary: Copy files from the index to the working tree
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: commit-graph
+  summary: Write and verify Git commit-graph files
+  usage:
+  - 'usage: git commit-graph verify [--object-dir <dir>] [--shallow] [--[no-]progress]'
+  - '   or: git commit-graph write [--object-dir <dir>] [--append] [--split[=<strategy>]] [--reachable | --stdin-packs | --stdin-commits] [--changed-paths] [--[no-]max-new-filters <n>] [--[no-]progress] <split options>'
+  positionals:
+  - name: split options
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --[no-]object-dir
+    value_name: <dir>
+    value_kind: Required
+    description: the object directory to store the graph
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --shallow
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --[no-]progress
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --append
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --split
+    value_name: <strategy>
+    value_kind: Optional
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --reachable
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --stdin-packs
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --stdin-commits
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --changed-paths
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --[no-]max-new-filters
+    value_name: <n>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  subcommands:
+  - name: verify
+    usage:
+    - git commit-graph verify [--object-dir <dir>] [--shallow] [--[no-]progress]
+    flags:
+    - spellings:
+      - --object-dir
+      value_name: <dir>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --shallow
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --[no-]progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: write
+    usage:
+    - git commit-graph write [--object-dir <dir>] [--append] [--split[=<strategy>]] [--reachable | --stdin-packs | --stdin-commits] [--changed-paths] [--[no-]max-new-filters <n>] [--[no-]progress] <split options>
+    flags:
+    - spellings:
+      - --object-dir
+      value_name: <dir>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --append
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --split
+      value_name: <strategy>
+      value_kind: Optional
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --reachable
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --stdin-packs
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --stdin-commits
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --changed-paths
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --[no-]max-new-filters
+      value_name: <n>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --[no-]progress
+      provenance:
+        sources:
+        - help-text-synopsis
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: commit-tree
+  summary: Create a new commit object
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hash-object
+  summary: Compute object ID and optionally create an object from a file
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: index-pack
+  summary: Build pack index file for an existing packed archive
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge-file
+  summary: Run a three-way file merge
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge-index
+  summary: Run a merge for files needing merging
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mktag
+  summary: Creates a tag object with extra validation
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mktree
+  summary: Build a tree-object from ls-tree formatted text
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: multi-pack-index
+  summary: Write and verify multi-pack-indexes
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pack-objects
+  summary: Create a packed archive of objects
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: prune-packed
+  summary: Remove extra objects that are already in pack files
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: read-tree
+  summary: Reads tree information into the index
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: symbolic-ref
+  summary: Read, modify and delete symbolic refs
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unpack-objects
+  summary: Unpack objects from a packed archive
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: update-index
+  summary: Register file contents in the working tree to the index
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: update-ref
+  summary: Update the object name stored in a ref safely
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: write-tree
+  summary: Create a tree object from the current index
+  group: Low-level Commands / Manipulators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cat-file
+  summary: Provide contents or details of repository objects
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cherry
+  summary: Find commits yet to be applied to upstream
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff-files
+  summary: Compares files in the working tree and the index
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff-index
+  summary: Compare a tree to the working tree or index
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff-tree
+  summary: Compares the content and mode of blobs found via two tree objects
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: for-each-ref
+  summary: Output information on each ref
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: for-each-repo
+  summary: Run a Git command on a list of repositories
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: get-tar-commit-id
+  summary: Extract commit ID from an archive created using git-archive
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: ls-files
+  summary: Show information about files in the index and the working tree
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: ls-remote
+  summary: List references in a remote repository
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: ls-tree
+  summary: List the contents of a tree object
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge-base
+  summary: Find as good common ancestors as possible for a merge
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: name-rev
+  summary: Find symbolic names for given revs
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pack-redundant
+  summary: Find redundant pack files
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rev-list
+  summary: Lists commit objects in reverse chronological order
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rev-parse
+  summary: Pick out and massage parameters
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show-index
+  summary: Show packed archive index
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show-ref
+  summary: List references in a local repository
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unpack-file
+  summary: Creates a temporary file with a blob's contents
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: var
+  summary: Show a Git logical variable
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: verify-pack
+  summary: Validate packed Git archive files
+  group: Low-level Commands / Interrogators
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: daemon
+  summary: A really simple server for Git repositories
+  group: Low-level Commands / Syncing Repositories
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch-pack
+  summary: Receive missing objects from another repository
+  group: Low-level Commands / Syncing Repositories
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: http-backend
+  summary: Server side implementation of Git over HTTP
+  group: Low-level Commands / Syncing Repositories
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: send-pack
+  summary: Push objects over Git protocol to another repository
+  group: Low-level Commands / Syncing Repositories
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: update-server-info
+  summary: Update auxiliary info file to help dumb servers
+  group: Low-level Commands / Syncing Repositories
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: check-attr
+  summary: Display gitattributes information
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: check-ignore
+  summary: Debug gitignore / exclude files
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: check-mailmap
+  summary: Show canonical names and email addresses of contacts
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: check-ref-format
+  summary: Ensures that a reference name is well formed
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: column
+  summary: Display data in columns
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: credential
+  summary: Retrieve and store user credentials
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: credential-cache
+  summary: Helper to temporarily store passwords in memory
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: credential-store
+  summary: Helper to store credentials on disk
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fmt-merge-msg
+  summary: Produce a merge commit message
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: hook
+  summary: Run git hooks
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: interpret-trailers
+  summary: Add or parse structured information in commit messages
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mailinfo
+  summary: Extracts patch and authorship from a single e-mail message
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: mailsplit
+  summary: Simple UNIX mbox splitter program
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge-one-file
+  summary: The standard helper program to use with git-merge-index
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: patch-id
+  summary: Compute unique ID for a patch
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: sh-i18n
+  summary: Git's i18n setup code for shell scripts
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: sh-setup
+  summary: Common Git shell script setup code
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: stripspace
+  summary: Remove unnecessary whitespace
+  group: Low-level Commands / Internal Helpers
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: lfs
+  group: External commands
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

@@ -1,0 +1,8 @@
+usage: git reflog [show] [<log-options>] [<ref>]
+   or: git reflog expire [--expire=<time>] [--expire-unreachable=<time>]
+                         [--rewrite] [--updateref] [--stale-fix]
+                         [--dry-run | -n] [--verbose] [--all [--single-worktree] | <refs>...]
+   or: git reflog delete [--rewrite] [--updateref]
+                         [--dry-run | -n] [--verbose] <ref>@{<specifier>}...
+   or: git reflog exists <ref>
+

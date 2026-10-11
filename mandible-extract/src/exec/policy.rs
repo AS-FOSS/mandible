@@ -28,6 +28,14 @@ pub enum InertArgv {
         /// The path words to ask for help on, if any.
         words: Vec<String>,
     },
+    /// `help <option>` — the listing invocation a root text names in the
+    /// closed sentence `'<tool> help <option>' lists commands` (spec §6
+    /// rule 2d, docs/shapes.md S-214). `option` is copied verbatim from
+    /// that sentence, is `-X` or `--word`, and is never `-h` or `--help`.
+    HelpListing {
+        /// The option the root text's own sentence quoted, e.g. `"-a"`.
+        option: String,
+    },
     /// `<words...> --help` — per-node help (e.g. `git rebase --help`).
     /// Always ends in the literal `--help`, so never a bare invocation
     /// even when `words` is empty.
@@ -89,6 +97,7 @@ impl InertArgv {
                 a.extend(words.iter().cloned());
                 a
             }
+            InertArgv::HelpListing { option } => vec!["help".to_string(), option.clone()],
             InertArgv::HelpLongForPath { words } => {
                 let mut a = words.clone();
                 a.push("--help".to_string());
@@ -141,6 +150,9 @@ mod tests {
             InertArgv::HelpLong,
             InertArgv::HelpShort,
             InertArgv::HelpSubcommand { words: vec![] },
+            InertArgv::HelpListing {
+                option: "-a".to_string(),
+            },
             InertArgv::HelpLongForPath { words: vec![] },
             InertArgv::HelpShortForPath { words: vec![] },
             InertArgv::HelpExpand {

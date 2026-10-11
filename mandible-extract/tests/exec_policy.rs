@@ -1638,3 +1638,139 @@ exec sleep 300
         );
     }
 }
+
+// --- spec §6 rule 2d, docs/shapes.md S-214: the listing-invocation probe ---
+
+/// A shim whose root `--help` carries `sentence`; `help -a` lists a
+/// command table with a documentation section, `help -g` lists guides.
+/// Any other argv is logged to `<shim>.unexpected`.
+fn listing_root_script(sentence: &str) -> String {
+    format!(
+        r#"#!/bin/sh
+if [ "$1" = "--help" ]; then
+    cat <<'HELPEOF'
+usage: lt <command>
+
+These are common commands:
+
+start
+   init      Create something
+
+{sentence}
+HELPEOF
+    exit 0
+fi
+if [ "$1" = "help" ] && [ "$2" = "-a" ]; then
+    echo "$@" >> "$0.listing_argv"
+    cat <<'HELPEOF'
+Main Porcelain Commands
+   init      Create something
+   remote    Manage set of tracked things
+   stash     Stash the changes
+
+User-facing repository, command and file interfaces
+   attributes   Defining attributes per path
+   hooks        Hooks used by Git
+HELPEOF
+    exit 0
+fi
+if [ "$1" = "help" ] && [ "$2" = "-g" ]; then
+    echo "$@" >> "$0.listing_argv"
+    cat <<'HELPEOF'
+The lt concept guides are:
+   glossary    A glossary
+   tutorial    A tutorial
+HELPEOF
+    exit 0
+fi
+echo "$@" >> "$0.unexpected"
+exit 1
+"#
+    )
+}
+
+fn listing_tool(dir: &Path, sentence: &str) -> (HelpTextTier, ResolvedTool) {
+    let shim = write_named_shim(dir, "lt", &listing_root_script(sentence));
+    let tool = ResolvedTool {
+        name: "lt".to_string(),
+        path: Some(shim),
+        version: None,
+    };
+    (HelpTextTier::default(), tool)
+}
+
+/// Rule 2d end to end through the real argv: the two quoted invocations
+/// are sent as `help -a` and `help -g` and nothing else; documentation
+/// rows and the guide list never become subcommands; the root's own list
+/// keeps its place and the missing names follow.
+#[test]
+fn listing_invocations_are_sent_as_help_option_and_guides_are_dropped() {
+    let dir = tempfile::tempdir().unwrap();
+    let (tier, tool) = listing_tool(
+        dir.path(),
+        "'lt help -a' and 'lt help -g' list available subcommands and some\nconcept guides.",
+    );
+    let root = tier
+        .extract_node(&tool, &["lt".to_string()], attested())
+        .expect("root probe must succeed");
+    let names: Vec<&str> = root.subcommands.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names, ["init", "remote", "stash"], "{names:?}");
+    let sent = std::fs::read_to_string(dir.path().join("lt.listing_argv")).unwrap();
+    assert_eq!(sent, "help -a\nhelp -g\n");
+    assert!(
+        !dir.path().join("lt.unexpected").exists(),
+        "an argv outside the allowlist reached the shim"
+    );
+    // The listed rows are heading-attested, so their own page probe is the
+    // ordinary rule 0 gate, not a new one.
+    assert!(root.subcommands.iter().all(|n| n.heading_attested));
+}
+
+/// A prose mention, and the pnpm and snap wordings, never produce a probe.
+#[test]
+fn prose_mentions_and_other_wordings_never_send_a_listing_probe() {
+    for sentence in [
+        "See 'lt help <command>' to read about a specific subcommand.",
+        "Use 'lt help -a' to list all commands.",
+        "For a short summary of all commands, run 'lt help --all'.",
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        let (tier, tool) = listing_tool(dir.path(), sentence);
+        let root = tier
+            .extract_node(&tool, &["lt".to_string()], attested())
+            .expect("root probe must succeed");
+        assert!(
+            root.subcommands.iter().all(|n| n.name != "remote"),
+            "{sentence}"
+        );
+        assert!(
+            !dir.path().join("lt.listing_argv").exists(),
+            "{sentence}: a listing probe was sent"
+        );
+        assert!(!dir.path().join("lt.unexpected").exists(), "{sentence}");
+    }
+}
+
+/// Rule 0 still wins: `help -a` is never exactly `["--help"]`, so a
+/// never-probe program is refused before anything spawns.
+#[test]
+fn rule_0_refuses_a_listing_probe_naming_a_never_probe_tool() {
+    let dir = tempfile::tempdir().unwrap();
+    let shim = write_named_shim(
+        dir.path(),
+        "pkill",
+        "#!/bin/sh\ntouch \"$0.ran\"\necho ran\n",
+    );
+    let result = run_inert(
+        &shim,
+        &InertArgv::HelpListing {
+            option: "-a".to_string(),
+        },
+        Duration::from_secs(2),
+    );
+    assert!(
+        matches!(result, Err(ExecError::RefusedUnsafeTool { .. })),
+        "{result:?}"
+    );
+    assert!(!dir.path().join("pkill.ran").exists());
+}

@@ -388,13 +388,15 @@ flags:
     - help-text
 - spellings:
   - -%
-  description: --stateflags Show some states on the title bar
+  - --stateflags
+  description: Show some states on the title bar
   provenance:
     sources:
     - help-text
 - spellings:
   - -_
-  description: --minibar Show a feedback bar at the bottom
+  - --minibar
+  description: Show a feedback bar at the bottom
   provenance:
     sources:
     - help-text

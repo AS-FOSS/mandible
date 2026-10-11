@@ -1,0 +1,18 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jq"
+version = "1.7"
+platform = "ubuntu-24.04"
+captured_with = "jq --help"
+
+[[capture]]
+argv = ["jq", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--arg", "--argjson", "--slurpfile", "--rawfile"]
+

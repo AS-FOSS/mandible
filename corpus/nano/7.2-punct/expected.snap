@@ -1,0 +1,428 @@
+name: nano
+usage:
+- 'Usage: nano [OPTIONS] [[+LINE[,COLUMN]] FILE]...'
+positionals:
+- name: FILE
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -A
+  - --smarthome
+  description: Enable smart home key
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --backup
+  description: Save backups of existing files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --backupdir
+  value_name: <dir>
+  value_kind: Required
+  description: Directory for saving unique backup files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --boldtext
+  description: Use bold instead of reverse video text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  - --tabstospaces
+  description: Convert typed tabs to spaces
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --multibuffer
+  description: Read a file into a new buffer by default
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -G
+  - --locking
+  description: Use (vim-style) lock files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --historylog
+  description: Save & reload old search/replace strings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --ignorercfiles
+  description: Don't look at nanorc files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  - --guidestripe
+  value_name: <number>
+  value_kind: Required
+  description: Show a guiding bar at this column
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --rawsequences
+  description: Fix numeric keypad key confusion problem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --nonewlines
+  description: Don't add an automatic newline
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --trimblanks
+  description: Trim tail spaces when hard-wrapping
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --noconvert
+  description: Don't convert files from DOS/Mac format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --bookstyle
+  description: Leading whitespace means new paragraph
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --positionlog
+  description: Save & restore position of the cursor
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Q
+  - --quotestr
+  value_name: <regex>
+  value_kind: Required
+  description: Regular expression to match quoting
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --restricted
+  description: Restrict access to the filesystem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --softwrap
+  description: Display overlong lines on multiple rows
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --tabsize
+  value_name: <number>
+  value_kind: Required
+  description: Make a tab this number of columns wide
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --quickblank
+  description: Wipe status bar upon next keystroke
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Print version information and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --wordbounds
+  description: Detect word boundaries more accurately
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --wordchars
+  value_name: <string>
+  value_kind: Required
+  description: Which other characters are word parts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Y
+  - --syntax
+  value_name: <name>
+  value_kind: Required
+  description: Syntax definition to use for coloring
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  - --zap
+  description: Let Bsp and Del erase a marked region
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --atblanks
+  description: When soft-wrapping, do it at whitespace
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --breaklonglines
+  description: Automatically hard-wrap overlong lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --constantshow
+  description: Constantly show cursor position
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --rebinddelete
+  description: Fix Backspace/Delete confusion problem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --emptyline
+  description: Keep the line below the title bar empty
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --rcfile
+  value_name: <file>
+  value_kind: Required
+  description: Use only this file for configuring nano
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  - --showcursor
+  description: Show cursor in file browser & help text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Show this help text and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --autoindent
+  description: Automatically indent new lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --jumpyscrolling
+  description: Scroll per half-screen, not per line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --cutfromcursor
+  description: Cut from cursor to end of line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --linenumbers
+  description: Show line numbers in front of the text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --mouse
+  description: Enable the use of the mouse
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --noread
+  description: Do not read the file (only write it)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --operatingdir
+  value_name: <dir>
+  value_kind: Required
+  description: Set operating directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --preserve
+  description: Preserve XON (^Q) and XOFF (^S) keys
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --indicator
+  description: Show a position+portion indicator
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --fill
+  value_name: <number>
+  value_kind: Required
+  description: Set width for hard-wrap and justify
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --speller
+  value_name: <program>
+  value_kind: Required
+  description: Use this alternative spell checker
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --saveonexit
+  description: Save changes on exit, don't prompt
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --unix
+  description: Save a file by default in Unix format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --view
+  description: View mode (read-only)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --nowrap
+  description: Don't hard-wrap long lines [default]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --nohelp
+  description: Don't show the two help lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --afterends
+  description: Make Ctrl+Right stop at word ends
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -%
+  - --stateflags
+  description: Show some states on the title bar
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -_
+  - --minibar
+  description: Show a feedback bar at the bottom
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -!
+  - --magic
+  description: Try libmagic to determine syntax
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -/
+  - --modernbindings
+  description: Use better-known key bindings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  - --zero
+  description: Hide all bars, use whole terminal
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
