@@ -1,0 +1,710 @@
+name: git-diff
+usage:
+- 'usage: git diff --no-index [<options>] <path> <path>'
+positionals:
+- name: path
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -p
+  - --patch
+  group: Diff output format options
+  description: generate patch
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --no-patch
+  group: Diff output format options
+  description: suppress diff output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  group: Diff output format options
+  description: generate patch
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --unified
+  value_name: <n>
+  value_kind: Optional
+  group: Diff output format options
+  description: generate diffs with <n> lines context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --[no-]function-context
+  group: Diff output format options
+  description: generate diffs with <n> lines context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raw
+  group: Diff output format options
+  description: generate the diff in raw format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --patch-with-raw
+  group: Diff output format options
+  description: synonym for '-p --raw'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --patch-with-stat
+  group: Diff output format options
+  description: synonym for '-p --stat'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --numstat
+  group: Diff output format options
+  description: machine friendly --stat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --shortstat
+  group: Diff output format options
+  description: output only the last line of --stat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --dirstat
+  value_name: <param1,param2>...
+  value_kind: Optional
+  group: Diff output format options
+  description: output the distribution of relative amount of changes for each sub-directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cumulative
+  group: Diff output format options
+  description: synonym for --dirstat=cumulative
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dirstat-by-file
+  value_name: <param1,param2>...
+  value_kind: Optional
+  group: Diff output format options
+  description: synonym for --dirstat=files,param1,param2...
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --check
+  group: Diff output format options
+  description: warn if changes introduce conflict markers or whitespace errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --summary
+  group: Diff output format options
+  description: condensed summary such as creations, renames and mode changes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --name-only
+  group: Diff output format options
+  description: show only names of changed files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --name-status
+  group: Diff output format options
+  description: show only names and status of changed files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stat
+  value_name: '[<width>[,<name-width>[,<count>]]]'
+  value_kind: Optional
+  group: Diff output format options
+  description: generate diffstat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stat-width
+  value_name: <width>
+  value_kind: Required
+  group: Diff output format options
+  description: generate diffstat with a given width
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stat-name-width
+  value_name: <width>
+  value_kind: Required
+  group: Diff output format options
+  description: generate diffstat with a given name width
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stat-graph-width
+  value_name: <width>
+  value_kind: Required
+  group: Diff output format options
+  description: generate diffstat with a given graph width
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stat-count
+  value_name: <count>
+  value_kind: Required
+  group: Diff output format options
+  description: generate diffstat with limited lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]compact-summary
+  group: Diff output format options
+  description: generate compact summary in diffstat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --binary
+  group: Diff output format options
+  description: output a binary diff that can be applied
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]full-index
+  group: Diff output format options
+  description: show full pre- and post-image object names on the "index" lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]color
+  value_name: <when>
+  value_kind: Optional
+  group: Diff output format options
+  description: show colored diff
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ws-error-highlight
+  value_name: <kind>
+  value_kind: Required
+  group: Diff output format options
+  description: highlight whitespace errors in the 'context', 'old' or 'new' lines in the diff
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  group: Diff output format options
+  description: do not munge pathnames and use NULs as output field terminators in --raw or --numstat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]abbrev
+  value_name: <n>
+  value_kind: Optional
+  group: Diff output format options
+  description: use <n> digits to display object names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --src-prefix
+  value_name: <prefix>
+  value_kind: Required
+  group: Diff output format options
+  description: show the given source prefix instead of "a/"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dst-prefix
+  value_name: <prefix>
+  value_kind: Required
+  group: Diff output format options
+  description: show the given destination prefix instead of "b/"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --line-prefix
+  value_name: <prefix>
+  value_kind: Required
+  group: Diff output format options
+  description: prepend an additional prefix to every line of output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-prefix
+  group: Diff output format options
+  description: do not show any source or destination prefix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --default-prefix
+  group: Diff output format options
+  description: use default prefixes a/ and b/
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --inter-hunk-context
+  value_name: <n>
+  value_kind: Required
+  group: Diff output format options
+  description: show context between diff hunks up to the specified number of lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-indicator-new
+  value_name: <char>
+  value_kind: Required
+  group: Diff output format options
+  description: specify the character to indicate a new line instead of '+'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-indicator-old
+  value_name: <char>
+  value_kind: Required
+  group: Diff output format options
+  description: specify the character to indicate an old line instead of '-'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-indicator-context
+  value_name: <char>
+  value_kind: Required
+  group: Diff output format options
+  description: specify the character to indicate a context instead of ' '
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --break-rewrites
+  value_name: '[<n>[/<m>]]'
+  value_kind: Optional
+  group: Diff rename options
+  description: break complete rewrite changes into pairs of delete and create
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --find-renames
+  value_name: <n>
+  value_kind: Optional
+  group: Diff rename options
+  description: detect renames
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --irreversible-delete
+  group: Diff rename options
+  description: omit the preimage for deletes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --find-copies
+  value_name: <n>
+  value_kind: Optional
+  group: Diff rename options
+  description: detect copies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]find-copies-harder
+  group: Diff rename options
+  description: use unmodified files as source to find copies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-renames
+  group: Diff rename options
+  description: disable rename detection
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]rename-empty
+  group: Diff rename options
+  description: use empty blobs as rename source
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]follow
+  group: Diff rename options
+  description: continue listing the history of a file beyond renames
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  value_name: <n>
+  value_kind: Required
+  group: Diff rename options
+  description: prevent rename/copy detection if the number of rename/copy targets exceeds given limit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --minimal
+  group: Diff algorithm options
+  description: produce the smallest possible diff
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --ignore-all-space
+  group: Diff algorithm options
+  description: ignore whitespace when comparing lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --ignore-space-change
+  group: Diff algorithm options
+  description: ignore changes in amount of whitespace
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-space-at-eol
+  group: Diff algorithm options
+  description: ignore changes in whitespace at EOL
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-cr-at-eol
+  group: Diff algorithm options
+  description: ignore carrier-return at the end of line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-blank-lines
+  group: Diff algorithm options
+  description: ignore changes whose lines are all blank
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --[no-]ignore-matching-lines
+  value_name: <regex>
+  value_kind: Required
+  group: Diff algorithm options
+  description: ignore changes whose all lines match <regex>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]indent-heuristic
+  group: Diff algorithm options
+  description: heuristic to shift diff hunk boundaries for easy reading
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --patience
+  group: Diff algorithm options
+  description: generate diff using the "patience diff" algorithm
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --histogram
+  group: Diff algorithm options
+  description: generate diff using the "histogram diff" algorithm
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --diff-algorithm
+  value_name: <algorithm>
+  value_kind: Required
+  group: Diff algorithm options
+  description: choose a diff algorithm
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --anchored
+  value_name: <text>
+  value_kind: Required
+  group: Diff algorithm options
+  description: generate diff using the "anchored diff" algorithm
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --word-diff
+  value_name: <mode>
+  value_kind: Optional
+  group: Diff algorithm options
+  description: show word diff, using <mode> to delimit changed words
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --word-diff-regex
+  value_name: <regex>
+  value_kind: Required
+  group: Diff algorithm options
+  description: use <regex> to decide what a word is
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --color-words
+  value_name: <regex>
+  value_kind: Optional
+  group: Diff algorithm options
+  description: equivalent to --word-diff=color --word-diff-regex=<regex>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]color-moved
+  value_name: <mode>
+  value_kind: Optional
+  group: Diff algorithm options
+  description: moved lines of code are colored differently
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]color-moved-ws
+  value_name: <mode>
+  value_kind: Required
+  group: Diff algorithm options
+  description: how white spaces are ignored in --color-moved
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]relative
+  value_name: <prefix>
+  value_kind: Optional
+  group: Other diff options
+  description: when run from subdir, exclude changes outside and show relative paths
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --[no-]text
+  group: Other diff options
+  description: treat all files as text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  group: Other diff options
+  description: swap two inputs, reverse the diff
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]exit-code
+  group: Other diff options
+  description: exit with 1 if there were differences, 0 otherwise
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]quiet
+  group: Other diff options
+  description: disable all output of the program
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]ext-diff
+  group: Other diff options
+  description: allow an external diff helper to be executed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]textconv
+  group: Other diff options
+  description: run external text conversion filters when comparing binary files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-submodules
+  value_name: <when>
+  value_kind: Optional
+  group: Other diff options
+  description: ignore changes to submodules in the diff generation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --submodule
+  value_name: <format>
+  value_kind: Optional
+  group: Other diff options
+  description: specify how differences in submodules are shown
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ita-invisible-in-index
+  group: Other diff options
+  description: hide 'git add -N' entries from the index
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ita-visible-in-index
+  group: Other diff options
+  description: treat 'git add -N' entries as real in the index
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  value_name: <string>
+  value_kind: Required
+  group: Other diff options
+  description: look for differences that change the number of occurrences of the specified string
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -G
+  value_name: <regex>
+  value_kind: Required
+  group: Other diff options
+  description: look for differences that change the number of occurrences of the specified regex
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pickaxe-all
+  group: Other diff options
+  description: show all changes in the changeset with -S or -G
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --pickaxe-regex
+  group: Other diff options
+  description: treat <string> in -S as extended POSIX regular expression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  value_name: <file>
+  value_kind: Required
+  group: Other diff options
+  description: control the order in which files appear in the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rotate-to
+  value_name: <path>
+  value_kind: Required
+  group: Other diff options
+  description: show the change in the specified path first
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --skip-to
+  value_name: <path>
+  value_kind: Required
+  group: Other diff options
+  description: skip the output to the specified path
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --find-object
+  value_name: <object-id>
+  value_kind: Required
+  group: Other diff options
+  description: look for differences that change the number of occurrences of the specified object
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --diff-filter
+  value_name: '[(A|C|D|M|R|T|U|X|B)...[*]]'
+  value_kind: Optional
+  group: Other diff options
+  description: select files by diff type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output
+  value_name: <file>
+  value_kind: Required
+  group: Other diff options
+  description: output to a specific file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-index
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

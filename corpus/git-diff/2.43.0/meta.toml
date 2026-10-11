@@ -22,7 +22,3 @@ must_contain_flags = ["--patch", "--unified", "--no-index"]
 # the generic option-list word, not its value.
 [contract.must_not_value_name]
 "--no-index" = "options"
-
-[xfail]
-broken = true
-reason = "--no-index takes [<options>] from the usage line as its value"

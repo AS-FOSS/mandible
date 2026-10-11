@@ -1811,7 +1811,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   something, meaning it carries a letter or a digit, which leaves
   `lvextend`'s `-L|--size [+]Size[m|UNIT]` alone, and the end-of-options
   marker never takes a value, which leaves `fsck`'s
-  `-- [fs-options]` alone. The missing-description half of this shape is
+  `-- [fs-options]` alone, and the option-list word written `[<options>]`
+  after a bare flag is never its value (`git diff --no-index [<options>]
+  <path> <path>`, round 18). The missing-description half of this shape is
   still open: a synopsis line that describes its own alternative gives the
   flag no description.
 - fleet: `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
