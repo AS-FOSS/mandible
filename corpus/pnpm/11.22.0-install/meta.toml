@@ -1,0 +1,30 @@
+# `pnpm install --help` replayed as the root, so the root-level contract fields can name its flags.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pnpm"
+version = "11.22.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["pnpm", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--filter", "--changed-files-ignore-pattern", "--test-pattern", "--filter-prod"]
+must_not_contain_flags = ["--changed-files-ignore-", "--filter=\"...[origin/master]\""]
+
+[contract.must_value_name]
+"--filter" = "<pattern>^..."
+"--test-pattern" = "<pattern>"
+
+[contract.must_describe]
+"--changed-files-ignore-pattern" = "--changed-files-ignore- pattern=\"**/README.md\" build"
+
+[xfail]
+broken = true
+reason = "[S-245] the text after the first value placeholder is dropped: --filter <pattern>^... shows <pattern>"
