@@ -26,7 +26,3 @@ must_contain_flags = ["--type-add", "--type-clear", "--multiline-dotall"]
 
 [contract.must_one_row_in_group]
 "FILTER OPTIONS:" = ["--type-add"]
-
-[xfail]
-broken = true
-reason = "flag-led example lines under a colon open invented --type-add rows and split its description"

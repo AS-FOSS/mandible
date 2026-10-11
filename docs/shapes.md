@@ -215,7 +215,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   description, never a row (rg's `--colors 'path:none' \`), and a wrapped line
   that begins with a flag spelling and repeats the indent of the description
   line above it continues that description (rg's `-U/--multiline flag.`,
-  pod2man's `--official below.`). A sentence that continues onto the
+  pod2man's `--official below.`), and so does a flag-led example line
+  deeper than the description line above it when that line ends in a colon
+  and the example has no description column (rg's `--type-add
+  'src:include:cpp,py,md'`). A sentence that continues onto the
   indented line is worse:
   dpkg's cross-reference sentence acquired both a fake section divider and a
   -f, --field option belonging to a different program, so the whole wrapped
