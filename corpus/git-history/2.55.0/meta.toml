@@ -1,0 +1,21 @@
+# The maintainer's `git history --help` capture (git 2.55 prints its man page, not usage).
+# A rendered man page is not help text (docs/design.md section 3.2 [M-16]): the tool is
+# rendered verbatim here, and the live `git history -h` fallback (which prints the
+# usage forms behind fixup/reword/split) is not captured yet.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git-history"
+version = "2.55.0"
+platform = "maintainer"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git-history", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+min_status = "verbatim"

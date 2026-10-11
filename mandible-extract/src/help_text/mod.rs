@@ -17,6 +17,8 @@ pub mod confession;
 mod fold_repeats;
 mod grammar;
 mod help_word;
+mod listing_probe;
+mod not_a_command;
 mod profile;
 mod sections;
 
@@ -394,6 +396,16 @@ impl ExtractionTier for HelpTextTier {
             probe_help_text_confession_aware(self.probe.as_ref(), tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
+        // The tool refusing the word is not help for it (S-217).
+        if let Some(word) = words.last() {
+            if not_a_command::says_word_is_not_a_command(&raw, word) {
+                return Err(ExtractError::Other(format!(
+                    "`{} --help` answered that {word:?} is not a command",
+                    words.join(" ")
+                )));
+            }
+        }
+
         // Self-similar fan-out (spec M-19, docs/shapes.md S-079): a node
         // whose selected help fingerprints as identical to any strict
         // ancestor for the same resolved binary and extraction generation
@@ -417,6 +429,16 @@ impl ExtractionTier for HelpTextTier {
             .or_else(|| framework::identify_from_help_text(&raw));
         let mut node = build_node(&node_name, &raw, detected, &tool.name);
         node.confession = confession;
+        if words.is_empty() {
+            // Spec §6 rule 2d: the root's own listing invocations.
+            listing_probe::probe_and_merge(
+                self.probe.as_ref(),
+                tool_path,
+                &raw,
+                &tool.name,
+                &mut node.subcommands,
+            );
+        }
         Ok(node)
     }
 
@@ -1001,7 +1023,12 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     node.set_env_vars(parsed.env_vars);
     // Identical rows under one heading are one row. See docs/shapes.md S-187.
     fold_repeats::fold_repeated_rows(&mut node.entities);
-    node.subcommands = parsed.subcommands;
+    // Forms that each open with a different literal verb after the node's
+    // own path name subcommands (S-215).
+    let mut subcommands = parsed.subcommands;
+    let own = (name != tool_name).then_some(name);
+    sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
+    node.subcommands = subcommands;
     help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct

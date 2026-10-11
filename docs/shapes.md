@@ -5037,3 +5037,106 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `[xfail]` on the probe gate.
 - fleet: not measured; no PATH tool prints this heading in the sweep
   pre-check (yarn, pnpm, npm, controls unchanged).
+
+### S-214: a root sentence naming `'<tool> help <option>'` listings
+
+- id: S-214
+- looks like: |
+      'git help -a' and 'git help -g' list available subcommands and some
+      concept guides.
+- tools: git
+- handling: Fixed. A root text sentence that quotes one or two
+  `'<tool> help <option>'` invocations and says they list subcommands or
+  commands opens those invocations as probes (docs/design.md section 6 rule
+  2d, `listing_probe.rs`). The listed rows are appended to the root's own
+  list; rows under a group heading naming interfaces, formats, protocols,
+  guides or concepts are dropped. "See 'git help <command>'", pnpm's "use
+  'pnpm help -a' to list all commands" and snap's "run 'snap help --all'"
+  do not match. `mandible git remote`, `stash`, `worktree` and `bundle` now
+  open their own pages. Fixture: `corpus/git/2.43.0-commands`.
+- fleet: see the round-17 sweep: git gains its listed commands; no other
+  tool moves.
+
+### S-215: usage forms that each open with a different verb name that command's subcommands
+
+- id: S-215
+- looks like: |
+      usage: git bisect start [--no-checkout] [<bad> [<good>...]]
+         or: git bisect (good|bad) [<rev>...]
+         or: git bisect run <cmd> [<arg>...]
+- tools: git (bisect, bundle, commit-graph, reflog, remote, stash, worktree)
+- handling: Fixed. In a labelled usage block, forms that open (after the
+  command path they all share) with two or more distinct bare lowercase
+  words, or a parenthesized alternation of them, name those words as
+  subcommands (`usage_verbs.rs`). A word after a flag, a `<placeholder>`,
+  an UPPERCASE word and a bracketed word (`[push`, `[show]`) are never
+  verbs; a closed group of flags before the word (`[-v | --verbose] show`)
+  is skipped. As in S-179 and S-211 the nodes are `invocation_attested`,
+  listed and never probed. As in S-169 each node carries the forms that
+  name it as its usage and the flags and operands those forms spell; the
+  parent keeps everything it read from the same forms. Fixtures:
+  `corpus/git/2.43.0-verbs`; `corpus/git-history/2.55.0` is the
+  maintainer's man-page capture, rendered verbatim by design (the `-h`
+  forms behind fixup, reword and split are not captured; the unit test
+  `git_history_forms_give_three_verbs_with_choice_valued_flags` pins them).
+  A form that does not name the node's own command (`git log -h` also
+  prints `or: git show ...`) is another command's form, never a verb of
+  this node (`git log`, `show`, `shortlog` fixtures in the same dir).
+- fleet: see the round-17 sweep.
+
+### S-216: flag spellings written with parenthesized alternatives
+
+- id: S-216
+- looks like: |
+      [--term-(new|bad)=<term> --term-(old|good)=<term>]
+      [(-m | --message) <message>]
+      [--update-refs=(branches|head)]
+- tools: git (bisect, stash, worktree)
+- handling: Fixed. In a usage line, `--name-(a|b)rest` spells one flag per
+  alternative; a parenthesized list of dash-led words with an optional
+  `<placeholder>` is one flag with those spellings and that value; a value
+  `=(a|b|c)` of literal words is one flag whose value text stays as printed,
+  `(a|b|c)` (`usage_flag_alternation.rs`).
+  Before, `--term- (new`, `--message` valued `)` and `--update-refs` valued
+  `(branches` were fabricated. Fixture: `corpus/git/2.43.0-verbs`.
+- fleet: see the round-17 sweep.
+
+### S-217: a probe answer that refuses the probed word is not help for it
+
+- id: S-217
+- looks like: |
+      git: 'citool' is not a git command. See 'git --help'.
+
+      The most similar command is
+      	difftool
+- tools: git (citool, gui, gitk, and any listed command not installed here)
+- handling: Fixed. When the first non-blank line of a subcommand's help
+  answer names the probed word and says it is not a command (`is not a
+  [word] command`, `unknown/unrecognized/invalid command`, `no such command`),
+  the tool is refusing the word: the node reads as help that could not be read
+  (`not_a_command.rs`, checked in `extract_node`). Before, the did-you-mean
+  line became a fabricated child (`difftool`) that was then probed.
+  Fixture: `corpus/git/2.43.0-verbs` (`git citool`, `git gui`).
+- fleet: see the round-17 sweep.
+
+### S-218: a flag group nested in a usage flag, a pipeline, a flag owning a form's operand
+
+- id: S-218
+- looks like: |
+      git worktree add [--lock [--reason <string>]] [(-b | -B) <new-branch>]
+      git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+      git remote add [--mirror=<fetch|push>] <name> <url>
+      git remote set-url --add <name> <newurl>
+      git log --pretty=short | git shortlog [<options>]
+- tools: git (worktree, remote, reflog, stash, shortlog), dmsetup
+- handling: Fixed (`usage_flag_forms.rs`, `usage_flag_alternation.rs`, `usage_segments`).
+  A flag group that opens a nested group with a dash (`--lock [--reason <string>]`,
+  `--all [--single-worktree] | <refs>`) is hoisted out as a flag of its own, not
+  the first flag's value. A `(a | b | <operand>)` list with at least one flag reads
+  its flags; `(-b | -B) <v>` gives each flag the value. A `<name|name>` placeholder
+  keeps its `|`. A bare flag before `<name>` has no value when `<name>` is an
+  operand of another form. After `X | <first word>` only the command after the
+  pipe is read. Before, these gave `--lock` the value `--reason <string>`, lost
+  `-a`, cut `<fetch|push>` at the bar, and gave shortlog `--pretty`.
+  Fixture: `corpus/git/2.43.0-verbs`, `corpus/dmsetup/1.02.185`.
+- fleet: see the round-17 sweep.

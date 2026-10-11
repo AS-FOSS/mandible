@@ -661,6 +661,10 @@ mod tests {
             InertArgv::HelpShortForPath {
                 words: vec!["anything".to_string()],
             },
+            // Rule 2d: a listing invocation is never exactly `["--help"]`.
+            InertArgv::HelpListing {
+                option: "-a".to_string(),
+            },
             InertArgv::CobraComplete { words: vec![] },
             InertArgv::CompletionScript {
                 shell: "zsh".to_string(),

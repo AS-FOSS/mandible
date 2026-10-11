@@ -13,6 +13,21 @@ flags:
   provenance:
     sources:
     - help-text-synopsis
+- spellings:
+  - -c
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --columns
+  provenance:
+    sources:
+    - help-text-synopsis
 provenance:
   sources:
   - help-text
