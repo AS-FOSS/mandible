@@ -19,3 +19,23 @@ pub(super) fn continues_wrapped_description(
     let indent = leading_whitespace(line);
     indent > leading_whitespace(entry) && indent == leading_whitespace(prev)
 }
+
+/// True when `line` is an example command line inside the open row's
+/// description: it sits deeper than the description line just before it,
+/// that line ends in a colon (`one can use:`), and it has no description
+/// column of its own. Such a line stays description text. See
+/// docs/shapes.md S-011.
+pub(super) fn is_example_under_colon(
+    rows: &[FlagsBlockRow<'_>],
+    current_entry_line: Option<&str>,
+    line: &str,
+) -> bool {
+    let (Some(_), Some(FlagsBlockRow::Continuation(text, prev))) =
+        (current_entry_line, rows.last())
+    else {
+        return false;
+    };
+    text.ends_with(':')
+        && leading_whitespace(line) > leading_whitespace(prev)
+        && !line.trim().contains("  ")
+}

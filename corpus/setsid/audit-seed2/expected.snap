@@ -1,4 +1,5 @@
 name: setsid
+description: Run a program in a new session.
 usage:
 - ' setsid [options] <program> [arguments ...]'
 positionals:

@@ -1,4 +1,5 @@
 name: rubyobjnew-bpfcc
+description: Summarize object allocations in high-level languages.
 usage:
 - 'usage: uobjnew [-h] [-l {c,java,ruby,tcl}] [-C TOP_COUNT] [-S TOP_SIZE] [-v] pid [interval]'
 positionals:

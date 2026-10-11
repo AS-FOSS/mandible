@@ -33,12 +33,13 @@ use mandible_core::{
 
 mod avoption;
 mod backfill;
+mod bracket_rows;
 mod builtin_usage;
+mod bullet_values;
 mod bullets;
 mod caps_single_dash;
 mod command_list_rows;
 mod command_row_column;
-mod dashless_key_flags;
 mod description_choices;
 mod emit;
 mod entry;
@@ -47,7 +48,8 @@ mod flag_row_column;
 mod flag_rows;
 mod heading;
 mod invocation_block;
-mod key_value_operands;
+mod key_value_text;
+mod labelled_values;
 mod layout;
 mod multiword;
 mod multiword_value_row;
@@ -58,9 +60,11 @@ mod paren_flag_rows;
 mod per_form;
 mod plural_owner;
 mod plus_minus;
+mod positional_choices;
 mod preamble;
 mod punct_short;
 mod repair;
+mod root_prose;
 mod rule_heading;
 mod scan;
 mod short_letter_word_family;
@@ -88,7 +92,6 @@ use avoption::{
 };
 use backfill::*;
 use bullets::*;
-use dashless_key_flags::recover_dashless_key_flags;
 use description_choices::attach_description_tail_choices;
 pub use emit::*;
 pub use entry::*;
@@ -96,7 +99,7 @@ use flag_row_column::*;
 use flag_rows::*;
 pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
-use key_value_operands::recover_key_value_operands;
+use key_value_text::key_value_paragraphs;
 pub use layout::*;
 use multiword::*;
 use no_option_row::take_no_option_row;
@@ -120,7 +123,9 @@ use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
 use usage_optional_word::scan_usage_optional_word_table;
 use usage_signs::*;
-use value_form_row::{mark_sole_equals_rows, value_form_sub_row};
+use value_form_row::{
+    choice_name_len, choices_sub_row_description, mark_sole_equals_rows, value_form_sub_row,
+};
 use word_grid::take_word_grid;
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
@@ -408,6 +413,8 @@ pub fn parse_with_profile(
     // S-143, S-144.
     let raw = rewrite_lowdown_bullets(&raw, tool_name);
     let raw = rule_heading::rewrite_rule_bracketed_headings(&raw);
+    // A table of bracket-wrapped option rows (jarsigner) reads as plain rows.
+    let raw = bracket_rows::unwrap_bracketed_rows(&raw).unwrap_or(raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it. Doing it here, once, keeps the recovered
@@ -1027,6 +1034,7 @@ fn extract_description(
             if !starts_with_usage_prefix(t)
                 && !in_usage_block(j)
                 && !looks_like_bnf_production_line(t)
+                && !root_prose::is_bare_heading_word(lines, j)
             {
                 current.push(l);
             }
@@ -1288,6 +1296,14 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         // A word grid no flag owns is prose about the tool (S-206).
         if find_owning_flag_index(heading, &st.result.flags).is_none()
             && take_word_grid(heading, &lines[block_start..end], st.result)
+        {
+            return i;
+        }
+        if labelled_values::take_labelled_values(heading, &lines[block_start..end], st.result) {
+            return i;
+        }
+        if find_owning_flag_index(heading, &st.result.flags).is_none()
+            && positional_choices::take_operand_values(heading, &entries, st.result)
         {
             return i;
         }
@@ -2003,10 +2019,8 @@ fn scan_entries(
             // docs/shapes.md S-027.
             if is_wrapped_prose_continuation(lines, i) {
                 let (end, text) = wrapped_prose_paragraph(lines, i);
-                st.result.description = Some(match st.result.description.take() {
-                    Some(d) => format!("{d} {text}"),
-                    None => text,
-                });
+                let own = st.result.description.take();
+                st.result.description = Some(builtin_usage::append_paragraph(own, lines, i, text));
                 i = end;
                 continue;
             }
@@ -2404,6 +2418,17 @@ fn parse_body(
             None => text,
         });
     }
+    if description.is_none() {
+        description = root_prose::indented_lead(&lines);
+    }
+    if usage_start.is_some() {
+        if let Some(text) = root_prose::prose_after_usage(&lines, description_bound) {
+            description = Some(match description {
+                Some(d) => format!("{d}\n\n{text}"),
+                None => text,
+            });
+        }
+    }
     description = with_form_description(description, &form_description);
     if let Some(description) = description {
         result.description = Some(description);
@@ -2431,8 +2456,12 @@ fn parse_body(
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
-    recover_key_value_operands(&mut result.positionals, &result.usage, &lines);
-    recover_dashless_key_flags(&mut result.flags, &lines);
+    if let Some(text) = key_value_paragraphs(&result.usage, &lines) {
+        result.description = Some(match result.description.take() {
+            Some(d) => format!("{d}\n\n{text}"),
+            None => text,
+        });
+    }
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block
@@ -2515,6 +2544,7 @@ fn parse_body(
     // [S-133] `-tl or --type l`-style rows: fold into one flag with
     // `choices`, gated on the raw ` or ` row's own literal text.
     fold_or_joined_choice_rows(raw, &mut result.flags);
+    bullet_values::attach_bullet_value_choices(&mut result.flags);
     attach_description_tail_choices(&mut result.flags);
     spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its

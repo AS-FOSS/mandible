@@ -1389,8 +1389,6 @@ subcommands:
       - help-text
   - spellings:
     - --no-index
-    value_name: <options>
-    value_kind: Optional
     provenance:
       sources:
       - help-text-synopsis

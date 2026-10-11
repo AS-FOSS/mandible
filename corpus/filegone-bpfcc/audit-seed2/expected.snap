@@ -1,4 +1,5 @@
 name: filegone-bpfcc
+description: Trace why file gone (deleted or renamed)
 usage:
 - 'usage: filegone-bpfcc [-h] [-p PID]'
 flags:

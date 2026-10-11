@@ -1,20 +1,54 @@
 name: jfr
-description: Configures a .jfc file
+description: |-
+  Configures a .jfc file
+
+  option=value The option value to modify. For available options, see listed input files below.
+
+  event-setting=value The event setting value to modify. Use the form: <event-name>#<setting-name>=<value> To add a new event setting, prefix the event name with '+'.
+
+  The whitespace delimiter can be omitted for timespan values, i.e. 20ms. For more information about the settings syntax, see Javadoc of the jdk.jfr package.
+
+  Options for default.jfc:
+
+  gc=<off|normal|detailed|high|all>
+
+  allocation-profiling=<off|low|medium|high|maximum>
+
+  compiler=<off|normal|detailed|all>
+
+  method-profiling=<off|normal|high|max>
+
+  thread-dump=<off|once|60s|10s|1s>
+
+  exceptions=<off|errors|all>
+
+  memory-leaks=<off|types|stack-traces|gc-roots>
+
+  locking-threshold=<timespan>
+
+  file-threshold=<timespan>
+
+  socket-threshold=<timespan>
+
+  class-loading=<true|false>
+
+  To run interactive configuration wizard:
+
+  jfr configure --interactive
+
+  Example usage:
+
+  jfr configure gc=high method-profiling=high --output high.jfc
+
+  jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
+
+  jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
+
+  jfr configure --input default.jfc,third-party.jfc --output unified.jfc
+
+  jfr configure --input none +Hello#enabled=true --output minimal.jfc
 usage:
 - jfr configure [--interactive] [--verbose] [--input <files>] [--output <file>] [option=value]* [event-setting=value]*
-positionals:
-- name: option=value
-  variadic: true
-  description: The option value to modify. For available options, see listed input files below.
-  provenance:
-    sources:
-    - help-text
-- name: event-setting=value
-  variadic: true
-  description: 'The event setting value to modify. Use the form: <event-name>#<setting-name>=<value> To add a new event setting, prefix the event name with ''+''.'
-  provenance:
-    sources:
-    - help-text
 flags:
 - spellings:
   - --interactive
@@ -41,126 +75,6 @@ flags:
   value_name: <file>
   value_kind: Required
   description: The filename of the generated output file. If not specified, the filename custom.jfc will be used.
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - gc
-  value_kind: Required
-  choices:
-  - off
-  - normal
-  - detailed
-  - high
-  - all
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - allocation-profiling
-  value_kind: Required
-  choices:
-  - off
-  - low
-  - medium
-  - high
-  - maximum
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - compiler
-  value_kind: Required
-  choices:
-  - off
-  - normal
-  - detailed
-  - all
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - method-profiling
-  value_kind: Required
-  choices:
-  - off
-  - normal
-  - high
-  - max
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - thread-dump
-  value_kind: Required
-  choices:
-  - off
-  - once
-  - 60s
-  - 10s
-  - 1s
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - exceptions
-  value_kind: Required
-  choices:
-  - off
-  - errors
-  - all
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - memory-leaks
-  value_kind: Required
-  choices:
-  - off
-  - types
-  - stack-traces
-  - gc-roots
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - locking-threshold
-  value_name: <timespan>
-  value_kind: Required
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - file-threshold
-  value_name: <timespan>
-  value_kind: Required
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - socket-threshold
-  value_name: <timespan>
-  value_kind: Required
-  group: 'Options for default.jfc:'
-  provenance:
-    sources:
-    - help-text
-- spellings:
-  - class-loading
-  value_kind: Required
-  choices:
-  - 'true'
-  - 'false'
-  group: 'Options for default.jfc:'
   provenance:
     sources:
     - help-text

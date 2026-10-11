@@ -697,6 +697,16 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     {
         return Some((Spelling::single_dash(run), after_run));
     }
+    // A lower-case word of three or more letters glued to an optional
+    // value (`-verbose[:suboptions]`) is one single-dash spelling with
+    // an optional value, never `-v` plus a value `erbose[:suboptions]`.
+    // See docs/shapes.md S-230.
+    if run.chars().count() >= 3
+        && run.chars().all(|c| c.is_ascii_lowercase())
+        && (after_run.starts_with("[:") || after_run.starts_with("[="))
+    {
+        return Some((Spelling::single_dash(run), after_run));
+    }
     // No abbreviation bracket: an ordinary one-character short flag;
     // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;

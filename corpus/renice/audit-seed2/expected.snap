@@ -1,4 +1,5 @@
 name: renice
+description: Alter the priority of running processes.
 usage:
 - ' renice [-n|--priority|--relative] <priority> [-p|--pid] <pid>...'
 - ' renice [-n|--priority|--relative] <priority>  -g|--pgrp <pgid>...'

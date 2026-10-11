@@ -1,4 +1,5 @@
 name: fsck
+description: Check and repair a Linux filesystem.
 usage:
 - ' fsck [options] -- [fs-options] [<filesystem> ...]'
 positionals:

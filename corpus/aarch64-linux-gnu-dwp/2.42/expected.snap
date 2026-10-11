@@ -1,4 +1,5 @@
 name: aarch64-linux-gnu-dwp
+description: Report bugs to <https://sourceware.org/bugzilla/>
 usage:
 - 'Usage: aarch64-linux-gnu-dwp [options] [file...]'
 positionals:

@@ -1,4 +1,5 @@
 name: fdisk
+description: Display or manipulate a disk partition table.
 usage:
 - ' fdisk [options] <disk>         change partition table'
 - ' fdisk [options] -l [<disk>...] list partition table(s)'

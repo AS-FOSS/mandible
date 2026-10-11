@@ -1,0 +1,16 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "find"
+version = "4.9.0-prose"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2"
+
+[[capture]]
+argv = ["find", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+must_describe_root = ["Default path is the current directory; default expression is -print."]
