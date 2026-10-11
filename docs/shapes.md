@@ -5298,3 +5298,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `cd` and the other builtin wrappers are absent from this box: the
   full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
   distro that ships `/usr/bin/cd`.
+
+### S-228: a usage form led by another command path of the same program
+
+- id: S-228
+- looks like: |
+      usage: git log [<options>] [<revision-range>] [[--] <path>...]
+         or: git show [<options>] <object>...
+- tools: git
+- handling: Fixed in the USAGE renderer. A form that opens with the program
+  word the node's other forms write before its own name (`git`), yet names a
+  different command path (`git show` under node `log`), is shown as printed
+  instead of getting the node's name prefixed (`log git show ...`). A form
+  with no leading program (`or: [<options>] <object>...`) still gets the
+  node's name. Test: `a_form_led_by_another_command_path_is_not_prefixed_with_the_node`.
+- fleet: render-only; the parsed tree and every sweep record are unchanged.

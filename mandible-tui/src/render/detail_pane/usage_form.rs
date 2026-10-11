@@ -5,11 +5,8 @@
 use crate::sanitize::defensive_single_line;
 use mandible_core::{reconstruct_abbrev_word, Text};
 
-/// One usage line with its redundant prefix stripped: the `Usage:` or
-/// `or:` label, and the program word the heading already names. Returns
-/// the indentation column the author gave the line. See S-108, S-150.
-pub(super) fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
-    let name = defensive_single_line(node_name);
+/// The label-stripped text of one usage line and its indentation column.
+fn stripped_form(usage: &str) -> (usize, String) {
     let raw = defensive_single_line(usage);
 
     // Tabs are already expanded to spaces at 8-column stops
@@ -36,7 +33,40 @@ pub(super) fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
             text = after;
         }
     }
+    (column, text)
+}
 
+/// The first word of each form that has a word before the node's own name
+/// (`git` for `git log [<options>]` under node `log`): the program a form
+/// of this node is written from.
+fn leading_programs(node_name: &str, usage: &[Text]) -> Vec<String> {
+    let name = defensive_single_line(node_name);
+    if name.is_empty() {
+        return Vec::new();
+    }
+    usage
+        .iter()
+        .filter_map(|u| {
+            let (_, text) = stripped_form(u.as_str());
+            let (start, _) = usage_naming_span(&text, &name)?;
+            let first = text[..start].split_whitespace().next()?;
+            (!looks_like_option_or_placeholder(first)).then(|| first.to_string())
+        })
+        .collect()
+}
+
+/// One usage line with its redundant prefix stripped (the `Usage:`/`or:`
+/// label and the program word the heading already names), for a node whose other forms name `programs` before its
+/// own name. A form that opens with one of those programs but names a
+/// different command path (`git log`'s `or: git show [<options>]`) is
+/// printed as written: the node's name is not prepended to it.
+pub(super) fn usage_form_led_by(
+    node_name: &str,
+    usage: &str,
+    programs: &[String],
+) -> (usize, String) {
+    let name = defensive_single_line(node_name);
+    let (column, text) = stripped_form(usage);
     let text = if name.is_empty() {
         text
     } else if let Some((start, end)) = usage_naming_span(&text, &name) {
@@ -49,6 +79,12 @@ pub(super) fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
         // node's own spelling or stem (`gcc-ranlib-13`'s own form opens
         // with `/usr/bin/ranlib`), so the same replacement applies.
         format!("{}{name}{}", &text[..start], &text[end..])
+    } else if text
+        .split_whitespace()
+        .next()
+        .is_some_and(|w| programs.iter().any(|p| p == w))
+    {
+        text
     } else {
         format!("{name} {text}")
     };
@@ -102,11 +138,12 @@ pub(super) fn or_marker_len(text: &str) -> usize {
     0
 }
 
-/// Every usage line of a node, each shaped by [`usage_form`].
+/// Every usage line of a node, each shaped by [`usage_form_led_by`].
 pub(super) fn usage_forms(node_name: &str, usage: &[Text]) -> Vec<(usize, String)> {
+    let programs = leading_programs(node_name, usage);
     let forms: Vec<(usize, String)> = usage
         .iter()
-        .map(|u| usage_form(node_name, u.as_str()))
+        .map(|u| usage_form_led_by(node_name, u.as_str(), &programs))
         .collect();
     let shift = forms.first().map(|(column, _)| *column).unwrap_or(0);
     forms
