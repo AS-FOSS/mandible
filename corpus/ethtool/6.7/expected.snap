@@ -101,7 +101,21 @@ flags:
   - --change
   value_name: DEVNAME
   value_kind: Required
-  description: Change generic options [ speed %d ] [ lanes %d ] [ duplex half|full ] [ port tp|aui|bnc|mii|fibre|da ] [ mdix auto|on|off ] [ autoneg on|off ] [ advertise %x[/%x] | mode on|off ... [--] ] [ phyad %d ] [ xcvr internal|external ] [ wol %d[/%d] | p|u|m|b|a|g|s|f|d... ] [ sopass %x:%x:%x:%x:%x:%x ] [ msglvl %d[/%d] | type on|off ... [--] ] [ master-slave preferred-master|preferred-slave|forced-master|forced-slave ]
+  description: |-
+    Change generic options
+      [ speed %d ]
+      [ lanes %d ]
+      [ duplex half|full ]
+      [ port tp|aui|bnc|mii|fibre|da ]
+      [ mdix auto|on|off ]
+      [ autoneg on|off ]
+      [ advertise %x[/%x] | mode on|off ... [--] ]
+      [ phyad %d ]
+      [ xcvr internal|external ]
+      [ wol %d[/%d] | p|u|m|b|a|g|s|f|d... ]
+      [ sopass %x:%x:%x:%x:%x:%x ]
+      [ msglvl %d[/%d] | type on|off ... [--] ]
+      [ master-slave preferred-master|preferred-slave|forced-master|forced-slave ]
   provenance:
     sources:
     - help-text-synopsis
@@ -110,7 +124,9 @@ flags:
   - --show-pause
   value_name: DEVNAME
   value_kind: Required
-  description: Show pause options [ --src aggregate | emac | pmac ]
+  description: |-
+    Show pause options
+      [ --src aggregate | emac | pmac ]
   provenance:
     sources:
     - help-text-synopsis
@@ -129,7 +145,11 @@ flags:
   - --pause
   value_name: DEVNAME
   value_kind: Required
-  description: Set pause options [ autoneg on|off ] [ rx on|off ] [ tx on|off ]
+  description: |-
+    Set pause options
+      [ autoneg on|off ]
+      [ rx on|off ]
+      [ tx on|off ]
   provenance:
     sources:
     - help-text-synopsis
@@ -147,7 +167,35 @@ flags:
   - --coalesce
   value_name: DEVNAME
   value_kind: Required
-  description: Set coalesce options [adaptive-rx on|off] [adaptive-tx on|off] [rx-usecs N] [rx-frames N] [rx-usecs-irq N] [rx-frames-irq N] [tx-usecs N] [tx-frames N] [tx-usecs-irq N] [tx-frames-irq N] [stats-block-usecs N] [pkt-rate-low N] [rx-usecs-low N] [rx-frames-low N] [tx-usecs-low N] [tx-frames-low N] [pkt-rate-high N] [rx-usecs-high N] [rx-frames-high N] [tx-usecs-high N] [tx-frames-high N] [sample-interval N] [cqe-mode-rx on|off] [cqe-mode-tx on|off] [tx-aggr-max-bytes N] [tx-aggr-max-frames N] [tx-aggr-time-usecs N]
+  description: |-
+    Set coalesce options
+      [adaptive-rx on|off]
+      [adaptive-tx on|off]
+      [rx-usecs N]
+      [rx-frames N]
+      [rx-usecs-irq N]
+      [rx-frames-irq N]
+      [tx-usecs N]
+      [tx-frames N]
+      [tx-usecs-irq N]
+      [tx-frames-irq N]
+      [stats-block-usecs N]
+      [pkt-rate-low N]
+      [rx-usecs-low N]
+      [rx-frames-low N]
+      [tx-usecs-low N]
+      [tx-frames-low N]
+      [pkt-rate-high N]
+      [rx-usecs-high N]
+      [rx-frames-high N]
+      [tx-usecs-high N]
+      [tx-frames-high N]
+      [sample-interval N]
+      [cqe-mode-rx on|off]
+      [cqe-mode-tx on|off]
+      [tx-aggr-max-bytes N]
+      [tx-aggr-max-frames N]
+      [tx-aggr-time-usecs N]
   provenance:
     sources:
     - help-text-synopsis
@@ -165,7 +213,18 @@ flags:
   - --set-ring
   value_name: DEVNAME
   value_kind: Required
-  description: Set RX/TX ring parameters [ rx N ] [ rx-mini N ] [ rx-jumbo N ] [ tx N ] [ rx-buf-len N ] [ tcp-data-split auto|on|off ] [ cqe-size N ] [ tx-push on|off ] [ rx-push on|off ] [ tx-push-buf-len N]
+  description: |-
+    Set RX/TX ring parameters
+      [ rx N ]
+      [ rx-mini N ]
+      [ rx-jumbo N ]
+      [ tx N ]
+      [ rx-buf-len N ]
+      [ tcp-data-split auto|on|off ]
+      [ cqe-size N ]
+      [ tx-push on|off ]
+      [ rx-push on|off ]
+      [ tx-push-buf-len N]
   provenance:
     sources:
     - help-text-synopsis
@@ -185,7 +244,9 @@ flags:
   - --offload
   value_name: DEVNAME
   value_kind: Required
-  description: Set protocol offload and other features FEATURE on|off ...
+  description: |-
+    Set protocol offload and other features
+      FEATURE on|off ...
   provenance:
     sources:
     - help-text-synopsis
@@ -203,7 +264,10 @@ flags:
   - --register-dump
   value_name: DEVNAME
   value_kind: Required
-  description: Do a register dump [ raw on|off ] [ file FILENAME ]
+  description: |-
+    Do a register dump
+      [ raw on|off ]
+      [ file FILENAME ]
   provenance:
     sources:
     - help-text-synopsis
@@ -212,7 +276,11 @@ flags:
   - --eeprom-dump
   value_name: DEVNAME
   value_kind: Required
-  description: Do a EEPROM dump [ raw on|off ] [ offset N ] [ length N ]
+  description: |-
+    Do a EEPROM dump
+      [ raw on|off ]
+      [ offset N ]
+      [ length N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -221,7 +289,12 @@ flags:
   - --change-eeprom
   value_name: DEVNAME
   value_kind: Required
-  description: Change bytes in device EEPROM [ magic N ] [ offset N ] [ length N ] [ value N ]
+  description: |-
+    Change bytes in device EEPROM
+      [ magic N ]
+      [ offset N ]
+      [ length N ]
+      [ value N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -239,7 +312,9 @@ flags:
   - --identify
   value_name: DEVNAME
   value_kind: Required
-  description: Show visible port identification (e.g. blinking) [ TIME-IN-SECONDS ]
+  description: |-
+    Show visible port identification (e.g. blinking)
+      [ TIME-IN-SECONDS ]
   provenance:
     sources:
     - help-text-synopsis
@@ -248,7 +323,9 @@ flags:
   - --test
   value_name: DEVNAME
   value_kind: Required
-  description: Execute adapter self test [ online | offline | external_lb ]
+  description: |-
+    Execute adapter self test
+      [ online | offline | external_lb ]
   provenance:
     sources:
     - help-text-synopsis
@@ -257,7 +334,10 @@ flags:
   - --statistics
   value_name: DEVNAME
   value_kind: Required
-  description: Show adapter statistics [ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ] [ --src aggregate | emac | pmac ]
+  description: |-
+    Show adapter statistics
+      [ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]
+      [ --src aggregate | emac | pmac ]
   provenance:
     sources:
     - help-text-synopsis
@@ -292,7 +372,10 @@ flags:
   - --show-ntuple
   value_name: DEVNAME
   value_kind: Required
-  description: Show Rx network flow classification options or rules [ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 [context %d] | rule %d ]
+  description: |-
+    Show Rx network flow classification options or rules
+      [ rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 [context %d] |
+      rule %d ]
   provenance:
     sources:
     - help-text-synopsis
@@ -303,7 +386,29 @@ flags:
   - --config-ntuple
   value_name: DEVNAME
   value_kind: Required
-  description: Configure Rx network flow classification options or rules rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 m|v|t|s|d|f|n|r... [context %d] | flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4|ip6|tcp6|udp6|ah6|esp6|sctp6 [ src %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ] [ dst %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ] [ proto %d [m %x] ] [ src-ip IP-ADDRESS [m IP-ADDRESS] ] [ dst-ip IP-ADDRESS [m IP-ADDRESS] ] [ tos %d [m %x] ] [ tclass %d [m %x] ] [ l4proto %d [m %x] ] [ src-port %d [m %x] ] [ dst-port %d [m %x] ] [ spi %d [m %x] ] [ vlan-etype %x [m %x] ] [ vlan %x [m %x] ] [ user-def %x [m %x] ] [ dst-mac %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ] [ action %d ] | [ vf %d queue %d ] [ context %d ] [ loc %d ] | delete %d
+  description: |-
+    Configure Rx network flow classification options or rules
+      rx-flow-hash tcp4|udp4|ah4|esp4|sctp4|tcp6|udp6|ah6|esp6|sctp6 m|v|t|s|d|f|n|r... [context %d] |
+      flow-type ether|ip4|tcp4|udp4|sctp4|ah4|esp4|ip6|tcp6|udp6|ah6|esp6|sctp6
+      [ src %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]
+      [ dst %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]
+      [ proto %d [m %x] ]
+      [ src-ip IP-ADDRESS [m IP-ADDRESS] ]
+      [ dst-ip IP-ADDRESS [m IP-ADDRESS] ]
+      [ tos %d [m %x] ]
+      [ tclass %d [m %x] ]
+      [ l4proto %d [m %x] ]
+      [ src-port %d [m %x] ]
+      [ dst-port %d [m %x] ]
+      [ spi %d [m %x] ]
+      [ vlan-etype %x [m %x] ]
+      [ vlan %x [m %x] ]
+      [ user-def %x [m %x] ]
+      [ dst-mac %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]
+      [ action %d ] | [ vf %d queue %d ]
+      [ context %d ]
+      [ loc %d ] |
+      delete %d
   provenance:
     sources:
     - help-text-synopsis
@@ -322,7 +427,9 @@ flags:
   - --show-rxfh
   value_name: DEVNAME
   value_kind: Required
-  description: Show Rx flow hash indirection table and/or RSS hash key [ context %d ]
+  description: |-
+    Show Rx flow hash indirection table and/or RSS hash key
+      [ context %d ]
   provenance:
     sources:
     - help-text-synopsis
@@ -332,7 +439,13 @@ flags:
   - --rxfh
   value_name: DEVNAME
   value_kind: Required
-  description: Set Rx flow hash indirection table and/or RSS hash key [ context %d|new ] [ equal N | weight W0 W1 ... | default ] [ hkey %x:%x:%x:%x:%x:.... ] [ hfunc FUNC ] [ delete ]
+  description: |-
+    Set Rx flow hash indirection table and/or RSS hash key
+      [ context %d|new ]
+      [ equal N | weight W0 W1 ... | default ]
+      [ hkey %x:%x:%x:%x:%x:.... ]
+      [ hfunc FUNC ]
+      [ delete ]
   provenance:
     sources:
     - help-text-synopsis
@@ -341,7 +454,9 @@ flags:
   - --flash
   value_name: DEVNAME
   value_kind: Required
-  description: Flash firmware image from the specified file to a region on the device FILENAME [ REGION-NUMBER-TO-FLASH ]
+  description: |-
+    Flash firmware image from the specified file to a region on the device
+      FILENAME [ REGION-NUMBER-TO-FLASH ]
   provenance:
     sources:
     - help-text-synopsis
@@ -359,7 +474,9 @@ flags:
   - --get-dump
   value_name: DEVNAME
   value_kind: Required
-  description: Get dump flag, data [ data FILENAME ]
+  description: |-
+    Get dump flag, data
+      [ data FILENAME ]
   provenance:
     sources:
     - help-text-synopsis
@@ -368,7 +485,9 @@ flags:
   - --set-dump
   value_name: DEVNAME
   value_kind: Required
-  description: Set dump flag of the device N
+  description: |-
+    Set dump flag of the device
+      N
   provenance:
     sources:
     - help-text-synopsis
@@ -386,7 +505,12 @@ flags:
   - --set-channels
   value_name: DEVNAME
   value_kind: Required
-  description: Set Channels [ rx N ] [ tx N ] [ other N ] [ combined N ]
+  description: |-
+    Set Channels
+      [ rx N ]
+      [ tx N ]
+      [ other N ]
+      [ combined N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -402,7 +526,9 @@ flags:
   - --set-priv-flags
   value_name: DEVNAME
   value_kind: Required
-  description: Set private flags FLAG on|off ...
+  description: |-
+    Set private flags
+      FLAG on|off ...
   provenance:
     sources:
     - help-text-synopsis
@@ -412,7 +538,15 @@ flags:
   - --module-info
   value_name: DEVNAME
   value_kind: Required
-  description: Query/Decode Module EEPROM information and optical diagnostics if available [ raw on|off ] [ hex on|off ] [ offset N ] [ length N ] [ page N ] [ bank N ] [ i2c N ]
+  description: |-
+    Query/Decode Module EEPROM information and optical diagnostics if available
+      [ raw on|off ]
+      [ hex on|off ]
+      [ offset N ]
+      [ length N ]
+      [ page N ]
+      [ bank N ]
+      [ i2c N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -428,7 +562,12 @@ flags:
   - --set-eee
   value_name: DEVNAME
   value_kind: Required
-  description: Set EEE settings [ eee on|off ] [ advertise %x ] [ tx-lpi on|off ] [ tx-timer %d ]
+  description: |-
+    Set EEE settings
+      [ eee on|off ]
+      [ advertise %x ]
+      [ tx-lpi on|off ]
+      [ tx-timer %d ]
   provenance:
     sources:
     - help-text-synopsis
@@ -436,7 +575,11 @@ flags:
   - --set-phy-tunable
   value_name: DEVNAME
   value_kind: Required
-  description: Set PHY tunable [ downshift on|off [count N] ] [ fast-link-down on|off [msecs N] ] [ energy-detect-power-down on|off [msecs N] ]
+  description: |-
+    Set PHY tunable
+      [ downshift on|off [count N] ]
+      [ fast-link-down on|off [msecs N] ]
+      [ energy-detect-power-down on|off [msecs N] ]
   provenance:
     sources:
     - help-text-synopsis
@@ -444,7 +587,11 @@ flags:
   - --get-phy-tunable
   value_name: DEVNAME
   value_kind: Required
-  description: Get PHY tunable [ downshift ] [ fast-link-down ] [ energy-detect-power-down ]
+  description: |-
+    Get PHY tunable
+      [ downshift ]
+      [ fast-link-down ]
+      [ energy-detect-power-down ]
   provenance:
     sources:
     - help-text-synopsis
@@ -452,7 +599,12 @@ flags:
   - --get-tunable
   value_name: DEVNAME
   value_kind: Required
-  description: Get tunable [ rx-copybreak ] [ tx-copybreak ] [ tx-buf-size ] [ pfc-prevention-tout ]
+  description: |-
+    Get tunable
+      [ rx-copybreak ]
+      [ tx-copybreak ]
+      [ tx-buf-size ]
+      [ pfc-prevention-tout ]
   provenance:
     sources:
     - help-text-synopsis
@@ -460,7 +612,12 @@ flags:
   - --set-tunable
   value_name: DEVNAME
   value_kind: Required
-  description: Set tunable [ rx-copybreak N ] [ tx-copybreak N ] [ tx-buf-size N ] [ pfc-prevention-tout N ]
+  description: |-
+    Set tunable
+      [ rx-copybreak N ]
+      [ tx-copybreak N ]
+      [ tx-buf-size N ]
+      [ pfc-prevention-tout N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -468,7 +625,29 @@ flags:
   - --reset
   value_name: DEVNAME
   value_kind: Required
-  description: Reset components [ flags %x ] [ mgmt ] [ mgmt-shared ] [ irq ] [ irq-shared ] [ dma ] [ dma-shared ] [ filter ] [ filter-shared ] [ offload ] [ offload-shared ] [ mac ] [ mac-shared ] [ phy ] [ phy-shared ] [ ram ] [ ram-shared ] [ ap ] [ ap-shared ] [ dedicated ] [ all ]
+  description: |-
+    Reset components
+      [ flags %x ]
+      [ mgmt ]
+      [ mgmt-shared ]
+      [ irq ]
+      [ irq-shared ]
+      [ dma ]
+      [ dma-shared ]
+      [ filter ]
+      [ filter-shared ]
+      [ offload ]
+      [ offload-shared ]
+      [ mac ]
+      [ mac-shared ]
+      [ phy ]
+      [ phy-shared ]
+      [ ram ]
+      [ ram-shared ]
+      [ ap ]
+      [ ap-shared ]
+      [ dedicated ]
+      [ all ]
   provenance:
     sources:
     - help-text-synopsis
@@ -484,7 +663,9 @@ flags:
   - --set-fec
   value_name: DEVNAME
   value_kind: Required
-  description: Set FEC settings [ encoding auto|off|rs|baser|llrs [...] ]
+  description: |-
+    Set FEC settings
+      [ encoding auto|off|rs|baser|llrs [...] ]
   provenance:
     sources:
     - help-text-synopsis
@@ -509,7 +690,12 @@ flags:
   - --cable-test-tdr
   value_name: DEVNAME
   value_kind: Required
-  description: Print cable test time domain reflectrometery data [ first N ] [ last N ] [ step N ] [ pair N ]
+  description: |-
+    Print cable test time domain reflectrometery data
+      [ first N ]
+      [ last N ]
+      [ step N ]
+      [ pair N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -533,7 +719,9 @@ flags:
   - --set-module
   value_name: DEVNAME
   value_kind: Required
-  description: Set transceiver module settings [ power-mode-policy high|auto ]
+  description: |-
+    Set transceiver module settings
+      [ power-mode-policy high|auto ]
   provenance:
     sources:
     - help-text-synopsis
@@ -549,7 +737,14 @@ flags:
   - --set-plca-cfg
   value_name: DEVNAME
   value_kind: Required
-  description: Set PLCA configuration [ enable on|off ] [ node-id N ] [ node-cnt N ] [ to-tmr N ] [ burst-cnt N ] [ burst-tmr N ]
+  description: |-
+    Set PLCA configuration
+      [ enable on|off ]
+      [ node-id N ]
+      [ node-cnt N ]
+      [ to-tmr N ]
+      [ burst-cnt N ]
+      [ burst-tmr N ]
   provenance:
     sources:
     - help-text-synopsis
@@ -573,7 +768,13 @@ flags:
   - --set-mm
   value_name: DEVNAME
   value_kind: Required
-  description: Set MAC merge layer parameters [ verify-enabled on|off ] [ verify-time N ] [ tx-enabled on|off ] [ pmac-enabled on|off ] [ tx-min-frag-size 60-252 ]
+  description: |-
+    Set MAC merge layer parameters
+      [ verify-enabled on|off ]
+      [ verify-time N ]
+      [ tx-enabled on|off ]
+      [ pmac-enabled on|off ]
+      [ tx-min-frag-size 60-252 ]
   provenance:
     sources:
     - help-text-synopsis
@@ -589,7 +790,9 @@ flags:
   - --set-pse
   value_name: DEVNAME
   value_kind: Required
-  description: Set Power Sourcing Equipment settings [ podl-pse-admin-control enable|disable ]
+  description: |-
+    Set Power Sourcing Equipment settings
+      [ podl-pse-admin-control enable|disable ]
   provenance:
     sources:
     - help-text-synopsis
@@ -608,7 +811,21 @@ flags:
     - help-text-synopsis
 - spellings:
   - --monitor
-  description: Show kernel notifications ( [ --all ] | -s | --change | -k | --show-features | --show-offload | -K | --features | --offload | --show-priv-flags | --set-priv-flags | -g | --show-ring | -G | --set-ring | -l | --show-channels | -L | --set-channels | -c | --show-coalesce | -C | --coalesce | -a | --show-pause | -A | --pause | --show-eee | --set-eee | --cable-test | --cable-test-tdr | --show-module | --set-module ) [ DEVNAME | * ]
+  description: |-
+    Show kernel notifications
+      ( [ --all ]
+      | -s | --change
+      | -k | --show-features | --show-offload | -K | --features | --offload
+      | --show-priv-flags | --set-priv-flags
+      | -g | --show-ring | -G | --set-ring
+      | -l | --show-channels | -L | --set-channels
+      | -c | --show-coalesce | -C | --coalesce
+      | -a | --show-pause | -A | --pause
+      | --show-eee | --set-eee
+      | --cable-test
+      | --cable-test-tdr
+      | --show-module | --set-module )
+      [ DEVNAME | * ]
   provenance:
     sources:
     - help-text-synopsis

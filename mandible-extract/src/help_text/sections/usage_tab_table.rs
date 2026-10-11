@@ -151,10 +151,20 @@ pub(super) fn attach_descriptions(usage_lines: &[String], flags: &mut [Entity]) 
     finished.extend(owner);
     for (names, parts) in finished {
         let text = parts
-            .join(" ")
-            .split_whitespace()
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let line = p.split_whitespace().collect::<Vec<_>>().join(" ");
+                let row = i > 0 && !p.contains('\t');
+                if row {
+                    format!("  {line}")
+                } else {
+                    line
+                }
+            })
+            .filter(|p| !p.trim().is_empty())
             .collect::<Vec<_>>()
-            .join(" ");
+            .join("\n");
         let target = flags.iter_mut().find(|f| {
             f.kind == EntityKind::Flag
                 && f.description.is_none()
