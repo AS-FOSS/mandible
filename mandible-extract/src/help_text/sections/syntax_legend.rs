@@ -21,7 +21,7 @@ pub(super) fn legend_paragraph(heading: &str, block: &[&str]) -> Option<String> 
         return None;
     }
     let label = heading.trim().trim_end_matches(':').to_ascii_lowercase();
-    let by_heading = label.ends_with(" syntax");
+    let by_heading = label.ends_with(" syntax") || label.contains("precedence");
     let by_rows = rows.iter().filter(|r| is_legend_row(r)).count() >= MIN_LEGEND_ROWS;
     if !by_heading && !by_rows {
         return None;
