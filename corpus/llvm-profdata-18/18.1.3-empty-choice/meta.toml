@@ -1,0 +1,23 @@
+# A cl::opt enum row the tool prints as `=<empty>` is a choice literally named
+# `<empty>`, like its `=debug-info` and `=binary` siblings; today it is folded
+# into --profile-correlate's description and the choice is lost.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "llvm-profdata-18"
+version = "18.1.3"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["llvm-profdata-18", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_attach_choices = { "--profile-correlate" = ["<empty>", "debug-info", "binary"] }
+
+[xfail]
+broken = true
+reason = "the =<empty> row of --profile-correlate is folded into its description instead of being a choice"
