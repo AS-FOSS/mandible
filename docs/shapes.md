@@ -5079,7 +5079,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   concepts are dropped. "See 'git help <command>'" and "see 'snap help
   --all'" do not match. `mandible git remote`, `stash`, `worktree` and
   `bundle` open their own pages; pnpm gains 25 commands and snap its 67.
-  pnpm's eight two-word rows (`store add`, `cache list`) are not read.
+  A first word that leads two or more `<word> <word>  description` rows of
+  the listing becomes a node of its own (created when the listing has no
+  row for it), each row its child with the row description (pnpm's `store`
+  and `cache`); a single two-word row is not read.
   Fixtures: `corpus/git/2.43.0-commands`, `corpus/pnpm/11.22.0-commands`,
   `corpus/snap/2.77.1`.
 - fleet: see the round-18 sweep: git, pnpm and snap gain their listed

@@ -13,7 +13,7 @@
 
 use std::path::Path;
 
-use mandible_core::CommandNode;
+use mandible_core::{CommandNode, Provenance, Source, Text};
 
 use super::{pick_stream, sections, EXTRACT_TIMEOUT};
 use crate::exec::{InertArgv, Probe};
@@ -207,14 +207,139 @@ fn is_documentation_group(group: &str) -> bool {
 /// introducer line that only announces indented group headings
 /// (`Commands can be classified as follows:`) is not a heading of its own.
 pub fn listed_subcommands(text: &str, tool: &str) -> Vec<CommandNode> {
-    let text = format!("The {tool} commands.\n\n{}", drop_group_introducers(text));
+    let (text, pairs) = take_two_word_rows(&drop_group_introducers(text));
+    let text = format!("The {tool} commands.\n\n{text}");
     let parsed = sections::parse_with_profile(&text, None, Some(tool));
-    parsed
+    let mut nodes: Vec<CommandNode> = parsed
         .subcommands
         .into_iter()
         .filter(|n| n.heading_attested)
         .filter(|n| !n.group.as_deref().is_some_and(is_documentation_group))
-        .collect()
+        .collect();
+    attach_pairs(&mut nodes, pairs);
+    nodes
+}
+
+/// A `<word> <word>  description` row of the listing, with its group.
+struct PairRow {
+    parent: String,
+    child: String,
+    summary: String,
+    group: Option<String>,
+}
+
+fn is_word(t: &str) -> bool {
+    t.starts_with(|c: char| c.is_ascii_lowercase())
+        && t.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+fn indent_of(line: &str) -> usize {
+    line.len() - line.trim_start().len()
+}
+
+/// Parse `<indent>word word<2+ spaces>description` into its parts.
+fn pair_row(line: &str) -> Option<(String, String, String)> {
+    if indent_of(line) == 0 {
+        return None;
+    }
+    let t = line.trim();
+    let (names, desc) = t.split_once("  ")?;
+    let (a, b) = names.split_once(' ')?;
+    let desc = desc.trim();
+    (is_word(a) && is_word(b) && desc.starts_with(|c: char| c.is_alphabetic()))
+        .then(|| (a.to_string(), b.to_string(), desc.to_string()))
+}
+
+/// Pull out the two-word rows whose first word leads two or more rows of
+/// the listing (with their wrapped description lines); the rest of the text
+/// is returned for the ordinary reader. A first word leading one row only
+/// stays where it is.
+fn take_two_word_rows(text: &str) -> (String, Vec<PairRow>) {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut rows: Vec<(usize, usize, PairRow)> = Vec::new();
+    let mut group: Option<String> = None;
+    let mut i = 0;
+    while i < lines.len() {
+        let line = lines[i];
+        if indent_of(line) == 0 && line.trim_end().ends_with(':') {
+            group = Some(line.trim().to_string());
+        }
+        if let Some((parent, child, mut summary)) = pair_row(line) {
+            let base = indent_of(line);
+            let mut end = i + 1;
+            while end < lines.len()
+                && !lines[end].trim().is_empty()
+                && indent_of(lines[end]) > base
+                && pair_row(lines[end]).is_none()
+            {
+                summary.push(' ');
+                summary.push_str(lines[end].trim());
+                end += 1;
+            }
+            rows.push((
+                i,
+                end,
+                PairRow {
+                    parent,
+                    child,
+                    summary,
+                    group: group.clone(),
+                },
+            ));
+            i = end;
+            continue;
+        }
+        i += 1;
+    }
+    let counts: Vec<usize> = rows
+        .iter()
+        .map(|r| rows.iter().filter(|o| o.2.parent == r.2.parent).count())
+        .collect();
+    let keep: Vec<(usize, usize, PairRow)> = rows
+        .into_iter()
+        .zip(counts)
+        .filter(|(_, n)| *n >= 2)
+        .map(|(r, _)| r)
+        .collect();
+    let mut drop = vec![false; lines.len()];
+    for (a, b, _) in &keep {
+        for d in &mut drop[*a..*b] {
+            *d = true;
+        }
+    }
+    let rest = lines
+        .iter()
+        .zip(&drop)
+        .filter(|(_, d)| !**d)
+        .map(|(l, _)| *l)
+        .collect::<Vec<_>>()
+        .join("\n");
+    (rest, keep.into_iter().map(|r| r.2).collect())
+}
+
+/// Each pair row becomes a child of the node named by its first word,
+/// created (after the listed rows, in the group of its first row) when the
+/// listing has no row for that word.
+fn attach_pairs(nodes: &mut Vec<CommandNode>, pairs: Vec<PairRow>) {
+    for row in pairs {
+        let at = match nodes.iter().position(|n| n.name == row.parent) {
+            Some(at) => at,
+            None => {
+                let mut parent =
+                    CommandNode::new(&row.parent, Provenance::single(Source::HelpText));
+                parent.heading_attested = true;
+                parent.group = row.group.clone();
+                nodes.push(parent);
+                nodes.len() - 1
+            }
+        };
+        let mut child = CommandNode::new(&row.child, Provenance::single(Source::HelpText));
+        child.summary = Some(Text::sanitize(&row.summary));
+        child.heading_attested = true;
+        child.group = row.group;
+        nodes[at].subcommands.push(child);
+    }
 }
 
 /// Drop each column-0 line ending in `:` whose next non-blank line is an
@@ -374,5 +499,20 @@ mod tests {
         assert_eq!(names(pnpm, "pnpm"), ["add", "install", "init"]);
         let snap = "Usage: snap <command>\n\nCommands can be classified as follows:\n\n  Basics (basic management):\n    find     Find packages\n    info     Show details\n\n  History (changes):\n    tasks    List tasks\n";
         assert_eq!(names(snap, "snap"), ["find", "info", "tasks"]);
+    }
+
+    #[test]
+    fn two_word_rows_lead_children_only_when_the_first_word_repeats() {
+        let t = "Usage: pnpm [command]\n\nOther:\n      init     Create a file\n\nStore:\n      store add     Adds new\n                    packages\n      store path    Prints the path\n      solo one      A lone pair\n";
+        let nodes = listed_subcommands(t, "pnpm");
+        let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
+        assert_eq!(names, ["init", "store"], "{names:?}");
+        let kids: Vec<(&str, String)> = nodes[1]
+            .subcommands
+            .iter()
+            .map(|n| (n.name.as_str(), n.summary.as_ref().unwrap().to_string()))
+            .collect();
+        assert_eq!(kids[0], ("add", "Adds new packages".to_string()));
+        assert_eq!(kids[1].0, "path");
     }
 }

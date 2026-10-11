@@ -358,3 +358,73 @@ subcommands:
     sources:
     - help-text
   heading_attested: true
+- name: store
+  group: 'Manage your store:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  subcommands:
+  - name: add
+    summary: Adds new packages to the pnpm store directly. Does not modify any projects or files outside the store
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: path
+    summary: Prints the path to the active store directory
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: prune
+    summary: Removes unreferenced (extraneous, orphan) packages from the store
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: status
+    summary: Checks for modified packages in the store
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+- name: cache
+  group: 'Manage your cache:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  subcommands:
+  - name: delete
+    summary: Experimental! Deletes metadata cache for the specified package(s). Supports patterns
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: list
+    summary: Experimental! Lists the available packages metadata cache. Supports filtering by glob
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: list-registries
+    summary: Experimental! Lists all registries that have their metadata cache locally
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: view
+    summary: Experimental! Views information from the specified package's cache
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
