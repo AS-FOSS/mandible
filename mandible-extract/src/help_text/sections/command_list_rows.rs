@@ -74,6 +74,12 @@ pub(super) fn table_under_commands_heading(
     }
     let (end, mut nodes, seen, clean) = scan_headingless_invocation_table(lines, first, name, raw)?;
     attach_row_invocations(&mut nodes, &lines[first..end], name);
+    // The flush command heading is the heading evidence (clipanion's
+    // `━━━ General commands ━━━`, rewritten to a plain heading): top-level
+    // rows are heading-attested, so §6 admits their `<sub> --help` page.
+    for node in &mut nodes {
+        node.heading_attested = true;
+    }
     if heading_can_name_a_group(heading) {
         for node in &mut nodes {
             node.group = Some(heading.to_string());
