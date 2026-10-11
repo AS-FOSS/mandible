@@ -5549,3 +5549,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: replaying the 2233 round-17 raw captures changed the root description
   of four tools (pnpm, pn, pnpx, pnx), each only by moving the version line;
   no other capture opens with such a line.
+
+### S-251: `$ command` example blocks are description text
+
+- id: S-251
+- looks like: |
+      Usage:
+        snap get [get-OPTIONS] <snap> [<key>...]
+
+      The get command prints configuration options for the provided snap.
+
+      $ snap get snap-name username
+      frank
+- tools: snap (the `get` page)
+- handling: Fixed. After the usage block, a paragraph that opens on a `$ command`
+  line is an example: the command and the output lines under it stay in the
+  description, the output set in under the command, and a one-line sentence
+  ending in a colon right before such a paragraph is prose, not a heading. The
+  output lines are never entities, even when they hold columns (`Key  Value`).
+  Fixture: `corpus/snap/2.77.1-get`.
+- fleet: none of the 2233 round-17 root captures holds such a block; the shape
+  occurs on subcommand pages, which the root sweep does not read (the corpus
+  holds one, `snap get`).

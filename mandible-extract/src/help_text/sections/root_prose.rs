@@ -105,12 +105,14 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
     if lines.get(from).is_some_and(|l| !l.trim().is_empty()) {
         return None;
     }
-    let mut paragraphs: Vec<Vec<&str>> = Vec::new();
-    let mut current: Vec<&str> = Vec::new();
+    let mut paragraphs: Vec<Vec<String>> = Vec::new();
+    let mut current: Vec<String> = Vec::new();
+    let mut in_example = false;
     let mut j = from;
     'scan: while j < lines.len() {
         let l = lines[j];
         if l.trim().is_empty() {
+            in_example = false;
             if is_block_label(&current, lines, j) {
                 current.clear();
                 break 'scan;
@@ -122,12 +124,31 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
             continue;
         }
         let t = l.trim_end();
+        // An example block opens on a `$ command` line at the start of a
+        // paragraph; the lines under it are that command's printed output,
+        // columns and all, until the blank line. S-250.
+        if current.is_empty() && is_shell_example_line(t) {
+            in_example = true;
+        }
+        if in_example && leading_whitespace(l) == 0 {
+            // The printed output is kept as its own lines, set in from the
+            // command that printed it: `Text::sanitize` keeps a line
+            // indented within its paragraph on a line of its own.
+            current.push(if is_shell_example_line(t) {
+                t.to_string()
+            } else {
+                format!("  {t}")
+            });
+            j += 1;
+            continue;
+        }
+        let lead_in = current.is_empty() && is_example_lead_in(lines, j);
         let plain = leading_whitespace(l) == 0
             && !t.starts_with('-')
-            && !t.ends_with(':')
+            && (lead_in || !t.ends_with(':'))
             && !t.contains("  ")
             && !t.contains('\t')
-            && !is_section_heading_line(t)
+            && (lead_in || !is_section_heading_line(t))
             && !starts_with_usage_prefix(t)
             && !looks_like_bnf_production_line(t)
             && !is_bare_heading_word(lines, j)
@@ -141,7 +162,7 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
             current.clear();
             break 'scan;
         }
-        current.push(l);
+        current.push(l.to_string());
         j += 1;
     }
     if !is_block_label(&current, lines, lines.len()) && !current.is_empty() {
@@ -153,6 +174,26 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
         .collect::<Vec<_>>()
         .join("\n\n");
     (!text.trim().is_empty()).then_some(text)
+}
+
+/// A shell-prompt example line: `$ snap get snap-name username`.
+fn is_shell_example_line(t: &str) -> bool {
+    t.strip_prefix("$ ")
+        .is_some_and(|rest| !rest.trim().is_empty())
+}
+
+/// A one-line paragraph ending in a colon that introduces the example block
+/// right after it (`Nested values may be retrieved via a dotted path:`).
+fn is_example_lead_in(lines: &[&str], j: usize) -> bool {
+    let t = lines[j].trim_end();
+    if !t.ends_with(':') || t.split_whitespace().count() < 3 {
+        return false;
+    }
+    let mut rest = lines[j + 1..].iter();
+    rest.next().is_some_and(|l| l.trim().is_empty())
+        && rest
+            .find(|l| !l.trim().is_empty())
+            .is_some_and(|l| is_shell_example_line(l.trim_end()))
 }
 
 /// `list [ --username=username ]`: a lowercase word then a flag or bracket
@@ -168,7 +209,7 @@ fn looks_like_invocation_row(t: &str) -> bool {
 
 /// A short unpunctuated single line (`General commands`) with an indented
 /// block after the blank line is that block's label, not prose.
-fn is_block_label(paragraph: &[&str], lines: &[&str], blank_at: usize) -> bool {
+fn is_block_label(paragraph: &[String], lines: &[&str], blank_at: usize) -> bool {
     let [only] = paragraph else {
         return false;
     };

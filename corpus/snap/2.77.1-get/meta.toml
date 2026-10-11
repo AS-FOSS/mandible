@@ -25,7 +25,3 @@ must_describe_root = [
     "If multiple option names are provided, the corresponding values are returned:",
     "Nested values may be retrieved via a dotted path: $ snap get snap-name author.name frank",
 ]
-
-[xfail]
-broken = true
-reason = "the description prose and the `$ snap get` example blocks are dropped from the root description"
