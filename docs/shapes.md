@@ -4763,7 +4763,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   names one operand per name; a new operand takes its place in usage order.
   A single-form usage reads the same bracketed operands (`find`'s
   `[path...] [expression]`); a group right after a glued flag alternative
-  (`{[rulesfile]|-c [runcmd]}`) is that flag's value. A tab after the
+  (`{[rulesfile]|-c [runcmd]}`) is that flag's value. Bracketed bare words
+  right before a `<command>` placeholder are command words (`usbip`'s
+  `[version] [help] <command>`), and `pkg1 [pkg2 ...]` is one list `pkg`.
+  A tab after the
   `Usage:` label is not a description gap. Fixtures:
   `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
   `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`, `corpus/jq/1.7`,

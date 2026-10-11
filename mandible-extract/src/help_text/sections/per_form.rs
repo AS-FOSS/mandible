@@ -313,8 +313,63 @@ fn brace_operands(toks: &[Tok], open: usize, ops: &mut Vec<Op>) -> Option<usize>
     None
 }
 
+/// `[version] [help] <command> <args>` (usbip): bracketed bare lowercase
+/// words directly before a command placeholder are command words, not
+/// operands.
+fn command_word_groups(toks: &[Tok]) -> Vec<bool> {
+    let mut skip = vec![false; toks.len()];
+    for (j, t) in toks.iter().enumerate() {
+        let Tok::Word(w) = t else { continue };
+        let placeholder = w.starts_with('<') || w.chars().next().is_some_and(char::is_uppercase);
+        if !placeholder || !is_command_placeholder(w.trim_matches(['<', '>', '.'])) {
+            continue;
+        }
+        for k in (0..j).rev() {
+            match &toks[k] {
+                Tok::Group(g) if name_is_lower(g) && is_single_operand(g) => skip[k] = true,
+                _ => break,
+            }
+        }
+    }
+    skip
+}
+
+/// `pkg1 [pkg2 ...]`: numbered siblings name one list. The bracketed,
+/// repeated `pkg2` is folded into `pkg1`, which becomes `pkg`, variadic and
+/// admitted (S-136's collapse, read per form).
+fn fold_numbered_siblings(ops: &mut Vec<Op>) {
+    let stem = |n: &str| -> Option<(String, u32)> {
+        let cut = n.trim_end_matches(|c: char| c.is_ascii_digit());
+        let num: u32 = n[cut.len()..].parse().ok()?;
+        (!cut.is_empty()).then(|| (cut.to_string(), num))
+    };
+    let mut k = 0;
+    while k < ops.len() {
+        match stem(&ops[k].name) {
+            Some((st, n)) if n >= 2 && !ops[k].required && ops[k].repeatable => {
+                // `[VERSION1 VERSION2 ...]`: both inside one group are distinct
+                // operands, not a list's head and tail.
+                let first = ops
+                    .iter()
+                    .position(|o| o.required && stem(&o.name) == Some((st.clone(), 1)));
+                if let Some(f) = first {
+                    ops[f].name = st;
+                    ops[f].repeatable = true;
+                    ops[f].admit = true;
+                    ops[f].angle = true;
+                    ops.remove(k);
+                } else {
+                    k += 1;
+                }
+            }
+            _ => k += 1,
+        }
+    }
+}
+
 fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<Op>) {
     let toks = tokenize(text);
+    let command_words = command_word_groups(&toks);
     let (mut occs, mut ops) = (Vec::new(), Vec::new());
     let (mut last_flag, mut prev_made_op): (Option<usize>, bool) = (None, false);
     let mut lowers: Vec<usize> = Vec::new();
@@ -323,6 +378,11 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
     while i < toks.len() {
         let before = ops.len();
         match &toks[i] {
+            Tok::Group(_) if command_words[i] => {
+                i += 1;
+                prev_made_op = false;
+                continue;
+            }
             Tok::Group(inner) => {
                 // `{[rulesfile]|-c [runcmd]}`: a group right after the last
                 // alternative of a glued flag word is that flag's value.
@@ -409,6 +469,7 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
         let boundary = last_flag.or(options_at);
         op.admit |= boundary.is_some_and(|l| op.at > l) && !in_run;
     }
+    fold_numbered_siblings(&mut ops);
     (occs, ops)
 }
 
