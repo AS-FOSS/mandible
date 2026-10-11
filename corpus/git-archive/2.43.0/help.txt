@@ -1,0 +1,25 @@
+usage: git archive [<options>] <tree-ish> [<path>...]
+   or: git archive --list
+   or: git archive --remote <repo> [--exec <cmd>] [<options>] <tree-ish> [<path>...]
+   or: git archive --remote <repo> [--exec <cmd>] --list
+
+    --[no-]format <fmt>   archive format
+    --[no-]prefix <prefix>
+                          prepend prefix to each pathname in the archive
+    --[no-]add-file <file>
+                          add untracked file to archive
+    --[no-]add-virtual-file <path:content>
+                          add untracked file to archive
+    -o, --[no-]output <file>
+                          write the archive to this file
+    --[no-]worktree-attributes
+                          read .gitattributes in working directory
+    -v, --[no-]verbose    report archived files on stderr
+    --mtime <time>        set modification time of archive entries
+    -NUM                  set compression level
+
+    -l, --[no-]list       list supported archive formats
+
+    --[no-]remote <repo>  retrieve the archive from remote repository <repo>
+    --[no-]exec <command> path to the remote git-upload-archive command
+

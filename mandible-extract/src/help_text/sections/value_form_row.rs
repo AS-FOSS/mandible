@@ -96,6 +96,28 @@ mod tests {
     }
 }
 
+/// The choice an llvm cl::opt enum prints as `=<empty>`: its name is literal.
+const EMPTY_CHOICE: &str = "<empty>";
+
+/// Byte length of the choice name opening `rest` (the text after the `=`): a
+/// bare word, or the literal `<empty>`. Zero when there is none.
+pub(super) fn choice_name_len(rest: &str) -> usize {
+    if rest.starts_with(EMPTY_CHOICE) {
+        return EMPTY_CHOICE.len();
+    }
+    rest.find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
+        .unwrap_or(rest.len())
+}
+
+/// The text of an `=value  -  description` sub-row after its name and `-`
+/// separator, `None` when the row carries none.
+pub(super) fn choices_sub_row_description(trimmed: &str) -> Option<String> {
+    let gap = find_description_gap(trimmed)?;
+    let rest = trimmed.get(gap..)?.trim();
+    let rest = rest.strip_prefix('-').unwrap_or(rest).trim();
+    (!rest.is_empty()).then(|| rest.to_string())
+}
+
 #[cfg(test)]
 mod table_tests {
     use super::*;

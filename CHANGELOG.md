@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.
+- [S-211] `mandible corepack disable` and `corepack enable` show their `--install-directory` flag: the `General commands` heading now attests its rows, so their own help pages are read.
 - Probes run in a scratch directory under `~/.cache/mandible` instead of `/tmp`, so a tool that searches upward for project files (`pnpm start --help` runs the nearest `package.json`) can no longer be handed a file another local user planted in `/tmp`.
 - [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
 - [S-215] Usage forms that each open with a different verb name that command's subcommands, each with its own usage, flags and operands (`mandible git bisect` lists `start`, `good`, `bad`, `run`; `git stash`, `remote`, `worktree`, `bundle`, `reflog`, `commit-graph` likewise).
@@ -22,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-223] A value written `(+|-)x` is shown whole (`mandible git add`'s `--chmod`).
 - [S-224] A punctuation short option beside its long one is one option (`mandible nano`'s `-%, --stateflags` and `-_, --minibar`).
 - [S-225] A value of two plain words keeps both (`mandible jq`'s `--arg name value`, `--slurpfile name file`).
+- [S-229] An option table whose rows are wrapped in brackets, `[-keystore <url>]   keystore location`, shows every option with its value and description (`mandible jarsigner`, `c++filt`, `krb5-config`).
+- [S-230] `-verbose[:suboptions]` is one option with an optional value, not `-v` (`mandible jarsigner`).
+- [S-231] A table headed by a usage operand's name lists the values of the flag that names it, with each description (`mandible krb5-config`'s `--libs` and its `Libraries:` table).
+- [S-232] A list of values grouped by label under a heading that names a flag keeps every value, the label as each one's description (`mandible speedtest`'s `-u`, which lost `auto-binary-bits`).
+- [S-233] An llvm `=<empty>` choice is listed as a choice named `<empty>`, and each `=value` choice keeps its description (`mandible llc-18`'s `--profile-correlate`, `llvm-ar-18`'s `--format`).
+- [S-234] A `Possible values:` list of `* name: text` bullets is the flag's choices with their descriptions (`mandible batcat`'s `--style` and `--nonprintable-notation`).
+- [S-011] A flag-led example line under a description's `one can use:` stays in that description instead of opening extra rows (`mandible rg`'s `--type-add`, which lost the text after its examples).
+- [S-221] A bare `-NUM` row is the numeric option even when its description does not repeat `NUM` (`mandible git archive`'s `-NUM`, which read as `-N` with value `UM`).
+- [S-100] The `[<options>]` after a flag in a usage line is the option-list word, not that flag's value (`mandible git diff`'s `--no-index`).
 - [S-199] A single usage form's bracketed operands are kept: `mandible find` shows `path...` and `expression`, `uconv` its `file ...`, `tcpdump` its `expression`, `pod2man` `input` and `output`.
 - [S-210] An operator-precedence block (`find`'s `Operators (decreasing precedence ...)`) is shown in the description instead of being dropped.
 - [S-227] A shell builtin's help (`cd: cd [-L|[-P [-e]]] [-@] [dir]`) is read as usage, so `mandible cd` shows the `dir` operand and its description paragraphs.

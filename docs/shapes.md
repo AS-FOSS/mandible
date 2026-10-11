@@ -215,7 +215,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   description, never a row (rg's `--colors 'path:none' \`), and a wrapped line
   that begins with a flag spelling and repeats the indent of the description
   line above it continues that description (rg's `-U/--multiline flag.`,
-  pod2man's `--official below.`). A sentence that continues onto the
+  pod2man's `--official below.`), and so does a flag-led example line
+  deeper than the description line above it when that line ends in a colon
+  and the example has no description column (rg's `--type-add
+  'src:include:cpp,py,md'`). A sentence that continues onto the
   indented line is worse:
   dpkg's cross-reference sentence acquired both a fake section divider and a
   -f, --field option belonging to a different program, so the whole wrapped
@@ -889,8 +892,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: llvm-ar
 - handling: A continuation line opening with an equals sign followed by a bare word
   names one of the flag's possible values rather than more description text.
-  These route into the flag's choices list with no description, since llvm-ar
-  never documents a per-value explanation on this shape.
+  These route into the flag's choices list; the text after the `-` separator
+  is the choice's description (S-233).
 - fleet: not measured, llvm-ar is the only tool observed opening a continuation line
   this way
 
@@ -1808,7 +1811,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   something, meaning it carries a letter or a digit, which leaves
   `lvextend`'s `-L|--size [+]Size[m|UNIT]` alone, and the end-of-options
   marker never takes a value, which leaves `fsck`'s
-  `-- [fs-options]` alone. The missing-description half of this shape is
+  `-- [fs-options]` alone, and the option-list word written `[<options>]`
+  after a bare flag is never its value (`git diff --no-index [<options>]
+  <path> <path>`, round 18). The missing-description half of this shape is
   still open: a synopsis line that describes its own alternative gives the
   flag no description.
 - fleet: `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
@@ -5012,7 +5017,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   heading as its group. Each row's whole invocation line is its node's
   usage form (a node named by two rows carries both lines), and a second
   row's description is appended to the node's description after the first
-  row's summary. Fixtures: `corpus/corepack/0.34.6`.
+  row's summary. Each row is also heading-attested by that command heading
+  (clipanion's `━━━ General commands ━━━`, read as a plain heading), so
+  the existing section 6 gate admits `corepack disable --help` and
+  `corepack enable --help` and each shows its `--install-directory`.
+  Fixtures: `corpus/corepack/0.34.6`, `corpus/corepack/0.34.6-subcommands`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check;
   the full-`PATH` sweep decides.
 
@@ -5205,9 +5214,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   three or more letters) and whose description names `RUN` as a whole word is
   one single-dash spelling, not `-N` with the value `UM`. S-191 needed the
   word repeated as `=RUN` in the spec cell; the description naming it tells it
-  from a short flag with a glued value (`-DNAME`). `git archive`'s
-  `-NUM  set compression level` names the word nowhere and stays `-N UM`.
-- fleet: full-PATH sweep, zero losses; the four grep tools moved.
+  from a short flag with a glued value (`-DNAME`). The run `NUM` itself needs
+  no echo, `UM` being no placeholder: `git archive`'s
+  `-NUM  set compression level` reads `-NUM` too (round 18).
+- fleet: full-PATH sweep, zero losses; the four grep tools moved. `-NUM`
+  rows appear in 6 of the 2440 round-17 raw captures (grep family, git grep,
+  git archive).
 
 ### S-222: bare `(` and `)` rows in an option table
 
@@ -5294,3 +5306,127 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `cd` and the other builtin wrappers are absent from this box: the
   full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
   distro that ships `/usr/bin/cd`.
+
+### S-228: a usage form led by another command path of the same program
+
+- id: S-228
+- looks like: |
+      usage: git log [<options>] [<revision-range>] [[--] <path>...]
+         or: git show [<options>] <object>...
+- tools: git
+- handling: Fixed in the USAGE renderer. A form that opens with the program
+  word the node's other forms write before its own name (`git`), yet names a
+  different command path (`git show` under node `log`), is shown as printed
+  instead of getting the node's name prefixed (`log git show ...`). A form
+  with no leading program (`or: [<options>] <object>...`) still gets the
+  node's name. Test: `a_form_led_by_another_command_path_is_not_prefixed_with_the_node`.
+- fleet: render-only; the parsed tree and every sweep record are unchanged.
+### S-229: an option table whose rows are wrapped in square brackets
+
+- id: S-229
+- looks like: |
+      [-keystore <url>]           keystore location
+      [-verbose[:suboptions]]     verbose output when signing/verifying.
+- tools: jarsigner, c++filt, krb5-config, krb5-config.mit
+- handling: Fixed. A table of at least two `[-x ...]` rows, each followed by
+  a description gap, reads as the plain rows `-x ...  description`: the
+  brackets only mark the option optional. A row whose bracket wraps onto the
+  next line, a row with a single-space gap that lines up with the table's
+  description column, a row with no description beside such a row, `[@file]`
+  and a mistyped `]-r|--x]` opener are rows of the same table. A usage line
+  (`[-a] [-b]`) has no description after its bracket and is untouched.
+  Fixtures: `corpus/jarsigner/21.0.12`, `corpus/c++filt/2.42`,
+  `corpus/krb5-config/1.20.1`.
+- fleet: bracketed option rows with a description appear in 4 tools of the
+  round-17 raw captures (2440 files): jarsigner (23 rows), c++filt (8),
+  krb5-config (12), krb5-config.mit (12).
+
+### S-230: a lower-case single-dash word glued to an optional value
+
+- id: S-230
+- looks like: |
+      -verbose[:suboptions]     verbose output when signing/verifying.
+- tools: jarsigner
+- handling: Fixed. A single-dash word of three or more lower-case letters
+  directly followed by `[:` or `[=` is one spelling with an optional value
+  (`-verbose`, value `:suboptions`), not `-v` with the value
+  `erbose[:suboptions]`. Fixture: `corpus/jarsigner/21.0.12`.
+- fleet: see S-229; jarsigner is the only tool in the raw captures that
+  prints this shape.
+
+### S-231: a table named for a usage operand lists the values of the flag that names it
+
+- id: S-231
+- looks like: |
+      Usage: krb5-config [OPTIONS] [LIBRARIES]
+          [--libs]          List libraries required to link [LIBRARIES]
+      Libraries:
+          krb5              Kerberos 5 application
+- tools: krb5-config, krb5-config.mit
+- handling: Fixed. A bare table whose heading equals a usage operand's name
+  (case-insensitive) and that exactly one flag's description names as a
+  whole word is that flag's choices, each row's text the choice's
+  description. Operands carry no choices in the snapshot or on screen, so
+  the flag holds them. Before, the names landed on `--libs` by the
+  unproven-owner fallback with every description dropped.
+  Fixture: `corpus/krb5-config/1.20.1`.
+- fleet: only krb5-config and krb5-config.mit of the 2440 round-17 raw
+  captures print this shape.
+
+### S-232: a labelled value list under a heading that names one flag
+
+- id: S-232
+- looks like: |
+      Valid units for [-u] flag:
+        Decimal prefix, bits per second:  bps, kbps, Mbps, Gbps
+        Auto-scaled prefix: auto-binary-bits, auto-binary-bytes
+- tools: speedtest
+- handling: Fixed. When every line of the block is `Label: v1, v2, ...` and
+  the heading names a flag that has no choices yet, every value of every line
+  is a choice of that flag and the line's label is its description. Before,
+  the last line alone reached the flag, and without its first value. A block
+  with a line of another shape keeps the previous reading.
+  Fixture: `corpus/speedtest/1.2.0.84`.
+- fleet: 1 tool of the 2440 round-17 raw captures prints a `Valid ... for
+  [-x] flag:` heading with labelled lines (speedtest).
+
+### S-233: an `=<empty>` enum row, and the descriptions of `=value` rows
+
+- id: S-233
+- looks like: |
+      --profile-correlate=<value>   - Use debug info or binary file to correlate profiles.
+        =<empty>                    -   No profile correlation
+        =debug-info                 -   Use debug info to correlate
+- tools: llc-18, lli-18, opt-18, bugpoint-18, llvm-profdata-18,
+  llvm-remarkutil-18, llvm-sim-18, llvm-xray-18, llvm-ar-18
+- handling: Fixed. A row the tool prints as `=<empty>` is a choice literally
+  named `<empty>`, like its siblings, and each `=value  -  text` row keeps
+  its text as the choice's description. Before, the `<empty>` row was joined
+  to the flag's description and no sibling's text was kept.
+  Fixtures: `corpus/llvm-profdata-18/18.1.3-empty-choice`,
+  `corpus/llvm-profdata-18/18.1.3`, `corpus/llvm-ar-18/18.1.3`.
+- fleet: 8 tools print `=<empty>`; every llvm tool with a cl::opt enum table
+  moves (descriptions gained).
+
+### S-234: `Possible values:` followed by `* name: text` bullets in a description
+
+- id: S-234
+- looks like: |
+      --style <components>
+          Configure which elements ... to display.
+
+          Possible values:
+
+            * default: enables recommended style components (default).
+            * full: enables all available components.
+- tools: batcat
+- handling: Fixed. A description ending in `Possible values:` and then at
+  least two `* name: text` (or `* name (text)`) bullets gives the flag those
+  names as choices, each bullet's text the choice's description. A bullet's
+  wrapped second line joins its text. The label and bullets leave the
+  description, which keeps the text before them; the `values:` lines show
+  them. A tail that is not wholly of this shape is left alone.
+  Fixture: `corpus/batcat/0.24.0`.
+- fleet: 1 tool of the 2440 round-17 raw captures prints `Possible values:`
+  with `*` bullets (batcat, two flags). The clap `- name: text` bullet form
+  (cargo-generate-rpm's `--auto-req`) is a different shape, not read here.
