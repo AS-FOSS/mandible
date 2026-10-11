@@ -1,0 +1,23 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cd"
+version = "user"
+platform = "maintainer"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["cd", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+
+[contract]
+min_status = "low-confidence"
+must_contain_positionals = ["dir"]
+must_contain_flags = ["-L", "-P", "-e", "-@"]
+must_describe_root = [
+    "Change the shell working directory.",
+    "The variable CDPATH defines the search path",
+]

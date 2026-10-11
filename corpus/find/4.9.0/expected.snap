@@ -1,6 +1,20 @@
 name: find
+description: |-
+  Operators (decreasing precedence; -and is implicit where no others are given):
+    ( EXPR ) ! EXPR -not EXPR EXPR1 -a EXPR2 EXPR1 -and EXPR2
+    EXPR1 -o EXPR2 EXPR1 -or EXPR2 EXPR1 , EXPR2
 usage:
 - 'Usage: /usr/bin/find [-H] [-L] [-P] [-Olevel] [-D debugopts] [path...] [expression]'
+positionals:
+- name: path
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: expression
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -daystart

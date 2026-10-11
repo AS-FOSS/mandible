@@ -3,7 +3,6 @@ usage:
 - 'Usage: nstat [OPTION] [ PATTERN [ PATTERN ] ]'
 positionals:
 - name: PATTERN
-  required: true
   provenance:
     sources:
     - help-text

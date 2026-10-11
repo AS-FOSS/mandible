@@ -1,0 +1,35 @@
+name: xdg-open
+description: Synopsis
+usage:
+- xdg-open { file | URL }
+- xdg-open { --help | --manual | --version }
+positionals:
+- name: file
+  provenance:
+    sources:
+    - help-text
+- name: URL
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --manual
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

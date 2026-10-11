@@ -581,11 +581,19 @@ subcommands:
     provenance:
       sources:
       - help-text
+  - name: diff-options
+    provenance:
+      sources:
+      - help-text
   - name: branchname
     provenance:
       sources:
       - help-text
   - name: message
+    provenance:
+      sources:
+      - help-text
+  - name: commit
     provenance:
       sources:
       - help-text
@@ -1269,6 +1277,10 @@ subcommands:
       sources:
       - help-text
   - name: url
+    provenance:
+      sources:
+      - help-text
+  - name: old
     provenance:
       sources:
       - help-text

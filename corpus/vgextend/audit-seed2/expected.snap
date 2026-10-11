@@ -13,7 +13,6 @@ positionals:
     sources:
     - help-text
 - name: COMMON_OPTIONS
-  required: true
   provenance:
     sources:
     - help-text

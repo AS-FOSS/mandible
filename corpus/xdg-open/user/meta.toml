@@ -1,0 +1,18 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "xdg-open"
+version = "user"
+platform = "maintainer"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["xdg-open", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--help", "--manual", "--version"]
+must_contain_positionals = ["file", "URL"]

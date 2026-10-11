@@ -1,6 +1,12 @@
 name: uconv
 usage:
 - 'Usage: uconv [ -h, -?, --help ] [ -V, --version ] [ -s, --silent ] [ -v, --verbose ] [ -l, --list | --list-code code | --default-code | -L, --list-transliterators ] [ --canon ] [ -x transliteration ] [ --to-callback callback | -c ] [ --from-callback callback | -i ] [ --callback callback ] [ --fallback | --no-fallback ] [ -b, --block-size size ] [ -f, --from-code code ] [ -t, --to-code code ] [ --add-signature ] [ --remove-signature ] [ -o, --output file ] [ file ... ]'
+positionals:
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -h

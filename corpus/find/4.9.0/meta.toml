@@ -54,3 +54,9 @@ must_contain_flags = [
     "--help",
     "--version",
 ]
+must_contain_positionals = ["path...", "expression"]
+must_describe_root = [
+    "Operators (decreasing precedence; -and is implicit where no others are given):",
+    "( EXPR ) ! EXPR -not EXPR EXPR1 -a EXPR2 EXPR1 -and EXPR2",
+    "EXPR1 -o EXPR2 EXPR1 -or EXPR2 EXPR1 , EXPR2",
+]

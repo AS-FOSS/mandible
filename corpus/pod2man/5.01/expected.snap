@@ -1,6 +1,16 @@
 name: pod2man
 usage:
 - '    pod2man [--center=string] [--date=string] [--encoding=encoding] [--errors=style] [--fixed=font] [--fixedbold=font] [--fixeditalic=font] [--fixedbolditalic=font] [--guesswork=rule[,rule...]] [--name=name] [--nourls] [--official] [--release=version] [--section=manext] [--quotes=quotes] [--lquote=quote] [--rquote=quote] [--stderr] [--utf8] [--verbose] [input [output] ...]'
+positionals:
+- name: input
+  provenance:
+    sources:
+    - help-text
+- name: output
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -c

@@ -25,6 +25,7 @@ struct Op {
     required: bool,
     repeatable: bool,
     admit: bool,
+    angle: bool,
     at: usize,
     word: bool,
 }
@@ -40,7 +41,7 @@ fn cut_at_gap(line: &str) -> (&str, bool) {
     for (i, c) in line.char_indices() {
         depth += i32::from(c == '[') - i32::from(c == ']');
         run = if c == ' ' { run + 1 } else { 0 };
-        if c == '\t' && depth <= 0 {
+        if c == '\t' && depth <= 0 && !line[..i].trim_end().ends_with(':') {
             return (&line[..i], true);
         }
         if run >= 3 && depth <= 0 {
@@ -125,6 +126,22 @@ fn tokenize(form: &str) -> Vec<Tok> {
             while i < chars.len() && !chars[i].is_whitespace() {
                 i += 1;
             }
+            // `<jq filter>`: an angle name with a space is one word.
+            if chars[start] == '<' && !chars[start..i].contains(&'>') {
+                if let Some(off) = chars[i..].iter().position(|&c| c == '>') {
+                    let end = i + off + 1;
+                    let rest = &chars[i..end];
+                    if rest.iter().all(|c| {
+                        c.is_alphanumeric() || *c == ' ' || *c == '>' || *c == '_' || *c == '-'
+                    }) && !rest.contains(&'\n')
+                    {
+                        i = end;
+                        while i < chars.len() && !chars[i].is_whitespace() {
+                            i += 1;
+                        }
+                    }
+                }
+            }
             toks.push(Tok::Word(chars[start..i].iter().collect()));
         }
     }
@@ -181,6 +198,10 @@ fn operand_name(w: &str) -> Option<String> {
 }
 
 fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
+    // `[<upstream> [<branch>]]`: nested brackets around operands only.
+    let flat = inner.replace(['[', ']'], " ");
+    let nested = inner.contains('[') && !inner.starts_with('-') && !inner.contains(['|', '=']);
+    let inner = if nested { flat.trim() } else { inner };
     if inner.contains('[') || inner.contains('=') {
         return;
     }
@@ -211,8 +232,18 @@ fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
     if inner.contains('|') {
         return;
     }
+    // `[search expression]` and `[MAJOR MINOR]` name one multi-word operand: not two.
+    let words: Vec<&str> = inner.split_whitespace().collect();
+    if !nested
+        && words.len() >= 2
+        && words
+            .iter()
+            .all(|w| (name_is_lower(w) || name_is_upper(w)) && !w.contains('.'))
+    {
+        return;
+    }
     let mut group: Vec<Op> = Vec::new();
-    for w in inner.split_whitespace() {
+    for w in words {
         if w.chars().all(|c| c == '.') {
             if let Some(last) = group.last_mut() {
                 last.repeatable = true;
@@ -223,6 +254,7 @@ fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
                 required: false,
                 repeatable: w.ends_with(".."),
                 admit: false,
+                angle: true,
                 at: 0,
                 word: false,
             });
@@ -243,24 +275,136 @@ fn name_is_lower(w: &str) -> bool {
     w.chars().next().is_some_and(|c| c.is_ascii_lowercase())
 }
 
+/// An ALL-CAPS word: `[MAJOR MINOR]` names one operand, as `[search expression]` does.
+fn name_is_upper(w: &str) -> bool {
+    w.chars().next().is_some_and(|c| c.is_ascii_uppercase())
+}
+
 fn is_dots(w: &str) -> bool {
     !w.is_empty() && w.chars().all(|c| c == '.')
 }
 
+/// `{ file | URL }`: a brace group of alternative operands (S-226). Pushes
+/// each member and returns the index of the closing brace.
+fn brace_operands(toks: &[Tok], open: usize, ops: &mut Vec<Op>) -> Option<usize> {
+    let mut members: Vec<String> = Vec::new();
+    for (k, t) in toks.iter().enumerate().skip(open + 1) {
+        let Tok::Word(w) = t else { return None };
+        if w == "}" {
+            let ok = !members.is_empty() && members.iter().all(|m| !m.starts_with('-'));
+            if !ok {
+                return None;
+            }
+            ops.extend(members.iter().map(|name| Op {
+                name: name.clone(),
+                required: true,
+                repeatable: false,
+                admit: true,
+                angle: true,
+                at: k,
+                word: false,
+            }));
+            return Some(k);
+        }
+        if w != "|" {
+            members.push(operand_name(w)?);
+        }
+    }
+    None
+}
+
+/// `[version] [help] <command> <args>` (usbip): bracketed bare lowercase
+/// words directly before a command placeholder are command words, not
+/// operands.
+fn command_word_groups(toks: &[Tok]) -> Vec<bool> {
+    let mut skip = vec![false; toks.len()];
+    for (j, t) in toks.iter().enumerate() {
+        let Tok::Word(w) = t else { continue };
+        let placeholder = w.starts_with('<') || w.chars().next().is_some_and(char::is_uppercase);
+        if !placeholder || !is_command_placeholder(w.trim_matches(['<', '>', '.'])) {
+            continue;
+        }
+        for k in (0..j).rev() {
+            match &toks[k] {
+                Tok::Group(g) if name_is_lower(g) && is_single_operand(g) => skip[k] = true,
+                _ => break,
+            }
+        }
+    }
+    skip
+}
+
+/// `pkg1 [pkg2 ...]`: numbered siblings name one list. The bracketed,
+/// repeated `pkg2` is folded into `pkg1`, which becomes `pkg`, variadic and
+/// admitted (S-136's collapse, read per form).
+fn fold_numbered_siblings(ops: &mut Vec<Op>) {
+    let stem = |n: &str| -> Option<(String, u32)> {
+        let cut = n.trim_end_matches(|c: char| c.is_ascii_digit());
+        let num: u32 = n[cut.len()..].parse().ok()?;
+        (!cut.is_empty()).then(|| (cut.to_string(), num))
+    };
+    let mut k = 0;
+    while k < ops.len() {
+        match stem(&ops[k].name) {
+            Some((st, n)) if n >= 2 && !ops[k].required && ops[k].repeatable => {
+                // `[VERSION1 VERSION2 ...]`: both inside one group are distinct
+                // operands, not a list's head and tail.
+                let first = ops
+                    .iter()
+                    .position(|o| o.required && stem(&o.name) == Some((st.clone(), 1)));
+                if let Some(f) = first {
+                    ops[f].name = st;
+                    ops[f].repeatable = true;
+                    ops[f].admit = true;
+                    ops[f].angle = true;
+                    ops.remove(k);
+                } else {
+                    k += 1;
+                }
+            }
+            _ => k += 1,
+        }
+    }
+}
+
 fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<Op>) {
     let toks = tokenize(text);
+    let command_words = command_word_groups(&toks);
     let (mut occs, mut ops) = (Vec::new(), Vec::new());
     let (mut last_flag, mut prev_made_op): (Option<usize>, bool) = (None, false);
     let mut lowers: Vec<usize> = Vec::new();
+    let mut options_at: Option<usize> = None;
     let mut i = 0;
     while i < toks.len() {
         let before = ops.len();
         match &toks[i] {
+            Tok::Group(_) if command_words[i] => {
+                i += 1;
+                prev_made_op = false;
+                continue;
+            }
             Tok::Group(inner) => {
+                // `{[rulesfile]|-c [runcmd]}`: a group right after the last
+                // alternative of a glued flag word is that flag's value.
+                let value_of_glued_flag = i > 0
+                    && matches!(&toks[i - 1], Tok::Word(p)
+                        if p.contains('|') && p.rsplit('|').next().is_some_and(|l| l.starts_with('-')));
+                if value_of_glued_flag {
+                    i += 1;
+                    prev_made_op = false;
+                    continue;
+                }
                 if inner.starts_with('-') {
                     last_flag = Some(i);
+                } else if is_option_list_placeholder(inner) {
+                    options_at = Some(i);
                 }
                 read_group(inner, i == 0, &mut occs, &mut ops);
+            }
+            Tok::Word(w) if w == "{" => {
+                if let Some(end) = brace_operands(&toks, i, &mut ops) {
+                    i = end;
+                }
             }
             Tok::Word(w) if is_dots(w) => {
                 if let Some(last) = ops.last_mut().filter(|_| prev_made_op) {
@@ -299,12 +443,15 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
                 if name_is_lower(w) {
                     lowers.push(i);
                 }
+                let after_flag =
+                    i > 0 && matches!(&toks[i - 1], Tok::Word(p) if p.starts_with('-'));
                 if let Some(name) = operand_name(w) {
                     ops.push(Op {
                         name,
                         required: true,
                         repeatable: w.ends_with(".."),
                         admit: false,
+                        angle: !name_is_lower(w) && !after_flag,
                         at: 0,
                         word: name_is_lower(w),
                     });
@@ -319,8 +466,10 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
     }
     for op in &mut ops {
         let in_run = op.word && lowers.iter().any(|&a| a + 1 == op.at || op.at + 1 == a);
-        op.admit = last_flag.is_some_and(|l| op.at > l) && !in_run;
+        let boundary = last_flag.or(options_at);
+        op.admit |= boundary.is_some_and(|l| op.at > l) && !in_run;
     }
+    fold_numbered_siblings(&mut ops);
     (occs, ops)
 }
 
@@ -384,38 +533,78 @@ fn apply_flag(flag: &mut Entity, occs: &[&Occ], multi: bool) {
     }
 }
 
-/// (forms holding it, required in every one, repeatable anywhere, admitted)
-fn operand_summary(forms: &[Vec<Op>]) -> Vec<(String, usize, bool, bool, bool)> {
-    let mut out: Vec<(String, usize, bool, bool, bool)> = Vec::new();
+/// Forms holding an operand, required in every one, repeatable anywhere,
+/// admitted, and written as `<name>` wherever it is admitted.
+struct Summary {
+    name: String,
+    count: usize,
+    required: bool,
+    repeatable: bool,
+    admit: bool,
+    angle: bool,
+}
+
+fn operand_summary(forms: &[Vec<Op>]) -> Vec<Summary> {
+    let mut out: Vec<Summary> = Vec::new();
     for ops in forms {
         let mut seen: Vec<&str> = Vec::new();
         for op in ops {
-            let at = out.iter().position(|e| e.0 == op.name).unwrap_or_else(|| {
-                out.push((op.name.clone(), 0, true, false, false));
-                out.len() - 1
-            });
+            let at = out
+                .iter()
+                .position(|e| e.name == op.name)
+                .unwrap_or_else(|| {
+                    out.push(Summary {
+                        name: op.name.clone(),
+                        count: 0,
+                        required: true,
+                        repeatable: false,
+                        admit: false,
+                        angle: true,
+                    });
+                    out.len() - 1
+                });
             let first_in_form = !seen.contains(&op.name.as_str());
             seen.push(&op.name);
             let e = &mut out[at];
-            e.1 += usize::from(first_in_form);
-            e.2 &= op.required;
-            e.3 |= op.repeatable;
-            e.4 |= op.admit;
+            e.count += usize::from(first_in_form);
+            e.required &= op.required;
+            e.repeatable |= op.repeatable;
+            e.admit |= op.admit;
+            e.angle &= op.angle;
         }
     }
     out
 }
 
 fn apply_operands(forms: &[Vec<Op>], positionals: &mut Vec<Entity>) {
-    for (name, count, required, repeatable, admit) in operand_summary(forms) {
+    for s in operand_summary(forms) {
+        let Summary {
+            name,
+            count,
+            required,
+            repeatable,
+            admit,
+            angle,
+        } = s;
         let everywhere = count == forms.len();
         if let Some(p) = positionals.iter_mut().find(|p| p.primary_name() == name) {
             p.required &= everywhere && required;
-        } else if admit && count >= 2 {
+        } else if admit && (count >= 2 || angle) {
             let mut p = Entity::positional(name, Provenance::single(Source::HelpText));
             p.required = everywhere && required;
             p.repeatable = repeatable;
-            positionals.push(p);
+            let rank = |name: &str| {
+                forms
+                    .iter()
+                    .enumerate()
+                    .find_map(|(f, ops)| ops.iter().position(|o| o.name == name).map(|k| (f, k)))
+            };
+            let mine = rank(p.primary_name());
+            let slot = positionals
+                .iter()
+                .position(|q| rank(q.primary_name()) > mine && rank(q.primary_name()).is_some())
+                .unwrap_or(positionals.len());
+            positionals.insert(slot, p);
         }
     }
 }
@@ -451,7 +640,5 @@ pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity], positionals: &
             apply_flag(flag, &mine, multi);
         }
     }
-    if multi {
-        apply_operands(&ops, positionals);
-    }
+    apply_operands(&ops, positionals);
 }

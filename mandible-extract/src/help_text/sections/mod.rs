@@ -33,6 +33,7 @@ use mandible_core::{
 
 mod avoption;
 mod backfill;
+mod builtin_usage;
 mod bullets;
 mod caps_single_dash;
 mod command_list_rows;
@@ -2394,6 +2395,14 @@ fn parse_body(
                 None => tail,
             });
         }
+    }
+    if let Some(text) =
+        builtin_usage::description_after_usage(&lines, labelled_usage_start, tool_name)
+    {
+        description = Some(match description {
+            Some(d) => format!("{text}\n\n{d}"),
+            None => text,
+        });
     }
     description = with_form_description(description, &form_description);
     if let Some(description) = description {

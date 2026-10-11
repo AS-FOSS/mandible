@@ -4744,7 +4744,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       ssh-keygen -k -f krl_file [-u] [-z version_number] file ...
       sg_test_rwbuf [--addrd=AR] --size=SZ DEVICE
       sg_test_rwbuf DEVICE SZ [AW] [AR]
-- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck
+- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck, git, jq, xdg-open, apt-cache, busybox, choom, chown, flock, groff, jps, jstat, rpcinfo, runuser, scriptreplay, ssh-agent, xxd, find, uconv, tcpdump, pod2man, pdb3, fsck, ntfsfallocate, host, llvm-size, llvm-modextract-18, brew
 - handling: Fixed. Each usage form is read on its own. A bare lowercase word or
   bracketed operand after the form's last flag is an operand when the same name
   closes two or more forms and no other lowercase word sits beside it (`list
@@ -4756,12 +4756,30 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tab and a description (`ethtool -s|--change DEVNAME<TAB>Change generic
   options`) closes the form: the deeper-indented `[ keyword value ]` lines
   below it still give flags their choices (`[ --src a | b | c ]`) but name
-  no operand. Fixtures:
+  no operand. An operand written in brackets, in angle brackets (`<jq
+  filter>` keeps its space), in a brace group (`{ file | URL }`) or in capitals
+  is admitted from a single form, after the form's last flag or its
+  `[options]` placeholder, and a nested group (`[<upstream> [<branch>]]`)
+  names one operand per name; a new operand takes its place in usage order.
+  A single-form usage reads the same bracketed operands (`find`'s
+  `[path...] [expression]`); a group right after a glued flag alternative
+  (`{[rulesfile]|-c [runcmd]}`) is that flag's value. Bracketed bare words
+  right before a `<command>` placeholder are command words (`usbip`'s
+  `[version] [help] <command>`), and `pkg1 [pkg2 ...]` is one list `pkg`.
+  A tab after the
+  `Usage:` label is not a description gap. Fixtures:
   `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
-  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`.
+  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`, `corpus/jq/1.7-operands`,
+  `corpus/xdg-open/user`, `corpus/git/2.43.0-operands`, `corpus/find/4.9.0`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
-  `required: true`, each read against its raw usage text.
+  `required: true`, each read against its raw usage text. A full-PATH sweep
+  (2271 tools) for the single-form extension gained operands on 26 tools
+  and lost none; each was read against its raw usage. Dropping the
+  two-forms gate for bracketed operands (`find`, `uconv`, `tcpdump`,
+  `pod2man`, the llvm `<input files>` family) was measured on the full PATH
+  (2271 tools): 200 operands gained on 153 tools, 0 lost, no flag or
+  subcommand moved; sampled against raw `--help`.
 
 ### S-200: single-dash row whose value is a glued run of placeholder groups
 
@@ -4961,15 +4979,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
       Where:
               p,r,t,u    -- probe at function entry, function exit
               library    -- the library that contains the function
-- tools: argdist-bpfcc
-- handling: Fixed. A bare block under a heading ending in `syntax`, or made of
+- tools: argdist-bpfcc, find
+- handling: Fixed. A bare block under a heading ending in `syntax` or naming a
+  `precedence` (`find`'s `Operators (decreasing precedence; ...)`), or made of
   three or more `name  -- meaning` rows, is a legend, not a list of values:
   its text joins the node description under its own heading and no flag
   receives choices from it. A flush example command that continues onto
   deeper lines (`argdist -H \`) no longer heads a block either, so its
   description words stop becoming a flag's choices (`-I`'s `processes`);
   jpackage's sample usages no longer invent a second `--type`. Fixtures:
-  `corpus/argdist-bpfcc/0.29.1`, `corpus/jpackage/21.0.12.1-samples`.
+  `corpus/argdist-bpfcc/0.29.1`, `corpus/jpackage/21.0.12.1-samples`,
+  `corpus/find/4.9.0`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
   (135 tools: bpfcc, jdk, rg; argdist-bpfcc and jpackage moved).
 
@@ -5243,3 +5263,34 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (S-131). Before, the second word was dropped from the row altogether.
   Fixture: `corpus/jq/1.7`.
 - fleet: full-PATH sweep, zero losses; jq, and the iptables/ip6tables/arptables/ebtables families moved (`--replace -R chain rulenum`, `-E old-chain new-chain`, `-P chain target`, `-D chain rulenum`), each read against its `--help`.
+### S-226: a flag that opens a parenthesised group takes its value inside the group
+
+- id: S-226
+- looks like: |
+      [(--trailer <token>[(=|:)<value>])...] [-S[<keyid>]] [--] [<pathspec>...]
+- tools: git
+- handling: Fixed. A usage word that opens a paren group and then spells a
+  flag (`(--trailer`) is read as that flag, so the next word is its value and
+  not an operand. `git commit` no longer shows a `token...` operand.
+  Fixture: `corpus/git/2.43.0-operands`.
+- fleet: a full-PATH sweep (2271 tools) lost no flags, subcommands or
+  operands and moved no tool for this rule; `git commit` is reached only
+  through its subcommand probe, which the sweep records do not list.
+
+### S-227: a shell builtin's help writes its name twice
+
+- id: S-227
+- looks like: |
+      cd: cd [-L|[-P [-e]]] [-@] [dir]
+          Change the shell working directory.
+
+          Change the current directory to DIR.
+- tools: cd
+- handling: Fixed. `NAME: NAME <synopsis>` is a usage line like `NAME: Usage:`
+  (S-162): the first name is the label, the rest is the usage form, so `dir`
+  is an operand. The paragraphs between it and the first section heading
+  are the description, shown before the trailing `Exit Status` text.
+  Fixture: `corpus/cd/user` (the maintainer's capture).
+- fleet: `cd` and the other builtin wrappers are absent from this box: the
+  full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
+  distro that ships `/usr/bin/cd`.

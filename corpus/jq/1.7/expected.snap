@@ -5,6 +5,21 @@ usage:
 - '        jq [options] --args <jq filter> [strings...]'
 - '        jq [options] --jsonargs <jq filter> [JSON_TEXTS...]'
 positionals:
+- name: jq filter
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: strings
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 - name: JSON_TEXTS
   variadic: true
   provenance:

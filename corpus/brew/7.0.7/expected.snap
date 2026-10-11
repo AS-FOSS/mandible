@@ -1153,6 +1153,12 @@ subcommands:
 - name: doctor
   usage:
   - 'Usage: brew doctor, dr [--list-checks] [--audit-debug] [diagnostic_check ...]'
+  positionals:
+  - name: diagnostic_check
+    variadic: true
+    provenance:
+      sources:
+      - help-text
   flags:
   - spellings:
     - --list-checks

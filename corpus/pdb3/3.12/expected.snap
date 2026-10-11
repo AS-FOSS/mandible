@@ -2,6 +2,12 @@ name: pdb3
 description: Initial commands are read from .pdbrc files in your home directory and in the current directory, if they exist. Commands supplied with -c are executed after commands from .pdbrc files.
 usage:
 - 'usage: pdb.py [-c command] ... [-m module | pyfile] [arg] ...'
+positionals:
+- name: arg
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -c

@@ -4,7 +4,19 @@ usage:
 - 'USAGE: llvm-ar-18 [options] [-]<operation>[modifiers] [relpos] [count] <archive> [files]'
 - '       llvm-ar-18 -M [<mri-script]'
 positionals:
+- name: relpos
+  provenance:
+    sources:
+    - help-text
+- name: count
+  provenance:
+    sources:
+    - help-text
 - name: archive
+  provenance:
+    sources:
+    - help-text
+- name: files
   provenance:
     sources:
     - help-text
