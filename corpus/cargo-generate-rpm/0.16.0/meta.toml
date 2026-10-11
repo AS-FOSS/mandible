@@ -1,0 +1,29 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cargo-generate-rpm"
+version = "0.16.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["cargo-generate-rpm", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--auto-req", "--payload-compress", "--variant"]
+
+[contract.must_attach_choices]
+"--auto-req" = ["auto", "disabled", "builtin", "find-requires", "/path/to/find-requires"]
+
+[contract.must_describe]
+"--auto-req" = "Automatic dependency processing mode."
+
+[contract.must_not_describe]
+"--auto-req" = "Possible values"
+
+[xfail]
+broken = true
+reason = "[S-247] the `- name: text` value bullets under Possible values: stay in the description instead of being choices"

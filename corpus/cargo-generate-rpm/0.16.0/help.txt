@@ -1,0 +1,62 @@
+Generate a binary RPM package (.rpm) from Cargo projects
+
+Usage: cargo-generate-rpm [OPTIONS]
+
+Options:
+  -a, --arch <ARCH>
+          Target arch of generated package
+
+  -o, --output <OUTPUT>
+          Output file or directory
+
+  -p, --package <PACKAGE>
+          Name of a crate in the workspace for which RPM package will be generated
+
+      --auto-req <AUTO_REQ>
+          Automatic dependency processing mode.
+          
+          Possible values:
+          - auto:                   Use the preferred automatic dependency process.
+          - disabled:               Disable the discovery of dependencies. [alias: no]
+          - builtin:                Use the builtin procedure based on ldd.
+          - find-requires:          Use /usr/lib/rpm/find-requires.
+          - /path/to/find-requires: Use the specified external program.
+          
+          [default: auto]
+
+      --target <TARGET>
+          Sub-directory name for all generated artifacts. May be specified with CARGO_BUILD_TARGET environment variable
+
+      --target-dir <TARGET_DIR>
+          Directory for all generated artifacts. May be specified with CARGO_BUILD_TARGET_DIR or CARGO_TARGET_DIR environment variables
+
+      --profile <PROFILE>
+          Build profile for packaging
+          
+          [default: release]
+
+      --payload-compress <PAYLOAD_COMPRESS>
+          Compression type of package payload
+          
+          [default: zstd]
+          [possible values: none, gzip, zstd, xz]
+
+      --source-date <SOURCE_DATE>
+          Timestamp in seconds since the UNIX Epoch for clamping modification time of included files and package build time.
+          
+          This value can also be provided using the SOURCE_DATE_EPOCH enviroment variable.
+
+      --metadata-overwrite <METADATA_OVERWRITE>
+          Overwrite metadata with TOML file. If "#dotted.key" suffixed, load "dotted.key" table instead of the root table
+
+  -s, --set-metadata <SET_METADATA>
+          Overwrite metadata with TOML text
+
+      --variant <VARIANT>
+          Shortcut to --metadata-overwrite=path/to/Cargo.toml#package.metadata.generate-rpm.variants.VARIANT
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
