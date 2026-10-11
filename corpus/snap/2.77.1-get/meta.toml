@@ -19,7 +19,3 @@ expected_framework = "generic"
 
 [contract.must_value_name]
 "--with" = "<param>=<constraint>"
-
-[xfail]
-broken = true
-reason = "[S-245] the text after the first value placeholder is dropped: --with=<param>=<constraint> shows <param>, pnpm --filter <pattern>... shows <pattern>"

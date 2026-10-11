@@ -799,7 +799,7 @@ flags:
     - help-text
 - spellings:
   - --bridge-interface
-  value_name: <iface>,<alias>
+  value_name: <iface>,<alias>..
   value_kind: Required
   group: 'Valid options are:'
   description: Treat DHCP requests on aliases as arriving from interface.

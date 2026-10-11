@@ -86,6 +86,7 @@ mod usage_tab_table;
 pub(crate) mod usage_verbs;
 mod usage_word_flags;
 mod value_form_row;
+mod value_tail_row;
 mod word_grid;
 mod wrapped_flag_line;
 

@@ -24,7 +24,3 @@ must_not_contain_flags = ["--changed-files-ignore-", "--filter=\"...[origin/mast
 
 [contract.must_describe]
 "--changed-files-ignore-pattern" = "--changed-files-ignore- pattern=\"**/README.md\" build"
-
-[xfail]
-broken = true
-reason = "[S-245] the text after the first value placeholder is dropped: --filter <pattern>^... shows <pattern>"

@@ -5536,3 +5536,18 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag are that flag's literal values, not a value name. Fixture:
   `corpus/ethtool/6.7`.
 - fleet: see S-243.
+
+### S-245: text glued after the value placeholder
+
+- id: S-245
+- looks like: |
+      --filter <pattern>...           Includes all direct and indirect dependencies
+      --filter <pattern>^...          Includes only the direct and indirect dependencies
+      --with=<param>=<constraint>     Parameter constraints for filtering
+- tools: pnpm, snap, dpkg, cargo-fmt, dnsmasq
+- handling: Fixed. When the grammar reads a `<placeholder>` value and the
+  same last token of the spec cell carries more text glued to it (not a
+  separator or sentence mark), the whole printed token is the value
+  (`<pattern>^...`, `<param>=<constraint>`). Before, the tail was dropped.
+  Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get`.
+- fleet: full-PATH sweep pending.

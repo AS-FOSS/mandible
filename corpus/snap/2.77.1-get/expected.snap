@@ -1,0 +1,72 @@
+name: snap
+description: |-
+  The get command prints configuration options for the provided snap.
+
+  $ snap get snap-name username frank
+usage:
+- '  snap get [get-OPTIONS] <snap> [<key>...]'
+positionals:
+- name: snap
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: key
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -t
+  group: '[get command options]'
+  description: Strict typing with nulls and quoted strings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  group: '[get command options]'
+  description: Always return document, even with single key
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  group: '[get command options]'
+  description: Always return list, even with single key
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --default
+  value_name: ''
+  value_kind: Required
+  group: '[get command options]'
+  description: A strictly typed default value to be used when none is found
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --with
+  value_name: <param>=<constraint>
+  value_kind: Required
+  group: '[get command options]'
+  description: Parameter constraints for filtering confdb queries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wait-for
+  value_name: ''
+  value_kind: Required
+  group: '[get command options]'
+  description: Maximum duration to wait for confdb access (e.g. 10s)
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
