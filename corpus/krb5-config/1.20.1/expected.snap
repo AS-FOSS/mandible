@@ -1,5 +1,4 @@
 name: krb5-config
-description: 'Options:'
 usage:
 - 'Usage: /usr/bin/krb5-config [OPTIONS] [LIBRARIES]'
 positionals:

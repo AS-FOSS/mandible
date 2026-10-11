@@ -1,5 +1,4 @@
 name: cache_repair
-description: 'Options:'
 usage:
 - 'Usage: cache_repair [options] {device|file}'
 positionals:

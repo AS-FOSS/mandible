@@ -1,7 +1,8 @@
 //! Root-description text the leading-prose scan misses: prose that follows
 //! the usage block and a blank line, an indented lead paragraph above a
-//! bare heading word, and the heading word itself (never a description).
-//! `docs/shapes.md` S-235, S-236.
+//! bare heading word, and the heading word itself (never a description),
+//! including a colon label (`Options:`) at the edge of the description.
+//! `docs/shapes.md` S-235, S-236, S-249.
 
 use super::*;
 
@@ -21,6 +22,56 @@ pub(super) fn is_bare_heading_word(lines: &[&str], idx: usize) -> bool {
             .iter()
             .find(|l| !l.trim().is_empty())
             .is_some_and(|l| leading_whitespace(l) > 0)
+}
+
+/// A short column-0 label ending in a colon (`Options:`, `Commands are:`,
+/// `where possible options include:`) whose next non-blank line is
+/// indented: it labels the block below it, it is not prose. A sentence
+/// lead-in (more than four words) is not one, nor is an identifier or a
+/// line carrying a number (`armelf_linux_eabi:`, `1404 packages installed:`).
+/// Its text still renders as the group label of the block it heads.
+/// `docs/shapes.md` S-249.
+pub(super) fn is_colon_block_label(lines: &[&str], idx: usize) -> bool {
+    let Some(line) = lines.get(idx) else {
+        return false;
+    };
+    let t = line.trim_end();
+    leading_whitespace(line) == 0
+        && t.split_whitespace().count() <= 4
+        && is_section_heading_line(t)
+        && t.trim_end_matches(':')
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == ' ')
+        && lines[idx + 1..]
+            .iter()
+            .find(|l| !l.trim().is_empty())
+            .is_some_and(|l| leading_whitespace(l) > 0)
+}
+
+/// The line indices of block labels at the two edges of the description
+/// candidates (`candidate` says which column-0 lines may be description):
+/// every label before the first prose line and every label after the last.
+/// A label amid prose is left alone. `docs/shapes.md` S-249.
+pub(super) fn edge_label_lines(
+    lines: &[&str],
+    bound: usize,
+    candidate: impl Fn(usize) -> bool,
+) -> std::collections::HashSet<usize> {
+    let kept: Vec<usize> = (0..lines.len().min(bound))
+        .filter(|&j| !lines[j].trim().is_empty() && candidate(j))
+        .collect();
+    let is_label = |j: &usize| is_colon_block_label(lines, *j);
+    let lead = kept.iter().take_while(|j| is_label(j)).count();
+    let trail = kept[lead..]
+        .iter()
+        .rev()
+        .take_while(|j| is_label(j))
+        .count();
+    kept[..lead]
+        .iter()
+        .chain(&kept[kept.len() - trail..])
+        .copied()
+        .collect()
 }
 
 /// The indented paragraph that opens a document (`   xdg-open - opens a

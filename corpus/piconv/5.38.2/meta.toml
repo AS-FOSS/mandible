@@ -19,6 +19,3 @@ must_not_describe_root = ["Common options"]
 [contract.must_flag_group]
 "--list" = "Common options:"
 
-[xfail]
-broken = true
-reason = "[S-238] the heading word `Common options:` is the root description; it must stay the group label of the flags it heads"

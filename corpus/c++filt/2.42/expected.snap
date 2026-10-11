@@ -1,8 +1,5 @@
 name: c++filt
-description: |-
-  Options are:
-
-  Demangled names are displayed to stdout. If a name cannot be demangled it is just echoed to stdout. If no names are provided on the command line, stdin is read. Report bugs to <https://sourceware.org/bugzilla/>.
+description: Demangled names are displayed to stdout. If a name cannot be demangled it is just echoed to stdout. If no names are provided on the command line, stdin is read. Report bugs to <https://sourceware.org/bugzilla/>.
 usage:
 - 'Usage: c++filt [options] [mangled names]'
 flags:

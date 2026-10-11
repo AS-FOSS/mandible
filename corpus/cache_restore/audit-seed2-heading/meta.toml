@@ -14,6 +14,3 @@ stdout = "help.txt"
 must_contain_flags = ["--help", "--input", "--output"]
 must_not_describe_root = ["Options:"]
 
-[xfail]
-broken = true
-reason = "[S-238] the heading word `Options:` under the usage line is the root description"

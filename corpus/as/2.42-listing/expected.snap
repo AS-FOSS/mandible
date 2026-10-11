@@ -1,8 +1,5 @@
 name: as
-description: |-
-  Options:
-
-  Report bugs to <https://sourceware.org/bugzilla/>
+description: Report bugs to <https://sourceware.org/bugzilla/>
 usage:
 - 'Usage: /usr/bin/as [option...] [asmfile...]'
 flags:

@@ -1,5 +1,4 @@
 name: cache_restore
-description: 'Options:'
 usage:
 - 'Usage: cache_restore [options]'
 flags:

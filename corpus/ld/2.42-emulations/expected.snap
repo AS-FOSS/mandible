@@ -1,5 +1,5 @@
 name: ld
-description: 'Options: /usr/bin/ld: emulation specific options: ELF emulations:'
+description: '/usr/bin/ld: emulation specific options:'
 usage:
 - 'Usage: /usr/bin/ld [options] file...'
 flags:

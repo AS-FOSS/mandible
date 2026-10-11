@@ -1,0 +1,62 @@
+name: cache_restore
+usage:
+- 'Usage: cache_restore [options]'
+flags:
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --input
+  value_name: <input xml file>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: <output device or file>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --metadata-version
+  value_name: <1 or 2>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debug-override-metadata-version
+  value_name: <integer>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --omit-clean-shutdown
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

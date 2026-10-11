@@ -5506,3 +5506,27 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
+
+### S-249: a colon heading word is the root description
+
+- id: S-249
+- looks like: |
+      Usage: gcc [options] file...
+      Options:
+        -pass-exit-codes         Exit with highest error code from a phase.
+- tools: gcc, g++, cpp, as, ld, cache_check, thin_check, era_check, insmod, modprobe, piconv, lxc, runc, javac, xtables-nft-multi
+- handling: Fixed. A column-0 label of at most four alphabetic words ending in a
+  colon (`Options:`, `Commands are:`, `where possible options include:`) whose
+  next non-blank line is indented labels the block below it. At either edge of
+  the description it is not description text: the description is the prose
+  between the labels, or none. A label amid prose, a sentence lead-in, an
+  identifier (`armelf_linux_eabi:`) and a line with a number are left alone. The
+  S-164 guard is untouched: a heading that is not generic (`Management Options`,
+  `Common options`, `Box options`) still renders as its flags' group label,
+  now that the description no longer spends it. Fixtures:
+  `corpus/cache_restore/audit-seed2-heading`, `corpus/piconv/5.38.2`.
+- fleet: replaying the 2234 round-17 raw captures changed 167 root
+  descriptions, each only by losing label lines (74 `Options:`, 50 `stdout:`,
+  11 `options:`, 4 `NAME:`, 3 `Description:`, 27 other labels); none gained
+  text. Command-list labels (`Commands are:`, `Supported commands are:`) and
+  `Where:` have no group to render as.

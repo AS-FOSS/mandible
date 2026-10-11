@@ -1020,6 +1020,18 @@ fn extract_description(
     // the real description — see `is_banner_paragraph` below. A skipped
     // indented line (a usage continuation in this same zone, du's own
     // `  or: ...`) does not break the paragraph it sits inside.
+    let is_prose_candidate = |j: usize| {
+        let l = lines[j];
+        let t = l.trim_start();
+        leading_whitespace(l) == 0
+            && !starts_with_usage_prefix(t)
+            && !in_usage_block(j)
+            && !looks_like_bnf_production_line(t)
+            && !root_prose::is_bare_heading_word(lines, j)
+    };
+    // `Options:` and its kin at either edge of the description label the
+    // block they sit beside; they are not the description. S-249.
+    let edge_labels = root_prose::edge_label_lines(lines, description_bound, is_prose_candidate);
     let mut paragraphs: Vec<Vec<&str>> = Vec::new();
     let mut current: Vec<&str> = Vec::new();
     let mut j = 0;
@@ -1029,15 +1041,8 @@ fn extract_description(
             if !current.is_empty() {
                 paragraphs.push(std::mem::take(&mut current));
             }
-        } else if leading_whitespace(l) == 0 {
-            let t = l.trim_start();
-            if !starts_with_usage_prefix(t)
-                && !in_usage_block(j)
-                && !looks_like_bnf_production_line(t)
-                && !root_prose::is_bare_heading_word(lines, j)
-            {
-                current.push(l);
-            }
+        } else if is_prose_candidate(j) && !edge_labels.contains(&j) {
+            current.push(l);
         }
         j += 1;
     }

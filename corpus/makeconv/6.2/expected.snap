@@ -1,5 +1,4 @@
 name: makeconv
-description: 'options:'
 usage:
 - 'usage: makeconv [-options] files...'
 positionals:
