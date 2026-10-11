@@ -1,0 +1,24 @@
+# `git diff -h` (exit 129), stored as a root capture so the contract can read its flags.
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git-diff"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git-diff", "--help"]
+stdout = "help.txt"
+exit_code = 129
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--patch", "--unified", "--no-index"]
+
+# `--no-index` is a mode named in the usage line; the `[<options>]` after it is
+# the generic option-list word, not its value.
+[contract.must_not_value_name]
+"--no-index" = "options"

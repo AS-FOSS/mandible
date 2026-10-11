@@ -2,7 +2,10 @@
 //! word (`-NUM  shortcut for -C NUM`, `-NUM  same as --context=NUM`) is one
 //! single-dash spelling, never `-N` with the value `UM`. The description
 //! tells it from a short flag with a glued value (`-DNAME`, whose
-//! description never repeats `DNAME`) — `docs/shapes.md` S-221.
+//! description never repeats `DNAME`) — `docs/shapes.md` S-221. The numeric
+//! option `-NUM` needs no such echo: `UM` is no placeholder, so `-N` plus
+//! `UM` is never what a tool means (`git archive`'s `-NUM  set compression
+//! level`).
 
 use super::*;
 
@@ -21,7 +24,10 @@ pub(super) fn repair_caps_single_dash(spec: &mut FlagSpec, spec_text: &str, desc
     if run.chars().count() < 3 || !run.chars().all(caps) || only.name.chars().count() != 1 {
         return;
     }
-    if spec_text.trim() != format!("-{run}") || !mentions_whole_word(description, &run) {
+    if spec_text.trim() != format!("-{run}") {
+        return;
+    }
+    if run != "NUM" && !mentions_whole_word(description, &run) {
         return;
     }
     spec.spellings = vec![Spelling::single_dash(run)];

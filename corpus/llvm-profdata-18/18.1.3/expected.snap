@@ -15,8 +15,10 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - generic
-  - apple
+  - name: generic
+    description: Emit generic NEON assembly
+  - name: apple
+    description: Emit Apple-style NEON assembly
   group: 'General options:'
   description: 'Choose style of NEON code to emit from AArch64 backend:'
   provenance:
@@ -48,9 +50,12 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - DPP
-  - Iterative
-  - None
+  - name: DPP
+    description: Use DPP operations for scan
+  - name: Iterative
+    description: Use Iterative approach for scan
+  - name: None
+    description: Disable atomic optimizer
   group: 'General options:'
   description: Select DPP or Iterative strategy for scan
   provenance:
@@ -155,10 +160,14 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - always
-  - never
-  - arm
-  - thumb
+  - name: always
+    description: Accept in both ISAs, emit implicit ITs in Thumb
+  - name: never
+    description: Warn in ARM, reject in Thumb
+  - name: arm
+    description: Accept in ARM, reject in Thumb
+  - name: thumb
+    description: Warn in ARM, emit implicit ITs in Thumb
   group: 'General options:'
   description: Allow conditional instructions outdside of an IT block
   provenance:
@@ -234,10 +243,14 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - throughput
-  - latency
-  - code-size
-  - size-latency
+  - name: throughput
+    description: Reciprocal throughput
+  - name: latency
+    description: Instruction latency
+  - name: code-size
+    description: Code size
+  - name: size-latency
+    description: Code size and latency
   group: 'General options:'
   description: Target cost kind
   provenance:
@@ -280,8 +293,10 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - locations
-  - location
+  - name: locations
+    description: Locations only
+  - name: location
+    description: Locations and Variables
   group: 'General options:'
   description: Kind of debug info to add
   provenance:
@@ -366,9 +381,12 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - always
-  - no-compact-unwind
-  - default
+  - name: always
+    description: Always emit EH frame entries
+  - name: no-compact-unwind
+    description: Only emit EH frame entries when compact unwind is not available
+  - name: default
+    description: Use target platform default
   group: 'General options:'
   description: Whether to emit DWARF EH frame entries.
   provenance:
@@ -495,11 +513,16 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - none
-  - data
-  - data-without-lane-mask
-  - data-and-control
-  - data-and-control-without-rt-check
+  - name: none
+    description: Disable tail folding
+  - name: data
+    description: Create lane mask for data only, using active.lane.mask intrinsic
+  - name: data-without-lane-mask
+    description: Create lane mask with compare/stepvector
+  - name: data-and-control
+    description: Create lane mask using active.lane.mask intrinsic, and use it for both data and control flow
+  - name: data-and-control-without-rt-check
+    description: Similar to data-and-control, but remove the runtime check
   group: 'General options:'
   description: Force the tail folding style
   provenance:
@@ -680,9 +703,12 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - none
-  - optimized
-  - post-merge-pre-opt
+  - name: none
+    description: Do not embed
+  - name: optimized
+    description: Embed after all optimization passes
+  - name: post-merge-pre-opt
+    description: Embed post merge, but before optimizations
   group: 'General options:'
   description: Embed LLVM bitcode in object files produced by LTO
   provenance:
@@ -720,8 +746,10 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - column-major
-  - row-major
+  - name: column-major
+    description: Use column-major layout
+  - name: row-major
+    description: Use row-major layout
   group: 'General options:'
   description: Sets the default matrix layout
   provenance:
@@ -791,15 +819,24 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - v60
-  - v62
-  - v65
-  - v66
-  - v67
-  - v68
-  - v69
-  - v71
-  - v73
+  - name: v60
+    description: Build for HVX v60
+  - name: v62
+    description: Build for HVX v62
+  - name: v65
+    description: Build for HVX v65
+  - name: v66
+    description: Build for HVX v66
+  - name: v67
+    description: Build for HVX v67
+  - name: v68
+    description: Build for HVX v68
+  - name: v69
+    description: Build for HVX v69
+  - name: v71
+    description: Build for HVX v71
+  - name: v73
+    description: Build for HVX v73
   group: 'General options:'
   description: Enable Hexagon Vector eXtensions
   provenance:
@@ -810,9 +847,12 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - never
-  - optimal
-  - always
+  - name: never
+    description: Do not use compact branches if possible.
+  - name: optimal
+    description: Use compact branches where appropriate (default).
+  - name: always
+    description: Always use compact branches if possible.
   group: 'General options:'
   description: 'MIPS Specific: Compact branch policy.'
   provenance:
@@ -981,10 +1021,14 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - debug-info
-  - binary
+  - name: <empty>
+    description: No profile correlation
+  - name: debug-info
+    description: Use debug info to correlate
+  - name: binary
+    description: Use binary to correlate
   group: 'General options:'
-  description: Use debug info or binary file to correlate profiles. =<empty> - No profile correlation
+  description: Use debug info or binary file to correlate profiles.
   provenance:
     sources:
     - help-text
@@ -1113,11 +1157,16 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - disabled
-  - enabled-no-reductions
-  - enabled
-  - force-enabled-no-reductions
-  - force-enabled
+  - name: disabled
+    description: Don't tail-predicate loops
+  - name: enabled-no-reductions
+    description: Enable tail-predication, but not for reduction loops
+  - name: enabled
+    description: Enable tail-predication, including reduction loops
+  - name: force-enabled-no-reductions
+    description: Enable tail-predication, but not for reduction loops, and force this which might be unsafe
+  - name: force-enabled
+    description: Enable tail-predication, including reduction loops, and force this which might be unsafe
   group: 'General options:'
   description: MVE tail-predication pass options
   provenance:
@@ -1495,9 +1544,12 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - bb
-  - scalar-indep
-  - store
+  - name: bb
+    description: One statement per basic block
+  - name: scalar-indep
+    description: Scalar independence heuristic
+  - name: store
+    description: Store-level granularity
   group: Configure the polly loop optimizer
   description: Algorithm to use for splitting basic blocks into multiple statements
   provenance:
@@ -1522,8 +1574,10 @@ flags:
   value_name: <value>
   value_kind: Required
   choices:
-  - none
-  - stripmine
+  - name: none
+    description: No Vectorization
+  - name: stripmine
+    description: Strip-mine outer loops for the loop-vectorizer to trigger
   group: Configure the polly loop optimizer
   description: Select the vectorization strategy
   provenance:

@@ -1,0 +1,21 @@
+Usage: /usr/bin/krb5-config [OPTIONS] [LIBRARIES]
+Options:
+        [--help]          Help
+        [--all]           Display version, vendor, and various values
+        [--version]       Version information
+        [--vendor]        Vendor information
+        [--prefix]        Kerberos installed prefix
+        [--exec-prefix]   Kerberos installed exec_prefix
+        [--defccname]     Show built-in default ccache name
+        [--defktname]     Show built-in default keytab name
+        [--defcktname]    Show built-in default client keytab name
+        [--cflags]        Compile time CFLAGS
+        [--deps]          Include dependent libraries
+        [--libs]          List libraries required to link [LIBRARIES]
+Libraries:
+        krb5              Kerberos 5 application
+        gssapi            GSSAPI application with Kerberos 5 bindings
+        gssrpc            GSSAPI RPC application
+        kadm-client       Kadmin client
+        kadm-server       Kadmin server
+        kdb               Application that accesses the kerberos database
