@@ -5068,3 +5068,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: a full-PATH sweep (2271 tools) lost no flags, subcommands or
   operands and moved no tool for this rule; `git commit` is reached only
   through its subcommand probe, which the sweep records do not list.
+
+### S-227: a shell builtin's help writes its name twice
+
+- id: S-227
+- looks like: |
+      cd: cd [-L|[-P [-e]]] [-@] [dir]
+          Change the shell working directory.
+
+          Change the current directory to DIR.
+- tools: cd
+- handling: Fixed. `NAME: NAME <synopsis>` is a usage line like `NAME: Usage:`
+  (S-162): the first name is the label, the rest is the usage form, so `dir`
+  is an operand. The paragraphs between it and the first section heading
+  are the description, shown before the trailing `Exit Status` text.
+  Fixture: `corpus/cd/user` (the maintainer's capture).
+- fleet: `cd` and the other builtin wrappers are absent from this box: the
+  full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
+  distro that ships `/usr/bin/cd`.

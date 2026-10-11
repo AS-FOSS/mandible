@@ -967,7 +967,9 @@ pub fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
     }
     t.strip_prefix(name)
         .and_then(|rest| rest.strip_prefix(": "))
-        .is_some_and(starts_with_usage_prefix)
+        // `cd: cd [-L|[-P [-e]]] [-@] [dir]`: bash's builtin help writes
+        // the name twice, the second a synopsis line (S-227).
+        .is_some_and(|r| starts_with_usage_prefix(r) || looks_like_unlabeled_synopsis_line(r, name))
 }
 
 /// Drop the `<program>: ` prefix [`starts_with_name_prefixed_usage`]

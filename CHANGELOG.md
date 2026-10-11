@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - [S-199] A single usage form's bracketed operands are kept: `mandible find` shows `path...` and `expression`, `uconv` its `file ...`, `tcpdump` its `expression`, `pod2man` `input` and `output`.
 - [S-210] An operator-precedence block (`find`'s `Operators (decreasing precedence ...)`) is shown in the description instead of being dropped.
+- [S-227] A shell builtin's help (`cd: cd [-L|[-P [-e]]] [-@] [dir]`) is read as usage, so `mandible cd` shows the `dir` operand and its description paragraphs.
 - [S-226] A flag that opens a paren group takes its value inside it, so `git commit` no longer shows a `token...` operand beside `pathspec...`.
 - [S-199] Operands named in only one usage form, or in a brace group, are kept (`mandible git rebase` gains `upstream`, `mandible jq` gains `jq filter`, `file` and `strings`, `mandible xdg-open` gains `file`, `llvm-ar` gains `relpos`, `count` and `files`).
 

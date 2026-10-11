@@ -142,7 +142,6 @@ ratio	1	mandible-extract/src/help_text/sections/entry.rs
 ratio	1	mandible-extract/src/help_text/sections/flag_rows.rs
 ratio	1	mandible-extract/src/help_text/sections/heading.rs
 ratio	1	mandible-extract/src/help_text/sections/layout.rs
-ratio	1	mandible-extract/src/help_text/sections/mod.rs
 ratio	1	mandible-extract/src/help_text/sections/preamble.rs
 ratio	1	mandible-extract/src/help_text/sections/repair.rs
 ratio	1	mandible-extract/src/help_text/sections/scan.rs
