@@ -3773,6 +3773,29 @@ mod tests {
 
     /// A form that names the node and then its aliases (`brew search, -S`)
     /// is not prefixed with the node's name a second time.
+    /// A later form written from the same program but naming another
+    /// command path (`git log`'s `or: git show ...`) is printed as the
+    /// author wrote it; the node's name is not prepended. S-228.
+    #[test]
+    fn a_form_led_by_another_command_path_is_not_prefixed_with_the_node() {
+        let usage = [
+            Text::sanitize("usage: git log [<options>] [<revision-range>] [[--] <path>...]"),
+            Text::sanitize("   or: git show [<options>] <object>..."),
+            Text::sanitize("   or: [<options>] <object>..."),
+        ];
+        let forms = usage_forms("log", &usage);
+        assert_eq!(
+            forms[0].1,
+            "git log [<options>] [<revision-range>] [[--] <path>...]"
+        );
+        assert_eq!(forms[1].1, "git show [<options>] <object>...");
+        assert_eq!(forms[2].1, "log [<options>] <object>...");
+    }
+
+    fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
+        usage_form_led_by(node_name, usage, &[])
+    }
+
     #[test]
     fn a_usage_form_naming_the_node_with_an_alias_list_does_not_prepend() {
         assert_eq!(

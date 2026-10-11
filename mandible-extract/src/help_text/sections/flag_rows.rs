@@ -3,7 +3,7 @@
 //! and where a nested entry table interrupts a row's description.
 
 use super::example_command_line::is_example_command_line;
-use super::wrapped_flag_line::continues_wrapped_description;
+use super::wrapped_flag_line::{continues_wrapped_description, is_example_under_colon};
 use super::*;
 
 /// True when `line` opens a BNF grammar production — `LABEL := ...`, with
@@ -698,9 +698,7 @@ pub(super) fn placeholder_left_open(spec: &str) -> bool {
 /// docs/shapes.md S-049.
 pub(super) fn choices_sub_row_value(trimmed: &str) -> Option<&str> {
     let rest = trimmed.strip_prefix('=')?;
-    let end = rest
-        .find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
-        .unwrap_or(rest.len());
+    let end = choice_name_len(rest);
     if end == 0 {
         return None;
     }
@@ -844,6 +842,7 @@ fn collect_flags_block_rows<'a>(
 
         let is_entry_start = !follows_backslash_line(lines, i)
             && !continues_wrapped_description(&rows, current_entry_line, line)
+            && !is_example_under_colon(&rows, current_entry_line, line)
             && !is_example_command_line(trimmed, indent, min_entry_indent)
             && (looks_like_flag_start(trimmed)
             || looks_like_bracket_flag_row(trimmed)
@@ -1242,14 +1241,15 @@ pub(super) fn scan_flags_block(
                         // See docs/shapes.md S-204.
                         last.1.push_str(&form);
                     } else if let Some(choice) = choices_sub_row_value(text) {
-                        // llvm-ar's own `=value` sub-rows — see
-                        // `choices_sub_row_value`. llvm-ar never documents
-                        // a per-value explanation on this shape, so there
-                        // is nothing to attach here. See docs/shapes.md
-                        // S-049.
+                        // llvm's own `=value` sub-rows — see
+                        // `choices_sub_row_value`. The row's own text after
+                        // its `-` separator, when it has any, is the
+                        // choice's description. See docs/shapes.md S-049,
+                        // S-233.
+                        let desc = choices_sub_row_description(text);
                         let choice = choice.to_string();
                         if !last.2.iter().any(|(n, _)| n == &choice) {
-                            last.2.push((choice, None));
+                            last.2.push((choice, desc));
                         }
                     } else {
                         last.1.push(' ');

@@ -1,0 +1,28 @@
+# clap's `Possible values:` followed by `* name: text` and `* name (text)` bullets
+# inside a flag's description (`--style`, `--nonprintable-notation`): each bullet is
+# a choice of that flag, its text the choice's description.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "batcat"
+version = "0.24.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["batcat", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--style", "--nonprintable-notation", "--color"]
+
+[contract.must_attach_choices]
+"--style" = ["default", "full", "plain", "header-filename", "grid", "snip"]
+"--nonprintable-notation" = ["unicode", "caret"]
+
+[contract.must_describe]
+"--style" = "Configure which elements"

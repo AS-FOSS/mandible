@@ -936,8 +936,13 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
                             if let Some(UsageSegment::Group(members)) = segments.get(seg_idx) {
                                 if let [member] = members.as_slice() {
                                     // `[options]` is the "flags go here" word, never
-                                    // a value (corpus/brew/7.0.7-search-alias, S-189).
-                                    if names_a_value(member) && !is_option_list_placeholder(member)
+                                    // a value (corpus/brew/7.0.7-search-alias, S-189),
+                                    // written `[<options>]` too (`git diff --no-index
+                                    // [<options>] <path> <path>`, S-100).
+                                    if names_a_value(member)
+                                        && !is_option_list_placeholder(
+                                            member.trim_matches(['<', '>']),
+                                        )
                                     {
                                         push_usage_flag(
                                             &mut out,

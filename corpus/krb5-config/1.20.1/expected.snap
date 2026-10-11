@@ -1,0 +1,100 @@
+name: krb5-config
+description: 'Options:'
+usage:
+- 'Usage: /usr/bin/krb5-config [OPTIONS] [LIBRARIES]'
+positionals:
+- name: LIBRARIES
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --help
+  description: Help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --all
+  description: Display version, vendor, and various values
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Version information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vendor
+  description: Vendor information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --prefix
+  description: Kerberos installed prefix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exec-prefix
+  description: Kerberos installed exec_prefix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --defccname
+  description: Show built-in default ccache name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --defktname
+  description: Show built-in default keytab name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --defcktname
+  description: Show built-in default client keytab name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cflags
+  description: Compile time CFLAGS
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --deps
+  description: Include dependent libraries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --libs
+  choices:
+  - name: krb5
+    description: Kerberos 5 application
+  - name: gssapi
+    description: GSSAPI application with Kerberos 5 bindings
+  - name: gssrpc
+    description: GSSAPI RPC application
+  - name: kadm-client
+    description: Kadmin client
+  - name: kadm-server
+    description: Kadmin server
+  - name: kdb
+    description: Application that accesses the kerberos database
+  description: List libraries required to link [LIBRARIES]
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
