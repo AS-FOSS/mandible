@@ -2006,7 +2006,10 @@ fn scan_entries(
             if is_wrapped_prose_continuation(lines, i) {
                 let (end, text) = wrapped_prose_paragraph(lines, i);
                 st.result.description = Some(match st.result.description.take() {
-                    Some(d) => format!("{d} {text}"),
+                    Some(d) => {
+                        let sep = builtin_usage::paragraph_separator(lines, i);
+                        format!("{d}{sep}{text}")
+                    }
                     None => text,
                 });
                 i = end;

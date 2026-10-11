@@ -13,10 +13,6 @@ stdout = "help.txt"
 exit_code = 0
 
 
-[xfail]
-broken = true
-reason = "the paragraph after the options is dropped and Exit Status is glued onto the previous paragraph"
-
 [contract]
 min_status = "low-confidence"
 must_contain_positionals = ["dir"]
