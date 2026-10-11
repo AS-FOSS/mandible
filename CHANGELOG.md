@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
+- [S-215] Usage forms that each open with a different verb name that command's subcommands, each with its own usage, flags and operands (`mandible git bisect` lists `start`, `good`, `bad`, `run`; `git stash`, `remote`, `worktree`, `bundle`, `reflog`, `commit-graph` likewise).
+- [S-216] A usage flag written `--term-(new|bad)=<term>`, `(-m | --message) <message>` or `--update-refs=(branches|head)` is read as the flags and value it spells (the value keeps its printed `(branches|head)`), not as a fabricated `--term- (new` or a value `)`.
+- [S-217] A subcommand whose help answer says the word is not a command (`git citool` where git-gui is not installed) is shown as unreadable, not as help listing the did-you-mean suggestion as a child.
+- [S-218] Flags in usage synopses keep their own values on git's verb pages: `git worktree add --lock` and `--reason`, `-b`/`-B <new-branch>`, `git remote set-head -a`, `--mirror=<fetch|push>`, `reflog expire --single-worktree`, and `git shortlog` no longer gets `git log`'s `--pretty`.
 - [S-219] A flag whose spelling overruns its table's description column keeps its description (`mandible git clone`'s `--[no-]reject-shallow`, `git rm`'s `--[no-]ignore-unmatch`; `capsh`, `clang`, `gzip`, `run-parts`, `tar`).
 - [S-220] A value spec nested several levels deep is kept as printed (`mandible git diff`'s `--stat[=<width>[,<name-width>[,<count>]]]`, `strace --tips`, `lspci -s`, `fzf-tmux -p`).
 - [S-221] `-NUM` is one option, not `-N` with the value `UM`, when its description names `NUM` (`mandible grep`, `git grep`).

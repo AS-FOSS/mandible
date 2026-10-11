@@ -1,0 +1,160 @@
+# Variant of corpus/git/2.43.0-commands. Usage lines that each open with a different
+# literal verb name that command's subcommands (git bisect start / (good|bad) / run ...),
+# and git bisect's --term-(new|bad)=<term> spells two flags (docs/shapes.md S-215, S-216).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["git", "help", "-a"]
+stdout = "help-a.txt"
+
+[[capture]]
+argv = ["git", "help", "-g"]
+stdout = "help-g.txt"
+
+[[capture]]
+argv = ["git", "bisect", "--help"]
+stdout = "bisect-help.txt"
+
+[[capture]]
+argv = ["git", "bisect", "-h"]
+stdout = "bisect-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "bundle", "--help"]
+stdout = "bundle-help.txt"
+
+[[capture]]
+argv = ["git", "bundle", "-h"]
+stdout = "bundle-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "commit-graph", "--help"]
+stdout = "commit-graph-help.txt"
+
+[[capture]]
+argv = ["git", "commit-graph", "-h"]
+stdout = "commit-graph-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "reflog", "--help"]
+stdout = "reflog-help.txt"
+
+[[capture]]
+argv = ["git", "reflog", "-h"]
+stdout = "reflog-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "remote", "--help"]
+stdout = "remote-help.txt"
+
+[[capture]]
+argv = ["git", "remote", "-h"]
+stdout = "remote-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "stash", "--help"]
+stdout = "stash-help.txt"
+
+[[capture]]
+argv = ["git", "stash", "-h"]
+stdout = "stash-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "worktree", "--help"]
+stdout = "worktree-help.txt"
+
+[[capture]]
+argv = ["git", "worktree", "-h"]
+stdout = "worktree-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "log", "--help"]
+stdout = "log-help.txt"
+
+[[capture]]
+argv = ["git", "log", "-h"]
+stdout = "log-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "show", "--help"]
+stdout = "show-help.txt"
+
+[[capture]]
+argv = ["git", "show", "-h"]
+stdout = "show-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "shortlog", "--help"]
+stdout = "shortlog-help.txt"
+
+[[capture]]
+argv = ["git", "shortlog", "-h"]
+stdout = "shortlog-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "citool", "--help"]
+stdout = "citool-help.txt"
+exit_code = 1
+
+[[capture]]
+argv = ["git", "citool", "-h"]
+stdout = "citool-h.txt"
+exit_code = 1
+
+[[capture]]
+argv = ["git", "gui", "--help"]
+stdout = "gui-help.txt"
+exit_code = 1
+
+[[capture]]
+argv = ["git", "gui", "-h"]
+stdout = "gui-h.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+min_subcommands = 100
+
+[contract.must_contain_flags_by_path]
+"bisect start" = ["--no-checkout", "--first-parent", "--term-new", "--term-bad", "--term-old", "--term-good"]
+"bisect terms" = ["--term-good", "--term-bad"]
+"remote add" = ["--mirror"]
+"stash save" = ["--patch"]
+"stash drop" = ["--quiet"]
+"worktree add" = ["--detach", "--lock", "--reason", "-b", "-B"]
+"worktree list" = ["--porcelain", "-z"]
+"remote set-head" = ["-a", "--auto", "-d", "--delete"]
+"reflog expire" = ["--stale-fix", "--all", "--single-worktree"]
+"bundle create" = ["--version"]
+"commit-graph write" = ["--append"]
+
+[contract.must_contain_positionals_by_path]
+"bisect run" = ["cmd"]
+"bisect good" = ["rev"]
+"bisect bad" = ["rev"]
+"bisect replay" = ["logfile"]
+"remote rename" = ["old", "new"]
+"worktree move" = ["worktree", "new-path"]
