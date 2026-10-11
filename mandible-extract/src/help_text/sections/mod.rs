@@ -83,6 +83,7 @@ mod usage_form_prose;
 mod usage_numbered_caps;
 mod usage_optional_word;
 mod usage_signs;
+mod usage_two_letter_group;
 pub(crate) mod usage_verbs;
 mod usage_word_flags;
 mod value_form_row;
