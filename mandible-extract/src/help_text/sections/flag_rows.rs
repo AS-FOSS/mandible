@@ -698,9 +698,7 @@ pub(super) fn placeholder_left_open(spec: &str) -> bool {
 /// docs/shapes.md S-049.
 pub(super) fn choices_sub_row_value(trimmed: &str) -> Option<&str> {
     let rest = trimmed.strip_prefix('=')?;
-    let end = rest
-        .find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
-        .unwrap_or(rest.len());
+    let end = choice_name_len(rest);
     if end == 0 {
         return None;
     }
@@ -1242,14 +1240,15 @@ pub(super) fn scan_flags_block(
                         // See docs/shapes.md S-204.
                         last.1.push_str(&form);
                     } else if let Some(choice) = choices_sub_row_value(text) {
-                        // llvm-ar's own `=value` sub-rows — see
-                        // `choices_sub_row_value`. llvm-ar never documents
-                        // a per-value explanation on this shape, so there
-                        // is nothing to attach here. See docs/shapes.md
-                        // S-049.
+                        // llvm's own `=value` sub-rows — see
+                        // `choices_sub_row_value`. The row's own text after
+                        // its `-` separator, when it has any, is the
+                        // choice's description. See docs/shapes.md S-049,
+                        // S-233.
+                        let desc = choices_sub_row_description(text);
                         let choice = choice.to_string();
                         if !last.2.iter().any(|(n, _)| n == &choice) {
-                            last.2.push((choice, None));
+                            last.2.push((choice, desc));
                         }
                     } else {
                         last.1.push(' ');

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-230] `-verbose[:suboptions]` is one option with an optional value, not `-v` (`mandible jarsigner`).
 - [S-231] A table headed by a usage operand's name lists the values of the flag that names it, with each description (`mandible krb5-config`'s `--libs` and its `Libraries:` table).
 - [S-232] A list of values grouped by label under a heading that names a flag keeps every value, the label as each one's description (`mandible speedtest`'s `-u`, which lost `auto-binary-bits`).
+- [S-233] An llvm `=<empty>` choice is listed as a choice named `<empty>`, and each `=value` choice keeps its description (`mandible llc-18`'s `--profile-correlate`, `llvm-ar-18`'s `--format`).
 - [S-199] A single usage form's bracketed operands are kept: `mandible find` shows `path...` and `expression`, `uconv` its `file ...`, `tcpdump` its `expression`, `pod2man` `input` and `output`.
 - [S-210] An operator-precedence block (`find`'s `Operators (decreasing precedence ...)`) is shown in the description instead of being dropped.
 - [S-227] A shell builtin's help (`cd: cd [-L|[-P [-e]]] [-@] [dir]`) is read as usage, so `mandible cd` shows the `dir` operand and its description paragraphs.

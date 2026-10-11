@@ -399,7 +399,8 @@ pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
 
 /// One enumerated value an entity may take. `name` is a bare identifier —
 /// searched and compared, the same convention `Spelling::name` follows —
-/// and never carries the tool's scope-flag decoration. `description` is
+/// and never carries the tool's scope-flag decoration; a choice the tool
+/// prints as `<empty>` keeps that literal name. `description` is
 /// `Text`, sanitized through the same §4.1 boundary as every other string
 /// the IR carries from tool output; it is `None` for the common bare-list
 /// case (`tar --quoting-style`'s `literal`/`shell`/`c`/...) and `Some` when

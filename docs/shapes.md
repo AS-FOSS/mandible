@@ -889,8 +889,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: llvm-ar
 - handling: A continuation line opening with an equals sign followed by a bare word
   names one of the flag's possible values rather than more description text.
-  These route into the flag's choices list with no description, since llvm-ar
-  never documents a per-value explanation on this shape.
+  These route into the flag's choices list; the text after the `-` separator
+  is the choice's description (S-233).
 - fleet: not measured, llvm-ar is the only tool observed opening a continuation line
   this way
 
@@ -5363,3 +5363,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
   Fixture: `corpus/speedtest/1.2.0.84`.
 - fleet: 1 tool of the 2440 round-17 raw captures prints a `Valid ... for
   [-x] flag:` heading with labelled lines (speedtest).
+
+### S-233: an `=<empty>` enum row, and the descriptions of `=value` rows
+
+- id: S-233
+- looks like: |
+      --profile-correlate=<value>   - Use debug info or binary file to correlate profiles.
+        =<empty>                    -   No profile correlation
+        =debug-info                 -   Use debug info to correlate
+- tools: llc-18, lli-18, opt-18, bugpoint-18, llvm-profdata-18,
+  llvm-remarkutil-18, llvm-sim-18, llvm-xray-18, llvm-ar-18
+- handling: Fixed. A row the tool prints as `=<empty>` is a choice literally
+  named `<empty>`, like its siblings, and each `=value  -  text` row keeps
+  its text as the choice's description. Before, the `<empty>` row was joined
+  to the flag's description and no sibling's text was kept.
+  Fixtures: `corpus/llvm-profdata-18/18.1.3-empty-choice`,
+  `corpus/llvm-profdata-18/18.1.3`, `corpus/llvm-ar-18/18.1.3`.
+- fleet: 8 tools print `=<empty>`; every llvm tool with a cl::opt enum table
+  moves (descriptions gained).

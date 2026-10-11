@@ -24,11 +24,16 @@ flags:
 - spellings:
   - --format
   choices:
-  - default
-  - gnu
-  - darwin
-  - bsd
-  - bigarchive
+  - name: default
+    description: default
+  - name: gnu
+    description: gnu
+  - name: darwin
+    description: darwin
+  - name: bsd
+    description: bsd
+  - name: bigarchive
+    description: big archive (AIX OS)
   description: archive format to create
   provenance:
     sources:
@@ -57,8 +62,10 @@ flags:
 - spellings:
   - --rsp-quoting
   choices:
-  - posix
-  - windows
+  - name: posix
+    description: posix
+  - name: windows
+    description: windows
   description: quoting style for response files
   provenance:
     sources:

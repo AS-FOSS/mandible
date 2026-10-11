@@ -17,7 +17,3 @@ stdout = "help.txt"
 
 [contract]
 must_attach_choices = { "--profile-correlate" = ["<empty>", "debug-info", "binary"] }
-
-[xfail]
-broken = true
-reason = "the =<empty> row of --profile-correlate is folded into its description instead of being a choice"
