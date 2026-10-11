@@ -5312,8 +5312,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   is not prose. Rows right under a bare `Usage:` label are not prose.
   Fixtures: `corpus/automake/1.16.5-prose`, `corpus/jq/1.7-prose`,
   `corpus/find/4.9.0-prose`.
-- fleet: moved the root description of several hundred tools that had no
-  description or only the lead line; no flag, subcommand or operand moved.
+- fleet: a full-PATH sweep (2271 tools) lost and gained no flag, subcommand
+  or operand and moved no control. Replaying the raw captures of 2234 tools
+  changed 566 root descriptions, all by added or reordered prose.
 
 ### S-236: an indented lead above a bare heading word
 
