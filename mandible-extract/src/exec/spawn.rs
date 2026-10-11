@@ -363,7 +363,7 @@ const SCRATCH_CWD: &str = "cwd";
 /// again on the way out.
 ///
 /// Redirecting `$HOME` means a tool that prints a `$HOME`-derived default
-/// prints ours instead (`docker --help` → `/tmp/mandible-exec-L3saJ8/.docker`,
+/// prints ours instead (`docker --help` → `~/.cache/mandible/mnd-L3saJ8/home/.docker`,
 /// a directory already deleted by the time the reader sees it). Fixed by
 /// writing back the variable name, not its resolved value:
 ///
@@ -390,7 +390,13 @@ impl Scratch {
         // Short prefix on purpose: a tool wraps its own help text at the
         // set `COLUMNS`, so a long path is more likely to be split across
         // two lines, and a split string cannot be matched.
-        let dir = tempfile::Builder::new().prefix("mnd-").tempdir()?;
+        // Rooted under the home directory, never a temp directory, so no
+        // other local user can plant project files above a probe's cwd.
+        // See `scratch_root` and spec §6 rule 8.
+        let root = super::scratch_root::ensure()?;
+        let dir = tempfile::Builder::new()
+            .prefix(super::scratch_root::PROBE_PREFIX)
+            .tempdir_in(root)?;
 
         let mut masks = Vec::new();
         for (var, subdir) in SCRATCH_VARS {
@@ -420,7 +426,7 @@ impl Scratch {
 
     /// Replace every scratch path in `bytes` with the variable that stood
     /// in for it. Byte-level, since a tool's output is not guaranteed
-    /// UTF-8. Matches this invocation's exact path, never a `/tmp/mnd-*`
+    /// UTF-8. Matches this invocation's exact path, never an `mnd-*`
     /// pattern, so a tool printing some other temp path is untouched.
     fn mask(&self, bytes: &[u8]) -> Vec<u8> {
         let mut out = bytes.to_vec();
@@ -956,13 +962,13 @@ mod tests {
 
     /// Rule 8 is all-or-nothing: when the scratch redirect cannot be
     /// built, the probe must be refused with a named error, never run
-    /// against the inherited environment. `TMPDIR` pointing at a regular
-    /// file makes every tempdir creation fail; safe to set process-wide
+    /// against the inherited environment. `HOME` pointing at a regular
+    /// file makes every scratch creation fail; safe to set process-wide
     /// here because nextest runs each test in its own process.
     #[test]
     fn scratch_failure_refuses_the_probe_instead_of_running_unredirected() {
         let holder = tempfile::NamedTempFile::new().unwrap();
-        std::env::set_var("TMPDIR", holder.path());
+        std::env::set_var("HOME", holder.path());
 
         let err = run_inert(
             Path::new("/bin/true"),
@@ -974,6 +980,50 @@ mod tests {
             matches!(err, ExecError::ScratchUnavailable { .. }),
             "expected ScratchUnavailable, got {err:?}"
         );
+    }
+
+    /// The scratch root is under `$HOME/.cache/mandible` and never under
+    /// the temp directory or `XDG_CACHE_HOME`, which may be shared.
+    #[test]
+    fn scratch_sits_under_home_cache_not_under_a_temp_dir() {
+        let home = tempfile::tempdir().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let xdg = tempfile::tempdir().unwrap();
+        std::env::set_var("HOME", home.path());
+        std::env::set_var("TMPDIR", tmp.path());
+        std::env::set_var("XDG_CACHE_HOME", xdg.path());
+
+        let scratch = Scratch::create().unwrap();
+        let root = scratch._dir.path();
+        let expected = home.path().join(".cache").join("mandible");
+        assert!(
+            root.starts_with(&expected),
+            "{root:?} not under {expected:?}"
+        );
+        assert!(root.ancestors().all(|a| a != std::env::temp_dir()));
+        assert!(!root.starts_with(xdg.path()));
+    }
+
+    /// A tool that walks up from its working directory for a project file
+    /// must not find one planted in the parent chain of `TMPDIR`.
+    #[test]
+    fn an_upward_search_does_not_reach_files_planted_beside_tmpdir() {
+        let home = tempfile::tempdir().unwrap();
+        let shared = tempfile::tempdir().unwrap();
+        std::fs::write(shared.path().join("package.json"), "{}").unwrap();
+        let tmp = shared.path().join("x");
+        std::fs::create_dir(&tmp).unwrap();
+        std::env::set_var("HOME", home.path());
+        std::env::set_var("TMPDIR", &tmp);
+
+        let dir = tempfile::tempdir().unwrap();
+        let shim = write_shim(
+            dir.path(),
+            "walker.sh",
+            "#!/bin/sh\nd=$(pwd -P)\nwhile :; do\n  [ -e \"$d/package.json\" ] && { echo FOUND; exit 0; }\n  [ \"$d\" = / ] && break\n  d=$(dirname \"$d\")\ndone\necho NONE\n",
+        );
+        let out = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(2)).unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "NONE");
     }
 
     /// A subdirectory must be matched before the root it sits under,
