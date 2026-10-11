@@ -1,0 +1,8 @@
+Usage: /usr/bin/linux-version compare VERSION1 OP VERSION2
+       /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+       /usr/bin/linux-version list [--paths]
+
+The version arguments should be kernel version strings as shown by
+'uname -r' and used in filenames.
+
+The valid comparison operators are: lt le eq ge gt
