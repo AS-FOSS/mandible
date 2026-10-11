@@ -144,10 +144,12 @@ min_subcommands = 100
 "remote add" = ["--mirror"]
 "stash save" = ["--patch"]
 "stash drop" = ["--quiet"]
-"worktree add" = ["--detach"]
+"worktree add" = ["--detach", "--lock", "--reason", "-b", "-B"]
+"worktree list" = ["--porcelain", "-z"]
+"remote set-head" = ["-a", "--auto", "-d", "--delete"]
+"reflog expire" = ["--stale-fix", "--all", "--single-worktree"]
 "bundle create" = ["--version"]
 "commit-graph write" = ["--append"]
-"reflog expire" = ["--stale-fix"]
 
 [contract.must_contain_positionals_by_path]
 "bisect run" = ["cmd"]
@@ -156,3 +158,7 @@ min_subcommands = 100
 "bisect replay" = ["logfile"]
 "remote rename" = ["old", "new"]
 "worktree move" = ["worktree", "new-path"]
+
+[xfail]
+broken = true
+reason = "usage flags: a nested [--reason ..] opening with a flag, --all [--single-worktree], -v | --porcelain [-z] and set-head (-a | ... | <branch>) lose or misattach flags/values (S-218)"
