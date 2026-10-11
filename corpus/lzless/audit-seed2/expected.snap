@@ -1,5 +1,10 @@
 name: lzless
-description: Like 'less', but operate on the uncompressed contents of xz compressed FILEs.
+description: |-
+  Like 'less', but operate on the uncompressed contents of xz compressed FILEs.
+
+  Options are the same as for 'less'.
+
+  Report bugs to <xz@tukaani.org>.
 usage:
 - 'Usage: lzless [OPTION]... [FILE]...'
 positionals:

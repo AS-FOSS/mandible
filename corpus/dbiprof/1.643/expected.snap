@@ -1,4 +1,8 @@
 name: dbiprof
+description: |-
+  Reads and merges DBI profile data from files and prints a summary.
+
+  files: defaults to dbi.prof
 usage:
 - dbiprof [options] [files]
 positionals:

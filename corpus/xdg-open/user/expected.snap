@@ -1,5 +1,8 @@
 name: xdg-open
-description: Synopsis
+description: |-
+  xdg-open - opens a file or URL in the user's preferred application
+
+  Use 'man xdg-open' or 'xdg-open --manual' for additional info.
 usage:
 - xdg-open { file | URL }
 - xdg-open { --help | --manual | --version }

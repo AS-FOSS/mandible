@@ -1,4 +1,10 @@
 name: icupkg
+description: |-
+  Read the input ICU .dat package file, modify it according to the options, swap it to the desired platform properties (charset & endianness), and optionally write the resulting ICU .dat package to the output file. Items are removed, then added, then extracted and listed. An ICU .dat package is written if items are removed or added, or if the input and output filenames differ, or if the --writepkg (-w) option is set.
+
+  If the input filename is "new" then an empty package is created. If the output filename is missing, then it is automatically generated from the input filename: If the input filename ends with an l, b, or e matching its platform properties, then the output filename will contain the letter from the -t (--type) option.
+
+  This tool can also be used to just swap a single ICU data file, replacing the former icuswap tool. For this mode, provide the infilename (and optional outfilename) for a non-package ICU data file. Allowed options include -t, -w, -s and -d. The filenames can be absolute, or relative to the source/dest dir paths. Other options are not allowed in this mode.
 usage:
 - 'Usage: icupkg [-h|-?|--help ] [-tl|-tb|-te] [-c] [-C comment] [-a list] [-r list] [-x list] [-l [-o outputListFileName]] [-s path] [-d path] [-w] [-m mode] [--ignore-deps] [--auto_toc_prefix] [--auto_toc_prefix_with_type] [--toc_prefix] infilename [outfilename]'
 positionals:

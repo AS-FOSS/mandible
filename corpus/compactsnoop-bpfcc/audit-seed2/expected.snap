@@ -1,4 +1,5 @@
 name: compactsnoop-bpfcc
+description: Trace compact zone
 usage:
 - 'usage: compactsnoop-bpfcc [-h] [-T] [-p PID] [-d DURATION] [-K] [-e]'
 flags:

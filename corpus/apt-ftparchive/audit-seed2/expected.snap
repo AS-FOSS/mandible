@@ -1,5 +1,12 @@
 name: apt-ftparchive
-description: 'apt 2.8.3 (arm64) Commands: packages binarypath [overridefile [pathprefix]]'
+description: |-
+  apt 2.8.3 (arm64) Commands: packages binarypath [overridefile [pathprefix]]
+
+  apt-ftparchive generates index files for Debian archives. It supports many styles of generation from fully automated to functional replacements for dpkg-scanpackages and dpkg-scansources
+
+  apt-ftparchive generates Package files from a tree of .debs. The Package file contains the contents of all the control fields from each package as well as the MD5 hash and filesize. An override file is supported to force the value of Priority and Section.
+
+  Similarly apt-ftparchive generates Sources files from a tree of .dscs. The --source-override option can be used to specify a src override file
 usage:
 - 'Usage: apt-ftparchive [options] command'
 flags:

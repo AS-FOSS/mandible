@@ -16,3 +16,5 @@ exit_code = 0
 expected_framework = "generic"
 must_contain_flags = ["--help", "--manual", "--version"]
 must_contain_positionals = ["file", "URL"]
+must_describe_root = ["opens a file or URL in the user's preferred application"]
+must_not_describe_root = ["Synopsis"]

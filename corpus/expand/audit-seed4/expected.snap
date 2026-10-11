@@ -1,5 +1,8 @@
 name: expand
-description: Convert tabs in each FILE to spaces, writing to standard output.
+description: |-
+  Convert tabs in each FILE to spaces, writing to standard output.
+
+  With no FILE, or when FILE is -, read standard input.
 usage:
 - 'Usage: /usr/bin/expand [OPTION]... [FILE]...'
 positionals:

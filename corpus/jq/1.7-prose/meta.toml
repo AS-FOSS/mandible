@@ -1,0 +1,16 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jq"
+version = "1.7-prose"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2"
+
+[[capture]]
+argv = ["jq", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+must_describe_root = ["jq is a tool for processing JSON inputs, applying the given filter to its JSON text inputs", "The simplest filter is ., which copies"]

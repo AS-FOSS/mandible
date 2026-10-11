@@ -1,4 +1,5 @@
 name: javaflow-bpfcc
+description: Trace method execution flow in high-level languages.
 usage:
 - 'usage: uflow [-h] [-l {java,perl,php,python,ruby,tcl}] [-M METHOD] [-C CLAZZ] [-v] pid'
 positionals:
