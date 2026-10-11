@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-233] An llvm `=<empty>` choice is listed as a choice named `<empty>`, and each `=value` choice keeps its description (`mandible llc-18`'s `--profile-correlate`, `llvm-ar-18`'s `--format`).
 - [S-234] A `Possible values:` list of `* name: text` bullets is the flag's choices with their descriptions (`mandible batcat`'s `--style` and `--nonprintable-notation`).
 - [S-011] A flag-led example line under a description's `one can use:` stays in that description instead of opening extra rows (`mandible rg`'s `--type-add`, which lost the text after its examples).
+- [S-221] A bare `-NUM` row is the numeric option even when its description does not repeat `NUM` (`mandible git archive`'s `-NUM`, which read as `-N` with value `UM`).
 - [S-199] A single usage form's bracketed operands are kept: `mandible find` shows `path...` and `expression`, `uconv` its `file ...`, `tcpdump` its `expression`, `pod2man` `input` and `output`.
 - [S-210] An operator-precedence block (`find`'s `Operators (decreasing precedence ...)`) is shown in the description instead of being dropped.
 - [S-227] A shell builtin's help (`cd: cd [-L|[-P [-e]]] [-@] [dir]`) is read as usage, so `mandible cd` shows the `dir` operand and its description paragraphs.

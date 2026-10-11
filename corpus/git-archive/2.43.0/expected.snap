@@ -1,0 +1,113 @@
+name: git-archive
+usage:
+- 'usage: git archive [<options>] <tree-ish> [<path>...]'
+- '   or: git archive --list'
+- '   or: git archive --remote <repo> [--exec <cmd>] [<options>] <tree-ish> [<path>...]'
+- '   or: git archive --remote <repo> [--exec <cmd>] --list'
+positionals:
+- name: tree-ish
+  provenance:
+    sources:
+    - help-text
+- name: path
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --[no-]format
+  value_name: <fmt>
+  value_kind: Required
+  description: archive format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]prefix
+  value_name: <prefix>
+  value_kind: Required
+  description: prepend prefix to each pathname in the archive
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]add-file
+  value_name: <file>
+  value_kind: Required
+  description: add untracked file to archive
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]add-virtual-file
+  value_name: <path:content>
+  value_kind: Required
+  description: add untracked file to archive
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --[no-]output
+  value_name: <file>
+  value_kind: Required
+  description: write the archive to this file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]worktree-attributes
+  description: read .gitattributes in working directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --[no-]verbose
+  description: report archived files on stderr
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --mtime
+  value_name: <time>
+  value_kind: Required
+  description: set modification time of archive entries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -NUM
+  description: set compression level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --[no-]list
+  description: list supported archive formats
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]remote
+  value_name: <repo>
+  value_kind: Required
+  description: retrieve the archive from remote repository <repo>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]exec
+  value_name: <command>
+  value_kind: Required
+  description: path to the remote git-upload-archive command
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

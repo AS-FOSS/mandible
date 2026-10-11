@@ -5208,9 +5208,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   three or more letters) and whose description names `RUN` as a whole word is
   one single-dash spelling, not `-N` with the value `UM`. S-191 needed the
   word repeated as `=RUN` in the spec cell; the description naming it tells it
-  from a short flag with a glued value (`-DNAME`). `git archive`'s
-  `-NUM  set compression level` names the word nowhere and stays `-N UM`.
-- fleet: full-PATH sweep, zero losses; the four grep tools moved.
+  from a short flag with a glued value (`-DNAME`). The run `NUM` itself needs
+  no echo, `UM` being no placeholder: `git archive`'s
+  `-NUM  set compression level` reads `-NUM` too (round 18).
+- fleet: full-PATH sweep, zero losses; the four grep tools moved. `-NUM`
+  rows appear in 6 of the 2440 round-17 raw captures (grep family, git grep,
+  git archive).
 
 ### S-222: bare `(` and `)` rows in an option table
 

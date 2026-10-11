@@ -18,7 +18,3 @@ expected_framework = "generic"
 min_status = "ok"
 must_contain_flags = ["--list", "--format", "-NUM"]
 must_describe = { "-NUM" = "set compression level" }
-
-[xfail]
-broken = true
-reason = "-NUM reads as -N with value UM"
