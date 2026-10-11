@@ -71,7 +71,7 @@ mod usage_flag_alternation;
 mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;
-mod usage_verbs;
+pub(crate) mod usage_verbs;
 mod usage_word_flags;
 mod value_form_row;
 mod word_grid;
@@ -2513,8 +2513,6 @@ fn parse_body(
     // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
     result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
 
-    // Forms that each open with a different literal verb name subcommands. S-215.
-    usage_verbs::recover(&result.usage, tool_name, raw, &mut result.subcommands);
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result
 }

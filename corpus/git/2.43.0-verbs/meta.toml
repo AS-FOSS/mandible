@@ -86,6 +86,33 @@ argv = ["git", "worktree", "-h"]
 stdout = "worktree-h.txt"
 exit_code = 129
 
+[[capture]]
+argv = ["git", "log", "--help"]
+stdout = "log-help.txt"
+
+[[capture]]
+argv = ["git", "log", "-h"]
+stdout = "log-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "show", "--help"]
+stdout = "show-help.txt"
+
+[[capture]]
+argv = ["git", "show", "-h"]
+stdout = "show-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "shortlog", "--help"]
+stdout = "shortlog-help.txt"
+
+[[capture]]
+argv = ["git", "shortlog", "-h"]
+stdout = "shortlog-h.txt"
+exit_code = 129
+
 [contract]
 expected_framework = "generic"
 min_status = "ok"

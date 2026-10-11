@@ -1,0 +1,10 @@
+usage: git shortlog [<options>] [<revision-range>] [[--] <path>...]
+   or: git log --pretty=short | git shortlog [<options>]
+
+    -c, --[no-]committer  group by committer rather than author
+    -n, --[no-]numbered   sort output according to the number of commits per author
+    -s, --[no-]summary    suppress commit descriptions, only provides commit count
+    -e, --[no-]email      show the email address of each author
+    -w[<w>[,<i1>[,<i2>]]] linewrap output
+    --[no-]group <field>  group by field
+

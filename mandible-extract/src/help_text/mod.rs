@@ -1012,7 +1012,12 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     node.set_env_vars(parsed.env_vars);
     // Identical rows under one heading are one row. See docs/shapes.md S-187.
     fold_repeats::fold_repeated_rows(&mut node.entities);
-    node.subcommands = parsed.subcommands;
+    // Forms that each open with a different literal verb after the node's
+    // own path name subcommands (S-215).
+    let mut subcommands = parsed.subcommands;
+    let own = (name != tool_name).then_some(name);
+    sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
+    node.subcommands = subcommands;
     help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct

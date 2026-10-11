@@ -477,17 +477,187 @@ subcommands:
   heading_attested: true
 - name: log
   summary: Show commit logs
+  usage:
+  - 'usage: git log [<options>] [<revision-range>] [[--] <path>...]'
+  - '   or: git show [<options>] <object>...'
+  positionals:
+  - name: revision-range
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: object
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: suppress diff output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]source
+    description: show source
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]use-mailmap
+    description: use mail map file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]mailmap
+    description: alias of --use-mailmap
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --clear-decorations
+    description: clear all previously-defined decoration filters
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs
+    value_name: <pattern>
+    value_kind: Required
+    description: only decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs-exclude
+    value_name: <pattern>
+    value_kind: Required
+    description: do not decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate
+    value_name: '...'
+    value_kind: Optional
+    description: decorate options
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -L
+    value_name: <range:file>
+    value_kind: Required
+    description: trace the evolution of line range <start>,<end> or function :<funcname> in <file>
+    provenance:
+      sources:
+      - help-text
   group: 'examine the history and state (see also: git help revisions)'
   provenance:
     sources:
     - help-text
+    confidence: 0.5
+  children_filled: true
   heading_attested: true
 - name: show
   summary: Show various types of objects
+  usage:
+  - 'usage: git log [<options>] [<revision-range>] [[--] <path>...]'
+  - '   or: git show [<options>] <object>...'
+  positionals:
+  - name: revision-range
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: object
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: suppress diff output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]source
+    description: show source
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]use-mailmap
+    description: use mail map file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]mailmap
+    description: alias of --use-mailmap
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --clear-decorations
+    description: clear all previously-defined decoration filters
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs
+    value_name: <pattern>
+    value_kind: Required
+    description: only decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate-refs-exclude
+    value_name: <pattern>
+    value_kind: Required
+    description: do not decorate refs that match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]decorate
+    value_name: '...'
+    value_kind: Optional
+    description: decorate options
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -L
+    value_name: <range:file>
+    value_kind: Required
+    description: trace the evolution of line range <start>,<end> or function :<funcname> in <file>
+    provenance:
+      sources:
+      - help-text
   group: 'examine the history and state (see also: git help revisions)'
   provenance:
     sources:
     - help-text
+    confidence: 0.5
+  children_filled: true
   heading_attested: true
 - name: status
   summary: Show the working tree status
@@ -834,10 +1004,78 @@ subcommands:
   heading_attested: true
 - name: shortlog
   summary: Summarize 'git log' output
+  usage:
+  - 'usage: git shortlog [<options>] [<revision-range>] [[--] <path>...]'
+  - '   or: git log --pretty=short | git shortlog [<options>]'
+  positionals:
+  - name: revision-range
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -c
+    - --[no-]committer
+    description: group by committer rather than author
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -n
+    - --[no-]numbered
+    description: sort output according to the number of commits per author
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -s
+    - --[no-]summary
+    description: suppress commit descriptions, only provides commit count
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -e
+    - --[no-]email
+    description: show the email address of each author
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -w
+    value_name: '[<w>[,<i1>[,<i2>]]'
+    value_kind: Optional
+    description: linewrap output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]group
+    value_name: <field>
+    value_kind: Required
+    description: group by field
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --pretty
+    value_name: short
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
   group: Main Porcelain Commands
   provenance:
     sources:
     - help-text
+    confidence: 0.5
+  children_filled: true
   heading_attested: true
 - name: sparse-checkout
   summary: Reduce your working tree to a subset of tracked files

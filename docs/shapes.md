@@ -5079,6 +5079,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   maintainer's man-page capture, rendered verbatim by design (the `-h`
   forms behind fixup, reword and split are not captured; the unit test
   `git_history_forms_give_three_verbs_with_choice_valued_flags` pins them).
+  A form that does not name the node's own command (`git log -h` also
+  prints `or: git show ...`) is another command's form, never a verb of
+  this node (`git log`, `show`, `shortlog` fixtures in the same dir).
 - fleet: see the round-17 sweep.
 
 ### S-216: flag spellings written with parenthesized alternatives

@@ -116,9 +116,14 @@ fn verbs_of(f: &Form, at: usize) -> Option<(Vec<String>, usize, bool)> {
 
 /// Add a node per verb to `subcommands` (names already present are kept
 /// untouched). `usage` is the parsed usage entries.
-pub(super) fn recover(
+///
+/// `own` is the node's own command word when it is not the root. Verbs must
+/// follow the node's own path: a form that does not name it (`git show ...`
+/// printed by `git log -h`) is another command's form, not a verb of this one.
+pub(crate) fn recover(
     usage: &[String],
     tool_name: Option<&str>,
+    own: Option<&str>,
     raw: &str,
     subcommands: &mut Vec<CommandNode>,
 ) {
@@ -130,7 +135,10 @@ pub(super) fn recover(
     {
         return;
     }
-    let forms = forms(usage, tool_name);
+    let mut forms = forms(usage, tool_name);
+    if let Some(own) = own {
+        forms.retain(|f| f.toks.iter().take_while(|t| is_word(t)).any(|t| t == own));
+    }
     if forms.len() < 2 {
         return;
     }
@@ -207,7 +215,7 @@ mod tests {
     fn verbs(usage: &[&str], tool: &str) -> Vec<String> {
         let usage: Vec<String> = usage.iter().map(|s| s.to_string()).collect();
         let mut subs = Vec::new();
-        recover(&usage, Some(tool), &usage.join(" "), &mut subs);
+        recover(&usage, Some(tool), None, &usage.join(" "), &mut subs);
         subs.into_iter().map(|n| n.name).collect()
     }
 
@@ -235,6 +243,20 @@ mod tests {
     }
 
     #[test]
+    fn a_form_naming_another_command_is_not_a_verb_of_this_node() {
+        let usage: Vec<String> = [
+            "usage: git log [<options>] [<revision-range>]",
+            "   or: git show [<options>] <object>...",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let mut subs = Vec::new();
+        recover(&usage, Some("git"), Some("log"), &usage.join(" "), &mut subs);
+        assert!(subs.is_empty());
+    }
+
+    #[test]
     fn a_word_after_a_flag_a_placeholder_and_one_verb_name_nothing() {
         assert!(verbs(&["usage: k -Y sign <f>", "   or: k -Y verify <f>"], "k").is_empty());
         assert!(verbs(&["usage: k <cmd> a", "   or: k <cmd> b"], "k").is_empty());
@@ -250,7 +272,7 @@ mod tests {
         ];
         let usage: Vec<String> = u.iter().map(|s| s.to_string()).collect();
         let mut subs = Vec::new();
-        recover(&usage, Some("t"), &usage.join(" "), &mut subs);
+        recover(&usage, Some("t"), None, &usage.join(" "), &mut subs);
         let rm = subs.iter().find(|n| n.name == "rm").unwrap();
         assert!(rm.invocation_attested && !rm.heading_attested);
         assert!(rm.flags().any(|f| f.long() == Some("force")));
@@ -270,7 +292,7 @@ mod tests {
         .map(|s| s.to_string())
         .collect();
         let mut subs = Vec::new();
-        recover(&usage, Some("git"), &usage.join(" "), &mut subs);
+        recover(&usage, Some("git"), None, &usage.join(" "), &mut subs);
         let names: Vec<&str> = subs.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["fixup", "reword", "split"]);
         let empty = subs[0].flags().find(|f| f.long() == Some("empty")).unwrap();
