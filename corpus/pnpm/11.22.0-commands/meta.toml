@@ -1,0 +1,29 @@
+# Variant of corpus/pnpm/11.22.0. pnpm's root help says "use 'pnpm help -a' to list all
+# commands"; `pnpm help -a` is the full command list, so patch, audit-only and store/cache
+# commands are root subcommands (docs/shapes.md S-214).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pnpm"
+version = "11.22.0"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["pnpm", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["pnpm", "help", "-a"]
+stdout = "help-a.txt"
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 50
+must_contain_flags = ["--recursive"]
+
+[xfail]
+broken = true
+reason = "the root's 'pnpm help -a' listing sentence is not read as a listing probe, so only the 18 short-list commands reach the tree"
