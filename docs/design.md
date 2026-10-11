@@ -1130,6 +1130,14 @@ allowlist below.
    directory cannot be built, the probe is refused with a named error,
    never run against the inherited environment.
 
+   The scratch directory holds no project, so a command that needs one answers
+   with its own error (`pnpm start --help`: `[ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND]
+   No package.json ... was found`). A subcommand answer of one or two lines whose
+   first is led by an error marker (`[ERR_...]`, `error:`, `Error:`, `fatal:`),
+   with no usage or option row, is the tool failing, not help: the node has no
+   page of its own, the same as an answer refusing the word as a command. The `t`
+   view still shows what the tool printed.
+
    The scratch root is always `$HOME/.cache/mandible`, on every OS, with one
    `mnd-` directory per probe inside it. The root is mode 0700 and owned by
    the current user: a pre-existing root is opened without following a
