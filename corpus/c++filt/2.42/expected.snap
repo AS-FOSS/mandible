@@ -1,0 +1,101 @@
+name: c++filt
+description: |-
+  Options are:
+
+  Demangled names are displayed to stdout. If a name cannot be demangled it is just echoed to stdout. If no names are provided on the command line, stdin is read. Report bugs to <https://sourceware.org/bugzilla/>.
+usage:
+- 'Usage: c++filt [options] [mangled names]'
+flags:
+- spellings:
+  - -_
+  - --strip-underscore
+  group: 'Options are:'
+  description: Ignore first leading underscore
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-strip-underscore
+  group: 'Options are:'
+  description: Do not ignore a leading underscore (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --no-params
+  group: 'Options are:'
+  description: Do not display function arguments
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --no-verbose
+  group: 'Options are:'
+  description: Do not show implementation details (if any)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --recurse-limit
+  group: 'Options are:'
+  description: Enable a limit on recursion whilst demangling. [Default]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --no-recurse-limit
+  group: 'Options are:'
+  description: Disable a limit on recursion whilst demangling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --types
+  group: 'Options are:'
+  description: Also attempt to demangle type encodings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --format
+  value_name: '{none,auto,gnu-v3,java,gnat,dlang,rust}'
+  value_kind: Required
+  group: 'Options are:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  group: 'Options are:'
+  description: Read extra options from <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Display this information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  description: Show the version information
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -5294,3 +5294,55 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `cd` and the other builtin wrappers are absent from this box: the
   full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
   distro that ships `/usr/bin/cd`.
+
+### S-229: an option table whose rows are wrapped in square brackets
+
+- id: S-229
+- looks like: |
+      [-keystore <url>]           keystore location
+      [-verbose[:suboptions]]     verbose output when signing/verifying.
+- tools: jarsigner, c++filt, krb5-config, krb5-config.mit
+- handling: Fixed. A table of at least two `[-x ...]` rows, each followed by
+  a description gap, reads as the plain rows `-x ...  description`: the
+  brackets only mark the option optional. A row whose bracket wraps onto the
+  next line, a row with a single-space gap that lines up with the table's
+  description column, a row with no description beside such a row, `[@file]`
+  and a mistyped `]-r|--x]` opener are rows of the same table. A usage line
+  (`[-a] [-b]`) has no description after its bracket and is untouched.
+  Fixtures: `corpus/jarsigner/21.0.12`, `corpus/c++filt/2.42`,
+  `corpus/krb5-config/1.20.1`.
+- fleet: bracketed option rows with a description appear in 4 tools of the
+  round-17 raw captures (2440 files): jarsigner (23 rows), c++filt (8),
+  krb5-config (12), krb5-config.mit (12).
+
+### S-230: a lower-case single-dash word glued to an optional value
+
+- id: S-230
+- looks like: |
+      -verbose[:suboptions]     verbose output when signing/verifying.
+- tools: jarsigner
+- handling: Fixed. A single-dash word of three or more lower-case letters
+  directly followed by `[:` or `[=` is one spelling with an optional value
+  (`-verbose`, value `:suboptions`), not `-v` with the value
+  `erbose[:suboptions]`. Fixture: `corpus/jarsigner/21.0.12`.
+- fleet: see S-229; jarsigner is the only tool in the raw captures that
+  prints this shape.
+
+### S-231: a table named for a usage operand lists the values of the flag that names it
+
+- id: S-231
+- looks like: |
+      Usage: krb5-config [OPTIONS] [LIBRARIES]
+          [--libs]          List libraries required to link [LIBRARIES]
+      Libraries:
+          krb5              Kerberos 5 application
+- tools: krb5-config, krb5-config.mit
+- handling: Fixed. A bare table whose heading equals a usage operand's name
+  (case-insensitive) and that exactly one flag's description names as a
+  whole word is that flag's choices, each row's text the choice's
+  description. Operands carry no choices in the snapshot or on screen, so
+  the flag holds them. Before, the names landed on `--libs` by the
+  unproven-owner fallback with every description dropped.
+  Fixture: `corpus/krb5-config/1.20.1`.
+- fleet: only krb5-config and krb5-config.mit of the 2440 round-17 raw
+  captures print this shape.

@@ -33,6 +33,7 @@ use mandible_core::{
 
 mod avoption;
 mod backfill;
+mod bracket_rows;
 mod builtin_usage;
 mod bullets;
 mod caps_single_dash;
@@ -58,6 +59,7 @@ mod paren_flag_rows;
 mod per_form;
 mod plural_owner;
 mod plus_minus;
+mod positional_choices;
 mod preamble;
 mod punct_short;
 mod repair;
@@ -408,6 +410,8 @@ pub fn parse_with_profile(
     // S-143, S-144.
     let raw = rewrite_lowdown_bullets(&raw, tool_name);
     let raw = rule_heading::rewrite_rule_bracketed_headings(&raw);
+    // A table of bracket-wrapped option rows (jarsigner) reads as plain rows.
+    let raw = bracket_rows::unwrap_bracketed_rows(&raw).unwrap_or(raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
     // engine below ever sees it. Doing it here, once, keeps the recovered
@@ -1288,6 +1292,11 @@ fn emit_command_table(inp: &BodyInput, h: &Heading, mut i: usize, st: &mut BodyS
         // A word grid no flag owns is prose about the tool (S-206).
         if find_owning_flag_index(heading, &st.result.flags).is_none()
             && take_word_grid(heading, &lines[block_start..end], st.result)
+        {
+            return i;
+        }
+        if find_owning_flag_index(heading, &st.result.flags).is_none()
+            && positional_choices::take_operand_values(heading, &entries, st.result)
         {
             return i;
         }
