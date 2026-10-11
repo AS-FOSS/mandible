@@ -252,7 +252,13 @@ mod tests {
         .map(|s| s.to_string())
         .collect();
         let mut subs = Vec::new();
-        recover(&usage, Some("git"), Some("log"), &usage.join(" "), &mut subs);
+        recover(
+            &usage,
+            Some("git"),
+            Some("log"),
+            &usage.join(" "),
+            &mut subs,
+        );
         assert!(subs.is_empty());
     }
 
@@ -296,7 +302,7 @@ mod tests {
         let names: Vec<&str> = subs.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, ["fixup", "reword", "split"]);
         let empty = subs[0].flags().find(|f| f.long() == Some("empty")).unwrap();
-        assert_eq!(empty.value_name.as_deref(), Some("{drop|keep|abort}"));
+        assert_eq!(empty.value_name.as_deref(), Some("(drop|keep|abort)"));
     }
 
     /// git subtree: verbs padded with extra spaces, one verb in two forms.

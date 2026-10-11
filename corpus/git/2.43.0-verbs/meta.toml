@@ -113,6 +113,26 @@ argv = ["git", "shortlog", "-h"]
 stdout = "shortlog-h.txt"
 exit_code = 129
 
+[[capture]]
+argv = ["git", "citool", "--help"]
+stdout = "citool-help.txt"
+exit_code = 1
+
+[[capture]]
+argv = ["git", "citool", "-h"]
+stdout = "citool-h.txt"
+exit_code = 1
+
+[[capture]]
+argv = ["git", "gui", "--help"]
+stdout = "gui-help.txt"
+exit_code = 1
+
+[[capture]]
+argv = ["git", "gui", "-h"]
+stdout = "gui-h.txt"
+exit_code = 1
+
 [contract]
 expected_framework = "generic"
 min_status = "ok"

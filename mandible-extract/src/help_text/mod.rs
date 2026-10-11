@@ -18,6 +18,7 @@ mod fold_repeats;
 mod grammar;
 mod help_word;
 mod listing_probe;
+mod not_a_command;
 mod profile;
 mod sections;
 
@@ -394,6 +395,16 @@ impl ExtractionTier for HelpTextTier {
         let (raw, _argv_display, confession) =
             probe_help_text_confession_aware(self.probe.as_ref(), tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
+
+        // The tool refusing the word is not help for it (S-217).
+        if let Some(word) = words.last() {
+            if not_a_command::says_word_is_not_a_command(&raw, word) {
+                return Err(ExtractError::Other(format!(
+                    "`{} --help` answered that {word:?} is not a command",
+                    words.join(" ")
+                )));
+            }
+        }
 
         // Self-similar fan-out (spec M-19, docs/shapes.md S-079): a node
         // whose selected help fingerprints as identical to any strict

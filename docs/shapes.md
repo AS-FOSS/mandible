@@ -5095,7 +5095,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. In a usage line, `--name-(a|b)rest` spells one flag per
   alternative; a parenthesized list of dash-led words with an optional
   `<placeholder>` is one flag with those spellings and that value; a value
-  `=(a|b|c)` of literal words is read like `={a|b|c}` (`usage_flag_alternation.rs`).
+  `=(a|b|c)` of literal words is one flag whose value text stays as printed,
+  `(a|b|c)` (`usage_flag_alternation.rs`).
   Before, `--term- (new`, `--message` valued `)` and `--update-refs` valued
   `(branches` were fabricated. Fixture: `corpus/git/2.43.0-verbs`.
+- fleet: see the round-17 sweep.
+
+### S-217: a probe answer that refuses the probed word is not help for it
+
+- id: S-217
+- looks like: |
+      git: 'citool' is not a git command. See 'git --help'.
+
+      The most similar command is
+      	difftool
+- tools: git (citool, gui, gitk, and any listed command not installed here)
+- handling: Fixed. When the first non-blank line of a subcommand's help
+  answer names the probed word and says it is not a command (`is not a
+  [word] command`, `unknown/unrecognized/invalid command`, `no such command`),
+  the tool is refusing the word: the node reads as help that could not be read
+  (`not_a_command.rs`, checked in `extract_node`). Before, the did-you-mean
+  line became a fabricated child (`difftool`) that was then probed.
+  Fixture: `corpus/git/2.43.0-verbs` (`git citool`, `git gui`).
 - fleet: see the round-17 sweep.

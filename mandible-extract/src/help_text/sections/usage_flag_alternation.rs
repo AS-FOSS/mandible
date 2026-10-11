@@ -147,6 +147,28 @@ fn expand_group(group: &str) -> Option<String> {
     any.then(|| parts.join(" "))
 }
 
+/// The value spec of `--name=(a|b)` stays as the author printed it: flags
+/// whose value the walk read as `{a|b}` get `(a|b)` back.
+pub(super) fn restore_paren_values(usage_lines: &[String], flags: &mut [mandible_core::Entity]) {
+    for tok in usage_lines
+        .iter()
+        .flat_map(|l| l.split(|c: char| c.is_whitespace() || c == '[' || c == ']'))
+    {
+        let Some((name, val)) = tok.strip_prefix("--").and_then(|t| t.split_once("=(")) else {
+            continue;
+        };
+        let Some(alts) = val.strip_suffix(')') else {
+            continue;
+        };
+        let braced = format!("{{{alts}}}");
+        for f in flags.iter_mut().filter(|f| f.long() == Some(name)) {
+            if f.value_name.as_deref() == Some(braced.as_str()) {
+                f.value_name = Some(format!("({alts})"));
+            }
+        }
+    }
+}
+
 fn expand_token(tok: &str) -> Option<Vec<String>> {
     let rest = tok.trim_start_matches('-');
     let dashes = &tok[..tok.len() - rest.len()];
@@ -156,11 +178,11 @@ fn expand_token(tok: &str) -> Option<Vec<String>> {
     let open = rest.find('(')?;
     let close = open + rest[open..].find(')')?;
     let (name, alts, tail) = (&rest[..open], &rest[open + 1..close], &rest[close + 1..]);
+    let alt_list = alts;
     let stem = name.trim_end_matches('=');
     if stem.is_empty() || !stem.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return None;
     }
-    let alt_list = alts;
     let alts: Vec<&str> = alts.split('|').collect();
     let word = |a: &str| {
         !a.is_empty()
@@ -171,7 +193,8 @@ fn expand_token(tok: &str) -> Option<Vec<String>> {
         return None;
     }
     // `--update-refs=(branches|head)`: one flag whose value is one of the
-    // words, the `{a|b}` form the walk already reads as `choices`.
+    // words; the walk reads it as `{a|b}` and `restore_paren_values` puts the
+    // printed `(a|b)` back as the value text.
     if name.ends_with('=') {
         return Some(vec![format!("{dashes}{name}{{{alt_list}}}{tail}")]);
     }
@@ -208,7 +231,7 @@ mod tests {
         );
         assert_eq!(expand("--a-(b|c)"), "--a-b --a-c");
         assert_eq!(
-            expand("x [--dry-run] [--u=(b|h)] [--e=(d|k|a)]"),
+            expand("x [--dry-run] [--u={b|h}] [--e={d|k|a}]"),
             "x [--dry-run] [--u={b|h}] [--e={d|k|a}]"
         );
     }

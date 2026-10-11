@@ -1,0 +1,8 @@
+git: 'gui' is not a git command. See 'git --help'.
+
+The most similar commands are
+	gc
+	grep
+	init
+	pull
+	push

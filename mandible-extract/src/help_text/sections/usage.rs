@@ -947,6 +947,7 @@ pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
         }
         describe_form_flag(&mut out, line, line_start, bare_flag_at, &prose_columns);
     }
+    super::usage_flag_alternation::restore_paren_values(usage_lines, &mut out);
     out
 }
 
