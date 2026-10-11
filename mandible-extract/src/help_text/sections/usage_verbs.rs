@@ -59,6 +59,15 @@ struct Form {
     text: String,
 }
 
+/// The form's program word: the tool's name, or a path whose last component
+/// is that name (`/usr/bin/linux-version`, S-240).
+fn is_program_word(first: &str, program: &str) -> bool {
+    first == program
+        || first
+            .rsplit_once('/')
+            .is_some_and(|(_, last)| !last.is_empty() && last == program)
+}
+
 /// The usage entries as forms: label removed, program name stripped.
 fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
     let mut prog = tool.map(str::to_string);
@@ -73,7 +82,7 @@ fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
             continue;
         };
         let p = prog.get_or_insert_with(|| first.to_string());
-        if first != p.as_str() {
+        if !is_program_word(first, p) {
             continue;
         }
         let toks = tokens(t);
@@ -240,6 +249,21 @@ mod tests {
             "   or: git remote [show] <x>",
         ];
         assert_eq!(verbs(&u, "git"), ["add", "rename", "show"]);
+    }
+
+    #[test]
+    fn a_program_word_that_is_a_path_to_the_tool_opens_its_forms() {
+        let u = [
+            "Usage: /usr/bin/lv compare VERSION1 OP VERSION2",
+            "       /usr/bin/lv sort [--reverse] [VERSION1 VERSION2 ...]",
+            "       /usr/bin/lv list [--paths]",
+        ];
+        assert_eq!(verbs(&u, "lv"), ["compare", "sort", "list"]);
+        let other = [
+            "Usage: /usr/bin/xx compare A",
+            "       /usr/bin/xx sort [-r]",
+        ];
+        assert!(verbs(&other, "lv").is_empty());
     }
 
     #[test]

@@ -5528,3 +5528,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
   lines above the description (`[--events <filter>]`, `<file>`) are the node's
   usage, not its summary. Fixture: `corpus/jfr/17.0.20` (with `help-print.txt`).
 - fleet: see the round-19 usage report; only `jfr` moved among the 1270 PATH tools if the sweep says so.
+
+### S-240: a usage program word that is a path to the tool is the tool
+
+- id: S-240
+- looks like: |
+      Usage: /usr/bin/linux-version compare VERSION1 OP VERSION2
+             /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+             /usr/bin/linux-version list [--paths]
+- tools: linux-version
+- handling: Fixed. In the usage-verb rule (S-215) a form's program word may be
+  the tool's name or a path whose last component is that name. `compare`,
+  `sort` and `list` are then subcommands with their own usage, `--reverse`
+  under `sort` and `--paths` under `list`; the root keeps what it read, as for
+  every verb rule node. Not fixed: a digit-suffixed upper-case operand
+  (`VERSION1`) is still not read per verb, so `compare` shows `OP` only (the
+  root and the node's usage keep the rest). Fixture:
+  `corpus/linux-version/4.5ubuntu9`.
+- fleet: see the round-19 usage report.

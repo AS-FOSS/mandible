@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-240] `mandible linux-version` lists `compare`, `sort` and `list` as commands, with `--reverse` under `sort` and `--paths` under `list`: usage forms that print the program as `/usr/bin/linux-version` are read like the bare name.
 - [S-239] `mandible jfr` lists `print` as a command with its own flags (`--xml`, `--json`, `--stack-depth`), not as the root usage whose flags sat on `jfr` itself.
 - [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.
 - [S-211] `mandible corepack disable` and `corepack enable` show their `--install-directory` flag: the `General commands` heading now attests its rows, so their own help pages are read.

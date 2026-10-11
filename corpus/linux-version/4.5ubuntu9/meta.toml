@@ -25,7 +25,3 @@ list = ["--paths"]
 
 [contract.must_contain_positionals_by_path]
 compare = ["OP"]
-
-[xfail]
-broken = true
-reason = "[S-240] the usage forms open with the path /usr/bin/linux-version, not the bare tool name, so compare, sort and list are not read as subcommands and --reverse, --paths sit on the root"

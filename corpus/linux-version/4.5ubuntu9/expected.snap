@@ -1,0 +1,82 @@
+name: linux-version
+description: |-
+  The version arguments should be kernel version strings as shown by 'uname -r' and used in filenames.
+
+  The valid comparison operators are: lt le eq ge gt
+usage:
+- 'Usage: /usr/bin/linux-version compare VERSION1 OP VERSION2'
+- '       /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]'
+- '       /usr/bin/linux-version list [--paths]'
+positionals:
+- name: VERSION1
+  provenance:
+    sources:
+    - help-text
+- name: OP
+  provenance:
+    sources:
+    - help-text
+- name: VERSION2
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --reverse
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --paths
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: compare
+  usage:
+  - /usr/bin/linux-version compare VERSION1 OP VERSION2
+  positionals:
+  - name: OP
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: sort
+  usage:
+  - /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+  flags:
+  - spellings:
+    - --reverse
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: list
+  usage:
+  - /usr/bin/linux-version list [--paths]
+  flags:
+  - spellings:
+    - --paths
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
