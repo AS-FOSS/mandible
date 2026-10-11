@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
+- [S-214] pnpm's and snap's root help point to `pnpm help -a` and `snap help --all`, so `mandible pnpm` gains the 25 commands its short list omits (`patch`, `licenses`, `runtime`, `self-update`, ...) and `mandible snap` lists all 67 commands with their groups.
 - [S-215] Usage forms that each open with a different verb name that command's subcommands, each with its own usage, flags and operands (`mandible git bisect` lists `start`, `good`, `bad`, `run`; `git stash`, `remote`, `worktree`, `bundle`, `reflog`, `commit-graph` likewise).
 - [S-216] A usage flag written `--term-(new|bad)=<term>`, `(-m | --message) <message>` or `--update-refs=(branches|head)` is read as the flags and value it spells (the value keeps its printed `(branches|head)`), not as a fabricated `--term- (new` or a value `)`.
 - [S-217] A subcommand whose help answer says the word is not a command (`git citool` where git-gui is not installed) is shown as unreadable, not as help listing the did-you-mean suggestion as a child.

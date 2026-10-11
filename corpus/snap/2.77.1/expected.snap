@@ -1,0 +1,485 @@
+name: snap
+description: The snap command lets you install, configure, refresh and remove snaps. Snaps are packages that work across many different Linux distributions, enabling secure delivery and operation of the latest apps and utilities.
+usage:
+- 'Usage: snap <command> [<options>...]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true
+subcommands:
+- name: find
+  summary: Find packages to install
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: info
+  summary: Show detailed information about snaps
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: install
+  summary: Install snaps on the system
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: remove
+  summary: Remove snaps from the system
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list
+  summary: List installed snaps
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: components
+  summary: List available and installed components for installed snaps
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: component
+  summary: Show detailed information about snap components
+  group: 'Basics (basic snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: refresh
+  summary: Refresh snaps in the system
+  group: '...more (slightly more advanced snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: revert
+  summary: Reverts the given snap to the previous state
+  group: '...more (slightly more advanced snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch
+  summary: Switches snap to a different channel
+  group: '...more (slightly more advanced snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: disable
+  summary: Disable a snap in the system
+  group: '...more (slightly more advanced snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: enable
+  summary: Enable a snap in the system
+  group: '...more (slightly more advanced snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: create-cohort
+  summary: Create cohort keys for a set of snaps
+  group: '...more (slightly more advanced snap management):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: changes
+  summary: List system changes
+  group: 'History (manage system change transactions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: tasks
+  summary: List a change's tasks
+  group: 'History (manage system change transactions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: abort
+  summary: Abort a pending change
+  group: 'History (manage system change transactions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: watch
+  summary: Watch a change in progress
+  group: 'History (manage system change transactions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: services
+  summary: Query the status of services
+  group: 'Daemons (manage services):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: start
+  summary: Start services
+  group: 'Daemons (manage services):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: stop
+  summary: Stop services
+  group: 'Daemons (manage services):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restart
+  summary: Restart services
+  group: 'Daemons (manage services):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: logs
+  summary: Retrieve logs for services
+  group: 'Daemons (manage services):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: connections
+  summary: List interface connections
+  group: 'Permissions (manage permissions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: interface
+  summary: Show details of snap interfaces
+  group: 'Permissions (manage permissions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: connect
+  summary: Connect a plug to a slot
+  group: 'Permissions (manage permissions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: disconnect
+  summary: Disconnect a plug from a slot
+  group: 'Permissions (manage permissions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: get
+  summary: Print configuration options
+  group: 'Configuration (system administration and configuration):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: set
+  summary: Change configuration options
+  group: 'Configuration (system administration and configuration):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unset
+  summary: Remove configuration options
+  group: 'Configuration (system administration and configuration):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: wait
+  summary: Wait for configuration
+  group: 'Configuration (system administration and configuration):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: alias
+  summary: Set up a manual alias
+  group: 'App Aliases (manage aliases):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: aliases
+  summary: List aliases in the system
+  group: 'App Aliases (manage aliases):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unalias
+  summary: Remove a manual alias, or the aliases for an entire snap
+  group: 'App Aliases (manage aliases):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: prefer
+  summary: Enable aliases from a snap, disabling any conflicting aliases
+  group: 'App Aliases (manage aliases):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: login
+  summary: Authenticate to snapd and the store
+  group: 'Account (authentication to snapd and the snap store):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: logout
+  summary: Log out of snapd and the store
+  group: 'Account (authentication to snapd and the snap store):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: whoami
+  summary: Show the email the user is logged in with
+  group: 'Account (authentication to snapd and the snap store):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: saved
+  summary: List currently stored snapshots
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: save
+  summary: Save a snapshot of the current data
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: check-snapshot
+  summary: Check a snapshot
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restore
+  summary: Restore a snapshot
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: forget
+  summary: Delete a snapshot
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: export-snapshot
+  summary: Export a snapshot
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: import-snapshot
+  summary: Import a snapshot
+  group: 'Snapshots (archives of snap data):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: report-issue
+  summary: Show contact information and optionally navigate to relevant issue tracker
+  group: 'Issue reporting (report issues with a specific snap):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: model
+  summary: Get the active model for this device
+  group: 'Device (manage device):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: remodel
+  summary: Remodel this device
+  group: 'Device (manage device):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reboot
+  summary: Reboot into selected system and mode
+  group: 'Device (manage device):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: recovery
+  summary: List available recovery systems
+  group: 'Device (manage device):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: warnings
+  summary: List warnings
+  group: 'Warnings (manage warnings):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: okay
+  summary: Acknowledge warnings
+  group: 'Warnings (manage warnings):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: known
+  summary: Show known assertions of the provided type
+  group: 'Assertions (manage assertions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: ack
+  summary: Add an assertion to the system
+  group: 'Assertions (manage assertions):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: version
+  summary: Show version details
+  group: 'Introspection (introspection and debugging of snapd):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: debug
+  summary: Run debug commands
+  group: 'Introspection (introspection and debugging of snapd):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: download
+  summary: Download the given snap
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pack
+  summary: Pack the given directory as a snap
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: run
+  summary: Run the given snap command
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: try
+  summary: Test an unpacked snap in the system
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: sign
+  summary: Sign an assertion
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: prepare-image
+  summary: Prepare a device image
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: export-key
+  summary: Export cryptographic public key
+  group: 'Development (developer-oriented features):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: set-quota
+  summary: Create or update a quota group.
+  group: 'Quota Groups (Manage quota groups for snaps):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: remove-quota
+  summary: Remove quota group
+  group: 'Quota Groups (Manage quota groups for snaps):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: quotas
+  summary: Show quota groups
+  group: 'Quota Groups (Manage quota groups for snaps):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: quota
+  summary: Show quota group for a set of snaps
+  group: 'Quota Groups (Manage quota groups for snaps):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: validate
+  summary: List or apply validation sets
+  group: 'Validation Sets (Manage validation sets):'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

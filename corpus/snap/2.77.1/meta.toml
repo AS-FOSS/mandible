@@ -21,8 +21,5 @@ stdout = "help-all.txt"
 
 [contract]
 expected_framework = "generic"
-min_subcommands = 70
+min_subcommands = 67
 
-[xfail]
-broken = true
-reason = "the root's 'snap help --all' listing sentence is not read as a listing probe, so none of the 70 listed commands reach the tree"

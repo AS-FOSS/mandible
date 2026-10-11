@@ -5064,18 +5064,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       'git help -a' and 'git help -g' list available subcommands and some
       concept guides.
-- tools: git
+      use 'pnpm help -a' to list all commands
+      For a short summary of all commands, run 'snap help --all'.
+- tools: git, pnpm, snap
 - handling: Fixed. A root text sentence that quotes one or two
   `'<tool> help <option>'` invocations and says they list subcommands or
-  commands opens those invocations as probes (docs/design.md section 6 rule
-  2d, `listing_probe.rs`). The listed rows are appended to the root's own
-  list; rows under a group heading naming interfaces, formats, protocols,
-  guides or concepts are dropped. "See 'git help <command>'", pnpm's "use
-  'pnpm help -a' to list all commands" and snap's "run 'snap help --all'"
-  do not match. `mandible git remote`, `stash`, `worktree` and `bundle` now
-  open their own pages. Fixture: `corpus/git/2.43.0-commands`.
-- fleet: see the round-17 sweep: git gains its listed commands; no other
-  tool moves.
+  commands (the verb after the quote, or "summary of all commands, run"
+  before it) opens those invocations as probes (docs/design.md section 6
+  rule 2d, `listing_probe.rs`). The listing is read under the lead that it
+  lists the tool's commands, and a column-0 line that only announces
+  indented group headings (snap's "Commands can be classified as follows:")
+  is dropped. The listed rows are appended to the root's own list; rows
+  under a group heading naming interfaces, formats, protocols, guides or
+  concepts are dropped. "See 'git help <command>'" and "see 'snap help
+  --all'" do not match. `mandible git remote`, `stash`, `worktree` and
+  `bundle` open their own pages; pnpm gains 25 commands and snap its 67.
+  pnpm's eight two-word rows (`store add`, `cache list`) are not read.
+  Fixtures: `corpus/git/2.43.0-commands`, `corpus/pnpm/11.22.0-commands`,
+  `corpus/snap/2.77.1`.
+- fleet: see the round-18 sweep: git, pnpm and snap gain their listed
+  commands; no other tool moves.
 
 ### S-215: usage forms that each open with a different verb name that command's subcommands
 

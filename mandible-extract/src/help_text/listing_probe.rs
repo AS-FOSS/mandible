@@ -1,13 +1,15 @@
 //! The listing-invocation probe (spec §6 rule 2d, docs/shapes.md S-214).
 //!
-//! A root help whose closed sentence says quoted invocations
-//! `'<tool> help <option>'` list the tool's subcommands admits exactly those
-//! invocations (at most two) as probes; git's root text is the model. The
-//! rows are read like any command table and appended to the root's own list.
-//! Strict grammar: the quote opens with the tool's name, then `help`, then an
-//! option (never `-h`/`--help`); the sentence ends `list(s) [all|available]
-//! subcommands|commands`. Rows under a group heading naming a documentation
-//! noun (git's "interfaces", the `-g` guide list) are dropped.
+//! A root help whose closed sentence says the tool's own quoted invocations
+//! `'<tool> help <option>'` list its subcommands admits exactly those
+//! invocations (at most two) as probes; git's, pnpm's and snap's root texts
+//! are the models. The rows are read like any command table and appended to
+//! the root's own list. Strict grammar: the quote opens with the tool's name,
+//! then `help`, then one option (never `-h`/`--help`); the sentence either
+//! continues `[to] list(s) [all|available] subcommands|commands` or opens
+//! `summary|list|listing|overview of all subcommands|commands, run|use`.
+//! Rows under a group heading naming a documentation noun (git's
+//! "interfaces", the `-g` guide list) are dropped.
 
 use std::path::Path;
 
@@ -59,9 +61,43 @@ fn sentence_starts(text: &str) -> Vec<usize> {
     starts
 }
 
-/// `'<tool> help <opt>' [and|or '<tool> help <opt>'] list[s] [all]
-/// [available] [sub]commands`, anchored at the start of `s`.
+/// The quoted invocations of one sentence that the sentence says list the
+/// tool's commands. Two wordings: the invocation is followed by `[to] list[s]
+/// [all] [available] [sub]commands` (git, pnpm), or preceded by `<summary|
+/// list|listing|overview> of all [sub]commands, run|use` (snap).
 fn parse_sentence(s: &str, tool: &str) -> Option<Vec<String>> {
+    for (at, _) in s.match_indices('\'') {
+        if continues_group(&s[..at]) {
+            continue;
+        }
+        let Some((opts, rest)) = invocation_group(&s[at..], tool) else {
+            continue;
+        };
+        if lists_after(rest) || (at == first_quote(s, tool) && lists_before(&s[..at])) {
+            return Some(opts);
+        }
+    }
+    None
+}
+
+/// True when the quote after `pre` is joined to an earlier quoted text, so
+/// it is not the start of a group of its own.
+fn continues_group(pre: &str) -> bool {
+    let pre = pre.trim_end();
+    pre.ends_with("' and") || pre.ends_with("' or") || pre.ends_with("',")
+}
+
+/// Offset of the first quote that opens a valid invocation.
+fn first_quote(s: &str, tool: &str) -> usize {
+    s.match_indices('\'')
+        .map(|(i, _)| i)
+        .find(|&i| quoted_invocation(&s[i..], tool).is_some())
+        .unwrap_or(usize::MAX)
+}
+
+/// One to `MAX_LISTINGS` invocations joined by `and`, `or` or a comma,
+/// and the text after the last.
+fn invocation_group<'a>(s: &'a str, tool: &str) -> Option<(Vec<String>, &'a str)> {
     let mut rest = s;
     let mut opts = Vec::new();
     loop {
@@ -73,23 +109,59 @@ fn parse_sentence(s: &str, tool: &str) -> Option<Vec<String>> {
             .or_else(|| rest.strip_prefix("or "))
             .or_else(|| rest.strip_prefix(", "));
         match joined {
-            Some(more) if opts.len() < MAX_LISTINGS => rest = more.trim_start(),
-            _ => break,
+            Some(more) if more.trim_start().starts_with('\'') => {
+                if opts.len() >= MAX_LISTINGS {
+                    return None;
+                }
+                rest = more.trim_start();
+            }
+            _ => return Some((opts, rest)),
         }
     }
+}
+
+/// `[to] list[s] [all] [available] [sub]commands` right after the quotes.
+fn lists_after(rest: &str) -> bool {
+    let rest = rest.strip_prefix("to ").unwrap_or(rest);
     let mut words = rest.split_whitespace();
-    if !matches!(words.next()?, "list" | "lists") {
-        return None;
+    if !matches!(words.next(), Some("list" | "lists")) {
+        return false;
     }
-    let mut word = words.next()?;
+    let Some(mut word) = words.next() else {
+        return false;
+    };
     if word == "all" {
-        word = words.next()?;
+        let Some(w) = words.next() else { return false };
+        word = w;
     }
     if word == "available" {
-        word = words.next()?;
+        let Some(w) = words.next() else { return false };
+        word = w;
     }
     let word = word.trim_end_matches(|c: char| !c.is_ascii_alphabetic());
-    matches!(word, "subcommands" | "commands").then_some(opts)
+    matches!(word, "subcommands" | "commands")
+}
+
+/// The sentence text before the quote ends `... of all [sub]commands, run|use`.
+fn lists_before(pre: &str) -> bool {
+    let pre = pre.trim_end();
+    let Some(pre) = pre
+        .strip_suffix("run")
+        .or_else(|| pre.strip_suffix("use"))
+        .map(|p| p.trim_end().trim_end_matches(','))
+    else {
+        return false;
+    };
+    let words: Vec<&str> = pre.split_whitespace().collect();
+    let n = words.len();
+    if n < 4 {
+        return false;
+    }
+    let last = words[n - 1].trim_end_matches(|c: char| !c.is_ascii_alphabetic());
+    matches!(last, "commands" | "subcommands")
+        && words[n - 2] == "all"
+        && words[n - 3] == "of"
+        && matches!(words[n - 4], "summary" | "list" | "listing" | "overview")
 }
 
 /// One `'<tool> help <opt>'` at the start of `s`: the option and the text
@@ -129,15 +201,38 @@ fn is_documentation_group(group: &str) -> bool {
 }
 
 /// The subcommands a listing's text names: heading-attested rows whose
-/// group is not a documentation section.
+/// group is not a documentation section. The root's sentence says this
+/// text lists the tool's commands, so it is read with that lead (a listing
+/// like `pnpm help -a` never says "commands" itself), and a column-0
+/// introducer line that only announces indented group headings
+/// (`Commands can be classified as follows:`) is not a heading of its own.
 pub fn listed_subcommands(text: &str, tool: &str) -> Vec<CommandNode> {
-    let parsed = sections::parse_with_profile(text, None, Some(tool));
+    let text = format!("The {tool} commands.\n\n{}", drop_group_introducers(text));
+    let parsed = sections::parse_with_profile(&text, None, Some(tool));
     parsed
         .subcommands
         .into_iter()
         .filter(|n| n.heading_attested)
         .filter(|n| !n.group.as_deref().is_some_and(is_documentation_group))
         .collect()
+}
+
+/// Drop each column-0 line ending in `:` whose next non-blank line is an
+/// indented line that also ends in `:` (a group heading one level down).
+fn drop_group_introducers(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let mut out: Vec<&str> = Vec::with_capacity(lines.len());
+    for (i, line) in lines.iter().enumerate() {
+        let next = lines[i + 1..].iter().find(|l| !l.trim().is_empty());
+        let introducer = !line.starts_with(char::is_whitespace)
+            && line.trim_end().ends_with(':')
+            && next
+                .is_some_and(|n| n.starts_with(char::is_whitespace) && n.trim_end().ends_with(':'));
+        if !introducer {
+            out.push(line);
+        }
+    }
+    out.join("\n")
 }
 
 /// Append the listed names the root does not already carry. Existing
@@ -187,8 +282,10 @@ mod tests {
     fn prose_mentions_and_other_wordings_never_match() {
         for t in [
             "See 'git help <command>' to read about a specific subcommand",
-            "use 'pnpm help -a' to list all commands",
-            "For a short summary of all commands, run 'snap help --all'.",
+            "use 'pnpm help -a' and then list all commands",
+            "For a short summary of all commands, see 'snap help --all'.",
+            "Run 'snap help --all' for a summary of all commands",
+            "For a summary of all commands, run 'snap help --all' or 'snap help -x' or 'snap help -y'.",
             "'git help -h' lists commands",
             "'other help -a' lists commands",
             "'git help -a' lists files",
@@ -201,6 +298,25 @@ mod tests {
                 "{t}"
             );
         }
+    }
+
+    #[test]
+    fn verb_after_and_summary_before_wordings() {
+        assert_eq!(
+            listing_options(
+                "These are common pnpm commands, use 'pnpm help -a' to list all commands",
+                "pnpm"
+            ),
+            vec!["-a"]
+        );
+        assert_eq!(
+            listing_options(
+                "For more, run 'snap help <command>'.\nFor a short summary of all commands, run 'snap help --all'.",
+                "snap"
+            ),
+            vec!["--all"]
+        );
+        assert!(listing_options("use 'pnpm help -a' to list all commands", "pn").is_empty());
     }
 
     #[test]
@@ -244,5 +360,19 @@ mod tests {
         let nodes = listed_subcommands(text, "git");
         let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
         assert_eq!(names, vec!["add", "am"], "{names:?}");
+    }
+
+    #[test]
+    fn plain_and_introduced_group_listings_are_read() {
+        let pnpm = "Usage: pnpm [command]\n\nManage your dependencies:\n      add      Installs a package\n   i, install  Install all\n\nOther:\n      init     Create a package.json file\n";
+        let names = |t: &str, tool: &str| -> Vec<String> {
+            listed_subcommands(t, tool)
+                .into_iter()
+                .map(|n| n.name)
+                .collect()
+        };
+        assert_eq!(names(pnpm, "pnpm"), ["add", "install", "init"]);
+        let snap = "Usage: snap <command>\n\nCommands can be classified as follows:\n\n  Basics (basic management):\n    find     Find packages\n    info     Show details\n\n  History (changes):\n    tasks    List tasks\n";
+        assert_eq!(names(snap, "snap"), ["find", "info", "tasks"]);
     }
 }
