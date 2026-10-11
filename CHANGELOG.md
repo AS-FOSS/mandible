@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-243] `mandible ethtool` shows each operation's description and its setting rows (`-s|--change` lists `[ speed %d ] [ duplex half|full ] ...`), keeps the 15 operations after `-Q` (`--cable-test`, `--set-pse`, `--monitor`, ...), and no longer lists `EEPROM`, `RSS`, `EEE`, `PHY`, `FEC` and `FUNC` as operands; `--groups` offers `eth-phy`, `eth-mac`, `eth-ctrl`, `rmon`.
 - [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.
 - [S-211] `mandible corepack disable` and `corepack enable` show their `--install-directory` flag: the `General commands` heading now attests its rows, so their own help pages are read.
 - [S-235] Prose after the usage line and a blank line is part of the description: `mandible automake` opens with `Generate Makefile.in for configure from Makefile.am.`, `jq` and `find` show their intro paragraphs (`Default path is the current directory; default expression is -print.`).

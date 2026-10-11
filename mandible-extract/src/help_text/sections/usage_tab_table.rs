@@ -49,9 +49,16 @@ fn table_head(usage_lines: &[String]) -> Option<&str> {
     (count >= MIN_TAB_FORMS).then_some(head)
 }
 
+/// True when the flush-left line `i` still belongs to the usage block: it
+/// reads as usage grammar, or it continues the description of the
+/// tab-described form above it.
+pub(super) fn continues_block(lines: &[&str], i: usize) -> bool {
+    looks_like_usage_fragment(lines[i].trim_start()) || continues_tab_description(lines, i)
+}
+
 /// True when line `i` (flush left, holding a tab) continues the description
 /// of the tab-described form directly above it.
-pub(super) fn continues_tab_description(lines: &[&str], i: usize) -> bool {
+fn continues_tab_description(lines: &[&str], i: usize) -> bool {
     let Some(prev) = i.checked_sub(1).and_then(|p| lines.get(p)) else {
         return false;
     };
@@ -63,7 +70,9 @@ pub(super) fn continues_tab_description(lines: &[&str], i: usize) -> bool {
 }
 
 fn is_operand_word(w: &str) -> bool {
-    w.len() > 1 && w.chars().all(|c| c.is_uppercase() || matches!(c, '_' | '-'))
+    w.len() > 1
+        && w.chars()
+            .all(|c| c.is_uppercase() || matches!(c, '_' | '-'))
 }
 
 /// The usage lines with each form cut before its description. Rows are kept,
@@ -141,7 +150,11 @@ pub(super) fn attach_descriptions(usage_lines: &[String], flags: &mut [Entity]) 
     }
     finished.extend(owner);
     for (names, parts) in finished {
-        let text = parts.join(" ").split_whitespace().collect::<Vec<_>>().join(" ");
+        let text = parts
+            .join(" ")
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
         let target = flags.iter_mut().find(|f| {
             f.kind == EntityKind::Flag
                 && f.description.is_none()

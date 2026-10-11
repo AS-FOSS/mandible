@@ -943,9 +943,8 @@ fn scan_usage_section(
             // still carried into this one at column zero. See S-142,
             // issue #143.
             if leading_whitespace(l) <= base_indent
-                && !looks_like_usage_fragment(trimmed_start)
                 && bracket_group_depth <= 0
-                && !usage_tab_table::continues_tab_description(lines, i)
+                && !usage_tab_table::continues_block(lines, i)
             {
                 break;
             }

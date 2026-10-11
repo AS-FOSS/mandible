@@ -5506,3 +5506,33 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
+
+### S-243: tab-described operation forms with setting rows
+
+- id: S-243
+- looks like: |
+      ethtool [ FLAGS ] -s|--change DEVNAME<TAB>Change generic options
+      <TAB><TAB>[ speed %d ]
+      <TAB><TAB>[ duplex half|full ]
+      ethtool [ FLAGS ] -Q|--per-queue DEVNAME<TAB>Apply per-queue command.
+      The supported sub commands include --show-coalesce<TAB><TAB>[queue_mask %x] SUB_COMMAND
+- tools: ethtool
+- handling: Fixed. Three or more usage forms opening with the same command
+  word and carrying a tab description make a table. Each operation flag
+  (`-s|--change`) takes the text after the tab, then the rows under its form,
+  as printed and in order. A flush-left wrapped description holding a tab
+  continues the form above and does not end the usage block. Forms are cut
+  before their description for operand and flag reading, and setting rows
+  are not operands. Fixture: `corpus/ethtool/6.7`.
+- fleet: only `ethtool` shows the shape in 3079 captures and the corpus.
+
+### S-244: a flag followed by bracketed literal words
+
+- id: S-244
+- looks like: |
+      [ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]
+- tools: ethtool
+- handling: Fixed. Two or more bracketed lowercase words right after a usage
+  flag are that flag's literal values, not a value name. Fixture:
+  `corpus/ethtool/6.7`.
+- fleet: see S-243.
