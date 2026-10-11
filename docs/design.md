@@ -1050,18 +1050,22 @@ allowlist below.
 
    **2d. `InertArgv::HelpListing`, the listing-invocation probe.** The argv is
    `help <option>`, sent only for the root and only when the root's own text
-   has the closed sentence `'<tool> help <option>' [and '<tool> help
-   <option>'] lists [all] [available] subcommands|commands`. The quote opens
-   with the tool's own name, `option` is `-X` or `--word` and never `-h` or
-   `--help`, and at most two invocations are sent, each as named. A prose
-   mention ("See 'git help <command>'") and a verb after the invocation
-   ("use 'pnpm help -a' to list all commands") never match. The answer is
-   read like a command table and the names the root lacks are appended;
-   rows under a group heading that names a documentation noun (interfaces,
-   formats, protocols, guides, concepts) are not subcommands and are
-   dropped. Every listed row is `heading_attested`, so its own page probe is
-   the existing gate. Rule 0's list still wins, since the argv is never
-   exactly `["--help"]`. Docs/shapes.md S-214.
+   has a closed sentence saying the tool's own quoted `help` invocation
+   lists its commands: `'<tool> help <option>' [and '<tool> help <option>']
+   [to] list[s] [all] [available] subcommands|commands`, or `<summary|list|
+   listing|overview> of all subcommands|commands, run|use '<tool> help
+   <option>'`. The quote opens with the tool's own name, `option` is `-X`
+   or `--word` and never `-h` or `--help`, and at most two invocations are
+   sent, each as named. A prose mention ("See 'git help <command>'"), an
+   invocation the sentence does not say lists commands ("see 'snap help
+   --all'") and a third invocation never match. The answer is read like a
+   command table, under the lead that it lists the tool's commands (the
+   sentence says so), and the names the root lacks are appended; rows under
+   a group heading that names a documentation noun (interfaces, formats,
+   protocols, guides, concepts) are not subcommands and are dropped. Every
+   listed row is `heading_attested`, so its own page probe is the existing
+   gate. Rule 0's list still wins, since the argv is never exactly
+   `["--help"]`. Docs/shapes.md S-214.
 
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 
@@ -3133,13 +3137,15 @@ environment. Docs/shapes.md S-189.
 
 **A root text's own listing sentence opens `help <option>` probes
 (2026-10-11).** git's root help says "'git help -a' and 'git help -g' list available
-subcommands and some concept guides", and its short list holds 23 of about
-145 commands. A root text with that closed sentence is probed with each
-quoted invocation (rule 2d), and the listed commands join the root's own.
-Documentation sections of the listing are dropped by their group heading.
-The probes are pure listings; the new subcommands' own `--help`/`-h`
-probes pass the existing `heading_attested` gate. Taken without the
-maintainer present. One residual is open: `git gui`, `git citool` and
+subcommands and some concept guides", pnpm's "use 'pnpm help -a' to list all
+commands" and snap's "For a short summary of all commands, run 'snap help
+--all'"; their short lists hold a fraction of the commands (git 23 of about
+145, pnpm 18 of 43, snap none of 67). A root text with such a closed sentence
+(rule 2d) is probed with each quoted invocation, and the listed commands join
+the root's own. Documentation sections of the listing are dropped by their
+group heading. The probes are pure listings; the new subcommands' own
+`--help`/`-h` probes pass the existing `heading_attested` gate. Taken without
+the maintainer present. One residual is open: `git gui`, `git citool` and
 `gitk` answer `--help` with a man page, so the `-h` fallback runs them. On
 macOS a Tk error dialog can open until the 10 s cap kills it. On Linux the
 cleared environment has no `DISPLAY`. Docs/shapes.md S-214.

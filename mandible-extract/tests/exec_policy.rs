@@ -1726,13 +1726,13 @@ fn listing_invocations_are_sent_as_help_option_and_guides_are_dropped() {
     assert!(root.subcommands.iter().all(|n| n.heading_attested));
 }
 
-/// A prose mention, and the pnpm and snap wordings, never produce a probe.
+/// A prose mention and wordings outside the closed grammar never produce a probe.
 #[test]
 fn prose_mentions_and_other_wordings_never_send_a_listing_probe() {
     for sentence in [
         "See 'lt help <command>' to read about a specific subcommand.",
-        "Use 'lt help -a' to list all commands.",
-        "For a short summary of all commands, run 'lt help --all'.",
+        "Use 'lt help -a' and then list all commands.",
+        "For a short summary of all commands, see 'lt help --all'.",
     ] {
         let dir = tempfile::tempdir().unwrap();
         let (tier, tool) = listing_tool(dir.path(), sentence);

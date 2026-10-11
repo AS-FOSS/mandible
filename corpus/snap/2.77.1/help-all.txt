@@ -1,0 +1,110 @@
+The snap command lets you install, configure, refresh and remove snaps.
+Snaps are packages that work across many different Linux distributions,
+enabling secure delivery and operation of the latest apps and utilities.
+
+Usage: snap <command> [<options>...]
+
+Commands can be classified as follows:
+
+  Basics (basic snap management):
+    find             Find packages to install
+    info             Show detailed information about snaps
+    install          Install snaps on the system
+    remove           Remove snaps from the system
+    list             List installed snaps
+    components       List available and installed components for installed snaps
+    component        Show detailed information about snap components
+
+  ...more (slightly more advanced snap management):
+    refresh          Refresh snaps in the system
+    revert           Reverts the given snap to the previous state
+    switch           Switches snap to a different channel
+    disable          Disable a snap in the system
+    enable           Enable a snap in the system
+    create-cohort    Create cohort keys for a set of snaps
+
+  History (manage system change transactions):
+    changes          List system changes
+    tasks            List a change's tasks
+    abort            Abort a pending change
+    watch            Watch a change in progress
+
+  Daemons (manage services):
+    services         Query the status of services
+    start            Start services
+    stop             Stop services
+    restart          Restart services
+    logs             Retrieve logs for services
+
+  Permissions (manage permissions):
+    connections      List interface connections
+    interface        Show details of snap interfaces
+    connect          Connect a plug to a slot
+    disconnect       Disconnect a plug from a slot
+
+  Configuration (system administration and configuration):
+    get              Print configuration options
+    set              Change configuration options
+    unset            Remove configuration options
+    wait             Wait for configuration
+
+  App Aliases (manage aliases):
+    alias            Set up a manual alias
+    aliases          List aliases in the system
+    unalias          Remove a manual alias, or the aliases for an entire snap
+    prefer           Enable aliases from a snap, disabling any conflicting aliases
+
+  Account (authentication to snapd and the snap store):
+    login            Authenticate to snapd and the store
+    logout           Log out of snapd and the store
+    whoami           Show the email the user is logged in with
+
+  Snapshots (archives of snap data):
+    saved            List currently stored snapshots
+    save             Save a snapshot of the current data
+    check-snapshot   Check a snapshot
+    restore          Restore a snapshot
+    forget           Delete a snapshot
+    export-snapshot  Export a snapshot
+    import-snapshot  Import a snapshot
+
+  Issue reporting (report issues with a specific snap):
+    report-issue     Show contact information and optionally navigate to relevant issue tracker
+
+  Device (manage device):
+    model            Get the active model for this device
+    remodel          Remodel this device
+    reboot           Reboot into selected system and mode
+    recovery         List available recovery systems
+
+  Warnings (manage warnings):
+    warnings         List warnings
+    okay             Acknowledge warnings
+
+  Assertions (manage assertions):
+    known            Show known assertions of the provided type
+    ack              Add an assertion to the system
+
+  Introspection (introspection and debugging of snapd):
+    version          Show version details
+    debug            Run debug commands
+
+  Development (developer-oriented features):
+    download         Download the given snap
+    pack             Pack the given directory as a snap
+    run              Run the given snap command
+    try              Test an unpacked snap in the system
+    sign             Sign an assertion
+    prepare-image    Prepare a device image
+    export-key       Export cryptographic public key
+
+  Quota Groups (Manage quota groups for snaps):
+    set-quota        Create or update a quota group.
+    remove-quota     Remove quota group
+    quotas           Show quota groups
+    quota            Show quota group for a set of snaps
+
+  Validation Sets (Manage validation sets):
+    validate         List or apply validation sets
+
+For more information about a command, run 'snap help <command>'.

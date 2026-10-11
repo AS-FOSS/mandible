@@ -1,0 +1,26 @@
+The snap command lets you install, configure, refresh and remove snaps.
+Snaps are packages that work across many different Linux distributions,
+enabling secure delivery and operation of the latest apps and utilities.
+
+Usage: snap <command> [<options>...]
+
+Commonly used commands can be classified as follows:
+
+           Basics: find, info, install, remove, list, components, component
+          ...more: refresh, revert, switch, disable, enable, create-cohort
+          History: changes, tasks, abort, watch
+          Daemons: services, start, stop, restart, logs
+      Permissions: connections, interface, connect, disconnect
+    Configuration: get, set, unset, wait
+      App Aliases: alias, aliases, unalias, prefer
+          Account: login, logout, whoami
+        Snapshots: saved, save, check-snapshot, restore, forget
+  Issue reporting: report-issue
+           Device: model, remodel, reboot, recovery
+     Quota Groups: set-quota, remove-quota, quotas, quota
+  Validation Sets: validate
+        ... Other: warnings, okay, known, ack, version
+      Development: download, pack, run, try, sign
+
+For more information about a command, run 'snap help <command>'.
+For a short summary of all commands, run 'snap help --all'.

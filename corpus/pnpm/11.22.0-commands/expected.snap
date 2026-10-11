@@ -1,0 +1,433 @@
+name: pnpm
+description: |-
+  Version 11.22.0
+
+  These are common pnpm commands used in various situations, use 'pnpm help -a' to list all commands
+usage:
+- 'Usage: pnpm [command] [flags]'
+- '       pnpm [ -h | --help | -v | --version ]'
+flags:
+- spellings:
+  - -r
+  - --recursive
+  description: Run the command for each project in the workspace.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -v
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: add
+  summary: Installs a package and any packages that it depends on. By default, any new package is installed as a prod dependency
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: install
+  aliases:
+  - i
+  summary: Install all dependencies for a project
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: link
+  aliases:
+  - ln
+  summary: Connect the local project to another one
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: remove
+  aliases:
+  - rm
+  summary: Removes packages from node_modules and from the project's package.json
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: unlink
+  summary: Unlinks a package. Like yarn unlink but pnpm re-installs the dependency after removing the external link
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: update
+  aliases:
+  - up
+  summary: Updates packages to their latest version based on the specified range
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: audit
+  summary: Checks for known security issues with the installed packages
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: list
+  aliases:
+  - ls
+  summary: Print all the versions of packages that are installed, as well as their dependencies, in a tree-structure
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: outdated
+  summary: Check for outdated packages
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: why
+  summary: Shows all packages that depend on the specified package
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: create
+  summary: Create a project from a "create-*" or "@foo/create-*" starter kit
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: dlx
+  summary: Fetches a package from the registry without installing it as a dependency, hot loads it, and runs whatever default command binary it exposes
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: exec
+  summary: Executes a shell command in scope of a project
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: run
+  summary: Runs a defined package script
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: config
+  aliases:
+  - c
+  summary: Manage the pnpm configuration files
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: init
+  summary: Create a package.json file
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: publish
+  summary: Publishes a package to the registry
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: stage
+  summary: Stage packages for publishing
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: clean
+  summary: Safely remove node_modules directories from all workspace projects
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: dedupe
+  summary: Perform an install removing older dependencies in the lockfile if a newer version can be used
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch
+  summary: Fetch packages from a lockfile into virtual store, package manifest is ignored
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: import
+  summary: Generates a pnpm-lock.yaml from an npm package-lock.json (or npm-shrinkwrap.json) file
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: install-test
+  aliases:
+  - it
+  summary: Runs a pnpm install followed immediately by a pnpm test
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: prune
+  summary: Removes extraneous packages
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rebuild
+  aliases:
+  - rb
+  summary: Rebuild a package
+  group: 'Manage your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: patch
+  summary: Prepare a package for patching
+  group: 'Patch your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: patch-commit
+  summary: Generate a patch out of a directory
+  group: 'Patch your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: patch-remove
+  summary: Remove existing patch files
+  group: 'Patch your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: licenses
+  summary: Check licenses in consumed packages
+  group: 'Review your dependencies:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: approve-builds
+  summary: Approve dependencies for running scripts during installation
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: ignored-builds
+  summary: Print the list of packages with blocked build scripts
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: start
+  summary: Runs an arbitrary command specified in the package's "start" property of its "scripts" object
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: test
+  aliases:
+  - t
+  summary: Runs a package's "test" script, if one was provided
+  group: 'Run your scripts:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: bin
+  summary: Prints the directory into which the executables of dependencies are linked
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: deploy
+  summary: Deploy a package from a workspace
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pack
+  summary: Create a tarball from a package
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: root
+  summary: Prints the effective modules directory
+  group: 'Other:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: env
+  summary: Manage Node.js versions (deprecated, use runtime)
+  group: 'Manage your engines:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: runtime
+  aliases:
+  - rt
+  summary: Manage runtimes
+  group: 'Manage your engines:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: self-update
+  summary: Updates pnpm to the latest version
+  group: 'Manage your engines:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cat-file
+  summary: Prints the contents of a file based on the hash value stored in the index file
+  group: 'Inspect your store:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: cat-index
+  summary: Prints the index file of a specific package from the store
+  group: 'Inspect your store:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: find-hash
+  summary: Experimental! Lists the packages that include the file with the specified hash
+  group: 'Inspect your store:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: store
+  group: 'Manage your store:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  subcommands:
+  - name: add
+    summary: Adds new packages to the pnpm store directly. Does not modify any projects or files outside the store
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: path
+    summary: Prints the path to the active store directory
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: prune
+    summary: Removes unreferenced (extraneous, orphan) packages from the store
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: status
+    summary: Checks for modified packages in the store
+    group: 'Manage your store:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+- name: cache
+  group: 'Manage your cache:'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  subcommands:
+  - name: delete
+    summary: Experimental! Deletes metadata cache for the specified package(s). Supports patterns
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: list
+    summary: Experimental! Lists the available packages metadata cache. Supports filtering by glob
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: list-registries
+    summary: Experimental! Lists all registries that have their metadata cache locally
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
+  - name: view
+    summary: Experimental! Views information from the specified package's cache
+    group: 'Manage your cache:'
+    provenance:
+      sources:
+      - help-text
+    heading_attested: true
