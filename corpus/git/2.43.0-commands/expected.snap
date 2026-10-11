@@ -656,6 +656,11 @@ subcommands:
       sources:
       - help-text-synopsis
   - spellings:
+    - --pathspec-file-nul
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
     - --
     provenance:
       sources:
@@ -926,8 +931,13 @@ subcommands:
       - help-text-synopsis
   - spellings:
     - --lock
-    value_name: --reason <string>
-    value_kind: Optional
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - --reason
+    value_name: <string>
+    value_kind: Required
     provenance:
       sources:
       - help-text-synopsis
@@ -938,6 +948,8 @@ subcommands:
       - help-text-synopsis
   - spellings:
     - -b
+    value_name: <new-branch>
+    value_kind: Required
     provenance:
       sources:
       - help-text-synopsis
@@ -951,15 +963,11 @@ subcommands:
   - spellings:
     - -v
     - --porcelain
-    value_name: -z
-    value_kind: Optional
     provenance:
       sources:
       - help-text-synopsis
   - spellings:
-    - --reason
-    value_name: <string>
-    value_kind: Required
+    - -z
     provenance:
       sources:
       - help-text-synopsis
@@ -1014,8 +1022,13 @@ subcommands:
         - help-text-synopsis
     - spellings:
       - --lock
-      value_name: --reason <string>
-      value_kind: Optional
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --reason
+      value_name: <string>
+      value_kind: Required
       provenance:
         sources:
         - help-text-synopsis
@@ -1026,6 +1039,8 @@ subcommands:
         - help-text-synopsis
     - spellings:
       - -b
+      value_name: <new-branch>
+      value_kind: Required
       provenance:
         sources:
         - help-text-synopsis
@@ -1048,8 +1063,11 @@ subcommands:
     - spellings:
       - -v
       - --porcelain
-      value_name: -z
-      value_kind: Optional
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -z
       provenance:
         sources:
         - help-text-synopsis
@@ -1315,13 +1333,18 @@ subcommands:
       - help-text-synopsis
   - spellings:
     - --mirror
-    value_name: <fetch
+    value_name: <fetch|push>
     value_kind: Required
     provenance:
       sources:
       - help-text-synopsis
   - spellings:
     - --[no-]progress
+    provenance:
+      sources:
+      - help-text-synopsis
+  - spellings:
+    - -a
     provenance:
       sources:
       - help-text-synopsis
@@ -1420,7 +1443,7 @@ subcommands:
         - help-text-synopsis
     - spellings:
       - --mirror
-      value_name: <fetch
+      value_name: <fetch|push>
       value_kind: Required
       provenance:
         sources:
@@ -1484,6 +1507,11 @@ subcommands:
         sources:
         - help-text
     flags:
+    - spellings:
+      - -a
+      provenance:
+        sources:
+        - help-text-synopsis
     - spellings:
       - --auto
       provenance:
@@ -1657,15 +1685,11 @@ subcommands:
         - help-text-synopsis
     - spellings:
       - --add
-      value_name: <name>
-      value_kind: Required
       provenance:
         sources:
         - help-text-synopsis
     - spellings:
       - --delete
-      value_name: <name>
-      value_kind: Required
       provenance:
         sources:
         - help-text-synopsis

@@ -158,7 +158,3 @@ min_subcommands = 100
 "bisect replay" = ["logfile"]
 "remote rename" = ["old", "new"]
 "worktree move" = ["worktree", "new-path"]
-
-[xfail]
-broken = true
-reason = "usage flags: a nested [--reason ..] opening with a flag, --all [--single-worktree], -v | --porcelain [-z] and set-head (-a | ... | <branch>) lose or misattach flags/values (S-218)"

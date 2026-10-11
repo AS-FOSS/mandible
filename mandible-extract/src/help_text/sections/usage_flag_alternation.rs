@@ -60,16 +60,37 @@ fn rewrite_paren(s: &str, in_group: bool) -> Option<(String, usize)> {
     }
     let alts: Vec<&str> = inner.split('|').map(str::trim).collect();
     let flag = |a: &&str| a.starts_with('-') && a.len() > 1 && !a.contains(char::is_whitespace);
-    if alts.len() < 2 || !alts.iter().all(flag) {
+    let operand =
+        |a: &&str| a.starts_with('<') && a.ends_with('>') && !a.contains(char::is_whitespace);
+    // At least one flag; the rest may be `<placeholder>` operands
+    // (`remote set-head <name> (-a | --auto | -d | --delete | <branch>)`).
+    if alts.len() < 2 || !alts.iter().any(flag) || !alts.iter().all(|a| flag(a) || operand(a)) {
         return None;
     }
     let mut end = close + 1;
     let mut text = alts.join("|");
     let after = &s[end..];
     let spaces = after.len() - after.trim_start().len();
-    if let Some(p) = after[spaces..].split_whitespace().next() {
+    if !alts.iter().all(flag) {
+        return Some((if in_group { text } else { format!("[{text}]") }, end));
+    }
+    if let Some(p) = after[spaces..]
+        .split_whitespace()
+        .next()
+        .map(|w| w.trim_end_matches(']'))
+    {
         if p.starts_with('<') && p.ends_with('>') && !p.contains(['[', ']']) {
-            text = format!("{text} {p}");
+            // One short and one long spelling pair into a single flag; any
+            // other list (`(-b | -B) <new-branch>`) gives each its value.
+            let shorts = alts.iter().filter(|a| !a.starts_with("--")).count();
+            text = if alts.len() == 2 && shorts == 1 {
+                format!("{text} {p}")
+            } else {
+                alts.iter()
+                    .map(|a| format!("{a} {p}"))
+                    .collect::<Vec<_>>()
+                    .join("|")
+            };
             end += spaces + p.len();
         }
     }
@@ -216,11 +237,13 @@ mod tests {
             "x [-m|--message <message>] [-q]"
         );
         assert_eq!(
-            expand("x [(-b | -B) <new-branch>] <path>"),
-            "x [-b|-B <new-branch>] <path>"
+            expand("x <name> (-a | --auto | -d | <branch>)"),
+            "x <name> [-a|--auto|-d|<branch>]"
         );
-        let s = "x (-a | --auto | -d | <branch>)";
-        assert_eq!(expand(s), s);
+        assert_eq!(
+            expand("x [(-b | -B) <new-branch>] <path>"),
+            "x [-b <new-branch>|-B <new-branch>] <path>"
+        );
     }
 
     #[test]

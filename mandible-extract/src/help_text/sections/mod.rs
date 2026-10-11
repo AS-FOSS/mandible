@@ -68,6 +68,7 @@ mod usage;
 mod usage_alias_pair_then_valued_long;
 mod usage_command_table;
 mod usage_flag_alternation;
+mod usage_flag_forms;
 mod usage_form_prose;
 mod usage_optional_word;
 mod usage_signs;

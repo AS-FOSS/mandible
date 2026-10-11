@@ -5118,3 +5118,25 @@ entry's `tools` field and nothing else. It does not get a new entry.
   line became a fabricated child (`difftool`) that was then probed.
   Fixture: `corpus/git/2.43.0-verbs` (`git citool`, `git gui`).
 - fleet: see the round-17 sweep.
+
+### S-218: a flag group nested in a usage flag, a pipeline, a flag owning a form's operand
+
+- id: S-218
+- looks like: |
+      git worktree add [--lock [--reason <string>]] [(-b | -B) <new-branch>]
+      git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+      git remote add [--mirror=<fetch|push>] <name> <url>
+      git remote set-url --add <name> <newurl>
+      git log --pretty=short | git shortlog [<options>]
+- tools: git (worktree, remote, reflog, stash, shortlog), dmsetup
+- handling: Fixed (`usage_flag_forms.rs`, `usage_flag_alternation.rs`, `usage_segments`).
+  A flag group that opens a nested group with a dash (`--lock [--reason <string>]`,
+  `--all [--single-worktree] | <refs>`) is hoisted out as a flag of its own, not
+  the first flag's value. A `(a | b | <operand>)` list with at least one flag reads
+  its flags; `(-b | -B) <v>` gives each flag the value. A `<name|name>` placeholder
+  keeps its `|`. A bare flag before `<name>` has no value when `<name>` is an
+  operand of another form. After `X | <first word>` only the command after the
+  pipe is read. Before, these gave `--lock` the value `--reason <string>`, lost
+  `-a`, cut `<fetch|push>` at the bar, and gave shortlog `--pretty`.
+  Fixture: `corpus/git/2.43.0-verbs`, `corpus/dmsetup/1.02.185`.
+- fleet: see the round-17 sweep.
