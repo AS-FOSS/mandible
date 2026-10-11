@@ -1049,7 +1049,7 @@ subcommands:
       - help-text
   - spellings:
     - -w
-    value_name: '[<w>[,<i1>[,<i2>]]'
+    value_name: '[<w>[,<i1>[,<i2>]]]'
     value_kind: Optional
     description: linewrap output
     provenance:

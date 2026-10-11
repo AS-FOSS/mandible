@@ -1,0 +1,1868 @@
+name: git
+usage:
+- 'usage: git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>] [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p | --paginate | -P | --no-pager] [--no-replace-objects] [--bare] [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>] [--config-env=<name>=<envvar>] <command> [<args>]'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: args
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -v
+  - --version
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
+  - --help
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -C
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -c
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --exec-path
+  value_name: <path>
+  value_kind: Optional
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --html-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --man-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --info-path
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --paginate
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -P
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --no-pager
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --no-replace-objects
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --bare
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --git-dir
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --work-tree
+  value_name: <path>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --namespace
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --config-env
+  value_name: <name>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: clone
+  summary: Clone a repository into a new directory
+  usage:
+  - 'usage: git clone [<options>] [--] <repo> [<dir>]'
+  positionals:
+  - name: repo
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: dir
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -v
+    - --[no-]verbose
+    description: be more verbose
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: be more quiet
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]progress
+    description: force progress reporting
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reject-shallow
+    description: don't clone shallow repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -n
+    - --no-checkout
+    description: don't create a checkout
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --checkout
+    description: opposite of --no-checkout
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]bare
+    description: create a bare repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]mirror
+    description: create a mirror repository (implies bare)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -l
+    - --[no-]local
+    description: to clone from a local repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-hardlinks
+    description: don't use local hardlinks, always copy
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --hardlinks
+    description: opposite of --no-hardlinks
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -s
+    - --[no-]shared
+    description: setup as shared repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]recurse-submodules
+    value_name: <pathspec>
+    value_kind: Optional
+    description: initialize submodules in the clone
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]recursive
+    value_name: <pathspec>
+    value_kind: Optional
+    description: alias of --recurse-submodules
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -j
+    - --[no-]jobs
+    value_name: <n>
+    value_kind: Required
+    description: number of submodules cloned in parallel
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]template
+    value_name: <template-directory>
+    value_kind: Required
+    description: directory from which templates will be used
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reference
+    value_name: <repo>
+    value_kind: Required
+    description: reference repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]reference-if-able
+    value_name: <repo>
+    value_kind: Required
+    description: reference repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]dissociate
+    description: use --reference only while cloning
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -o
+    - --[no-]origin
+    value_name: <name>
+    value_kind: Required
+    description: use <name> instead of 'origin' to track upstream
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -b
+    - --[no-]branch
+    value_name: <branch>
+    value_kind: Required
+    description: checkout <branch> instead of the remote's HEAD
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -u
+    - --[no-]upload-pack
+    value_name: <path>
+    value_kind: Required
+    description: path to git-upload-pack on the remote
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]depth
+    value_name: <depth>
+    value_kind: Required
+    description: create a shallow clone of that depth
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]shallow-since
+    value_name: <time>
+    value_kind: Required
+    description: create a shallow clone since a specific time
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]shallow-exclude
+    value_name: <revision>
+    value_kind: Required
+    description: deepen history of shallow clone, excluding rev
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]single-branch
+    description: clone only one branch, HEAD or --branch
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-tags
+    description: don't clone any tags, and make later fetches not to follow them
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --tags
+    description: opposite of --no-tags
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]shallow-submodules
+    description: any cloned submodules will be shallow
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]separate-git-dir
+    value_name: <gitdir>
+    value_kind: Required
+    description: separate git dir from working tree
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -c
+    - --[no-]config
+    value_name: <key=value>
+    value_kind: Required
+    description: set config inside the new repository
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]server-option
+    value_name: <server-specific>
+    value_kind: Required
+    description: option to transmit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - '-4'
+    - --ipv4
+    description: use IPv4 addresses only
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - '-6'
+    - --ipv6
+    description: use IPv6 addresses only
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]filter
+    value_name: <args>
+    value_kind: Required
+    description: object filtering
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]also-filter-submodules
+    description: apply partial clone filters to submodules
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]remote-submodules
+    description: any cloned submodules will use their remote-tracking branch
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]sparse
+    description: initialize sparse-checkout file to include only files at root
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]bundle-uri
+    value_name: <uri>
+    value_kind: Required
+    description: a URI for downloading bundles before fetching from origin remote
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: init
+  summary: Create an empty Git repository or reinitialize an existing one
+  group: 'start a working area (see also: git help tutorial)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: add
+  summary: Add file contents to the index
+  usage:
+  - 'usage: git add [<options>] [--] <pathspec>...'
+  positionals:
+  - name: pathspec
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -n
+    - --[no-]dry-run
+    description: dry run
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -v
+    - --[no-]verbose
+    description: be verbose
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -i
+    - --[no-]interactive
+    description: interactive picking
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -p
+    - --[no-]patch
+    description: select hunks interactively
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -e
+    - --[no-]edit
+    description: edit current diff and apply
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -f
+    - --[no-]force
+    description: allow adding otherwise ignored files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -u
+    - --[no-]update
+    description: update tracked files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]renormalize
+    description: renormalize EOL of tracked files (implies -u)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -N
+    - --[no-]intent-to-add
+    description: record only the fact that the path will be added later
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -A
+    - --[no-]all
+    description: add changes from all tracked and untracked files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ignore-removal
+    description: ignore paths removed in the working tree (same as --no-all)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]refresh
+    description: don't add, only refresh the index
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ignore-errors
+    description: just skip files which cannot be added because of errors
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ignore-missing
+    description: check if - even missing - files are ignored in dry run
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]sparse
+    description: allow updating entries outside of the sparse-checkout cone
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]chmod
+    value_name: (+|-)x
+    value_kind: Required
+    description: override the executable bit of the listed files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]pathspec-from-file
+    value_name: <file>
+    value_kind: Required
+    description: read pathspec from file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]pathspec-file-nul
+    description: with --pathspec-from-file, pathspec elements are separated with NUL character
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: mv
+  summary: Move or rename a file, a directory, or a symlink
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: restore
+  summary: Restore working tree files
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rm
+  summary: Remove files from the working tree and from the index
+  usage:
+  - 'usage: git rm [-f | --force] [-n] [-r] [--cached] [--ignore-unmatch] [--quiet] [--pathspec-from-file=<file> [--pathspec-file-nul]] [--] [<pathspec>...]'
+  positionals:
+  - name: pathspec
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -n
+    - --[no-]dry-run
+    description: dry run
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: do not list removed files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]cached
+    description: only remove from the index
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -f
+    - --[no-]force
+    description: override the up-to-date check
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -r
+    description: allow recursive removal
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ignore-unmatch
+    description: exit with a zero status even if nothing matched
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]sparse
+    description: allow updating entries outside of the sparse-checkout cone
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]pathspec-from-file
+    value_name: <file>
+    value_kind: Required
+    description: read pathspec from file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]pathspec-file-nul
+    description: with --pathspec-from-file, pathspec elements are separated with NUL character
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: 'work on the current change (see also: git help everyday)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: bisect
+  summary: Use binary search to find the commit that introduced a bug
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: diff
+  summary: Show changes between commits, commit and working tree, etc
+  usage:
+  - 'usage: git diff --no-index [<options>] <path> <path>'
+  positionals:
+  - name: path
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - -p
+    - --patch
+    group: Diff output format options
+    description: generate patch
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -s
+    - --no-patch
+    group: Diff output format options
+    description: suppress diff output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -u
+    group: Diff output format options
+    description: generate patch
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -U
+    - --unified
+    value_name: <n>
+    value_kind: Optional
+    group: Diff output format options
+    description: generate diffs with <n> lines context
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -W
+    - --[no-]function-context
+    group: Diff output format options
+    description: generate diffs with <n> lines context
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --raw
+    group: Diff output format options
+    description: generate the diff in raw format
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --patch-with-raw
+    group: Diff output format options
+    description: synonym for '-p --raw'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --patch-with-stat
+    group: Diff output format options
+    description: synonym for '-p --stat'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --numstat
+    group: Diff output format options
+    description: machine friendly --stat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --shortstat
+    group: Diff output format options
+    description: output only the last line of --stat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -X
+    - --dirstat
+    value_name: <param1,param2>...
+    value_kind: Optional
+    group: Diff output format options
+    description: output the distribution of relative amount of changes for each sub-directory
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --cumulative
+    group: Diff output format options
+    description: synonym for --dirstat=cumulative
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --dirstat-by-file
+    value_name: <param1,param2>...
+    value_kind: Optional
+    group: Diff output format options
+    description: synonym for --dirstat=files,param1,param2...
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --check
+    group: Diff output format options
+    description: warn if changes introduce conflict markers or whitespace errors
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --summary
+    group: Diff output format options
+    description: condensed summary such as creations, renames and mode changes
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --name-only
+    group: Diff output format options
+    description: show only names of changed files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --name-status
+    group: Diff output format options
+    description: show only names and status of changed files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stat
+    value_name: '[<width>[,<name-width>[,<count>]]]'
+    value_kind: Optional
+    group: Diff output format options
+    description: generate diffstat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stat-width
+    value_name: <width>
+    value_kind: Required
+    group: Diff output format options
+    description: generate diffstat with a given width
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stat-name-width
+    value_name: <width>
+    value_kind: Required
+    group: Diff output format options
+    description: generate diffstat with a given name width
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stat-graph-width
+    value_name: <width>
+    value_kind: Required
+    group: Diff output format options
+    description: generate diffstat with a given graph width
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stat-count
+    value_name: <count>
+    value_kind: Required
+    group: Diff output format options
+    description: generate diffstat with limited lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]compact-summary
+    group: Diff output format options
+    description: generate compact summary in diffstat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --binary
+    group: Diff output format options
+    description: output a binary diff that can be applied
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]full-index
+    group: Diff output format options
+    description: show full pre- and post-image object names on the "index" lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]color
+    value_name: <when>
+    value_kind: Optional
+    group: Diff output format options
+    description: show colored diff
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ws-error-highlight
+    value_name: <kind>
+    value_kind: Required
+    group: Diff output format options
+    description: highlight whitespace errors in the 'context', 'old' or 'new' lines in the diff
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -z
+    group: Diff output format options
+    description: do not munge pathnames and use NULs as output field terminators in --raw or --numstat
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]abbrev
+    value_name: <n>
+    value_kind: Optional
+    group: Diff output format options
+    description: use <n> digits to display object names
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --src-prefix
+    value_name: <prefix>
+    value_kind: Required
+    group: Diff output format options
+    description: show the given source prefix instead of "a/"
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --dst-prefix
+    value_name: <prefix>
+    value_kind: Required
+    group: Diff output format options
+    description: show the given destination prefix instead of "b/"
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --line-prefix
+    value_name: <prefix>
+    value_kind: Required
+    group: Diff output format options
+    description: prepend an additional prefix to every line of output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-prefix
+    group: Diff output format options
+    description: do not show any source or destination prefix
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --default-prefix
+    group: Diff output format options
+    description: use default prefixes a/ and b/
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --inter-hunk-context
+    value_name: <n>
+    value_kind: Required
+    group: Diff output format options
+    description: show context between diff hunks up to the specified number of lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --output-indicator-new
+    value_name: <char>
+    value_kind: Required
+    group: Diff output format options
+    description: specify the character to indicate a new line instead of '+'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --output-indicator-old
+    value_name: <char>
+    value_kind: Required
+    group: Diff output format options
+    description: specify the character to indicate an old line instead of '-'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --output-indicator-context
+    value_name: <char>
+    value_kind: Required
+    group: Diff output format options
+    description: specify the character to indicate a context instead of ' '
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -B
+    - --break-rewrites
+    value_name: '[<n>[/<m>]]'
+    value_kind: Optional
+    group: Diff rename options
+    description: break complete rewrite changes into pairs of delete and create
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -M
+    - --find-renames
+    value_name: <n>
+    value_kind: Optional
+    group: Diff rename options
+    description: detect renames
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -D
+    - --irreversible-delete
+    group: Diff rename options
+    description: omit the preimage for deletes
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -C
+    - --find-copies
+    value_name: <n>
+    value_kind: Optional
+    group: Diff rename options
+    description: detect copies
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]find-copies-harder
+    group: Diff rename options
+    description: use unmodified files as source to find copies
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-renames
+    group: Diff rename options
+    description: disable rename detection
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]rename-empty
+    group: Diff rename options
+    description: use empty blobs as rename source
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]follow
+    group: Diff rename options
+    description: continue listing the history of a file beyond renames
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -l
+    value_name: <n>
+    value_kind: Required
+    group: Diff rename options
+    description: prevent rename/copy detection if the number of rename/copy targets exceeds given limit
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --minimal
+    group: Diff algorithm options
+    description: produce the smallest possible diff
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -w
+    - --ignore-all-space
+    group: Diff algorithm options
+    description: ignore whitespace when comparing lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -b
+    - --ignore-space-change
+    group: Diff algorithm options
+    description: ignore changes in amount of whitespace
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore-space-at-eol
+    group: Diff algorithm options
+    description: ignore changes in whitespace at EOL
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore-cr-at-eol
+    group: Diff algorithm options
+    description: ignore carrier-return at the end of line
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore-blank-lines
+    group: Diff algorithm options
+    description: ignore changes whose lines are all blank
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -I
+    - --[no-]ignore-matching-lines
+    value_name: <regex>
+    value_kind: Required
+    group: Diff algorithm options
+    description: ignore changes whose all lines match <regex>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]indent-heuristic
+    group: Diff algorithm options
+    description: heuristic to shift diff hunk boundaries for easy reading
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --patience
+    group: Diff algorithm options
+    description: generate diff using the "patience diff" algorithm
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --histogram
+    group: Diff algorithm options
+    description: generate diff using the "histogram diff" algorithm
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --diff-algorithm
+    value_name: <algorithm>
+    value_kind: Required
+    group: Diff algorithm options
+    description: choose a diff algorithm
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --anchored
+    value_name: <text>
+    value_kind: Required
+    group: Diff algorithm options
+    description: generate diff using the "anchored diff" algorithm
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --word-diff
+    value_name: <mode>
+    value_kind: Optional
+    group: Diff algorithm options
+    description: show word diff, using <mode> to delimit changed words
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --word-diff-regex
+    value_name: <regex>
+    value_kind: Required
+    group: Diff algorithm options
+    description: use <regex> to decide what a word is
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --color-words
+    value_name: <regex>
+    value_kind: Optional
+    group: Diff algorithm options
+    description: equivalent to --word-diff=color --word-diff-regex=<regex>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]color-moved
+    value_name: <mode>
+    value_kind: Optional
+    group: Diff algorithm options
+    description: moved lines of code are colored differently
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]color-moved-ws
+    value_name: <mode>
+    value_kind: Required
+    group: Diff algorithm options
+    description: how white spaces are ignored in --color-moved
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]relative
+    value_name: <prefix>
+    value_kind: Optional
+    group: Other diff options
+    description: when run from subdir, exclude changes outside and show relative paths
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -a
+    - --[no-]text
+    group: Other diff options
+    description: treat all files as text
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -R
+    group: Other diff options
+    description: swap two inputs, reverse the diff
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]exit-code
+    group: Other diff options
+    description: exit with 1 if there were differences, 0 otherwise
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]quiet
+    group: Other diff options
+    description: disable all output of the program
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ext-diff
+    group: Other diff options
+    description: allow an external diff helper to be executed
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]textconv
+    group: Other diff options
+    description: run external text conversion filters when comparing binary files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ignore-submodules
+    value_name: <when>
+    value_kind: Optional
+    group: Other diff options
+    description: ignore changes to submodules in the diff generation
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --submodule
+    value_name: <format>
+    value_kind: Optional
+    group: Other diff options
+    description: specify how differences in submodules are shown
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ita-invisible-in-index
+    group: Other diff options
+    description: hide 'git add -N' entries from the index
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ita-visible-in-index
+    group: Other diff options
+    description: treat 'git add -N' entries as real in the index
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -S
+    value_name: <string>
+    value_kind: Required
+    group: Other diff options
+    description: look for differences that change the number of occurrences of the specified string
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -G
+    value_name: <regex>
+    value_kind: Required
+    group: Other diff options
+    description: look for differences that change the number of occurrences of the specified regex
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --pickaxe-all
+    group: Other diff options
+    description: show all changes in the changeset with -S or -G
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --pickaxe-regex
+    group: Other diff options
+    description: treat <string> in -S as extended POSIX regular expression
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -O
+    value_name: <file>
+    value_kind: Required
+    group: Other diff options
+    description: control the order in which files appear in the output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --rotate-to
+    value_name: <path>
+    value_kind: Required
+    group: Other diff options
+    description: show the change in the specified path first
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --skip-to
+    value_name: <path>
+    value_kind: Required
+    group: Other diff options
+    description: skip the output to the specified path
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --find-object
+    value_name: <object-id>
+    value_kind: Required
+    group: Other diff options
+    description: look for differences that change the number of occurrences of the specified object
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --diff-filter
+    value_name: '[(A|C|D|M|R|T|U|X|B)...[*]]'
+    value_kind: Optional
+    group: Other diff options
+    description: select files by diff type
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --output
+    value_name: <file>
+    value_kind: Required
+    group: Other diff options
+    description: output to a specific file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-index
+    value_name: <options>
+    value_kind: Optional
+    provenance:
+      sources:
+      - help-text-synopsis
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: grep
+  summary: Print lines matching a pattern
+  usage:
+  - 'usage: git grep [<options>] [-e] <pattern> [<rev>...] [[--] <path>...]'
+  positionals:
+  - name: pattern
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: rev
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  - name: path
+    required: true
+    variadic: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --[no-]cached
+    description: search in index instead of in the work tree
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --no-index
+    description: find in contents not managed by git
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --index
+    description: opposite of --no-index
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]untracked
+    description: search in both tracked and untracked files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]exclude-standard
+    description: ignore files specified via '.gitignore'
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]recurse-submodules
+    description: recursively search in each submodule
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -v
+    - --[no-]invert-match
+    description: show non-matching lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -i
+    - --[no-]ignore-case
+    description: case insensitive matching
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -w
+    - --[no-]word-regexp
+    description: match patterns only at word boundaries
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -a
+    - --[no-]text
+    description: process binary files as text
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -I
+    description: don't match patterns in binary files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]textconv
+    description: process binary files with textconv filters
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -r
+    - --[no-]recursive
+    description: search in subdirectories (default)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --max-depth
+    value_name: <n>
+    value_kind: Required
+    description: descend at most <n> levels
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -E
+    - --[no-]extended-regexp
+    description: use extended POSIX regular expressions
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -G
+    - --[no-]basic-regexp
+    description: use basic POSIX regular expressions (default)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -F
+    - --[no-]fixed-strings
+    description: interpret patterns as fixed strings
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -P
+    - --[no-]perl-regexp
+    description: use Perl-compatible regular expressions
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -n
+    - --[no-]line-number
+    description: show line numbers
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]column
+    description: show column number of first match
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -h
+    description: don't show filenames
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -H
+    description: show filenames
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]full-name
+    description: show filenames relative to top directory
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -l
+    - --[no-]files-with-matches
+    description: show only filenames instead of matching lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]name-only
+    description: synonym for --files-with-matches
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -L
+    - --[no-]files-without-match
+    description: show only the names of files without match
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -z
+    - --[no-]null
+    description: print NUL after filenames
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -o
+    - --[no-]only-matching
+    description: show only matching parts of a line
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -c
+    - --[no-]count
+    description: show the number of matches instead of matching lines
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]color
+    value_name: <when>
+    value_kind: Optional
+    description: highlight matches
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]break
+    description: print empty line between matches from different files
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]heading
+    description: show filename only once above matches from same file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -C
+    - --[no-]context
+    value_name: <n>
+    value_kind: Required
+    description: show <n> context lines before and after matches
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -B
+    - --[no-]before-context
+    value_name: <n>
+    value_kind: Required
+    description: show <n> context lines before matches
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -A
+    - --[no-]after-context
+    value_name: <n>
+    value_kind: Required
+    description: show <n> context lines after matches
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]threads
+    value_name: <n>
+    value_kind: Required
+    description: use <n> worker threads
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -NUM
+    description: shortcut for -C NUM
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -p
+    - --[no-]show-function
+    description: show a line with the function name before matches
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -W
+    - --[no-]function-context
+    description: show the surrounding function
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -f
+    value_name: <file>
+    value_kind: Required
+    description: read patterns from file
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -e
+    value_name: <pattern>
+    value_kind: Required
+    description: match <pattern>
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --and
+    description: combine patterns specified with -e
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --or
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --not
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - (
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - )
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -q
+    - --[no-]quiet
+    description: indicate hit with exit status without output
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]all-match
+    description: show only matches from files that match all patterns
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -O
+    - --[no-]open-files-in-pager
+    value_name: <pager>
+    value_kind: Optional
+    description: show matching files in the pager
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --[no-]ext-grep
+    description: allow calling of grep(1) (ignored by this build)
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - -m
+    - --[no-]max-count
+    value_name: <n>
+    value_kind: Required
+    description: maximum number of results per file
+    provenance:
+      sources:
+      - help-text
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+- name: log
+  summary: Show commit logs
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: show
+  summary: Show various types of objects
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: status
+  summary: Show the working tree status
+  group: 'examine the history and state (see also: git help revisions)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: branch
+  summary: List, create, or delete branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: commit
+  summary: Record changes to the repository
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: merge
+  summary: Join two or more development histories together
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: rebase
+  summary: Reapply commits on top of another base tip
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: reset
+  summary: Reset current HEAD to the specified state
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: switch
+  summary: Switch branches
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: tag
+  summary: Create, list, delete or verify a tag object signed with GPG
+  group: grow, mark and tweak your common history
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: fetch
+  summary: Download objects and refs from another repository
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: pull
+  summary: Fetch from and integrate with another repository or a local branch
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+- name: push
+  summary: Update remote refs along with associated objects
+  group: 'collaborate (see also: git help workflows)'
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true

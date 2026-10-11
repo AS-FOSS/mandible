@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-216] A usage flag written `--term-(new|bad)=<term>`, `(-m | --message) <message>` or `--update-refs=(branches|head)` is read as the flags and value it spells (the value keeps its printed `(branches|head)`), not as a fabricated `--term- (new` or a value `)`.
 - [S-217] A subcommand whose help answer says the word is not a command (`git citool` where git-gui is not installed) is shown as unreadable, not as help listing the did-you-mean suggestion as a child.
 - [S-218] Flags in usage synopses keep their own values on git's verb pages: `git worktree add --lock` and `--reason`, `-b`/`-B <new-branch>`, `git remote set-head -a`, `--mirror=<fetch|push>`, `reflog expire --single-worktree`, and `git shortlog` no longer gets `git log`'s `--pretty`.
+- [S-219] A flag whose spelling overruns its table's description column keeps its description (`mandible git clone`'s `--[no-]reject-shallow`, `git rm`'s `--[no-]ignore-unmatch`; `capsh`, `clang`, `gzip`, `run-parts`, `tar`).
+- [S-220] A value spec nested several levels deep is kept as printed (`mandible git diff`'s `--stat[=<width>[,<name-width>[,<count>]]]`, `strace --tips`, `lspci -s`, `fzf-tmux -p`).
+- [S-221] `-NUM` is one option, not `-N` with the value `UM`, when its description names `NUM` (`mandible grep`, `git grep`).
+- [S-222] The `(` and `)` rows of `git grep`'s option table are flags, and the flags after them leave the group named `)`.
+- [S-223] A value written `(+|-)x` is shown whole (`mandible git add`'s `--chmod`).
+- [S-224] A punctuation short option beside its long one is one option (`mandible nano`'s `-%, --stateflags` and `-_, --minibar`).
+- [S-225] A value of two plain words keeps both (`mandible jq`'s `--arg name value`, `--slurpfile name file`).
 
 ## [0.8.3] - 2026-10-07
 

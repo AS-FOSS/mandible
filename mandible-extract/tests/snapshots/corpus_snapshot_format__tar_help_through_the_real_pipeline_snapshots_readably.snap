@@ -1,6 +1,6 @@
 ---
 source: mandible-extract/tests/corpus_snapshot_format.rs
-assertion_line: 127
+assertion_line: 129
 expression: "mandible_core::to_snapshot(&node)"
 ---
 name: tar
@@ -236,10 +236,8 @@ flags:
         - help-text
   - spellings:
       - "--exclude-caches-under"
-    value_name: exclude
-    value_kind: Required
     group: "Local file name selection:"
-    description: CACHEDIR.TAG
+    description: exclude everything under directories containing CACHEDIR.TAG
     provenance:
       sources:
         - help-text
@@ -275,6 +273,7 @@ flags:
     value_name: FILE
     value_kind: Required
     group: "Local file name selection:"
+    description: exclude directories containing FILE
     provenance:
       sources:
         - help-text
@@ -1337,5 +1336,5 @@ detected_framework: GNU argp/getopt_long
 provenance:
   sources:
     - help-text
-  confidence: 0.98
+  confidence: 0.99
 children_filled: true

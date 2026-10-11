@@ -4603,7 +4603,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`-COLUMN`), not `-C` with the value `OLUMN`. The comma-glued value rule
   (S-116) skips an all-uppercase run, so the value stays `COLUMN`.
   `corpus/pr/9.4` pins it. `grep`'s `-NUM` row is unchanged: the repeat sits
-  in its description, outside the spec cell.
+  in its description, outside the spec cell (read by S-221).
 - fleet: pre-check sweep of the 36 tools with a `+`-led or `-WORD` row: `pr`
   alone moved, zero losses.
 
@@ -5140,3 +5140,106 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `-a`, cut `<fetch|push>` at the bar, and gave shortlog `--pretty`.
   Fixture: `corpus/git/2.43.0-verbs`, `corpus/dmsetup/1.02.185`.
 - fleet: see the round-17 sweep.
+### S-219: a lone long spelling that overruns its table's description column
+
+- id: S-219
+- looks like: |
+      --[no-]ignore-unmatch exit with a zero status even if nothing matched
+      --[no-]reject-shallow don't clone shallow repository
+- tools: git (clone, rm, diff), capsh, clang, clang++, clang-18, clang++-18, clang-cpp-18, gpgparsemail, grub-install, grub-mknetdir, grub-mkrescue, grub-mkstandalone, gzip, gunzip, zcat, uncompress, llvm-cxxfilt-18, llvm-dlltool-18, llvm-dwarfutil-18, llvm-objdump-18, locale-gen, run-parts, rustdoc, tar
+- handling: Fixed. S-193's agreeing-column split also applies to a row whose
+  whole spec is one spelling: a spelling longer than the column leaves one
+  space before the description, so the first word of the description (`don't`,
+  `exit`, `Don't`) was read as the flag's value and the description lost.
+  The one-token split needs the text after the column to open with a word
+  that carries a lowercase letter and to hold no `, -` alias, so a value
+  followed by a second spelling (`--skip-cleaning-files FILES, --skip-masking-files
+  FILES`) stays one spec. Fixture: `corpus/git/2.43.0-rows`; `corpus/tar/1.35`
+  re-blessed (`--exclude-caches-under` and `--exclude-tag-all` gain their
+  descriptions and lose a fabricated value).
+- fleet: full-PATH sweep (2270 tools matched), zero losses; the tools above moved (each read against
+  its raw `--help`).
+
+### S-220: a value spec nested more than one level deep
+
+- id: S-220
+- looks like: |
+      --stat[=<width>[,<name-width>[,<count>]]]
+      -s [[[[<domain>]:]<bus>]:][<slot>][.[<func>]]
+- tools: git (diff), fzf-tmux, lspci, strace
+- handling: Fixed. The nested-bracket matchers (S-119, S-174) now match by
+  depth at any level, so a spec is kept as printed; S-119's own matcher
+  refuses a content with a second `[` and leaves it to the depth matcher.
+  The old S-119 reading dropped the last `]` of `--stat`, and the first-`]`
+  reading cut `-p [WIDTH[%][,HEIGHT[%]]]` at `WIDTH[%`.
+- fleet: full-PATH sweep, zero losses; the tools above moved.
+
+### S-221: an all-caps word glued to one dash that its own description names
+
+- id: S-221
+- looks like: |
+      -NUM                  shortcut for -C NUM
+      -NUM                      same as --context=NUM
+- tools: git (grep), grep, egrep, fgrep, rgrep
+- handling: Fixed. A single-spelling row that is exactly `-RUN` (all caps,
+  three or more letters) and whose description names `RUN` as a whole word is
+  one single-dash spelling, not `-N` with the value `UM`. S-191 needed the
+  word repeated as `=RUN` in the spec cell; the description naming it tells it
+  from a short flag with a glued value (`-DNAME`). `git archive`'s
+  `-NUM  set compression level` names the word nowhere and stays `-N UM`.
+- fleet: full-PATH sweep, zero losses; the four grep tools moved.
+
+### S-222: bare `(` and `)` rows in an option table
+
+- id: S-222
+- looks like: |
+      --not
+      (
+      )
+      -q, --[no-]quiet      indicate hit with exit status without output
+- tools: git (grep)
+- handling: Fixed. A lone `(` or `)` at the table's entry indent right after a
+  flag row is a flag row with no dash, like the argfile `@` sigil. The `(` used
+  to end the block and the `)` to open a group, so both rows vanished and the
+  flags below them sat in a group named `)`.
+- fleet: full-PATH sweep, zero losses; no other tool moved.
+
+### S-223: a parenthesised value choice with text glued after it
+
+- id: S-223
+- looks like: |
+      --[no-]chmod (+|-)x   override the executable bit of the listed files
+- tools: git (add)
+- handling: Fixed. A `|` inside an unclosed `(` is not an alias separator, and
+  a parenthesised value with alphanumeric text glued after the `)` is one
+  placeholder kept as printed (`(+|-)x`), where the `x` was dropped.
+- fleet: full-PATH sweep, zero losses; no PATH tool moved.
+
+### S-224: a punctuation short spelling beside its long spelling in an aligned column
+
+- id: S-224
+- looks like: |
+      -%             --stateflags            Show some states on the title bar
+      -_             --minibar               Show a feedback bar at the bottom
+- tools: nano
+- handling: Fixed. In an aligned spelling column (S-082) a short spelling of
+  one punctuation character (`-%`, `-_`, and nano 8's `-!`, `-/`) is a
+  spelling cell like any other, so it pairs with the long spelling beside it,
+  as `-0, --zero` does. Before, the long spelling led the description.
+  `is_flag_shaped` itself is unchanged. Fixture: `corpus/nano/7.2` and the
+  synthetic `corpus/nano/7.2-punct` (nano 8's two added rows).
+- fleet: full-PATH sweep (2270 matched), zero losses; nano, pico, rnano, editor and sensible-editor moved (the four rows above); read against `nano --help`.
+
+### S-225: a value of two plain words in the spec cell
+
+- id: S-225
+- looks like: |
+      --arg name value      set $name to the string value;
+      --slurpfile name file set $name to an array of JSON values read
+- tools: jq
+- handling: Fixed. When the grammar reads the first word after the spellings
+  as the value and leaves one more plain lowercase word unconsumed, the value
+  is both words (`name value`), as caffeinate's `-w Process ID` already is
+  (S-131). Before, the second word was dropped from the row altogether.
+  Fixture: `corpus/jq/1.7`.
+- fleet: full-PATH sweep, zero losses; jq, and the iptables/ip6tables/arptables/ebtables families moved (`--replace -R chain rulenum`, `-E old-chain new-chain`, `-P chain target`, `-D chain rulenum`), each read against its `--help`.

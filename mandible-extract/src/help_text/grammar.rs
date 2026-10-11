@@ -847,6 +847,11 @@ fn nested_bracket_content(s: &str) -> Option<&str> {
     let after_inner_open = &s[inner_open + 1..];
     let inner_close_rel = after_inner_open.find(']')?;
     let content_len = inner_open + 1 + inner_close_rel + 1;
+    // Exactly one pair: a second `[` ahead of the first `]` is a deeper
+    // level, which `nested_bracket_content_general` matches by depth.
+    if after_inner_open[..inner_close_rel].contains('[') {
+        return None;
+    }
     s[content_len..].starts_with(']').then(|| &s[..content_len])
 }
 
@@ -917,10 +922,9 @@ fn glued_bracket_group_residue(s: &str) -> Option<(String, bool, &str)> {
 /// the inner pair closes, before its own close (`fzf`'s
 /// `--listen[=[ADDR:]PORT]`, rustc's `-l
 /// [<KIND>[:<MODIFIERS>]=]<NAME>...`'s own `[<KIND>[:<MODIFIERS>]=]`).
-/// Depth-tracked rather than anchored to the inner close, but still
-/// refuses a second nested pair or a second level of nesting — the exact
-/// exclusions S-119 already documents (`fzf-tmux`'s
-/// `[WIDTH[%][,HEIGHT[%]]]`). Returns the content up to (not including)
+/// Depth-tracked rather than anchored to the inner close, at any depth
+/// (git's `--stat[=<width>[,<name-width>[,<count>]]]`; S-220), so the
+/// spec is kept as printed. Returns the content up to (not including)
 /// the matching outer `]`.
 fn nested_bracket_content_general(s: &str) -> Option<&str> {
     let mut depth = 1i32;
@@ -929,18 +933,12 @@ fn nested_bracket_content_general(s: &str) -> Option<&str> {
         match c {
             '[' => {
                 depth += 1;
-                if depth > 2 {
-                    return None;
-                }
                 inner_pairs += 1;
-                if inner_pairs > 1 {
-                    return None;
-                }
             }
             ']' => {
                 depth -= 1;
                 if depth == 0 {
-                    return (inner_pairs == 1).then(|| &s[..i]);
+                    return (inner_pairs >= 1).then(|| &s[..i]);
                 }
             }
             _ => {}
@@ -1181,12 +1179,20 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
         .find(|(i, c)| {
             c.is_whitespace()
                 || (is_alias_separator(*c)
+                    && !inside_open_group(&s[..*i])
                     && separator_has_a_left_operand(&s[..*i])
                     && alias_follows(&s[i + c.len_utf8()..]))
         })
         .map_or(s.len(), |(i, _)| i);
     let end = unclosed_angle_end(s, end).unwrap_or(end);
     (s[..end].to_string(), &s[end..])
+}
+
+/// True when `before` holds a `(` that no `)` has closed yet, so a `|` or
+/// `,` after it is a choice inside the group (git's `--chmod (+|-)x`),
+/// never the start of an alias. See docs/shapes.md S-223.
+fn inside_open_group(before: &str) -> bool {
+    before.matches('(').count() > before.matches(')').count()
 }
 
 /// End offset of a value token whose last `<` has no `>` before the
@@ -1994,13 +2000,18 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("+"));
     }
 
-    /// `fzf-tmux`'s own `-p [WIDTH[%][,HEIGHT[%]]]` row, byte-exact. The
-    /// first group is already an unclosed bracket, so folding a second one
-    /// onto it would compound a misread. See docs/shapes.md S-097.
+    /// `fzf-tmux`'s own `-p [WIDTH[%][,HEIGHT[%]]]` row, byte-exact: the
+    /// nested group is matched by depth and kept as printed, never cut at
+    /// the first `]` and never folded onto. See docs/shapes.md S-097, S-220.
     #[test]
-    fn does_not_fold_onto_an_unclosed_bracket() {
+    fn keeps_a_nested_bracket_group_as_printed() {
         let spec = parse_flag_spec("-p [WIDTH[%][,HEIGHT[%]]]");
-        assert_eq!(spec.value_name.as_deref(), Some("WIDTH[%"));
+        assert_eq!(spec.value_name.as_deref(), Some("[WIDTH[%][,HEIGHT[%]]]"));
+        let spec = parse_flag_spec("--stat[=<width>[,<name-width>[,<count>]]]");
+        assert_eq!(
+            spec.value_name.as_deref(),
+            Some("[<width>[,<name-width>[,<count>]]]")
+        );
     }
 
     /// A single bracketed optional value followed, after whitespace, by
