@@ -9,6 +9,11 @@ positionals:
   provenance:
     sources:
     - help-text
+- name: file2
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

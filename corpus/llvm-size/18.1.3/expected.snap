@@ -2,6 +2,12 @@ name: llvm-size
 description: 'OVERVIEW: LLVM object size dumper'
 usage:
 - 'USAGE: /usr/bin/llvm-size-18 [options] <input object files>'
+positionals:
+- name: input object files
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -A

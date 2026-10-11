@@ -14,6 +14,11 @@ positionals:
   provenance:
     sources:
     - help-text
+- name: pkg2
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 provenance:
   sources:
   - help-text

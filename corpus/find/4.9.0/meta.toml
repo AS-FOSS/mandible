@@ -54,3 +54,4 @@ must_contain_flags = [
     "--help",
     "--version",
 ]
+must_contain_positionals = ["path...", "expression"]

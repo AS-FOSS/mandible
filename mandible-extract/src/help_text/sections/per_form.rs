@@ -232,9 +232,14 @@ fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
     if inner.contains('|') {
         return;
     }
-    // `[search expression]` names one multi-word operand: not two.
+    // `[search expression]` and `[MAJOR MINOR]` name one multi-word operand: not two.
     let words: Vec<&str> = inner.split_whitespace().collect();
-    if !nested && words.len() >= 2 && words.iter().all(|w| name_is_lower(w) && !w.contains('.')) {
+    if !nested
+        && words.len() >= 2
+        && words
+            .iter()
+            .all(|w| (name_is_lower(w) || name_is_upper(w)) && !w.contains('.'))
+    {
         return;
     }
     let mut group: Vec<Op> = Vec::new();
@@ -268,6 +273,11 @@ fn is_single_operand(inner: &str) -> bool {
 /// table(s)`, `to connect to running`), so neither is taken as an operand.
 fn name_is_lower(w: &str) -> bool {
     w.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+}
+
+/// An ALL-CAPS word: `[MAJOR MINOR]` names one operand, as `[search expression]` does.
+fn name_is_upper(w: &str) -> bool {
+    w.chars().next().is_some_and(|c| c.is_ascii_uppercase())
 }
 
 fn is_dots(w: &str) -> bool {
@@ -314,6 +324,16 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
         let before = ops.len();
         match &toks[i] {
             Tok::Group(inner) => {
+                // `{[rulesfile]|-c [runcmd]}`: a group right after the last
+                // alternative of a glued flag word is that flag's value.
+                let value_of_glued_flag = i > 0
+                    && matches!(&toks[i - 1], Tok::Word(p)
+                        if p.contains('|') && p.rsplit('|').next().is_some_and(|l| l.starts_with('-')));
+                if value_of_glued_flag {
+                    i += 1;
+                    prev_made_op = false;
+                    continue;
+                }
                 if inner.starts_with('-') {
                     last_flag = Some(i);
                 } else if is_option_list_placeholder(inner) {
@@ -559,7 +579,5 @@ pub(super) fn apply(usage_lines: &[String], flags: &mut [Entity], positionals: &
             apply_flag(flag, &mine, multi);
         }
     }
-    if multi {
-        apply_operands(&ops, positionals);
-    }
+    apply_operands(&ops, positionals);
 }

@@ -3,7 +3,6 @@ usage:
 - pvdisplay [ -a|--all ] [ -c|--colon ] [ -C|--columns ] [ -m|--maps ] [ -o|--options String ] [ -S|--select String ] [ -s|--short ] [ -O|--sort String ] [    --aligned ] [    --binary ] [    --configreport log|vg|lv|pv|pvseg|seg ] [    --foreign ] [    --ignorelockingfailure ] [    --logonly ] [    --noheadings ] [    --nosuffix ] [    --readonly ] [    --separator String ] [    --shared ] [    --unbuffered ] [    --units [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ] [ COMMON_OPTIONS ] [ PV|Tag ... ]
 positionals:
 - name: COMMON_OPTIONS
-  required: true
   provenance:
     sources:
     - help-text

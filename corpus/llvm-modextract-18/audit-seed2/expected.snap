@@ -2,6 +2,12 @@ name: llvm-modextract-18
 description: 'OVERVIEW: Module extractor'
 usage:
 - 'USAGE: llvm-modextract-18 [options] <input bitcode>'
+positionals:
+- name: input bitcode
+  required: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - --color

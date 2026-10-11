@@ -1,6 +1,16 @@
 name: find
 usage:
 - 'Usage: /usr/bin/find [-H] [-L] [-P] [-Olevel] [-D debugopts] [path...] [expression]'
+positionals:
+- name: path
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: expression
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -daystart

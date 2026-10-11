@@ -5,6 +5,15 @@ description: |-
   Developers' email address: ntfs-3g-devel@lists.sf.net News, support and information: https://github.com/tuxera/ntfs-3g/
 usage:
 - 'Usage: /usr/bin/ntfsfallocate [options] -l length device file [attr-type [attr-name]]'
+positionals:
+- name: attr-type
+  provenance:
+    sources:
+    - help-text
+- name: attr-name
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -f

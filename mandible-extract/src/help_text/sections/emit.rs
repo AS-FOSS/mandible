@@ -1315,10 +1315,12 @@ mod tests {
             ],
             "{shapes:?}"
         );
-        // The identical bytes with no framework identified recover nothing:
-        // this is a declaration being read, never a bare-lowercase-word
-        // rule.
-        assert!(parse(raw).positionals.is_empty());
+        // The identical bytes with no framework identified recover only the
+        // bracketed operand, undescribed: the bare `pid` needs the
+        // declaration, never a bare-lowercase-word rule.
+        let generic = parse(raw).positionals;
+        let names: Vec<&str> = generic.iter().map(|p| p.primary_name()).collect();
+        assert_eq!(names, ["interval"], "{names:?}");
     }
 
     /// The declared block must never cost the subparser scan its first

@@ -4744,7 +4744,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       ssh-keygen -k -f krl_file [-u] [-z version_number] file ...
       sg_test_rwbuf [--addrd=AR] --size=SZ DEVICE
       sg_test_rwbuf DEVICE SZ [AW] [AR]
-- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck, git, jq, xdg-open, apt-cache, busybox, choom, chown, flock, groff, jps, jstat, rpcinfo, runuser, scriptreplay, ssh-agent, xxd
+- tools: ssh-keygen, sg_test_rwbuf, awk, resolvconf, rpcgen, jmap, ar, cp, fuser, ip, dcb, renice, sg_luns, bpftrace, fdisk, llvm-ar, pvscan, vgchange, vgck, git, jq, xdg-open, apt-cache, busybox, choom, chown, flock, groff, jps, jstat, rpcinfo, runuser, scriptreplay, ssh-agent, xxd, find, uconv, tcpdump, pod2man, pdb3, fsck, ntfsfallocate, host, llvm-size, llvm-modextract-18, brew
 - handling: Fixed. Each usage form is read on its own. A bare lowercase word or
   bracketed operand after the form's last flag is an operand when the same name
   closes two or more forms and no other lowercase word sits beside it (`list
@@ -4761,15 +4761,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   is admitted from a single form, after the form's last flag or its
   `[options]` placeholder, and a nested group (`[<upstream> [<branch>]]`)
   names one operand per name; a new operand takes its place in usage order.
-  A tab after the `Usage:` label is not a description gap. Fixtures:
+  A single-form usage reads the same bracketed operands (`find`'s
+  `[path...] [expression]`); a group right after a glued flag alternative
+  (`{[rulesfile]|-c [runcmd]}`) is that flag's value. A tab after the
+  `Usage:` label is not a description gap. Fixtures:
   `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
   `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`, `corpus/jq/1.7`,
-  `corpus/xdg-open/user`, `corpus/git/2.43.0-operands`.
+  `corpus/xdg-open/user`, `corpus/git/2.43.0-operands`, `corpus/find/4.9.0`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
   `required: true`, each read against its raw usage text. A full-PATH sweep
   (2271 tools) for the single-form extension gained operands on 26 tools
-  and lost none; each was read against its raw usage.
+  and lost none; each was read against its raw usage. Dropping the
+  two-forms gate for bracketed operands (`find`, `uconv`, `tcpdump`,
+  `pod2man`, the llvm `<input files>` family) was measured on the full PATH
+  (2271 tools): 200 operands gained on 153 tools, 0 lost, no flag or
+  subcommand moved; sampled against raw `--help`.
 
 ### S-200: single-dash row whose value is a glued run of placeholder groups
 
