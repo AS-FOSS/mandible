@@ -1,4 +1,5 @@
 name: brew
+description: Perform a substring search of cask tokens and formula names for text. If text is flanked by slashes, it is interpreted as a regular expression.
 usage:
 - 'Usage: brew search, -S [options] text|/regex/ [...]'
 flags:

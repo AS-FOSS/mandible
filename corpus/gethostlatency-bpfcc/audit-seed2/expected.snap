@@ -1,4 +1,5 @@
 name: gethostlatency-bpfcc
+description: Show latency for getaddrinfo/gethostbyname[2] calls
 usage:
 - 'usage: gethostlatency-bpfcc [-h] [-p PID]'
 flags:

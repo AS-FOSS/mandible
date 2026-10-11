@@ -1,4 +1,5 @@
 name: scsi_ready
+description: Send SCSI TEST UNIT READY to each <device>
 usage:
 - 'Usage: scsi_ready [-b] [-h] [-v] <device>+'
 positionals:

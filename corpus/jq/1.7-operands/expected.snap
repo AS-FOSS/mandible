@@ -1,5 +1,10 @@
 name: jq
-description: jq - commandline JSON processor [version 1.7]
+description: |-
+  jq - commandline JSON processor [version 1.7]
+
+  jq is a tool for processing JSON inputs, applying the given filter to its JSON text inputs and producing the filter's results as JSON on standard output.
+
+  The simplest filter is ., which copies jq's input to its output unmodified except for formatting. For more advanced filters see the jq(1) manpage ("man jq") and/or https://jqlang.github.io/jq/.
 usage:
 - 'Usage:  jq [options] <jq filter> [file...]'
 - '        jq [options] --args <jq filter> [strings...]'

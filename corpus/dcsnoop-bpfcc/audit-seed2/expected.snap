@@ -1,4 +1,5 @@
 name: dcsnoop-bpfcc
+description: Trace directory entry cache (dcache) lookups
 usage:
 - 'usage: dcsnoop-bpfcc [-h] [-a]'
 flags:

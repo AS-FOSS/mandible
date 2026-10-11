@@ -14,6 +14,7 @@ provenance:
 children_filled: true
 subcommands:
 - name: search
+  description: Perform a substring search of cask tokens and formula names for text. If text is flanked by slashes, it is interpreted as a regular expression.
   usage:
   - 'Usage: brew search, -S [options] text|/regex/ [...]'
   flags:
@@ -150,6 +151,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: info
+  description: Display brief statistics for your Homebrew installation. If a formula or cask is provided, show summary of information about it.
   usage:
   - 'Usage: brew info, abv [options] [formula|cask ...]'
   flags:
@@ -251,6 +253,14 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: install
+  description: |-
+    Install a formula or cask. Additional options specific to a formula may be appended to the command.
+
+    Unless $HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK is set, brew upgrade or brew reinstall will be run for outdated dependents and dependents with broken linkage, respectively.
+
+    Unless $HOMEBREW_NO_INSTALL_CLEANUP is set, brew cleanup will then be run for the installed formulae and casks or, every 30 days, for all packages.
+
+    Unless $HOMEBREW_NO_INSTALL_UPGRADE is set, brew install formula will upgrade formula if it is already installed but outdated.
   usage:
   - 'Usage: brew install [options] formula|cask [...]'
   flags:
@@ -575,6 +585,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: update
+  description: Fetch the newest version of Homebrew and all formulae from GitHub using git(1) and perform any necessary migrations.
   usage:
   - 'Usage: brew update, up [options]'
   flags:
@@ -627,6 +638,12 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: upgrade
+  description: |-
+    Upgrade outdated, unpinned packages using the same options they were originally installed with, plus any appended brew formula options. If cask or formula are specified, upgrade only the given cask or formula (unless they are pinned; see pin, unpin).
+
+    Unless $HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK is set, brew upgrade or brew reinstall will be run for outdated dependents and dependents with broken linkage, respectively.
+
+    Unless $HOMEBREW_NO_INSTALL_CLEANUP is set, brew cleanup will then be run for the upgraded formulae and casks or, every 30 days, for all packages.
   usage:
   - 'Usage: brew upgrade [options] [installed_formula|installed_cask ...]'
   flags:
@@ -904,6 +921,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: uninstall
+  description: Uninstall a formula or cask.
   usage:
   - 'Usage: brew uninstall, remove, rm [options] installed_formula|installed_cask [...]'
   flags:
@@ -976,6 +994,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: list
+  description: List all installed formulae and casks. If formula is provided, summarise the paths within its current keg. If cask is provided, list its artifacts.
   usage:
   - 'Usage: brew list, ls [options] [installed_formula|installed_cask ...]'
   flags:
@@ -1107,6 +1126,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: config
+  description: Show Homebrew and system configuration info useful for debugging. If you file a bug report, you will be required to provide this information.
   usage:
   - 'Usage: brew config, --config'
   flags:
@@ -1151,6 +1171,10 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: doctor
+  description: |-
+    Check your system for potential problems. Will exit with a non-zero status if any potential problems are found.
+
+    Please note that these warnings are just used to help the Homebrew maintainers with debugging if you file an issue. If everything you use Homebrew for is working fine: please don't worry or file an issue; just ignore this.
   usage:
   - 'Usage: brew doctor, dr [--list-checks] [--audit-debug] [diagnostic_check ...]'
   positionals:
@@ -1209,6 +1233,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: create
+  description: 'Generate a formula or, with --cask, a cask for the downloadable file at URL and open it in the editor. Homebrew will attempt to automatically derive the formula name and version, but if it fails, you''ll have to make your own template. The wget formula serves as a simple example. For the complete API, see: https://docs.brew.sh/rubydoc/Formula'
   usage:
   - 'Usage: brew create [options] URL'
   positionals:
@@ -1399,6 +1424,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: edit
+  description: Open a formula, cask or tap in the editor set by $EDITOR or $HOMEBREW_EDITOR, or open the Homebrew repository for editing if no argument is provided.
   usage:
   - 'Usage: brew edit [options] [formula|cask|tap ...]'
   flags:
@@ -1465,6 +1491,7 @@ subcommands:
   invocation_attested: true
   help_word_attested: true
 - name: commands
+  description: Show lists of built-in and external commands.
   usage:
   - 'Usage: brew commands [--quiet] [--include-aliases]'
   flags:

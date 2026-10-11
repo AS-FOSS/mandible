@@ -1,4 +1,5 @@
 name: deadlock-bpfcc
+description: Detect potential deadlocks (lock inversions) in a running binary. Must be run as root.
 usage:
 - 'usage: deadlock-bpfcc [-h] [--binary BINARY] [--dump-graph DUMP_GRAPH] [--verbose] [--lock-symbols LOCK_SYMBOLS] [--unlock-symbols UNLOCK_SYMBOLS] [-t THREADS] [-e EDGES] [-s STACKTRACES] pid'
 positionals:

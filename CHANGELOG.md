@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.
 - [S-211] `mandible corepack disable` and `corepack enable` show their `--install-directory` flag: the `General commands` heading now attests its rows, so their own help pages are read.
+- [S-235] Prose after the usage line and a blank line is part of the description: `mandible automake` opens with `Generate Makefile.in for configure from Makefile.am.`, `jq` and `find` show their intro paragraphs (`Default path is the current directory; default expression is -print.`).
+- [S-227] `mandible cd` keeps the paragraph after its options (`The default is to follow symbolic links ...`) and shows `Exit Status:` as its own paragraph.
+- [S-237] `mandible jfr configure` shows the `option=value` and `event-setting=value` rows and the `Options for default.jfc:` keys as description text, not as operands and flags, with the paragraph after them and the wizard and example blocks.
+- [S-236] A heading word is never the description: `mandible xdg-open` reads `xdg-open - opens a file or URL in the user's preferred application`, not `Synopsis` (`ping` and `tracepath` no longer show `Usage`).
 - [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
 - [S-215] Usage forms that each open with a different verb name that command's subcommands, each with its own usage, flags and operands (`mandible git bisect` lists `start`, `good`, `bad`, `run`; `git stash`, `remote`, `worktree`, `bundle`, `reflog`, `commit-graph` likewise).
 - [S-216] A usage flag written `--term-(new|bad)=<term>`, `(-m | --message) <message>` or `--update-refs=(branches|head)` is read as the flags and value it spells (the value keeps its printed `(branches|head)`), not as a fabricated `--term- (new` or a value `)`.

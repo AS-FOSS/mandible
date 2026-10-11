@@ -1,5 +1,8 @@
 name: apt-mark
-description: apt 2.8.3 (arm64)
+description: |-
+  apt 2.8.3 (arm64)
+
+  apt-mark is a simple command line interface for marking packages as manually or automatically installed. It can also be used to manipulate the dpkg(1) selection states of packages, and to list all packages with or without a certain marking.
 usage:
 - 'Usage: apt-mark [options] {auto|manual} pkg1 [pkg2 ...]'
 positionals:

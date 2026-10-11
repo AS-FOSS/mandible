@@ -1,4 +1,5 @@
 name: nfsslower-bpfcc
+description: Trace READ, WRITE, OPEN, GETATTR and COMMIT NFS calls slower than a threshold,supports NFSv{3,4}
 usage:
 - 'usage: nfsslower-bpfcc [-h] [-j] [-p PID] [min_ms]'
 positionals:
