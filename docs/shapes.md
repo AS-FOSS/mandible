@@ -4566,9 +4566,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   node is probed as `help <word>` and never as `<word> --help`
   (docs/design.md section 6 rule 2c), so it gains its own flags and
   description. A flag-bearing text still needs the parser to read it:
-  `jfr help metadata` is probed and its flag rows now read (S-196), while
-  `jfr print` is still read as the root usage (`corpus/jfr/17.0.20`,
-  xfail). `gem` prints the line, names no word by invocation, and gains
+  `jfr help metadata` is probed and its flag rows now read (S-196), and
+  `jfr print` is a command like its siblings (S-239). `gem` prints the line, names no word by invocation, and gains
   nothing. A bare flag followed by a one-member bracket group never takes
   an option-list word (`[options]`, `[flags]`) as its value, so `Usage: brew
   search, -S [options] ...` keeps `-S` value-free
@@ -5506,3 +5505,26 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
+
+### S-239: the first block of a table of invocation blocks is a command
+
+- id: S-239
+- looks like: |
+      Tool for working with Flight Recorder files
+
+       jfr print [--xml|--json]
+                 [--events <filter>]
+                 <file>
+           Print contents of a recording file.
+
+       jfr summary <file>
+           Display general information about a recording file (.jfr)
+- tools: jfr
+- handling: Fixed. A line that leads `<tool> <word>`, whose block (the lead and
+  the deeper lines under it) ends in a prose description, and that sits in a
+  run of two or more such blocks with different words at the same indent, is a
+  row of a command table and never the root usage (`usage_block_table.rs`).
+  The table reader then names `print` like its siblings. The wrapped synopsis
+  lines above the description (`[--events <filter>]`, `<file>`) are the node's
+  usage, not its summary. Fixture: `corpus/jfr/17.0.20` (with `help-print.txt`).
+- fleet: see the round-19 usage report; only `jfr` moved among the 1270 PATH tools if the sweep says so.

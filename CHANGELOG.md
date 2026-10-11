@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-239] `mandible jfr` lists `print` as a command with its own flags (`--xml`, `--json`, `--stack-depth`), not as the root usage whose flags sat on `jfr` itself.
 - [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.
 - [S-211] `mandible corepack disable` and `corepack enable` show their `--install-directory` flag: the `General commands` heading now attests its rows, so their own help pages are read.
 - [S-235] Prose after the usage line and a blank line is part of the description: `mandible automake` opens with `Generate Makefile.in for configure from Makefile.am.`, `jq` and `find` show their intro paragraphs (`Default path is the current directory; default expression is -print.`).
