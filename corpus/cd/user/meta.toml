@@ -13,6 +13,10 @@ stdout = "help.txt"
 exit_code = 0
 
 
+[xfail]
+broken = true
+reason = "the paragraph after the options is dropped and Exit Status is glued onto the previous paragraph"
+
 [contract]
 min_status = "low-confidence"
 must_contain_positionals = ["dir"]
@@ -20,4 +24,6 @@ must_contain_flags = ["-L", "-P", "-e", "-@"]
 must_describe_root = [
     "Change the shell working directory.",
     "The variable CDPATH defines the search path",
+    "The default is to follow symbolic links, as if `-L' were specified.",
+    "back to a slash or the beginning of DIR.\n\nExit Status:",
 ]
