@@ -3,7 +3,7 @@ provenance = "agent"
 
 [tool]
 name = "jq"
-version = "1.7"
+version = "1.7-operands"
 platform = "ubuntu-24.04"
 captured_with = "manual capture per corpus/README.md step 2"
 

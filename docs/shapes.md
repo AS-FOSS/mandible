@@ -4769,7 +4769,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   A tab after the
   `Usage:` label is not a description gap. Fixtures:
   `corpus/ssh-keygen/9.6p1-forms`, `corpus/sg_test_rwbuf/1.20`,
-  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`, `corpus/jq/1.7`,
+  `corpus/ethtool/6.7`, `corpus/cgi-fcgi/2.4.2`, `corpus/jq/1.7-operands`,
   `corpus/xdg-open/user`, `corpus/git/2.43.0-operands`, `corpus/find/4.9.0`.
 - fleet: a `--tools` pre-check over 255 tools gained operands on five tools
   and lost none. It cannot see `required`; 21 corpus snapshots lost a
