@@ -5012,7 +5012,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   heading as its group. Each row's whole invocation line is its node's
   usage form (a node named by two rows carries both lines), and a second
   row's description is appended to the node's description after the first
-  row's summary. Fixtures: `corpus/corepack/0.34.6`.
+  row's summary. Each row is also heading-attested by that command heading
+  (clipanion's `━━━ General commands ━━━`, read as a plain heading), so
+  the existing section 6 gate admits `corepack disable --help` and
+  `corepack enable --help` and each shows its `--install-directory`.
+  Fixtures: `corpus/corepack/0.34.6`, `corpus/corepack/0.34.6-subcommands`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check;
   the full-`PATH` sweep decides.
 
