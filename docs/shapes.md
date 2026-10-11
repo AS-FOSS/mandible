@@ -5353,8 +5353,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed (maintainer decision, round 18). The described rows of a
   `key=value` word the usage declares, and each heading with two or more
   `key=<placeholder>` rows, are printed in the node's description, in order
-  after the existing text, one paragraph per row. They are not operands or
-  dashless flags (replaces S-202 and S-205). Fixture:
+  after the existing text, one paragraph per row. The flush prose paragraph
+  printed after those rows and the headed invocation blocks (`To run ...:`,
+  `Example usage:`) after the placeholder block join them, in printed order.
+  They are not operands or dashless flags (replaces S-202 and S-205). Fixture:
   `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.

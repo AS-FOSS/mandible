@@ -28,7 +28,11 @@ must_describe_root = [
     "Configures a .jfc file",
     "option=value The option value to modify. For available options, see listed input files below.",
     "event-setting=value The event setting value to modify. Use the form: <event-name>#<setting-name>=<value> To add a new event setting, prefix the event name with '+'.",
+    "The whitespace delimiter can be omitted for timespan values, i.e. 20ms. For more information about the settings syntax, see Javadoc of the jdk.jfr package.",
     "Options for default.jfc:",
     "gc=<off|normal|detailed|high|all>",
     "class-loading=<true|false>",
+    "To run interactive configuration wizard:",
+    "jfr configure --interactive",
+    "jfr configure --input none +Hello#enabled=true --output minimal.jfc",
 ]

@@ -45,10 +45,29 @@ fn row_with_continuation(lines: &[&str], at: usize, col: usize) -> String {
     text
 }
 
-/// The described rows `option=value  description` of a declared word.
+/// The flush (column 0) prose paragraph right after line `after`, past
+/// blank lines: the sentence the help prints under the described rows
+/// before its next heading. A line ending in `:` is a heading, not prose.
+fn flush_paragraph_after(lines: &[&str], after: usize) -> Option<String> {
+    let mut at = after + 1;
+    while at < lines.len() && lines[at].trim().is_empty() {
+        at += 1;
+    }
+    let mut words: Vec<&str> = Vec::new();
+    while at < lines.len() && !lines[at].trim().is_empty() && leading_whitespace(lines[at]) == 0 {
+        words.push(lines[at].trim());
+        at += 1;
+    }
+    let text = words.join(" ");
+    (!words.is_empty() && !text.ends_with(':') && text.ends_with(['.', '!', '?'])).then_some(text)
+}
+
+/// The described rows `option=value  description` of a declared word,
+/// then the flush prose paragraph that follows the last of them.
 fn described_rows(lines: &[&str], declared: &[String]) -> Vec<String> {
     let mut seen: Vec<&str> = Vec::new();
     let mut rows = Vec::new();
+    let mut last_end = None;
     for (at, line) in lines.iter().enumerate() {
         let trimmed = line.trim_start();
         let Some(token) = trimmed.split_whitespace().next() else {
@@ -65,12 +84,58 @@ fn described_rows(lines: &[&str], declared: &[String]) -> Vec<String> {
         seen.push(token);
         let col = line.len() - rest.trim_start().len();
         let text = row_with_continuation(lines, at, col);
+        let mut end = at;
+        while end + 1 < lines.len()
+            && !lines[end + 1].trim().is_empty()
+            && leading_whitespace(lines[end + 1]) >= col
+        {
+            end += 1;
+        }
+        last_end = Some(end);
         rows.push(match text.split_once(char::is_whitespace) {
             Some((key, tail)) => format!("{key}  {}", tail.trim()),
             None => text,
         });
     }
+    if let Some(prose) = last_end.and_then(|end| flush_paragraph_after(lines, end)) {
+        rows.push(prose);
+    }
     rows
+}
+
+/// Headed blocks after line `from`: a flush heading ending in `:` whose
+/// indented lines all start with the usage's command path (`jfr configure
+/// ...`). The heading and its lines, one paragraph each, as printed.
+fn trailing_invocation_blocks(lines: &[&str], from: usize, path: &str) -> Vec<String> {
+    let mut blocks = Vec::new();
+    let mut at = from;
+    while at < lines.len() {
+        let heading = lines[at].trim();
+        if leading_whitespace(lines[at]) != 0 || !heading.ends_with(':') {
+            at += 1;
+            continue;
+        }
+        let mut rows: Vec<&str> = Vec::new();
+        let mut j = at + 1;
+        while j < lines.len() {
+            let text = lines[j].trim();
+            if text.is_empty() {
+                j += 1;
+            } else if leading_whitespace(lines[j]) > 0 && text.starts_with(path) {
+                rows.push(text);
+                j += 1;
+            } else {
+                break;
+            }
+        }
+        if rows.is_empty() {
+            at += 1;
+        } else {
+            blocks.push(format!("{heading}\n\n{}", rows.join("\n\n")));
+            at = j;
+        }
+    }
+    blocks
 }
 
 /// Every heading ending in `:` with two or more rows that are each one
@@ -116,6 +181,19 @@ fn placeholder_blocks(lines: &[&str]) -> Vec<String> {
     blocks
 }
 
+/// The command path of the first usage line: its words before the first
+/// flag, bracket or `key=value` word.
+fn usage_path(usage: &[String]) -> String {
+    let words: Vec<&str> = usage
+        .first()
+        .map(|u| u.split_whitespace())
+        .into_iter()
+        .flatten()
+        .take_while(|w| !w.starts_with(['-', '[', '<']) && !w.contains('='))
+        .collect();
+    words.join(" ")
+}
+
 /// The paragraphs of `key=value` text to append to the description: the
 /// described rows of the usage's declared words, then each placeholder
 /// block, in the order printed.
@@ -128,7 +206,17 @@ pub(super) fn key_value_paragraphs(usage: &[String], lines: &[&str]) -> Option<S
             paragraphs.push(rows.join("\n\n"));
         }
     }
-    paragraphs.extend(placeholder_blocks(lines));
+    let blocks = placeholder_blocks(lines);
+    let had_blocks = !blocks.is_empty();
+    paragraphs.extend(blocks);
+    if had_blocks {
+        let path = usage_path(usage);
+        let from = lines
+            .iter()
+            .rposition(|l| l.trim().contains("=<"))
+            .map_or(0, |i| i + 1);
+        paragraphs.extend(trailing_invocation_blocks(lines, from, &path));
+    }
     (!paragraphs.is_empty()).then(|| paragraphs.join("\n\n"))
 }
 
@@ -154,6 +242,43 @@ mod tests {
             text,
             "option=value  The option value. Wrapped.\n\nOptions for x.jfc:\n\ngc=<off|high>\n\nlimit=<timespan>"
         );
+    }
+
+    #[test]
+    fn flush_prose_after_the_rows_is_kept() {
+        let usage = vec!["jfr configure [option=value]*".to_string()];
+        let lines = [
+            "  option=value     The option value.",
+            "",
+            "The delimiter can be omitted. See",
+            "the docs.",
+            "",
+            "Notes:",
+        ];
+        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        assert_eq!(
+            text,
+            "option=value  The option value.\n\nThe delimiter can be omitted. See the docs."
+        );
+    }
+
+    #[test]
+    fn headed_invocation_blocks_after_the_placeholders_are_kept() {
+        let usage = vec!["jfr configure [option=value]*".to_string()];
+        let lines = [
+            "Options for x:",
+            "  a=<b>",
+            "  c=<d>",
+            "",
+            "To run it:",
+            "",
+            "  jfr configure --interactive",
+            "",
+            "Other notes:",
+            "  something else",
+        ];
+        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        assert!(text.ends_with("c=<d>\n\nTo run it:\n\njfr configure --interactive"));
     }
 
     #[test]
