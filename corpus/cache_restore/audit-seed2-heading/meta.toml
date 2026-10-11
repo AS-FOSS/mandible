@@ -1,0 +1,19 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "cache_restore"
+version = "audit-seed2-heading"
+captured_with = "variant of audit-seed2 (same help.txt)"
+
+[[capture]]
+argv = ["cache_restore", "--help"]
+stdout = "help.txt"
+
+[contract]
+must_contain_flags = ["--help", "--input", "--output"]
+must_not_describe_root = ["Options:"]
+
+[xfail]
+broken = true
+reason = "[S-238] the heading word `Options:` under the usage line is the root description"
