@@ -1,17 +1,15 @@
 //! Usage forms that each open with a different literal verb after the
-//! command path (`git bisect start ...`, `git bisect (good|bad) ...`,
-//! `git bisect run ...`; docs/shapes.md S-215). The verbs are the command's
-//! subcommands; each node carries the forms that name it and the flags and
-//! operands those forms spell. Like S-179 and S-211 the nodes are
-//! `invocation_attested`, never `heading_attested`: they are listed, never
-//! probed. The parent keeps everything it read from the same forms.
+//! command path (`git bisect start ...`, `git bisect (good|bad) ...`;
+//! docs/shapes.md S-215). The verbs are the command's subcommands; each node
+//! carries the forms naming it and the flags and operands they spell. As in
+//! S-179 and S-211 the nodes are `invocation_attested`: listed, never probed.
+//! The parent keeps everything it read from the same forms.
 //!
-//! Guards: at least two distinct verbs open a form directly; a verb is a
-//! bare lowercase command-name word or a parenthesized alternation of them.
-//! A word after a flag (`ssh-keygen -Y sign`), a `<placeholder>`, an
-//! UPPERCASE word or a bracketed word is never a verb. A closed bracket
-//! group of flags alone before the word (`[-v | --verbose] show`) is
-//! skipped.
+//! Guards: two or more distinct verbs open a form directly, in a labelled
+//! usage block. A verb is a bare lowercase command-name word or a
+//! parenthesized alternation of them; a word after a flag, a `<placeholder>`,
+//! an UPPERCASE word or a bracketed word never is. A closed group of flags
+//! before the word (`[-v | --verbose] show`) is skipped.
 
 use super::*;
 
