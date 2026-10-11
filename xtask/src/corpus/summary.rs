@@ -175,6 +175,10 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
 /// parser: a name that itself began with a literal `-` would round-trip
 /// wrong, and no real flag spelling does.
 fn parse_rendered_spelling(rendered: &str) -> Spelling {
+    // The end-of-options marker is stored as a bare "--", not a long flag named "".
+    if rendered == "--" {
+        return Spelling::bare("--");
+    }
     let (dashes, rest) = if let Some(r) = rendered.strip_prefix("--") {
         (Dashes::Double, r)
     } else if let Some(r) = rendered.strip_prefix('-') {
