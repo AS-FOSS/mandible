@@ -19,7 +19,7 @@ fn plain_word(w: &str) -> bool {
 /// Extends `spec`'s bare one-word value to the whole run of plain lowercase
 /// words that follows the spellings in `spec_text`, when the grammar left
 /// that run unconsumed.
-pub(super) fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
+fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
     if spec.fully_consumed || spec.value_kind != ValueKind::Required {
         return;
     }
@@ -41,4 +41,11 @@ pub(super) fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
         return;
     }
     spec.value_name = Some(tokens[at..].join(" "));
+}
+
+/// Both spec repairs `emit_flags_with` applies after parsing a row's spec:
+/// S-221's caps single dash and S-225's two-word value.
+pub(super) fn repair_row_spec(spec: &mut FlagSpec, spec_text: &str, description: &str) {
+    super::caps_single_dash::repair_caps_single_dash(spec, spec_text, description);
+    extend_multiword_value(spec, spec_text);
 }

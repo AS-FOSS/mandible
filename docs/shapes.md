@@ -5126,7 +5126,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   as `-0, --zero` does. Before, the long spelling led the description.
   `is_flag_shaped` itself is unchanged. Fixture: `corpus/nano/7.2` and the
   synthetic `corpus/nano/7.2-punct` (nano 8's two added rows).
-- fleet: pending
+- fleet: full-PATH sweep (2270 matched), zero losses; nano, pico, rnano, editor and sensible-editor moved (the four rows above); read against `nano --help`.
 
 ### S-225: a value of two plain words in the spec cell
 
@@ -5140,4 +5140,4 @@ entry's `tools` field and nothing else. It does not get a new entry.
   is both words (`name value`), as caffeinate's `-w Process ID` already is
   (S-131). Before, the second word was dropped from the row altogether.
   Fixture: `corpus/jq/1.7`.
-- fleet: pending
+- fleet: full-PATH sweep, zero losses; jq, and the iptables/ip6tables/arptables/ebtables families moved (`--replace -R chain rulenum`, `-E old-chain new-chain`, `-P chain target`, `-D chain rulenum`), each read against its `--help`.
