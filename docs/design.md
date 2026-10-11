@@ -1131,7 +1131,11 @@ allowlist below.
    never run against the inherited environment.
 
    The scratch root is always `$HOME/.cache/mandible`, on every OS, with one
-   `mnd-` directory per probe inside it (mode 0700). Neither `TMPDIR` nor
+   `mnd-` directory per probe inside it. The root is mode 0700 and owned by
+   the current user: a pre-existing root is opened without following a
+   symlink and tightened to 0700; a root that is a symlink, not a directory,
+   or owned by another user refuses the probe with the same named error, with
+   no fallback location. Neither `TMPDIR` nor
    `XDG_CACHE_HOME` is consulted, since either may name a shared directory.
    The reason is upward search: a tool run from the scratch directory may
    look in every parent for project files (`pnpm start --help` runs the
