@@ -80,6 +80,7 @@ mod usage_command_table;
 mod usage_flag_alternation;
 mod usage_flag_forms;
 mod usage_form_prose;
+mod usage_numbered_caps;
 mod usage_optional_word;
 mod usage_signs;
 pub(crate) mod usage_verbs;

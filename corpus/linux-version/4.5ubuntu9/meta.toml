@@ -24,4 +24,5 @@ sort = ["--reverse"]
 list = ["--paths"]
 
 [contract.must_contain_positionals_by_path]
-compare = ["OP"]
+compare = ["VERSION1", "OP", "VERSION2"]
+sort = ["VERSION1", "VERSION2"]

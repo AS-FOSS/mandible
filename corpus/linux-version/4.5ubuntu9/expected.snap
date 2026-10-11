@@ -42,7 +42,17 @@ subcommands:
   usage:
   - /usr/bin/linux-version compare VERSION1 OP VERSION2
   positionals:
+  - name: VERSION1
+    required: true
+    provenance:
+      sources:
+      - help-text
   - name: OP
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: VERSION2
     required: true
     provenance:
       sources:
@@ -55,6 +65,16 @@ subcommands:
 - name: sort
   usage:
   - /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+  positionals:
+  - name: VERSION1
+    provenance:
+      sources:
+      - help-text
+  - name: VERSION2
+    variadic: true
+    provenance:
+      sources:
+      - help-text
   flags:
   - spellings:
     - --reverse

@@ -5541,8 +5541,22 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the tool's name or a path whose last component is that name. `compare`,
   `sort` and `list` are then subcommands with their own usage, `--reverse`
   under `sort` and `--paths` under `list`; the root keeps what it read, as for
-  every verb rule node. Not fixed: a digit-suffixed upper-case operand
-  (`VERSION1`) is still not read per verb, so `compare` shows `OP` only (the
-  root and the node's usage keep the rest). Fixture:
+  every verb rule node. The numbered operands are S-241. Fixture:
   `corpus/linux-version/4.5ubuntu9`.
+- fleet: see the round-19 usage report.
+
+### S-241: numbered upper-case operands of a usage-verb node
+
+- id: S-241
+- looks like: |
+      Usage: linux-version compare VERSION1 OP VERSION2
+             linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+- tools: linux-version
+- handling: Fixed. The operand test wants letters only, so `VERSION1` was
+  never read. After a usage-verb node's ordinary extraction, a word of two or
+  more capitals plus digits is an operand when the same stem comes back with
+  another number in that node's forms (`W0` alone, or a one-letter stem, is
+  not). It is required outside brackets, optional inside, repeatable before
+  `...`, and the node's operands follow the order the form prints them. The
+  root is untouched. Fixture: `corpus/linux-version/4.5ubuntu9`.
 - fleet: see the round-19 usage report.

@@ -206,11 +206,12 @@ pub(crate) fn recover(
             }
         }
         let primary: std::collections::HashSet<usize> = (0..own.len()).collect();
-        let positionals = if flags.is_empty() {
+        let mut positionals = if flags.is_empty() {
             extract_positionals_inner(&own, primary, false, true)
         } else {
             extract_positionals(&own, primary)
         };
+        super::usage_numbered_caps::add_numbered_operands(&own, &mut positionals);
         node.entities.extend(flags);
         node.entities.extend(positionals);
         subcommands.push(node);
