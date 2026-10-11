@@ -59,8 +59,7 @@ fn paragraphs_after_block<'a>(
     indent: usize,
 ) -> Vec<Vec<&'a str>> {
     let mut j = heading_at + 1;
-    while j < lines.len() && (lines[j].trim().is_empty() || leading_whitespace(lines[j]) > indent)
-    {
+    while j < lines.len() && (lines[j].trim().is_empty() || leading_whitespace(lines[j]) > indent) {
         j += 1;
     }
     let mut paragraphs: Vec<Vec<&str>> = Vec::new();
@@ -89,7 +88,7 @@ fn paragraphs_after_block<'a>(
 /// What joins a rescued wrapped-prose paragraph (S-027) to the description:
 /// a blank line when the paragraph opens with its own section heading
 /// (`Exit Status:` in `cd`'s help), a space otherwise.
-pub(super) fn paragraph_separator(lines: &[&str], flag_line_idx: usize) -> &'static str {
+fn paragraph_separator(lines: &[&str], flag_line_idx: usize) -> &'static str {
     let mut start = flag_line_idx;
     while start > 0 && !lines[start - 1].trim().is_empty() {
         start -= 1;
@@ -98,5 +97,19 @@ pub(super) fn paragraph_separator(lines: &[&str], flag_line_idx: usize) -> &'sta
         "\n\n"
     } else {
         " "
+    }
+}
+
+/// `description` with the rescued paragraph `text` (from the wrapped line
+/// at `flag_line_idx`) appended.
+pub(super) fn append_paragraph(
+    description: Option<String>,
+    lines: &[&str],
+    flag_line_idx: usize,
+    text: String,
+) -> String {
+    match description {
+        Some(d) => format!("{d}{}{text}", paragraph_separator(lines, flag_line_idx)),
+        None => text,
     }
 }

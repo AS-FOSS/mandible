@@ -19,10 +19,6 @@ captured_with = "probe environment, setsid, null stdin"
 argv = ["jfr", "--help"]
 stdout = "help.txt"
 
-[xfail]
-broken = true
-reason = "the key=value rows and the Options for default.jfc block are read as operands and flags, not kept as description text"
-
 [contract]
 expected_framework = "generic"
 must_contain_flags = ["--interactive", "--verbose", "--input", "--ouput"]

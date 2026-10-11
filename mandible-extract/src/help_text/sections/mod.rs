@@ -38,7 +38,6 @@ mod bullets;
 mod caps_single_dash;
 mod command_list_rows;
 mod command_row_column;
-mod dashless_key_flags;
 mod description_choices;
 mod emit;
 mod entry;
@@ -47,7 +46,7 @@ mod flag_row_column;
 mod flag_rows;
 mod heading;
 mod invocation_block;
-mod key_value_operands;
+mod key_value_text;
 mod layout;
 mod multiword;
 mod multiword_value_row;
@@ -89,7 +88,6 @@ use avoption::{
 };
 use backfill::*;
 use bullets::*;
-use dashless_key_flags::recover_dashless_key_flags;
 use description_choices::attach_description_tail_choices;
 pub use emit::*;
 pub use entry::*;
@@ -97,7 +95,7 @@ use flag_row_column::*;
 use flag_rows::*;
 pub use heading::*;
 use invocation_block::{recover_invocation_block, scan_invocation_block};
-use key_value_operands::recover_key_value_operands;
+use key_value_text::key_value_paragraphs;
 pub use layout::*;
 use multiword::*;
 use no_option_row::take_no_option_row;
@@ -2005,13 +2003,8 @@ fn scan_entries(
             // docs/shapes.md S-027.
             if is_wrapped_prose_continuation(lines, i) {
                 let (end, text) = wrapped_prose_paragraph(lines, i);
-                st.result.description = Some(match st.result.description.take() {
-                    Some(d) => {
-                        let sep = builtin_usage::paragraph_separator(lines, i);
-                        format!("{d}{sep}{text}")
-                    }
-                    None => text,
-                });
+                let own = st.result.description.take();
+                st.result.description = Some(builtin_usage::append_paragraph(own, lines, i, text));
                 i = end;
                 continue;
             }
@@ -2447,8 +2440,12 @@ fn parse_body(
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
-    recover_key_value_operands(&mut result.positionals, &result.usage, &lines);
-    recover_dashless_key_flags(&mut result.flags, &lines);
+    if let Some(text) = key_value_paragraphs(&result.usage, &lines) {
+        result.description = Some(match result.description.take() {
+            Some(d) => format!("{d}\n\n{text}"),
+            None => text,
+        });
+    }
 
     // spec [M-15]: mine the usage synopsis for flag spellings too, not just
     // positionals — git's own flags documented only in its usage block

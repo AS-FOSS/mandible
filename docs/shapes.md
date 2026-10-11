@@ -4825,7 +4825,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. A `key=value` word in the usage line (`[option=value]*`)
   declares an operand, never a flag. Each indented row that opens with that
   word, a column gap and a description becomes a repeatable positional that
-  keeps the description. The rule needs a `key=value` word in the usage line,
+  keeps the description (superseded by S-237: the rows are description
+  text now). The rule needs a `key=value` word in the usage line,
   so a `dd`-style `bs=BYTES` table with no such usage stays as it was. The
   `key=<...>` list under a heading is not an operand: see S-205.
   Fixture: `corpus/jfr/17.0.20-configure`.
@@ -4900,7 +4901,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   spelling; `<a|b|c>` literal members are its choices, any other placeholder
   its value name; the heading is its group. The `=` is not stored: the row
   renders `locking-threshold <timespan>`, one space behind the spelling
-  (spec 9.3 rule 6). Not keyed to `jfr`: any such block qualifies.
+  (spec 9.3 rule 6; superseded by S-237: the block is description text
+  now). Not keyed to `jfr`: any such block qualifies.
   Fixture: `corpus/jfr/17.0.20-configure`.
 - fleet: a `--tools` pre-check over 222 tools (every tool the round has
   touched, the Java tools and the nine controls) moved none. No corpus or
@@ -5289,7 +5291,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. `NAME: NAME <synopsis>` is a usage line like `NAME: Usage:`
   (S-162): the first name is the label, the rest is the usage form, so `dir`
   is an operand. The paragraphs between it and the first section heading
-  are the description, shown before the trailing `Exit Status` text.
+  are the description, shown before the trailing `Exit Status` text; the
+  paragraphs after the `Options:` block, up to the next heading, follow them
+  in order, and a rescued wrapped paragraph that opens with its own heading
+  (`Exit Status:`) is its own paragraph, not glued to the one before.
   Fixture: `corpus/cd/user` (the maintainer's capture).
 - fleet: `cd` and the other builtin wrappers are absent from this box: the
   full-PATH sweep (2271 tools) moved none for this rule. Not measured on a
@@ -5332,3 +5337,24 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the indented paragraph that opens the document before it is the
   description. Fixture: `corpus/xdg-open/user` (the maintainer's capture).
 - fleet: moved the root description of `xdg-open`, `gh`, `ping`, `tracepath`.
+
+### S-237: `key=value` rows are description text
+
+- id: S-237
+- looks like: |
+      jfr configure [option=value]* [event-setting=value]*
+
+        option=value            The option value to modify.
+
+      Options for default.jfc:
+
+        gc=<off|normal|detailed|high|all>
+- tools: jfr
+- handling: Fixed (maintainer decision, round 18). The described rows of a
+  `key=value` word the usage declares, and each heading with two or more
+  `key=<placeholder>` rows, are printed in the node's description, in order
+  after the existing text, one paragraph per row. They are not operands or
+  dashless flags (replaces S-202 and S-205). Fixture:
+  `corpus/jfr/17.0.20-configure`.
+- fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
+  tool with either shape; only `jfr configure` changes.

@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - [S-235] Prose after the usage line and a blank line is part of the description: `mandible automake` opens with `Generate Makefile.in for configure from Makefile.am.`, `jq` and `find` show their intro paragraphs (`Default path is the current directory; default expression is -print.`).
+- [S-227] `mandible cd` keeps the paragraph after its options (`The default is to follow symbolic links ...`) and shows `Exit Status:` as its own paragraph.
+- [S-237] `mandible jfr configure` shows the `option=value` and `event-setting=value` rows and the `Options for default.jfc:` keys as description text, not as operands and flags.
 - [S-236] A heading word is never the description: `mandible xdg-open` reads `xdg-open - opens a file or URL in the user's preferred application`, not `Synopsis` (`ping` and `tracepath` no longer show `Usage`).
 - [S-214] A root help that says `'git help -a' ... list available subcommands` is asked that listing, so `mandible git` gains every command it lists (`remote`, `stash`, `worktree`, `bundle` open their own pages) and none of the concept guides.
 - [S-215] Usage forms that each open with a different verb name that command's subcommands, each with its own usage, flags and operands (`mandible git bisect` lists `start`, `good`, `bad`, `run`; `git stash`, `remote`, `worktree`, `bundle`, `reflog`, `commit-graph` likewise).
