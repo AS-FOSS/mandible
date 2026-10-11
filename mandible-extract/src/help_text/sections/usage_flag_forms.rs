@@ -99,10 +99,12 @@ fn hoist_group(group: &str) -> Option<String> {
     let &(from, to) = parts.iter().find(|&&(f, t)| {
         let nested = &inner[f + 1..t.saturating_sub(1).max(f + 1)];
         nested.trim_start().starts_with('-')
-            && inner[..f]
-                .split_whitespace()
-                .next_back()
-                .is_some_and(|w| w.starts_with('-') && w.len() > 1 && !w.contains(['[', ']']))
+            && inner[..f].split_whitespace().next_back().is_some_and(|w| {
+                w.starts_with('-')
+                    && w.len() > 1
+                    && !w.contains(['[', ']'])
+                    && !super::entry::is_option_list_placeholder(w.trim_start_matches('-'))
+            })
     })?;
     let before = inner[..from].trim_end();
     let after = inner[to..].trim().trim_start_matches('|').trim();
@@ -211,6 +213,7 @@ mod tests {
             "x [--dry-run | -n] [--all] [--single-worktree] [<refs>...]"
         );
         for s in [
+            "x [-OPTIONS [-MORE_OPTIONS]] [--]",
             "x [--exec-path[=<path>]]",
             "x [[-c|-C] cmd]",
             "x [-q [errorfile]]",
