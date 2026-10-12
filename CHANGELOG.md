@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-242] `mandible ssh-keygen` shows `-h` and `-U` as two flags, not `-h` with a value `U`; the same for the two-letter groups of `iscsiadm`, `nfsidmap`, `preconv` and `ssh-agent`: a glued two-letter group is two switches when the help writes every flag value after a space.
 - [S-241] `mandible linux-version` shows `compare` with `VERSION1 OP VERSION2` and `sort` with optional repeatable `VERSION1 VERSION2`: numbered upper-case operands of a command's own usage form are read when the same stem recurs with another number.
 - [S-240] `mandible linux-version` lists `compare`, `sort` and `list` as commands, with `--reverse` under `sort` and `--paths` under `list`: usage forms that print the program as `/usr/bin/linux-version` are read like the bare name.
+- [S-215] `mandible linux-version`, `fragiso` and `git worktree` no longer repeat their commands' operands and flags on the parent page when every usage form names a command.
 - [S-239] `mandible jfr` lists `print` as a command with its own flags (`--xml`, `--json`, `--stack-depth`), not as the root usage whose flags sat on `jfr` itself.
 - [S-228] `mandible git log` shows its second usage form as printed (`git show [<options>] <object>...`), not as `log git show ...`.
 - [S-211] `mandible corepack disable` and `corepack enable` show their `--install-directory` flag: the `General commands` heading now attests its rows, so their own help pages are read.

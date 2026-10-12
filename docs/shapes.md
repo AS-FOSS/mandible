@@ -5115,7 +5115,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   verbs; a closed group of flags before the word (`[-v | --verbose] show`)
   is skipped. As in S-179 and S-211 the nodes are `invocation_attested`,
   listed and never probed. As in S-169 each node carries the forms that
-  name it as its usage and the flags and operands those forms spell; the
+  name it as its usage and the flags and operands those forms spell. When
+  every usage form of the parent opens with a verb, a parent row with no
+  description or values of its own that a verb node also carries lives only
+  on that node (`git worktree`, `fragiso`, `linux-version`); otherwise the
   parent keeps everything it read from the same forms. Fixtures:
   `corpus/git/2.43.0-verbs`; `corpus/git-history/2.55.0` is the
   maintainer's man-page capture, rendered verbatim by design (the `-h`
@@ -5541,10 +5544,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. In the usage-verb rule (S-215) a form's program word may be
   the tool's name or a path whose last component is that name. `compare`,
   `sort` and `list` are then subcommands with their own usage, `--reverse`
-  under `sort` and `--paths` under `list`; the root keeps what it read, as for
-  every verb rule node. The numbered operands are S-241. Fixture:
-  `corpus/linux-version/4.5ubuntu9`.
-- fleet: see the round-19 usage report.
+  under `sort` and `--paths` under `list`. Every form opens with a verb, so
+  the root keeps none of their rows (S-215). The numbered operands are S-241.
+  Fixture: `corpus/linux-version/4.5ubuntu9`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-12: only linux-version
+  moves, gaining its three commands.
 
 ### S-241: numbered upper-case operands of a usage-verb node
 

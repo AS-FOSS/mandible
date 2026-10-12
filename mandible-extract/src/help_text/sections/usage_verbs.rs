@@ -3,7 +3,7 @@
 //! docs/shapes.md S-215). The verbs are the command's subcommands; each node
 //! carries the forms naming it and the flags and operands they spell. As in
 //! S-179 and S-211 the nodes are `invocation_attested`: listed, never probed.
-//! The parent keeps everything it read from the same forms.
+//! The parent keeps those rows unless every form is a verb's (S-215).
 //!
 //! Guards: two or more distinct verbs open a form directly, in a labelled
 //! usage block. A verb is a bare lowercase command-name word or a
@@ -124,7 +124,8 @@ fn verbs_of(f: &Form, at: usize) -> Option<(Vec<String>, usize, bool)> {
 }
 
 /// Add a node per verb to `subcommands` (names already present are kept
-/// untouched). `usage` is the parsed usage entries.
+/// untouched). `usage` is the parsed usage entries. True when every usage
+/// entry is a form opening with a verb that is now a subcommand.
 ///
 /// `own` is the node's own command word when it is not the root. Verbs must
 /// follow the node's own path: a form that does not name it (`git show ...`
@@ -135,21 +136,21 @@ pub(crate) fn recover(
     own: Option<&str>,
     raw: &str,
     subcommands: &mut Vec<CommandNode>,
-) {
+) -> bool {
     // Only a labelled usage block: bare indented invocation lines are
     // examples or a command table (S-016), not the tool's forms.
     if !usage
         .first()
         .is_some_and(|u| starts_with_usage_prefix(u.trim()))
     {
-        return;
+        return false;
     }
     let mut forms = forms(usage, tool_name);
     if let Some(own) = own {
         forms.retain(|f| f.toks.iter().take_while(|t| is_word(t)).any(|t| t == own));
     }
     if forms.len() < 2 {
-        return;
+        return false;
     }
     let at = path_len(&forms);
     let found: Vec<Option<(Vec<String>, usize, bool)>> =
@@ -163,7 +164,7 @@ pub(crate) fn recover(
     direct.sort();
     direct.dedup();
     if direct.len() < 2 {
-        return;
+        return false;
     }
     let mut order: Vec<String> = Vec::new();
     for (verbs, _, _) in found.iter().flatten() {
@@ -216,6 +217,35 @@ pub(crate) fn recover(
         node.entities.extend(positionals);
         subcommands.push(node);
     }
+    forms.len() == usage.iter().filter(|u| !u.trim().is_empty()).count()
+        && found.iter().all(|hit| {
+            hit.as_ref().is_some_and(|(verbs, _, _)| {
+                verbs
+                    .iter()
+                    .all(|v| subcommands.iter().any(|n| &n.name == v))
+            })
+        })
+}
+
+/// Drop the parent's undescribed rows that a verb node carries: every form
+/// spelling them is that verb's (S-240), so they are relocated, not lost.
+pub(crate) fn drop_relocated(parent: &mut CommandNode) {
+    let key = |e: &Entity| {
+        let names: Vec<String> = e.spellings.iter().map(|s| s.render()).collect();
+        (e.kind, names)
+    };
+    let carried: std::collections::HashSet<_> = parent
+        .subcommands
+        .iter()
+        .filter(|n| n.invocation_attested)
+        .flat_map(|n| n.entities.iter().map(key))
+        .collect();
+    parent.entities.retain(|e| {
+        !matches!(e.kind, EntityKind::Flag | EntityKind::Positional)
+            || e.description.is_some()
+            || !e.choices.is_empty()
+            || !carried.contains(&key(e))
+    });
 }
 
 #[cfg(test)]
