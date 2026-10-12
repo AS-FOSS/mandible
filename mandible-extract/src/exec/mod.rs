@@ -28,3 +28,9 @@ mod spawn;
 pub use policy::InertArgv;
 pub use probe::{LiveProbe, Probe, Transcript};
 pub use spawn::{is_help_only_probe, run_inert, ExecError, ExecOutput, MAX_OUTPUT_BYTES};
+
+/// The probe scratch root (spec §6 rule 8), created if missing. No probe runs
+/// without it, so the binary checks it once before opening a tool.
+pub fn scratch_root() -> std::io::Result<std::path::PathBuf> {
+    scratch_root::ensure()
+}

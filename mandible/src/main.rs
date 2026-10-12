@@ -185,6 +185,14 @@ fn main() -> anyhow::Result<()> {
              what was tried."
         );
     }
+    // Every probe runs inside this folder (spec §6 rule 8); without it the
+    // TUI would open on an empty page with no reason given.
+    if let Err(e) = mandible_extract::exec::scratch_root() {
+        anyhow::bail!(
+            "mandible runs each tool inside a private folder at ~/.cache/mandible and \
+             could not create it: {e}. Check that HOME is set and writable, then try again."
+        );
+    }
     let stub = mandible_core::CommandNode::new(tool.clone(), mandible_core::Provenance::default());
     let mut app = app_runner::new_app(tool, stub, sink);
     app.print_selection = cli.print_selection;

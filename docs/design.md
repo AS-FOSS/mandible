@@ -1143,7 +1143,8 @@ allowlist below.
    the current user: a pre-existing root is opened without following a
    symlink and tightened to 0700; a root that is a symlink, not a directory,
    or owned by another user refuses the probe with the same named error, with
-   no fallback location. Neither `TMPDIR` nor
+   no fallback location. The interactive binary makes the root before it
+   opens a tool and, when it cannot, exits with that error named. Neither `TMPDIR` nor
    `XDG_CACHE_HOME` is consulted, since either may name a shared directory.
    The reason is upward search: a tool run from the scratch directory may
    look in every parent for project files (`pnpm start --help` runs the
