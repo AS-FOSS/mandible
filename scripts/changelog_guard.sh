@@ -37,7 +37,7 @@ section() {
         source=$(git show "$rev:$changelog" 2>/dev/null || true)
     fi
     printf '%s\n' "$source" | awk -v v="## [$version]" '
-        $0 == v { inside = 1; next }
+        $0 == v || index($0, v " ") == 1 { inside = 1; next }
         inside && /^## \[/ { exit }
         inside { print }
     ' | normalize
