@@ -48,4 +48,5 @@ fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
 pub(super) fn repair_row_spec(spec: &mut FlagSpec, spec_text: &str, description: &str) {
     super::caps_single_dash::repair_caps_single_dash(spec, spec_text, description);
     extend_multiword_value(spec, spec_text);
+    super::value_tail_row::extend_value_tail(spec, spec_text);
 }

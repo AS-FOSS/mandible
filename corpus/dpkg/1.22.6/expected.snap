@@ -149,7 +149,7 @@ flags:
 - spellings:
   - -L
   - --listfiles
-  value_name: <package>
+  value_name: <package>...
   value_kind: Required
   group: 'Commands:'
   description: List files 'owned' by package(s).
@@ -169,7 +169,7 @@ flags:
 - spellings:
   - -S
   - --search
-  value_name: <pattern>
+  value_name: <pattern>...
   value_kind: Required
   group: 'Commands:'
   description: Find package(s) owning file(s).

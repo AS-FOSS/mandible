@@ -5598,3 +5598,94 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `lessecho`, `mandoc`, `jstatd` and `xxd` keep their groups whole. Fixture:
   `corpus/ssh-keygen/audit-seed2`.
 - fleet: see the round-19 usage report.
+
+### S-243: tab-described operation forms with setting rows
+
+- id: S-243
+- looks like: |
+      ethtool [ FLAGS ] -s|--change DEVNAME<TAB>Change generic options
+      <TAB><TAB>[ speed %d ]
+      <TAB><TAB>[ duplex half|full ]
+      ethtool [ FLAGS ] -Q|--per-queue DEVNAME<TAB>Apply per-queue command.
+      The supported sub commands include --show-coalesce<TAB><TAB>[queue_mask %x] SUB_COMMAND
+- tools: ethtool
+- handling: Fixed. Three or more usage forms opening with the same command
+  word and carrying a tab description make a table. Each operation flag
+  (`-s|--change`) takes the text after the tab, then the rows under its form,
+  as printed and in order. A flush-left wrapped description holding a tab
+  continues the form above and does not end the usage block. Forms are cut
+  before their description for operand and flag reading, and setting rows
+  are not operands. Fixture: `corpus/ethtool/6.7`.
+- fleet: only `ethtool` shows the shape in 3079 captures and the corpus.
+
+### S-244: a flag followed by bracketed literal words
+
+- id: S-244
+- looks like: |
+      [ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]
+- tools: ethtool
+- handling: Fixed. Two or more bracketed lowercase words right after a usage
+  flag are that flag's literal values, not a value name. Fixture:
+  `corpus/ethtool/6.7`.
+- fleet: see S-243.
+
+### S-245: text glued after the value placeholder
+
+- id: S-245
+- looks like: |
+      --filter <pattern>...           Includes all direct and indirect dependencies
+      --filter <pattern>^...          Includes only the direct and indirect dependencies
+      --with=<param>=<constraint>     Parameter constraints for filtering
+- tools: pnpm, snap, dpkg, dpkg-query, dnsmasq, bugpoint, cargo-deb, clang, ionice, javac, javadoc, jdeps, jlink, jshell, llvm-jitlink, llvm-rtdyld, losetup, lspci, setpci, objcopy
+- handling: Fixed. When the grammar reads a `<placeholder>` value and the
+  same last token of the spec cell carries more text glued to it (not a
+  separator or sentence mark), the whole printed token is the value
+  (`<pattern>^...`, `<param>=<constraint>`). Before, the tail was dropped.
+  Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get-with`.
+- fleet: full-PATH sweep (2271 matched), zero losses; 22 tools changed a value name only (the list above plus clang's four aliases), each read against its raw help: the value is the text as printed (`<macro>=<value>`, `<module>(,<module>)*`, `<package>...`).
+
+### S-246: a `Valid <noun>:` line lists the values of the flag that points at it
+
+- id: S-246
+- looks like: |
+      -f, --format=ARG   Output format (see below for valid formats)
+      ...
+       Valid output formats: human-readable (default), csv, tsv, json, jsonl, json-pretty
+- tools: speedtest
+- handling: Fixed. A line `Valid <words> <noun>: v1, v2, ...` outside any
+  table gives its values, in order, as the choices of the one choice-less
+  flag whose description says `valid <noun>`; a `(default)` note is that
+  choice's description, parentheses kept as printed. The prose paragraph
+  right after the line (same indent, up to a blank line) is appended to that
+  flag's description. Zero or several such flags leave the line alone.
+  Fixture: `corpus/speedtest/1.2.0.84`.
+- fleet: full-PATH sweep (2271 matched), zero losses; only speedtest moved (`-f` gains six choices), read against its `--help`.
+
+### S-247: `Possible values:` with `- name: text` bullets
+
+- id: S-247
+- looks like: |
+      --auto-req <AUTO_REQ>
+          Possible values:
+          - auto:       Use the preferred automatic dependency process.
+          - disabled:   Disable the discovery of dependencies. [alias: no]
+          [default: auto]
+- tools: cargo-generate-rpm
+- handling: Fixed. S-234's bullet list also reads `-` bullets (and a `/` in a
+  name). Each bullet is a choice with its text; a closing `[default: x]`
+  note stays in the flag's description. Fixture:
+  `corpus/cargo-generate-rpm/0.16.0`.
+- fleet: full-PATH sweep (2271 matched), zero losses; only cargo-generate-rpm moved (`--auto-req`), read against its `--help`.
+
+### S-248: a nested bracket row under a bracket row
+
+- id: S-248
+- looks like: |
+      [-addprovider <name>        add security provider by name (e.g. SunPKCS11)
+        [-providerArg <arg>]] ... configure argument for -addprovider
+- tools: jarsigner
+- handling: Fixed. A bracket row that opens a group it does not close, followed
+  by a deeper line that opens with `[-flag` and closes the group, is two rows:
+  the outer flag and the nested flag, each with its own description. The
+  trailing `...` repeat marker is not kept. Fixture: `corpus/jarsigner/21.0.12`.
+- fleet: full-PATH sweep (2271 matched), zero losses; only jarsigner moved (+2 flags), read against its `--help`.

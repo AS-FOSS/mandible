@@ -1,0 +1,21 @@
+# `snap get --help` replayed as the root, so the root-level contract fields can name its flags: its `--with=<param>=<constraint>`
+# row names a value with text after the first placeholder (docs/shapes.md S-245).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "snap"
+version = "2.77.1"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8)"
+
+[[capture]]
+argv = ["snap", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_value_name]
+"--with" = "<param>=<constraint>"

@@ -15,9 +15,18 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["--change", "--show-pause"]
-must_not_contain_positionals = ["a", "delete", "dump", "file", "offload", "phy", "settings", "tunable"]
+must_contain_flags = ["--change", "--show-pause", "--cable-test", "--show-pse", "--set-pse", "--monitor", "--version", "--set-mm", "--get-plca-cfg", "--groups", "--all-groups"]
+must_not_contain_positionals = ["a", "delete", "dump", "file", "offload", "phy", "settings", "tunable", "EEPROM", "RSS", "EEE", "PHY", "FEC", "FUNC"]
+must_not_describe_root = ["The supported sub commands"]
 
 [contract.must_attach_choices]
 "--src" = ["aggregate", "emac", "pmac"]
+"--groups" = ["eth-phy", "eth-mac", "eth-ctrl", "rmon"]
 
+
+[contract.must_describe]
+"--change" = "Change generic options [ speed %d ] [ lanes %d ] [ duplex half|full ]"
+"--pause" = "Set pause options [ autoneg on|off ] [ rx on|off ] [ tx on|off ]"
+"--eeprom-dump" = "Do a EEPROM dump [ raw on|off ] [ offset N ] [ length N ]"
+"--per-queue" = "Apply per-queue command. The supported sub commands include --show-coalesce, --coalesce [queue_mask %x] SUB_COMMAND"
+"--set-rxfh-indir" = "[ hfunc FUNC ] [ delete ]"

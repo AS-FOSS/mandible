@@ -1,0 +1,135 @@
+name: cargo-generate-rpm
+description: Generate a binary RPM package (.rpm) from Cargo projects
+usage:
+- 'Usage: cargo-generate-rpm [OPTIONS]'
+flags:
+- spellings:
+  - -a
+  - --arch
+  value_name: <ARCH>
+  value_kind: Required
+  description: Target arch of generated package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: <OUTPUT>
+  value_kind: Required
+  description: Output file or directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --package
+  value_name: <PACKAGE>
+  value_kind: Required
+  description: Name of a crate in the workspace for which RPM package will be generated
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --auto-req
+  value_name: <AUTO_REQ>
+  value_kind: Required
+  choices:
+  - name: auto
+    description: Use the preferred automatic dependency process.
+  - name: disabled
+    description: 'Disable the discovery of dependencies. [alias: no]'
+  - name: builtin
+    description: Use the builtin procedure based on ldd.
+  - name: find-requires
+    description: Use /usr/lib/rpm/find-requires.
+  - name: /path/to/find-requires
+    description: Use the specified external program.
+  description: 'Automatic dependency processing mode. [default: auto]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --target
+  value_name: <TARGET>
+  value_kind: Required
+  description: Sub-directory name for all generated artifacts. May be specified with CARGO_BUILD_TARGET environment variable
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --target-dir
+  value_name: <TARGET_DIR>
+  value_kind: Required
+  description: Directory for all generated artifacts. May be specified with CARGO_BUILD_TARGET_DIR or CARGO_TARGET_DIR environment variables
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --profile
+  value_name: <PROFILE>
+  value_kind: Required
+  description: 'Build profile for packaging [default: release]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --payload-compress
+  value_name: <PAYLOAD_COMPRESS>
+  value_kind: Required
+  description: 'Compression type of package payload [default: zstd] [possible values: none, gzip, zstd, xz]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --source-date
+  value_name: <SOURCE_DATE>
+  value_kind: Required
+  description: Timestamp in seconds since the UNIX Epoch for clamping modification time of included files and package build time. This value can also be provided using the SOURCE_DATE_EPOCH enviroment variable.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --metadata-overwrite
+  value_name: <METADATA_OVERWRITE>
+  value_kind: Required
+  description: Overwrite metadata with TOML file. If "#dotted.key" suffixed, load "dotted.key" table instead of the root table
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --set-metadata
+  value_name: <SET_METADATA>
+  value_kind: Required
+  description: Overwrite metadata with TOML text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --variant
+  value_name: <VARIANT>
+  value_kind: Required
+  description: Shortcut to --metadata-overwrite=path/to/Cargo.toml#package.metadata.generate-rpm.variants.VARIANT
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Print help (see a summary with '-h')
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Print version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

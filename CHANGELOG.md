@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-248] `mandible jarsigner` shows `-providerArg <arg>` as its own flag, with `configure argument for -addprovider` and `... for -providerClass`, instead of text inside those two flags' descriptions.
+- [S-247] `mandible cargo-generate-rpm --auto-req` lists its values (`auto`, `disabled`, `builtin`, `find-requires`, `/path/to/find-requires`) as choices with their descriptions, from the `Possible values:` dash bullets.
+- [S-246] `mandible speedtest` lists the formats printed in its `Valid output formats:` line (`human-readable (default)`, `csv`, `tsv`, `json`, `jsonl`, `json-pretty`) as the values of `-f, --format` (`(default)` kept as printed) and the `Machine readable formats ...` line after it is part of its description.
+- [S-245] A value placeholder keeps the text printed right after it: `mandible pnpm install` shows `--filter <pattern>...` and `<pattern>^...`, `snap get` shows `--with=<param>=<constraint>`, `dpkg` shows `-L <package>...`.
+- [S-243] `mandible ethtool` shows each operation's description and its setting rows (`-s|--change` lists `[ speed %d ] [ duplex half|full ] ...`), keeps the 15 operations after `-Q` (`--cable-test`, `--set-pse`, `--monitor`, ...), and no longer lists `EEPROM`, `RSS`, `EEE`, `PHY`, `FEC` and `FUNC` as operands; `--groups` offers `eth-phy`, `eth-mac`, `eth-ctrl`, `rmon`.
 - [S-242] `mandible ssh-keygen` shows `-h` and `-U` as two flags, not `-h` with a value `U`; the same for the two-letter groups of `iscsiadm`, `nfsidmap`, `preconv` and `ssh-agent`: a glued two-letter group is two switches when the help writes every flag value after a space.
 - [S-241] `mandible linux-version` shows `compare` with `VERSION1 OP VERSION2` and `sort` with optional repeatable `VERSION1 VERSION2`: numbered upper-case operands of a command's own usage form are read when the same stem recurs with another number.
 - [S-240] `mandible linux-version` lists `compare`, `sort` and `list` as commands, with `--reverse` under `sort` and `--paths` under `list`: usage forms that print the program as `/usr/bin/linux-version` are read like the bare name.
