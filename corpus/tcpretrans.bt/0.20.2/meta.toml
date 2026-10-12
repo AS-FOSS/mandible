@@ -25,7 +25,7 @@
 # space narrower than every other row's gap, and the layout parser's
 # column detection needs a wider gap.
 #
-# Round 6 classified all three defects. (1) The joined-forms shape is the
+# All three defects are classified. (1) The joined-forms shape is the
 # `bpftrace` interpreter answering in place of the script, an entirely
 # different program from `tcpretrans.bt`; the tool-name mismatch that
 # blocks each form starting its own entry is `usage-program-word-mismatch`
@@ -42,7 +42,7 @@
 # joined alias row, and `--include FILE` is one plain flag with a value,
 # no alias join at all. It is not literally counted in the 9/27 today;
 # generalizing the detector to plain flag+value rows needs its own
-# calibration this round did not reach.
+# calibration not yet done.
 
 [bless]
 provenance = "agent"

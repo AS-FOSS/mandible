@@ -196,7 +196,7 @@ When a change removes text from the wrong place, the same change must render
 that text in its right place. Check every alias fold and every merge you touch
 against the raw help text for dropped rows and dropped values. A diff that only
 deletes the misplaced text is an unfinished fix. This cleared every gate twice
-in one round: `ar`'s `@<file>` row rendered nowhere and `ffplay`'s
+at once: `ar`'s `@<file>` row rendered nowhere and `ffplay`'s
 `--help topic` row vanished into an alias fold, while tests, corpus and sweeps
 all stayed green.
 
@@ -243,7 +243,9 @@ Each is a bug a reasonable agent would repeat. One line, then where to look.
 - **Public prose describes the change, not the conversation.** A commit subject
   plus at most three lines. Never paste private instructions, transcribe a
   discussion, or dump spec text; link the section. No personal details beyond
-  the git author, and no absolute path from your own machine.
+  the git author, and no absolute path from your own machine. Repo text
+  states facts a reader can check from the repository alone: never cite work
+  rounds, internal reports, briefs or files outside the repository.
 - **The spec states the design and never narrates its status.** No "approved
   but not yet implemented", no "to be done", no conversation residue. §16 is
   the one home for rulings.
@@ -302,7 +304,7 @@ is not evidence.
 ### 4.4 Change-trigger matrix
 
 Touch the left column and the right column moves in the same commit or pull
-request. This is a lookup, not a judgment call at the end of a round.
+request. This is a lookup, not a judgment call at the end of the work.
 
 <!-- directory-triggers:start -->
 | Path | You must also… |

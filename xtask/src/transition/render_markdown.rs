@@ -43,7 +43,7 @@ fn md_preamble(t: &Transition) -> String {
     out.push_str("## Sweep transition report\n\n");
     out.push_str(
         "A semantic per-tool diff between two scoreboards — the check that has actually \
-         caught every regression on this branch so far, run by hand until now. **Non-blocking**: \
+         caught every regression so far, run by hand until now. **Non-blocking**: \
          this never fails a run (maintainer decision D4); it is a loud report during burn-in, \
          promoted to a gate later.\n\n",
     );
@@ -229,7 +229,7 @@ fn md_subcommand_losses_section(t: &Transition) -> String {
 
 /// The "### Subcommand-count gains" section — mirrors
 /// [`md_flag_gains_section`]. A gain is named, not scored: it can be a
-/// real recovery or a fabricated row (the round-8 `fail2ban-client`
+/// real recovery or a fabricated row (the `fail2ban-client`
 /// defect this column exists to catch), and only a human reading the
 /// rendered screen can tell which.
 fn md_subcommand_gains_section(t: &Transition) -> String {

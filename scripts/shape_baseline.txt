@@ -144,7 +144,6 @@ ratio	1	mandible-extract/src/help_text/sections/heading.rs
 ratio	1	mandible-extract/src/help_text/sections/layout.rs
 ratio	1	mandible-extract/src/help_text/sections/preamble.rs
 ratio	1	mandible-extract/src/help_text/sections/repair.rs
-ratio	1	mandible-extract/src/help_text/sections/scan.rs
 ratio	1	mandible-extract/src/help_text/sections/spelling.rs
 ratio	1	mandible-extract/src/help_text/sections/usage.rs
 ratio	1	mandible-extract/src/lib.rs
@@ -179,7 +178,6 @@ ratio	1	xtask/src/audit/mod.rs
 ratio	1	xtask/src/audit/signatures.rs
 ratio	1	xtask/src/bundling.rs
 ratio	1	xtask/src/corpus/mod.rs
-ratio	1	xtask/src/corpus/summary.rs
 ratio	1	xtask/src/coverage/aggregate.rs
 ratio	1	xtask/src/coverage/fingerprint.rs
 ratio	1	xtask/src/coverage/render_text.rs

@@ -13,14 +13,14 @@
 # The second line is a tab-indented continuation of the usage synopsis,
 # describing what the tool does.
 #
-# Fixed (round 6, atlas S-128): `[-options]`, a usage line's own generic
+# Fixed (atlas S-128): `[-options]`, a usage line's own generic
 # placeholder spelled with a leading dash, no longer invents a flag.
 # `is_dash_prefixed_option_list_placeholder`
 # (`mandible-extract/src/help_text/sections/usage.rs`) drops the token
 # before it reaches the flag grammar. `must_not_contain_flags = ["-o"]`
 # passes for real now.
 #
-# Fixed (round 7, atlas S-135): the tab-indented continuation carries no
+# Fixed (atlas S-135): the tab-indented continuation carries no
 # terminating punctuation, so it used to fold into the usage line rather
 # than get dropped the way a period-terminated continuation already was.
 # `looks_like_unpunctuated_description_continuation`

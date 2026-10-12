@@ -7,14 +7,14 @@
 //! framework-support CI workflow (spec §13.1a) consumes.
 
 mod aggregate;
+mod bullet_and_dash_tables;
 mod fingerprint;
+mod invocation_and_continuation;
+mod label_and_table_shapes;
 mod render_markdown;
 mod render_text;
-mod round10;
-mod round7;
-mod round8;
-mod round9;
 mod score;
+mod value_and_usage_tail;
 
 use aggregate::compute_aggregate;
 pub use aggregate::{parse_aggregate_footer, Aggregate};

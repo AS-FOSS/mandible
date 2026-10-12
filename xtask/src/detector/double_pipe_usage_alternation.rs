@@ -5,7 +5,7 @@
 //! trailing `key desc` operand pair after the alternation closes:
 //! `nfsidmap [-vh] [-c || [-u|-g|-r key] || -d || -l || [-t timeout] key
 //! desc]`. Reported, not gated: below the five-tool floor on a raw-shape
-//! sweep of `audit/queue-captures/`, so no fix ships this round
+//! sweep of `audit/queue-captures/`, so no fix ships
 //! (docs/shapes.md S-175).
 //!
 //! Fixtures: `corpus/nfsidmap/audit-seed/`, `corpus/nfsidmap/audit-seed2/`.

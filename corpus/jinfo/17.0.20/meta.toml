@@ -42,9 +42,9 @@
 # because a fixture replay never runs the merge, so no `[contract]` field
 # here can state it. It has no detector and no fleet count yet.
 #
-# Schema gap, honestly stated rather than worked around: the brief for this
-# fixture asked for a `must_keep_separate` entry naming the three `-flag`
-# rows, to assert they stay three distinct entities. `check_contract`'s
+# Schema gap, honestly stated rather than worked around: a
+# `must_keep_separate` entry naming the three `-flag` rows would assert they
+# stay three distinct entities. `check_contract`'s
 # `must_keep_separate` (xtask/src/corpus/contract.rs) resolves each spelling
 # in a group to an entity index via `resolve_flag_entity`, which is a plain
 # `.find()` over the tree's flags for the first entity matching that
@@ -110,4 +110,4 @@ expected_framework = "generic"
 # tool and carries no audit verdict in any seed (it was never sampled),
 # so calibration against the labelled set is 0/0 either way — spec
 # §13.1e rule 2 forbids quoting an uncalibrated fleet count as trusted.
-# Not fixed this round regardless of the count, per that rule.
+# Not fixed regardless of the count, per that rule.

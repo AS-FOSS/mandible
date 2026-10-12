@@ -590,7 +590,7 @@ pub const DEFECT_FAMILIES: &[DefectFamily] = &[
                   description begins with the literal word `or`, so the second spelling never \
                   becomes an alias",
     },
-    // Six round-4 detectors, added after the seven above. Atlas ids S-106
+    // Six more detectors, added after the seven above. Atlas ids S-106
     // through S-111.
     DefectFamily {
         name: "underscore-in-long-option",

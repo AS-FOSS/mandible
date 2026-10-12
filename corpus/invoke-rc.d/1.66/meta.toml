@@ -15,7 +15,7 @@
 # reaches any other node either (not swallowed into the root's own
 # description the way `memhog`'s flag text is).
 #
-# Fixed (round 6, atlas S-127): `apply_positional_description_block`
+# Fixed (atlas S-127): `apply_positional_description_block`
 # (`mandible-extract/src/help_text/sections/usage.rs`) reads the block
 # right under the usage line, matches each row's name against a
 # positional the usage line already recovered, and attaches the rest of

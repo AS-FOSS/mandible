@@ -24,7 +24,7 @@ expected_framework = "generic"
 # short-shaped or long-shaped spelling on an entity. With spellings
 # `[-?,  -h, --help]`, `Entity::short()` returned `'?'` and `-h` read as
 # absent no matter how many times the check ran. Promoted once
-# `flag_present` was fixed to search every spelling (round 7, the ffplay
+# `flag_present` was fixed to search every spelling (the ffplay
 # `-h, -?, -help, --help` adjacency fold) — the same accessor-only-
 # returns-one gap that fold's own contract check hit.
 #

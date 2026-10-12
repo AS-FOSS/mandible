@@ -297,12 +297,12 @@ pub fn check_vim_family_ratchet(
     Ok(ratchet.holds())
 }
 
-/// Round 5's two repaired families (atlas S-112/S-113), gated the same
+/// The two repaired separator families (atlas S-112/S-113), gated the same
 /// way as [`check_vim_family_ratchet`]'s other callers, folded into one
 /// function so `xtask/src/main.rs`'s `run_coverage` gains one call site
 /// rather than two. `same-spelling-fold-loss` is not gated here: its
 /// merge half is invisible to this sweep.
-pub fn check_round5_family_ratchets(
+pub fn check_separator_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
@@ -316,12 +316,12 @@ pub fn check_round5_family_ratchets(
     Ok(holds)
 }
 
-/// [`check_vim_family_ratchet`] for every family this round repaired and
-/// gated at zero, atlas S-116 to S-120, S-126 to S-128, S-131 and S-132,
+/// [`check_vim_family_ratchet`] for every spelling and block family
+/// repaired and gated at zero, atlas S-116 to S-120, S-126 to S-128, S-131 and S-132,
 /// `true` only if every one holds. `description-subcommands-list`, S-114,
 /// stays open and is not listed. One call site for the whole batch, so
 /// `main.rs` gains one line rather than one per family.
-pub fn check_round6_family_ratchets(
+pub fn check_spelling_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
@@ -371,11 +371,11 @@ pub fn check_scalar_family_ratchet(
     Ok(ratchet.holds())
 }
 
-/// [`check_vim_family_ratchet`] for round 8's two repaired families, atlas
-/// S-137 and S-139, gated at zero the same way [`check_round6_family_ratchets`]
+/// [`check_vim_family_ratchet`] for the two repaired invocation-form families, atlas
+/// S-137 and S-139, gated at zero the same way [`check_spelling_family_ratchets`]
 /// is. S-139's own fix moves two tools, below the five-tool bar, and is
 /// recorded as an exception in `docs/design.md` §16.
-pub fn check_round8_family_ratchets(
+pub fn check_invocation_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
@@ -384,12 +384,12 @@ pub fn check_round8_family_ratchets(
     Ok(forms && glued)
 }
 
-/// [`check_vim_family_ratchet`] for round 9's two repaired families, atlas
+/// [`check_vim_family_ratchet`] for the two repaired lowdown bullet families, atlas
 /// S-143 and S-144 (issue #138), gated at zero the same way
-/// [`check_round8_family_ratchets`] is. Neither family has a measured
+/// [`check_invocation_family_ratchets`] is. Neither family has a measured
 /// fleet member on this box (no nix, no Lix installed); both are shipped
 /// as a gated exception, recorded in `docs/design.md` §16.
-pub fn check_round9_family_ratchets(
+pub fn check_bullet_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {
@@ -398,19 +398,19 @@ pub fn check_round9_family_ratchets(
     Ok(cmd && opt)
 }
 
-/// [`check_vim_family_ratchet`] for round 10's repaired families, atlas
+/// [`check_vim_family_ratchet`] for the repaired usage-label families, atlas
 /// S-154 (a nested bracket group's words fused into one operand name),
 /// S-150 (a bare usage label seeding an empty form) and S-142's two
 /// halves (issue #143: the glued label and the open-bracket
 /// continuation, both now tree-aware — see
 /// `usage_label_glued_to_program_name` and
 /// `usage_open_bracket_continues_at_column_zero`). Gated at zero the same
-/// way `check_round9_family_ratchets` is. `usage-foreign-program-word`
+/// way `check_bullet_family_ratchets` is. `usage-foreign-program-word`
 /// (S-151's other half) is deliberately absent: it is a render-layer
 /// substitution, so the raw usage text it counts never changes once a
 /// tool is repaired, the same reason `usage-program-word-mismatch` is
 /// reported rather than ratcheted.
-pub fn check_round10_family_ratchets(
+pub fn check_label_family_ratchets(
     previous: &crate::coverage::Aggregate,
     fresh: &crate::coverage::Aggregate,
 ) -> anyhow::Result<bool> {

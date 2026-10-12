@@ -1,15 +1,15 @@
-//! The round-9 family detectors, atlas S-143, S-144, S-145 and S-148.
+//! The bullet-row and dash-table family detectors, atlas S-143, S-144, S-145 and S-148.
 //! S-143 and S-144 are lowdown's bullet-marked command and option rows
 //! (issue #138). S-145 is the single-dash-long option table. S-148 is the
 //! option-table sibling of S-131's own usage-synopsis shape, counted only,
 //! with no parser change behind it. Split into their own file for the same
-//! line-count reason `round7.rs` and `round8.rs` are.
+//! line-count reason `value_and_usage_tail.rs` and `invocation_and_continuation.rs` are.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
 use mandible_core::CommandNode;
 
-pub(super) fn round9_family_counts(
+pub(super) fn bullet_row_family_counts(
     raw: &str,
     root: &CommandNode,
 ) -> Vec<(&'static str, usize, Vec<String>)> {

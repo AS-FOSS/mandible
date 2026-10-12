@@ -1,13 +1,13 @@
-//! The round-10 family detectors, atlas S-150 upward. Split into its own
-//! file for the same line-count reason `round7.rs`, `round8.rs` and
-//! `round9.rs` are. `nested-bracket-group-fused-operand` belongs here
-//! because the rule it fences, S-154, is one of this round's own.
+//! The usage-label and table-shape family detectors, atlas S-150 upward.
+//! Split into its own file for the same line-count reason
+//! `value_and_usage_tail.rs`, `invocation_and_continuation.rs` and
+//! `bullet_and_dash_tables.rs` are.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
 use mandible_core::CommandNode;
 
-pub(super) fn round10_family_counts(
+pub(super) fn label_and_table_family_counts(
     raw: &str,
     root: &CommandNode,
 ) -> Vec<(&'static str, usize, Vec<String>)> {

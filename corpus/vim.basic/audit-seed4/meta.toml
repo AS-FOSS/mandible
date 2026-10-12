@@ -96,7 +96,7 @@ must_contain_flags = ["+", "--", "--help"]
 # (`families_derived = true`, argued per quote in
 # `audit/submissions/sadigaxund/4.toml`) and recalibrating against seed 4:
 #   plus-prefixed-option: CALIBRATED (PASSES, 0 false alarms), fleet 13
-#     tools/23 findings, clears the 5-tool bar. NOT FIXED this round — see
+#     tools/23 findings, clears the 5-tool bar. NOT FIXED — see
 #     reason above; a fix needs positive evidence a `+` row sits in a real
 #     option table, which no version tried so far provides safely.
 #   usage-only-value-name: FIXED for the value-name half. Pre-fix fleet
@@ -114,8 +114,8 @@ must_contain_flags = ["+", "--", "--help"]
 #   single-space-description-column: NOT calibratable against seed 4 —
 #     jinfo, its only motivating tool, has no audit verdict in any seed.
 #     Fleet 9 tools/27 findings, clears the bar on the count alone. Not
-#     fixed this round.
-# "Not fixed this round" is a session scope limit, not a finding that any
+#     fixed.
+# "Not fixed" means no fix is shipped, not a finding that any
 # of these five is unfixable or below the bar — all five clear it and are
 # calibrated.
 

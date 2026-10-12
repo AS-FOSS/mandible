@@ -10,7 +10,7 @@ provenance = "agent"
 name = "fuser"
 version = "audit-seed"
 platform = "ubuntu-24.04"
-captured_with = "frozen capture, round 10 W5"
+captured_with = "frozen capture"
 
 [[capture]]
 argv = ["fuser", "--help"]

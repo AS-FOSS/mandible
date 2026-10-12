@@ -1,4 +1,4 @@
-//! `nested-flag-group-as-value` (round 11, atlas S-170): a usage-synopsis
+//! `nested-flag-group-as-value` (atlas S-170): a usage-synopsis
 //! bracket group whose own value spec is itself entirely option spellings
 //! (optionally an ellipsis) — `dmsetup --help`'s `[-h|--help
 //! [-c|-C|--columns]]` and `[-v|--verbose [-v|--verbose ...]]` — is a

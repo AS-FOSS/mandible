@@ -74,18 +74,18 @@ pub(crate) mod usage_program_word_mismatch;
 pub(crate) mod usage_text_continuation_fold;
 pub(crate) mod value_name_duplicates_choices;
 
-// Round-5 family detectors (three parser families: same-spelling-fold-loss,
+// Fold and separator family detectors (three parser families: same-spelling-fold-loss,
 // bare-or-usage-separator, usage-spelling-duplicates-table-row). Each
 // implements `Detector` directly rather than the separate
-// detect()/Report + wrapper split the round-4 modules above use — no
+// detect()/Report + wrapper split the modules above use — no
 // wrapper is needed since none of these three shares its detection logic
 // with anything else in this file.
 pub(crate) mod bare_or_usage_separator;
 pub(crate) mod same_spelling_fold_loss;
 pub(crate) mod usage_spelling_duplicates_table_row;
 
-// Round-7 family detectors (issue #135's own two shapes, atlas S-131 and
-// S-132), same direct-`Detector`-impl shape as the round-5 modules above.
+// Bracket-group family detectors (issue #135's own two shapes, atlas S-131 and
+// S-132), same direct-`Detector`-impl shape as the modules above.
 pub(crate) mod trailing_bracket_group_multiword_operand;
 pub(crate) mod usage_bracket_group_multiword_value;
 
@@ -94,54 +94,54 @@ pub(crate) mod usage_bracket_group_multiword_value;
 // operand name the tree invented. Same direct-`Detector`-impl shape.
 pub(crate) mod nested_bracket_group_fused_operand;
 
-// Round-8 family detector (issue "lvm2 invocation forms read as section
+// Invocation-form family detector (issue "lvm2 invocation forms read as section
 // headings", atlas S-137), same direct-`Detector`-impl shape.
 pub(crate) mod invocation_form_head_as_flag_group;
-// Round-8 family detector (atlas S-142's two measurement halves: the
+// Usage-label family detectors (atlas S-142's two measurement halves: the
 // usage label glued to the program name, and the open-bracket
 // continuation at column zero), same direct-`Detector`-impl shape.
 pub(crate) mod usage_label_glued_to_program_name;
 pub(crate) mod usage_open_bracket_continues_at_column_zero;
-// Round-9 family detectors (issue #138's own two shapes, atlas S-143 and
+// Lowdown bullet family detectors (issue #138's own two shapes, atlas S-143 and
 // S-144), same direct-`Detector`-impl shape.
 pub(crate) mod lowdown_bullet_command_row;
 pub(crate) mod lowdown_bullet_option_row;
 
-// Round-9 family detector (atlas S-148, the option-table sibling of
-// S-131), same direct-`Detector`-impl shape. Count only this round — no
-// parser change ships for it.
+// Option-table family detector (atlas S-148, the option-table sibling of
+// S-131), same direct-`Detector`-impl shape. Count only — no parser
+// change ships for it.
 pub(crate) mod option_table_multiword_value_name;
 
-// Round-10 family detectors (atlas S-150, S-151), same direct-`Detector`-
-// impl shape as the round-8/round-9 modules above.
+// Usage-label family detectors (atlas S-150, S-151), same direct-`Detector`-
+// impl shape as the modules above.
 pub(crate) mod bare_usage_label_form;
 pub(crate) mod usage_foreign_program_word;
 pub(crate) mod usage_form_trailing_description;
-// Round-10 family detectors (atlas S-155 and S-156).
+// Choice-enumeration family detectors (atlas S-155 and S-156).
 pub(crate) mod alternation_value_is_choices;
 pub(crate) mod description_tail_enumerates_choices;
-// Round-10 family detectors (issue-fed round, atlas S-157 to S-161), same
+// Alias and table-value family detectors (atlas S-157 to S-161), same
 // direct-`Detector`-impl shape.
 pub(crate) mod comma_swallowed_alias;
 pub(crate) mod glued_bracket_angle_run;
 pub(crate) mod slash_joined_alias_outside_bullet;
 pub(crate) mod spaced_bare_word_table_value;
-// Round-10 family detector (atlas S-166, W6's header-declared
+// Header-declared-column family detector (atlas S-166, a header-declared
 // three-column option table), same direct-`Detector`-impl shape.
 pub(crate) mod header_declared_env_column;
-// Round-11 family detector (atlas S-168, Xvfb's colon-introduced choice
+// Choice-list family detector (atlas S-168, Xvfb's colon-introduced choice
 // list under a `+word`/`-word` placeholder pair), same direct-`Detector`-
 // impl shape.
 pub(crate) mod choice_list_under_placeholder;
-// Round-11 family detectors (queue item 2: a command table inside the
+// Usage-block family detectors (a command table inside the
 // usage block, atlas S-169 and S-170), same direct-`Detector`-impl shape.
 pub(crate) mod nested_flag_group_as_value;
 pub(crate) mod usage_command_table;
-// Round-11 family detector (atlas S-172: a usage-line single-dash-long
+// Single-dash-long family detector (atlas S-172: a usage-line single-dash-long
 // token split into a short flag plus a swallowed value), same detect()/
 // Report + wrapper shape as `single_dash_long_table` above.
 pub(crate) mod usage_attested_single_dash_long;
-// Round-12 family detector (atlas S-175: a usage form's `||`-joined OR
+// Alternation family detector (atlas S-175: a usage form's `||`-joined OR
 // alternation), same detect()/Report + wrapper shape as
 // `usage_form_trailing_description` above.
 pub(crate) mod double_pipe_usage_alternation;

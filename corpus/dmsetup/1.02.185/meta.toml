@@ -26,7 +26,7 @@
 # pipe or bracket (`-j|--major <major> -m|--minor <minor>`) — a shape
 # `extract_usage_flags` has never handled at the usage-line level. `-j`/
 # `--major` recovers correctly; `-m`/`--minor` does not yet. This was
-# already true of the shared engine before this round; recovering
+# already true of the shared engine before `create` was recovered; recovering
 # `create` as a real subcommand at all is what newly exposes it here.
 # Not asserted below.
 

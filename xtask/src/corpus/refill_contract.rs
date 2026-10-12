@@ -1,5 +1,5 @@
 //! `must_value_names_after_root_refill`: split out of `contract.rs` for
-//! the same line-count reason the round-7/8 detector modules split out of
+//! the same line-count reason the coverage test modules split out of
 //! `score.rs` (`scripts/shape_guard.sh`'s 800-code-line ceiling).
 //!
 //! Simulates the real app's own root-refill

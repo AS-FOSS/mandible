@@ -2,11 +2,11 @@
 //! usage form's own trailing description reaches the tree glued onto the
 //! synopsis instead of staying separate — `gcc-ranlib-13`'s own form reads
 //! `gcc-ranlib-13 [options] archive Generate an index to speed access to
-//! archives`. Reported, not gated: this round only measures the shape and
+//! archives`. Reported, not gated: this detector only measures the shape and
 //! proposes; no fix ships below the five-tool floor (docs/shapes.md S-152).
 //!
 //! Fixtures: `corpus/gcc-ranlib-13/2.42/`, `corpus/fdisk/2.39.3/`,
-//! `corpus/gdk-pixbuf-thumbnailer/2.42.10/` (whichever the round committed).
+//! `corpus/gdk-pixbuf-thumbnailer/2.42.10/`.
 
 use mandible_core::CommandNode;
 
@@ -143,7 +143,7 @@ impl crate::detector::Detector for UsageFormTrailingDescription {
     fn describes(&self) -> &'static str {
         "a usage form's own trailing description (three or more plain prose words behind real \
          synopsis grammar) reaches the tree glued onto the invocation instead of staying \
-         separate — measurement only this round, docs/shapes.md S-152"
+         separate — measurement only, docs/shapes.md S-152"
     }
 
     fn hits(&self, evidence: &crate::detector::ToolEvidence<'_>) -> Vec<String> {

@@ -1,4 +1,4 @@
-//! `usage-command-table` (round 11, atlas S-169): a command table sitting
+//! `usage-command-table` (atlas S-169): a command table sitting
 //! directly under the tool's own root `Usage:` synopsis — a bare `Usage:`
 //! label, a blank line, the tool's own name alone on its line, its own
 //! bracketed global flags on continuation lines, a blank line, then one
