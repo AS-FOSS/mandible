@@ -14,6 +14,7 @@
 //! profile. See [`build_node`] for the staged degradation this produces.
 
 pub mod confession;
+mod error_only;
 mod fold_repeats;
 mod grammar;
 mod help_word;
@@ -404,6 +405,14 @@ impl ExtractionTier for HelpTextTier {
                     words.join(" ")
                 )));
             }
+        }
+
+        // The tool failing is not help for the command (S-238).
+        if !words.is_empty() && error_only::is_error_only(&raw) {
+            return Err(ExtractError::Other(format!(
+                "`{} --help` answered only with an error",
+                words.join(" ")
+            )));
         }
 
         // Self-similar fan-out (spec M-19, docs/shapes.md S-079): a node

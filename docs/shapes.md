@@ -5510,6 +5510,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
 
+### S-238: a probe answer that is only the tool's error is not a page
+
+- id: S-238
+- looks like: |
+      [ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND] No package.json (or package.yaml, or package.json5) was found in "$PWD".
+- tools: pnpm (start, test, exec)
+- handling: Fixed (`error_only.rs`, checked in `extract_node`). A subcommand answer of
+  one or two non-blank lines whose first word is `[ERR_...]`, `error:`, `Error:`,
+  `ERROR:`, `fatal:` (any case form) or `ERR_...`, with no `usage` or option row, is the
+  tool failing in a directory with no project, not help for the command. The node has no
+  page of its own, as for S-217; `t` still shows what the tool printed. The root is
+  exempt. Before, the error line was the node's verbatim page. No corpus fixture: the
+  corpus tree holds the root only, so a sub-page is pinned by the unit test in `error_only.rs`.
+- fleet: the full sweep records roots only and is unchanged; `pnpm exec`, `start` and `test`
+  were found by running every pnpm command's `--help` (the other 40 print help); 48 short
+  round-17 root captures and 27 short corpus captures hold no match.
+
 ### S-239: the first block of a table of invocation blocks is a command
 
 - id: S-239
