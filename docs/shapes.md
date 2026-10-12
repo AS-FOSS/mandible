@@ -5528,7 +5528,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: replaying the 2234 round-17 raw captures changed 167 root
   descriptions, each only by losing label lines (74 `Options:`, 50 `stdout:`,
   11 `options:`, 4 `NAME:`, 3 `Description:`, 27 other labels); none gained
-  text. Command-list labels (`Commands are:`, `Supported commands are:`) and
+  text. The 50 `stdout:` lines are the capture file's own section marker, so a
+  live run moves about 117 tools. Command-list labels (`Commands are:`, `Supported commands are:`) and
   `Where:` have no group to render as.
 
 ### S-250: a bare version line leads the description
