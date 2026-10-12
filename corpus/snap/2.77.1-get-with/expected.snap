@@ -2,7 +2,20 @@ name: snap
 description: |-
   The get command prints configuration options for the provided snap.
 
-  $ snap get snap-name username frank
+  $ snap get snap-name username
+    frank
+
+  If multiple option names are provided, the corresponding values are returned:
+
+  $ snap get snap-name username password
+    Key Value
+    username frank
+    password ...
+
+  Nested values may be retrieved via a dotted path:
+
+  $ snap get snap-name author.name
+    frank
 usage:
 - '  snap get [get-OPTIONS] <snap> [<key>...]'
 positionals:

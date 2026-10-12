@@ -5689,3 +5689,69 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the outer flag and the nested flag, each with its own description. The
   trailing `...` repeat marker is not kept. Fixture: `corpus/jarsigner/21.0.12`.
 - fleet: full-PATH sweep (2271 matched), zero losses; only jarsigner moved (+2 flags), read against its `--help`.
+
+### S-249: a colon heading word is the root description
+
+- id: S-249
+- looks like: |
+      Usage: gcc [options] file...
+      Options:
+        -pass-exit-codes         Exit with highest error code from a phase.
+- tools: gcc, g++, cpp, as, ld, cache_check, thin_check, era_check, insmod, modprobe, piconv, lxc, runc, javac, xtables-nft-multi
+- handling: Fixed. A column-0 label of at most four alphabetic words ending in a
+  colon (`Options:`, `Commands are:`, `where possible options include:`) whose
+  next non-blank line is indented labels the block below it. At either edge of
+  the description it is not description text: the description is the prose
+  between the labels, or none. A label amid prose, a sentence lead-in, an
+  identifier (`armelf_linux_eabi:`) and a line with a number are left alone. The
+  S-164 guard is untouched: a heading that is not generic (`Management Options`,
+  `Common options`, `Box options`) still renders as its flags' group label,
+  now that the description no longer spends it. Fixtures:
+  `corpus/cache_restore/audit-seed2-heading`, `corpus/piconv/5.38.2`.
+- fleet: replaying the 2234 round-17 raw captures changed 167 root
+  descriptions, each only by losing label lines (74 `Options:`, 50 `stdout:`,
+  11 `options:`, 4 `NAME:`, 3 `Description:`, 27 other labels); none gained
+  text. The 50 `stdout:` lines are the capture file's own section marker, so a
+  live run moves about 117 tools. Command-list labels (`Commands are:`, `Supported commands are:`) and
+  `Where:` have no group to render as.
+
+### S-250: a bare version line leads the description
+
+- id: S-250
+- looks like: |
+      Version 11.22.0
+      Usage: pnpm store <command>
+
+      Reads and performs actions on pnpm store that is on the current filesystem.
+- tools: pnpm (and its subcommand pages), pnpx, pnx, pn
+- handling: Fixed. A description whose first paragraph is a single `Version
+  <number>` line and which has more text behind it prints that text first and
+  the version line after it, as its last paragraph. Nothing is dropped. A
+  description that is only the version line is left alone. The clap
+  `name 1.2.3` banner (S-068) is unchanged. Fixtures: `corpus/pnpm/11.22.0`,
+  `corpus/pnpm/11.22.0-commands`, `corpus/pnpm/11.22.0-banner`.
+- fleet: replaying the 2233 round-17 raw captures changed the root description
+  of four tools (pnpm, pn, pnpx, pnx), each only by moving the version line;
+  no other capture opens with such a line.
+
+### S-251: `$ command` example blocks are description text
+
+- id: S-251
+- looks like: |
+      Usage:
+        snap get [get-OPTIONS] <snap> [<key>...]
+
+      The get command prints configuration options for the provided snap.
+
+      $ snap get snap-name username
+      frank
+- tools: snap (the `get` page)
+- handling: Fixed. After the usage block, a paragraph that opens on a `$ command`
+  line is an example: the command and the output lines under it stay in the
+  description, the output set in under the command, and a one-line sentence
+  ending in a colon right before such a paragraph is prose, not a heading. The
+  output lines are never entities, even when they hold columns (`Key  Value`).
+  Fixture: `corpus/snap/2.77.1-get`.
+- fleet: none of the 2233 round-17 root captures holds such a block; the shape
+  occurs on subcommand pages, which the root sweep does not read (the corpus
+  holds one, `snap get`).

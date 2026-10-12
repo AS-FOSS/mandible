@@ -1,5 +1,4 @@
 name: gcc
-description: 'Options:'
 usage:
 - 'Usage: gcc [options] file...'
 flags:

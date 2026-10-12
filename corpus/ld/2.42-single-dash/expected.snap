@@ -1,5 +1,4 @@
 name: ld
-description: 'Options:'
 usage:
 - 'Usage: /usr/bin/ld [options] file...'
 flags:

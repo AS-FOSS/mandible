@@ -1,10 +1,10 @@
 name: pnpm
 description: |-
-  Version 11.22.0
-
   Alias: i
 
   Installs all dependencies of the project in the current working directory. When executed inside a workspace, installs all dependencies of all projects.
+
+  Version 11.22.0
 usage:
 - 'Usage: pnpm install [options]'
 flags:

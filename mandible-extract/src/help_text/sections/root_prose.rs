@@ -1,7 +1,8 @@
 //! Root-description text the leading-prose scan misses: prose that follows
 //! the usage block and a blank line, an indented lead paragraph above a
-//! bare heading word, and the heading word itself (never a description).
-//! `docs/shapes.md` S-235, S-236.
+//! bare heading word, and the heading word itself (never a description),
+//! including a colon label (`Options:`) at the edge of the description.
+//! `docs/shapes.md` S-235, S-236, S-249.
 
 use super::*;
 
@@ -21,6 +22,56 @@ pub(super) fn is_bare_heading_word(lines: &[&str], idx: usize) -> bool {
             .iter()
             .find(|l| !l.trim().is_empty())
             .is_some_and(|l| leading_whitespace(l) > 0)
+}
+
+/// A short column-0 label ending in a colon (`Options:`, `Commands are:`,
+/// `where possible options include:`) whose next non-blank line is
+/// indented: it labels the block below it, it is not prose. A sentence
+/// lead-in (more than four words) is not one, nor is an identifier or a
+/// line carrying a number (`armelf_linux_eabi:`, `1404 packages installed:`).
+/// Its text still renders as the group label of the block it heads.
+/// `docs/shapes.md` S-249.
+pub(super) fn is_colon_block_label(lines: &[&str], idx: usize) -> bool {
+    let Some(line) = lines.get(idx) else {
+        return false;
+    };
+    let t = line.trim_end();
+    leading_whitespace(line) == 0
+        && t.split_whitespace().count() <= 4
+        && is_section_heading_line(t)
+        && t.trim_end_matches(':')
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == ' ')
+        && lines[idx + 1..]
+            .iter()
+            .find(|l| !l.trim().is_empty())
+            .is_some_and(|l| leading_whitespace(l) > 0)
+}
+
+/// The line indices of block labels at the two edges of the description
+/// candidates (`candidate` says which column-0 lines may be description):
+/// every label before the first prose line and every label after the last.
+/// A label amid prose is left alone. `docs/shapes.md` S-249.
+pub(super) fn edge_label_lines(
+    lines: &[&str],
+    bound: usize,
+    candidate: impl Fn(usize) -> bool,
+) -> std::collections::HashSet<usize> {
+    let kept: Vec<usize> = (0..lines.len().min(bound))
+        .filter(|&j| !lines[j].trim().is_empty() && candidate(j))
+        .collect();
+    let is_label = |j: &usize| is_colon_block_label(lines, *j);
+    let lead = kept.iter().take_while(|j| is_label(j)).count();
+    let trail = kept[lead..]
+        .iter()
+        .rev()
+        .take_while(|j| is_label(j))
+        .count();
+    kept[..lead]
+        .iter()
+        .chain(&kept[kept.len() - trail..])
+        .copied()
+        .collect()
 }
 
 /// The indented paragraph that opens a document (`   xdg-open - opens a
@@ -54,12 +105,14 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
     if lines.get(from).is_some_and(|l| !l.trim().is_empty()) {
         return None;
     }
-    let mut paragraphs: Vec<Vec<&str>> = Vec::new();
-    let mut current: Vec<&str> = Vec::new();
+    let mut paragraphs: Vec<Vec<String>> = Vec::new();
+    let mut current: Vec<String> = Vec::new();
+    let mut in_example = false;
     let mut j = from;
     'scan: while j < lines.len() {
         let l = lines[j];
         if l.trim().is_empty() {
+            in_example = false;
             if is_block_label(&current, lines, j) {
                 current.clear();
                 break 'scan;
@@ -71,12 +124,31 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
             continue;
         }
         let t = l.trim_end();
+        // An example block opens on a `$ command` line at the start of a
+        // paragraph; the lines under it are that command's printed output,
+        // columns and all, until the blank line. S-250.
+        if current.is_empty() && is_shell_example_line(t) {
+            in_example = true;
+        }
+        if in_example && leading_whitespace(l) == 0 {
+            // The printed output is kept as its own lines, set in from the
+            // command that printed it: `Text::sanitize` keeps a line
+            // indented within its paragraph on a line of its own.
+            current.push(if is_shell_example_line(t) {
+                t.to_string()
+            } else {
+                format!("  {t}")
+            });
+            j += 1;
+            continue;
+        }
+        let lead_in = current.is_empty() && is_example_lead_in(lines, j);
         let plain = leading_whitespace(l) == 0
             && !t.starts_with('-')
-            && !t.ends_with(':')
+            && (lead_in || !t.ends_with(':'))
             && !t.contains("  ")
             && !t.contains('\t')
-            && !is_section_heading_line(t)
+            && (lead_in || !is_section_heading_line(t))
             && !starts_with_usage_prefix(t)
             && !looks_like_bnf_production_line(t)
             && !is_bare_heading_word(lines, j)
@@ -90,7 +162,7 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
             current.clear();
             break 'scan;
         }
-        current.push(l);
+        current.push(l.to_string());
         j += 1;
     }
     if !is_block_label(&current, lines, lines.len()) && !current.is_empty() {
@@ -102,6 +174,26 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
         .collect::<Vec<_>>()
         .join("\n\n");
     (!text.trim().is_empty()).then_some(text)
+}
+
+/// A shell-prompt example line: `$ snap get snap-name username`.
+fn is_shell_example_line(t: &str) -> bool {
+    t.strip_prefix("$ ")
+        .is_some_and(|rest| !rest.trim().is_empty())
+}
+
+/// A one-line paragraph ending in a colon that introduces the example block
+/// right after it (`Nested values may be retrieved via a dotted path:`).
+fn is_example_lead_in(lines: &[&str], j: usize) -> bool {
+    let t = lines[j].trim_end();
+    if !t.ends_with(':') || t.split_whitespace().count() < 3 {
+        return false;
+    }
+    let mut rest = lines[j + 1..].iter();
+    rest.next().is_some_and(|l| l.trim().is_empty())
+        && rest
+            .find(|l| !l.trim().is_empty())
+            .is_some_and(|l| is_shell_example_line(l.trim_end()))
 }
 
 /// `list [ --username=username ]`: a lowercase word then a flag or bracket
@@ -117,7 +209,7 @@ fn looks_like_invocation_row(t: &str) -> bool {
 
 /// A short unpunctuated single line (`General commands`) with an indented
 /// block after the blank line is that block's label, not prose.
-fn is_block_label(paragraph: &[&str], lines: &[&str], blank_at: usize) -> bool {
+fn is_block_label(paragraph: &[String], lines: &[&str], blank_at: usize) -> bool {
     let [only] = paragraph else {
         return false;
     };

@@ -1,0 +1,115 @@
+name: piconv
+usage:
+- piconv [-f from_encoding] [-t to_encoding] [-p|--perlqq|--htmlcref|--xmlcref] [-C N|-c] [-D] [-S scheme] [-s string|file...]
+- piconv -l
+- piconv -r encoding_alias
+- piconv -h
+flags:
+- spellings:
+  - -l
+  - --list
+  group: 'Common options:'
+  description: lists all available encodings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --resolve
+  value_name: encoding_alias
+  value_kind: Required
+  group: 'Common options:'
+  description: resolve encoding to its (Encode) canonical name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --from
+  value_name: from_encoding
+  value_kind: Required
+  group: 'Common options:'
+  description: when omitted, the current locale will be used
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --to
+  value_name: to_encoding
+  value_kind: Required
+  group: 'Common options:'
+  description: when omitted, the current locale will be used
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --string
+  value_name: string
+  value_kind: Required
+  group: 'Common options:'
+  description: '"string" will be the input instead of STDIN or files'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - -c
+  value_name: N
+  value_kind: Required
+  group: 'The following are mainly of interest to Encode hackers:'
+  description: check the validity of the input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --debug
+  group: 'The following are mainly of interest to Encode hackers:'
+  description: show debug information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --scheme
+  value_name: scheme
+  value_kind: Required
+  group: 'The following are mainly of interest to Encode hackers:'
+  description: use the scheme for conversion
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --perlqq
+  group: 'Those are handy when you can only see ASCII characters:'
+  description: transliterate characters missing in encoding to \x{HHHH} where HHHH is the hexadecimal Unicode code point
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --htmlcref
+  group: 'Those are handy when you can only see ASCII characters:'
+  description: transliterate characters missing in encoding to &#NNN; where NNN is the decimal Unicode code point
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --xmlcref
+  group: 'Those are handy when you can only see ASCII characters:'
+  description: transliterate characters missing in encoding to &#xHHHH; where HHHH is the hexadecimal Unicode code point
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

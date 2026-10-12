@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-249] A heading word such as `Options:` is no longer a tool's description: `mandible gcc`, `g++`, `cpp`, `ld`, `thin_check` and more than 100 other tools show no description line where the help prints only a heading (a heading like `Management Options` stays the label of its flags).
+- [S-250] `pnpm` and its subcommand pages now show the page's own description first and the `Version 11.22.0` line after it, instead of opening with the version.
+- [S-251] `snap get` now shows its description with the three `$ snap get` example blocks and their output, which were dropped.
 - [S-248] `mandible jarsigner` shows `-providerArg <arg>` as its own flag, with `configure argument for -addprovider` and `... for -providerClass`, instead of text inside those two flags' descriptions.
 - [S-247] `mandible cargo-generate-rpm --auto-req` lists its values (`auto`, `disabled`, `builtin`, `find-requires`, `/path/to/find-requires`) as choices with their descriptions, from the `Possible values:` dash bullets.
 - [S-246] `mandible speedtest` lists the formats printed in its `Valid output formats:` line (`human-readable (default)`, `csv`, `tsv`, `json`, `jsonl`, `json-pretty`) as the values of `-f, --format` (`(default)` kept as printed) and the `Machine readable formats ...` line after it is part of its description.

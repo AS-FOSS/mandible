@@ -24,6 +24,6 @@ expected_framework = "generic"
 # including the three single-member ones (`{--metadata-version}`,
 # `{--omit-clean-shutdown}`, `{--debug-override-metadata-version}`), which
 # the fleet detector deliberately does not count but the grammar does read.
-# "Options:" still leaks into the root description; that is a separate
-# defect this contract does not assert either way.
+# "Options:" no longer leaks into the root description (S-249; asserted by
+# the audit-seed2-heading variant).
 must_contain_flags = ["--help", "--version", "--input", "--output"]

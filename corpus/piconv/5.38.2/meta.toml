@@ -1,0 +1,21 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "piconv"
+version = "5.38.2"
+platform = "ubuntu-24.04"
+captured_with = "mandible --report capture, round 17"
+
+[[capture]]
+argv = ["piconv", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+must_contain_flags = ["--list", "--from", "--debug"]
+must_not_describe_root = ["Common options"]
+
+[contract.must_flag_group]
+"--list" = "Common options:"
+
