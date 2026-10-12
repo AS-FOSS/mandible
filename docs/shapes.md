@@ -5549,7 +5549,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   same last token of the spec cell carries more text glued to it (not a
   separator or sentence mark), the whole printed token is the value
   (`<pattern>^...`, `<param>=<constraint>`). Before, the tail was dropped.
-  Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get`.
+  Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get-with`.
 - fleet: full-PATH sweep (2271 matched), zero losses; 22 tools changed a value name only (the list above plus clang's four aliases), each read against its raw help: the value is the text as printed (`<macro>=<value>`, `<module>(,<module>)*`, `<package>...`).
 
 ### S-246: a `Valid <noun>:` line lists the values of the flag that points at it

@@ -4,7 +4,7 @@
 //! `parse_flag_spec` reads the placeholder and leaves the glued tail
 //! unconsumed, where nothing took it up and it vanished. The tail must be
 //! the row's last token and may not open with a separator. See
-//! docs/shapes.md S-245 and corpus/snap/2.77.1-get.
+//! docs/shapes.md S-245 and corpus/snap/2.77.1-get-with.
 
 use super::*;
 
