@@ -4,8 +4,11 @@ usage:
 flags:
 - spellings:
   - -v
-  value_name: h
-  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -h
   provenance:
     sources:
     - help-text-synopsis

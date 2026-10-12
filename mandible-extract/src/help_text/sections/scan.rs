@@ -330,12 +330,30 @@ pub(super) fn scan_headingless_invocation_table<'a>(
             && !lines[i].trim().is_empty()
             && leading_whitespace(lines[i]) > base_indent
         {
-            let desc_start = i;
+            let mut desc_start = i;
             while i < lines.len()
                 && !lines[i].trim().is_empty()
                 && leading_whitespace(lines[i]) > base_indent
             {
                 i += 1;
+            }
+            // The wrapped rest of the row's own synopsis (`[--events <f>]`,
+            // `<file>`) sits above the description: it belongs to the row's
+            // usage, not to the summary. Only when a description follows
+            // it. S-239.
+            let mut synopsis_end = desc_start;
+            while synopsis_end < i && is_synopsis_continuation(lines[synopsis_end].trim()) {
+                synopsis_end += 1;
+            }
+            let row_usage = (synopsis_end > desc_start && synopsis_end < i && pending.len() == 1)
+                .then(|| {
+                    std::iter::once(trimmed)
+                        .chain(lines[desc_start..synopsis_end].iter().map(|l| l.trim()))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                });
+            if row_usage.is_some() {
+                desc_start = synopsis_end;
             }
             let desc = lines[desc_start..i]
                 .iter()
@@ -343,7 +361,16 @@ pub(super) fn scan_headingless_invocation_table<'a>(
                 .collect::<Vec<_>>()
                 .join(" ");
             qualifying_rows += pending.len();
+            let usage_owner =
+                (row_usage.is_some() && grandchild_name.is_none()).then(|| child_name.to_string());
             finalize_pending!(&desc);
+            if let (Some(usage), Some(owner)) = (row_usage, usage_owner) {
+                if let Some(&idx) = child_index.get(&owner) {
+                    if children[idx].usage.is_empty() {
+                        children[idx].usage.push(Text::sanitize(&usage));
+                    }
+                }
+            }
         }
     }
     finalize_pending!("");

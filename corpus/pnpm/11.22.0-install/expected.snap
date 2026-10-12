@@ -1,0 +1,567 @@
+name: pnpm
+description: |-
+  Alias: i
+
+  Installs all dependencies of the project in the current working directory. When executed inside a workspace, installs all dependencies of all projects.
+
+  Version 11.22.0
+usage:
+- 'Usage: pnpm install [options]'
+flags:
+- spellings:
+  - --[no-]color
+  description: Controls colors in the output. By default, output is always colored when it goes directly to a terminal
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]frozen-lockfile
+  description: Don't generate a lockfile and fail if an update is needed. This setting is on by default in CI environments, so use --no-frozen-lockfile if you need to disable it for some reason
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]verify-store-integrity
+  description: If false, skips store integrity checks. These checks detect accidental corruption, not tampering by untrusted users with write access to the store
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --aggregate-output
+  description: Aggregate output from child processes that are run in parallel, and only print output when child process is finished. It makes reading large logs after running `pnpm recursive` with `--parallel` or with `--workspace-concurrency` much easier (especially on CI). Only `--reporter=append-only` is supported.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --child-concurrency
+  value_name: <number>
+  value_kind: Required
+  description: Controls the number of child processes run parallelly to build node modules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cpu
+  value_name: <arch>
+  value_kind: Required
+  description: Override CPU architecture of native modules to install. Acceptable values are the same as the `cpu` field of `package.json` (from `process.arch`)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --dev
+  description: Only `devDependencies` are installed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --dir
+  value_name: <dir>
+  value_kind: Required
+  description: 'Change to directory <dir> (default: /tmp/claude-1001/-home-ubuntu- projects-mandible/b9d23b91-49f0- 4353-bb39-82500023708e/scratchpad/ r19/c2)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dry-run
+  description: Report what an install would change without writing anything to disk (no lockfile, no node_modules). Resolution still runs against the registry.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fix-lockfile
+  description: Fix broken lockfile entries automatically
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --force
+  description: 'Force reinstall dependencies: refetch packages modified in store, recreate a lockfile and/or modules directory created by a non-compatible version of pnpm. Install all optionalDependencies even when they don''t satisfy the current environment(cpu, os, arch)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --frozen-store
+  description: Open the package store read-only (immutable) and skip all store writes. For installs against a store on a read-only filesystem (e.g. a Nix store); pair with --offline --frozen-lockfile. Incompatible with --force
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --global-dir
+  description: Specify a custom directory to store global packages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Output usage information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hoist-pattern
+  value_name: <pattern>
+  value_kind: Required
+  description: Hoist all dependencies matching the pattern to `node_modules/.pnpm/node_modules`. The default pattern is * and matches everything. Hoisted packages can be required by any dependencies, so it is an emulation of a flat node_modules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-pnpmfile
+  description: Disable pnpm hooks defined in .pnpmfile.cjs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-scripts
+  description: Don't run lifecycle scripts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-workspace
+  description: Ignore pnpm-workspace.yaml if exists in the parent directory, and treat the installation as normal non-workspace installation.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --libc
+  value_name: <libc>
+  value_kind: Required
+  description: Override libc of native modules to install. Acceptable values are the same as the `libc` field of `package.json`
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lockfile-dir
+  value_name: <dir>
+  value_kind: Required
+  description: The directory in which the pnpm-lock.yaml of the package will be created. Several projects may share a single lockfile.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lockfile-only
+  description: Dependencies are not downloaded. Only `pnpm-lock.yaml` is updated
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --loglevel
+  value_name: <level>
+  value_kind: Required
+  description: 'What level of logs to report. Any logs at or higher than the given level will be shown. Levels (lowest to highest): debug, info, warn, error. Or use "--silent" to turn off all logging.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --merge-git-branch-lockfiles
+  description: Merge lockfiles were generated on git branch
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --modules-dir
+  value_name: <dir>
+  value_kind: Required
+  description: The directory in which dependencies will be installed (instead of node_modules)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --network-concurrency
+  value_name: <number>
+  value_kind: Required
+  description: Maximum number of concurrent network requests
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-hoist
+  description: Dependencies inside the modules directory will have access only to their listed dependencies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-lockfile
+  description: Don't read or generate a `pnpm-lock.yaml` file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-optional
+  description: '`optionalDependencies` are not installed'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-runtime
+  description: Skip installing runtime entries (e.g. Node.js downloaded via `devEngines.runtime`). The lockfile is left untouched, so frozen installs still validate; only the runtime fetch and bin-linking are skipped. Useful in CI matrices where the runtime is provisioned externally.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --offline
+  description: Trigger an error if any required dependencies are not available in local store
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --optimistic-repeat-install
+  description: Skip reinstall if the workspace state is up-to-date
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --os
+  value_name: <os>
+  value_kind: Required
+  description: Override OS of native modules to install. Acceptable values are the same as the `os` field of `package.json` (from `process.platform`)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --package-import-method
+  value_name: auto
+  value_kind: Required
+  description: Clones/hardlinks or copies packages. The selected method depends from the file system
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --package-import-method
+  value_name: clone
+  value_kind: Required
+  description: Clone (aka copy-on-write) packages from the store
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --package-import-method
+  value_name: copy
+  value_kind: Required
+  description: Copy packages from the store
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --package-import-method
+  value_name: hardlink
+  value_kind: Required
+  description: Hardlink packages from the store
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --prefer-frozen-lockfile
+  description: If the available `pnpm-lock.yaml` satisfies the `package.json` then perform a headless installation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --prefer-offline
+  description: Skip staleness checks for cached data, but request missing data from the server
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --prod
+  description: Packages in `devDependencies` won't be installed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --public-hoist-pattern
+  value_name: <pattern>
+  value_kind: Required
+  description: Hoist all dependencies matching the pattern to the root of the modules directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --recursive
+  description: Run installation recursively in every package found in subdirectories. For options that may be used with `-r`, see "pnpm help recursive"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --resolution-only
+  description: 'Re-runs resolution: useful for printing out peer dependency issues'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --shamefully-hoist
+  description: All the subdeps will be hoisted into the root node_modules. Your code will have access to them
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --side-effects-cache
+  description: Use or cache the results of (pre/post)install hooks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --side-effects-cache-readonly
+  description: Only use the side effects cache if present, do not create it for new packages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --store-dir
+  value_name: <dir>
+  value_kind: Required
+  description: The directory in which all packages are saved on disk. Use a shared store only with trusted users and jobs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stream
+  description: Stream output from child processes immediately, prefixed with the originating package directory. This allows output from different packages to be interleaved.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strict-peer-dependencies
+  description: Fail on missing or invalid peer dependencies
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --trust-lockfile
+  description: Trust the lockfile and skip the supply-chain verification step that re-applies minimumReleaseAge / trustPolicy to each lockfile entry. Use only when the lockfile is part of the trusted base (closed-source projects, CI runs against an already-verified lockfile)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --trust-policy
+  value_name: no-downgrade
+  value_kind: Required
+  description: Fail when a package's trust level is downgraded (e.g., from a trusted publisher to provenance only or no trust evidence)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --trust-policy-exclude
+  value_name: <package-spec>
+  value_kind: Required
+  description: Exclude specific packages from trust policy checks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --trust-policy-ignore-after
+  value_name: <minutes>
+  value_kind: Required
+  description: Ignore trust downgrades for packages published more than specified minutes ago
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --update-checksums
+  description: Refresh integrity checksums recorded in the lockfile from the registry
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --use-stderr
+  description: Divert all output to stderr
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --virtual-store-dir
+  value_name: <dir>
+  value_kind: Required
+  description: The directory with links to the store (default is node_modules/.pnpm). All direct and indirect dependencies of the project are linked into this directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --workspace-root
+  description: Run the command on the root workspace project
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --yes
+  description: Automatically answer yes to prompts and run non-interactively. Will abort if an undesirable situation occurs and user input is strictly necessary.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reporter
+  value_name: append-only
+  value_kind: Required
+  group: 'Output:'
+  description: The output is always appended to the end. No cursor manipulations are performed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reporter
+  value_name: default
+  value_kind: Required
+  group: 'Output:'
+  description: The default reporter when the stdout is TTY
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reporter
+  value_name: ndjson
+  value_kind: Required
+  group: 'Output:'
+  description: The most verbose reporter. Prints all logs in ndjson format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --silent
+  - --reporter
+  value_name: silent
+  value_kind: Required
+  group: 'Output:'
+  description: No output is logged to the console, not even fatal errors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --changed-files-ignore-pattern
+  value_name: <pattern>
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Defines files to ignore when filtering for changed projects since the specified commit/branch. Usage example: pnpm --filter="...[origin/master]" --changed-files-ignore- pattern="**/README.md" build'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fail-if-no-match
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: If no projects are matched by the command, exit with exit code 1 (fail)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: '!<selector>'
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: If a selector starts with ! (or \! in zsh), it means the packages matching the selector must be excluded. E.g., "pnpm --filter !foo" selects all packages except "foo"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: .
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: Includes all packages that are under the current working directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: '...^<pattern>'
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes only the direct and indirect dependents of the matched packages without including the matched packages themselves. ^ must be doubled at the Windows Command Prompt. E.g.: ...^foo (...^^foo in Command Prompt)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: '...<pattern>'
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes all direct and indirect dependents of the matched packages. E.g.: ...foo, "...@bar/*"'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: ./<dir>
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes all packages that are inside a given subdirectory. E.g.: ./components'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: '"[<since>]"'
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes all packages changed since the specified commit/branch. E.g.: "[master]", "[HEAD~2]". It may be used together with "...". So, for instance, "...[HEAD~1]" selects all packages changed in the last commit and their dependents'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: '{<dir>}'
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes all projects that are under the specified directory. It may be used with "..." to select dependents/dependencies as well. It also may be combined with "[<since>]". For instance, all changed projects inside a directory: "{packages}[origin/master]"'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --filter
+  value_name: <pattern>
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Restricts the scope to package names matching the given pattern. E.g.: foo, "@bar/*"'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: <pattern>...
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes all direct and indirect dependencies of the matched packages. E.g.: foo...'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter
+  value_name: <pattern>^...
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Includes only the direct and indirect dependencies of the matched packages without including the matched packages themselves. ^ must be doubled at the Windows Command Prompt. E.g.: foo^... (foo^^... in Command Prompt)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --filter-prod
+  value_name: <pattern>
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: Restricts the scope to package names matching the given pattern similar to --filter, but it ignores devDependencies when searching for dependencies and dependents.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --test-pattern
+  value_name: <pattern>
+  value_kind: Required
+  group: 'Filtering options (run the command only on packages that satisfy at least one of the selectors):'
+  description: 'Defines files related to tests. Useful with the changed since filter. When selecting only changed packages and their dependent packages, the dependent packages will be ignored in case a package has changes only in tests. Usage example: pnpm --filter="...[origin/master]" --test-pattern="test/*" test'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

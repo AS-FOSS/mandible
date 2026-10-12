@@ -621,7 +621,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet's two-character population are genuine collapses like this one; the
   other half are correct multi-character single-dash flags such as rpcgen -Ss
   or xxd -ps, and nothing about shape alone separates the two halves. Left
-  broken deliberately, the fix's documented lower bound.
+  broken deliberately, the fix's documented lower bound, except where the
+  usage block itself vouches (S-242).
 - fleet: not measured
 
 ### S-035: repeated-letter and glued single-dash long option
@@ -4566,9 +4567,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   node is probed as `help <word>` and never as `<word> --help`
   (docs/design.md section 6 rule 2c), so it gains its own flags and
   description. A flag-bearing text still needs the parser to read it:
-  `jfr help metadata` is probed and its flag rows now read (S-196), while
-  `jfr print` is still read as the root usage (`corpus/jfr/17.0.20`,
-  xfail). `gem` prints the line, names no word by invocation, and gains
+  `jfr help metadata` is probed and its flag rows now read (S-196), and
+  `jfr print` is a command like its siblings (S-239). `gem` prints the line, names no word by invocation, and gains
   nothing. A bare flag followed by a one-member bracket group never takes
   an option-list word (`[options]`, `[flags]`) as its value, so `Usage: brew
   search, -S [options] ...` keeps `-S` value-free
@@ -5115,7 +5115,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   verbs; a closed group of flags before the word (`[-v | --verbose] show`)
   is skipped. As in S-179 and S-211 the nodes are `invocation_attested`,
   listed and never probed. As in S-169 each node carries the forms that
-  name it as its usage and the flags and operands those forms spell; the
+  name it as its usage and the flags and operands those forms spell. When
+  every usage form of the parent opens with a verb, a parent row with no
+  description or values of its own that a verb node also carries lives only
+  on that node (`git worktree`, `fragiso`, `linux-version`); otherwise the
   parent keeps everything it read from the same forms. Fixtures:
   `corpus/git/2.43.0-verbs`; `corpus/git-history/2.55.0` is the
   maintainer's man-page capture, rendered verbatim by design (the `-h`
@@ -5506,6 +5509,186 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
+
+### S-238: a probe answer that is only the tool's error is not a page
+
+- id: S-238
+- looks like: |
+      [ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND] No package.json (or package.yaml, or package.json5) was found in "$PWD".
+- tools: pnpm (start, test, exec)
+- handling: Fixed (`error_only.rs`, checked in `extract_node`). A subcommand answer of
+  one or two non-blank lines whose first word is `[ERR_...]`, `error:`, `Error:`,
+  `ERROR:`, `fatal:` (any case form) or `ERR_...`, with no `usage` or option row, is the
+  tool failing in a directory with no project, not help for the command. The node has no
+  page of its own, as for S-217; `t` still shows what the tool printed. The root is
+  exempt. Before, the error line was the node's verbatim page. No corpus fixture: the
+  corpus tree holds the root only, so a sub-page is pinned by the unit test in `error_only.rs`.
+- fleet: the full sweep records roots only and is unchanged; `pnpm exec`, `start` and `test`
+  were found by running every pnpm command's `--help` (the other 40 print help); 48 short
+  round-17 root captures and 27 short corpus captures hold no match.
+
+### S-239: the first block of a table of invocation blocks is a command
+
+- id: S-239
+- looks like: |
+      Tool for working with Flight Recorder files
+
+       jfr print [--xml|--json]
+                 [--events <filter>]
+                 <file>
+           Print contents of a recording file.
+
+       jfr summary <file>
+           Display general information about a recording file (.jfr)
+- tools: jfr
+- handling: Fixed. A line that leads `<tool> <word>`, whose block (the lead and
+  the deeper lines under it) ends in a prose description, and that sits in a
+  run of two or more such blocks with different words at the same indent, is a
+  row of a command table and never the root usage (`usage_block_table.rs`).
+  The table reader then names `print` like its siblings. The wrapped synopsis
+  lines above the description (`[--events <filter>]`, `<file>`) are the node's
+  usage, not its summary. Fixture: `corpus/jfr/17.0.20` (with `help-print.txt`).
+- fleet: see the round-19 usage report; only `jfr` moved among the 1270 PATH tools if the sweep says so.
+
+### S-240: a usage program word that is a path to the tool is the tool
+
+- id: S-240
+- looks like: |
+      Usage: /usr/bin/linux-version compare VERSION1 OP VERSION2
+             /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+             /usr/bin/linux-version list [--paths]
+- tools: linux-version
+- handling: Fixed. In the usage-verb rule (S-215) a form's program word may be
+  the tool's name or a path whose last component is that name. `compare`,
+  `sort` and `list` are then subcommands with their own usage, `--reverse`
+  under `sort` and `--paths` under `list`. Every form opens with a verb, so
+  the root keeps none of their rows (S-215). The numbered operands are S-241.
+  Fixture: `corpus/linux-version/4.5ubuntu9`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-12: only linux-version
+  moves, gaining its three commands.
+
+### S-241: numbered upper-case operands of a usage-verb node
+
+- id: S-241
+- looks like: |
+      Usage: linux-version compare VERSION1 OP VERSION2
+             linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+- tools: linux-version
+- handling: Fixed. The operand test wants letters only, so `VERSION1` was
+  never read. After a usage-verb node's ordinary extraction, a word of two or
+  more capitals plus digits is an operand when the same stem comes back with
+  another number in that node's forms (`W0` alone, or a one-letter stem, is
+  not). It is required outside brackets, optional inside, repeatable before
+  `...`, and the node's operands follow the order the form prints them. The
+  root is untouched. Fixture: `corpus/linux-version/4.5ubuntu9`.
+- fleet: see the round-19 usage report.
+
+### S-242: a glued two-letter group in a block that spells every value after a space
+
+- id: S-242
+- looks like: |
+      ssh-keygen -I certificate_identity -s ca_key [-hU] [-D pkcs11_provider]
+- tools: ssh-keygen, iscsiadm, nfsidmap, preconv, ssh-agent
+- handling: Fixed. `[-hU]` read as `-h` with the glued value `U`. A closed
+  bracket group of two distinct characters is two switches when the usage
+  block writes at least one flag value after a space, has no single-dash flag
+  of two or more letters (`-it intable`, `-mdoc`, `-scd`), and neither member
+  takes a value of its own elsewhere in the block (`jstatd` `[-nr]` beside
+  `-n rminame`, `xxd` `[-ps]` beside `-s offset`). `psfxtable`, `sg_map`,
+  `lessecho`, `mandoc`, `jstatd` and `xxd` keep their groups whole. Fixture:
+  `corpus/ssh-keygen/audit-seed2`.
+- fleet: see the round-19 usage report.
+
+### S-243: tab-described operation forms with setting rows
+
+- id: S-243
+- looks like: |
+      ethtool [ FLAGS ] -s|--change DEVNAME<TAB>Change generic options
+      <TAB><TAB>[ speed %d ]
+      <TAB><TAB>[ duplex half|full ]
+      ethtool [ FLAGS ] -Q|--per-queue DEVNAME<TAB>Apply per-queue command.
+      The supported sub commands include --show-coalesce<TAB><TAB>[queue_mask %x] SUB_COMMAND
+- tools: ethtool
+- handling: Fixed. Three or more usage forms opening with the same command
+  word and carrying a tab description make a table. Each operation flag
+  (`-s|--change`) takes the text after the tab, then the rows under its form,
+  as printed and in order. A flush-left wrapped description holding a tab
+  continues the form above and does not end the usage block. Forms are cut
+  before their description for operand and flag reading, and setting rows
+  are not operands. Fixture: `corpus/ethtool/6.7`.
+- fleet: only `ethtool` shows the shape in 3079 captures and the corpus.
+
+### S-244: a flag followed by bracketed literal words
+
+- id: S-244
+- looks like: |
+      [ --all-groups | --groups [eth-phy] [eth-mac] [eth-ctrl] [rmon] ]
+- tools: ethtool
+- handling: Fixed. Two or more bracketed lowercase words right after a usage
+  flag are that flag's literal values, not a value name. Fixture:
+  `corpus/ethtool/6.7`.
+- fleet: see S-243.
+
+### S-245: text glued after the value placeholder
+
+- id: S-245
+- looks like: |
+      --filter <pattern>...           Includes all direct and indirect dependencies
+      --filter <pattern>^...          Includes only the direct and indirect dependencies
+      --with=<param>=<constraint>     Parameter constraints for filtering
+- tools: pnpm, snap, dpkg, dpkg-query, dnsmasq, bugpoint, cargo-deb, clang, ionice, javac, javadoc, jdeps, jlink, jshell, llvm-jitlink, llvm-rtdyld, losetup, lspci, setpci, objcopy
+- handling: Fixed. When the grammar reads a `<placeholder>` value and the
+  same last token of the spec cell carries more text glued to it (not a
+  separator or sentence mark), the whole printed token is the value
+  (`<pattern>^...`, `<param>=<constraint>`). Before, the tail was dropped.
+  Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get-with`.
+- fleet: full-PATH sweep (2271 matched), zero losses; 22 tools changed a value name only (the list above plus clang's four aliases), each read against its raw help: the value is the text as printed (`<macro>=<value>`, `<module>(,<module>)*`, `<package>...`).
+
+### S-246: a `Valid <noun>:` line lists the values of the flag that points at it
+
+- id: S-246
+- looks like: |
+      -f, --format=ARG   Output format (see below for valid formats)
+      ...
+       Valid output formats: human-readable (default), csv, tsv, json, jsonl, json-pretty
+- tools: speedtest
+- handling: Fixed. A line `Valid <words> <noun>: v1, v2, ...` outside any
+  table gives its values, in order, as the choices of the one choice-less
+  flag whose description says `valid <noun>`; a `(default)` note is that
+  choice's description, parentheses kept as printed. The prose paragraph
+  right after the line (same indent, up to a blank line) is appended to that
+  flag's description. Zero or several such flags leave the line alone.
+  Fixture: `corpus/speedtest/1.2.0.84`.
+- fleet: full-PATH sweep (2271 matched), zero losses; only speedtest moved (`-f` gains six choices), read against its `--help`.
+
+### S-247: `Possible values:` with `- name: text` bullets
+
+- id: S-247
+- looks like: |
+      --auto-req <AUTO_REQ>
+          Possible values:
+          - auto:       Use the preferred automatic dependency process.
+          - disabled:   Disable the discovery of dependencies. [alias: no]
+          [default: auto]
+- tools: cargo-generate-rpm
+- handling: Fixed. S-234's bullet list also reads `-` bullets (and a `/` in a
+  name). Each bullet is a choice with its text; a closing `[default: x]`
+  note stays in the flag's description. Fixture:
+  `corpus/cargo-generate-rpm/0.16.0`.
+- fleet: full-PATH sweep (2271 matched), zero losses; only cargo-generate-rpm moved (`--auto-req`), read against its `--help`.
+
+### S-248: a nested bracket row under a bracket row
+
+- id: S-248
+- looks like: |
+      [-addprovider <name>        add security provider by name (e.g. SunPKCS11)
+        [-providerArg <arg>]] ... configure argument for -addprovider
+- tools: jarsigner
+- handling: Fixed. A bracket row that opens a group it does not close, followed
+  by a deeper line that opens with `[-flag` and closes the group, is two rows:
+  the outer flag and the nested flag, each with its own description. The
+  trailing `...` repeat marker is not kept. Fixture: `corpus/jarsigner/21.0.12`.
+- fleet: full-PATH sweep (2271 matched), zero losses; only jarsigner moved (+2 flags), read against its `--help`.
 
 ### S-249: a colon heading word is the root description
 

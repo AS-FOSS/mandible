@@ -86,7 +86,15 @@ flags:
   - --format
   value_name: ARG
   value_kind: Required
-  description: Output format (see below for valid formats)
+  choices:
+  - name: human-readable
+    description: (default)
+  - csv
+  - tsv
+  - json
+  - jsonl
+  - json-pretty
+  description: Output format (see below for valid formats) Machine readable formats (csv, tsv, json, jsonl, json-pretty) use bytes as the unit of measure with max precision
   provenance:
     sources:
     - help-text

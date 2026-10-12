@@ -62,7 +62,7 @@ flags:
     - help-text
 - spellings:
   - --with
-  value_name: <param>
+  value_name: <param>=<constraint>
   value_kind: Required
   group: '[get command options]'
   description: Parameter constraints for filtering confdb queries

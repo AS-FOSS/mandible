@@ -1,5 +1,5 @@
-# The `Valid units for [-u] flag:` block lists four values on the auto-scaled
-# line; today only three reach -u's choices and `auto-binary-bits` is lost.
+# The `Valid units for [-u] flag:` block lists the values of -u; the `Valid output formats:`
+# line lists the values of -f, which its description points to ("see below for valid formats").
 
 [bless]
 provenance = "agent"
@@ -17,4 +17,7 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 min_status = "ok"
-must_attach_choices = { "--unit" = ["bps", "Gbps", "GiB/s", "auto-binary-bits", "auto-binary-bytes", "auto-decimal-bits", "auto-decimal-bytes"] }
+must_attach_choices = { "--format" = ["human-readable", "csv", "tsv", "json", "jsonl", "json-pretty"], "--unit" = ["bps", "Gbps", "GiB/s", "auto-binary-bits", "auto-binary-bytes", "auto-decimal-bits", "auto-decimal-bytes"] }
+
+[contract.must_describe]
+"--format" = "use bytes as the unit of measure with max precision"

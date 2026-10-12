@@ -189,7 +189,15 @@ flags:
   - -addprovider
   value_name: <name>
   value_kind: Required
-  description: add security provider by name (e.g. SunPKCS11) [-providerArg <arg>]] ... configure argument for -addprovider
+  description: add security provider by name (e.g. SunPKCS11)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -providerArg
+  value_name: <arg>
+  value_kind: Required
+  description: configure argument for -addprovider
   provenance:
     sources:
     - help-text
@@ -197,7 +205,15 @@ flags:
   - -providerClass
   value_name: <class>
   value_kind: Required
-  description: add security provider by fully-qualified class name [-providerArg <arg>]] ... configure argument for -providerClass
+  description: add security provider by fully-qualified class name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -providerArg
+  value_name: <arg>
+  value_kind: Required
+  description: configure argument for -providerClass
   provenance:
     sources:
     - help-text
@@ -226,5 +242,5 @@ flags:
 provenance:
   sources:
   - help-text
-  confidence: 0.32
+  confidence: 0.3
 children_filled: true

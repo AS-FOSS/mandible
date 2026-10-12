@@ -53,6 +53,7 @@ mod labelled_values;
 mod layout;
 mod multiword;
 mod multiword_value_row;
+mod nested_bracket_rows;
 mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;
@@ -75,15 +76,22 @@ mod syntax_legend;
 mod test_support;
 mod usage;
 mod usage_alias_pair_then_valued_long;
+mod usage_block_table;
+mod usage_bracket_word_run;
 mod usage_command_table;
 mod usage_flag_alternation;
 mod usage_flag_forms;
 mod usage_form_prose;
+mod usage_numbered_caps;
 mod usage_optional_word;
 mod usage_signs;
+mod usage_tab_table;
+mod usage_two_letter_group;
 pub(crate) mod usage_verbs;
 mod usage_word_flags;
+mod valid_values_line;
 mod value_form_row;
+mod value_tail_row;
 mod word_grid;
 mod wrapped_flag_line;
 
@@ -118,6 +126,7 @@ use spelling::*;
 use test_support::*;
 use usage::*;
 use usage_alias_pair_then_valued_long::split_alias_pair_then_valued_long;
+use usage_block_table::*;
 use usage_command_table::*;
 use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
@@ -414,6 +423,7 @@ pub fn parse_with_profile(
     let raw = rewrite_lowdown_bullets(&raw, tool_name);
     let raw = rule_heading::rewrite_rule_bracketed_headings(&raw);
     // A table of bracket-wrapped option rows (jarsigner) reads as plain rows.
+    let raw = nested_bracket_rows::normalize(&raw).into_owned();
     let raw = bracket_rows::unwrap_bracketed_rows(&raw).unwrap_or(raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
@@ -941,8 +951,8 @@ fn scan_usage_section(
             // still carried into this one at column zero. See S-142,
             // issue #143.
             if leading_whitespace(l) <= base_indent
-                && !looks_like_usage_fragment(trimmed_start)
                 && bracket_group_depth <= 0
+                && !usage_tab_table::continues_block(lines, i)
             {
                 break;
             }
@@ -996,7 +1006,9 @@ fn finish_positional_recovery(
     } else {
         std::collections::HashSet::new()
     };
-    extract_positionals_inner(usage_lines, primary_lines, unlabelled_single_line, false)
+    let cleaned = usage_tab_table::positional_lines(usage_lines);
+    let lines = cleaned.as_deref().unwrap_or(usage_lines);
+    extract_positionals_inner(lines, primary_lines, unlabelled_single_line, false)
 }
 
 /// The leading prose before the usage block, as the node description.
@@ -2224,6 +2236,12 @@ fn locate_usage_start(
                 if command_list_rows::is_command_list_row(lines, idx, name) {
                     continue;
                 }
+                // The first block of a table of described invocation
+                // blocks (`jfr print ...`) is a command, not the usage.
+                // S-239.
+                if heads_command_block_table(lines, idx, name) {
+                    continue;
+                }
                 let t = command_list_rows::without_prompt(l.trim_start());
                 // LVM's own emitter also writes a bare invocation line
                 // (`vgck` alone) with all docopt notation on the rows
@@ -2447,7 +2465,12 @@ fn parse_body(
         profile,
         bnf_row_lines,
     };
-    let (total_entries, clean_entries) = scan_entries(&inp, tool_name, i, &mut result);
+    // With no usage block, the prose is followed by a table of described
+    // invocation blocks whose first block would otherwise be taken as the
+    // lead of a heading block. S-239.
+    let scan_from =
+        block_table_start(&lines, usage_start, description_bound, tool_name).unwrap_or(i);
+    let (total_entries, clean_entries) = scan_entries(&inp, tool_name, scan_from, &mut result);
 
     // A single-dash table row with no genuine placeholder (`memhog`'s
     // `-f mmap is backed by FILE`) reads its own description's first word
@@ -2487,7 +2510,8 @@ fn parse_body(
     // joined display form), deliberately, so the join cannot change what
     // this recovers.
     if !usage_lines.is_empty() {
-        for flag in extract_usage_flags(&usage_lines) {
+        let cut_forms = usage_tab_table::flag_lines(&usage_lines);
+        for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(&usage_lines)) {
             if result.flags.len() >= MAX_RECOVERED_ENTRIES {
                 break;
             }
@@ -2508,6 +2532,8 @@ fn parse_body(
         }
         usage_word_flags::repair(&usage_lines, raw, &mut result.flags);
         per_form::apply(&usage_lines, &mut result.flags, &mut result.positionals);
+        usage_tab_table::attach_descriptions(&usage_lines, &mut result.flags);
+        usage_bracket_word_run::repair(&usage_lines, &mut result.flags);
         // A dash-prefixed usage word normally swallowed as the generic
         // "any option" placeholder, or a usage-derived flag already
         // misread as a short flag plus a fabricated value, is repaired or
@@ -2552,6 +2578,7 @@ fn parse_body(
     fold_or_joined_choice_rows(raw, &mut result.flags);
     bullet_values::attach_bullet_value_choices(&mut result.flags);
     attach_description_tail_choices(&mut result.flags);
+    valid_values_line::attach(&lines, &mut result.flags);
     spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its
     // `-word` sibling when the ordinary repair above could not recover a
