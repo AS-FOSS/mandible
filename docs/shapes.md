@@ -5566,3 +5566,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
   choice's description. Zero or several such flags leave the line alone.
   Fixture: `corpus/speedtest/1.2.0.84`.
 - fleet: full-PATH sweep pending.
+
+### S-247: `Possible values:` with `- name: text` bullets
+
+- id: S-247
+- looks like: |
+      --auto-req <AUTO_REQ>
+          Possible values:
+          - auto:       Use the preferred automatic dependency process.
+          - disabled:   Disable the discovery of dependencies. [alias: no]
+          [default: auto]
+- tools: cargo-generate-rpm
+- handling: Fixed. S-234's bullet list also reads `-` bullets (and a `/` in a
+  name). Each bullet is a choice with its text; a closing `[default: x]`
+  note stays in the flag's description. Fixture:
+  `corpus/cargo-generate-rpm/0.16.0`.
+- fleet: full-PATH sweep pending.

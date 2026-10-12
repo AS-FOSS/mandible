@@ -23,7 +23,3 @@ must_contain_flags = ["--auto-req", "--payload-compress", "--variant"]
 
 [contract.must_not_describe]
 "--auto-req" = "Possible values"
-
-[xfail]
-broken = true
-reason = "[S-247] the `- name: text` value bullets under Possible values: stay in the description instead of being choices"
