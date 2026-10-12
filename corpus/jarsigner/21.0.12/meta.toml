@@ -18,5 +18,5 @@ stdout = "help.txt"
 expected_framework = "generic"
 min_status = "ok"
 must_contain_flags = ["-keystore", "-storepass", "-sigfile", "-signedjar", "-tsa", "-providerArg", "-verbose", "-certs", "-conf"]
-must_describe = { "-keystore" = "keystore location", "-sigfile" = "name of .SF/.DSA file", "-providerArg" = "configure argument for -providerClass" }
+must_describe = { "-keystore" = "keystore location", "-sigfile" = "name of .SF/.DSA file", "-providerArg" = "configure argument for -addprovider" }
 must_not_describe = { "-addprovider" = "providerArg", "-providerClass" = "providerArg" }

@@ -6,8 +6,11 @@
 
 use mandible_core::{Choice, Entity, Text};
 
+/// One listed value and its parenthesised note.
+type Listed = (String, Option<String>);
+
 /// `(noun, values)` for a `Valid ...: v1, v2` line.
-fn valid_line(line: &str) -> Option<(String, Vec<(String, Option<String>)>)> {
+fn valid_line(line: &str) -> Option<(String, Vec<Listed>)> {
     let rest = line.trim().strip_prefix("Valid ")?;
     let (phrase, list) = rest.split_once(':')?;
     let noun = phrase.split_whitespace().last()?.to_lowercase();
