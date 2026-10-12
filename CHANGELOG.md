@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-10-12
+
 ### Fixed
 
 - [S-249] A heading word such as `Options:` is no longer a tool's description: `mandible gcc`, `g++`, `cpp`, `ld`, `thin_check` and more than 100 other tools show no description line where the help prints only a heading (a heading like `Management Options` stays the label of its flags).
