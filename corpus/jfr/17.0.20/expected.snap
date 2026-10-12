@@ -1,0 +1,296 @@
+name: jfr
+description: Tool for working with Flight Recorder files
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: print
+  summary: Print contents of a recording file. See 'jfr help print' for details.
+  description: Print contents of a recording file
+  usage:
+  - jfr print [--xml|--json] [--categories <filter>] [--events <filter>] [--stack-depth <depth>] <file>
+  positionals:
+  - name: file
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --xml
+    description: Print recording in XML format
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --json
+    description: Print recording in JSON format
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --categories
+    value_name: <filter>
+    value_kind: Required
+    description: Select events matching a category name. The filter is a comma-separated list of names, simple and/or qualified, and/or quoted glob patterns
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --events
+    value_name: <filter>
+    value_kind: Required
+    description: Select events matching an event name. The filter is a comma-separated list of names, simple and/or qualified, and/or quoted glob patterns
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --stack-depth
+    value_name: <depth>
+    value_kind: Required
+    description: Number of frames in stack traces, by default 5
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+- name: configure
+  summary: Creates a custom .jfc-file for event configuration
+  description: |-
+    Configures a .jfc file
+
+    option=value The option value to modify. For available options, see listed input files below.
+
+    event-setting=value The event setting value to modify. Use the form: <event-name>#<setting-name>=<value> To add a new event setting, prefix the event name with '+'.
+
+    The whitespace delimiter can be omitted for timespan values, i.e. 20ms. For more information about the settings syntax, see Javadoc of the jdk.jfr package.
+
+    Options for default.jfc:
+
+    gc=<off|normal|detailed|high|all>
+
+    allocation-profiling=<off|low|medium|high|maximum>
+
+    compiler=<off|normal|detailed|all>
+
+    method-profiling=<off|normal|high|max>
+
+    thread-dump=<off|once|60s|10s|1s>
+
+    exceptions=<off|errors|all>
+
+    memory-leaks=<off|types|stack-traces|gc-roots>
+
+    locking-threshold=<timespan>
+
+    file-threshold=<timespan>
+
+    socket-threshold=<timespan>
+
+    class-loading=<true|false>
+
+    To run interactive configuration wizard:
+
+    jfr configure --interactive
+
+    Example usage:
+
+    jfr configure gc=high method-profiling=high --output high.jfc
+
+    jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
+
+    jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
+
+    jfr configure --input default.jfc,third-party.jfc --output unified.jfc
+
+    jfr configure --input none +Hello#enabled=true --output minimal.jfc
+  usage:
+  - jfr configure [--interactive] [--verbose] [--input <files>] [--output <file>] [option=value]* [event-setting=value]*
+  flags:
+  - spellings:
+    - --interactive
+    description: Interactive mode where the configuration is determined by a set of questions.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --verbose
+    description: Displays the modified settings.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --input
+    value_name: <files>
+    value_kind: Required
+    description: A comma-separated list of .jfc files from which the new configuration is based. If no file is specified, the default file in the JDK is used (default.jfc). If 'none' is specified, the new configuration starts empty.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --ouput
+    value_name: <file>
+    value_kind: Required
+    description: The filename of the generated output file. If not specified, the filename custom.jfc will be used.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --output
+    value_name: <file>
+    value_kind: Required
+    provenance:
+      sources:
+      - help-text-synopsis
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.19
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+- name: metadata
+  summary: Display event metadata, such as labels, descriptions and field layout. See 'jfr help metadata' for details.
+  description: Display event metadata, such as labels, descriptions and field layout
+  usage:
+  - jfr metadata [--categories <filter>] [--events <filter>] [<file>]
+  positionals:
+  - name: file
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --categories
+    value_name: <filter>
+    value_kind: Required
+    description: Select events matching a category name. The filter is a comma-separated list of names, simple and/or qualified, and/or quoted glob patterns
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --events
+    value_name: <filter>
+    value_kind: Required
+    description: Select events matching an event name. The filter is a comma-separated list of names, simple and/or qualified, and/or quoted glob patterns
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+- name: summary
+  summary: Display general information about a recording file (.jfr)
+  description: Display general information about a recording file (.jfr)
+  usage:
+  - jfr summary <file>
+  positionals:
+  - name: file
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+- name: assemble
+  summary: Assemble leftover chunks from a disk repository into a recording file
+  description: Assemble leftover chunks from a disk repository into a recording file
+  usage:
+  - jfr assemble <repository> <file>
+  positionals:
+  - name: repository
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: file
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+- name: disassemble
+  summary: Disassemble a recording file into smaller files/chunks
+  description: Disassemble a recording file into smaller files/chunks
+  usage:
+  - jfr disassemble [--output <directory>] [--max-chunks <chunks>] [--max-size <size>] <file>
+  positionals:
+  - name: file
+    required: true
+    provenance:
+      sources:
+      - help-text
+  flags:
+  - spellings:
+    - --output
+    value_name: <directory>
+    value_kind: Required
+    description: The location to write the disassembled file, by default the current directory
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --max-chunks
+    value_name: <chunks>
+    value_kind: Required
+    description: Maximum number of chunks per disassembled file, by default 5. The chunk size varies, but is typically around 15 MB.
+    provenance:
+      sources:
+      - help-text
+  - spellings:
+    - --max-size
+    value_name: <size>
+    value_kind: Required
+    description: Maximum number of bytes per file. <file> Location of the recording file (.jfr)
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+- name: version
+  summary: Display version of the jfr tool
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.0
+  children_filled: true
+  invocation_attested: true
+  help_word_attested: true
+  unparsed:
+  - Display version of the jfr tool
+  - ''
+  - ' jfr version (alias --version)'
+  - ''
+- name: help
+  summary: Display all available commands, or help about a specific command
+  provenance:
+    sources:
+    - help-text
+  invocation_attested: true

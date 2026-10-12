@@ -25,16 +25,18 @@ usage:
 - '       ssh-keygen -Y match-principals -I signer_identity -f allowed_signers_file'
 - '       ssh-keygen -Y check-novalidate -n namespace -s signature_file'
 - '       ssh-keygen -Y sign -f key_file -n namespace file [-O option] ...'
-- '       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity'
-flags:
-- spellings:
-  - -n
-  value_name: namespace
-  value_kind: Required
-  description: '[-O option]'
+- '       ssh-keygen -Y verify -f allowed_signers_file -I signer_identity -n namespace -s signature_file [-r krl_file] [-O option]'
+positionals:
+- name: output_file
   provenance:
     sources:
     - help-text
+- name: file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
 - spellings:
   - -q
   provenance:
@@ -91,8 +93,14 @@ flags:
     - help-text-synopsis
 - spellings:
   - -t
-  value_name: dsa
   value_kind: Required
+  choices:
+  - dsa
+  - ecdsa
+  - ecdsa-sk
+  - ed25519
+  - ed25519-sk
+  - rsa
   provenance:
     sources:
     - help-text-synopsis
@@ -209,8 +217,10 @@ flags:
     - help-text-synopsis
 - spellings:
   - -M
-  value_name: generate
   value_kind: Required
+  choices:
+  - generate
+  - screen
   provenance:
     sources:
     - help-text-synopsis
@@ -230,7 +240,17 @@ flags:
     - help-text-synopsis
 - spellings:
   - -h
-  value_name: U
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -U
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -n
+  value_name: principals
   value_kind: Required
   provenance:
     sources:
@@ -276,8 +296,13 @@ flags:
     - help-text-synopsis
 - spellings:
   - -Y
-  value_name: find-principals
   value_kind: Required
+  choices:
+  - find-principals
+  - match-principals
+  - check-novalidate
+  - sign
+  - verify
   provenance:
     sources:
     - help-text-synopsis

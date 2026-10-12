@@ -14,6 +14,7 @@
 //! profile. See [`build_node`] for the staged degradation this produces.
 
 pub mod confession;
+mod error_only;
 mod fold_repeats;
 mod grammar;
 mod help_word;
@@ -404,6 +405,14 @@ impl ExtractionTier for HelpTextTier {
                     words.join(" ")
                 )));
             }
+        }
+
+        // The tool failing is not help for the command (S-238).
+        if !words.is_empty() && error_only::is_error_only(&raw) {
+            return Err(ExtractError::Other(format!(
+                "`{} --help` answered only with an error",
+                words.join(" ")
+            )));
         }
 
         // Self-similar fan-out (spec M-19, docs/shapes.md S-079): a node
@@ -1027,8 +1036,12 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     // own path name subcommands (S-215).
     let mut subcommands = parsed.subcommands;
     let own = (name != tool_name).then_some(name);
-    sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
+    let all_verbs =
+        sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
     node.subcommands = subcommands;
+    if all_verbs {
+        sections::usage_verbs::drop_relocated(&mut node);
+    }
     help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct

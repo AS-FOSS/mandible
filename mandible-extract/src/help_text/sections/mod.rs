@@ -76,14 +76,17 @@ mod syntax_legend;
 mod test_support;
 mod usage;
 mod usage_alias_pair_then_valued_long;
+mod usage_block_table;
 mod usage_bracket_word_run;
 mod usage_command_table;
 mod usage_flag_alternation;
 mod usage_flag_forms;
 mod usage_form_prose;
+mod usage_numbered_caps;
 mod usage_optional_word;
 mod usage_signs;
 mod usage_tab_table;
+mod usage_two_letter_group;
 pub(crate) mod usage_verbs;
 mod usage_word_flags;
 mod valid_values_line;
@@ -123,6 +126,7 @@ use spelling::*;
 use test_support::*;
 use usage::*;
 use usage_alias_pair_then_valued_long::split_alias_pair_then_valued_long;
+use usage_block_table::*;
 use usage_command_table::*;
 use usage_form_prose::*;
 pub use usage_optional_word::reconstruct_abbrev_word;
@@ -2227,6 +2231,12 @@ fn locate_usage_start(
                 if command_list_rows::is_command_list_row(lines, idx, name) {
                     continue;
                 }
+                // The first block of a table of described invocation
+                // blocks (`jfr print ...`) is a command, not the usage.
+                // S-239.
+                if heads_command_block_table(lines, idx, name) {
+                    continue;
+                }
                 let t = command_list_rows::without_prompt(l.trim_start());
                 // LVM's own emitter also writes a bare invocation line
                 // (`vgck` alone) with all docopt notation on the rows
@@ -2449,7 +2459,12 @@ fn parse_body(
         profile,
         bnf_row_lines,
     };
-    let (total_entries, clean_entries) = scan_entries(&inp, tool_name, i, &mut result);
+    // With no usage block, the prose is followed by a table of described
+    // invocation blocks whose first block would otherwise be taken as the
+    // lead of a heading block. S-239.
+    let scan_from =
+        block_table_start(&lines, usage_start, description_bound, tool_name).unwrap_or(i);
+    let (total_entries, clean_entries) = scan_entries(&inp, tool_name, scan_from, &mut result);
 
     // A single-dash table row with no genuine placeholder (`memhog`'s
     // `-f mmap is backed by FILE`) reads its own description's first word

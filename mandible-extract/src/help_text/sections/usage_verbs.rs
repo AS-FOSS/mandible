@@ -3,7 +3,7 @@
 //! docs/shapes.md S-215). The verbs are the command's subcommands; each node
 //! carries the forms naming it and the flags and operands they spell. As in
 //! S-179 and S-211 the nodes are `invocation_attested`: listed, never probed.
-//! The parent keeps everything it read from the same forms.
+//! The parent keeps those rows unless every form is a verb's (S-215).
 //!
 //! Guards: two or more distinct verbs open a form directly, in a labelled
 //! usage block. A verb is a bare lowercase command-name word or a
@@ -59,6 +59,15 @@ struct Form {
     text: String,
 }
 
+/// The form's program word: the tool's name, or a path whose last component
+/// is that name (`/usr/bin/linux-version`, S-240).
+fn is_program_word(first: &str, program: &str) -> bool {
+    first == program
+        || first
+            .rsplit_once('/')
+            .is_some_and(|(_, last)| !last.is_empty() && last == program)
+}
+
 /// The usage entries as forms: label removed, program name stripped.
 fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
     let mut prog = tool.map(str::to_string);
@@ -73,7 +82,7 @@ fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
             continue;
         };
         let p = prog.get_or_insert_with(|| first.to_string());
-        if first != p.as_str() {
+        if !is_program_word(first, p) {
             continue;
         }
         let toks = tokens(t);
@@ -115,7 +124,8 @@ fn verbs_of(f: &Form, at: usize) -> Option<(Vec<String>, usize, bool)> {
 }
 
 /// Add a node per verb to `subcommands` (names already present are kept
-/// untouched). `usage` is the parsed usage entries.
+/// untouched). `usage` is the parsed usage entries. True when every usage
+/// entry is a form opening with a verb that is now a subcommand.
 ///
 /// `own` is the node's own command word when it is not the root. Verbs must
 /// follow the node's own path: a form that does not name it (`git show ...`
@@ -126,21 +136,21 @@ pub(crate) fn recover(
     own: Option<&str>,
     raw: &str,
     subcommands: &mut Vec<CommandNode>,
-) {
+) -> bool {
     // Only a labelled usage block: bare indented invocation lines are
     // examples or a command table (S-016), not the tool's forms.
     if !usage
         .first()
         .is_some_and(|u| starts_with_usage_prefix(u.trim()))
     {
-        return;
+        return false;
     }
     let mut forms = forms(usage, tool_name);
     if let Some(own) = own {
         forms.retain(|f| f.toks.iter().take_while(|t| is_word(t)).any(|t| t == own));
     }
     if forms.len() < 2 {
-        return;
+        return false;
     }
     let at = path_len(&forms);
     let found: Vec<Option<(Vec<String>, usize, bool)>> =
@@ -154,7 +164,7 @@ pub(crate) fn recover(
     direct.sort();
     direct.dedup();
     if direct.len() < 2 {
-        return;
+        return false;
     }
     let mut order: Vec<String> = Vec::new();
     for (verbs, _, _) in found.iter().flatten() {
@@ -197,15 +207,45 @@ pub(crate) fn recover(
             }
         }
         let primary: std::collections::HashSet<usize> = (0..own.len()).collect();
-        let positionals = if flags.is_empty() {
+        let mut positionals = if flags.is_empty() {
             extract_positionals_inner(&own, primary, false, true)
         } else {
             extract_positionals(&own, primary)
         };
+        super::usage_numbered_caps::add_numbered_operands(&own, &mut positionals);
         node.entities.extend(flags);
         node.entities.extend(positionals);
         subcommands.push(node);
     }
+    forms.len() == usage.iter().filter(|u| !u.trim().is_empty()).count()
+        && found.iter().all(|hit| {
+            hit.as_ref().is_some_and(|(verbs, _, _)| {
+                verbs
+                    .iter()
+                    .all(|v| subcommands.iter().any(|n| &n.name == v))
+            })
+        })
+}
+
+/// Drop the parent's undescribed rows that a verb node carries: every form
+/// spelling them is that verb's (S-240), so they are relocated, not lost.
+pub(crate) fn drop_relocated(parent: &mut CommandNode) {
+    let key = |e: &Entity| {
+        let names: Vec<String> = e.spellings.iter().map(|s| s.render()).collect();
+        (e.kind, names)
+    };
+    let carried: std::collections::HashSet<_> = parent
+        .subcommands
+        .iter()
+        .filter(|n| n.invocation_attested)
+        .flat_map(|n| n.entities.iter().map(key))
+        .collect();
+    parent.entities.retain(|e| {
+        !matches!(e.kind, EntityKind::Flag | EntityKind::Positional)
+            || e.description.is_some()
+            || !e.choices.is_empty()
+            || !carried.contains(&key(e))
+    });
 }
 
 #[cfg(test)]
@@ -240,6 +280,21 @@ mod tests {
             "   or: git remote [show] <x>",
         ];
         assert_eq!(verbs(&u, "git"), ["add", "rename", "show"]);
+    }
+
+    #[test]
+    fn a_program_word_that_is_a_path_to_the_tool_opens_its_forms() {
+        let u = [
+            "Usage: /usr/bin/lv compare VERSION1 OP VERSION2",
+            "       /usr/bin/lv sort [--reverse] [VERSION1 VERSION2 ...]",
+            "       /usr/bin/lv list [--paths]",
+        ];
+        assert_eq!(verbs(&u, "lv"), ["compare", "sort", "list"]);
+        let other = [
+            "Usage: /usr/bin/xx compare A",
+            "       /usr/bin/xx sort [-r]",
+        ];
+        assert!(verbs(&other, "lv").is_empty());
     }
 
     #[test]
