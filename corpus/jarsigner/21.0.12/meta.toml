@@ -17,5 +17,10 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 min_status = "ok"
-must_contain_flags = ["-keystore", "-storepass", "-sigfile", "-signedjar", "-tsa", "-verbose", "-certs", "-conf"]
-must_describe = { "-keystore" = "keystore location", "-sigfile" = "name of .SF/.DSA file" }
+must_contain_flags = ["-keystore", "-storepass", "-sigfile", "-signedjar", "-tsa", "-providerArg", "-verbose", "-certs", "-conf"]
+must_describe = { "-keystore" = "keystore location", "-sigfile" = "name of .SF/.DSA file", "-providerArg" = "configure argument for -providerClass" }
+must_not_describe = { "-addprovider" = "providerArg", "-providerClass" = "providerArg" }
+
+[xfail]
+broken = true
+reason = "[S-248] the nested `[-providerArg <arg>]` line stays inside the descriptions of -addprovider and -providerClass instead of being its own flag row"
