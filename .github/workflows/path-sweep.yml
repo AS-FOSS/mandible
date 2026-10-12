@@ -197,7 +197,10 @@ jobs:
         timeout-minutes: 15
         run: |
           cargo build --release --locked --bin xtask
-          ./target/release/xtask coverage \
+          # Probes run inside $HOME/.cache/mandible (spec §6 rule 8). The
+          # container's /github/home belongs to the runner user, which the
+          # probes' root cannot write to, so the sweep runs with root's own home.
+          HOME=/root ./target/release/xtask coverage \
             --shard ${{ matrix.shard }}/16 \
             --progress \
             --format markdown \
@@ -303,5 +306,11 @@ jobs:
           reported=$(ls shards/*.md 2>/dev/null | wc -l)
           if [ "$reported" -eq 0 ]; then
             echo "::error::PATH sweep produced nothing: 0 of 16 shards reported. Every count in the summary above is zero because no shard finished, not because the sweep measured an empty PATH. A green tick here would be a lie." >&2
+            exit 1
+          fi
+          # Shards that all report every tool with no tier measured nothing.
+          set -- $(awk '/aggregate:/ { for (i = 1; i <= NF; i++) { split($i, kv, "="); if (kv[1] == "total") t += kv[2]; if (kv[1] == "no_tier_count") n += kv[2] } } END { print t + 0, n + 0 }' shards/*.md)
+          if [ "$1" -gt 0 ] && [ "$2" -eq "$1" ]; then
+            echo "::error::PATH sweep measured nothing: all $1 tools report no tier, so no probe ran." >&2
             exit 1
           fi
