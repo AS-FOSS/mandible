@@ -1,7 +1,9 @@
 //! A line `Valid <words> <noun>: v1, v2, ...` outside any table lists the
 //! values of the flag whose description points at it (`see below for valid
 //! formats`). The values become that flag's choices; a value's `(default)`
-//! note is its description. Exactly one choice-less flag must name
+//! note is its description, parentheses kept as printed. The prose
+//! paragraph right after the line (same indent, up to a blank line) joins
+//! the flag's description. Exactly one choice-less flag must name
 //! `valid <noun>`. See docs/shapes.md S-246 and corpus/speedtest/1.2.0.84.
 
 use mandible_core::{Choice, Entity, Text};
@@ -21,9 +23,7 @@ fn valid_line(line: &str) -> Option<(String, Vec<Listed>)> {
         let note: Vec<&str> = words.collect();
         let note = match note.as_slice() {
             [] => None,
-            [one] if one.starts_with('(') && one.ends_with(')') => {
-                Some(one.trim_matches(['(', ')']).to_string())
-            }
+            [one] if one.starts_with('(') && one.ends_with(')') => Some((*one).to_string()),
             _ => return None,
         };
         values.push((name.to_string(), note));
@@ -39,8 +39,28 @@ fn mentions(flag: &Entity, noun: &str) -> bool {
 }
 
 /// Attaches each `Valid <noun>:` line's values to the one flag naming it.
+/// The paragraph after `lines[at]`: blank lines skipped, then consecutive
+/// lines at the same indent that are not themselves `Valid ...` lines.
+fn trailing_paragraph(lines: &[&str], at: usize) -> Option<String> {
+    let indent = |l: &str| l.len() - l.trim_start().len();
+    let base = indent(lines[at]);
+    let mut rest = lines[at + 1..].iter().skip_while(|l| l.trim().is_empty());
+    let first = rest.next()?;
+    if first.trim().starts_with("Valid ") || indent(first) != base {
+        return None;
+    }
+    let mut words = vec![first.trim()];
+    for l in rest {
+        if l.trim().is_empty() || indent(l) != base {
+            break;
+        }
+        words.push(l.trim());
+    }
+    Some(words.join(" "))
+}
+
 pub(super) fn attach(lines: &[&str], flags: &mut [Entity]) {
-    for line in lines {
+    for (at, line) in lines.iter().enumerate() {
         let Some((noun, values)) = valid_line(line) else {
             continue;
         };
@@ -50,6 +70,14 @@ pub(super) fn attach(lines: &[&str], flags: &mut [Entity]) {
         let (Some(flag), None) = (owners.next(), owners.next()) else {
             continue;
         };
+        if let Some(para) = trailing_paragraph(lines, at) {
+            let own = flag.description.as_ref().map(|d| d.as_str().to_string());
+            let joined = match own {
+                Some(o) => format!("{o} {para}"),
+                None => para,
+            };
+            flag.description = Some(Text::sanitize(&joined));
+        }
         flag.choices = values
             .into_iter()
             .map(|(name, note)| match note {

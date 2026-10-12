@@ -88,13 +88,13 @@ flags:
   value_kind: Required
   choices:
   - name: human-readable
-    description: default
+    description: (default)
   - csv
   - tsv
   - json
   - jsonl
   - json-pretty
-  description: Output format (see below for valid formats)
+  description: Output format (see below for valid formats) Machine readable formats (csv, tsv, json, jsonl, json-pretty) use bytes as the unit of measure with max precision
   provenance:
     sources:
     - help-text

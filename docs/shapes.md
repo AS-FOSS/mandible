@@ -5563,7 +5563,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. A line `Valid <words> <noun>: v1, v2, ...` outside any
   table gives its values, in order, as the choices of the one choice-less
   flag whose description says `valid <noun>`; a `(default)` note is that
-  choice's description. Zero or several such flags leave the line alone.
+  choice's description, parentheses kept as printed. The prose paragraph
+  right after the line (same indent, up to a blank line) is appended to that
+  flag's description. Zero or several such flags leave the line alone.
   Fixture: `corpus/speedtest/1.2.0.84`.
 - fleet: full-PATH sweep (2271 matched), zero losses; only speedtest moved (`-f` gains six choices), read against its `--help`.
 

@@ -18,3 +18,6 @@ stdout = "help.txt"
 expected_framework = "generic"
 min_status = "ok"
 must_attach_choices = { "--format" = ["human-readable", "csv", "tsv", "json", "jsonl", "json-pretty"], "--unit" = ["bps", "Gbps", "GiB/s", "auto-binary-bits", "auto-binary-bytes", "auto-decimal-bits", "auto-decimal-bytes"] }
+
+[contract.must_describe]
+"--format" = "use bytes as the unit of measure with max precision"
