@@ -1,12 +1,12 @@
-//! The round-8 family detectors, atlas S-137, S-139, S-140 and S-142.
+//! The invocation-form and continuation family detectors, atlas S-137, S-139, S-140 and S-142.
 //! Split into their own file for the same line-count reason `score.rs`'s
-//! own round functions are.
+//! own family functions are.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
 use mandible_core::CommandNode;
 
-pub(super) fn round8_family_counts(
+pub(super) fn invocation_form_family_counts(
     raw: &str,
     root: &CommandNode,
 ) -> Vec<(&'static str, usize, Vec<String>)> {

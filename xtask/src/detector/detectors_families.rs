@@ -207,7 +207,7 @@ impl Detector for OrJoinedAlias {
     }
 }
 
-// Six round-4 detectors, added after the seven above. Atlas ids S-106
+// Six long-option and usage detectors, added after the seven above. Atlas ids S-106
 // through S-111, in the order the shapes were reviewed:
 // underscore-in-long-option, usage-alternative-or-prefix,
 // usage-program-word-mismatch, multi-operand-usage-tail,
@@ -388,7 +388,7 @@ impl Detector for GluedOptionalGroupSpelling {
     }
 }
 
-// Round-6 detectors, atlas id S-116 upward. No labelled seed-2 entry
+// Spelling-grammar and block detectors, atlas id S-116 upward. No labelled seed-2 entry
 // describes any of these shapes — `gcc`'s own seed-2 note is about a
 // different defect (`--help={common|...}`) — so each returns `family:
 // None` (spec §13.1e rule 6: not calibratable is a first-class, honest
@@ -773,11 +773,11 @@ impl Detector for DescriptionSubcommandsList {
     }
 }
 
-// Round-7 detectors, atlas ids S-135 and S-136. Neither shape has a
+// Usage-tail detectors, atlas ids S-135 and S-136. Neither shape has a
 // labelled seed-2 entry — both were found from the maintainer's later,
 // seed-7 fixture passes (`corpus/makeconv/6.2`, `corpus/apt-sortpkgs/2.8.3`)
-// — so both return `family: None`, the same honest answer round 6's own
-// detectors above give for the same reason.
+// — so both return `family: None`, the same honest answer the spelling and
+// block detectors above give for the same reason.
 
 pub(crate) struct UsageTextContinuationFold;
 

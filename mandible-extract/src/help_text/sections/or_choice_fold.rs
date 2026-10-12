@@ -125,7 +125,7 @@ mod tests {
 
     /// pod2man's own two rows (`corpus/pod2man/5.01/help.txt`): two
     /// *different* long spellings, never folded even though each is a
-    /// same-shaped value-carrying row — the round-10 regression this rule
+    /// same-shaped value-carrying row — a past regression this rule
     /// must not repeat.
     #[test]
     fn pod2mans_lquote_and_rquote_stay_separate() {

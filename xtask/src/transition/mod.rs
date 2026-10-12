@@ -1035,7 +1035,7 @@ mod tests {
     // options; BSD grep, on macOS, prints a bare usage synopsis with none),
     // which is exactly the class of failure AGENTS.md §4 warns about
     // ("macOS breaks in ways Linux CI cannot see") and turned
-    // `test (macos-latest)` red on this branch. It's now two tests in
+    // `test (macos-latest)` red. It's now two tests in
     // `coverage::tests`, where `Row`/`build_fingerprint`/`render_text` are
     // already reachable without a second cross-module exposure:
     // `fingerprint_footer_round_trips_a_synthetic_tree` (a hand-built

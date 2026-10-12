@@ -394,7 +394,7 @@ fn family_detector_counts(
 }
 
 /// The seven vim-family detectors (atlas S-095 to S-100 and S-105) plus the
-/// six round-4 detectors (atlas S-106 to S-111), read off the same
+/// six long-option and usage detectors (atlas S-106 to S-111), read off the same
 /// already-captured raw text and tree. One function rather than thirteen
 /// named locals: every family shares the exact same (name, finding count,
 /// capped samples) shape, and `Row::vim_family`/`Aggregate::vim_family`
@@ -484,21 +484,30 @@ fn vim_family_counts(
                 .collect(),
         ),
     ];
-    counts.extend(round4_family_counts(&raw, root));
-    counts.extend(round5_family_counts(&raw, root));
-    counts.extend(round6_family_counts(&raw, root));
-    counts.extend(round6_block_family_counts(&raw, root));
-    counts.extend(super::round7::round7_family_counts(&raw, root));
-    counts.extend(super::round7::round7_usage_family_counts(&raw, root));
-    counts.extend(super::round8::round8_family_counts(&raw, root));
-    counts.extend(super::round9::round9_family_counts(&raw, root));
-    counts.extend(super::round10::round10_family_counts(&raw, root));
+    counts.extend(long_option_and_usage_family_counts(&raw, root));
+    counts.extend(fold_and_separator_family_counts(&raw, root));
+    counts.extend(spelling_grammar_family_counts(&raw, root));
+    counts.extend(block_boundary_family_counts(&raw, root));
+    counts.extend(super::value_and_usage_tail::value_name_family_counts(
+        &raw, root,
+    ));
+    counts.extend(super::value_and_usage_tail::usage_tail_family_counts(
+        &raw, root,
+    ));
+    counts.extend(super::invocation_and_continuation::invocation_form_family_counts(&raw, root));
+    counts.extend(super::bullet_and_dash_tables::bullet_row_family_counts(
+        &raw, root,
+    ));
+    counts.extend(super::label_and_table_shapes::label_and_table_family_counts(&raw, root));
     counts
 }
 
 /// The spelling-grammar family detectors, atlas S-116 to S-120, split
-/// out for the same line-count reason as [`round4_family_counts`].
-fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+/// out for the same line-count reason as [`long_option_and_usage_family_counts`].
+fn spelling_grammar_family_counts(
+    raw: &str,
+    root: &CommandNode,
+) -> Vec<(&'static str, usize, Vec<String>)> {
     let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
     let cg = crate::detector::comma_glued_option_value::detect(raw, root);
     let hs = crate::detector::hash_in_spelling::detect(raw, root);
@@ -580,8 +589,8 @@ fn round6_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
 }
 
 /// The block-boundary family detectors, atlas S-126 to S-129 and S-114, split out
-/// for the same reason [`round4_family_counts`] is.
-fn round6_block_family_counts(
+/// for the same reason [`long_option_and_usage_family_counts`] is.
+fn block_boundary_family_counts(
     raw: &str,
     root: &CommandNode,
 ) -> Vec<(&'static str, usize, Vec<String>)> {
@@ -640,12 +649,15 @@ fn round6_block_family_counts(
     ]
 }
 
-/// The three round-5 detectors, each implementing [`crate::detector::
+/// The three fold and separator detectors, each implementing [`crate::detector::
 /// Detector`] directly rather than the bare `detect()`/`Report` shape the
 /// families above use — `hits()` is called through the trait, on the same
 /// already-fetched capture, still zero additional probes. Same (name,
 /// finding count, capped samples) shape as its caller.
-fn round5_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+fn fold_and_separator_family_counts(
+    raw: &str,
+    root: &CommandNode,
+) -> Vec<(&'static str, usize, Vec<String>)> {
     use crate::detector::{Detector, ToolEvidence};
     let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
     let evidence = ToolEvidence { raw, root };
@@ -665,10 +677,13 @@ fn round5_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usi
         .collect()
 }
 
-/// The six round-4 detectors (atlas S-106 to S-111), split out of
+/// The six long-option and usage detectors (atlas S-106 to S-111), split out of
 /// [`vim_family_counts`] so that function stays under the line ceiling.
 /// Same (name, finding count, capped samples) shape as its caller.
-fn round4_family_counts(raw: &str, root: &CommandNode) -> Vec<(&'static str, usize, Vec<String>)> {
+fn long_option_and_usage_family_counts(
+    raw: &str,
+    root: &CommandNode,
+) -> Vec<(&'static str, usize, Vec<String>)> {
     let cap = FAMILY_DETECTOR_SAMPLES_PER_ROW;
     let ul = crate::detector::underscore_in_long_option::detect(raw, root);
     let ap = crate::detector::usage_alternative_or_prefix::detect(raw, root);

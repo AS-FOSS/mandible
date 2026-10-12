@@ -1,12 +1,10 @@
-//! `description-subcommands-list` (round 5's S-114, atlas kept the same
-//! id): a `Subcommands:` sub-heading sits indented inside the
-//! `Description:` prose block, followed by a bulleted `- name:
+//! `description-subcommands-list` (S-114): a `Subcommands:` sub-heading sits
+//! indented inside the `Description:` prose block, followed by a bulleted `- name:
 //! description` list — `pip3 config --help`'s six actions. No recognizer
 //! fires on this shape today, so `pip3 config` has no children.
 //!
 //! Fixture: captured locally (`pip3 config --help`); not yet a corpus
-//! fixture (the pip3 fixture lives on PR #130's branch, not main, per
-//! round 6's brief).
+//! fixture.
 
 use mandible_core::CommandNode;
 

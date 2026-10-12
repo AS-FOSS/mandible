@@ -4,7 +4,7 @@
 # `--help` capture and yields no root for argv ["jfr", "help", "configure"].
 # The `option=value` and `event-setting=value` rows and the keys under
 # `Options for default.jfc:` (`gc=<off|...>`) are description text of the
-# node, as printed: not operands, not flags (maintainer, round 18).
+# node, as printed: not operands, not flags (maintainer).
 
 [bless]
 provenance = "agent"

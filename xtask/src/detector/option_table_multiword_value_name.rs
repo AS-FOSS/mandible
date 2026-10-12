@@ -1,4 +1,4 @@
-//! `option-table-multiword-value-name` (round 9, atlas S-148): the
+//! `option-table-multiword-value-name` (atlas S-148): the
 //! option-table sibling of S-131's own usage-synopsis shape. `argparse`
 //! writes an option-table row's flag and metavar on their own line when
 //! the pair is too wide to share the line with the description
@@ -7,7 +7,7 @@
 //! that itself holds several words, on a table row rather than inside a
 //! usage-line bracket group.
 
-// Count only, no fix shipped this round (the A5 brief): the block-
+// Count only, no fix shipped: the block-
 // derived option-table reader wins over the usage-derived one for a
 // flag documented in both places (`help_text/sections/mod.rs`'s own
 // "let the described version win"), so `--annotate` keeps only its

@@ -506,7 +506,7 @@ note = "i believe it shows '--' as positional arg"
 # as one flag -h whose description begins "or --help", so --help never
 # becomes an alias -> or-joined-alias
 #
-# Round 4: three more shapes, evidenced by the same fixture's own bytes.
+# Three more shapes, evidenced by the same fixture's own bytes.
 # help.txt's "   or: vim [arguments] -" (and two more "or:" continuations)
 # reaches root.usage with the marker still inside the form ->
 # usage-alternative-or-prefix. "Usage: vim [arguments] [file ..]"'s

@@ -3160,7 +3160,7 @@ stdout = "help.txt"
 
     /// The default pattern (`audit-seed2`) has no `*`, so it stays an exact
     /// match: unchanged behavior for the seed 2/4/5/6 calibrations, which is
-    /// the round-7 brief's own "prove it" requirement.
+    /// the "prove it" requirement.
     #[test]
     fn default_pattern_still_matches_only_a_literal_directory_name() {
         let corpus = setup();

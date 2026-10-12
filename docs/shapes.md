@@ -683,7 +683,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `fqs` and drops the rest of its text, a pre-existing ordinary-splitter
   gap (a spec's unconsumed remainder is not moved to the description).
 - fleet: 5 flags recovered (-a -b -l -t -v), 2026-08-30; full-PATH sweep-diff of 2270 tools against the
-  r13/parse-b head before this fix, 2026-10-03: 0 flags lost anywhere, 8
+  build before this fix, 2026-10-03: 0 flags lost anywhere, 8
   flags gained on lsof (40 to 48); field-level changes on infocmp, lsof,
   unzip and zipinfo (value placeholders moved out of descriptions), every
   one read against the tool's own help. A bare `--` cell is a flag only
@@ -1683,7 +1683,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   args` row is that same separator. The tree still reads a flag `--` with
   value `program args` and no `program` positional. The open case is the
   `[xfail]` fixture `corpus/lldb-server/18.1.3-dashdash`, which asserts
-  `must_contain_positionals_by_path` for `gdbserver`. Fixed (round 13): see
+  `must_contain_positionals_by_path` for `gdbserver`. Fixed: see
   S-153, whose `[[--] word...]` group reading recovers `program` (optional)
   and `args` (optional, repeatable), and a `-- word word` flag row that
   restates those operands is dropped as a flag and describes `program`.
@@ -1814,7 +1814,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   marker never takes a value, which leaves `fsck`'s
   `-- [fs-options]` alone, and the option-list word written `[<options>]`
   after a bare flag is never its value (`git diff --no-index [<options>]
-  <path> <path>`, round 18). The missing-description half of this shape is
+  <path> <path>`). The missing-description half of this shape is
   still open: a synopsis line that describes its own alternative gives the
   flag no description.
 - fleet: `usage-only-value-name` (`xtask/src/usage_only_value_name.rs`)
@@ -2043,11 +2043,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide.
 - fleet: detector fires on 50 tools, 126 findings, over a 2318-tool sweep,
   2026-09-04. The fix moved 12 tools with zero losses on the same sweep.
-  Round 12's S-153 `[options] command` guard narrowing moves some of this
+  S-153's `[options] command` guard narrowing moves some of this
   detector's own remaining findings too (24 of the 30-tool family it
   resolved on a `--tools`-pinned sweep were part of the ambiguous
-  remainder this detector counts); the updated full-`PATH` number needs a
-  full sweep this branch did not run, so is not restated here.
+  remainder this detector counts); the updated full-`PATH` number has not
+  been measured, so is not restated here.
 
 ### S-110: "or"-joined alias where both spellings carry a value
 
@@ -2315,6 +2315,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fix moved 43 tools with zero losses on the same sweep. Seed-7 calibration
   (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
   false negative (`pvdisplay`), 1 true negative, 2026-09-06.
+
 ### S-126: unheaded example block folds onto the preceding flag's description
 
 - id: S-126
@@ -2411,7 +2412,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   15-tool systemd/util set the fix targets) to 3 tools/12 findings
   fleet-wide in a full-`PATH` sweep, 2026-09-05: 15 tools gained
   subcommands, 0 losses. The 3-tool residual is unrelated tools this fix
-  does not reach; not investigated further this round. Seed-7 calibration
+  does not reach; not investigated further. Seed-7 calibration
   (`--seed 7 --fixture-version '*'`) verdict REPAIRED: 0 true positives, 1
   false negative (`systemctl`), 1 true negative, 2026-09-06.
 
@@ -2498,6 +2499,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the unfixed parser found `bdftopcf` gained its only real positional, 0
   losses. Below the five-tool bar on this box's own sweep; shipped as the
   maintainer's own named item, issue #135.
+
 ### S-133: one option's literal choices, one row per value, never folded
 
 - id: S-133
@@ -2506,19 +2508,19 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -tb or --type b   output for big-endian/ASCII charset family
       -te or --type e   output for big-endian/EBCDIC charset family
 - tools: icupkg
-- handling: Fixed (gated exception, round 11). `icupkg`'s three rows fold into one
+- handling: Fixed (gated exception). `icupkg`'s three rows fold into one
   flag, `-t`/`--type`, with three literal choices, each keeping its own
   description (`help_text::sections::or_choice_fold::fold_or_joined_choice_rows`).
   Gated on the raw row's own literal text — the short spelling's glued
   tail equal to the long spelling's own value literal (`-tl` / `--type
   l`) — never on entity shape alone, so an unrelated same-spelling repeat
-  (S-134's fused `pod2man` regression, round 10's issue #142 attempt) is
+  (S-134's fused `pod2man` regression, an earlier issue #142 attempt) is
   never folded; `pod2man`'s `--lquote`/`--rquote` stay separate. Below
   the five-tool bar, shipped only because `corpus/icupkg/74.2`'s own
   `must_attach_choices` assertion now passes with a zero-loss sweep and
   the nine named controls held byte-identical. The fixture stays
   `[xfail]` for S-134's separate, still-open `-c`/`--copyright` defect;
-  issue #142 stays open. Round 12: the maintainer verified `-t l` binds
+  issue #142 stays open. The maintainer verified `-t l` binds
   the same way `-tl` does and accepted the current rendering; no parser
   change.
 
@@ -2544,7 +2546,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `cargo run -p xtask -- corpus`; the only fence that would catch one is
   `or_choice_fold.rs`'s own unit test,
   `icupkgs_three_type_rows_fold_into_one_flag_with_choices`. This is not
-  changed this round — no new xfail-independent assertion is added, and
+  changed — no new xfail-independent assertion is added, and
   the fixture's layout stays as-is.
 - fleet: `choice-value-rows-unfolded`
   (`xtask/src/detector/choice_value_rows_unfolded.rs`) reads 8 tools / 12
@@ -2634,7 +2636,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   recovered run's own trailing pair to one repeatable operand, named by
   the shared stem, when the second name is the first's own name with the
   next integer, bracketed and ellipsis-marked — narrower than the
-  `multi-operand-usage-tail` ambiguity (S-109) round 6 declined, since the
+  `multi-operand-usage-tail` ambiguity (S-109) an earlier attempt declined, since the
   numbering is evidence a bare tail lacks. The collapse is exempt from
   both the `[options] command` ambiguity guard and the no-earlier-group
   guard, since the numbering removes the ambiguity either guard exists to
@@ -2683,6 +2685,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet-wide with a full-`PATH` sweep-diff of 2269 tools, 2026-09-06: 0
   flags lost, 23 flags gained across lvconvert, lvcreate, lvextend,
   lvresize and vgreduce.
+
 ### S-139: a single-dash spelling glued to a tab, carrying an interior uppercase letter
 
 - id: S-139
@@ -2695,7 +2698,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `"oI"`. `shares_lowercase_prefix_with_sibling` first admitted a token whose
   swallowed name shared its lowercase-led prefix with a sibling row's own
   (`-noI`/`-noId`/`-noD`/`-noF`/`-noX` all sharing `"no"`), but it still refused
-  `-pf`, `-ef` and every uppercase-led boolean row (`-Xhelp`, `-Xhc`). Round 9
+  `-pf`, `-ef` and every uppercase-led boolean row (`-Xhelp`, `-Xhc`). A later change
   deleted that function outright and replaced it with the table-level rule
   S-145: every S-139 table also passes the table test, so nothing is lost.
   `xtask detector`'s `glued-uppercase-shared-prefix`
@@ -2705,6 +2708,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: superseded by S-145, 2026-09-07. Previously: the fix moved 2 tools,
   mksquashfs and sqfstar, 10 flags each, with 0 losses on a full-`PATH` sweep,
   2026-09-06.
+
 ### S-140: a description continuation line that begins with a dash
 
 - id: S-140
@@ -2730,6 +2734,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   count, read from that same sweep-diff, is 1 tool. Both are below the
   five-tool floor. Not shipped; the fixture stays xfail with the counts
   in its reason.
+
 ### S-141: a command table's rows are multi-word command patterns
 
 - id: S-141
@@ -2748,15 +2753,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not gated.
   The three refusals, each with the names it invented, so a fourth attempt has
   the whole negative list:
-  1. Round 8 read each token of a row's own name field as its own command and
+  1. A first attempt read each token of a row's own name field as its own command and
      fabricated nine nodes on fail2ban-client: `logtarget`, `persistent`,
      `of`, `list`, `files`, `filter`, `for`, `back`, `failures`. Every one is a
      word cut out of a WRAPPED DESCRIPTION, not out of a name field.
-  2. Round 9 fixed the block boundary underneath (S-149) and deliberately did
+  2. A second fixed the block boundary underneath (S-149) and deliberately did
      not retry the name rule. Every row of fail2ban-client's `Command:` table
      is read now, and its 10 single-word commands recover cleanly with no
      fabrication.
-  3. Round 10 built the rule behind a column-identity guard: a candidate row
+  3. A third built the rule behind a column-identity guard: a candidate row
      is admitted only when its name field begins at the block's own name
      column, on the reasoning that a wrapped description continuation begins
      at the description column by construction. The guard held on
@@ -2776,7 +2781,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: 18 tools/224 findings on a full-`PATH` sweep, 2026-09-06.
   fail2ban-client holds 85 of them and 84 were read by hand and are genuine.
   Above the five-tool bar. Not shipped; the fixture's `min_subcommands = 14`
-  floor documents the gap, currently 10. Round 10's refused prototype would
+  floor documents the gap, currently 10. The third attempt's refused prototype would
   have taken fail2ban-client to 14, which is why a count alone can never
   admit this rule: the same build fabricated six nodes on three other tools.
 
@@ -2814,6 +2819,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   findings (the six doc-URL false positives, both genuine hits gone) and the
   second 2 tools/2 findings (the ANSI false positive plus one hit outside
   squashfs-tools). 2026-09-13.
+
 ### S-143: a lowdown bullet row names a subcommand
 
 - id: S-143
@@ -2890,7 +2896,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   unambiguous-evidence requirement exist because a single ambiguous row
   (a short flag glued to a capitalized description word) cannot tell a
   table from a coincidence on its own; a bundled-short-flag document
-  (digit- or case-mixed clusters) is excluded the same way. Round 11:
+  (digit- or case-mixed clusters) is excluded the same way. A later widening:
   `row_is_table_shaped`'s own gap test (tab or double-space) never fires
   on a table with no column padding at all — Xvfb's own headingless shape
   (S-165) — so a row's genuine `<...>`/`[...]` placeholder exactly one
@@ -2906,9 +2912,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   five are gains, none a fabrication. One qualifier: `llvm-lipo-18`'s own
   raw line is `-arch <value> <value>`, two values, and only the first is
   recovered — a partial recovery, not a wrong one; the second value is
-  information the IR does not model. Round 13: a `--name` row that only
+  information the IR does not model. A `--name` row that only
   mirrors a `-name` row of its own (`ffplay`'s `-help topic` beside
-  `--help topic`) no longer vetoes the no-`--long`-row gate
+  `--help topic`) does not veto the no-`--long`-row gate
   (`long_row_mirrors_single_dash`), and a table row is exempt from the
   repeated-character refusal (`-ss pos`, whose tail repeats its letter).
   Fixes `-ss`, `-fs`, `-an`, `-vn`, `-sn`, `-vf`, `-af`, `-ar`, `-ac`
@@ -2921,17 +2927,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   after the fix: unsquashfs, xkill, xev, setfont and others in the same
   single-dash convention still carry an unfixed member (`-rNUM`, `-Idirectory`,
   `-ll`, `-ps`, below the per-document evidence floor this fix requires), a
-  documented lower bound rather than a further fix this round. The fix itself
+  documented lower bound rather than a further fix. The fix itself
   moved 2 tools, mksquashfs and sqfstar, plus recovered whole spellings and
   value names fleet-wide on unsquashfs, Xvfb, xkill, xev, xdpyinfo, xkbcomp,
   xkbevd, xkbprint, xlsatoms, xwininfo, screen, setfont, sg_map, jinfo, jdb,
   jrunscript, perlbug, perlthanks, ckbcomp, containerd-shim-runc-v2,
   javax2jakarta, llvm-libtool-darwin-18, llvm-lipo-18 and winpr-makecert,
   0 losses on a full-`PATH` sweep-diff of 2269 tools, 2026-09-07. All four
-  self-checks hold. Round 11's own placeholder-gap widening (above) clears
+  self-checks hold. The placeholder-gap widening (above) clears
   the five-tool bar on its own evidence: 6 tools gained a value name —
   Xvfb, jdb, jrunscript, llvm-libtool-darwin-18, llvm-lipo-18 and screen —
-  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. Round 13's
+  0 losses on a full-`PATH` sweep of 2323 tools, 2026-09-13. The
   mirrored-`--help` gate moved 6 tools (ffplay, ffmpeg, ffprobe, lspci,
   winpr-makecert, xkbprint), 0 losses on 2270 tools, 2026-10-03. No labelled
   member of this family exists in any audit
@@ -3007,7 +3013,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   differently, reads 233-234 tools / 720-721 findings on a full-`PATH`
   sweep of 2269 tools, 2026-09-07 (up from 184/635 before the widening).
   The coverage sweep never simulates the app's own background root
-  refill, so its flag-count `sweep-diff` reads identical on this branch;
+  refill, so its flag-count `sweep-diff` reads identical;
   the gain is confirmed instead by the corpus contract (fails before the
   fix, passes after) and by `mandible lvcreate`'s own rendered screen.
 
@@ -3025,7 +3031,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   own multi-word metavar row keeps only the first word, `WHAT`, rather
   than the whole repeated run.
 
-  Round 12: fixed a narrower member of the same family, `pkcheck`'s
+  A narrower member of the same family, `pkcheck`'s
   `-d, --details=KEY VALUE`, a glued `=`-value spec written as two
   space-separated ALL-CAPS words where only the first survived
   (`take_glued_second_metavar_word`, `mandible-extract/src/help_text/
@@ -3039,7 +3045,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `option-table-multiword-value-name`
   (`xtask/src/detector/option_table_multiword_value_name.rs`) still reads
   1 tool / 1 finding fleet-wide for `gdbus-codegen`'s own shape; below
-  the five-tool bar, not fixed this round. `pkcheck`'s glued `=`-value
+  the five-tool bar, not fixed. `pkcheck`'s glued `=`-value
   sub-shape is a raw-shape upper bound of 1 tool over the 2301 frozen
   `audit/queue-captures`, also below the five-tool bar; fixed anyway as
   a gated exception (docs/design.md §16), narrowly scoped and zero-loss
@@ -3094,7 +3100,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `bare-usage-label-form`
   (`xtask/src/detector/bare_usage_label_form.rs`) reads 0 tools/0 findings
   post-fix and is ratcheted there. The raw-shape upper bound counted before
-  the round was 300 tools. What actually moved on a full-`PATH` sweep of
+  the fix was 300 tools. What actually moved on a full-`PATH` sweep of
   2323 tools, 2026-09-13: 39 flags GAINED across three tools that nobody had
   looked at — dmsetup 4 to 29, dmstats 8 to 20, npm 0 to 2 — every one of
   them documented inside the tool's own bracketed `Usage:` block, plus 25
@@ -3142,7 +3148,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
        /usr/bin/ranlib [options] archive
         Generate an index to speed access to archives
 - tools: fdisk, gcc-ranlib-13, gdk-pixbuf-thumbnailer, nvim, vim.basic
-- handling: Open, measured this round. `grub-macbless` was checked and is
+- handling: Open. `grub-macbless` was checked and is
   NOT a member: its own description sits on its own physical line and
   already renders as its own `DESCRIPTION` section, correctly. The prose
   belongs to the form, not to the invocation, and it renders glued onto the
@@ -3162,12 +3168,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   form rendering path several other shipped shapes already narrow
   (S-108/S-151's foreign-program-word substitution, S-150's bare-label
   fold), so a regression here risks re-breaking several already-fixed
-  tools at once — this needs the widest zero-loss sweep-diff of any item
-  this round, not the narrowest. RISK: the column-gap cut (`fdisk`, `nvim`)
+  tools at once — this needs the widest zero-loss sweep-diff of any item,
+  not the narrowest. RISK: the column-gap cut (`fdisk`, `nvim`)
   and the single-space cut (`gdk-pixbuf-thumbnailer`) need different
   thresholds to both fire without one eating a real two-word operand name
   (S-132/S-154's own shape) or a docopt alternation tail.
-- fixed in part (round 15): a usage form that introduces exactly one bare
+- fixed in part: a usage form that introduces exactly one bare
   (unbracketed) flag and carries plain prose behind a wide gap hands that
   prose to the flag as its description (`vim.basic`'s `-t tag` and `-q
   [errorfile]`, `nvim`'s `-t <tag>`/`-q [errorfile]`). A two-space gap counts
@@ -3178,7 +3184,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `usage-form-trailing-description`
   (`xtask/src/detector/usage_form_trailing_description.rs`) reads 4
   tools/6 findings on the 162-fixture `corpus/` tree (not a full-`PATH`
-  sweep — the orchestrator owns that lock), 2026-09-13: `fdisk`,
+  sweep), 2026-09-13: `fdisk`,
   `gcc-ranlib-13`, `nvim`, `vim.basic`. This crosses the five-tool floor
   once `gdk-pixbuf-thumbnailer` (confirmed by hand, not in `corpus/`) is
   added, but the detector itself does not yet count it: its own
@@ -3188,10 +3194,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   detector's plain-prose-word test (lowercase-led, matching
   `multiword.rs`'s own `plain_word`) refuses — `gcc-ranlib-13` still fires
   because six of its own seven words are lowercase, but the true fleet is
-  larger than this detector honestly counts. No fix ships this round: the
+  larger than this detector honestly counts. No fix ships: the
   measured count alone does not clear the bar with confidence, and the
-  zero-loss sweep-diff the gate also requires needs the orchestrator's
-  sweep lock. `corpus/fdisk/2.39.3` and `corpus/gcc-ranlib-13/2.42`
+  zero-loss sweep-diff the gate also requires has not been run. `corpus/fdisk/2.39.3` and `corpus/gcc-ranlib-13/2.42`
   (existing, passing fixtures) each gained a one-line note pointing at
   this entry rather than a new `[xfail]` fixture, since both already pass
   their own contracts and demoting a passing fixture to note a
@@ -3217,8 +3222,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`font-file...`), and a flag paired with an ALL-CAPS value on the same line
   no longer ends the walk. The description-gap cut that ran before the walk
   also used a two-space gap, which truncated a line whose own operands are
-  two-space padded. Round 12 narrowed the round-6 `[options] command`
-  ambiguity guard to a closed vocabulary
+  two-space padded. The `[options] command`
+  ambiguity guard is narrowed to a closed vocabulary
   (`command`/`commands`/`subcommand`/`subcommands`/`cmd`/`action`/`verb`,
   `is_command_placeholder`) plus a repetition-marker check on the earliest
   operand: `lcf`'s own two-space `dest_file  src_dir` tail and `ntfscp`'s
@@ -3253,9 +3258,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `mariadb-repair`, `mariadbcheck` and `mkfs.bfs`, none of them in the named
   30, with zero fixtures newly failing. `multi-operand-usage-tail` (S-109)'s
   own count is expected to drop by the tools this narrowing newly resolves
-  that its own detector also counted; an updated full-`PATH` number needs
-  the orchestrator's own sweep lock and is not remeasured this branch.
-- round 13 addition: two more licences for the tail walk, both of which fix the
+  that its own detector also counted; an updated full-`PATH` number has
+  not been measured.
+- addition: two more licences for the tail walk, both of which fix the
   boundary so the earlier-group gate is not needed. (1) An end-of-options
   marker: a `[--]` group directly ahead of the run (`lsof`'s `[--] [names]`),
   or the run being itself a `[[--] word args...]` group (`lldb-server
@@ -3341,7 +3346,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   Once choices are read from the placeholder itself, S-130's own rule
   applies and `value_name` is dropped rather than kept twice. Scoped to
   the option-table path (`emit_flags_with`); the usage-synopsis path is
-  untouched this round. `must_attach_choices`/`must_not_value_name` state
+  untouched. `must_attach_choices`/`must_not_value_name` state
   the claim.
 - fleet: `alternation-value-is-choices` reads 0 labelled members in the
   seed-7 audit (`NOT EVALUABLE`, both self-check directions held, 8
@@ -3352,7 +3357,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   PLACEHOLDER_FLAG_LOSSES flag losses, PLACEHOLDER_SUB_GAINS subcommand
   gains, PLACEHOLDER_SUB_LOSSES subcommand losses. Also moved `fzf`'s
   `--color=COLSPEC`'s `(dark|light|16|bw)` and cryptsetup's `token
-  <add|remove|import|export>`, neither named in the brief.
+  <add|remove|import|export>`, neither of them a target of the fix.
 
 ### S-156: a description tail that enumerates the values
 
@@ -3396,8 +3401,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   any later occurrence of the same text in another row's description
   (`dbiprof`'s `-case_sensitive  for -match and -exclude` mentions
   `-match` in prose and must not donate it a fabricated value). The
-  table gate is the whole safety argument. Round 13 (the mirrored `--help`
-  row of S-145 no longer counts against the gate): a two-word lowercase
+  table gate is the whole safety argument. With the mirrored `--help`
+  row of S-145 no longer counted against the gate, a two-word lowercase
   placeholder closed by a real column gap is one value (`gap_cut_two_word_value`,
   `-window_title window title`, `-loop loop count`, `-left x pos`), while an
   uppercase second word stays the next column (`range[,...] QEMU_DFILTER`);
@@ -3411,7 +3416,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   tools/12 findings on a full-`PATH` sweep of 2269 tools, 2026-09-12,
   each a table row the per-document evidence floor still refuses (a
   glued repeated-character shape, or a run the S-145 table gate itself
-  excludes) — a documented lower bound, not a further fix this round.
+  excludes) — a documented lower bound, not a further fix.
   No labelled member of this family exists in any audit seed; the four
   self-checks are the only standing evidence. The fix itself moved 57
   tools with 0 flag-count and 0 subcommand-count losses on the same
@@ -3420,7 +3425,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   value names; `lshw`, `ckbcomp`, `screen`, `sqlite3`, `xdpyinfo`,
   `xev`, `xkill`, `xlsatoms`, `ldattach`, `pod2usage`,
   `containerd-shim-runc-v2` and `docker-proxy` each recover at least
-  one. Round 13 moved `ffplay` and `ffmpeg` (two-word placeholders and
+  one. The mirrored-`--help` gate moved `ffplay` and `ffmpeg` (two-word placeholders and
   the mirrored-`--help` gate), 0 losses on a full-`PATH` sweep of 2270
   tools, 2026-10-03. `git`, `gcc`, `aarch64-linux-gnu-g++-13`, `ar`, `pnpm`,
   `systemctl`, `tar`, `find`, `docker`, `clang`, `vim.basic` and
@@ -3509,7 +3514,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   table test (no `--long` row anywhere in the document), and `pod2text`'s
   table is full of `--long` rows, so the same evidence that protects `gcc`,
   `clang` and `ld` from S-145 refuses `pod2text` here. That is the same gate
-  that refuses `fuser`'s `-SIGNAL`. Round 12: reconsidered and left refused.
+  that refuses `fuser`'s `-SIGNAL`. Reconsidered later and left refused.
   `pod2text`'s own usage line (`[--stderr] [-w width] [input [output
   ...]]`) spells `-w`, not `-width`, so S-172's own route (independent
   usage-line attestation of the exact reconstructed single-dash-long
@@ -3531,7 +3536,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. S-144 taught `join_slash_alias`
   (`mandible-extract/src/help_text/sections/bullets.rs`) to rewrite a spaced
   `/` between two flag-shaped tokens into the ordinary comma-joined alias
-  `parse_flag_spec` already reads, and round 10 ungated it from the lowdown
+  `parse_flag_spec` already reads, and a later change ungated it from the lowdown
   bullet marker (the separator must be exactly `/` with one space each
   side, and what follows must itself be flag-shaped, so a path or the word
   "input/output" in a description is never touched). `emit_flags_with`
@@ -3597,7 +3602,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   verbatim. (3) Neither rule fires where the sigil is not the row's own
   leading token: `xxd`'s `-s [+][-]seek` opens with `-s`, and stays
   refused, matching S-097's own counter-case.
-  Round 11 fixed three further defects on this same shape, all in
+  Three further defects on this same shape are fixed, all in
   `help_text::sections::repair.rs`/`flag_rows.rs`. (4) An alternation
   row's own expansion never duplicates or overwrites a spelling an
   ordinary row elsewhere in the document already documents:
@@ -3672,7 +3677,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   against `origin/main` 0b30c15, 2026-09-12: 0 flag/subcommand losses. The
   detector itself still reads 2 tools / 2 findings fleet-wide after this
   fix (`"where possible options include:"`, `"where options include:"`),
-  a different pair of tools this round's brief did not name; left as a
+  a different pair of tools; left as a
   future finding, not chased here.
 
 ### S-165: a headingless table lands in the root description
@@ -3696,7 +3701,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   cheap bound pays nothing extra. Xvfb's own `use: X [:<display>]
   [option]` line, an unusual `use:` label rather than `usage:`, is the
   root cause `flags_block_start` never reaches on its own. `memhog`
-  (round 12) showed the bound was still too narrow: its first line IS a
+  showed the bound was still too narrow: its first line IS a
   recognized usage line (an unlabelled synopsis opening on its own name),
   so the original gate (also requiring no usage line recognized) never
   fired, and the flag rows after that one usage line still landed in the
@@ -3709,15 +3714,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: `headingless-table-in-root-description`
   (`xtask/src/detector/headingless_table_in_root_description.rs`) is
   family `None`, so calibration reads NOT EVALUABLE. Self-checks hold
-  (4/4). Two tools, below the five-tool bar, maintainer-named (Xvfb
-  carried item 23; memhog maintainer-audited in round 12, "yeah this one
-  needs full revision"). Full-`PATH` sweep-diff of 2269
+  (4/4). Two tools, below the five-tool bar, maintainer-named (Xvfb;
+  memhog, which the maintainer audited: "yeah this one needs full
+  revision"). Full-`PATH` sweep-diff of 2269
   tools against `origin/main` 0b30c15, 2026-09-12: 0 flag/subcommand
   losses anywhere. The detector's own word-boundary heuristic still reads
   30 tools fleet-wide after this fix — a broader symptom (a description
   repeating several of its own tree's flag spellings) than the narrow
   structural cause this fix closes (no blank line anywhere); left as a
-  future finding, not chased here. Round 12's own widening (dropping the
+  future finding, not chased here. The widening (dropping the
   usage-line precondition) was not re-swept fleet-wide; reported, not
   gated on a fresh number.
 
@@ -3793,7 +3798,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   line under the node's summary when `aliases` is non-empty.
 - fleet: `usage-optional-word-table`
   (`xtask/src/usage_optional_word_table.rs`) named 10 tools/17 findings as a
-  raw shape before the round. What moved on a full-`PATH` sweep of 2323
+  raw shape before the fix. What moved on a full-`PATH` sweep of 2323
   tools, 2026-09-13: 6 subcommands gained across 2 tools, `lldb-server`
   0 to 3 and `lldb-server-18` 0 to 3, with names `gdbserver`, `platform` and
   `version`. Zero flag losses, zero flag gains, zero subcommand losses, and
@@ -3849,21 +3854,21 @@ entry's `tools` field and nothing else. It does not get a new entry.
   duplicate entity does not stop the first matching one carrying the
   right value — only `expected.snap`'s byte compare catches the
   duplicate today. A `must_not_duplicate_spelling` contract field would
-  fence it directly; not added this round.
+  fence it directly; not added.
 - fleet: `choice-list-under-placeholder`
   (`xtask/src/detector/choice_list_under_placeholder.rs`) is family `None`,
   so calibration reads NOT EVALUABLE; self-checks hold (4/4). The
   tree-level reach is **1 tool** — a full-`PATH` sweep of 2323 tools names
   `choices changed` on Xvfb and nothing else, 2026-09-13 — well short of
-  the five-tool bar; this ships on the gated-exception route (§ common.md:
+  the five-tool bar; this ships on the gated-exception route (docs/design.md §16:
   maintainer-audited, fixture promoted out of `[xfail]`, zero-loss sweep,
   controls byte-identical), not because the rule cleared it. Raw-shape
-  grep over `/home/ubuntu/projects/mandible/audit/queue-captures/`: 26
+  grep over `audit/queue-captures/`: 26
   tools / 26 findings, an upper bound on the raw shape alone. The other 25
   (`bash`, `perf`, `usbip`, `dmesg`, `bpftool`, and others) are unaudited
   and this rule does not reach them — nothing was fabricated on a tool
-  nobody read. `Xvfb` is the one fixture fixed and corpus-pinned this
-  round. 2026-09-13.
+  nobody read. `Xvfb` is the one fixture fixed and corpus-pinned here
+  (2026-09-13).
 
 ### S-169: a command table inside the usage block
 
@@ -4061,7 +4066,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the parse (a swallowed-value split whose name a usage line independently
   attests), not the raw text alone. Both fixture tools, lshw and fuser, are
   seed-7 maintainer-audited (`audit/7.toml`'s own `k1 = true` rows); no
-  broader full-`PATH` sweep was drawn this round, so the honest count is 2,
+  broader full-`PATH` sweep was drawn, so the honest count is 2,
   below the five-tool bar. Shipped as a gated exception (docs/design.md
   §16): both fixtures promote out of a prior unfixed state, `cargo xtask
   corpus` is zero-loss, and every self-check holds, both directions.
@@ -4074,7 +4079,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       * asm - CRATE_NAME.s
       * llvm-bc - CRATE_NAME.bc
 - tools: rustc
-- handling: Fixed (round 11, TUI render layer, not the parser: the description
+- handling: Fixed (TUI render layer, not the parser: the description
   field itself was already whole — `mandible-extract` joins these lines
   correctly). `wrap_description`'s enumerator-break heuristic
   (`mandible-tui/src/render/detail_pane/wrap.rs`) treats a bare `-` word as
@@ -4111,7 +4116,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --listen[=[ADDR:]PORT]
       -l [<KIND>[:<MODIFIERS>]=]<NAME>[:<RENAME>]
 - tools: cpio, fzf, journalctl, lsusb, node, nodejs, rustc
-- handling: Fixed (round 11), CLEARS THE FIVE-TOOL BAR, generalizing S-119.
+- handling: Fixed, CLEARS THE FIVE-TOOL BAR, generalizing S-119.
   S-119's own bracket matcher requires the outer group to close immediately
   after the inner pair's own close; each tool above carries more of the
   outer group *after* the inner pair closes before the true outer close, so
@@ -4121,10 +4126,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   instead of anchoring to the inner close, still refusing a second nested
   pair or a second level of nesting — the same exclusions S-119 documents
   (`fzf-tmux`'s `[WIDTH[%][,HEIGHT[%]]]` stays out of scope). Distinct id
-  from S-158 (branch `r10/option-values`, not present on `main`): that entry
-  records the same first-nesting-level defect S-119 already fixed on
-  `main`; whoever merges both branches should fold S-158's entry into
-  S-119/S-174 rather than keep three ids for two defects.
+  from S-158, which records the same first-nesting-level defect S-119
+  already fixed; S-158's entry folds into S-119/S-174 rather than keeping
+  three ids for two defects.
 
   Not a complete recovery everywhere — only the outer bracket group is
   recovered, so a spec with real content *after* that group's own close
@@ -4136,7 +4140,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`-l`) keeps `<NAME>[:<RENAME>]` after `[<KIND>[:<MODIFIERS>]=]`. Fixing
   the trailing part too is a further, separate rule.
 
-  Round 12: that further rule, `glued_bracket_group_residue`
+  That further rule, `glued_bracket_group_residue`
   (`mandible-extract/src/help_text/grammar.rs`), fixes all three. It
   glues whatever sits directly on the outer close with no separator: a
   required angle placeholder, itself optionally followed by one more
@@ -4146,12 +4150,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   lowercase letter so a description that happened to start immediately
   after the bracket is never mistaken for a fourth glued group. Raw-shape
   count for the residue alone: the three tools this entry already named;
-  no wider grep was run this round beyond the tools already on record
+  no wider grep was run beyond the tools already on record
   here.
 - fleet: `nested-bracket-value-general` (the depth-tracked matcher itself; no
-  separate xtask detector module this round) moved 7 tools on a full-`PATH`
-  sweep of 2323 tools, zero losses, 2026-09-13 (`r11/p1value.txt`,
-  `r11/p1value.diff.txt`): `cpio` `-I`/`-O` (`[USER@` -> `[[USER@]HOST:]`,
+  separate xtask detector module) moved 7 tools on a full-`PATH`
+  sweep of 2323 tools, zero losses, 2026-09-13: `cpio` `-I`/`-O` (`[USER@` -> `[[USER@]HOST:]`,
   raw `-I [[USER@]HOST:]FILE-NAME`), `fzf` `--listen` (`[[ADDR:]` ->
   `[[ADDR:]PORT]`), `journalctl` `-n`/`--lines` (`[+` -> `[[+]INTEGER]`),
   `lsusb` `-s` (`[bus` -> `[[bus]:]`, raw `-s [[bus]:][devnum]`), `node` and
@@ -4167,7 +4170,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   test (`grammar.rs`'s
   `a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`).
 
-  Round 12: the trailing-residue rule above moved the same three named
+  The trailing-residue rule above moved the same three named
   tools, checked by direct unit test
   (`a_nested_bracket_value_after_a_space_keeps_the_whole_outer_group`,
   `a_second_bare_bracket_group_glues_onto_the_nested_pair`,
@@ -4242,8 +4245,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `mandible-extract/src/help_text/sections/repair.rs` (`host` also by
   `corpus/host/9.18.39`, promoted straight in — never `[xfail]`). Clears
   the five-tool bar (AGENTS.md §3.1) on that count; not swept fleet-wide
-  with `xtask coverage` this round (build capacity was contended, and the
-  orchestrator owns the full-`PATH` sweep). A raw-text grep over
+  with `xtask coverage`. A raw-text grep over
   `audit/queue-captures/*/0.std*` for a single-dash-letter row followed by
   one space and a lowercase bare word reads 62 tools — an explicit upper
   bound on the raw shape, not a tree-level count; most of those 62
@@ -4254,7 +4256,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   names other flags and the row has prose past the guessed value
   (`corpus/host/9.18.39-unlisted`).
   Zero-loss checked against `git diff`'s own field-level list on every
-  corpus fixture this round: no `value_name` went from something real to
+  corpus fixture: no `value_name` went from something real to
   nothing anywhere except `memhog`'s own already-fenced S-172 case (S-177
   gained, `lsof`'s own `-F` gained a description with its value
   untouched), and `Xvfb`/`mksquashfs`/`sqfstar` stayed byte-identical
@@ -4300,8 +4302,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   narrowly scoped to that literal label, not a generalized colon-list
   recognizer (S-168's own general case was declined as materially larger
   and riskier than this item's scope).
-- fleet: Not measured with `xtask coverage` this round (build capacity was
-  contended; the orchestrator owns the full-`PATH` sweep). A raw-text grep
+- fleet: Not measured with `xtask coverage`. A raw-text grep
   over `audit/queue-captures/*/0.std*` for an unlabelled single-line
   synopsis whose tail carries a lowercase word followed by a nested
   bracket pair reads 48 tools — an upper bound on the raw shape, not a
@@ -4311,7 +4312,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `memhog_flags_positionals_and_root_description_all_land_correctly` test.
   Below the five-tool bar; shipped as a gated exception (docs/design.md
   §16) alongside `corpus/memhog/2.0.18`, promoted out of `[xfail]`,
-  maintainer-audited ("yeah this one needs full revision").
+  audited by the maintainer ("yeah this one needs full revision").
 
 ### S-178: a genuinely two-flag repeated-letter coincidence loses its value
 
@@ -4320,7 +4321,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -c                     turns off key-click
       -cc int                default color visual class
 - tools: Xvfb
-- handling: Open defect, declined this round. `Xvfb` documents an unrelated
+- handling: Open defect, declined. `Xvfb` documents an unrelated
   bare `-c` boolean ("turns off key-click") on its own row, which is exactly
   the evidence `repair_repeated_character_flags` (S-035) requires to treat
   `-cc`'s swallowed value `"c"` as a repeated-verbosity spelling
@@ -4333,13 +4334,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   never gets a turn either: its own condition 6 defers any
   `value_repeats_short` shape to the repeated-character repair. A safe fix
   needs a second, independent signal that `-cc int` is a real value-taking
-  flag rather than a verbosity level — not found this round. `-deferglyphs
-  [none|all|16]` on the same table (raised alongside `-cc` this round) is
+  flag rather than a verbosity level — not found. `-deferglyphs
+  [none|all|16]` on the same table (raised alongside `-cc`) is
   not a defect: it already reads its bracket value correctly, recovered by
-  S-145's own round-11 placeholder-gap widening, verified against
+  S-145's own placeholder-gap widening, verified against
   `mandible Xvfb`.
 - fleet: Not measured fleet-wide; a raw-shape count of 1 tool, Xvfb, is the
-  only evidence this round. Below the five-tool bar. `corpus/Xvfb/audit-seed`
+  only evidence. Below the five-tool bar. `corpus/Xvfb/audit-seed`
   does not assert `-cc`, so leaving this open costs no fixture regression.
 
 ### S-179: headed blocks of undescribed invocation lines name the subcommands
@@ -4801,6 +4802,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `corpus/jinfo/17.0.20`.
 - fleet: a `--tools` pre-check moved jinfo only and lost none; the nine
   controls are byte-identical.
+
 ### S-201: a `<no option>` row describes the bare invocation
 
 - id: S-201
@@ -4909,7 +4911,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (spec 9.3 rule 6; superseded by S-237: the block is description text
   now). Not keyed to `jfr`: any such block qualifies.
   Fixture: `corpus/jfr/17.0.20-configure`.
-- fleet: a `--tools` pre-check over 222 tools (every tool the round has
+- fleet: a `--tools` pre-check over 222 tools (every tool the change
   touched, the Java tools and the nine controls) moved none. No corpus or
   audit capture other than the two `jfr configure` pages holds such a block.
 
@@ -4930,9 +4932,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   join the node description. Before this `-f, --force-missing` carried
   `acconfig.h` and `aclocal.m4` and the other file names rendered nowhere.
   Fixture: `corpus/automake/1.16.5`.
-- fleet: a `--tools` pre-check over 222 tools (the round's touched tools, the Java
+- fleet: a `--tools` pre-check over 222 tools (the change's touched tools, the Java
   tools, the autotools and the nine controls) moved only automake and
   automake-1.16, each read against its raw help; no other corpus fixture changed.
+
 ### S-207: a comma row of independent long options, each documented again as its own row
 
 - id: S-207
@@ -5096,8 +5099,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   and `cache`); a single two-word row is not read.
   Fixtures: `corpus/git/2.43.0-commands`, `corpus/pnpm/11.22.0-commands`,
   `corpus/snap/2.77.1`.
-- fleet: see the round-18 sweep: git, pnpm and snap gain their listed
-  commands; no other tool moves.
+- fleet: full-`PATH` sweeps of 2271 tools, 2026-10-11, zero losses: git gains
+  124 subcommand nodes (22 -> 146) and pnpm 35 (18 -> 53, counting the
+  children of its grouped `store` and `cache` commands). snap's 67 commands
+  are pinned by `corpus/snap/2.77.1`; snap runs over the sweep's 10 s cap and
+  is excluded from it.
 
 ### S-215: usage forms that each open with a different verb name that command's subcommands
 
@@ -5127,7 +5133,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   A form that does not name the node's own command (`git log -h` also
   prints `or: git show ...`) is another command's form, never a verb of
   this node (`git log`, `show`, `shortlog` fixtures in the same dir).
-- fleet: see the round-17 sweep.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses: fragiso
+  gains 6 subcommands (0 -> 6) and 12 positionals (5 -> 17). The parent rule
+  moved 2 tools on a full-`PATH` sweep of 2271 tools, 2026-10-12: the roots of
+  fragiso (1 flag, 5 positionals) and linux-version (2 flags, 3 positionals)
+  stop repeating rows their commands carry.
 
 ### S-216: flag spellings written with parenthesized alternatives
 
@@ -5144,7 +5154,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `(a|b|c)` (`usage_flag_alternation.rs`).
   Before, `--term- (new`, `--message` valued `)` and `--update-refs` valued
   `(branches` were fabricated. Fixture: `corpus/git/2.43.0-verbs`.
-- fleet: see the round-17 sweep.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses; the
+  spellings it fixes sit on subcommand pages the root count does not show, so
+  `corpus/git/2.43.0-verbs` pins them.
 
 ### S-217: a probe answer that refuses the probed word is not help for it
 
@@ -5162,7 +5174,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`not_a_command.rs`, checked in `extract_node`). Before, the did-you-mean
   line became a fabricated child (`difftool`) that was then probed.
   Fixture: `corpus/git/2.43.0-verbs` (`git citool`, `git gui`).
-- fleet: see the round-17 sweep.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses; the
+  spellings it fixes sit on subcommand pages the root count does not show, so
+  `corpus/git/2.43.0-verbs` pins them.
 
 ### S-218: a flag group nested in a usage flag, a pipeline, a flag owning a form's operand
 
@@ -5184,7 +5198,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   pipe is read. Before, these gave `--lock` the value `--reason <string>`, lost
   `-a`, cut `<fetch|push>` at the bar, and gave shortlog `--pretty`.
   Fixture: `corpus/git/2.43.0-verbs`, `corpus/dmsetup/1.02.185`.
-- fleet: see the round-17 sweep.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses: scandeps
+  gains `--xargs` (8 -> 9 flags). dmsetup is pinned by
+  `corpus/dmsetup/1.02.185`.
+
 ### S-219: a lone long spelling that overruns its table's description column
 
 - id: S-219
@@ -5232,10 +5249,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   word repeated as `=RUN` in the spec cell; the description naming it tells it
   from a short flag with a glued value (`-DNAME`). The run `NUM` itself needs
   no echo, `UM` being no placeholder: `git archive`'s
-  `-NUM  set compression level` reads `-NUM` too (round 18).
+  `-NUM  set compression level` reads `-NUM` too.
 - fleet: full-PATH sweep, zero losses; the four grep tools moved. `-NUM`
-  rows appear in 6 of the 2440 round-17 raw captures (grep family, git grep,
-  git archive).
+  rows appear in 6 of 2440 captured `--help` texts of PATH tools (2026-10-11):
+  grep family, git grep, git archive.
 
 ### S-222: bare `(` and `)` rows in an option table
 
@@ -5291,6 +5308,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (S-131). Before, the second word was dropped from the row altogether.
   Fixture: `corpus/jq/1.7`.
 - fleet: full-PATH sweep, zero losses; jq, and the iptables/ip6tables/arptables/ebtables families moved (`--replace -R chain rulenum`, `-E old-chain new-chain`, `-P chain target`, `-D chain rulenum`), each read against its `--help`.
+
 ### S-226: a flag that opens a parenthesised group takes its value inside the group
 
 - id: S-226
@@ -5340,6 +5358,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   with no leading program (`or: [<options>] <object>...`) still gets the
   node's name. Test: `a_form_led_by_another_command_path_is_not_prefixed_with_the_node`.
 - fleet: render-only; the parsed tree and every sweep record are unchanged.
+
 ### S-229: an option table whose rows are wrapped in square brackets
 
 - id: S-229
@@ -5356,8 +5375,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`[-a] [-b]`) has no description after its bracket and is untouched.
   Fixtures: `corpus/jarsigner/21.0.12`, `corpus/c++filt/2.42`,
   `corpus/krb5-config/1.20.1`.
-- fleet: bracketed option rows with a description appear in 4 tools of the
-  round-17 raw captures (2440 files): jarsigner (23 rows), c++filt (8),
+- fleet: bracketed option rows with a description appear in 4 of 2440
+  captured `--help` texts of PATH tools (2026-10-11): jarsigner (23 rows), c++filt (8),
   krb5-config (12), krb5-config.mit (12).
 
 ### S-230: a lower-case single-dash word glued to an optional value
@@ -5370,8 +5389,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   directly followed by `[:` or `[=` is one spelling with an optional value
   (`-verbose`, value `:suboptions`), not `-v` with the value
   `erbose[:suboptions]`. Fixture: `corpus/jarsigner/21.0.12`.
-- fleet: see S-229; jarsigner is the only tool in the raw captures that
-  prints this shape.
+- fleet: see S-229; jarsigner is the only tool among the 2440 captured
+  `--help` texts (2026-10-11) that prints this shape.
 
 ### S-231: a table named for a usage operand lists the values of the flag that names it
 
@@ -5389,8 +5408,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the flag holds them. Before, the names landed on `--libs` by the
   unproven-owner fallback with every description dropped.
   Fixture: `corpus/krb5-config/1.20.1`.
-- fleet: only krb5-config and krb5-config.mit of the 2440 round-17 raw
-  captures print this shape.
+- fleet: only krb5-config and krb5-config.mit of 2440 captured `--help`
+  texts of PATH tools (2026-10-11) print this shape.
 
 ### S-232: a labelled value list under a heading that names one flag
 
@@ -5406,7 +5425,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   the last line alone reached the flag, and without its first value. A block
   with a line of another shape keeps the previous reading.
   Fixture: `corpus/speedtest/1.2.0.84`.
-- fleet: 1 tool of the 2440 round-17 raw captures prints a `Valid ... for
+- fleet: 1 of 2440 captured `--help` texts of PATH tools (2026-10-11) prints a `Valid ... for
   [-x] flag:` heading with labelled lines (speedtest).
 
 ### S-233: an `=<empty>` enum row, and the descriptions of `=value` rows
@@ -5446,9 +5465,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   description, which keeps the text before them; the `values:` lines show
   them. A tail that is not wholly of this shape is left alone.
   Fixture: `corpus/batcat/0.24.0`.
-- fleet: 1 tool of the 2440 round-17 raw captures prints `Possible values:`
+- fleet: 1 of 2440 captured `--help` texts of PATH tools (2026-10-11) prints `Possible values:`
   with `*` bullets (batcat, two flags). The clap `- name: text` bullet form
   (cargo-generate-rpm's `--auto-req`) is a different shape, not read here.
+
 ### S-235: prose after the usage block and a blank line
 
 - id: S-235
@@ -5467,8 +5487,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   Fixtures: `corpus/automake/1.16.5-prose`, `corpus/jq/1.7-prose`,
   `corpus/find/4.9.0-prose`.
 - fleet: a full-PATH sweep (2271 tools) lost and gained no flag, subcommand
-  or operand and moved no control. Replaying the raw captures of 2234 tools
-  changed 566 root descriptions, all by added or reordered prose.
+  or operand and moved no control. Replaying 2234 captured `--help` texts of PATH tools
+  (2026-10-11) changed 566 root descriptions, all by added or reordered prose.
 
 ### S-236: an indented lead above a bare heading word
 
@@ -5499,7 +5519,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 
         gc=<off|normal|detailed|high|all>
 - tools: jfr
-- handling: Fixed (maintainer decision, round 18). The described rows of a
+- handling: Fixed (maintainer decision). The described rows of a
   `key=value` word the usage declares, and each heading with two or more
   `key=<placeholder>` rows, are printed in the node's description, in order
   after the existing text, one paragraph per row. The flush prose paragraph
@@ -5525,7 +5545,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   corpus tree holds the root only, so a sub-page is pinned by the unit test in `error_only.rs`.
 - fleet: the full sweep records roots only and is unchanged; `pnpm exec`, `start` and `test`
   were found by running every pnpm command's `--help` (the other 40 print help); 48 short
-  round-17 root captures and 27 short corpus captures hold no match.
+  captured root texts and 27 short corpus captures hold no match.
 
 ### S-239: the first block of a table of invocation blocks is a command
 
@@ -5548,7 +5568,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   The table reader then names `print` like its siblings. The wrapped synopsis
   lines above the description (`[--events <filter>]`, `<file>`) are the node's
   usage, not its summary. Fixture: `corpus/jfr/17.0.20` (with `help-print.txt`).
-- fleet: see the round-19 usage report; only `jfr` moved among the 1270 PATH tools if the sweep says so.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-12: only `jfr` moves,
+  gaining `print` (1 subcommand); its 5 flags and 1 operand move from the root
+  to `print`.
 
 ### S-240: a usage program word that is a path to the tool is the tool
 
@@ -5581,7 +5603,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   not). It is required outside brackets, optional inside, repeatable before
   `...`, and the node's operands follow the order the form prints them. The
   root is untouched. Fixture: `corpus/linux-version/4.5ubuntu9`.
-- fleet: see the round-19 usage report.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-12: only linux-version
+  moves, gaining 2 flags (`--reverse`, `--paths`) and 5 operands under its
+  three commands.
 
 ### S-242: a glued two-letter group in a block that spells every value after a space
 
@@ -5597,7 +5621,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `-n rminame`, `xxd` `[-ps]` beside `-s offset`). `psfxtable`, `sg_map`,
   `lessecho`, `mandoc`, `jstatd` and `xxd` keep their groups whole. Fixture:
   `corpus/ssh-keygen/audit-seed2`.
-- fleet: see the round-19 usage report.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-12: ssh-keygen, iscsiadm,
+  nfsidmap, preconv and ssh-agent each gain one flag; no tool loses any.
 
 ### S-243: tab-described operation forms with setting rows
 
@@ -5708,7 +5733,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `Common options`, `Box options`) still renders as its flags' group label,
   now that the description no longer spends it. Fixtures:
   `corpus/cache_restore/audit-seed2-heading`, `corpus/piconv/5.38.2`.
-- fleet: replaying the 2234 round-17 raw captures changed 167 root
+- fleet: replaying 2234 captured `--help` texts of PATH tools (2026-10-11) changed 167 root
   descriptions, each only by losing label lines (74 `Options:`, 50 `stdout:`,
   11 `options:`, 4 `NAME:`, 3 `Description:`, 27 other labels); none gained
   text. The 50 `stdout:` lines are the capture file's own section marker, so a
@@ -5730,7 +5755,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   description that is only the version line is left alone. The clap
   `name 1.2.3` banner (S-068) is unchanged. Fixtures: `corpus/pnpm/11.22.0`,
   `corpus/pnpm/11.22.0-commands`, `corpus/pnpm/11.22.0-banner`.
-- fleet: replaying the 2233 round-17 raw captures changed the root description
+- fleet: replaying 2233 captured `--help` texts of PATH tools (2026-10-11) changed the root description
   of four tools (pnpm, pn, pnpx, pnx), each only by moving the version line;
   no other capture opens with such a line.
 
@@ -5752,6 +5777,6 @@ entry's `tools` field and nothing else. It does not get a new entry.
   ending in a colon right before such a paragraph is prose, not a heading. The
   output lines are never entities, even when they hold columns (`Key  Value`).
   Fixture: `corpus/snap/2.77.1-get`.
-- fleet: none of the 2233 round-17 root captures holds such a block; the shape
+- fleet: none of 2233 captured root texts of PATH tools (2026-10-11) holds such a block; the shape
   occurs on subcommand pages, which the root sweep does not read (the corpus
   holds one, `snap get`).

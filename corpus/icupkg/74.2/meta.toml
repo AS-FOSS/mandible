@@ -28,7 +28,7 @@
 # wrong. similarly '-d'."
 # Machine classification (c): `-s path or --sourcedir path  directory for
 # the --add items` is the or-joined alias shape with a value on both
-# spellings, which the round-3 or-joined fix does not cover. VERIFIED FACT:
+# spellings, which the or-joined fix does not cover. VERIFIED FACT:
 # the extracted tree carries `-s` and `-d` as two lone-spelling entities;
 # `--sourcedir` and `--destdir` do not appear anywhere in the tree.
 #
@@ -41,10 +41,9 @@
 # mining is how earlier fabrications happened (`corpus/README.md`'s
 # `mariadb-check`/lsof cautionary notes). Not a defect to fix.
 #
-# Schema gap, honestly stated rather than worked around: the brief for this
-# fixture asked for a `must_keep_separate` entry naming
-# `["--auto_toc_prefix", "--auto_toc_prefix_with_type"]`, to assert the two
-# real flags never fuse. `check_contract`'s `must_keep_separate`
+# Schema gap, honestly stated rather than worked around: a
+# `must_keep_separate` entry naming `["--auto_toc_prefix",
+# "--auto_toc_prefix_with_type"]` would assert the two real flags never fuse. `check_contract`'s `must_keep_separate`
 # (`xtask/src/corpus/contract.rs`'s `resolve_flag_entity`) resolves each
 # spelling in a group to an entity index via a plain `.find()` over the
 # tree's flags by spelling string. Neither `--auto_toc_prefix` nor

@@ -1,9 +1,7 @@
 # Regression fixture pinning the *absence* of pastebinit's invented flag
-# types/values — item 4 of this PR's five defects. Investigation found the
-# defect already fixed on `main` before this PR touched anything: an
-# earlier, general fix (`find_sentence_start_gap`, added for
+# types/values. An earlier, general fix (`find_sentence_start_gap`, added for
 # `apt-ftparchive`'s `--md5 Control MD5 generation` shape, see
-# `sections.rs`'s doc comment on that function and CHANGELOG.md) also
+# `sections.rs`'s doc comment on that function and CHANGELOG.md) already
 # recognizes pastebinit's own `-l List all supported pastebins` /
 # `-E Print the content to stdout too` / `-h Print this help screen` /
 # `-v Print the version number` / `-V Print verbose output to stderr`

@@ -1,7 +1,7 @@
 //! `or-joined-alias-with-values` (atlas S-110): an alias pair joined by
 //! the word `or` where **both** spellings carry a value (`-s path or
 //! --sourcedir path`, `-C comment or --comment comment`). `crate::or_joined_alias`
-//! (the round-3 fix) handles the value-free form only — its row parser
+//! (the earlier fix) handles the value-free form only — its row parser
 //! requires `or` at the second token, which a value word between the
 //! short flag and `or` shifts past. `icupkg` shows two failure signatures:
 //! `-s` keeps its own value `path` while `--sourcedir` is dropped
@@ -193,7 +193,7 @@ pub(crate) fn self_checks() -> Vec<SelfCheck> {
             ),
         },
         SelfCheck {
-            name: "the round-3 value-free shape, correctly recovered",
+            name: "the value-free shape, correctly recovered",
             why: "`crate::or_joined_alias`'s own repaired shape: no value word on either side, \
                   and no bogus value on the short spelling, must never be claimed by this \
                   detector too",

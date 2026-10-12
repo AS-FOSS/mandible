@@ -9,7 +9,7 @@ use super::{FingerprintFormat, ParsedScoreboard};
 /// One matched tool's flag-count comparison. Kept as a signed delta
 /// alongside both raw counts — never reduced to a single "net" number, per
 /// this module's doc comment on why netting hides exactly the losses that
-/// caught real regressions on this branch.
+/// caught real regressions.
 pub(super) struct FlagDelta<'a> {
     pub(super) tool: &'a str,
     pub(super) before: usize,
@@ -25,7 +25,7 @@ impl FlagDelta<'_> {
 /// One matched tool's subcommand-count comparison, mirroring [`FlagDelta`]:
 /// gains and losses stay two separate totals, never netted (spec §13.4
 /// rule 2). Count is `nodes - 1`, so no scoreboard format change is
-/// needed. A round-8 fix once added nine invented subcommand rows and this
+/// needed. An earlier fix once added nine invented subcommand rows and this
 /// diff's flag-only reading found zero losses.
 pub(super) struct SubcommandDelta<'a> {
     pub(super) tool: &'a str,

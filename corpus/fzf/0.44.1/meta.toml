@@ -42,7 +42,7 @@ must_contain_flags = [
 "+s" = "Search"
 "--scheme" = "Search"
 
-# [S-174, round 11] `--listen[=[ADDR:]PORT]`'s own value spec: a bracket
+# [S-174] `--listen[=[ADDR:]PORT]`'s own value spec: a bracket
 # nested inside another with more of the outer group after the inner pair
 # closes. The bracket matcher used to stop at the inner close, dropping
 # the rest and the closing bracket (`value_name` came out `[ADDR:`, missing

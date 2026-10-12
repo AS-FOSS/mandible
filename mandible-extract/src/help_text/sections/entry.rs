@@ -1382,7 +1382,7 @@ mod tests {
         );
         // `-` glued to another character is not a lone separator token.
         assert_eq!(find_dash_token_separator_gap("  --foo -bar"), None);
-        // THE HAZARD (maintainer, round 7): a bare lowercase word fails
+        // THE HAZARD (maintainer): a bare lowercase word fails
         // `is_value_spec_token`, so this never matches.
         assert_eq!(
             find_dash_token_separator_gap("--mode auto - selects mode automatically"),

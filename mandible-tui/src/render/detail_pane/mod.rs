@@ -1963,7 +1963,7 @@ mod tests {
     /// header, then one indented `name  description` row per choice,
     /// instead of the single comma-joined summary line a bare-choices flag
     /// gets. Folding the constants back into one line would just relocate
-    /// the smear this round's recognizer exists to fix.
+    /// the smear the recognizer exists to fix.
     #[test]
     fn described_choices_render_as_a_name_description_list() {
         let mut flag = Entity::flag_long("flags", Provenance::single(Source::HelpText));

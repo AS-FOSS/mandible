@@ -1874,6 +1874,7 @@ drawn given a terminal that cannot be trusted to support any of it.
    queried.
 5. Search matches are highlighted: `nucleo` returns match indices for
    free, and matched characters are underlined.
+
 #### What may be drawn, and what may not
 
 6. A glyph may only be used if there is something legible to fall back to:
@@ -2947,8 +2948,8 @@ control is not a parser family.
 **The lowdown bullet-row fix ships with zero measured fleet tools
 (2026-09-07).** `rewrite_lowdown_bullets` (docs/shapes.md S-143, S-144,
 issue #138) has no fleet member on this box: no nix, no Lix, and no
-other lowdown-rendered tool is on `PATH`. It ships anyway, the way round
-7 shipped caffeinate at zero measured tools, gated on three conditions
+other lowdown-rendered tool is on `PATH`. It ships anyway, the way the caffeinate fix
+shipped at zero measured tools, gated on three conditions
 holding together: the fixture promotes out of `[xfail]` with every
 subcommand and flag verified by hand against the raw capture, a
 full-`PATH` sweep-diff shows zero flag and subcommand losses, and the
@@ -2961,8 +2962,7 @@ lvm2 invocation form, each form naming a different literal value
 (`linear`, `striped`, the choices `raid1`/`mirror`). `merge_entity_bucket`
 used to pick one form's name by authority, so the rendered row showed
 `--type linear` beside `raid1`/`mirror`'s own choices, dropping every
-other form's name. Taken without the maintainer present, since the
-maintainer is away this round: the merge now unions every distinct value
+other form's name. Taken without the maintainer present: the merge now unions every distinct value
 name across the bucket, in first-appearance order, joined the same way
 `choices` already joins for display (`--type linear, striped, raid10,
 snapshot, thin`). The alternative considered and not taken is one
@@ -2979,8 +2979,8 @@ moves 3 tools, apt-sortpkgs, apt-extracttemplates and apt-mark, with zero
 losses on a full-`PATH` sweep. It ships as a recorded exception on the
 same grounds the ragged-command-table and glued-interior-uppercase fixes
 did, named by the maintainer in issue #141 after the shape was handed to
-a contributor and the claim lapsed. Taken without the maintainer present,
-since the maintainer is away this round: issue #141 itself names the
+a contributor and the claim lapsed. Taken without the maintainer present:
+issue #141 itself names the
 fixture, the detector and the function to change, so the exception is
 read from that issue rather than decided fresh. The detector is ratcheted
 at zero fleet-wide the same way a repaired family above the bar is.
@@ -3071,7 +3071,7 @@ recovery ships below the five-tool bar, S-176's own value-name rule
 does not (2026-09-13).** Maintainer, after looking at mandible's screen
 for the tool: "yeah this one needs full revision". `memhog --help` has
 no blank line anywhere and no `usage:` label; every one of its five raw
-lines was wrong or lost before this round (docs/shapes.md S-165, S-176,
+lines was wrong or lost before the fix (docs/shapes.md S-165, S-176,
 S-177). S-176's own rule — a single-dash table row's real value comes
 from the tool's own usage line, never a guess at the row's own text —
 was first measured at 1 tool (`memhog` alone) and revised once a
@@ -3641,9 +3641,8 @@ any of these as current.
   **Failure shape: the event loop starved, not a blocked process.** While
   frozen, the `mandible` process was in state `S` (interruptible sleep,
   not `D`), and `ps` showed **132% CPU** across its threads — actively
-  running, contending for the CPU, not blocked on a syscall. This is the
-  fourth shape the investigation brief distinguished ("the event loop
-  starved"), not a hung child, not a `/dev/tty` reopen, not corrupted
+  running, contending for the CPU, not blocked on a syscall. This is
+  the "event loop starved" shape, not a hung child, not a `/dev/tty` reopen, not corrupted
   terminal state — the terminal state and the process were both fine, the
   main thread just never got scheduled back around to `event::poll` and
   `term.draw` (`mandible/src/app_runner.rs`'s `run_loop`) for tens of

@@ -1,4 +1,4 @@
-//! `usage-spelling-duplicates-table-row` (round 5): the usage-only-
+//! `usage-spelling-duplicates-table-row`: the usage-only-
 //! spelling recovery pass adds a bare, undescribed entity for a spelling
 //! an existing table-row entity already carries among its other
 //! spellings. `icupkg`'s `-h, -?, --help` row is the specimen:
