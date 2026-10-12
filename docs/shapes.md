@@ -621,7 +621,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   fleet's two-character population are genuine collapses like this one; the
   other half are correct multi-character single-dash flags such as rpcgen -Ss
   or xxd -ps, and nothing about shape alone separates the two halves. Left
-  broken deliberately, the fix's documented lower bound.
+  broken deliberately, the fix's documented lower bound, except where the
+  usage block itself vouches (S-242).
 - fleet: not measured
 
 ### S-035: repeated-letter and glued single-dash long option
@@ -4566,9 +4567,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   node is probed as `help <word>` and never as `<word> --help`
   (docs/design.md section 6 rule 2c), so it gains its own flags and
   description. A flag-bearing text still needs the parser to read it:
-  `jfr help metadata` is probed and its flag rows now read (S-196), while
-  `jfr print` is still read as the root usage (`corpus/jfr/17.0.20`,
-  xfail). `gem` prints the line, names no word by invocation, and gains
+  `jfr help metadata` is probed and its flag rows now read (S-196), and
+  `jfr print` is a command like its siblings (S-239). `gem` prints the line, names no word by invocation, and gains
   nothing. A bare flag followed by a one-member bracket group never takes
   an option-list word (`[options]`, `[flags]`) as its value, so `Usage: brew
   search, -S [options] ...` keeps `-S` value-free
@@ -5115,7 +5115,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   verbs; a closed group of flags before the word (`[-v | --verbose] show`)
   is skipped. As in S-179 and S-211 the nodes are `invocation_attested`,
   listed and never probed. As in S-169 each node carries the forms that
-  name it as its usage and the flags and operands those forms spell; the
+  name it as its usage and the flags and operands those forms spell. When
+  every usage form of the parent opens with a verb, a parent row with no
+  description or values of its own that a verb node also carries lives only
+  on that node (`git worktree`, `fragiso`, `linux-version`); otherwise the
   parent keeps everything it read from the same forms. Fixtures:
   `corpus/git/2.43.0-verbs`; `corpus/git-history/2.55.0` is the
   maintainer's man-page capture, rendered verbatim by design (the `-h`
@@ -5523,3 +5526,75 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: the full sweep records roots only and is unchanged; `pnpm exec`, `start` and `test`
   were found by running every pnpm command's `--help` (the other 40 print help); 48 short
   round-17 root captures and 27 short corpus captures hold no match.
+
+### S-239: the first block of a table of invocation blocks is a command
+
+- id: S-239
+- looks like: |
+      Tool for working with Flight Recorder files
+
+       jfr print [--xml|--json]
+                 [--events <filter>]
+                 <file>
+           Print contents of a recording file.
+
+       jfr summary <file>
+           Display general information about a recording file (.jfr)
+- tools: jfr
+- handling: Fixed. A line that leads `<tool> <word>`, whose block (the lead and
+  the deeper lines under it) ends in a prose description, and that sits in a
+  run of two or more such blocks with different words at the same indent, is a
+  row of a command table and never the root usage (`usage_block_table.rs`).
+  The table reader then names `print` like its siblings. The wrapped synopsis
+  lines above the description (`[--events <filter>]`, `<file>`) are the node's
+  usage, not its summary. Fixture: `corpus/jfr/17.0.20` (with `help-print.txt`).
+- fleet: see the round-19 usage report; only `jfr` moved among the 1270 PATH tools if the sweep says so.
+
+### S-240: a usage program word that is a path to the tool is the tool
+
+- id: S-240
+- looks like: |
+      Usage: /usr/bin/linux-version compare VERSION1 OP VERSION2
+             /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+             /usr/bin/linux-version list [--paths]
+- tools: linux-version
+- handling: Fixed. In the usage-verb rule (S-215) a form's program word may be
+  the tool's name or a path whose last component is that name. `compare`,
+  `sort` and `list` are then subcommands with their own usage, `--reverse`
+  under `sort` and `--paths` under `list`. Every form opens with a verb, so
+  the root keeps none of their rows (S-215). The numbered operands are S-241.
+  Fixture: `corpus/linux-version/4.5ubuntu9`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-10-12: only linux-version
+  moves, gaining its three commands.
+
+### S-241: numbered upper-case operands of a usage-verb node
+
+- id: S-241
+- looks like: |
+      Usage: linux-version compare VERSION1 OP VERSION2
+             linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+- tools: linux-version
+- handling: Fixed. The operand test wants letters only, so `VERSION1` was
+  never read. After a usage-verb node's ordinary extraction, a word of two or
+  more capitals plus digits is an operand when the same stem comes back with
+  another number in that node's forms (`W0` alone, or a one-letter stem, is
+  not). It is required outside brackets, optional inside, repeatable before
+  `...`, and the node's operands follow the order the form prints them. The
+  root is untouched. Fixture: `corpus/linux-version/4.5ubuntu9`.
+- fleet: see the round-19 usage report.
+
+### S-242: a glued two-letter group in a block that spells every value after a space
+
+- id: S-242
+- looks like: |
+      ssh-keygen -I certificate_identity -s ca_key [-hU] [-D pkcs11_provider]
+- tools: ssh-keygen, iscsiadm, nfsidmap, preconv, ssh-agent
+- handling: Fixed. `[-hU]` read as `-h` with the glued value `U`. A closed
+  bracket group of two distinct characters is two switches when the usage
+  block writes at least one flag value after a space, has no single-dash flag
+  of two or more letters (`-it intable`, `-mdoc`, `-scd`), and neither member
+  takes a value of its own elsewhere in the block (`jstatd` `[-nr]` beside
+  `-n rminame`, `xxd` `[-ps]` beside `-s offset`). `psfxtable`, `sg_map`,
+  `lessecho`, `mandoc`, `jstatd` and `xxd` keep their groups whole. Fixture:
+  `corpus/ssh-keygen/audit-seed2`.
+- fleet: see the round-19 usage report.

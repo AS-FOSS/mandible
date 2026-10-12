@@ -240,8 +240,11 @@ flags:
     - help-text-synopsis
 - spellings:
   - -h
-  value_name: U
-  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -U
   provenance:
     sources:
     - help-text-synopsis
