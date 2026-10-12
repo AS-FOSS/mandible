@@ -38,10 +38,56 @@ pub(super) fn ensure() -> std::io::Result<PathBuf> {
         builder.mode(0o700);
     }
     builder.create(&root)?;
+    #[cfg(unix)]
+    secure_root(&root)?;
 
     static SWEPT: OnceLock<()> = OnceLock::new();
     SWEPT.get_or_init(|| remove_stale(&root, SystemTime::now()));
     Ok(root)
+}
+
+/// Make an existing root private. `create` only applies its mode to a
+/// directory it makes, so a folder from an older run keeps whatever mode it
+/// had; a group member could then plant files above every probe. The root is
+/// opened without following a symlink and judged by the descriptor, so the
+/// check and the `chmod` act on the same object.
+#[cfg(unix)]
+fn secure_root(root: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
+    let dir = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_DIRECTORY)
+        .open(root)
+        .map_err(|e| {
+            std::io::Error::new(
+                e.kind(),
+                format!(
+                    "scratch root {} is not a real directory: {e}",
+                    root.display()
+                ),
+            )
+        })?;
+    let meta = dir.metadata()?;
+    check_owner(meta.uid(), nix::unistd::geteuid().as_raw()).map_err(|m| {
+        std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            format!("{} {m}", root.display()),
+        )
+    })?;
+    if meta.mode() & 0o777 != 0o700 {
+        dir.set_permissions(std::fs::Permissions::from_mode(0o700))?;
+    }
+    Ok(())
+}
+
+/// The scratch root must belong to the user running the probe.
+#[cfg(unix)]
+fn check_owner(owner: u32, me: u32) -> Result<(), &'static str> {
+    if owner == me {
+        Ok(())
+    } else {
+        Err("is owned by another user")
+    }
 }
 
 /// Remove directories directly under `root` that carry [`PROBE_PREFIX`] and
@@ -98,5 +144,51 @@ mod tests {
             outside.path().join("f").exists(),
             "a symlink target must stay"
         );
+    }
+
+    #[cfg(unix)]
+    fn mode_of(p: &Path) -> u32 {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::metadata(p).unwrap().permissions().mode() & 0o777
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_existing_loose_root_is_tightened_to_0700() {
+        use std::os::unix::fs::PermissionsExt;
+        let t = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(t.path(), std::fs::Permissions::from_mode(0o775)).unwrap();
+        secure_root(t.path()).unwrap();
+        assert_eq!(mode_of(t.path()), 0o700);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_root_is_refused_and_its_target_left_alone() {
+        use std::os::unix::fs::PermissionsExt;
+        let t = tempfile::tempdir().unwrap();
+        let target = t.path().join("target");
+        std::fs::create_dir(&target).unwrap();
+        std::fs::set_permissions(&target, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let link = t.path().join("link");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert!(secure_root(&link).is_err());
+        assert_eq!(mode_of(&target), 0o755, "the target must not be chmodded");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_regular_file_root_is_refused() {
+        let t = tempfile::NamedTempFile::new().unwrap();
+        assert!(secure_root(t.path()).is_err());
+    }
+
+    /// Creating a directory owned by someone else needs root, so the
+    /// ownership rule is a pure function tested directly.
+    #[cfg(unix)]
+    #[test]
+    fn a_foreign_owner_is_refused() {
+        assert!(check_owner(1000, 1000).is_ok());
+        assert!(check_owner(0, 1000).is_err());
     }
 }
