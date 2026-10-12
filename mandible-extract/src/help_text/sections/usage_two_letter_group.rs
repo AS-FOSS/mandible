@@ -15,6 +15,17 @@ use std::collections::HashSet;
 
 use super::parse_bundled_shorts;
 
+pub(super) type SwitchPairs = HashSet<String>;
+
+/// The switches `token` names: the two of a vouched-for pair, else the
+/// members of an ordinary bundle.
+pub(super) fn pair_or_bundle(token: &str, pairs: &SwitchPairs) -> Option<Vec<char>> {
+    if pairs.contains(token) {
+        return token.strip_prefix('-').map(|m| m.chars().collect());
+    }
+    parse_bundled_shorts(token)
+}
+
 fn strip(token: &str) -> &str {
     token.trim_matches(|c| c == '[' || c == ']' || c == ',')
 }
@@ -34,7 +45,7 @@ fn dash_word(word: &str) -> Option<&str> {
 }
 
 /// The glued two-letter tokens of `usage_lines` that are two switches.
-pub(super) fn switch_pairs(usage_lines: &[String]) -> HashSet<String> {
+pub(super) fn switch_pairs(usage_lines: &[String]) -> SwitchPairs {
     let mut valued: HashSet<char> = HashSet::new();
     let mut candidates: Vec<(String, [char; 2])> = Vec::new();
     let mut word_flags = false;

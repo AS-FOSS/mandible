@@ -2,6 +2,9 @@
 //! mining the synopsis itself for positionals and for flags no option
 //! table documents.
 
+use super::usage_two_letter_group::{
+    pair_or_bundle, switch_pairs as find_switch_pairs, SwitchPairs,
+};
 use super::*;
 
 /// True if `lines[idx]` is a bare own-name invocation line — no bracket
@@ -771,7 +774,7 @@ pub(super) use forms::split_top_level_pipe;
 pub(super) fn extract_usage_flags(usage_lines: &[String]) -> Vec<Entity> {
     let mut out: Vec<Entity> = Vec::new();
     let prose_columns = usage_prose_column(usage_lines);
-    let switch_pairs = super::usage_two_letter_group::switch_pairs(usage_lines);
+    let switch_pairs = find_switch_pairs(usage_lines);
     // Running depth of an open parenthesized alternation group (LVM's
     // "any one of these is required" convention), re-derived here rather
     // than passed in since `usage_lines` alone determines the same
@@ -1073,21 +1076,8 @@ pub(super) fn flag_spelling_already_present(candidate: &Entity, existing: &[Enti
 /// description — since fabricating one from the usage line's own text is
 /// the spec §7 Tier B violation [`extract_usage_flags`] forbids. See
 /// S-087.
-pub(super) fn push_usage_token(
-    out: &mut Vec<Entity>,
-    token: &str,
-    pairs: &std::collections::HashSet<String>,
-) {
-    let split_pair = pairs.contains(token);
-    if let Some(members) = split_pair
-        .then(|| {
-            token
-                .strip_prefix('-')
-                .map(|m| m.chars().collect::<Vec<_>>())
-        })
-        .flatten()
-        .or_else(|| parse_bundled_shorts(token))
-    {
+pub(super) fn push_usage_token(out: &mut Vec<Entity>, token: &str, pairs: &SwitchPairs) {
+    if let Some(members) = pair_or_bundle(token, pairs) {
         for member in members {
             if out.len() >= MAX_RECOVERED_ENTRIES {
                 return;
