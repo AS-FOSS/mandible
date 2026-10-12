@@ -5582,3 +5582,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   note stays in the flag's description. Fixture:
   `corpus/cargo-generate-rpm/0.16.0`.
 - fleet: full-PATH sweep pending.
+
+### S-248: a nested bracket row under a bracket row
+
+- id: S-248
+- looks like: |
+      [-addprovider <name>        add security provider by name (e.g. SunPKCS11)
+        [-providerArg <arg>]] ... configure argument for -addprovider
+- tools: jarsigner
+- handling: Fixed. A bracket row that opens a group it does not close, followed
+  by a deeper line that opens with `[-flag` and closes the group, is two rows:
+  the outer flag and the nested flag, each with its own description. The
+  trailing `...` repeat marker is not kept. Fixture: `corpus/jarsigner/21.0.12`.
+- fleet: full-PATH sweep pending.

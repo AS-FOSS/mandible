@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-248] `mandible jarsigner` shows `-providerArg <arg>` as its own flag, with `configure argument for -addprovider` and `... for -providerClass`, instead of text inside those two flags' descriptions.
 - [S-247] `mandible cargo-generate-rpm --auto-req` lists its values (`auto`, `disabled`, `builtin`, `find-requires`, `/path/to/find-requires`) as choices with their descriptions, from the `Possible values:` dash bullets.
 - [S-246] `mandible speedtest` lists the formats printed in its `Valid output formats:` line (`human-readable (default)`, `csv`, `tsv`, `json`, `jsonl`, `json-pretty`) as the values of `-f, --format`.
 - [S-245] A value placeholder keeps the text printed right after it: `mandible pnpm install` shows `--filter <pattern>...` and `<pattern>^...`, `snap get` shows `--with=<param>=<constraint>`, `dpkg` shows `-L <package>...`.

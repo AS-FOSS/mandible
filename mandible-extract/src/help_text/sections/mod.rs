@@ -53,6 +53,7 @@ mod labelled_values;
 mod layout;
 mod multiword;
 mod multiword_value_row;
+mod nested_bracket_rows;
 mod no_option_row;
 mod numeric_range;
 mod or_choice_fold;
@@ -418,6 +419,7 @@ pub fn parse_with_profile(
     let raw = rewrite_lowdown_bullets(&raw, tool_name);
     let raw = rule_heading::rewrite_rule_bracketed_headings(&raw);
     // A table of bracket-wrapped option rows (jarsigner) reads as plain rows.
+    let raw = nested_bracket_rows::normalize(&raw).into_owned();
     let raw = bracket_rows::unwrap_bracketed_rows(&raw).unwrap_or(raw);
     // A heading that shares its physical line with the first row of its
     // own table is rewritten into the two lines it means before the
