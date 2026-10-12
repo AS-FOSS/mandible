@@ -1,16 +1,16 @@
-//! The round-7 family detectors, atlas S-130 to S-136.
-//! Split into their own file for the same line-count reason `round8.rs`
-//! and `round9.rs` are.
+//! The value-name and usage-tail family detectors, atlas S-130 to S-136.
+//! Split into their own file for the same line-count reason
+//! `invocation_and_continuation.rs` and `bullet_and_dash_tables.rs` are.
 
 use super::score::FAMILY_DETECTOR_SAMPLES_PER_ROW;
 use crate::detector::{Detector, ToolEvidence};
 use mandible_core::CommandNode;
 
-/// The round-7 family detectors, atlas S-130 to S-134: `pvdisplay`'s
+/// The value-name family detectors, atlas S-130 to S-134: `pvdisplay`'s
 /// duplicated placeholder, `icupkg`'s two unfixed `or`-joined row shapes,
 /// and issue #135's two multi-word bracket-group shapes. Split out for the
-/// same line-count reason [`round6_block_family_counts`] is.
-pub(super) fn round7_family_counts(
+/// same line-count reason [`block_boundary_family_counts`] is.
+pub(super) fn value_name_family_counts(
     raw: &str,
     root: &CommandNode,
 ) -> Vec<(&'static str, usize, Vec<String>)> {
@@ -56,9 +56,9 @@ pub(super) fn round7_family_counts(
     out
 }
 
-/// The two round-7 family detectors, atlas S-135 and S-136, split out
-/// for the same line-count reason [`round4_family_counts`] is.
-pub(super) fn round7_usage_family_counts(
+/// The two usage-tail family detectors, atlas S-135 and S-136, split out
+/// for the same line-count reason [`long_option_and_usage_family_counts`] is.
+pub(super) fn usage_tail_family_counts(
     raw: &str,
     root: &CommandNode,
 ) -> Vec<(&'static str, usize, Vec<String>)> {

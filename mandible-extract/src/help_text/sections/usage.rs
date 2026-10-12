@@ -3221,7 +3221,7 @@ mod tests {
     /// repetition marker) now reaches the tree. `ranlib`'s own bytes
     /// (`aarch64-linux-gnu-ranlib`, `gcc-ranlib-13`) and `lcf`'s two-space
     /// two-operand tail (S-153's own REFUSED case) are the ones this
-    /// round moves. See docs/shapes.md S-153.
+    /// change moves. See docs/shapes.md S-153.
     #[test]
     fn a_bare_required_tail_naming_a_real_operand_now_reaches_the_tree() {
         let parsed = parse("Usage: /usr/bin/ranlib [options] archive\n");

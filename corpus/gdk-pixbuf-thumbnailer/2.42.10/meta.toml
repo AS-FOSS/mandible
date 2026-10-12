@@ -5,8 +5,8 @@
 # tool actually documents.
 #
 # The trailing `Thumbnail images` prose glued onto the same physical line
-# is a separate defect (docs/shapes.md, W1's usage-program-word-mismatch
-# family territory, not this one); it does not interfere here, since it
+# is a separate defect (docs/shapes.md, the usage-program-word-mismatch
+# family's territory, not this one); it does not interfere here, since it
 # is mixed-case and the ALL-CAPS scan already ignores it.
 
 [bless]

@@ -39,8 +39,7 @@
 //!   moves the snapshot, so a genuine confidence regression stays visible.
 //! - **Omits `bool` fields when `false`** (via [`is_false`]), extending the
 //!   same "loss is still visible as a removed key" reasoning to booleans.
-//!   This one isn't in the brief verbatim, but the evidence for it is
-//!   concrete: a generated snapshot of a two-flag synthetic tree, before
+//!   The evidence for it is concrete: a generated snapshot of a two-flag synthetic tree, before
 //!   this rule existed, spent 3 lines per node (`hidden`/`children_filled`/
 //!   `heading_attested`, all `false`) and 4 lines per flag
 //!   (`repeatable`/`required`/`hidden`/`inherited`, all `false`) restating

@@ -510,11 +510,11 @@ fn family_static_name(word: &str) -> Option<&'static str> {
         "second-optional-value-dropped",
         "parenthetical-qualifier-as-value",
         "or-joined-alias",
-        // Round 5: gated the same way as the two above, once each one's
+        // Gated the same way as the two above, once each one's
         // fleet count reached zero (see `xtask/src/main.rs`'s `--check`).
         // `same-spelling-fold-loss` is not gated (its merge-time half is
         // invisible to this sweep) and so is deliberately absent here,
-        // the same way round 4's six ungated names are absent.
+        // the same way the six ungated long-option and usage names are absent.
         "bare-or-usage-separator",
         "usage-spelling-duplicates-table-row",
     ]
@@ -627,7 +627,7 @@ pub fn parse_aggregate_footer(scoreboard: &str) -> Option<Aggregate> {
     // no such key.
     let mut centered_label_baseline_tools = 0usize;
     let mut centered_label_baseline_flags = 0usize;
-    // Same reasoning again, brand new field (round 10): a scoreboard
+    // Same reasoning again, brand new field: a scoreboard
     // written before the usage-optional-word-table detector existed
     // carries no such key.
     let mut usage_optional_word_tools = 0usize;

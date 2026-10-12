@@ -279,7 +279,7 @@ mod tests {
     /// (GNU grep's `--help` documents its options; BSD grep's, on macOS,
     /// is a bare usage synopsis with none) — exactly the class of failure
     /// AGENTS.md §4 warns about ("macOS breaks in ways Linux CI cannot
-    /// see") and a real red `test (macos-latest)` job on this branch. A
+    /// see") and a real red `test (macos-latest)` job. A
     /// hand-built [`mandible_core::CommandNode`] carrying a described flag,
     /// a flag with choices and a `value_name`, and one subcommand makes the
     /// description-carrying case true by construction, on every platform,

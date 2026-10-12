@@ -1,7 +1,7 @@
 //! `numbered-variadic-usage-tail` (atlas S-136): a usage line's trailing
 //! tail is written `X1 [X2 ...]`, and the tree carries no positional for
 //! it. `apt-sortpkgs`'s `[options] file1 [file2 ...]` names one variadic
-//! positional, `file`, not two operands; round 6 declined the wider
+//! positional, `file`, not two operands; an earlier attempt declined the wider
 //! bare-tail shape (S-109) as ambiguous, but the numbering here is the
 //! evidence that shape lacks. Fixture: `corpus/apt-sortpkgs/2.8.3`. A
 //! local, independent copy of `recover_primary_tail_operands`'s own

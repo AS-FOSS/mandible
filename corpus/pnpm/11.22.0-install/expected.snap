@@ -60,7 +60,7 @@ flags:
   - --dir
   value_name: <dir>
   value_kind: Required
-  description: 'Change to directory <dir> (default: /tmp/claude-1001/-home-ubuntu- projects-mandible/b9d23b91-49f0- 4353-bb39-82500023708e/scratchpad/ r19/c2)'
+  description: 'Change to directory <dir> (default: /home/user/projects/ example/workspace/ demo-app)'
   provenance:
     sources:
     - help-text

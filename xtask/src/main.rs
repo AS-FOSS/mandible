@@ -1225,18 +1225,18 @@ fn run_coverage(
             regressed = true;
         }
 
-        regressed |= !detector::check_round5_family_ratchets(&previous, &fresh)?;
-        regressed |= !detector::check_round6_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_separator_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_spelling_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_ragged_family_ratchets(&previous, &fresh)?;
-        regressed |= !detector::check_round8_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_invocation_family_ratchets(&previous, &fresh)?;
         regressed |= !detector::check_command_pattern_reported(&previous, &fresh)?;
-        regressed |= !detector::check_round9_family_ratchets(&previous, &fresh)?;
-        regressed |= !detector::check_round10_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_bullet_family_ratchets(&previous, &fresh)?;
+        regressed |= !detector::check_label_family_ratchets(&previous, &fresh)?;
 
         regressed |= !detector::check_centered_label_baseline_reported(&previous, &fresh)?;
 
         // `glued-uppercase-shared-prefix` (atlas S-139) is gated inside
-        // `check_round8_family_ratchets` beside S-137's own family.
+        // `check_invocation_family_ratchets` beside S-137's own family.
 
         if regressed {
             anyhow::bail!("coverage regression detected — see above");

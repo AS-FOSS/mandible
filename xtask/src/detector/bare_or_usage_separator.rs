@@ -1,4 +1,4 @@
-//! `bare-or-usage-separator` (round 5): a usage line holding only the
+//! `bare-or-usage-separator`: a usage line holding only the
 //! word `or` is a pure form separator (docs/shapes.md S-112). One cause,
 //! two symptoms, both modeled — an unindented bare `or` truncates the
 //! rest of the block (`update-catalog` and 3 siblings); an indented one

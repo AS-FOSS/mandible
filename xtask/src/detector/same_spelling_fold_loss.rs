@@ -1,4 +1,4 @@
-//! `same-spelling-fold-loss` (round 5): two root entities share one
+//! `same-spelling-fold-loss`: two root entities share one
 //! identity key (`mandible_core::merge::entity_identity`'s) but disagree
 //! about taking a value, or each carry a different description —
 //! docs/shapes.md S-102, `corpus/vim.basic/audit-seed4`'s bare `+` vs
@@ -10,7 +10,7 @@
 //! No seed-2/4/5/6 labelled tool carries this shape, so
 //! [`Detector::family`] returns `None` — spec §13.1e rule 6.
 
-// Round 9 widens the question to a value two same-identity entities both
+// The check also covers a value two same-identity entities both
 // genuinely take, but name differently: `lvcreate`'s `--type` reaches the
 // tree once per invocation form (docs/shapes.md S-137), each form naming a
 // different literal value, and a fold that picks one form's name over

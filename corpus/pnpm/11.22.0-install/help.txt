@@ -41,10 +41,9 @@ Options:
   -D, --dev                                  Only `devDependencies` are
                                              installed
   -C, --dir <dir>                            Change to directory <dir> (default:
-                                             /tmp/claude-1001/-home-ubuntu-
-                                             projects-mandible/b9d23b91-49f0-
-                                             4353-bb39-82500023708e/scratchpad/
-                                             r19/c2)
+                                             /home/user/projects/
+                                             example/workspace/
+                                             demo-app)
       --dry-run                              Report what an install would change
                                              without writing anything to disk
                                              (no lockfile, no node_modules).

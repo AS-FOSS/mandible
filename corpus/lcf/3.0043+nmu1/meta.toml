@@ -5,9 +5,9 @@
 # operand walk ever started; the tree carried no POSITIONALS section and
 # the rendered USAGE line was truncated to the bare program name.
 #
-# The `[options] command` ambiguity guard (round 6) used to decline the
-# tail outright once the gap fix recovered it. Round 12 narrowed that
-# guard to a closed vocabulary (`command`/`commands`/`subcommand`/
+# The `[options] command` ambiguity guard used to decline the
+# tail outright once the gap fix recovered it. It is now narrowed
+# to a closed vocabulary (`command`/`commands`/`subcommand`/
 # `subcommands`/`cmd`/`action`/`verb`) plus a repetition-marker check:
 # `dest_file`/`src_dir` name neither, so both now reach the tree as
 # required positionals in source order.

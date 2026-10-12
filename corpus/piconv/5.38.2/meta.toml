@@ -5,7 +5,7 @@ provenance = "agent"
 name = "piconv"
 version = "5.38.2"
 platform = "ubuntu-24.04"
-captured_with = "mandible --report capture, round 17"
+captured_with = "mandible --report capture"
 
 [[capture]]
 argv = ["piconv", "--help"]
