@@ -5544,13 +5544,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --filter <pattern>...           Includes all direct and indirect dependencies
       --filter <pattern>^...          Includes only the direct and indirect dependencies
       --with=<param>=<constraint>     Parameter constraints for filtering
-- tools: pnpm, snap, dpkg, cargo-fmt, dnsmasq
+- tools: pnpm, snap, dpkg, dpkg-query, dnsmasq, bugpoint, cargo-deb, clang, ionice, javac, javadoc, jdeps, jlink, jshell, llvm-jitlink, llvm-rtdyld, losetup, lspci, setpci, objcopy
 - handling: Fixed. When the grammar reads a `<placeholder>` value and the
   same last token of the spec cell carries more text glued to it (not a
   separator or sentence mark), the whole printed token is the value
   (`<pattern>^...`, `<param>=<constraint>`). Before, the tail was dropped.
   Fixtures: `corpus/pnpm/11.22.0-install`, `corpus/snap/2.77.1-get`.
-- fleet: full-PATH sweep pending.
+- fleet: full-PATH sweep (2271 matched), zero losses; 22 tools changed a value name only (the list above plus clang's four aliases), each read against its raw help: the value is the text as printed (`<macro>=<value>`, `<module>(,<module>)*`, `<package>...`).
 
 ### S-246: a `Valid <noun>:` line lists the values of the flag that points at it
 
@@ -5565,7 +5565,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   flag whose description says `valid <noun>`; a `(default)` note is that
   choice's description. Zero or several such flags leave the line alone.
   Fixture: `corpus/speedtest/1.2.0.84`.
-- fleet: full-PATH sweep pending.
+- fleet: full-PATH sweep (2271 matched), zero losses; only speedtest moved (`-f` gains six choices), read against its `--help`.
 
 ### S-247: `Possible values:` with `- name: text` bullets
 
@@ -5581,7 +5581,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   name). Each bullet is a choice with its text; a closing `[default: x]`
   note stays in the flag's description. Fixture:
   `corpus/cargo-generate-rpm/0.16.0`.
-- fleet: full-PATH sweep pending.
+- fleet: full-PATH sweep (2271 matched), zero losses; only cargo-generate-rpm moved (`--auto-req`), read against its `--help`.
 
 ### S-248: a nested bracket row under a bracket row
 
@@ -5594,4 +5594,4 @@ entry's `tools` field and nothing else. It does not get a new entry.
   by a deeper line that opens with `[-flag` and closes the group, is two rows:
   the outer flag and the nested flag, each with its own description. The
   trailing `...` repeat marker is not kept. Fixture: `corpus/jarsigner/21.0.12`.
-- fleet: full-PATH sweep pending.
+- fleet: full-PATH sweep (2271 matched), zero losses; only jarsigner moved (+2 flags), read against its `--help`.
