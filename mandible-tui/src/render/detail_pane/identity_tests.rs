@@ -184,6 +184,8 @@ fn assert_same(label: &str, fast: &App, slow: &App, w: u16, h: u16) {
     }
 }
 
+type Step = Box<dyn Fn(&mut App)>;
+
 fn dump(b: &Buffer) -> String {
     let a = b.area;
     (0..a.height)
@@ -215,7 +217,6 @@ fn cached_windowed_render_is_cell_identical_to_the_reference_on_the_whole_corpus
         "only {} of {total} fixtures replayed into a node",
         nodes.len()
     );
-    eprintln!("identity: {} of {total} fixtures replayed", nodes.len());
     check_identity(&nodes);
 }
 
@@ -275,7 +276,6 @@ fn check_identity(nodes: &[(String, CommandNode)]) {
             }
         }
     }
-    eprintln!("identity: {renders} comparisons");
     assert!(renders >= nodes.len() * 20, "{renders}");
 }
 
@@ -309,14 +309,14 @@ fn style_and_glyph_variants_and_changes_between_frames_match() {
             crate::style::Palette::extended(),
             crate::glyphs::UNICODE,
         );
-        let steps: Vec<Box<dyn Fn(&mut App)>> = vec![
+        let steps: Vec<Step> = vec![
             Box::new(|a| a.detail_scroll = 3),
             Box::new(|a| a.glyphs = crate::glyphs::ASCII),
             Box::new(|a| a.palette = crate::style::Palette::plain()),
             Box::new(|a| a.detail_scroll = 40),
             Box::new(|a| a.focus = Focus::Tree),
         ];
-        let mut slow_state: Vec<&Box<dyn Fn(&mut App)>> = Vec::new();
+        let mut slow_state: Vec<&Step> = Vec::new();
         for step in &steps {
             step(&mut fast);
             slow_state.push(step);
