@@ -269,7 +269,7 @@ fn borders_survive_with_each_row_selected_and_detail_focused() {
 fn borders_survive_help_overlay() {
     let mut app = build_app();
     app.show_help = true;
-    let backend = TestBackend::new(80, 24);
+    let backend = TestBackend::new(80, 40);
     let mut terminal = Terminal::new(backend).unwrap();
     terminal
         .draw(|frame| {
@@ -281,7 +281,7 @@ fn borders_survive_help_overlay() {
     // before the overlay) is still intact where not covered.
     let buffer = terminal.backend().buffer().clone();
     let regions =
-        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, 80, 24), app.focus);
+        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, 80, 40), app.focus);
     assert_border_intact(&buffer, regions.search);
 }
 

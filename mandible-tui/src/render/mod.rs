@@ -34,13 +34,15 @@ pub fn render(frame: &mut Frame, app: &App) {
     status_bar::render(frame, regions.status, app);
 
     if app.show_help {
-        help_overlay::render(
+        let (max_scroll, visible) = help_overlay::render(
             frame,
             area,
             app.glyphs,
             app.color_enabled,
             app.print_selection,
+            app.help_scroll(),
         );
+        app.set_help_extent(max_scroll, visible);
     }
 
     if let Some(review) = &app.review {
