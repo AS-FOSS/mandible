@@ -11,8 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 
+### Changed
+
+- The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
+
 ### Fixed
 
+- [S-252] A USAGE form led by another program's name (`bpftrace [options] filename` under `tcpretrans.bt`) is now shown as printed instead of being prefixed with the tool's name, and the first form under a bare `Usage:` label lines up with the forms below it.
 - After a search scrolls the detail pane to a flag, `↑` and `↓` now move one line from that position instead of jumping back to the top of the page.
 
 ## [0.8.4] - 2026-10-12

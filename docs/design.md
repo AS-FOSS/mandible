@@ -582,6 +582,18 @@ node name's first `.` (`vim.basic`'s own `vim`). The pane replaces that
 word with the node's name rather than leaving it and prepending the name
 in front, which would print the tool's own name twice.
 
+When no form names the node and every form opens with the same lowercase
+program word (`tcpretrans.bt`'s forms all open `bpftrace`), that word is a
+different program's name. The pane shows each form as printed, with no
+name prefix. A form that opens with a program word the node's other forms
+write before the node's name (`git log`'s `or: git show ...`) is shown the
+same way.
+
+The command path at the start of each form, from its first column through
+the node's own name, is drawn in the accent style, which falls back to
+bold under `NO_COLOR`. The rest of the line is plain. A form shown as
+printed under a different program word has no accented part.
+
 mandible probes tools by absolute resolved path, so a tool that echoes its
 own `argv[0]` writes `Usage: /usr/bin/du` where a shell that found it via
 `PATH` would see `Usage: du`. The rule above replaces that leading word
@@ -1716,6 +1728,7 @@ pane.
    scrolling. The parser already joins a usage that wrapped over several
    physical lines into one logical line, so a rendered USAGE line is
    mandible's own reconstruction, not the tool author's own layout (§16).
+   A wrapped form's later rows hang four columns right of its first row.
    USAGE, the summary, description, and flag list all keep wrapping to
    pane width. `[ui] horizontal_scroll` in
    `~/.config/mandible/config.toml`, default `true`, governs only the raw
