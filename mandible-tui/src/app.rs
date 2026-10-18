@@ -236,6 +236,11 @@ pub struct App {
     pub horizontal_scroll_enabled: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
+    /// Lines the `?` overlay is scrolled by; only nonzero when its content
+    /// is taller than the screen.
+    help_scroll: usize,
+    /// `(max_scroll, visible_lines)` of the overlay, written by the renderer.
+    help_extent: std::cell::Cell<(usize, usize)>,
     /// A short-lived status line message (e.g. "copied: --interactive").
     ///
     /// Genuinely short-lived: it used to sit in the footer until some
@@ -459,6 +464,8 @@ impl App {
             saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
             show_help: false,
+            help_scroll: 0,
+            help_extent: std::cell::Cell::new((0, 0)),
             status_message: None,
             status_expires_at: None,
             search_index,
@@ -1224,6 +1231,39 @@ impl App {
     /// `?`: toggle the keybinding overlay.
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
+        self.help_scroll = 0;
+    }
+
+    /// The overlay's scroll offset, for the renderer.
+    pub fn help_scroll(&self) -> usize {
+        self.help_scroll
+    }
+
+    /// Record how far the overlay can scroll and how many lines it shows,
+    /// from the renderer.
+    pub fn set_help_extent(&self, max_scroll: usize, visible: usize) {
+        self.help_extent.set((max_scroll, visible));
+    }
+
+    /// Whether the overlay's content is taller than the screen.
+    pub fn help_scrollable(&self) -> bool {
+        self.help_extent.get().0 > 0
+    }
+
+    /// Scroll the overlay by `pages` screenfuls (or `lines` when `page` is
+    /// false), clamped to its extent.
+    pub fn help_scroll_by(&mut self, delta: isize, page: bool) {
+        let (max, visible) = self.help_extent.get();
+        let step = if page {
+            delta * visible.max(1) as isize
+        } else {
+            delta
+        };
+        self.help_scroll = self
+            .help_scroll
+            .min(max)
+            .saturating_add_signed(step)
+            .min(max);
     }
 
     /// Detail pane scroll down.

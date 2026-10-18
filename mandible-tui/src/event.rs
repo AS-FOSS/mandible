@@ -16,10 +16,25 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
 
     if app.show_help {
         // Any key closes the overlay except `?` itself, which is handled
-        // uniformly below (toggling closes it too).
-        if !matches!(key.code, KeyCode::Char('?')) {
-            app.show_help = false;
-            return None;
+        // uniformly below (toggling closes it too). An overlay taller than
+        // the screen keeps the arrow and page keys for scrolling.
+        match key.code {
+            KeyCode::Char('?') => {}
+            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                if app.help_scrollable() =>
+            {
+                match key.code {
+                    KeyCode::Up => app.help_scroll_by(-1, false),
+                    KeyCode::Down => app.help_scroll_by(1, false),
+                    KeyCode::PageUp => app.help_scroll_by(-1, true),
+                    _ => app.help_scroll_by(1, true),
+                }
+                return None;
+            }
+            _ => {
+                app.show_help = false;
+                return None;
+            }
         }
     }
 
@@ -449,6 +464,23 @@ mod tests {
         let mut a = app();
         a.toggle_help();
         assert!(a.show_help);
+        handle_key(&mut a, key(KeyCode::Char('x')));
+        assert!(!a.show_help);
+    }
+
+    #[test]
+    fn a_scrollable_help_overlay_scrolls_on_arrows_and_closes_on_others() {
+        let mut a = app();
+        a.toggle_help();
+        a.set_help_extent(5, 10);
+        handle_key(&mut a, key(KeyCode::Down));
+        handle_key(&mut a, key(KeyCode::Down));
+        assert!(a.show_help);
+        assert_eq!(a.help_scroll(), 2);
+        handle_key(&mut a, key(KeyCode::PageDown));
+        assert_eq!(a.help_scroll(), 5, "clamped to the extent");
+        handle_key(&mut a, key(KeyCode::Up));
+        assert_eq!(a.help_scroll(), 4);
         handle_key(&mut a, key(KeyCode::Char('x')));
         assert!(!a.show_help);
     }
