@@ -1,13 +1,13 @@
 //! The detail pane's page cache: the key a built page is reused under, and
 //! the debug-build check that a reused page is still the page.
 
-use super::{build_lines, BuiltLines};
+use super::BuiltLines;
 use crate::app::App;
 use crate::glyphs::Glyphs;
 use crate::style;
-use mandible_core::{CommandNode, FlagKey};
+use mandible_core::FlagKey;
 
-/// Everything [`build_lines`] reads. A built page is reused only while all
+/// Everything [`super::build_lines`] reads. A built page is reused only while all
 /// of it is equal, so a new input to `build_lines` must be added here.
 /// `tree_version` moves on every write to `app.root`; scroll, height and
 /// focus are applied after the build and `horizontal_scroll_enabled` is
@@ -55,11 +55,11 @@ pub(crate) struct PageCache {
 pub(super) fn assert_hit_is_fresh(
     key: &PageKey,
     cached: &BuiltLines,
-    node: &CommandNode,
+    node: &mandible_core::CommandNode,
     width: usize,
     app: &App,
 ) {
-    let fresh = build_lines(
+    let fresh = super::build_lines(
         node,
         width,
         app.palette,
