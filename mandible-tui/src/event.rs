@@ -81,6 +81,10 @@ fn handle_tree_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
+        KeyCode::PageDown => app.tree_page_down(),
+        KeyCode::PageUp => app.tree_page_up(),
+        KeyCode::Home => app.tree_home(),
+        KeyCode::End => app.tree_end(),
         // `--print-selection` only: Enter accepts the selection and quits.
         // Bound here rather than in `handle_key` so accepting is a property
         // of *browse* focus: while the search box has focus Enter keeps its
@@ -107,6 +111,10 @@ fn handle_detail_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.detail_scroll_down(),
         KeyCode::Up | KeyCode::Char('k') => app.detail_scroll_up(),
+        KeyCode::PageDown => app.detail_page_down(),
+        KeyCode::PageUp => app.detail_page_up(),
+        KeyCode::Home => app.detail_scroll_home(),
+        KeyCode::End => app.detail_scroll_end(),
         // `h`/`l` and the arrow keys mean something different per pane
         // (spec §2): in the tree they collapse/expand, here they scroll
         // preformatted content horizontally. Scoped to this function, which

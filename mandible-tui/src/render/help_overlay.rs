@@ -11,6 +11,8 @@ use ratatui::Frame;
 const BINDINGS: &[(Option<&str>, &str)] = &[
     (None, "MOVE"),
     (Some("↑ ↓  k j"), "Move selection"),
+    (Some("PgUp PgDn"), "Move 10 rows, or scroll a screenful"),
+    (Some("Home End"), "First or last row, or top or bottom"),
     (Some(EXPAND_KEYS), "Expand"),
     (Some("←  h"), "Collapse, or jump to parent"),
     (Some("Tab"), "Switch between tree and detail"),
