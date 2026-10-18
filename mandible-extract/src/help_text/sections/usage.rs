@@ -2095,6 +2095,23 @@ mod tests {
         );
     }
 
+    /// The first form under a bare `USAGE:` label keeps the indentation
+    /// every later form keeps, so the forms render aligned. See S-150.
+    #[test]
+    fn first_form_under_a_bare_label_keeps_its_indentation() {
+        let raw = "USAGE:\n    bpftrace [options] filename\n    bpftrace [options] -e 'program'\n\nOPTIONS:\n    -h  show help\n";
+        let parsed = parse_named(raw, "tcpretrans.bt");
+        assert_eq!(
+            parsed.usage,
+            vec![
+                "    bpftrace [options] filename".to_string(),
+                "    bpftrace [options] -e 'program'".to_string(),
+            ],
+            "{:?}",
+            parsed.usage
+        );
+    }
+
     /// A tool repeating its usage: label per form gets one entry per
     /// label. See S-037.
     #[test]

@@ -1,7 +1,7 @@
 name: cargo-clippy
 description: Checks a package to catch common mistakes and improve your Rust code.
 usage:
-- cargo clippy [OPTIONS] [--] [<ARGS>...]
+- '    cargo clippy [OPTIONS] [--] [<ARGS>...]'
 positionals:
 - name: ARGS
   variadic: true
