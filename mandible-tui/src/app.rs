@@ -175,6 +175,10 @@ pub struct App {
     /// fit scrolled the content off the top into blank space, and getting
     /// back required as many presses up as had gone down.
     detail_max_scroll: std::cell::Cell<usize>,
+    /// The offset the last frame drew at when a search-selected flag
+    /// positioned the pane, else `None`. Written by the renderer; `↑`/`↓`
+    /// continue from it so a manual scroll starts at what is on screen.
+    flag_scroll_shown: std::cell::Cell<Option<usize>>,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -282,6 +286,10 @@ pub struct App {
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
+    /// The query and top search result `selected_flag` was last derived
+    /// from. A rows refresh that finds the same pair leaves the target and
+    /// the user's scroll alone.
+    flag_target_source: Option<(String, NodeRef)>,
     /// Whether `Enter` composes the selection onto the calling shell's
     /// prompt instead of expanding the selected row (spec §2's
     /// `--print-selection`).
@@ -434,6 +442,7 @@ impl App {
             tree_viewport: 0,
             detail_scroll: 0,
             detail_max_scroll: std::cell::Cell::new(0),
+            flag_scroll_shown: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
@@ -448,6 +457,7 @@ impl App {
             palette,
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
+            flag_target_source: None,
             print_selection: false,
             review: None,
             requested_path: None,
@@ -509,12 +519,16 @@ impl App {
     /// the detail pane to; when it's a command, or there's no active
     /// filter at all, there's no flag target.
     fn sync_selected_flag_to_top_search_result(&mut self) {
-        self.selected_flag = None;
-        if self.active_filter().is_none() {
+        let top = self.active_filter().and_then(|query| {
+            let first = self.search_index.results().into_iter().next()?;
+            Some((query.to_string(), first))
+        });
+        if top == self.flag_target_source {
             return;
         }
-        let Some(NodeRef::Flag { path, key }) = self.search_index.results().into_iter().next()
-        else {
+        self.selected_flag = None;
+        self.flag_target_source = top.clone();
+        let Some((_, NodeRef::Flag { path, key })) = top else {
             return;
         };
         if let Some(idx) = self.rows.iter().position(|r| r.path == path) {
@@ -1179,7 +1193,7 @@ impl App {
         // A manual scroll always wins over an outstanding flag-scroll
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
-        self.selected_flag = None;
+        self.leave_flag_target();
         let max = self.detail_max_scroll.get();
         // Start from where the pane is actually showing, not from an offset
         // deeper than the content it now holds — a restored position into
@@ -1187,6 +1201,22 @@ impl App {
         // Without this, `↓` from such an offset would move a number nobody
         // can see and `↑` would need as many presses to get back.
         self.detail_scroll = self.detail_scroll.min(max).saturating_add(1).min(max);
+    }
+
+    /// Record the offset a search-selected flag placed the pane at, from the
+    /// renderer; `None` when the frame was positioned by the stored scroll.
+    pub fn set_flag_scroll_shown(&self, offset: Option<usize>) {
+        self.flag_scroll_shown.set(offset);
+    }
+
+    /// A manual scroll ends the flag target and adopts the offset it was
+    /// showing as the stored one.
+    fn leave_flag_target(&mut self) {
+        if self.selected_flag.take().is_some() {
+            if let Some(shown) = self.flag_scroll_shown.take() {
+                self.detail_scroll = shown;
+            }
+        }
     }
 
     /// Record how far the detail pane can scroll, from the renderer.
@@ -1210,7 +1240,7 @@ impl App {
 
     /// Detail pane scroll up.
     pub fn detail_scroll_up(&mut self) {
-        self.selected_flag = None;
+        self.leave_flag_target();
         // Clamped first for the same reason as [`Self::detail_scroll_down`]:
         // one press moves one line from where the reader is looking.
         self.detail_scroll = self
@@ -1229,6 +1259,7 @@ impl App {
     pub fn reset_detail_scroll(&mut self) {
         self.detail_scroll = 0;
         self.detail_hscroll = 0;
+        self.flag_scroll_shown.set(None);
         self.saved_detail_offsets = [DetailOffsets::default(); 2];
     }
 
@@ -2007,6 +2038,37 @@ mod tests {
         app.move_up();
         assert_ne!(app.selected_path(), before, "the press must actually move");
         assert_eq!(app.selected_flag, None);
+    }
+
+    /// A rows refresh with the same query and the same top result (the
+    /// background fill does this) leaves a manual scroll alone; a changed
+    /// query targets again.
+    #[test]
+    fn refresh_keeps_a_manual_scroll_until_the_query_changes() {
+        let mut root = sample_tree();
+        let autosquash =
+            mandible_core::Entity::flag_long("autosquash", Provenance::single(Source::HelpText));
+        root.subcommands[1].entities.push(autosquash); // rebase
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        app.cycle_search_mode(); // Name -> Wide
+        for c in "autosquash".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+        assert!(app.selected_flag.is_some(), "precondition");
+
+        app.detail_scroll_down();
+        app.mark_dirty();
+        app.ensure_rows_fresh();
+        assert_eq!(app.selected_flag, None, "same top result: no re-target");
+
+        app.search_backspace();
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+        assert!(app.selected_flag.is_some(), "new query: target again");
     }
 
     /// `--print-selection`'s whole output, composed the way the user got
