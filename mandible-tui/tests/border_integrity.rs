@@ -265,24 +265,86 @@ fn borders_survive_with_each_row_selected_and_detail_focused() {
     }
 }
 
-#[test]
-fn borders_survive_help_overlay() {
-    let mut app = build_app();
-    app.show_help = true;
-    let backend = TestBackend::new(80, 40);
-    let mut terminal = Terminal::new(backend).unwrap();
+fn draw(app: &App, w: u16, h: u16) -> ratatui::buffer::Buffer {
+    let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
     terminal
-        .draw(|frame| {
-            mandible_tui::render::render(frame, &app);
-        })
+        .draw(|frame| mandible_tui::render::render(frame, app))
         .unwrap();
-    // The overlay itself uses Clear + a fresh block; just prove the frame
-    // renders without panicking and the outer search bar border (drawn
-    // before the overlay) is still intact where not covered.
-    let buffer = terminal.backend().buffer().clone();
-    let regions =
-        mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, 80, 40), app.focus);
-    assert_border_intact(&buffer, regions.search);
+    terminal.backend().buffer().clone()
+}
+
+/// The overlay is modal, so it may cover pane borders. It must never draw
+/// outside its own rectangle, and its own border must be whole, including
+/// while the `more` markers sit on it.
+#[test]
+fn help_overlay_stays_inside_its_own_rect() {
+    use ratatui::layout::Rect;
+    for (w, h) in [(80u16, 24u16), (60, 14), (140, 45)] {
+        for scrolled in [false, true] {
+            let mut app = build_app();
+            let area = Rect::new(0, 0, w, h);
+            let regions = mandible_tui::layout::compute(area, app.focus);
+            let without = draw(&app, w, h);
+
+            app.show_help = true;
+            draw(&app, w, h); // the first frame records the scroll extent
+            if scrolled {
+                app.help_scroll_by(1, true);
+            }
+            let with = draw(&app, w, h);
+            let popup = mandible_tui::render::help_overlay_rect(area, app.print_selection);
+
+            // (a) the overlay's own border.
+            let (x0, x1) = (popup.x, popup.x + popup.width - 1);
+            let (y0, y1) = (popup.y, popup.y + popup.height - 1);
+            for (x, y, c) in [
+                (x0, y0, TOP_LEFT),
+                (x1, y0, TOP_RIGHT),
+                (x0, y1, BOTTOM_LEFT),
+                (x1, y1, BOTTOM_RIGHT),
+            ] {
+                assert_eq!(
+                    with[(x, y)].symbol(),
+                    c.to_string(),
+                    "{w}x{h} corner ({x},{y})"
+                );
+            }
+            for y in (y0 + 1)..y1 {
+                for x in [x0, x1] {
+                    assert_eq!(
+                        with[(x, y)].symbol(),
+                        VERTICAL.to_string(),
+                        "{w}x{h} side ({x},{y})"
+                    );
+                }
+            }
+
+            // (b) outside the popup the frame is exactly the frame without
+            // it, so every pane border there is intact.
+            let mut merged = without.clone();
+            for y in 0..h {
+                for x in 0..w {
+                    if !popup.contains((x, y).into()) {
+                        assert_eq!(
+                            with[(x, y)],
+                            without[(x, y)],
+                            "{w}x{h} overlay changed ({x},{y}) outside {popup:?}"
+                        );
+                        merged[(x, y)] = with[(x, y)].clone();
+                    }
+                }
+            }
+            let panes = [regions.search]
+                .into_iter()
+                .chain(regions.tree)
+                .chain(regions.detail);
+            for rect in panes {
+                // Cells under the popup keep the no-overlay border, so only
+                // cells outside it are being judged.
+                assert_border_intact(&merged, rect);
+            }
+        }
+    }
 }
 
 /// Regression for the exact bug class that shipped twice before (spec §9):

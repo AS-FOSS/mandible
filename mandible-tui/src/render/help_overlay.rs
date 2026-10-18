@@ -217,6 +217,11 @@ fn plan(rows: &Rows, area: Rect) -> Plan {
     }
 }
 
+/// Where the overlay is drawn on `area`.
+pub fn popup_rect(area: Rect, print_selection: bool) -> Rect {
+    plan(&bindings(print_selection), area).popup
+}
+
 /// Render the overlay centered over `full_area`, scrolled by `scroll`
 /// lines. Returns `(max_scroll, visible)` so the caller can bound its
 /// scrolling.
