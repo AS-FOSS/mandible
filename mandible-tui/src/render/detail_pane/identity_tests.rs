@@ -359,3 +359,21 @@ fn a_node_replaced_in_place_is_redrawn_not_served_from_the_cache() {
     let slow = app_with(a, crate::style::Palette::extended(), crate::glyphs::UNICODE);
     assert_same("reloaded", &fast, &slow, 100, 30);
 }
+
+#[test]
+fn a_whole_tree_store_assigned_over_the_old_one_is_redrawn() {
+    let (nodes, _) = sampled_nodes();
+    let (_, a) = &nodes[0];
+    let (_, b) = nodes.last().unwrap();
+    let mut b = b.clone();
+    b.name = a.name.clone();
+    let mut fast = app_with(a, crate::style::Palette::extended(), crate::glyphs::UNICODE);
+    draw(&fast, 100, 30, false);
+    fast.root = crate::tree_store::TreeStore::new(b.clone());
+    let slow = app_with(
+        &b,
+        crate::style::Palette::extended(),
+        crate::glyphs::UNICODE,
+    );
+    assert_same("assigned", &fast, &slow, 100, 30);
+}

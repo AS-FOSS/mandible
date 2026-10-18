@@ -1740,7 +1740,8 @@ pane.
     the selected path, the tree version, the pane width, the palette, the
     glyph set, and the search-selected flag. The tree version moves on every
     write to the tree, because the tree can only be written through
-    `TreeStore`, whose write access advances it. Debug builds also rebuild
+    `TreeStore`, whose write access takes a new version from a process-wide
+    counter, so no two trees or writes share one. Debug builds also rebuild
     the page on every cache hit and panic if it differs from the cached one.
 
 **Why.** Untrusted text containing newlines, tabs, ANSI, or

@@ -2,11 +2,20 @@
 //!
 //! Anything derived from the tree (the detail pane's page cache) keys on
 //! [`TreeStore::version`]. The fields are private and the only mutable access
-//! is [`TreeStore::edit`] or [`TreeStore::replace`], both of which advance the
+//! is [`TreeStore::edit`] or [`TreeStore::replace`], both of which take a new
 //! version first, so a write that forgets to invalidate cannot compile.
+//! Versions come from one process-wide counter, so no two stores and no two
+//! writes share one, even when a whole store is assigned over another.
 
 use mandible_core::CommandNode;
 use std::ops::Deref;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NEXT_VERSION: AtomicU64 = AtomicU64::new(1);
+
+fn next_version() -> u64 {
+    NEXT_VERSION.fetch_add(1, Ordering::Relaxed)
+}
 
 /// A [`CommandNode`] tree whose every write goes through the version bump.
 pub struct TreeStore {
@@ -17,10 +26,13 @@ pub struct TreeStore {
 impl TreeStore {
     /// Wrap a freshly extracted tree.
     pub fn new(root: CommandNode) -> Self {
-        Self { root, version: 0 }
+        Self {
+            root,
+            version: next_version(),
+        }
     }
 
-    /// The tree's version; differs after any write access.
+    /// The tree's version; unique across all stores; new after any write access.
     pub fn version(&self) -> u64 {
         self.version
     }
@@ -28,7 +40,7 @@ impl TreeStore {
     /// Mutable access to the tree. Advances the version even when the caller
     /// ends up changing nothing; a spurious bump only costs a page rebuild.
     pub fn edit(&mut self) -> &mut CommandNode {
-        self.version = self.version.wrapping_add(1);
+        self.version = next_version();
         &mut self.root
     }
 
@@ -67,5 +79,20 @@ mod tests {
         t.replace(node("b"));
         assert_ne!(t.version(), v1);
         assert_eq!(t.name, "b");
+    }
+
+    #[test]
+    fn versions_are_never_shared_between_stores_or_after_wholesale_replacement() {
+        let a = TreeStore::new(node("a"));
+        let b = TreeStore::new(node("a"));
+        assert_ne!(a.version(), b.version());
+        let mut seen = vec![a.version()];
+        let mut c = a;
+        for _ in 0..3 {
+            c.edit();
+            seen.push(c.version());
+        }
+        c = TreeStore::new(node("c"));
+        assert!(!seen.contains(&c.version()));
     }
 }
