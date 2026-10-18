@@ -64,6 +64,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .padding(Padding::horizontal(1));
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    app.set_flag_scroll_shown(None);
 
     if inner.width == 0 || inner.height == 0 {
         return;
@@ -122,7 +123,11 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     // exact pre-wrapped line index (spec §10), else the user's own scroll.
     app.set_detail_extent(built.lines.len(), inner.height as usize);
     let scroll = match built.target_flag_line {
-        Some(line) => target_scroll(&built, line, inner.height as usize),
+        Some(line) => {
+            let target = target_scroll(&built, line, inner.height as usize);
+            app.set_flag_scroll_shown(Some(target));
+            target
+        }
         None => app.clamped_detail_scroll(),
     } as u16;
     let paragraph = Paragraph::new(built.lines)
@@ -3074,6 +3079,50 @@ mod tests {
             line >= scroll && line < scroll + viewport,
             "the targeted row must still be on screen"
         );
+    }
+
+    /// `↓`/`↑` after a search placed the pane at a flag move one line from
+    /// what is on screen, not from the top of the page.
+    #[test]
+    fn manual_scroll_continues_from_a_search_target() {
+        use ratatui::backend::TestBackend;
+        use ratatui::Terminal;
+
+        fn rows(app: &App) -> Vec<String> {
+            let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+            terminal
+                .draw(|frame| {
+                    let area = frame.area();
+                    render(frame, area, app);
+                })
+                .unwrap();
+            terminal
+                .backend()
+                .buffer()
+                .content()
+                .chunks(80)
+                .map(|row| row.iter().map(|c| c.symbol()).collect())
+                .collect()
+        }
+
+        let mut node = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        for i in 0..100 {
+            let mut f =
+                Entity::flag_long(format!("option-{i}"), Provenance::single(Source::HelpText));
+            f.description = Some(Text::sanitize("something"));
+            node.entities.push(f);
+        }
+        let mut app = App::new("tool".to_string(), node);
+        app.selected_flag = Some(FlagKey::Long("option-50".to_string()));
+        let at_flag = rows(&app);
+        assert!(!at_flag[1].contains("USAGE"), "{at_flag:?}");
+
+        app.detail_scroll_down();
+        let down = rows(&app);
+        assert_eq!(down[1..22], at_flag[2..23]);
+
+        app.detail_scroll_up();
+        assert_eq!(rows(&app)[1..22], at_flag[1..22]);
     }
 
     /// A row already wholly visible scrolls nothing: throwing away the
