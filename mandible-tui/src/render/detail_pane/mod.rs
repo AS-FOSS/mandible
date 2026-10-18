@@ -12,11 +12,14 @@
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
 mod layout;
+mod page_cache;
 mod usage_form;
 mod wrap;
 
 use entity::*;
 use layout::*;
+pub(crate) use page_cache::PageCache;
+use page_cache::PageKey;
 use usage_form::*;
 use wrap::*;
 
@@ -35,6 +38,10 @@ use unicode_width::UnicodeWidthChar;
 
 /// Render the detail pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, true);
+}
+
+fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     let focused = app.focus == Focus::Detail;
     let border_style = if focused {
         style::accent(app.color_enabled)
@@ -111,6 +118,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let width = inner.width as usize;
+    if cached {
+        render_parsed_cached(frame, area, inner, app, node);
+        return;
+    }
     let built = build_lines(
         node,
         width,
@@ -141,6 +152,75 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         &built.clip_rows,
         scroll as usize,
     );
+    draw_hscroll_affordance(frame, area, app);
+}
+
+/// The parsed view with the built document reused across frames and only
+/// the visible rows handed to `Paragraph`. Output is cell-for-cell the one
+/// of the reference path; whenever that cannot be guaranteed (a line wider
+/// than the pane, a control character, a document past `u16` rows) the
+/// reference path's whole-document wrapped draw is used instead.
+fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, node: &CommandNode) {
+    let width = inner.width as usize;
+    // `build_lines` does this on a rebuild; a cache hit must too.
+    if app.horizontal_scroll_enabled {
+        app.set_detail_hextent(0, width);
+    }
+    let key = PageKey::of(app, width);
+    let (built, windowable) = {
+        let mut slot = app.page_cache.borrow_mut();
+        match slot.as_ref().filter(|c| c.key == key) {
+            Some(hit) => {
+                #[cfg(debug_assertions)]
+                page_cache::assert_hit_is_fresh(&hit.key, &hit.built, node, width, app);
+                (hit.built.clone(), hit.windowable)
+            }
+            None => {
+                let built = std::rc::Rc::new(build_lines(
+                    node,
+                    width,
+                    app.palette,
+                    app.selected_flag.as_ref(),
+                    app.glyphs,
+                    app,
+                ));
+                let windowable = built.lines.len() <= usize::from(u16::MAX)
+                    && built.lines.iter().all(|l| {
+                        l.width() <= width
+                            && l.spans
+                                .iter()
+                                .all(|s| !s.content.chars().any(char::is_control))
+                    });
+                *slot = Some(PageCache {
+                    key,
+                    built: built.clone(),
+                    windowable,
+                });
+                (built, windowable)
+            }
+        }
+    };
+    let height = inner.height as usize;
+    app.set_detail_extent(built.lines.len(), height);
+    let scroll = match built.target_flag_line {
+        Some(line) => {
+            let target = target_scroll(&built, line, height);
+            app.set_flag_scroll_shown(Some(target));
+            target
+        }
+        None => app.clamped_detail_scroll(),
+    };
+    let paragraph = if windowable {
+        let start = scroll.min(built.lines.len());
+        let end = (start + height).min(built.lines.len());
+        Paragraph::new(built.lines[start..end].to_vec())
+    } else {
+        Paragraph::new(built.lines.clone())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll as u16, 0))
+    };
+    frame.render_widget(paragraph, inner);
+    draw_clip_marker_rails(frame, inner, app.color_enabled, &built.clip_rows, scroll);
     draw_hscroll_affordance(frame, area, app);
 }
 
@@ -477,7 +557,7 @@ struct EntryRow {
 
 /// The rendered detail-pane content plus where a search-targeted flag
 /// landed, if any.
-struct BuiltLines {
+pub(crate) struct BuiltLines {
     lines: Vec<Line<'static>>,
     /// The line index [`Flag`] `app.selected_flag` starts at, if it was
     /// found on `node`.
@@ -4294,3 +4374,15 @@ mod tests {
         }
     }
 }
+
+/// The renderer exactly as it was before the document cache and the
+/// windowed draw: rebuild the whole document and hand it to a wrapping,
+/// scrolling `Paragraph` every frame. Kept so a test can hold the fast path
+/// to cell-for-cell identity with it.
+#[cfg(test)]
+pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, false);
+}
+
+#[cfg(test)]
+mod identity_tests;
