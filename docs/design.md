@@ -1107,6 +1107,14 @@ allowlist below.
    have been sent, never a reason to send a riskier one — the fix is rule
    1a and §7 Tier C's evidence gate.
 
+   The reap runs inside `run_inert`, so it cannot run when mandible itself
+   exits or is killed while a probe is in flight. On Linux the probe's
+   direct child also sets `PR_SET_PDEATHSIG` to SIGKILL between `fork` and
+   `exec`, so the kernel kills it with its parent. A descendant that has
+   already left the child's session is not covered by this and is still
+   left to the reap. On other systems a probe in flight when mandible dies
+   keeps running.
+
 5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation,
    since a tool that streams forever must not exhaust memory. Reader
    threads or a poll loop are mandatory to avoid pipe deadlock on large

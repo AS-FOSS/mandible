@@ -22,6 +22,10 @@
 //! process in uninterruptible sleep delays a probe by milliseconds rather
 //! than becoming a new hang.
 //!
+//! The reap runs inside the probe call, so it cannot run when this
+//! process dies mid-probe. [`die_with_parent`] covers that case: the
+//! direct child asks the kernel for SIGKILL when its parent dies.
+//!
 //! **Linux only.** Elsewhere this module is a no-op; the leak stands as
 //! the documented residual risk (spec §6 rule 8).
 
@@ -98,6 +102,25 @@ pub(super) fn arm_subreaper() {
 
 #[cfg(not(target_os = "linux"))]
 pub(super) fn arm_subreaper() {}
+
+/// Ask the kernel to SIGKILL the calling child when `parent` dies.
+/// Runs between `fork` and `exec`, so it allocates nothing. Fails if the
+/// parent is already gone, since the signal would never arrive.
+#[cfg(target_os = "linux")]
+pub(super) fn die_with_parent(parent: i32) -> std::io::Result<()> {
+    nix::sys::prctl::set_pdeathsig(nix::sys::signal::Signal::SIGKILL)
+        .map_err(std::io::Error::from)?;
+    if nix::unistd::getppid().as_raw() == parent {
+        Ok(())
+    } else {
+        Err(std::io::Error::from_raw_os_error(nix::libc::ESRCH))
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(super) fn die_with_parent(_parent: i32) -> std::io::Result<()> {
+    Ok(())
+}
 
 /// Kill and reap every process this invocation started that is still
 /// alive, returning how many were dealt with.
