@@ -15,7 +15,7 @@ mod search_bar;
 mod status_bar;
 mod tree_pane;
 
-pub(crate) use detail_pane::DetailCache;
+pub(crate) use detail_pane::PageCache;
 
 use crate::app::App;
 use crate::layout::{self, Regions};

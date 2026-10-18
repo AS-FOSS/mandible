@@ -12,11 +12,14 @@
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
 mod layout;
+mod page_cache;
 mod usage_form;
 mod wrap;
 
 use entity::*;
 use layout::*;
+pub(crate) use page_cache::PageCache;
+use page_cache::PageKey;
 use usage_form::*;
 use wrap::*;
 
@@ -152,29 +155,6 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     draw_hscroll_affordance(frame, area, app);
 }
 
-/// Everything [`build_lines`] reads. A built page is reused only while all
-/// of it is equal, so a new input to `build_lines` must be added here.
-/// `tree_gen` moves on every change to `app.root`; scroll, height and focus
-/// are applied after the build and `horizontal_scroll_enabled` is
-/// re-applied every frame, so none of those are inputs.
-#[derive(Clone, PartialEq, Eq)]
-pub(crate) struct DetailKey {
-    path: Vec<String>,
-    tree_gen: u64,
-    width: usize,
-    palette: style::Palette,
-    glyphs: Glyphs,
-    target_flag: Option<FlagKey>,
-}
-
-/// A built document, the key it was built for, and whether the windowed
-/// draw may stand in for `Paragraph`'s defensive wrapping.
-pub(crate) struct DetailCache {
-    key: DetailKey,
-    built: std::rc::Rc<BuiltLines>,
-    windowable: bool,
-}
-
 /// The parsed view with the built document reused across frames and only
 /// the visible rows handed to `Paragraph`. Output is cell-for-cell the one
 /// of the reference path; whenever that cannot be guaranteed (a line wider
@@ -186,21 +166,15 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
     if app.horizontal_scroll_enabled {
         app.set_detail_hextent(0, width);
     }
-    let key = DetailKey {
-        path: app
-            .selected_row()
-            .map(|r| r.path.clone())
-            .unwrap_or_default(),
-        tree_gen: app.tree_generation(),
-        width,
-        palette: app.palette,
-        glyphs: app.glyphs,
-        target_flag: app.selected_flag.clone(),
-    };
+    let key = PageKey::of(app, width);
     let (built, windowable) = {
-        let mut slot = app.detail_cache.borrow_mut();
+        let mut slot = app.page_cache.borrow_mut();
         match slot.as_ref().filter(|c| c.key == key) {
-            Some(hit) => (hit.built.clone(), hit.windowable),
+            Some(hit) => {
+                #[cfg(debug_assertions)]
+                page_cache::assert_hit_is_fresh(&hit.key, &hit.built, node, width, app);
+                (hit.built.clone(), hit.windowable)
+            }
             None => {
                 let built = std::rc::Rc::new(build_lines(
                     node,
@@ -217,7 +191,7 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
                                 .iter()
                                 .all(|s| !s.content.chars().any(char::is_control))
                     });
-                *slot = Some(DetailCache {
+                *slot = Some(PageCache {
                     key,
                     built: built.clone(),
                     windowable,
