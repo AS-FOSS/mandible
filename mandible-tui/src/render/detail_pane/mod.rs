@@ -11,8 +11,6 @@
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
-#[cfg(test)]
-mod identity_tests;
 mod layout;
 mod usage_form;
 mod wrap;
@@ -38,15 +36,6 @@ use unicode_width::UnicodeWidthChar;
 /// Render the detail pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     render_impl(frame, area, app, true);
-}
-
-/// The renderer exactly as it was before the document cache and the
-/// windowed draw: rebuild the whole document and hand it to a wrapping,
-/// scrolling `Paragraph` every frame. Kept so a test can hold the fast path
-/// to cell-for-cell identity with it.
-#[cfg(test)]
-pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
-    render_impl(frame, area, app, false);
 }
 
 fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
@@ -163,24 +152,11 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     draw_hscroll_affordance(frame, area, app);
 }
 
-/// Everything [`build_lines`] reads, in one place. [`BuiltLines`] is reused
-/// for a frame only when every field here is equal to the one it was built
-/// from, so an input missing from this struct is a stale-page bug: add the
-/// field here whenever `build_lines` (or anything it calls) starts reading
-/// something new.
-///
-/// - `path`, `tree_gen`: which node, and which version of the tree. The
-///   node is `resolve(app.root, path)`; [`App::tree_generation`] moves on
-///   every change to `app.root` (a background fill, a reload), so a node
-///   whose content changed under an unchanged path misses.
-/// - `width`: the pane's inner width; every line is wrapped to it.
-/// - `palette`, `glyphs`: the only style and character inputs
-///   `section_lines`, `entity_line` and the heading helpers take.
-/// - `target_flag`: `app.selected_flag`, which fixes `target_flag_line`.
-///
-/// Not inputs: scroll offsets and pane height (applied after the build),
-/// focus (border only), `horizontal_scroll_enabled` (a side effect on the
-/// app, re-applied every frame before the lookup).
+/// Everything [`build_lines`] reads. A built page is reused only while all
+/// of it is equal, so a new input to `build_lines` must be added here.
+/// `tree_gen` moves on every change to `app.root`; scroll, height and focus
+/// are applied after the build and `horizontal_scroll_enabled` is
+/// re-applied every frame, so none of those are inputs.
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct DetailKey {
     path: Vec<String>,
@@ -4424,3 +4400,15 @@ mod tests {
         }
     }
 }
+
+/// The renderer exactly as it was before the document cache and the
+/// windowed draw: rebuild the whole document and hand it to a wrapping,
+/// scrolling `Paragraph` every frame. Kept so a test can hold the fast path
+/// to cell-for-cell identity with it.
+#[cfg(test)]
+pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, false);
+}
+
+#[cfg(test)]
+mod identity_tests;
