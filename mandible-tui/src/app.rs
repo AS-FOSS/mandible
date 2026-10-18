@@ -182,6 +182,13 @@ pub struct App {
     /// positioned the pane, else `None`. Written by the renderer; `↑`/`↓`
     /// continue from it so a manual scroll starts at what is on screen.
     flag_scroll_shown: std::cell::Cell<Option<usize>>,
+    /// The detail pane's built document, reused until one of the inputs
+    /// named in `DetailKey` changes.
+    pub(crate) detail_cache: std::cell::RefCell<Option<crate::render::DetailCache>>,
+    /// Moves on every change to [`Self::root`]'s content; part of the
+    /// detail cache key. Anything that mutates `root` must call
+    /// [`Self::bump_tree_generation`].
+    tree_gen: u64,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -450,6 +457,8 @@ impl App {
             detail_max_scroll: std::cell::Cell::new(0),
             detail_viewport: std::cell::Cell::new(0),
             flag_scroll_shown: std::cell::Cell::new(None),
+            detail_cache: std::cell::RefCell::new(None),
+            tree_gen: 0,
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
@@ -878,6 +887,21 @@ impl App {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn detail_max_scroll_for_tests(&self) -> usize {
+        self.detail_max_scroll.get()
+    }
+
+    /// The tree's content version; see the `tree_gen` field.
+    pub fn tree_generation(&self) -> u64 {
+        self.tree_gen
+    }
+
+    /// Record that [`Self::root`] changed, invalidating the detail cache.
+    pub fn bump_tree_generation(&mut self) {
+        self.tree_gen = self.tree_gen.wrapping_add(1);
+    }
+
     /// True if `path` is currently being lazily filled.
     pub fn is_pending(&self, path: &[String]) -> bool {
         self.pending.contains(path)
@@ -892,6 +916,7 @@ impl App {
         self.pending.remove(path);
         if let Some(slot) = mandible_core::resolve_mut(&mut self.root, path) {
             *slot = node;
+            self.bump_tree_generation();
         }
         // Deliberately does *not* expand the node. Every node in the tree
         // is filled in the background now, so auto-expanding on arrival
@@ -1105,6 +1130,7 @@ impl App {
         let previously_selected = self.selected_path();
 
         self.root = root;
+        self.bump_tree_generation();
         // Fills queued against the old tree are abandoned by the caller,
         // so nothing is still pending for this one.
         self.pending.clear();

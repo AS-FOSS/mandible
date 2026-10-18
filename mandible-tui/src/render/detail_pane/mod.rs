@@ -11,6 +11,8 @@
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
+#[cfg(test)]
+mod identity_tests;
 mod layout;
 mod usage_form;
 mod wrap;
@@ -35,6 +37,19 @@ use unicode_width::UnicodeWidthChar;
 
 /// Render the detail pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, true);
+}
+
+/// The renderer exactly as it was before the document cache and the
+/// windowed draw: rebuild the whole document and hand it to a wrapping,
+/// scrolling `Paragraph` every frame. Kept so a test can hold the fast path
+/// to cell-for-cell identity with it.
+#[cfg(test)]
+pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, false);
+}
+
+fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     let focused = app.focus == Focus::Detail;
     let border_style = if focused {
         style::accent(app.color_enabled)
@@ -111,6 +126,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let width = inner.width as usize;
+    if cached {
+        render_parsed_cached(frame, area, inner, app, node);
+        return;
+    }
     let built = build_lines(
         node,
         width,
@@ -141,6 +160,117 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         &built.clip_rows,
         scroll as usize,
     );
+    draw_hscroll_affordance(frame, area, app);
+}
+
+/// Everything [`build_lines`] reads, in one place. [`BuiltLines`] is reused
+/// for a frame only when every field here is equal to the one it was built
+/// from, so an input missing from this struct is a stale-page bug: add the
+/// field here whenever `build_lines` (or anything it calls) starts reading
+/// something new.
+///
+/// - `path`, `tree_gen`: which node, and which version of the tree. The
+///   node is `resolve(app.root, path)`; [`App::tree_generation`] moves on
+///   every change to `app.root` (a background fill, a reload), so a node
+///   whose content changed under an unchanged path misses.
+/// - `width`: the pane's inner width; every line is wrapped to it.
+/// - `palette`, `glyphs`: the only style and character inputs
+///   `section_lines`, `entity_line` and the heading helpers take.
+/// - `target_flag`: `app.selected_flag`, which fixes `target_flag_line`.
+///
+/// Not inputs: scroll offsets and pane height (applied after the build),
+/// focus (border only), `horizontal_scroll_enabled` (a side effect on the
+/// app, re-applied every frame before the lookup).
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct DetailKey {
+    path: Vec<String>,
+    tree_gen: u64,
+    width: usize,
+    palette: style::Palette,
+    glyphs: Glyphs,
+    target_flag: Option<FlagKey>,
+}
+
+/// A built document, the key it was built for, and whether the windowed
+/// draw may stand in for `Paragraph`'s defensive wrapping.
+pub(crate) struct DetailCache {
+    key: DetailKey,
+    built: std::rc::Rc<BuiltLines>,
+    windowable: bool,
+}
+
+/// The parsed view with the built document reused across frames and only
+/// the visible rows handed to `Paragraph`. Output is cell-for-cell the one
+/// of the reference path; whenever that cannot be guaranteed (a line wider
+/// than the pane, a control character, a document past `u16` rows) the
+/// reference path's whole-document wrapped draw is used instead.
+fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, node: &CommandNode) {
+    let width = inner.width as usize;
+    // `build_lines` does this on a rebuild; a cache hit must too.
+    if app.horizontal_scroll_enabled {
+        app.set_detail_hextent(0, width);
+    }
+    let key = DetailKey {
+        path: app
+            .selected_row()
+            .map(|r| r.path.clone())
+            .unwrap_or_default(),
+        tree_gen: app.tree_generation(),
+        width,
+        palette: app.palette,
+        glyphs: app.glyphs,
+        target_flag: app.selected_flag.clone(),
+    };
+    let (built, windowable) = {
+        let mut slot = app.detail_cache.borrow_mut();
+        match slot.as_ref().filter(|c| c.key == key) {
+            Some(hit) => (hit.built.clone(), hit.windowable),
+            None => {
+                let built = std::rc::Rc::new(build_lines(
+                    node,
+                    width,
+                    app.palette,
+                    app.selected_flag.as_ref(),
+                    app.glyphs,
+                    app,
+                ));
+                let windowable = built.lines.len() <= usize::from(u16::MAX)
+                    && built.lines.iter().all(|l| {
+                        l.width() <= width
+                            && l.spans
+                                .iter()
+                                .all(|s| !s.content.chars().any(char::is_control))
+                    });
+                *slot = Some(DetailCache {
+                    key,
+                    built: built.clone(),
+                    windowable,
+                });
+                (built, windowable)
+            }
+        }
+    };
+    let height = inner.height as usize;
+    app.set_detail_extent(built.lines.len(), height);
+    let scroll = match built.target_flag_line {
+        Some(line) => {
+            let target = target_scroll(&built, line, height);
+            app.set_flag_scroll_shown(Some(target));
+            target
+        }
+        None => app.clamped_detail_scroll(),
+    };
+    let paragraph = if windowable {
+        let start = scroll.min(built.lines.len());
+        let end = (start + height).min(built.lines.len());
+        Paragraph::new(built.lines[start..end].to_vec())
+    } else {
+        Paragraph::new(built.lines.clone())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll as u16, 0))
+    };
+    frame.render_widget(paragraph, inner);
+    draw_clip_marker_rails(frame, inner, app.color_enabled, &built.clip_rows, scroll);
     draw_hscroll_affordance(frame, area, app);
 }
 
@@ -477,7 +607,7 @@ struct EntryRow {
 
 /// The rendered detail-pane content plus where a search-targeted flag
 /// landed, if any.
-struct BuiltLines {
+pub(crate) struct BuiltLines {
     lines: Vec<Line<'static>>,
     /// The line index [`Flag`] `app.selected_flag` starts at, if it was
     /// found on `node`.
