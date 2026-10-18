@@ -286,6 +286,10 @@ pub struct App {
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
+    /// The query and top search result `selected_flag` was last derived
+    /// from. A rows refresh that finds the same pair leaves the target and
+    /// the user's scroll alone.
+    flag_target_source: Option<(String, NodeRef)>,
     /// Whether `Enter` composes the selection onto the calling shell's
     /// prompt instead of expanding the selected row (spec §2's
     /// `--print-selection`).
@@ -453,6 +457,7 @@ impl App {
             palette,
             glyphs: crate::glyphs::from_env(),
             selected_flag: None,
+            flag_target_source: None,
             print_selection: false,
             review: None,
             requested_path: None,
@@ -514,12 +519,16 @@ impl App {
     /// the detail pane to; when it's a command, or there's no active
     /// filter at all, there's no flag target.
     fn sync_selected_flag_to_top_search_result(&mut self) {
-        self.selected_flag = None;
-        if self.active_filter().is_none() {
+        let top = self.active_filter().and_then(|query| {
+            let first = self.search_index.results().into_iter().next()?;
+            Some((query.to_string(), first))
+        });
+        if top == self.flag_target_source {
             return;
         }
-        let Some(NodeRef::Flag { path, key }) = self.search_index.results().into_iter().next()
-        else {
+        self.selected_flag = None;
+        self.flag_target_source = top.clone();
+        let Some((_, NodeRef::Flag { path, key })) = top else {
             return;
         };
         if let Some(idx) = self.rows.iter().position(|r| r.path == path) {
@@ -2029,6 +2038,37 @@ mod tests {
         app.move_up();
         assert_ne!(app.selected_path(), before, "the press must actually move");
         assert_eq!(app.selected_flag, None);
+    }
+
+    /// A rows refresh with the same query and the same top result (the
+    /// background fill does this) leaves a manual scroll alone; a changed
+    /// query targets again.
+    #[test]
+    fn refresh_keeps_a_manual_scroll_until_the_query_changes() {
+        let mut root = sample_tree();
+        let autosquash =
+            mandible_core::Entity::flag_long("autosquash", Provenance::single(Source::HelpText));
+        root.subcommands[1].entities.push(autosquash); // rebase
+
+        let mut app = App::new("git".to_string(), root);
+        app.focus_search();
+        app.cycle_search_mode(); // Name -> Wide
+        for c in "autosquash".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+        assert!(app.selected_flag.is_some(), "precondition");
+
+        app.detail_scroll_down();
+        app.mark_dirty();
+        app.ensure_rows_fresh();
+        assert_eq!(app.selected_flag, None, "same top result: no re-target");
+
+        app.search_backspace();
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+        assert!(app.selected_flag.is_some(), "new query: target again");
     }
 
     /// `--print-selection`'s whole output, composed the way the user got
