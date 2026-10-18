@@ -12,11 +12,13 @@
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
 mod layout;
+mod stack;
 mod usage_form;
 mod wrap;
 
 use entity::*;
 use layout::*;
+use stack::*;
 use usage_form::*;
 use wrap::*;
 
@@ -848,6 +850,12 @@ fn section_lines(
     glyphs: Glyphs,
 ) -> SectionBody {
     let layout = section_layout(entities, width, indent);
+    let row = RowCtx {
+        width,
+        color_enabled: palette.color,
+        layout,
+        glyphs,
+    };
     // Groups keep the order the tool printed them in, which is editorial:
     // `tar --help` leads with "Main operation mode" because that is what you
     // need first, and its 17 groups are sequenced deliberately. A BTreeMap
@@ -887,15 +895,7 @@ fn section_lines(
     // order the tool introduced it.
     if let Some(ungrouped) = own_groups.remove(&None) {
         for e in ungrouped {
-            push_entity(
-                &mut body,
-                e,
-                false,
-                width,
-                palette.color,
-                layout,
-                target_flag,
-            );
+            push_entity(&mut body, e, false, row, target_flag);
         }
     }
     for key in group_order {
@@ -921,15 +921,7 @@ fn section_lines(
                 .push(group_divider_line(label, width, palette, glyphs, ruled));
         }
         for e in group {
-            push_entity(
-                &mut body,
-                e,
-                false,
-                width,
-                palette.color,
-                layout,
-                target_flag,
-            );
+            push_entity(&mut body, e, false, row, target_flag);
         }
     }
 
@@ -946,19 +938,20 @@ fn section_lines(
             ruled,
         ));
         for e in inherited {
-            push_entity(
-                &mut body,
-                e,
-                true,
-                width,
-                palette.color,
-                layout,
-                target_flag,
-            );
+            push_entity(&mut body, e, true, row, target_flag);
         }
     }
 
     body
+}
+
+/// What every row of one section is drawn against.
+#[derive(Clone, Copy)]
+struct RowCtx {
+    width: usize,
+    color_enabled: bool,
+    layout: SectionLayout,
+    glyphs: Glyphs,
 }
 
 /// Render one entity into `body` as **one logical row**, however many
@@ -971,16 +964,21 @@ fn push_entity(
     body: &mut SectionBody,
     entity: &Entity,
     dim: bool,
-    width: usize,
-    color_enabled: bool,
-    layout: SectionLayout,
+    row: RowCtx,
     target_flag: Option<&FlagKey>,
 ) {
     let first_line = body.lines.len();
     if body.target.is_none() && target_flag.is_some_and(|k| entity.matches_key(k)) {
         body.target = Some(first_line);
     }
-    let rendered = entity_line(entity, dim, width, color_enabled, layout);
+    let rendered = entity_line(
+        entity,
+        dim,
+        row.width,
+        row.color_enabled,
+        row.layout,
+        row.glyphs,
+    );
     body.rows.push(EntryRow {
         first_line,
         lines: rendered.len(),
@@ -1668,6 +1666,7 @@ mod tests {
                 description: column,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         assert!(lines.len() >= 2, "expected wrapping: {lines:?}");
 
@@ -1724,6 +1723,7 @@ mod tests {
                 description: 20,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         let spans = &lines[0].spans;
         assert!(spans.len() >= 3, "{spans:?}");
@@ -1762,6 +1762,7 @@ mod tests {
                 description: 20,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         let first = text_of(&lines[0]);
         assert!(
@@ -1792,6 +1793,7 @@ mod tests {
                 description: 20,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         let first = text_of(&lines[0]);
         assert!(
@@ -1816,6 +1818,7 @@ mod tests {
                 description: 20,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         let ordinary_first = text_of(&ordinary_lines[0]);
         assert!(
@@ -1849,6 +1852,7 @@ mod tests {
                 description: 20,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         let first = text_of(&lines[0]);
         assert!(
@@ -1875,6 +1879,7 @@ mod tests {
                 description: 20,
                 indent: 0,
             },
+            crate::glyphs::UNICODE,
         );
         let joined: String = lines.iter().map(text_of).collect();
         assert!(joined.contains("(deprecated)"), "{joined:?}");
@@ -1899,7 +1904,7 @@ mod tests {
             description: 20,
             indent: 0,
         };
-        let lines = entity_line(&flag, false, 80, true, layout);
+        let lines = entity_line(&flag, false, 80, true, layout, crate::glyphs::UNICODE);
 
         let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
         assert!(
@@ -1945,7 +1950,7 @@ mod tests {
             description: 20,
             indent: 0,
         };
-        let lines = entity_line(&flag, false, 80, true, layout);
+        let lines = entity_line(&flag, false, 80, true, layout, crate::glyphs::UNICODE);
 
         assert_eq!(
             lines.len(),
@@ -1993,7 +1998,7 @@ mod tests {
         // word-wrap, which `a_narrow_pane_clamps_the_column_rather_than_shredding_prose`
         // and friends already cover for the description column this
         // section reuses.
-        let lines = entity_line(&flag, false, 200, true, layout);
+        let lines = entity_line(&flag, false, 200, true, layout, crate::glyphs::UNICODE);
         let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
 
         assert!(
@@ -2082,7 +2087,7 @@ mod tests {
         // Narrow enough that "unaligned"'s longer description wraps, wide
         // enough that "gray"'s shorter one fits on a single line — the
         // exact split the real ffplay pane showed the defect on.
-        let lines = entity_line(&flag, false, 82, true, layout);
+        let lines = entity_line(&flag, false, 82, true, layout, crate::glyphs::UNICODE);
         let texts: Vec<String> = lines.iter().map(text_of).collect();
 
         assert!(
@@ -2124,7 +2129,7 @@ mod tests {
             description: 20,
             indent: 0,
         };
-        let lines = entity_line(&flag, false, 80, true, layout);
+        let lines = entity_line(&flag, false, 80, true, layout, crate::glyphs::UNICODE);
 
         let head = text_of(&lines[0]);
         assert!(
@@ -2462,7 +2467,7 @@ mod tests {
                 "width {width}: column {} is not clear of the long column",
                 layout.description
             );
-            let lines = entity_line(&flag, false, width, true, layout);
+            let lines = entity_line(&flag, false, width, true, layout, crate::glyphs::UNICODE);
             let head_column = spelling_column(&flag, 0);
             // Only the description's own lines — a head wide enough to
             // wrap contributes lines of its own, and those belong in the

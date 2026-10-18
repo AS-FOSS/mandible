@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 - The `?` overlay is sized to its content, uses two columns on wide terminals, and scrolls with `↑`/`↓` when the terminal is too short to show every binding.
 
+### Changed
+
+- A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below behind a dim `│`/`└` guide, beside the wrapped description.
+
 ### Fixed
 
 - After a search scrolls the detail pane to a flag, `↑` and `↓` now move one line from that position instead of jumping back to the top of the page.

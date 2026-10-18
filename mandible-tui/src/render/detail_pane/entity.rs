@@ -6,7 +6,7 @@ use super::*;
 /// test `Entity::short_spelling` uses. Display-order only (spec §16, "short
 /// spellings before long ones"): the IR keeps source order, this function
 /// decides only how [`entity_name_spec`] reassembles it for the screen.
-fn is_short_spelling(s: &Spelling) -> bool {
+pub(super) fn is_short_spelling(s: &Spelling) -> bool {
     matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1
 }
 
@@ -143,8 +143,12 @@ pub(super) fn entity_line(
     // Where the value and description columns begin, shared across the
     // whole section — see `section_layout`.
     layout: SectionLayout,
+    glyphs: Glyphs,
 ) -> Vec<Line<'static>> {
-    let name_spec = entity_name_spec(flag);
+    let stack = plan(flag, layout, width);
+    let name_spec = stack
+        .as_ref()
+        .map_or_else(|| entity_name_spec(flag), |s| s.main.clone());
     let value_text = entity_value_text(flag);
 
     // Two columns, chosen by the row's own shape (spec §9.3), behind the
@@ -231,39 +235,16 @@ pub(super) fn entity_line(
     }
     let description_text = description_text.filter(|d| !d.is_empty());
 
-    // A flag's `choices` (spec §7 Tier B rule 4) never fold into
-    // `description_text` or the spelling: they render as their own
-    // `values:` line, indented two past the description column (spec
-    // §9.3). Choices with no per-value description (e.g. `tar
-    // --quoting-style`) get the single summary line below; choices that
-    // carry their own text (ffmpeg/ffplay AVOptions) render one indented
-    // `name  description` row each instead, via `choice_detail_lines`.
-    let has_choice_descriptions = flag.choices.iter().any(|c| c.description.is_some());
-    let values_line = (!flag.choices.is_empty() && !has_choice_descriptions).then(|| {
-        let joined = flag
-            .choices
-            .iter()
-            .map(|c| c.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("values: {joined}")
-    });
-
-    // A flag's own environment-variable cross-reference (spec §4.5)
-    // renders the same way `values:` does: its own line, two columns past
-    // the description column, never folded into the description text. See
-    // docs/shapes.md S-166.
-    let env_line = flag.env_var.as_ref().map(|v| format!("env: {v}"));
-
-    if description_text.is_none()
-        && values_line.is_none()
-        && env_line.is_none()
-        && !has_choice_descriptions
-    {
+    if description_text.is_none() && flag.choices.is_empty() && flag.env_var.is_none() {
         if !head.is_empty() {
             return head;
         }
-        return vec![Line::from(first_line_spans)];
+        let mut lines = vec![Line::from(first_line_spans)];
+        if let Some(stack) = &stack {
+            let dim = style::muted(color_enabled);
+            lines.extend(stack.rows(layout, &[], guides(glyphs), (dim, dim)));
+        }
+        return lines;
     }
 
     // One description column for the entire section (spec §9.3). A head
@@ -309,14 +290,60 @@ pub(super) fn entity_line(
     }
 
     let indent_str = " ".repeat(column);
-    if !remainder.is_empty() {
-        for chunk in wrap_description(&remainder, rest_width) {
+    let chunks = if remainder.is_empty() {
+        Vec::new()
+    } else {
+        wrap_description(&remainder, rest_width)
+    };
+    if let Some(stack) = &stack {
+        let dim = style::muted(color_enabled);
+        lines.extend(stack.rows(layout, &chunks, guides(glyphs), (dim, desc_style)));
+    } else {
+        for chunk in chunks {
             lines.push(Line::from(Span::styled(
                 format!("{indent_str}{chunk}"),
                 desc_style,
             )));
         }
     }
+
+    lines.extend(subordinate_lines(flag, column, width, color_enabled));
+
+    lines
+}
+
+/// The lines under a row's description: its `values:` summary or described
+/// choices, then its `env:` cross-reference (spec §9.3).
+fn subordinate_lines(
+    flag: &Entity,
+    column: usize,
+    width: usize,
+    color_enabled: bool,
+) -> Vec<Line<'static>> {
+    let mut lines = Vec::new();
+    // A flag's `choices` (spec §7 Tier B rule 4) never fold into
+    // `description_text` or the spelling: they render as their own
+    // `values:` line, indented two past the description column (spec
+    // §9.3). Choices with no per-value description (e.g. `tar
+    // --quoting-style`) get the single summary line below; choices that
+    // carry their own text (ffmpeg/ffplay AVOptions) render one indented
+    // `name  description` row each instead, via `choice_detail_lines`.
+    let has_choice_descriptions = flag.choices.iter().any(|c| c.description.is_some());
+    let values_line = (!flag.choices.is_empty() && !has_choice_descriptions).then(|| {
+        let joined = flag
+            .choices
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("values: {joined}")
+    });
+
+    // A flag's own environment-variable cross-reference (spec §4.5)
+    // renders the same way `values:` does: its own line, two columns past
+    // the description column, never folded into the description text. See
+    // docs/shapes.md S-166.
+    let env_line = flag.env_var.as_ref().map(|v| format!("env: {v}"));
 
     // The values line sits two columns past the description column,
     // marking it subordinate rather than a second row (spec §9.3).

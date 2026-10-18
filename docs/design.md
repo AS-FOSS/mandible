@@ -1824,6 +1824,16 @@ pane's flag list.
 5. A pane too narrow for the column brings the column down, never the
    layout. The column is clamped until the description has 28 columns to
    wrap in.
+6. A flag row whose spellings, with the placeholder, do not fit the
+   column is stacked. The first line holds the first short spelling, the
+   first long one (`--name`, else the first one-dash word) and the
+   placeholder after it. The other spellings follow in printed order,
+   wrapped at the commas inside the column, one line each behind a dim
+   guide: `│` on every line but the last, `└` on the last (`|` and `` ` ``
+   in the ASCII set), then a space. The description starts on the first
+   line and wraps in its own column beside the spelling lines. The row is
+   as tall as the taller of the two. A spelling wider than the room left
+   by the guide keeps the single-line head of rule 3.
 
 **Why.** A placeholder column has to be as wide as the section's widest
 placeholder, and every row would pay that width whether or not it takes a
@@ -1834,9 +1844,13 @@ is why the description column is one number, not a target. The 28-column
 wrap floor is measured, not picked: at 20 columns a real six-word flag
 description breaks across six lines, one mid-word; at 28 it reads as
 prose. A layout that changed shape at some threshold width would make one
-list read as two different products either side of it.
+list read as two different products either side of it. A row with five
+spellings otherwise runs past the column and pushes its description right.
+Stacking keeps the description at the column, and the guide shows that the
+extra lines belong to the row above.
 
-**Implemented in.** `mandible-tui/src/render/detail_pane/`.
+**Implemented in.** `mandible-tui/src/render/detail_pane/`, stacking in
+`stack.rs`.
 
 ### 9.2 The styling contract
 
