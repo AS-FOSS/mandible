@@ -196,6 +196,8 @@ structure, search is for flags.
 | Key | Action |
 |---|---|
 | `↑`/`↓`, `k`/`j` | Move tree selection |
+| `PgUp`/`PgDn` | Move tree selection 10 rows; scroll the focused detail pane one screenful |
+| `Home`/`End` | First or last visible tree row; top or bottom of the focused detail pane |
 | `→`/`Enter`/`l` | Expand (triggers lazy extraction if the subtree is unfilled). `Enter` accepts instead under `--print-selection`, below |
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
 | `/` | Focus search |

@@ -16,10 +16,25 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
 
     if app.show_help {
         // Any key closes the overlay except `?` itself, which is handled
-        // uniformly below (toggling closes it too).
-        if !matches!(key.code, KeyCode::Char('?')) {
-            app.show_help = false;
-            return None;
+        // uniformly below (toggling closes it too). An overlay taller than
+        // the screen keeps the arrow and page keys for scrolling.
+        match key.code {
+            KeyCode::Char('?') => {}
+            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
+                if app.help_scrollable() =>
+            {
+                match key.code {
+                    KeyCode::Up => app.help_scroll_by(-1, false),
+                    KeyCode::Down => app.help_scroll_by(1, false),
+                    KeyCode::PageUp => app.help_scroll_by(-1, true),
+                    _ => app.help_scroll_by(1, true),
+                }
+                return None;
+            }
+            _ => {
+                app.show_help = false;
+                return None;
+            }
         }
     }
 
@@ -81,6 +96,10 @@ fn handle_tree_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.move_down(),
         KeyCode::Up | KeyCode::Char('k') => app.move_up(),
+        KeyCode::PageDown => app.tree_page_down(),
+        KeyCode::PageUp => app.tree_page_up(),
+        KeyCode::Home => app.tree_home(),
+        KeyCode::End => app.tree_end(),
         // `--print-selection` only: Enter accepts the selection and quits.
         // Bound here rather than in `handle_key` so accepting is a property
         // of *browse* focus: while the search box has focus Enter keeps its
@@ -107,6 +126,10 @@ fn handle_detail_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => app.detail_scroll_down(),
         KeyCode::Up | KeyCode::Char('k') => app.detail_scroll_up(),
+        KeyCode::PageDown => app.detail_page_down(),
+        KeyCode::PageUp => app.detail_page_up(),
+        KeyCode::Home => app.detail_scroll_home(),
+        KeyCode::End => app.detail_scroll_end(),
         // `h`/`l` and the arrow keys mean something different per pane
         // (spec §2): in the tree they collapse/expand, here they scroll
         // preformatted content horizontally. Scoped to this function, which
@@ -441,6 +464,23 @@ mod tests {
         let mut a = app();
         a.toggle_help();
         assert!(a.show_help);
+        handle_key(&mut a, key(KeyCode::Char('x')));
+        assert!(!a.show_help);
+    }
+
+    #[test]
+    fn a_scrollable_help_overlay_scrolls_on_arrows_and_closes_on_others() {
+        let mut a = app();
+        a.toggle_help();
+        a.set_help_extent(5, 10);
+        handle_key(&mut a, key(KeyCode::Down));
+        handle_key(&mut a, key(KeyCode::Down));
+        assert!(a.show_help);
+        assert_eq!(a.help_scroll(), 2);
+        handle_key(&mut a, key(KeyCode::PageDown));
+        assert_eq!(a.help_scroll(), 5, "clamped to the extent");
+        handle_key(&mut a, key(KeyCode::Up));
+        assert_eq!(a.help_scroll(), 4);
         handle_key(&mut a, key(KeyCode::Char('x')));
         assert!(!a.show_help);
     }

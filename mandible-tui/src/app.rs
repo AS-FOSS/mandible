@@ -175,6 +175,9 @@ pub struct App {
     /// fit scrolled the content off the top into blank space, and getting
     /// back required as many presses up as had gone down.
     detail_max_scroll: std::cell::Cell<usize>,
+    /// Visible text lines of the detail pane, written by the renderer; the
+    /// size of a `PgUp`/`PgDn` step.
+    detail_viewport: std::cell::Cell<usize>,
     /// The offset the last frame drew at when a search-selected flag
     /// positioned the pane, else `None`. Written by the renderer; `↑`/`↓`
     /// continue from it so a manual scroll starts at what is on screen.
@@ -230,6 +233,11 @@ pub struct App {
     pub horizontal_scroll_enabled: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
+    /// Lines the `?` overlay is scrolled by; only nonzero when its content
+    /// is taller than the screen.
+    help_scroll: usize,
+    /// `(max_scroll, visible_lines)` of the overlay, written by the renderer.
+    help_extent: std::cell::Cell<(usize, usize)>,
     /// A short-lived status line message (e.g. "copied: --interactive").
     ///
     /// Genuinely short-lived: it used to sit in the footer until some
@@ -366,6 +374,9 @@ const REBUILD_MIN_INTERVAL: Duration = Duration::from_millis(250);
 /// take many presses to reveal anything.
 const DETAIL_HSCROLL_STEP: usize = 8;
 
+/// Rows `PgUp`/`PgDn` move the tree selection.
+const TREE_PAGE_ROWS: isize = 10;
+
 /// Case-insensitive **substring** match of `query` against a command's own
 /// `name`.
 ///
@@ -442,12 +453,15 @@ impl App {
             tree_viewport: 0,
             detail_scroll: 0,
             detail_max_scroll: std::cell::Cell::new(0),
+            detail_viewport: std::cell::Cell::new(0),
             flag_scroll_shown: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
             show_help: false,
+            help_scroll: 0,
+            help_extent: std::cell::Cell::new((0, 0)),
             status_message: None,
             status_expires_at: None,
             search_index,
@@ -737,23 +751,45 @@ impl App {
 
     /// Move the tree selection down one row.
     pub fn move_down(&mut self) {
-        self.ensure_rows_fresh();
-        let was = self.selected_path();
-        if self.selected + 1 < self.rows.len() {
-            self.selected += 1;
-        }
-        self.settle_selection(was);
+        self.move_selection_by(1);
     }
 
     /// Move the tree selection up one row.
     pub fn move_up(&mut self) {
-        // `ensure_rows_fresh` for the same reason [`Self::move_down`]
-        // calls it: [`Self::settle_selection`] compares the row this key
-        // left against the row it arrived at, and a stale row list makes
-        // both sides of that comparison address the wrong node.
+        self.move_selection_by(-1);
+    }
+
+    /// `PgDn`: move the tree selection down [`TREE_PAGE_ROWS`] rows.
+    pub fn tree_page_down(&mut self) {
+        self.move_selection_by(TREE_PAGE_ROWS);
+    }
+
+    /// `PgUp`: move the tree selection up [`TREE_PAGE_ROWS`] rows.
+    pub fn tree_page_up(&mut self) {
+        self.move_selection_by(-TREE_PAGE_ROWS);
+    }
+
+    /// `Home`: select the first visible row.
+    pub fn tree_home(&mut self) {
+        self.move_selection_by(isize::MIN);
+    }
+
+    /// `End`: select the last visible row.
+    pub fn tree_end(&mut self) {
+        self.move_selection_by(isize::MAX);
+    }
+
+    /// Move the selection by `delta` rows of the (filtered) row list,
+    /// clamped at both ends.
+    ///
+    /// `ensure_rows_fresh` runs first because [`Self::settle_selection`]
+    /// compares the row this key left against the row it arrived at, and a
+    /// stale row list makes both sides address the wrong node.
+    fn move_selection_by(&mut self, delta: isize) {
         self.ensure_rows_fresh();
         let was = self.selected_path();
-        self.selected = self.selected.saturating_sub(1);
+        let last = self.rows.len().saturating_sub(1);
+        self.selected = self.selected.saturating_add_signed(delta).min(last);
         self.settle_selection(was);
     }
 
@@ -1186,21 +1222,92 @@ impl App {
     /// `?`: toggle the keybinding overlay.
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
+        self.help_scroll = 0;
+    }
+
+    /// The overlay's scroll offset, for the renderer.
+    pub fn help_scroll(&self) -> usize {
+        self.help_scroll
+    }
+
+    /// Record how far the overlay can scroll and how many lines it shows,
+    /// from the renderer.
+    pub fn set_help_extent(&self, max_scroll: usize, visible: usize) {
+        self.help_extent.set((max_scroll, visible));
+    }
+
+    /// Whether the overlay's content is taller than the screen.
+    pub fn help_scrollable(&self) -> bool {
+        self.help_extent.get().0 > 0
+    }
+
+    /// Scroll the overlay by `pages` screenfuls (or `lines` when `page` is
+    /// false), clamped to its extent.
+    pub fn help_scroll_by(&mut self, delta: isize, page: bool) {
+        let (max, visible) = self.help_extent.get();
+        let step = if page {
+            delta * visible.max(1) as isize
+        } else {
+            delta
+        };
+        self.help_scroll = self
+            .help_scroll
+            .min(max)
+            .saturating_add_signed(step)
+            .min(max);
     }
 
     /// Detail pane scroll down.
     pub fn detail_scroll_down(&mut self) {
+        self.detail_scroll_by(1);
+    }
+
+    /// Detail pane scroll up.
+    pub fn detail_scroll_up(&mut self) {
+        self.detail_scroll_by(-1);
+    }
+
+    /// `PgDn`: scroll the detail pane down one screenful.
+    pub fn detail_page_down(&mut self) {
+        self.detail_scroll_by(self.detail_page());
+    }
+
+    /// `PgUp`: scroll the detail pane up one screenful.
+    pub fn detail_page_up(&mut self) {
+        self.detail_scroll_by(-self.detail_page());
+    }
+
+    /// `Home`: scroll the detail pane to the top.
+    pub fn detail_scroll_home(&mut self) {
+        self.detail_scroll_by(isize::MIN);
+    }
+
+    /// `End`: scroll the detail pane to the bottom.
+    pub fn detail_scroll_end(&mut self) {
+        self.detail_scroll_by(isize::MAX);
+    }
+
+    /// Lines in one `PgUp`/`PgDn` step: the visible height, at least one.
+    fn detail_page(&self) -> isize {
+        isize::try_from(self.detail_viewport.get().max(1)).unwrap_or(isize::MAX)
+    }
+
+    /// Scroll the detail pane by `delta` lines, clamped to the last frame's
+    /// extent.
+    fn detail_scroll_by(&mut self, delta: isize) {
         // A manual scroll always wins over an outstanding flag-scroll
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
         self.leave_flag_target();
         let max = self.detail_max_scroll.get();
         // Start from where the pane is actually showing, not from an offset
-        // deeper than the content it now holds — a restored position into
-        // shrunken content, or a resize that reflowed the document shorter.
-        // Without this, `↓` from such an offset would move a number nobody
-        // can see and `↑` would need as many presses to get back.
-        self.detail_scroll = self.detail_scroll.min(max).saturating_add(1).min(max);
+        // deeper than the content it now holds (a restored position into
+        // shrunken content, or a resize that reflowed it shorter).
+        self.detail_scroll = self
+            .detail_scroll
+            .min(max)
+            .saturating_add_signed(delta)
+            .min(max);
     }
 
     /// Record the offset a search-selected flag placed the pane at, from the
@@ -1226,6 +1333,7 @@ impl App {
     pub fn set_detail_extent(&self, content_lines: usize, viewport_lines: usize) {
         self.detail_max_scroll
             .set(content_lines.saturating_sub(viewport_lines));
+        self.detail_viewport.set(viewport_lines);
     }
 
     /// The current scroll offset, clamped to what the last frame could
@@ -1236,17 +1344,6 @@ impl App {
         // before reading this, so content that shrank since the position
         // was saved lands at its own last line rather than past it.
         self.detail_scroll.min(self.detail_max_scroll.get())
-    }
-
-    /// Detail pane scroll up.
-    pub fn detail_scroll_up(&mut self) {
-        self.leave_flag_target();
-        // Clamped first for the same reason as [`Self::detail_scroll_down`]:
-        // one press moves one line from where the reader is looking.
-        self.detail_scroll = self
-            .detail_scroll
-            .min(self.detail_max_scroll.get())
-            .saturating_sub(1);
     }
 
     /// Put the detail pane back at the top-left and drop what both views
@@ -1521,6 +1618,106 @@ mod tests {
             assert_eq!(app.clamped_detail_scroll(), 100, "{label}: stored view");
             assert_eq!(app.clamped_detail_hscroll(), 32, "{label}: stored view");
         }
+    }
+
+    /// A root with one plain child per name, for paging tests.
+    fn wide_tree(names: &[String]) -> CommandNode {
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        for name in names {
+            root.subcommands
+                .push(CommandNode::new(name, Provenance::single(Source::HelpText)));
+        }
+        root
+    }
+
+    fn numbered(prefix: &str, n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("{prefix}{i:02}")).collect()
+    }
+
+    #[test]
+    fn tree_paging_steps_ten_rows_and_clamps_at_both_ends() {
+        let mut app = App::new("tool".to_string(), wide_tree(&numbered("c", 25)));
+        app.ensure_rows_fresh();
+        app.tree_page_down();
+        assert_eq!(app.selected, 10);
+        app.tree_page_down();
+        assert_eq!(app.selected, 20);
+        app.tree_page_down();
+        assert_eq!(app.selected, 25, "26 rows: clamped to the last");
+        app.tree_page_up();
+        assert_eq!(app.selected, 15);
+        app.tree_home();
+        assert_eq!(app.selected, 0);
+        app.tree_page_up();
+        assert_eq!(app.selected, 0, "clamped at the top");
+        app.tree_end();
+        assert_eq!(app.selected, 25);
+    }
+
+    #[test]
+    fn tree_paging_keeps_the_cursor_in_view() {
+        let mut app = App::new("tool".to_string(), wide_tree(&numbered("c", 25)));
+        app.ensure_rows_fresh();
+        app.tree_viewport = 8;
+        app.tree_page_down();
+        assert!(app.selected >= app.tree_scroll && app.selected < app.tree_scroll + 8);
+        app.tree_end();
+        assert_eq!(app.tree_scroll, 25 + 1 - 8);
+        app.tree_home();
+        assert_eq!(app.tree_scroll, 0);
+    }
+
+    #[test]
+    fn tree_paging_moves_only_through_filtered_rows() {
+        let mut names = numbered("aa", 20);
+        names.extend(numbered("zq", 12));
+        let mut app = App::new("tool".to_string(), wide_tree(&names));
+        app.focus_search();
+        for c in "zq".chars() {
+            app.search_input_char(c);
+        }
+        settle_search(&mut app);
+        app.ensure_rows_fresh();
+        let shown: Vec<String> = app.rows().iter().map(|r| r.name.clone()).collect();
+        assert!(shown.len() < 20, "filter narrows the list: {shown:?}");
+
+        app.tree_end();
+        assert_eq!(app.selected, shown.len() - 1);
+        assert!(app.rows()[app.selected].name.starts_with("zq"));
+        app.tree_home();
+        app.tree_page_down();
+        assert_eq!(app.selected, 10.min(shown.len() - 1));
+        assert!(shown.contains(&app.rows()[app.selected].name));
+    }
+
+    #[test]
+    fn detail_paging_steps_one_viewport_and_clamps() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(100, 30); // max 70, page 30
+        app.detail_page_down();
+        assert_eq!(app.clamped_detail_scroll(), 30);
+        app.detail_page_down();
+        app.detail_page_down();
+        assert_eq!(app.clamped_detail_scroll(), 70);
+        app.detail_page_up();
+        assert_eq!(app.clamped_detail_scroll(), 40);
+        app.detail_scroll_home();
+        assert_eq!(app.clamped_detail_scroll(), 0);
+        app.detail_scroll_end();
+        assert_eq!(app.clamped_detail_scroll(), 70);
+    }
+
+    #[test]
+    fn detail_page_starts_from_the_search_selected_flag_position() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.set_detail_extent(200, 20); // max 180, page 20
+        app.selected_flag = Some(mandible_core::FlagKey::Long("verbose".to_string()));
+        app.set_flag_scroll_shown(Some(90));
+
+        app.detail_page_down();
+
+        assert_eq!(app.clamped_detail_scroll(), 110);
+        assert!(app.selected_flag.is_none());
     }
 
     /// The other half of the same rule: a press that *does* move still

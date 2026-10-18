@@ -25,7 +25,7 @@ Usage:
     pty_screenshot.py --keys 'j,j,<right>,/push' 100 28 ./target/release/mandible git
 
 Keys are comma-separated. Literal text is sent as-is; `<right>`, `<left>`,
-`<up>`, `<down>`, `<enter>`, `<esc>`, `<tab>`, `<bs>` send the escape sequence.
+`<up>`, `<down>`, `<pgup>`, `<pgdn>`, `<home>`, `<end>`, `<enter>`, `<esc>`, `<tab>`, `<bs>` send the escape sequence.
 A screen is captured after startup and after each key group.
 """
 
@@ -49,6 +49,10 @@ KEY_SEQUENCES = {
     "<enter>": b"\r",
     "<esc>": b"\x1b",
     "<tab>": b"\t",
+    "<pgup>": b"\x1b[5~",
+    "<pgdn>": b"\x1b[6~",
+    "<home>": b"\x1b[H",
+    "<end>": b"\x1b[F",
     "<bs>": b"\x7f",
     "<space>": b" ",
 }
@@ -151,6 +155,9 @@ def capture(argv, cols, rows, key_groups, settle=1.5, step=0.6):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--keys", default="", help="comma-separated key groups")
+    parser.add_argument(
+        "--settle", type=float, default=1.5, help="seconds to wait before the first key"
+    )
     parser.add_argument("cols", type=int)
     parser.add_argument("rows", type=int)
     parser.add_argument("program")
@@ -159,7 +166,7 @@ def main():
 
     groups = [g for g in ns.keys.split(",") if g]
     shots = capture(
-        [ns.program, *ns.args], ns.cols, ns.rows, groups
+        [ns.program, *ns.args], ns.cols, ns.rows, groups, settle=ns.settle
     )
 
     for label, lines in shots:
