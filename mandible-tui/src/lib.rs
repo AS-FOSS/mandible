@@ -35,5 +35,6 @@ pub mod sanitize;
 pub mod style;
 pub mod terminal;
 pub mod tree;
+pub mod tree_store;
 
 pub use app::{App, Effect, Focus};

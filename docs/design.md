@@ -1755,6 +1755,15 @@ pane.
     where only Tier B fired shows the confidence in the footer; a tool no
     tier resolved shows the per-tier status list with a suggestion to try
     `--doctor`.
+12. The parsed detail page is built once and reused. The page cache holds
+    the built lines for the selected node and is in memory for one run only;
+    nothing is written to disk. It is reused while the page key is equal:
+    the selected path, the tree version, the pane width, the palette, the
+    glyph set, and the search-selected flag. The tree version moves on every
+    write to the tree, because the tree can only be written through
+    `TreeStore`, whose write access takes a new version from a process-wide
+    counter, so no two trees or writes share one. Debug builds also rebuild
+    the page on every cache hit and panic if it differs from the cached one.
 
 **Why.** Untrusted text containing newlines, tabs, ANSI, or
 backspace-overstrike reaching a `Span` caused border corruption while

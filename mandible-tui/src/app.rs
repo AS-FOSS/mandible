@@ -111,7 +111,7 @@ pub struct App {
     /// The tool name as invoked, e.g. `"git"`.
     pub tool: String,
     /// The merged extraction tree.
-    pub root: CommandNode,
+    pub root: crate::tree_store::TreeStore,
     /// Paths the user has explicitly expanded.
     expanded: HashSet<Vec<String>>,
     /// Paths currently being lazily filled (spec §5.2 step 3) — a node
@@ -182,6 +182,9 @@ pub struct App {
     /// positioned the pane, else `None`. Written by the renderer; `↑`/`↓`
     /// continue from it so a manual scroll starts at what is on screen.
     flag_scroll_shown: std::cell::Cell<Option<usize>>,
+    /// The detail pane's built page, reused until one of the inputs named
+    /// in `PageKey` changes. In memory, this run only.
+    pub(crate) page_cache: std::cell::RefCell<Option<crate::render::PageCache>>,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -233,6 +236,11 @@ pub struct App {
     pub horizontal_scroll_enabled: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
+    /// Lines the `?` overlay is scrolled by; only nonzero when its content
+    /// is taller than the screen.
+    help_scroll: usize,
+    /// `(max_scroll, visible_lines)` of the overlay, written by the renderer.
+    help_extent: std::cell::Cell<(usize, usize)>,
     /// A short-lived status line message (e.g. "copied: --interactive").
     ///
     /// Genuinely short-lived: it used to sit in the footer until some
@@ -432,7 +440,7 @@ impl App {
         let palette = crate::style::Palette::from_env();
         let mut app = App {
             tool,
-            root,
+            root: crate::tree_store::TreeStore::new(root),
             expanded,
             pending: HashSet::new(),
             rows: Vec::new(),
@@ -450,11 +458,14 @@ impl App {
             detail_max_scroll: std::cell::Cell::new(0),
             detail_viewport: std::cell::Cell::new(0),
             flag_scroll_shown: std::cell::Cell::new(None),
+            page_cache: std::cell::RefCell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
             show_help: false,
+            help_scroll: 0,
+            help_extent: std::cell::Cell::new((0, 0)),
             status_message: None,
             status_expires_at: None,
             search_index,
@@ -878,6 +889,11 @@ impl App {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn detail_max_scroll_for_tests(&self) -> usize {
+        self.detail_max_scroll.get()
+    }
+
     /// True if `path` is currently being lazily filled.
     pub fn is_pending(&self, path: &[String]) -> bool {
         self.pending.contains(path)
@@ -890,7 +906,7 @@ impl App {
     /// visible rather than requiring a second expand press.
     pub fn splice_filled_node(&mut self, path: &[String], node: CommandNode) {
         self.pending.remove(path);
-        if let Some(slot) = mandible_core::resolve_mut(&mut self.root, path) {
+        if let Some(slot) = mandible_core::resolve_mut(self.root.edit(), path) {
             *slot = node;
         }
         // Deliberately does *not* expand the node. Every node in the tree
@@ -1104,7 +1120,7 @@ impl App {
     pub fn reload(&mut self, root: CommandNode) {
         let previously_selected = self.selected_path();
 
-        self.root = root;
+        self.root.replace(root);
         // Fills queued against the old tree are abandoned by the caller,
         // so nothing is still pending for this one.
         self.pending.clear();
@@ -1215,6 +1231,39 @@ impl App {
     /// `?`: toggle the keybinding overlay.
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
+        self.help_scroll = 0;
+    }
+
+    /// The overlay's scroll offset, for the renderer.
+    pub fn help_scroll(&self) -> usize {
+        self.help_scroll
+    }
+
+    /// Record how far the overlay can scroll and how many lines it shows,
+    /// from the renderer.
+    pub fn set_help_extent(&self, max_scroll: usize, visible: usize) {
+        self.help_extent.set((max_scroll, visible));
+    }
+
+    /// Whether the overlay's content is taller than the screen.
+    pub fn help_scrollable(&self) -> bool {
+        self.help_extent.get().0 > 0
+    }
+
+    /// Scroll the overlay by `pages` screenfuls (or `lines` when `page` is
+    /// false), clamped to its extent.
+    pub fn help_scroll_by(&mut self, delta: isize, page: bool) {
+        let (max, visible) = self.help_extent.get();
+        let step = if page {
+            delta * visible.max(1) as isize
+        } else {
+            delta
+        };
+        self.help_scroll = self
+            .help_scroll
+            .min(max)
+            .saturating_add_signed(step)
+            .min(max);
     }
 
     /// Detail pane scroll down.
@@ -2578,7 +2627,7 @@ mod tests {
             let mut child = CommandNode::new(&name, Provenance::single(Source::HelpText));
             child.children_filled = true;
             child.summary = Some(mandible_core::Text::sanitize("a warmed subcommand"));
-            app.root.subcommands.push(child.clone());
+            app.root.edit().subcommands.push(child.clone());
             app.splice_filled_node(&["git".to_string(), name], child);
         }
     }

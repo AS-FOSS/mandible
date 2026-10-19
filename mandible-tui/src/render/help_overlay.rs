@@ -1,7 +1,6 @@
 //! The `?` keybinding overlay (spec §2 "Interaction model" table).
 
-use crate::layout::centered_popup;
-use crate::sanitize::{display_width, truncate_to_width};
+use crate::sanitize::display_width;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph};
@@ -65,65 +64,234 @@ fn bindings(print_selection: bool) -> Vec<(Option<&'static str>, &'static str)> 
 /// descriptions align into one column the way the detail pane's do.
 const KEY_COLUMN: usize = 15;
 
-/// Render the overlay centered over `full_area`.
+/// Blank columns between the two columns of a wide overlay.
+const COLUMN_GAP: usize = 3;
+
+/// Cells the border and padding take from the popup.
+const CHROME_W: usize = 6;
+const CHROME_H: usize = 4;
+
+type Rows = [(Option<&'static str>, &'static str)];
+
+/// One display line of the overlay.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum HelpLine {
+    Blank,
+    Heading(String),
+    Row { key: String, desc: String },
+    Continuation(String),
+}
+
+/// What [`plan`] decides: where the popup goes and what each column holds.
+#[derive(Debug)]
+struct Plan {
+    popup: Rect,
+    columns: Vec<Vec<HelpLine>>,
+    /// Lines of content the popup shows at once.
+    visible: usize,
+    /// Content lines beyond `visible`; zero when everything fits.
+    max_scroll: usize,
+}
+
+type Section = (&'static str, Vec<(&'static str, &'static str)>);
+
+/// Bindings grouped under their headings, in order.
+fn sections(rows: &Rows) -> Vec<Section> {
+    let mut out: Vec<Section> = Vec::new();
+    for (key, desc) in rows {
+        match key {
+            None => out.push((desc, Vec::new())),
+            Some(key) => {
+                if let Some(last) = out.last_mut() {
+                    last.1.push((key, desc));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Split `text` into lines of at most `width` cells, breaking at spaces.
+fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for word in text.split(' ') {
+        match lines.last_mut() {
+            Some(line) if display_width(line) + 1 + display_width(word) <= width => {
+                line.push(' ');
+                line.push_str(word);
+            }
+            _ => lines.push(word.to_string()),
+        }
+    }
+    lines
+}
+
+/// One section as lines for a column `width` cells wide.
+fn section_lines(section: &Section, width: usize) -> Vec<HelpLine> {
+    let room = width.saturating_sub(KEY_COLUMN).max(1);
+    let mut lines = vec![HelpLine::Heading(section.0.to_string())];
+    for (key, desc) in &section.1 {
+        for (n, part) in wrap(desc, room).into_iter().enumerate() {
+            lines.push(if n == 0 {
+                HelpLine::Row {
+                    key: (*key).to_string(),
+                    desc: part,
+                }
+            } else {
+                HelpLine::Continuation(part)
+            });
+        }
+    }
+    lines
+}
+
+/// Join sections into one column, a blank line between them.
+fn join_sections(parts: &[Vec<HelpLine>]) -> Vec<HelpLine> {
+    let mut out = Vec::new();
+    for (n, part) in parts.iter().enumerate() {
+        if n > 0 {
+            out.push(HelpLine::Blank);
+        }
+        out.extend(part.iter().cloned());
+    }
+    out
+}
+
+/// Order-preserving split into two columns with the fewest lines in the
+/// taller one; a section is never divided.
+fn split_balanced(parts: &[Vec<HelpLine>]) -> Vec<Vec<HelpLine>> {
+    let height = |p: &[Vec<HelpLine>]| join_sections(p).len();
+    let at = (1..parts.len())
+        .min_by_key(|&k| height(&parts[..k]).max(height(&parts[k..])))
+        .unwrap_or(1);
+    vec![join_sections(&parts[..at]), join_sections(&parts[at..])]
+}
+
+/// Decide the overlay's shape from its content and the screen.
+///
+/// The popup is as large as its content, one cell short of the screen edge
+/// on every side. Two columns are used once each can hold a typical
+/// description on one line. Content taller than the popup scrolls.
+fn plan(rows: &Rows, area: Rect) -> Plan {
+    let groups = sections(rows);
+    let mut widths: Vec<usize> = groups
+        .iter()
+        .flat_map(|g| g.1.iter().map(|(_, d)| display_width(d)))
+        .collect();
+    widths.sort_unstable();
+    let widest = widths.last().copied().unwrap_or(0);
+    let typical = widths.get(widths.len() / 2).copied().unwrap_or(0);
+
+    let room_w = usize::from(area.width).saturating_sub(2 + CHROME_W).max(1);
+    let two_columns = groups.len() > 1 && room_w >= 2 * (KEY_COLUMN + typical) + COLUMN_GAP;
+    let col_w = if two_columns {
+        (KEY_COLUMN + widest).min((room_w - COLUMN_GAP) / 2)
+    } else {
+        (KEY_COLUMN + widest).min(room_w)
+    };
+    let parts: Vec<Vec<HelpLine>> = groups.iter().map(|g| section_lines(g, col_w)).collect();
+    let columns = if two_columns {
+        split_balanced(&parts)
+    } else {
+        vec![join_sections(&parts)]
+    };
+
+    let content = columns.iter().map(Vec::len).max().unwrap_or(0);
+    let wide = columns.len() * col_w + (columns.len() - 1) * COLUMN_GAP + CHROME_W;
+    let max_h = usize::from(area.height).saturating_sub(2).max(CHROME_H + 1);
+    let tall = (content + CHROME_H).min(max_h);
+    let popup_w = u16::try_from(wide).unwrap_or(u16::MAX).min(area.width);
+    let popup_h = u16::try_from(tall).unwrap_or(u16::MAX).min(area.height);
+    let popup = Rect::new(
+        area.x + (area.width - popup_w) / 2,
+        area.y + (area.height - popup_h) / 2,
+        popup_w,
+        popup_h,
+    );
+    let visible = tall - CHROME_H;
+    Plan {
+        popup,
+        columns,
+        visible,
+        max_scroll: content.saturating_sub(visible),
+    }
+}
+
+/// Where the overlay is drawn on `area`.
+pub fn popup_rect(area: Rect, print_selection: bool) -> Rect {
+    plan(&bindings(print_selection), area).popup
+}
+
+/// Render the overlay centered over `full_area`, scrolled by `scroll`
+/// lines. Returns `(max_scroll, visible)` so the caller can bound its
+/// scrolling.
 pub fn render(
     frame: &mut Frame,
     full_area: Rect,
     glyphs: crate::glyphs::Glyphs,
     color_enabled: bool,
     print_selection: bool,
-) {
-    let popup = centered_popup(full_area, 62, 70);
-    frame.render_widget(Clear, popup);
+    scroll: usize,
+) -> (usize, usize) {
+    let plan = plan(&bindings(print_selection), full_area);
+    let scroll = scroll.min(plan.max_scroll);
+    frame.render_widget(Clear, plan.popup);
 
-    let block = Block::default()
+    let mut block = Block::default()
         .title(" keybindings ")
         .borders(Borders::ALL)
         .border_set(crate::style::border_set(glyphs))
-        // Breathing room on all four sides. An overlay sits *on top of*
-        // content, so it needs more separation from its own border than a
-        // pane does, or it reads as a hole punched in the screen rather
-        // than a thing laid over it.
+        // An overlay sits on top of content, so it needs more separation
+        // from its own border than a pane does.
         .padding(Padding::new(2, 2, 1, 1));
-    let inner = block.inner(popup);
-    frame.render_widget(block, popup);
-
+    let (up, down) = if glyphs.rounded_borders {
+        ("▲", "▼")
+    } else {
+        ("^", "v")
+    };
+    if scroll > 0 {
+        block = block.title_top(Line::from(format!(" {up} more ")).right_aligned());
+    }
+    if scroll < plan.max_scroll {
+        block = block.title_bottom(Line::from(format!(" {down} more ")).right_aligned());
+    }
+    let inner = block.inner(plan.popup);
+    frame.render_widget(block, plan.popup);
+    let result = (plan.max_scroll, plan.visible);
     if inner.width == 0 || inner.height == 0 {
-        return;
+        return result;
     }
 
-    let width = inner.width as usize;
-    let rows = bindings(print_selection);
-    let mut lines: Vec<Line> = Vec::with_capacity(rows.len());
-    for (key, desc) in &rows {
-        match key {
-            // A section heading: a blank line above it (except first), then
-            // the label. Grouping eleven bindings into three named sets is
-            // the difference between a list to read and a list to scan.
-            None => {
-                if !lines.is_empty() {
-                    lines.push(Line::default());
-                }
-                lines.push(Line::styled(
-                    truncate_to_width(desc, width),
-                    crate::style::muted_bold(color_enabled),
-                ));
-            }
-            Some(key) => {
-                let pad = KEY_COLUMN.saturating_sub(display_width(key)).max(1);
-                lines.push(Line::from(vec![
-                    Span::styled(key.to_string(), crate::style::accent(color_enabled)),
-                    Span::raw(" ".repeat(pad)),
-                    Span::raw(truncate_to_width(
-                        desc,
-                        width.saturating_sub(KEY_COLUMN).max(1),
-                    )),
-                ]));
-            }
+    let count = plan.columns.len();
+    let col_w = (inner.width as usize).saturating_sub((count - 1) * COLUMN_GAP) / count;
+    for (n, column) in plan.columns.iter().enumerate() {
+        let x = inner.x + u16::try_from(n * (col_w + COLUMN_GAP)).unwrap_or(0);
+        let rect = Rect::new(x, inner.y, u16::try_from(col_w).unwrap_or(0), inner.height);
+        let lines: Vec<Line> = column
+            .iter()
+            .skip(scroll)
+            .take(plan.visible)
+            .map(|line| styled(line, color_enabled))
+            .collect();
+        frame.render_widget(Paragraph::new(lines), rect);
+    }
+    result
+}
+
+fn styled(line: &HelpLine, color_enabled: bool) -> Line<'static> {
+    match line {
+        HelpLine::Blank => Line::default(),
+        HelpLine::Heading(h) => Line::styled(h.clone(), crate::style::muted_bold(color_enabled)),
+        HelpLine::Row { key, desc } => {
+            let pad = KEY_COLUMN.saturating_sub(display_width(key)).max(1);
+            Line::from(vec![
+                Span::styled(key.clone(), crate::style::accent(color_enabled)),
+                Span::raw(" ".repeat(pad)),
+                Span::raw(desc.clone()),
+            ])
         }
+        HelpLine::Continuation(text) => Line::from(format!("{}{text}", " ".repeat(KEY_COLUMN))),
     }
-
-    frame.render_widget(Paragraph::new(lines), inner);
 }
 
 #[cfg(test)]
@@ -156,5 +324,65 @@ mod tests {
         assert!(rows
             .iter()
             .any(|(key, desc)| *key == Some("→  l") && *desc == "Expand"));
+    }
+
+    fn area(w: u16, h: u16) -> Rect {
+        Rect::new(0, 0, w, h)
+    }
+
+    fn keys_in(lines: &[HelpLine]) -> Vec<String> {
+        lines
+            .iter()
+            .filter_map(|l| match l {
+                HelpLine::Row { key, .. } => Some(key.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_wide_screen_gets_two_columns_split_between_sections() {
+        let p = plan(&bindings(false), area(140, 45));
+        assert_eq!(p.columns.len(), 2);
+        assert_eq!(p.max_scroll, 0);
+        for column in &p.columns {
+            assert!(matches!(column.first(), Some(HelpLine::Heading(_))));
+        }
+        assert!(p.popup.height < 45 - 2, "sized to content: {:?}", p.popup);
+    }
+
+    #[test]
+    fn a_narrow_screen_gets_one_column_sized_to_content() {
+        let p = plan(&bindings(false), area(80, 40));
+        assert_eq!(p.columns.len(), 1);
+        assert_eq!(p.max_scroll, 0);
+        assert!(p.popup.width <= 78 && p.popup.height <= 38);
+    }
+
+    #[test]
+    fn a_short_screen_scrolls_and_every_row_is_reachable() {
+        let rows = bindings(true);
+        let p = plan(&rows, area(60, 14));
+        assert!(p.max_scroll > 0);
+        assert!(p.popup.height <= 12);
+        let column = &p.columns[0];
+        let mut seen = Vec::new();
+        for offset in 0..=p.max_scroll {
+            let shown: Vec<HelpLine> = column
+                .iter()
+                .skip(offset)
+                .take(p.visible)
+                .cloned()
+                .collect();
+            seen.extend(keys_in(&shown));
+        }
+        for key in rows.iter().filter_map(|(k, _)| *k) {
+            assert!(seen.iter().any(|s| s == key), "unreachable: {key}");
+        }
+    }
+
+    #[test]
+    fn nothing_scrolls_when_everything_fits() {
+        assert_eq!(plan(&bindings(false), area(110, 32)).max_scroll, 0);
     }
 }

@@ -15,9 +15,19 @@ mod search_bar;
 mod status_bar;
 mod tree_pane;
 
+pub(crate) use detail_pane::PageCache;
+
 use crate::app::App;
 use crate::layout::{self, Regions};
 use ratatui::Frame;
+
+/// The rectangle the `?` overlay occupies on a screen of `area`.
+pub fn help_overlay_rect(
+    area: ratatui::layout::Rect,
+    print_selection: bool,
+) -> ratatui::layout::Rect {
+    help_overlay::popup_rect(area, print_selection)
+}
 
 /// Render one full frame for `app` into `frame`.
 pub fn render(frame: &mut Frame, app: &App) {
@@ -34,13 +44,15 @@ pub fn render(frame: &mut Frame, app: &App) {
     status_bar::render(frame, regions.status, app);
 
     if app.show_help {
-        help_overlay::render(
+        let (max_scroll, visible) = help_overlay::render(
             frame,
             area,
             app.glyphs,
             app.color_enabled,
             app.print_selection,
+            app.help_scroll(),
         );
+        app.set_help_extent(max_scroll, visible);
     }
 
     if let Some(review) = &app.review {
