@@ -83,24 +83,24 @@ flags:
     sources:
     - help-text
 examples:
-- command: 'deadlock 181                 # Analyze PID 181'
-- command: |-
+- text: 'deadlock 181                 # Analyze PID 181'
+- text: |-
     deadlock 181 --binary /lib/x86_64-linux-gnu/libpthread.so.0
                                  # Analyze PID 181 and locks from this binary.
                                  # If tracing a process that is running from
                                  # a dynamically-linked binary, this argument
                                  # is required and should be the path to the
                                  # pthread library.
-- command: |-
+- text: |-
     deadlock 181 --verbose
                                  # Analyze PID 181 and print statistics about
                                  # the mutex wait graph.
-- command: |-
+- text: |-
     deadlock 181 --lock-symbols my_mutex_lock1,my_mutex_lock2 \
         --unlock-symbols my_mutex_unlock1,my_mutex_unlock2
                                  # Analyze PID 181 and trace custom mutex
                                  # symbols instead of pthread mutexes.
-- command: |-
+- text: |-
     deadlock 181 --dump-graph graph.json
                                  # Analyze PID 181 and dump the mutex wait
                                  # graph to graph.json.

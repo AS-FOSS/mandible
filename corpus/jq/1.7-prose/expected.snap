@@ -270,7 +270,7 @@ flags:
     sources:
     - help-text
 examples:
-- command: |-
+- text: |-
     $ echo '{"foo": 0}' | jq .
     {
       "foo": 0

@@ -4,14 +4,10 @@
 
 use super::*;
 
-/// Columns a wrapped example line's continuation rows hang past its own
-/// indent, the width of the block indent USAGE rows sit at.
-const EXAMPLE_HANG: usize = 2;
-
 /// Push the EXAMPLES heading and rows, or nothing when the node has none.
 /// Examples are separated by one blank row. A long line wraps with
 /// [`wrap_preformatted_hung`], which keeps interior spacing and hangs
-/// continuation rows [`EXAMPLE_HANG`] columns past the line's own indent.
+/// continuation rows [`USAGE_HANG`] columns past the line's own indent.
 pub(super) fn push_examples(
     lines: &mut Vec<Line<'static>>,
     node: &CommandNode,
@@ -28,12 +24,9 @@ pub(super) fn push_examples(
         if n > 0 {
             lines.push(Line::default());
         }
-        let texts = std::iter::once(&example.command).chain(example.explanation.as_ref());
-        for text in texts {
-            for line in text.as_str().split('\n') {
-                for row in wrap_preformatted_hung(line, width, EXAMPLE_HANG) {
-                    lines.push(Line::from(row));
-                }
+        for line in example.text.as_str().split('\n') {
+            for row in wrap_preformatted_hung(line, width, USAGE_HANG) {
+                lines.push(Line::from(row));
             }
         }
     }
@@ -93,13 +86,13 @@ mod tests {
     }
 
     #[test]
-    fn a_long_line_hangs_at_its_own_indent() {
+    fn a_long_line_hangs_like_a_usage_form() {
         let out = rows(
             &node_with(&["  tool --one --two --three --four --five"]),
             24,
         );
         assert!(out[4].starts_with("  tool"), "{out:?}");
-        assert!(out[5].starts_with("  "), "{out:?}");
+        assert!(out[5].starts_with(&" ".repeat(2 + USAGE_HANG)), "{out:?}");
         assert!(out[4..].iter().all(|r| r.chars().count() <= 24), "{out:?}");
     }
 }

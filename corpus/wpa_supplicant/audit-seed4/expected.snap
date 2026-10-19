@@ -175,7 +175,7 @@ flags:
     sources:
     - help-text
 examples:
-- command: wpa_supplicant -Dnl80211 -iwlan0 -c/etc/wpa_supplicant.conf
+- text: wpa_supplicant -Dnl80211 -iwlan0 -c/etc/wpa_supplicant.conf
 provenance:
   sources:
   - help-text

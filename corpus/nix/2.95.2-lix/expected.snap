@@ -71,23 +71,23 @@ flags:
     sources:
     - help-text
 examples:
-- command: '· Create a new flake:'
-- command: |2-
+- text: '· Create a new flake:'
+- text: |2-
         │ # nix flake new hello
         │ # cd hello
-- command: '· Build the flake in the current directory:'
-- command: |2-
+- text: '· Build the flake in the current directory:'
+- text: |2-
         │ # nix build
         │ # ./result/bin/hello
         │ Hello, world!
-- command: '· Run the flake in the current directory:'
-- command: |2-
+- text: '· Run the flake in the current directory:'
+- text: |2-
         │ # nix run
         │ Hello, world!
-- command: |-
+- text: |-
     · Start a development shell for hacking on this
       flake:
-- command: |2-
+- text: |2-
         │ # nix develop
         │ # unpackPhase
         │ # cd hello-*

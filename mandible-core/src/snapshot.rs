@@ -387,18 +387,14 @@ impl From<&Entity> for EnvVarSnapshot {
 /// Snapshot form of [`Example`].
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ExampleSnapshot {
-    /// The example command line, verbatim.
-    pub command: String,
-    /// An optional explanation of what the example does.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub explanation: Option<String>,
+    /// The example block, verbatim.
+    pub text: String,
 }
 
 impl From<&Example> for ExampleSnapshot {
     fn from(e: &Example) -> Self {
         ExampleSnapshot {
-            command: e.command.as_str().to_string(),
-            explanation: e.explanation.as_ref().map(|t| t.as_str().to_string()),
+            text: e.text.as_str().to_string(),
         }
     }
 }

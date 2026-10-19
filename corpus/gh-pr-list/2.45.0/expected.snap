@@ -139,16 +139,16 @@ flags:
     sources:
     - help-text
 examples:
-- command: |-
+- text: |-
     List PRs authored by you
     $ gh pr list --author "@me"
-- command: |-
+- text: |-
     List only PRs with all of the given labels
     $ gh pr list --label bug --label "priority 1"
-- command: |-
+- text: |-
     Filter PRs using search syntax
     $ gh pr list --search "status:success review:required"
-- command: |-
+- text: |-
     Find a PR that introduced a given commit
     $ gh pr list --search "<SHA>" --state merged
 provenance:

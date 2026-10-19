@@ -18,7 +18,7 @@ flags:
     sources:
     - help-text
 examples:
-- command: |-
+- text: |-
     ./dcsnoop           # trace failed dcache lookups
     ./dcsnoop -a        # trace all dcache lookups
 detected_framework: argparse

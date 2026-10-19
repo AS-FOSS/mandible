@@ -428,7 +428,7 @@ flags:
     sources:
     - help-text
 examples:
-- command: 'Example: grep -i ''hello world'' menu.h main.c'
+- text: 'Example: grep -i ''hello world'' menu.h main.c'
 provenance:
   sources:
   - help-text

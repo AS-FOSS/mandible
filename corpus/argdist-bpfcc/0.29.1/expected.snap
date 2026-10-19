@@ -133,69 +133,69 @@ flags:
     sources:
     - help-text
 examples:
-- command: |-
+- text: |-
     argdist -H 'p::__kmalloc(u64 size):u64:size'
             Print a histogram of allocation sizes passed to kmalloc
-- command: |-
+- text: |-
     argdist -p 1005 -C 'p:c:malloc(size_t size):size_t:size:size==16'
             Print a frequency count of how many times process 1005 called malloc
             with an allocation size of 16 bytes
-- command: |-
+- text: |-
     argdist -C 'r:c:gets():char*:(char*)$retval#snooped strings'
             Snoop on all strings returned by gets()
-- command: |-
+- text: |-
     argdist -H 'r::__kmalloc(size_t size):u64:$latency/$entry(size)#ns per byte'
             Print a histogram of nanoseconds per byte from kmalloc allocations
-- command: |-
+- text: |-
     argdist -C 'p::__kmalloc(size_t sz, gfp_t flags):size_t:sz:flags&GFP_ATOMIC'
             Print frequency count of kmalloc allocation sizes that have GFP_ATOMIC
-- command: |-
+- text: |-
     argdist -p 1005 -C 'p:c:write(int fd):int:fd' -T 5
             Print frequency counts of how many times writes were issued to a
             particular file descriptor number, in process 1005, but only show
             the top 5 busiest fds
-- command: |-
+- text: |-
     argdist -p 1005 -H 'r:c:read()'
             Print a histogram of results (sizes) returned by read() in process 1005
-- command: |-
+- text: |-
     argdist -C 'r::__vfs_read():u32:$PID:$latency > 100000'
             Print frequency of reads by process where the latency was >0.1ms
-- command: |-
+- text: |-
     argdist -C 'r::__vfs_read():u32:$COMM:$latency > 100000'
             Print frequency of reads by process name where the latency was >0.1ms
-- command: |-
+- text: |-
     argdist -H 'r::__vfs_read(void *file, void *buf, size_t count):size_t:
                 $entry(count):$latency > 1000000'
             Print a histogram of read sizes that were longer than 1ms
-- command: |-
+- text: |-
     argdist -H \
             'p:c:write(int fd, const void *buf, size_t count):size_t:count:fd==1'
             Print a histogram of buffer sizes passed to write() across all
             processes, where the file descriptor was 1 (STDOUT)
-- command: |-
+- text: |-
     argdist -C 'p:c:fork()#fork calls'
             Count fork() calls in libc across all processes
             Can also use funccount.py, which is easier and more flexible
-- command: |-
+- text: |-
     argdist -H 't:block:block_rq_complete():u32:args->nr_sector'
             Print histogram of number of sectors in completing block I/O requests
-- command: |-
+- text: |-
     argdist -C 't:irq:irq_handler_entry():int:args->irq'
             Aggregate interrupts by interrupt request (IRQ)
-- command: |-
+- text: |-
     argdist -C 'u:pthread:pthread_start():u64:arg2' -p 1337
             Print frequency of function addresses used as a pthread start function,
             relying on the USDT pthread_start probe in process 1337
-- command: |-
+- text: |-
     argdist -H 'p:c:sleep(u32 seconds):u32:seconds' \
             -H 'p:c:nanosleep(struct timespec *req):long:req->tv_nsec'
             Print histograms of sleep() and nanosleep() parameter values
-- command: |-
+- text: |-
     argdist -p 2780 -z 120 \
             -C 'p:c:write(int fd, char* buf, size_t len):char*:buf:fd==1'
             Spy on writes to STDOUT performed by process 2780, up to a string size
             of 120 characters
-- command: |-
+- text: |-
     argdist -I 'kernel/sched/sched.h' \
             -C 'p::__account_cfs_rq_runtime(struct cfs_rq *cfs_rq):s64:cfs_rq->runtime_remaining'
             Trace on the cfs scheduling runqueue remaining runtime. The struct cfs_rq is defined

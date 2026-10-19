@@ -287,7 +287,7 @@ env_vars:
     sources:
     - help-text
 examples:
-- command: |-
+- text: |-
     bpftrace -l '*sleep*'
         list probes containing "sleep"
     bpftrace -e 'kprobe:do_nanosleep { printf("PID %d sleeping...\n", pid); }'

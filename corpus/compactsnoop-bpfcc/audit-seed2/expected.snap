@@ -50,7 +50,7 @@ flags:
     sources:
     - help-text
 examples:
-- command: |-
+- text: |-
     ./compactsnoop          # trace all compact stall
     ./compactsnoop -T       # include timestamps
     ./compactsnoop -d 10    # trace for 10 seconds only

@@ -364,7 +364,7 @@ pub struct CommandNode {
 
 pub enum ValueKind { None, Required, Optional }
 
-pub struct Example { pub command: Text, pub explanation: Option<Text> }
+pub struct Example { pub text: Text }  // the block exactly as printed
 ```
 
 ### 4.5 One entity kind, not four parallel vectors
@@ -2050,7 +2050,9 @@ sections.
 17. EXAMPLES is always the last section. It prints the node's `examples`
     as the tool printed them: its lines, indentation and interior spacing,
     one blank row between examples, with no accent, dim or other styling of
-    commands or comments. A long line wraps hanging at its own indent.
+    commands or comments. A long line wraps with its continuation rows hung
+    `USAGE_HANG` columns past the line's own indent, as a wrapped USAGE form
+    is, keeping interior spacing.
 
 **Why.** A label in a different shade or weight from the line running out
 of it reads as two unrelated marks sharing a row, which is why a group
