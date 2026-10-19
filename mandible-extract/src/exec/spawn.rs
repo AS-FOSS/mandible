@@ -226,19 +226,25 @@ pub fn run_inert(
     // if the caller is already a group leader. `kill_process_group`'s
     // `Pid::from_raw(-pid)` still targets the right group.
     //
+    // On Linux the child also asks the kernel to SIGKILL it when this
+    // process dies (`PR_SET_PDEATHSIG`), so a mandible that exits or is
+    // killed mid-probe cannot leave the probe running. See [`super::reap`].
+    //
     // # Safety
     //
     // `pre_exec` runs after `fork` and before `exec`, a window where only
-    // async-signal-safe operations are sound. `nix::unistd::setsid`
-    // performs exactly one raw `setsid(2)` syscall with no allocation and
-    // no locking, safe in that window. The one audited `unsafe` exception
-    // in this crate — see `lib.rs`'s `#![deny(unsafe_code)]`.
+    // async-signal-safe operations are sound. `prctl`, `getppid` and
+    // `setsid` are each one raw syscall with no allocation and no locking,
+    // safe in that window. The one audited `unsafe` exception in this
+    // crate — see `lib.rs`'s `#![deny(unsafe_code)]`.
     #[cfg(unix)]
     #[allow(unsafe_code)]
     {
         use std::os::unix::process::CommandExt;
+        let parent = std::process::id() as i32;
         unsafe {
-            cmd.pre_exec(|| {
+            cmd.pre_exec(move || {
+                reap::die_with_parent(parent)?;
                 nix::unistd::setsid()
                     .map(|_| ())
                     .map_err(std::io::Error::from)

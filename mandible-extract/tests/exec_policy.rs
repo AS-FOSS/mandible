@@ -1639,6 +1639,102 @@ exec sleep 300
     }
 }
 
+// --- Rule 4, third case: the process that started the probe dies first ---
+//
+// Reaping runs inside `run_inert`, so it never runs when mandible itself is
+// killed or exits while a probe is in flight. The probe then outlives its
+// parent, reparented to init.
+#[cfg(target_os = "linux")]
+mod parent_death {
+    use super::*;
+
+    const ROLE_VAR: &str = "MANDIBLE_TEST_PARENT_DEATH_ROLE";
+    const SHIM_VAR: &str = "MANDIBLE_TEST_PARENT_DEATH_SHIM";
+
+    /// Runs only in the re-executed worker copy of this test binary. In a
+    /// normal run it returns at once. In the worker it blocks inside
+    /// `run_inert` until the parent test kills it.
+    #[test]
+    fn worker_runs_a_probe_that_never_finishes() {
+        if std::env::var_os(ROLE_VAR).is_none() {
+            return;
+        }
+        let shim = std::path::PathBuf::from(std::env::var_os(SHIM_VAR).unwrap());
+        let _ = run_inert(&shim, &InertArgv::HelpLong, Duration::from_secs(300));
+    }
+
+    fn is_alive(pid: i32) -> bool {
+        std::fs::read_to_string(format!("/proc/{pid}/stat"))
+            .map(|s| !s.contains(") Z "))
+            .unwrap_or(false)
+    }
+
+    /// A probe left running when its parent is SIGKILLed must die with it.
+    /// Fails without `die_with_parent` in `exec/spawn.rs`: the probe keeps
+    /// running with parent 1.
+    #[test]
+    fn a_probe_does_not_outlive_a_killed_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let pid_file = dir.path().join("probe.pid");
+        let shim = write_named_shim(
+            dir.path(),
+            "never_finishes.sh",
+            &format!(
+                "#!/bin/sh\necho $$ > {}\nexec sleep 300\n",
+                pid_file.display()
+            ),
+        );
+
+        let exe = std::env::current_exe().expect("path to this test binary");
+        let mut worker = std::process::Command::new(&exe)
+            .arg("--exact")
+            .arg("parent_death::worker_runs_a_probe_that_never_finishes")
+            .arg("--nocapture")
+            .arg("--test-threads=1")
+            .env(ROLE_VAR, "worker")
+            .env(SHIM_VAR, &shim)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn a worker copy of this test binary");
+
+        let mut probe_pid = None;
+        for _ in 0..200 {
+            if let Some(pid) = std::fs::read_to_string(&pid_file)
+                .ok()
+                .and_then(|s| s.trim().parse::<i32>().ok())
+            {
+                probe_pid = Some(pid);
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        let probe_pid = probe_pid.expect("the probe recorded its pid");
+        assert!(is_alive(probe_pid), "the probe is running before the kill");
+
+        worker.kill().expect("kill the worker");
+        let _ = worker.wait();
+
+        let mut gone = false;
+        for _ in 0..100 {
+            if !is_alive(probe_pid) {
+                gone = true;
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        if !gone {
+            let _ = std::process::Command::new("kill")
+                .args(["-9", &probe_pid.to_string()])
+                .status();
+        }
+        assert!(
+            gone,
+            "probe pid {probe_pid} outlived the process that started it"
+        );
+    }
+}
+
 // --- spec §6 rule 2d, docs/shapes.md S-214: the listing-invocation probe ---
 
 /// A shim whose root `--help` carries `sentence`; `help -a` lists a
