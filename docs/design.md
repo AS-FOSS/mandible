@@ -582,6 +582,18 @@ node name's first `.` (`vim.basic`'s own `vim`). The pane replaces that
 word with the node's name rather than leaving it and prepending the name
 in front, which would print the tool's own name twice.
 
+When no form names the node and every form opens with the same lowercase
+program word (`tcpretrans.bt`'s forms all open `bpftrace`), that word is a
+different program's name. The pane shows each form as printed, with no
+name prefix. A form that opens with a program word the node's other forms
+write before the node's name (`git log`'s `or: git show ...`) is shown the
+same way.
+
+The command path at the start of each form, from its first column through
+the node's own name, is drawn in the accent style, which falls back to
+bold under `NO_COLOR`. The rest of the line is plain. A form shown as
+printed under a different program word has no accented part.
+
 mandible probes tools by absolute resolved path, so a tool that echoes its
 own `argv[0]` writes `Usage: /usr/bin/du` where a shell that found it via
 `PATH` would see `Usage: du`. The rule above replaces that leading word
@@ -1094,6 +1106,14 @@ allowlist below.
    risk rule 8 documents. This is containment for a probe that should never
    have been sent, never a reason to send a riskier one — the fix is rule
    1a and §7 Tier C's evidence gate.
+
+   The reap runs inside `run_inert`, so it cannot run when mandible itself
+   exits or is killed while a probe is in flight. On Linux the probe's
+   direct child also sets `PR_SET_PDEATHSIG` to SIGKILL between `fork` and
+   `exec`, so the kernel kills it with its parent. A descendant that has
+   already left the child's session is not covered by this and is still
+   left to the reap. On other systems a probe in flight when mandible dies
+   keeps running.
 
 5. **Bounded output.** Read at most 8 MiB of stdout+stderr per invocation,
    since a tool that streams forever must not exhaust memory. Reader
@@ -1716,6 +1736,7 @@ pane.
    scrolling. The parser already joins a usage that wrapped over several
    physical lines into one logical line, so a rendered USAGE line is
    mandible's own reconstruction, not the tool author's own layout (§16).
+   A wrapped form's later rows hang four columns right of its first row.
    USAGE, the summary, description, and flag list all keep wrapping to
    pane width. `[ui] horizontal_scroll` in
    `~/.config/mandible/config.toml`, default `true`, governs only the raw
@@ -1734,6 +1755,15 @@ pane.
     where only Tier B fired shows the confidence in the footer; a tool no
     tier resolved shows the per-tier status list with a suggestion to try
     `--doctor`.
+12. The parsed detail page is built once and reused. The page cache holds
+    the built lines for the selected node and is in memory for one run only;
+    nothing is written to disk. It is reused while the page key is equal:
+    the selected path, the tree version, the pane width, the palette, the
+    glyph set, and the search-selected flag. The tree version moves on every
+    write to the tree, because the tree can only be written through
+    `TreeStore`, whose write access takes a new version from a process-wide
+    counter, so no two trees or writes share one. Debug builds also rebuild
+    the page on every cache hit and panic if it differs from the cached one.
 
 **Why.** Untrusted text containing newlines, tabs, ANSI, or
 backspace-overstrike reaching a `Span` caused border corruption while

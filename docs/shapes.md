@@ -3097,6 +3097,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   treats the `usage:` prefix as optional rather than required, which is the
   cross-branch regression the integration merge surfaced (`nvim` lost its
   `file` operand until that was fixed).
+  The first form under a bare label keeps its indentation, as every later
+  form does, so the forms align (S-252).
 - fleet: `bare-usage-label-form`
   (`xtask/src/detector/bare_usage_label_form.rs`) reads 0 tools/0 findings
   post-fix and is ratcheted there. The raw-shape upper bound counted before
@@ -5780,3 +5782,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: none of 2233 captured root texts of PATH tools (2026-10-11) holds such a block; the shape
   occurs on subcommand pages, which the root sweep does not read (the corpus
   holds one, `snap get`).
+
+### S-252: every usage form opens with another program's name
+
+- id: S-252
+- looks like: |
+      USAGE:
+          bpftrace [options] filename
+          bpftrace [options] - <stdin input>
+- tools: tcpretrans.bt and the other `*.bt` wrapper scripts, unified-monitoring-agent-gem, egrep, vi, view, ex, update-grub, pnpx, bzless, slogin, domainname
+- handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
+- fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.

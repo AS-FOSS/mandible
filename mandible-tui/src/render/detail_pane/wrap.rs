@@ -168,6 +168,19 @@ pub(super) fn wrap_words(text: &str, width: usize) -> Vec<String> {
     lines
 }
 
+/// [`wrap_words`] with a hanging indent: the first line takes `width`
+/// columns, and every later line takes `width - hang`, for the caller to
+/// indent by `hang`. Always returns at least one chunk.
+pub(super) fn wrap_hanging(text: &str, width: usize, hang: usize) -> Vec<String> {
+    let mut first = wrap_words(text, width);
+    if first.len() < 2 {
+        return first;
+    }
+    let rest = first.split_off(1).join(" ");
+    first.extend(wrap_words(&rest, width.saturating_sub(hang)));
+    first
+}
+
 /// True when `s` (a single word, no surrounding punctuation) reads as an
 /// enumerator's own key: a decimal run (`"0"`, `"12"`) or a `0x`-prefixed
 /// hex run (`"0x10"`) — `sg_luns --select`'s continuation lines number

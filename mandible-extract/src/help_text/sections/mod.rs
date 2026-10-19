@@ -565,7 +565,9 @@ fn record_usage_line(
         last.push(' ');
         last.push_str(&trimmed);
     } else {
-        usage_entries.push(trimmed);
+        // The first form after a bare label keeps its author's indentation
+        // like every later form, so the forms stay aligned. S-150.
+        usage_entries.push(l.trim_end().to_string());
     }
     line_entry_index.push(usage_entries.len() - 1);
 }

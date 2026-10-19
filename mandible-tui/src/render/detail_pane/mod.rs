@@ -12,12 +12,15 @@
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
 mod layout;
+mod page_cache;
 mod stack;
 mod usage_form;
 mod wrap;
 
 use entity::*;
 use layout::*;
+pub(crate) use page_cache::PageCache;
+use page_cache::PageKey;
 use stack::*;
 use usage_form::*;
 use wrap::*;
@@ -37,6 +40,10 @@ use unicode_width::UnicodeWidthChar;
 
 /// Render the detail pane into `area`.
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, true);
+}
+
+fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     let focused = app.focus == Focus::Detail;
     let border_style = if focused {
         style::accent(app.color_enabled)
@@ -113,6 +120,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
 
     let width = inner.width as usize;
+    if cached {
+        render_parsed_cached(frame, area, inner, app, node);
+        return;
+    }
     let built = build_lines(
         node,
         width,
@@ -143,6 +154,75 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         &built.clip_rows,
         scroll as usize,
     );
+    draw_hscroll_affordance(frame, area, app);
+}
+
+/// The parsed view with the built document reused across frames and only
+/// the visible rows handed to `Paragraph`. Output is cell-for-cell the one
+/// of the reference path; whenever that cannot be guaranteed (a line wider
+/// than the pane, a control character, a document past `u16` rows) the
+/// reference path's whole-document wrapped draw is used instead.
+fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, node: &CommandNode) {
+    let width = inner.width as usize;
+    // `build_lines` does this on a rebuild; a cache hit must too.
+    if app.horizontal_scroll_enabled {
+        app.set_detail_hextent(0, width);
+    }
+    let key = PageKey::of(app, width);
+    let (built, windowable) = {
+        let mut slot = app.page_cache.borrow_mut();
+        match slot.as_ref().filter(|c| c.key == key) {
+            Some(hit) => {
+                #[cfg(debug_assertions)]
+                page_cache::assert_hit_is_fresh(&hit.key, &hit.built, node, width, app);
+                (hit.built.clone(), hit.windowable)
+            }
+            None => {
+                let built = std::rc::Rc::new(build_lines(
+                    node,
+                    width,
+                    app.palette,
+                    app.selected_flag.as_ref(),
+                    app.glyphs,
+                    app,
+                ));
+                let windowable = built.lines.len() <= usize::from(u16::MAX)
+                    && built.lines.iter().all(|l| {
+                        l.width() <= width
+                            && l.spans
+                                .iter()
+                                .all(|s| !s.content.chars().any(char::is_control))
+                    });
+                *slot = Some(PageCache {
+                    key,
+                    built: built.clone(),
+                    windowable,
+                });
+                (built, windowable)
+            }
+        }
+    };
+    let height = inner.height as usize;
+    app.set_detail_extent(built.lines.len(), height);
+    let scroll = match built.target_flag_line {
+        Some(line) => {
+            let target = target_scroll(&built, line, height);
+            app.set_flag_scroll_shown(Some(target));
+            target
+        }
+        None => app.clamped_detail_scroll(),
+    };
+    let paragraph = if windowable {
+        let start = scroll.min(built.lines.len());
+        let end = (start + height).min(built.lines.len());
+        Paragraph::new(built.lines[start..end].to_vec())
+    } else {
+        Paragraph::new(built.lines.clone())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll as u16, 0))
+    };
+    frame.render_widget(paragraph, inner);
+    draw_clip_marker_rails(frame, inner, app.color_enabled, &built.clip_rows, scroll);
     draw_hscroll_affordance(frame, area, app);
 }
 
@@ -479,7 +559,7 @@ struct EntryRow {
 
 /// The rendered detail-pane content plus where a search-targeted flag
 /// landed, if any.
-struct BuiltLines {
+pub(crate) struct BuiltLines {
     lines: Vec<Line<'static>>,
     /// The line index [`Flag`] `app.selected_flag` starts at, if it was
     /// found on `node`.
@@ -602,14 +682,24 @@ fn build_lines(
         // tool author's layout: the parser already joined a usage that
         // wrapped over several physical lines into one logical line, so it
         // soft-wraps at the pane width in both modes instead of forcing
-        // horizontal scroll (spec §9 rule 9). Continuation rows
-        // keep the form's own left edge, so a form that has to wrap still
-        // reads as one form rather than drifting back to the block indent.
-        for (pad, text) in &forms {
+        // horizontal scroll (spec §9 rule 9). Continuation rows hang
+        // `USAGE_HANG` columns right of the form's first row, so a form
+        // that has to wrap still reads as one form, and the form's
+        // command path is the accented part of its first row.
+        let accent = style::accent(palette.color);
+        for (pad, text, path_len) in &forms {
             let lead = format!("{indent}{}", " ".repeat(*pad));
             let avail = width.saturating_sub(display_width(&lead)).max(1);
-            for chunk in wrap_words(text, avail) {
-                lines.push(Line::from(format!("{lead}{chunk}")));
+            let mut path_left = text
+                .get(..*path_len)
+                .map_or(0, |p| p.chars().filter(|c| !c.is_whitespace()).count());
+            for (i, chunk) in wrap_hanging(text, avail, USAGE_HANG).iter().enumerate() {
+                let row_lead = if i == 0 {
+                    lead.clone()
+                } else {
+                    format!("{lead}{}", " ".repeat(USAGE_HANG))
+                };
+                lines.push(usage_line(&row_lead, chunk, &mut path_left, accent));
             }
         }
     }
@@ -3659,7 +3749,7 @@ mod tests {
 
     /// End-to-end for the `sg_luns` repro: a USAGE form wider than the pane
     /// wraps onto a second row at the pane width, the continuation row
-    /// keeps the form's own left edge, and no horizontal clip marker
+    /// hangs right of the first row, and no horizontal clip marker
     /// reaches the screen for it, on a real `TestBackend` frame (spec §9
     /// rule 9).
     #[test]
@@ -3717,9 +3807,9 @@ mod tests {
         // Border, then one padding column, then content (`Padding::horizontal(1)`).
         let content_indent_of = |s: &str| s.chars().skip(2).take_while(|c| *c == ' ').count();
         assert_eq!(
-            content_indent_of(first),
             content_indent_of(second),
-            "the continuation row must keep the form's own left edge: {first:?} / {second:?}"
+            content_indent_of(first) + USAGE_HANG,
+            "the continuation row must hang right of the first row: {first:?} / {second:?}"
         );
         // No clip marker (draw_clip_marker_rails' literal "<"/">") anywhere
         // on the two USAGE rows, in the padding gutter or the text itself.
@@ -3743,7 +3833,7 @@ mod tests {
             .collect();
         usage_forms(name, &usage)
             .into_iter()
-            .map(|(pad, _)| pad)
+            .map(|(pad, _, _)| pad)
             .collect()
     }
 
@@ -3846,7 +3936,120 @@ mod tests {
         assert_eq!(forms[2].1, "log [<options>] <object>...");
     }
 
-    fn usage_form(node_name: &str, usage: &str) -> (usize, String) {
+    /// Forms that all open with one program word that is not the node
+    /// (`tcpretrans.bt`'s `bpftrace`) are shown as printed, unprefixed,
+    /// aligned, and carry no command path to accent. S-252.
+    #[test]
+    fn forms_sharing_a_foreign_program_word_are_shown_as_printed() {
+        let usage = [
+            Text::sanitize_preserving_layout("    bpftrace [options] filename"),
+            Text::sanitize_preserving_layout("    bpftrace [options] - <stdin input>"),
+            Text::sanitize_preserving_layout("    bpftrace [options] -e 'program'"),
+        ];
+        let forms = usage_forms("tcpretrans.bt", &usage);
+        assert_eq!(
+            forms,
+            vec![
+                (0, "bpftrace [options] filename".to_string(), 0),
+                (0, "bpftrace [options] - <stdin input>".to_string(), 0),
+                (0, "bpftrace [options] -e 'program'".to_string(), 0),
+            ]
+        );
+        // A form that disagrees on the leading word keeps the old rule.
+        let mixed = [
+            Text::sanitize("bpftrace [options] filename"),
+            Text::sanitize("[options] -e 'program'"),
+        ];
+        assert_eq!(
+            usage_forms("tcpretrans.bt", &mixed)[0].1,
+            "tcpretrans.bt bpftrace [options] filename"
+        );
+        // A lone form whose first word is the node itself is not foreign.
+        let own = [Text::sanitize("tcpretrans.bt [options]")];
+        assert_eq!(
+            usage_forms("tcpretrans.bt", &own)[0].1,
+            "tcpretrans.bt [options]"
+        );
+    }
+
+    /// The accented command path runs from column 0 through the node's own
+    /// name: `git rebase` in `git rebase [-i]`, the prepended name alone
+    /// when the form had none, and nothing for a form led by another
+    /// program.
+    #[test]
+    fn the_command_path_length_covers_the_program_and_the_node_name() {
+        assert_eq!(
+            usage_form("rebase", "usage: git rebase [-i]").2,
+            "git rebase".len()
+        );
+        assert_eq!(usage_form("rebase", "[-i] <upstream>").2, "rebase".len());
+        assert_eq!(
+            usage_form("cp", "Usage: /usr/bin/cp [OPTION]").2,
+            "cp".len()
+        );
+        let usage = [
+            Text::sanitize("usage: git log [<options>]"),
+            Text::sanitize("   or: git show [<options>] <object>..."),
+        ];
+        let forms = usage_forms("log", &usage);
+        assert_eq!(forms[0].2, "git log".len());
+        assert_eq!(
+            forms[1].2, 0,
+            "a form led by another command path stays plain"
+        );
+    }
+
+    /// Only the command path is accented; a wrapped form hangs further in
+    /// and stays plain; a form led by another program is wholly plain.
+    #[test]
+    fn only_the_command_path_of_a_usage_form_is_accented_and_wrapped_rows_hang() {
+        let mut node = CommandNode::new("rebase", Provenance::single(Source::HelpText));
+        node.usage = vec![
+            Text::sanitize(
+                "usage: git rebase [-i | --interactive] [--onto <newbase>] [<upstream> [<branch>]]",
+            ),
+            Text::sanitize("   or: git show [<options>] <object>"),
+        ];
+        let app = test_app();
+        let plain = style::Palette {
+            color: false,
+            extended: false,
+        };
+        for palette in [style::Palette::extended(), plain] {
+            let accent = style::accent(palette.color);
+            let built = build_lines(&node, 30, palette, None, crate::glyphs::UNICODE, &app);
+            let rows: Vec<&Line> = built
+                .lines
+                .iter()
+                .skip_while(|l| !text_of(l).contains("USAGE"))
+                .skip(1)
+                .take_while(|l| !text_of(l).trim().is_empty())
+                .collect();
+            let accented = |l: &Line| -> String {
+                l.spans
+                    .iter()
+                    .filter(|s| s.style == accent)
+                    .map(|s| s.content.as_ref())
+                    .collect()
+            };
+            assert_eq!(accented(rows[0]), "git rebase");
+            assert!(text_of(rows[0]).starts_with("  git rebase [-i |"));
+            assert!(rows.len() > 3, "the long form must wrap");
+            let first_show = rows
+                .iter()
+                .position(|l| text_of(l).contains("git show"))
+                .unwrap();
+            assert_eq!(accented(rows[first_show]), "");
+            for (i, row) in rows.iter().enumerate().skip(1) {
+                if i != first_show {
+                    assert_eq!(accented(row), "", "{:?}", text_of(row));
+                    assert!(text_of(row).starts_with("      "), "{:?}", text_of(row));
+                }
+            }
+        }
+    }
+
+    fn usage_form(node_name: &str, usage: &str) -> (usize, String, usize) {
         usage_form_led_by(node_name, usage, &[])
     }
 
@@ -3946,7 +4149,7 @@ mod tests {
         .map(|f| Text::sanitize_preserving_layout(f))
         .collect();
         let forms = usage_forms("vim.basic", &usage);
-        let pads: Vec<usize> = forms.iter().map(|(pad, _)| *pad).collect();
+        let pads: Vec<usize> = forms.iter().map(|(pad, _, _)| *pad).collect();
         assert_eq!(
             pads,
             vec![0, 0, 0, 0],
@@ -3968,7 +4171,7 @@ mod tests {
             forms[3].1,
             "vim.basic [arguments] -q [errorfile]  edit file with first error"
         );
-        for (_, text) in &forms {
+        for (_, text, _) in &forms {
             assert!(!text.to_ascii_lowercase().contains("or:"), "{text:?}");
             assert_eq!(text.matches("vim").count(), 1, "must not repeat: {text:?}");
         }
@@ -4216,11 +4419,11 @@ mod tests {
 
     /// A usage form wider than the pane soft-wraps onto a second row at the
     /// pane width instead of forcing horizontal scroll (spec §9 rule 9).
-    /// The continuation row keeps the form's own left edge — the block
-    /// indent plus the form's own pad, same as the first row — and no clip
-    /// marker is recorded for it. Regression fixture: `sg_luns`.
+    /// The continuation rows hang `USAGE_HANG` columns right of the first
+    /// row, and no clip marker is recorded for them. Regression fixture:
+    /// `sg_luns`.
     #[test]
-    fn usage_form_wraps_at_pane_width_with_continuation_keeping_its_own_left_edge() {
+    fn usage_form_wraps_at_pane_width_with_a_hanging_continuation() {
         let mut node = CommandNode::new("sg_luns", Provenance::single(Source::HelpText));
         node.usage = vec![Text::sanitize(
             "sg_luns [--alpha] [--brief] [--decode] [--hex] [--inhex=FN] [--lu_cong] [--maxlen=LEN] [--quiet] [--raw] [--readonly] [--select=SR] [--verbose] [--version] [DEVICE]",
@@ -4253,9 +4456,15 @@ mod tests {
         }
         let indent_of = |s: &str| s.len() - s.trim_start().len();
         assert_eq!(
-            indent_of(&usage_lines[0]),
             indent_of(&usage_lines[1]),
-            "continuation row must keep the form's own left edge: {usage_lines:?}"
+            indent_of(&usage_lines[0]) + USAGE_HANG,
+            "continuation rows must hang right of the first row: {usage_lines:?}"
+        );
+        assert!(
+            usage_lines[1..]
+                .iter()
+                .all(|l| indent_of(l) == indent_of(&usage_lines[1])),
+            "every continuation row hangs by the same amount: {usage_lines:?}"
         );
         assert!(
             built.clip_rows.is_empty(),
@@ -4299,3 +4508,15 @@ mod tests {
         }
     }
 }
+
+/// The renderer exactly as it was before the document cache and the
+/// windowed draw: rebuild the whole document and hand it to a wrapping,
+/// scrolling `Paragraph` every frame. Kept so a test can hold the fast path
+/// to cell-for-cell identity with it.
+#[cfg(test)]
+pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
+    render_impl(frame, area, app, false);
+}
+
+#[cfg(test)]
+mod identity_tests;

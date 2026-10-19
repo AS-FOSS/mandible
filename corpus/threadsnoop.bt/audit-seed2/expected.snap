@@ -1,6 +1,6 @@
 name: threadsnoop.bt
 usage:
-- bpftrace [options] filename
+- '    bpftrace [options] filename'
 - '    bpftrace [options] - <stdin input>'
 - '    bpftrace [options] -e ''program'''
 positionals:
