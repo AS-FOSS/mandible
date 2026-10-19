@@ -252,6 +252,11 @@ Each is a bug a reasonable agent would repeat. One line, then where to look.
 - **Commit per unit of work, not per session.** A session limit once killed 220
   uncommitted lines. **Commit before you attack your own work**; an agent ran
   `git checkout --` on a file it had written but not committed, and lost it.
+- **One worktree per concurrent agent.** Agents working in parallel each get
+  their own `git worktree`, created before the agent starts, and run git
+  nowhere else. Stage files by name, never `git add -A`. Two agents once
+  shared a checkout: one committed the other's unsaved files, rewound the
+  branch, and overwrote its working copies.
 - **`NOTICE` is not optional.** Vendored third-party data carries attribution
   obligations, and it is the most likely real legal exposure here.
 - **Never invoke a tool binary outside the argv allowlist in spec §6.** A bare
