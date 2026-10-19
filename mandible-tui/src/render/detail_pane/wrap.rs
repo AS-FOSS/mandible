@@ -34,13 +34,19 @@ pub(super) fn hscroll_line(s: &str, offset: usize, width: usize) -> (Line<'stati
 /// past half the pane. Character-by-character, never a byte slice
 /// (AGENTS.md); [`width_prefix_end`] only returns real `char` boundaries.
 pub(super) fn wrap_preformatted(line: &str, width: usize) -> Vec<String> {
+    wrap_preformatted_hung(line, width, 0)
+}
+
+/// [`wrap_preformatted`] with continuation rows hung `extra` columns past
+/// the line's own indent, so a wrapped line reads apart from the next one.
+pub(super) fn wrap_preformatted_hung(line: &str, width: usize, extra: usize) -> Vec<String> {
     let width = width.max(1);
     if display_width(line) <= width {
         return vec![line.to_string()];
     }
     let indent_width = display_width(&line[..line.len() - line.trim_start().len()]);
-    let hang = if indent_width * 2 < width {
-        " ".repeat(indent_width)
+    let hang = if (indent_width + extra) * 2 < width {
+        " ".repeat(indent_width + extra)
     } else {
         String::new()
     };
