@@ -1,6 +1,6 @@
 //! The detail pane: a breadcrumb header over one scrollable document of
 //! sections, in order, skipping empty ones: `DESCRIPTION`, `USAGE`,
-//! `POSITIONALS`, `FLAGS`, `MODIFIERS`, `ENVIRONMENT` (spec §9.3). The four
+//! `POSITIONALS`, `FLAGS`, `MODIFIERS`, `ENVIRONMENT`, `EXAMPLES` (spec §9.3). The four
 //! list sections share one loop over [`LIST_SECTIONS`] and
 //! [`mandible_core::EntityKind`]; [`mandible_core::Entity::group`] renders
 //! as a divider, inherited entities in a final dimmed `Inherited` group.
@@ -11,11 +11,13 @@
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
 mod entity;
+mod examples_section;
 mod layout;
 mod usage_form;
 mod wrap;
 
 use entity::*;
+use examples_section::push_examples;
 use layout::*;
 use usage_form::*;
 use wrap::*;
@@ -640,6 +642,8 @@ fn build_lines(
         }));
         lines.extend(section.lines);
     }
+
+    push_examples(&mut lines, node, width, palette, glyphs);
 
     // Provenance is not rendered here at all any more: it describes where
     // this node's data came from, which belongs beside the pane rather than

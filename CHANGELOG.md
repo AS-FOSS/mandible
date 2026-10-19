@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- [S-071] The detail pane ends with an `EXAMPLES` section that prints the tool's own example lines as written, such as `tar`, `argdist-bpfcc`, `bpftrace`, `jq` and `gh pr list`; an `Example: ...` row that sat in `grep`'s description moves there too.
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 - The `?` overlay is sized to its content, uses two columns on wide terminals, and scrolls with `↑`/`↓` when the terminal is too short to show every binding.
 

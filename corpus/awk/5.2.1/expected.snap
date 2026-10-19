@@ -245,6 +245,10 @@ flags:
   provenance:
     sources:
     - help-text-synopsis
+examples:
+- command: |-
+    awk '{ sum += $1 }; END { print sum }' file
+    awk -F: '{ print $1 }' /etc/passwd
 provenance:
   sources:
   - help-text

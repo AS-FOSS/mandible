@@ -99,7 +99,7 @@ use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
-use mandible_core::{Authority, CommandNode, Confession, Provenance, Source, Text};
+use mandible_core::{Authority, CommandNode, Confession, Example, Provenance, Source, Text};
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -1017,7 +1017,21 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     let provenance = Provenance::with_confidence(Source::HelpText, confidence);
 
     let mut node = CommandNode::new(name, provenance);
-    node.description = parsed.description.as_deref().map(Text::sanitize);
+    // A description's own example rows move to the node's examples, ahead
+    // of the headed blocks the document printed.
+    let (description, example_rows) = match parsed.description.as_deref().map(Text::sanitize) {
+        Some(text) => text.take_example_rows(),
+        None => (None, Vec::new()),
+    };
+    node.description = description;
+    node.examples =
+        example_rows
+            .into_iter()
+            .chain(parsed.examples.iter().map(|lines| {
+                Text::sanitize_preserving_layout_lines(lines.iter().map(String::as_str))
+            }))
+            .map(Example::new)
+            .collect();
     // A synopsis is the tool's own layout, not ours (spec §4.1, §9.3):
     // `Text::sanitize`'s whitespace collapse would erase real column
     // alignment, so usage entries use the layout-preserving sanitizer.

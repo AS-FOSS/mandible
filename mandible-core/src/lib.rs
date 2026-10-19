@@ -37,4 +37,4 @@ pub use snapshot::{
     to_snapshot, ChoiceSnapshot, ConfessionSnapshot, EnvVarSnapshot, ExampleSnapshot, FlagSnapshot,
     ModifierSnapshot, NodeSnapshot, PositionalSnapshot, ProvenanceSnapshot,
 };
-pub use text::{strip_escapes, Text, MAX_TEXT_CHARS};
+pub use text::{looks_like_invocation, strip_escapes, Text, MAX_TEXT_CHARS};

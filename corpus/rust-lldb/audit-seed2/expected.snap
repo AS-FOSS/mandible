@@ -407,6 +407,37 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- command: The debugger can be started in several modes.
+- command: |-
+    Passing an executable as a positional argument prepares lldb to debug the
+    given executable. To disambiguate between arguments passed to lldb and
+    arguments passed to the debugged executable, arguments starting with a - must
+    be passed after --.
+- command: '  lldb --arch x86_64 /path/to/program program argument -- --arch armv7'
+- command: For convenience, passing the executable after -- is also supported.
+- command: '  lldb --arch x86_64 -- /path/to/program program argument --arch armv7'
+- command: |-
+    Passing one of the attach options causes lldb to immediately attach to the
+    given process.
+- command: |2-
+      lldb -p <pid>
+      lldb -n <process-name>
+- command: Passing --repl starts lldb in REPL mode.
+- command: '  lldb -r'
+- command: Passing --core causes lldb to debug the core file.
+- command: '  lldb -c /path/to/core'
+- command: |-
+    Command options can be combined with these modes and cause lldb to run the
+    specified commands before or after events, like loading the file or crashing,
+    in the order provided on the command line.
+- command: |2-
+      lldb -O 'settings set stop-disassembly-count 20' -o 'run' -o 'bt'
+      lldb -S /source/before/file -s /source/after/file
+      lldb -K /source/before/crash -k /source/after/crash
+- command: |-
+    Note: In REPL mode no file is loaded, so commands specified to run after
+    loading the file (via -o or -s) will be ignored.
 provenance:
   sources:
   - help-text

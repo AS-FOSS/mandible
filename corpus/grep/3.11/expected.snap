@@ -1,0 +1,436 @@
+name: grep
+description: |-
+  Search for PATTERNS in each FILE.
+  PATTERNS can contain multiple patterns separated by newlines.
+usage:
+- 'Usage: grep [OPTION]... PATTERNS [FILE]...'
+positionals:
+- name: PATTERNS
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -E
+  - --extended-regexp
+  group: 'Pattern selection and interpretation:'
+  description: PATTERNS are extended regular expressions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --fixed-strings
+  group: 'Pattern selection and interpretation:'
+  description: PATTERNS are strings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -G
+  - --basic-regexp
+  group: 'Pattern selection and interpretation:'
+  description: PATTERNS are basic regular expressions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --perl-regexp
+  group: 'Pattern selection and interpretation:'
+  description: PATTERNS are Perl regular expressions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --regexp
+  value_name: PATTERNS
+  value_kind: Required
+  group: 'Pattern selection and interpretation:'
+  description: use PATTERNS for matching
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --file
+  value_name: FILE
+  value_kind: Required
+  group: 'Pattern selection and interpretation:'
+  description: take PATTERNS from FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --ignore-case
+  group: 'Pattern selection and interpretation:'
+  description: ignore case distinctions in patterns and data
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-ignore-case
+  group: 'Pattern selection and interpretation:'
+  description: do not ignore case distinctions (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --word-regexp
+  group: 'Pattern selection and interpretation:'
+  description: match only whole words
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --line-regexp
+  group: 'Pattern selection and interpretation:'
+  description: match only whole lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --null-data
+  group: 'Pattern selection and interpretation:'
+  description: a data line ends in 0 byte, not newline
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --no-messages
+  group: 'Miscellaneous:'
+  description: suppress error messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --invert-match
+  group: 'Miscellaneous:'
+  description: select non-matching lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'Miscellaneous:'
+  description: display version information and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  group: 'Miscellaneous:'
+  description: display this help text and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --max-count
+  value_name: NUM
+  value_kind: Required
+  group: 'Output control:'
+  description: stop after NUM selected lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --byte-offset
+  group: 'Output control:'
+  description: print the byte offset with output lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --line-number
+  group: 'Output control:'
+  description: print line number with output lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --line-buffered
+  group: 'Output control:'
+  description: flush output on every line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --with-filename
+  group: 'Output control:'
+  description: print file name with output lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --no-filename
+  group: 'Output control:'
+  description: suppress the file name prefix on output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --label
+  value_name: LABEL
+  value_kind: Required
+  group: 'Output control:'
+  description: use LABEL as the standard input file name prefix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --only-matching
+  group: 'Output control:'
+  description: show only nonempty parts of lines that match
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  - --silent
+  group: 'Output control:'
+  description: suppress all normal output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --binary-files
+  value_name: TYPE
+  value_kind: Required
+  group: 'Output control:'
+  description: assume that binary files are TYPE; TYPE is 'binary', 'text', or 'without-match'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --text
+  group: 'Output control:'
+  description: equivalent to --binary-files=text
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  group: 'Output control:'
+  description: equivalent to --binary-files=without-match
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --directories
+  value_name: ACTION
+  value_kind: Required
+  group: 'Output control:'
+  description: how to handle directories; ACTION is 'read', 'recurse', or 'skip'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --devices
+  value_name: ACTION
+  value_kind: Required
+  group: 'Output control:'
+  description: how to handle devices, FIFOs and sockets; ACTION is 'read' or 'skip'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --recursive
+  group: 'Output control:'
+  description: like --directories=recurse
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --dereference-recursive
+  group: 'Output control:'
+  description: likewise, but follow all symlinks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --include
+  value_name: GLOB
+  value_kind: Required
+  group: 'Output control:'
+  description: search only files that match GLOB (a file pattern)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exclude
+  value_name: GLOB
+  value_kind: Required
+  group: 'Output control:'
+  description: skip files that match GLOB
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exclude-from
+  value_name: FILE
+  value_kind: Required
+  group: 'Output control:'
+  description: skip files that match any file pattern from FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exclude-dir
+  value_name: GLOB
+  value_kind: Required
+  group: 'Output control:'
+  description: skip directories that match GLOB
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --files-without-match
+  group: 'Output control:'
+  description: print only names of FILEs with no selected lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --files-with-matches
+  group: 'Output control:'
+  description: print only names of FILEs with selected lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --count
+  group: 'Output control:'
+  description: print only a count of selected lines per FILE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --initial-tab
+  group: 'Output control:'
+  description: make tabs line up (if needed)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  - --null
+  group: 'Output control:'
+  description: print 0 byte after FILE name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --before-context
+  value_name: NUM
+  value_kind: Required
+  group: 'Context control:'
+  description: print NUM lines of leading context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --after-context
+  value_name: NUM
+  value_kind: Required
+  group: 'Context control:'
+  description: print NUM lines of trailing context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --context
+  value_name: NUM
+  value_kind: Required
+  group: 'Context control:'
+  description: print NUM lines of output context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -NUM
+  group: 'Context control:'
+  description: same as --context=NUM
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --group-separator
+  value_name: SEP
+  value_kind: Required
+  group: 'Context control:'
+  description: print SEP on line between matches with context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-group-separator
+  group: 'Context control:'
+  description: do not print separator for matches with context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --color
+  value_name: WHEN
+  value_kind: Optional
+  group: 'Context control:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --colour
+  value_name: WHEN
+  value_kind: Optional
+  group: 'Context control:'
+  description: use markers to highlight the matching strings; WHEN is 'always', 'never', or 'auto'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --binary
+  group: 'Context control:'
+  description: do not strip CR characters at EOL (MSDOS/Windows)
+  provenance:
+    sources:
+    - help-text
+examples:
+- command: 'Example: grep -i ''hello world'' menu.h main.c'
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1223,7 +1223,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   lines are structurally indistinguishable from a genuine stanza head or flag
   row. A prose sentence can obscure the Examples: marker by sitting directly
   above it; the region reopens only on a dedent or an independently attested
-  flag section at or below the marker's indent.
+  flag section at or below the marker's indent. The lines of a bare
+  `Example`/`Examples` block at the document's left edge are kept verbatim as
+  the node's examples: an indented block ends at the first shallower line, a
+  flush block ends at the first flush line that is not a command invocation.
 - fleet: not measured
 
 ### S-072: free-running REPL banner explosion

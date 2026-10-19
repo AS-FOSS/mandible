@@ -19,6 +19,10 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- command: |-
+    ./gethostlatency           # time getaddrinfo/gethostbyname[2] calls
+    ./gethostlatency -p 181    # only trace PID 181
 detected_framework: argparse
 provenance:
   sources:

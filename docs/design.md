@@ -354,7 +354,7 @@ pub struct CommandNode {
     /// `flags()`, `positionals()` or `entities_of(kind)`.
     pub entities: Vec<Entity>,
     pub subcommands: Vec<CommandNode>,
-    pub examples: Vec<Example>,
+    pub examples: Vec<Example>,         // verbatim; drawn last (§9.3)
     pub deprecated: Option<Text>,       // Some(reason) when deprecated
     /// True when this node's children are known-complete. False means the
     /// subtree has not been extracted yet (see §5, lazy extraction).
@@ -528,7 +528,8 @@ and are recognized per line against the paragraph the line sits in:
   command-shape half of that test is what makes it safe: without it every
   prose sentence after an `Example:` label would qualify, so the
   recognizer deliberately misses `Example: cp src dst` rather than admit an
-  ordinary sentence.
+  ordinary sentence. A recognized row leaves the description and becomes one
+  of the node's `examples`, label included.
 
 A structural line keeps its break and its indentation relative to the
 paragraph's base, clamped so a source documenting inside a wide table
@@ -1932,7 +1933,7 @@ sections.
 
 1. The right pane is one scrollable document of sections, rendered in this
    order and only when non-empty: `DESCRIPTION`, `USAGE`, `POSITIONALS`,
-   `FLAGS`, `MODIFIERS`, `ENVIRONMENT`.
+   `FLAGS`, `MODIFIERS`, `ENVIRONMENT`, `EXAMPLES`.
 2. Empty sections do not render, and list-section headers carry a count:
    `FLAGS (41)`, `MODIFIERS (17)`.
 3. Spellings collapse to one row: `-h, -?, -help, --help` is a single
@@ -2016,6 +2017,10 @@ sections.
     same path as the raw view). A description's preserved line breaks
     (§4.1) wrap too, each logical line wrapped on its own at its own
     indent.
+17. EXAMPLES is always the last section. It prints the node's `examples`
+    as the tool printed them: its lines, indentation and interior spacing,
+    one blank row between examples, with no accent, dim or other styling of
+    commands or comments. A long line wraps hanging at its own indent.
 
 **Why.** A label in a different shade or weight from the line running out
 of it reads as two unrelated marks sharing a row, which is why a group

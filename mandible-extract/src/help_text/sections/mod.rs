@@ -44,6 +44,7 @@ mod description_choices;
 mod emit;
 mod entry;
 mod example_command_line;
+mod examples;
 mod flag_row_column;
 mod flag_rows;
 mod heading;
@@ -167,6 +168,9 @@ pub struct ParsedHelp {
     /// labeled environment heading (spec §7 Tier B, "Environment
     /// sections"). Never scavenged from `ALL_CAPS` prose. See S-023.
     pub env_vars: Vec<Entity>,
+    /// Worked examples under an `Example`/`Examples` heading, as printed:
+    /// one entry per blank-line-separated paragraph, one string per line.
+    pub examples: Vec<Vec<String>>,
     /// Subcommand stubs recovered from bare-word blocks under a
     /// recognized command heading (not yet extracted themselves —
     /// `children_filled: false`).
@@ -405,6 +409,8 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    // Read before the rewrites below, so the text is the tool's own.
+    let examples = examples::capture(&raw);
     // A leading option-rejection diagnostic (`fuser`'s `Invalid option
     // --help`, `Xvfb`'s `Unrecognized option: --help`, `nfsidmap`'s
     // `invalid option -- '-'`) is the tool's own complaint about the probe,
@@ -430,12 +436,14 @@ pub fn parse_with_profile(
     // engine below ever sees it. Doing it here, once, keeps the recovered
     // row subject to every block-level decision alongside the rows
     // beneath it, rather than bolted on afterwards. See S-018.
-    match split_shared_heading_rows(&raw) {
+    let mut parsed = match split_shared_heading_rows(&raw) {
         Some((rewritten, bnf_row_lines)) => {
             parse_body(&rewritten, profile, tool_name, &bnf_row_lines)
         }
         None => parse_body(&raw, profile, tool_name, &std::collections::HashSet::new()),
-    }
+    };
+    parsed.examples = examples;
+    parsed
 }
 
 /// The recovered usage block: where scanning stopped, the synopsis
