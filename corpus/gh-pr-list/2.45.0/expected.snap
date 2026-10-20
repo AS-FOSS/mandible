@@ -1,0 +1,158 @@
+name: gh-pr-list
+description: List pull requests in a GitHub repository.
+flags:
+- spellings:
+  - --app
+  value_name: string
+  value_kind: Required
+  description: Filter by GitHub App author
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --assignee
+  value_name: string
+  value_kind: Required
+  description: Filter by assignee
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --author
+  value_name: string
+  value_kind: Required
+  description: Filter by author
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --base
+  value_name: string
+  value_kind: Required
+  description: Filter by base branch
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --draft
+  description: Filter by draft state
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --head
+  value_name: string
+  value_kind: Required
+  description: Filter by head branch
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --jq
+  value_name: expression
+  value_kind: Required
+  description: Filter JSON output using a jq expression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --json
+  value_name: fields
+  value_kind: Required
+  description: Output JSON with the specified fields
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --label
+  value_name: strings
+  value_kind: Required
+  description: Filter by label
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --limit
+  value_name: int
+  value_kind: Required
+  description: Maximum number of items to fetch (default 30)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --search
+  value_name: query
+  value_kind: Required
+  description: Search pull requests with query
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --state
+  value_name: string
+  value_kind: Required
+  description: 'Filter by state: {open|closed|merged|all} (default "open")'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --template
+  value_name: string
+  value_kind: Required
+  description: Format JSON output using a Go template; see "gh help formatting"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --web
+  description: List pull requests in the web browser
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  group: INHERITED FLAGS
+  description: Show help for command
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --repo
+  value_name: HOST/
+  value_kind: Optional
+  group: INHERITED FLAGS
+  description: Select another repository using the [HOST/]OWNER/REPO format
+  provenance:
+    sources:
+    - help-text
+examples:
+- text: |-
+    List PRs authored by you
+    $ gh pr list --author "@me"
+- text: |-
+    List only PRs with all of the given labels
+    $ gh pr list --label bug --label "priority 1"
+- text: |-
+    Filter PRs using search syntax
+    $ gh pr list --search "status:success review:required"
+- text: |-
+    Find a PR that introduced a given commit
+    $ gh pr list --search "<SHA>" --state merged
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

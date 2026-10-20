@@ -603,8 +603,8 @@ fn merge_examples(lists: Vec<Vec<crate::node::Example>>) -> Vec<crate::node::Exa
     let mut out = Vec::new();
     for list in lists {
         for ex in list {
-            if !seen.contains(&ex.command) {
-                seen.push(ex.command.clone());
+            if !seen.contains(&ex.text) {
+                seen.push(ex.text.clone());
                 out.push(ex);
             }
         }

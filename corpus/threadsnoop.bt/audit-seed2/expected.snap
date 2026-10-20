@@ -286,6 +286,14 @@ env_vars:
   provenance:
     sources:
     - help-text
+examples:
+- text: |-
+    bpftrace -l '*sleep*'
+        list probes containing "sleep"
+    bpftrace -e 'kprobe:do_nanosleep { printf("PID %d sleeping...\n", pid); }'
+        trace processes calling sleep
+    bpftrace -e 'tracepoint:raw_syscalls:sys_enter { @[comm] = count(); }'
+        count syscalls by process name
 provenance:
   sources:
   - help-text

@@ -17,6 +17,10 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- text: |-
+    ./dcsnoop           # trace failed dcache lookups
+    ./dcsnoop -a        # trace all dcache lookups
 detected_framework: argparse
 provenance:
   sources:

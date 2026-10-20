@@ -19,6 +19,10 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- text: |-
+    ./filegone           # trace all file gone events
+    ./filegone -p 181    # only trace PID 181
 detected_framework: argparse
 provenance:
   sources:

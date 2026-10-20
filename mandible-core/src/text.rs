@@ -145,6 +145,46 @@ impl Text {
         Text(truncate_chars(&tabs_expanded, MAX_TEXT_CHARS))
     }
 
+    /// Lines kept exactly as printed: each goes through
+    /// [`Text::sanitize_preserving_layout`] and the results are joined with
+    /// `\n`, so indentation, interior spacing and blank lines survive. For
+    /// a worked-example block, which must read as the tool printed it.
+    pub fn sanitize_preserving_layout_lines<'a>(lines: impl IntoIterator<Item = &'a str>) -> Text {
+        let joined: Vec<String> = lines
+            .into_iter()
+            .map(|l| Self::sanitize_preserving_layout(l).0.trim_end().to_string())
+            .collect();
+        Text(truncate_chars(&joined.join("\n"), MAX_TEXT_CHARS))
+    }
+
+    /// This text without its example rows, and those rows. A row is a line
+    /// [`is_example_row`] recognizes (an `Example:` label then a command);
+    /// `sanitize` already gave each its own line. Each comes back verbatim,
+    /// label included. A paragraph left empty is dropped, and `None` means
+    /// nothing else remained.
+    pub fn take_example_rows(&self) -> (Option<Text>, Vec<Text>) {
+        let mut rows = Vec::new();
+        let mut paragraphs: Vec<String> = Vec::new();
+        for paragraph in self.0.split("\n\n") {
+            let mut kept: Vec<&str> = Vec::new();
+            for line in paragraph.split('\n') {
+                if is_example_row(line.trim()) {
+                    rows.push(Text(line.trim().to_string()));
+                } else {
+                    kept.push(line);
+                }
+            }
+            if !kept.is_empty() {
+                paragraphs.push(kept.join("\n"));
+            }
+        }
+        if rows.is_empty() {
+            return (Some(self.clone()), rows);
+        }
+        let rest = (!paragraphs.is_empty()).then(|| Text(paragraphs.join("\n\n")));
+        (rest, rows)
+    }
+
     /// Borrow the sanitized string.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -580,7 +620,7 @@ fn example_label_rest(line: &str) -> Option<&str> {
 /// deliberately strict rule that misses `Example: cp src dst` rather than
 /// admit a sentence, per AGENTS.md §5: a recognizer that fires on prose
 /// cannot be used to decide layout.
-fn looks_like_invocation(text: &str) -> bool {
+pub fn looks_like_invocation(text: &str) -> bool {
     let mut tokens = text.split_whitespace();
     let Some(head) = tokens.next() else {
         return false;
@@ -1212,6 +1252,50 @@ mod tests {
              Example: grep -i 'hello world' menu.h main.c\n\
              PATTERNS can contain multiple patterns separated by newlines."
         );
+    }
+
+    /// The relocation: the example row leaves the description verbatim,
+    /// label included, and the prose around it stays.
+    #[test]
+    fn take_example_rows_moves_the_row_and_keeps_the_prose() {
+        let t = Text::sanitize(
+            "Search for PATTERNS in each FILE.\n\
+             Example: grep -i 'hello world' menu.h main.c\n\
+             PATTERNS can contain multiple patterns separated by newlines.",
+        );
+        let (rest, rows) = t.take_example_rows();
+        assert_eq!(
+            rest.unwrap().as_str(),
+            "Search for PATTERNS in each FILE.\n\
+             PATTERNS can contain multiple patterns separated by newlines."
+        );
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0].as_str(),
+            "Example: grep -i 'hello world' menu.h main.c"
+        );
+    }
+
+    /// A description that is only an example row leaves nothing behind, and
+    /// one without a row comes back untouched.
+    #[test]
+    fn take_example_rows_empties_a_row_only_description_and_spares_prose() {
+        let only = Text::sanitize("Example: mytool build | tee log.txt");
+        let (rest, rows) = only.take_example_rows();
+        assert!(rest.is_none());
+        assert_eq!(rows.len(), 1);
+
+        let prose = Text::sanitize("Consider the second form. Example: the second form is usual");
+        let (rest, rows) = prose.take_example_rows();
+        assert_eq!(rest.as_ref(), Some(&prose));
+        assert!(rows.is_empty());
+    }
+
+    /// Block lines keep indentation, interior spacing and blank lines.
+    #[test]
+    fn sanitize_preserving_layout_lines_keeps_the_block_as_printed() {
+        let t = Text::sanitize_preserving_layout_lines(["tar -cf a  # x", "", "    note\t."]);
+        assert_eq!(t.as_str(), "tar -cf a  # x\n\n    note        .");
     }
 
     /// The anti-case, and the reason the recognizer wants an option or a

@@ -1,0 +1,19 @@
+# `gh pr list --help`, stored as a root capture. The `EXAMPLES` block is indented
+# under its heading and ends at the flush `LEARN MORE` heading.
+[bless]
+provenance = "agent"
+
+[tool]
+name = "gh-pr-list"
+version = "2.45.0"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "gh pr list --help"
+
+[[capture]]
+argv = ["gh-pr-list", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--author", "--label", "--search", "--state"]

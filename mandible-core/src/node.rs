@@ -410,25 +410,21 @@ pub enum ValueKind {
     Optional,
 }
 
-/// A worked example: a command line plus an optional explanation.
+/// A worked example, held as the tool printed it: its lines, indentation
+/// and interior spacing.
 ///
 /// `#[non_exhaustive]`: build one with [`Example::new`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Example {
-    /// The example command line, verbatim.
-    pub command: Text,
-    /// An optional explanation of what the example does.
-    pub explanation: Option<Text>,
+    /// The example block, verbatim.
+    pub text: Text,
 }
 
 impl Example {
-    /// An example command line with no explanation attached.
-    pub fn new(command: Text) -> Example {
-        Example {
-            command,
-            explanation: None,
-        }
+    /// An example holding `text` as printed.
+    pub fn new(text: Text) -> Example {
+        Example { text }
     }
 }
 

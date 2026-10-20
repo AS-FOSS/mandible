@@ -49,6 +49,13 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- text: |-
+    ./compactsnoop          # trace all compact stall
+    ./compactsnoop -T       # include timestamps
+    ./compactsnoop -d 10    # trace for 10 seconds only
+    ./compactsnoop -K       # output kernel stack trace
+    ./compactsnoop -e       # show extended fields
 detected_framework: argparse
 provenance:
   sources:

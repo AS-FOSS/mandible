@@ -269,6 +269,12 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- text: |-
+    $ echo '{"foo": 0}' | jq .
+    {
+      "foo": 0
+    }
 provenance:
   sources:
   - help-text

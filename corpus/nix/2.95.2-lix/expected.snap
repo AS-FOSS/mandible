@@ -70,6 +70,34 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- text: '· Create a new flake:'
+- text: |2-
+        │ # nix flake new hello
+        │ # cd hello
+- text: '· Build the flake in the current directory:'
+- text: |2-
+        │ # nix build
+        │ # ./result/bin/hello
+        │ Hello, world!
+- text: '· Run the flake in the current directory:'
+- text: |2-
+        │ # nix run
+        │ Hello, world!
+- text: |-
+    · Start a development shell for hacking on this
+      flake:
+- text: |2-
+        │ # nix develop
+        │ # unpackPhase
+        │ # cd hello-*
+        │ # configurePhase
+        │ # buildPhase
+        │ # ./hello
+        │ Hello, world!
+        │ # installPhase
+        │ # ../outputs/out/bin/hello
+        │ Hello, world!
 provenance:
   sources:
   - help-text

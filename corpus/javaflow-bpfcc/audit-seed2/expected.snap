@@ -57,6 +57,12 @@ flags:
   provenance:
     sources:
     - help-text
+examples:
+- text: |-
+    ./uflow -l java 185                # trace Java method calls in process 185
+    ./uflow -l ruby 134                # trace Ruby method calls in process 134
+    ./uflow -M indexOf -l java 185     # trace only 'indexOf'-prefixed methods
+    ./uflow -C '<stdin>' -l python 180 # trace only REPL-defined methods
 detected_framework: argparse
 provenance:
   sources:
