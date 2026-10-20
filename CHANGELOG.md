@@ -12,14 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [S-071] The detail pane ends with an `EXAMPLES` section that prints the tool's own example lines as written, such as `tar`, `argdist-bpfcc`, `bpftrace`, `jq` and `gh pr list`; an `Example: ...` row that sat in `grep`'s description moves there too.
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 - The `?` overlay is sized to its content, uses two columns on wide terminals, and scrolls with `↑`/`↓` when the terminal is too short to show every binding.
-
-### Changed
-
 - Pages with thousands of flags scroll and search without lag, and an idle page no longer redraws its whole document ten times a second; nothing on screen changes.
 
 ### Changed
 
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
+- A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below behind a dim `│`/`└` guide, beside the wrapped description.
 
 ### Fixed
 
