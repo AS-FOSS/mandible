@@ -1,65 +1,49 @@
 //! Small terminals: the three questions every size-dependent behaviour
-//! answers, and the only place a width or height meets a number.
-//!
-//! 1. SCREEN: do two panes fit side by side? ([`screen`])
-//! 2. ROOM: does a description get at least [`MIN_DESC_ROOM`] columns?
-//!    ([`has_room`], [`section_room`])
-//! 3. USER CHOICE: wrap or scroll sideways (`w`, held on the app).
-//!
-//! When space runs out the order is the same everywhere: normal layout,
-//! re-flow, cut with `…` only where the full text is readable elsewhere,
-//! scroll. Markers for all of it come from [`marker`] (docs/design.md,
-//! "Small terminals").
+//! answers, and the one place a width or height meets a number
+//! (docs/design.md §9.4): SCREEN ([`screen`]), ROOM ([`has_room`]) and
+//! USER CHOICE (`w`, held on the app). Markers come from [`marker`].
 
 use crate::glyphs::Glyphs;
 use ratatui::layout::Rect;
 
-/// Below this total width the tree and detail panes stack and `Tab`
-/// switches which one is visible.
+/// Below this width the panes stack and `Tab` switches between them.
 pub const STACK_BREAKPOINT: u16 = 50;
 
-/// The smallest terminal width every screen still renders sanely at.
+/// Narrowest terminal drawn at all.
 pub const MIN_WIDTH: u16 = 30;
 
-/// The smallest terminal height every screen still renders sanely at.
+/// Shortest terminal drawn at all.
 pub const MIN_HEIGHT: u16 = 10;
 
-/// The narrowest a description may be before its section is laid out as a
-/// man page instead of a table, and before a tree summary is dropped.
+/// Columns a description needs before its section stays a table.
 pub const MIN_DESC_ROOM: usize = 20;
 
-/// The tree pane's width when both panes show, floor.
+/// The tree pane's floor when both panes show.
 pub const TREE_MIN_WIDTH: u16 = 24;
 
-/// Where a man-layout description starts, past its row's left edge.
+/// Where a man-layout description starts, past the section's indent.
 pub const MAN_DESC_INDENT: usize = 8;
 
-/// Columns a continuation row hangs past its first row (USAGE, EXAMPLES,
-/// a man-layout head longer than the pane).
+/// Columns a continuation row hangs past its first row.
 pub const USAGE_HANG: usize = 4;
 
-/// Columns one `←`/`→` press scrolls the detail pane.
+/// Columns one `←`/`→` press scrolls.
 pub const HSCROLL_STEP: usize = 8;
 
-/// A spelling wider than this share of the pane does not set the shared
-/// description column (spec §9.1a).
+/// A head wider than this share of the pane gets no vote on the column.
 pub const DESC_COLUMN_CAP_PERCENT: usize = 45;
 
-/// The share of a section's heads the shared description column is
-/// fitted to (spec §9.3).
+/// The share of heads the shared description column is fitted to.
 pub const SHARED_COLUMN_PERCENTILE: usize = 90;
 
-/// The summary column of the tree is capped at this share of the pane.
+/// The tree's summary column is capped at this share of the pane.
 pub const SUMMARY_COLUMN_CAP_PERCENT: usize = 40;
 
 /// What a terminal of a given size can show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
-    /// Under the minimum: only the "too small" line is drawn.
     TooSmall,
-    /// One pane at a time.
     Stacked,
-    /// Tree and detail side by side.
     Split,
 }
 
@@ -84,31 +68,23 @@ pub fn has_room(room: usize) -> bool {
     room >= MIN_DESC_ROOM
 }
 
-/// The columns a description gets in a pane `pane_width` wide when the
-/// section's description column starts at `column` (the p90 head plus the
-/// gap after it).
+/// Columns a description gets in a pane `pane_width` wide when the
+/// description column starts at `column`.
 pub fn section_room(pane_width: usize, column: usize) -> usize {
     pane_width.saturating_sub(column)
 }
 
-/// The one marker family. `Cut` is the ellipsis; the others say more
-/// content sits above, below, left or right.
+/// The marker family: cut, more above, below, left, right.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Marker {
-    /// Text was cut and is readable in full elsewhere.
     Cut,
-    /// More content above.
     Up,
-    /// More content below.
     Down,
-    /// More content to the left.
     Left,
-    /// More content to the right.
     Right,
 }
 
-/// The glyph for `marker` in the active glyph set (`…` `▲` `▼` `◀` `▶`,
-/// or `...` `^` `v` `<` `>` in ASCII).
+/// The glyph for `marker`, with its ASCII fallback from the glyph set.
 pub fn marker(glyphs: &Glyphs, marker: Marker) -> &'static str {
     match marker {
         Marker::Cut => glyphs.ellipsis,
