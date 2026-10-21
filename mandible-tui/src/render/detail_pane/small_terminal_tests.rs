@@ -123,7 +123,9 @@ fn check_sections(name: &str, node: &CommandNode, width: usize, wrap: bool) {
             continue;
         }
         let layout = section_layout(&ents, width, indent, wrap);
-        let room = width.saturating_sub(layout.description);
+        // Room is judged against the p90 of every head, outliers included.
+        let p90 = percentile_width(ents.iter().map(|e| entity_head_width(e, indent)));
+        let room = width.saturating_sub(p90 + 1);
         let at = format!("{name} {label} width {width} wrap {wrap}");
         assert_eq!(layout.man, wrap && room < TWENTY, "{at}: room {room}");
         let body = section_lines(

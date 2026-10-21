@@ -68,10 +68,10 @@ pub fn has_room(room: usize) -> bool {
     room >= MIN_DESC_ROOM
 }
 
-/// Columns a description gets in a pane `pane_width` wide when the
-/// description column starts at `column`.
-pub fn section_room(pane_width: usize, column: usize) -> usize {
-    pane_width.saturating_sub(column)
+/// Columns a description gets in a pane `pane_width` wide when the p90 of
+/// every head in its section (uncapped) is `head_width`.
+pub fn section_room(pane_width: usize, head_width: usize) -> usize {
+    pane_width.saturating_sub(head_width + 1)
 }
 
 /// The marker family: cut, more above, below, left, right.
@@ -114,7 +114,7 @@ mod tests {
     fn room_is_twenty_columns() {
         assert!(has_room(20));
         assert!(!has_room(19));
-        assert_eq!(section_room(40, 20), 20);
+        assert_eq!(section_room(40, 19), 20);
     }
 
     #[test]

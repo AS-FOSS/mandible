@@ -147,7 +147,7 @@ pub(super) fn percentile_width(widths: impl Iterator<Item = usize>) -> usize {
 ///    [`fit::DESC_COLUMN_CAP_PERCENT`] gets no vote.
 ///
 /// The column is never squeezed. When what is left of the pane after the
-/// percentile head is not [`fit::MIN_DESC_ROOM`] columns, the section is a
+/// p90 of all heads (outliers included) is not [`fit::MIN_DESC_ROOM`] columns, the section is a
 /// man layout instead (unless wrapping is off).
 pub(super) fn section_layout(
     entities: &[&Entity],
@@ -170,10 +170,13 @@ pub(super) fn section_layout(
 
     let floor = indent + LONG_COLUMN + gap;
     let description = (percentile_width(fitting) + gap).max(floor);
+    // Room is judged against every head, outliers included: a head past the
+    // cap pushes its own description however the column was fitted.
+    let head = percentile_width(entities.iter().map(|e| entity_head_width(e, indent)));
     SectionLayout {
         description,
         indent,
-        man: wrap && !fit::has_room(fit::section_room(width, description)),
+        man: wrap && !fit::has_room(fit::section_room(width, head)),
         wrap,
     }
 }

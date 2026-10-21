@@ -1502,8 +1502,8 @@ mod tests {
     }
 
     /// A narrow pane never squeezes the description column: the section is
-    /// a table while the description keeps [`fit::MIN_DESC_ROOM`] columns
-    /// past the p90 head, and a man layout otherwise. Fixture: `docker
+    /// a table while the pane leaves [`fit::MIN_DESC_ROOM`] columns past the
+    /// p90 of all its heads, and a man layout otherwise. Fixture: `docker
     /// pull`'s `--platform`.
     #[test]
     fn a_narrow_pane_is_a_man_layout_exactly_when_room_runs_out() {
@@ -1515,18 +1515,13 @@ mod tests {
             let layout = section_layout(&refs, width, 0, true);
             assert_eq!(
                 layout.man,
-                !fit::has_room(fit::section_room(width, layout.description)),
+                width < percentile_width(refs.iter().map(|e| entity_head_width(e, 0))) + 21,
                 "width {width}"
             );
             if layout.man {
                 seen.0 = true;
             } else {
                 seen.1 = true;
-                assert!(
-                    width - layout.description >= fit::MIN_DESC_ROOM,
-                    "width {width}: table column {} leaves too little",
-                    layout.description
-                );
             }
             assert!(!section_layout(&refs, width, 0, false).man, "wrap off");
         }

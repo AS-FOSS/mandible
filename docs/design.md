@@ -2108,9 +2108,9 @@ shrinks, and the only three questions allowed to decide it.
      is narrower than the sentence).
    - **ROOM.** Does a description get at least 20 columns? One constant,
      one function. For a detail-pane list section (`FLAGS`, `POSITIONALS`,
-     `MODIFIERS`, `ENVIRONMENT`) the room is the pane width minus the
-     description column, the column being the p90 head width §9.1a already
-     fits plus its two-column gap. Decided per section. Room of 20 or more
+     `MODIFIERS`, `ENVIRONMENT`) the room is the pane width minus the p90
+     of every head in that section, outliers included (not the capped
+     figure §9.1a fits its column to), minus one. Decided per section. Room of 20 or more
      is the table layout of §9.1a, stacking included. Less is the man
      layout (rule 3). A tree summary column is shown while it leaves a
      summary 20 columns, else hidden; per row, a long name that leaves its
