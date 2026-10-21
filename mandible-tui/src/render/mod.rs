@@ -18,6 +18,7 @@ mod tree_pane;
 pub(crate) use detail_pane::PageCache;
 
 use crate::app::App;
+use crate::fit;
 use crate::layout::{self, Regions};
 use ratatui::Frame;
 
@@ -34,9 +35,14 @@ pub fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
     let regions: Regions = layout::compute(area, app.focus);
 
+    if regions.too_small {
+        draw_too_small(frame, area);
+        return;
+    }
+
     search_bar::render(frame, regions.search, app);
     if let Some(tree_rect) = regions.tree {
-        tree_pane::render(frame, tree_rect, app, regions.hide_summaries);
+        tree_pane::render(frame, tree_rect, app);
     }
     if let Some(detail_rect) = regions.detail {
         detail_pane::render(frame, detail_rect, app);
@@ -58,4 +64,37 @@ pub fn render(frame: &mut Frame, app: &App) {
     if let Some(review) = &app.review {
         review_overlay::render(frame, area, review, app.glyphs);
     }
+}
+
+/// The only thing drawn under the minimum size: [`fit::too_small_message`],
+/// centred, broken over rows only when the terminal is narrower than the
+/// sentence itself.
+fn draw_too_small(frame: &mut Frame, area: ratatui::layout::Rect) {
+    let width = usize::from(area.width);
+    let mut rows: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for word in fit::too_small_message().split_whitespace() {
+        let joined = if current.is_empty() {
+            word.to_string()
+        } else {
+            format!("{current} {word}")
+        };
+        if !current.is_empty() && crate::sanitize::display_width(&joined) > width {
+            rows.push(std::mem::take(&mut current));
+            current = word.to_string();
+        } else {
+            current = joined;
+        }
+    }
+    rows.push(current);
+    let top = area
+        .height
+        .saturating_sub(u16::try_from(rows.len()).unwrap_or(0))
+        / 2;
+    let lines: Vec<ratatui::text::Line> = rows
+        .into_iter()
+        .map(|r| ratatui::text::Line::from(r).centered())
+        .collect();
+    let rect = ratatui::layout::Rect::new(area.x, area.y + top, area.width, area.height - top);
+    frame.render_widget(ratatui::widgets::Paragraph::new(lines), rect);
 }

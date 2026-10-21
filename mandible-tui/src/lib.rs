@@ -28,6 +28,7 @@ pub mod app;
 pub mod app_review;
 pub mod clipboard;
 pub mod event;
+pub mod fit;
 pub mod glyphs;
 pub mod layout;
 pub mod render;

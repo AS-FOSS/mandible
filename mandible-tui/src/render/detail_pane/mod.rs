@@ -10,14 +10,17 @@
 //! hang-indent at the description column (spec §9.1a) and search must
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
+mod edges;
 mod entity;
 mod examples_section;
 mod layout;
+mod man;
 mod page_cache;
 mod stack;
 mod usage_form;
 mod wrap;
 
+use edges::*;
 use entity::*;
 use examples_section::push_examples;
 use layout::*;
@@ -28,8 +31,9 @@ use usage_form::*;
 use wrap::*;
 
 use crate::app::{App, Focus};
+use crate::fit;
 use crate::glyphs::Glyphs;
-use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
+use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
 use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling, ValueKind};
 use ratatui::layout::Rect;
@@ -53,17 +57,11 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
         Style::default()
     };
 
-    let breadcrumb = app
+    let path: Vec<String> = app
         .selected_row()
-        .map(|r| {
-            r.path
-                .iter()
-                .map(|s| defensive_single_line(s))
-                .collect::<Vec<_>>()
-                .join(&format!(" {} ", app.glyphs.breadcrumb))
-        })
+        .map(|r| r.path.iter().map(|s| defensive_single_line(s)).collect())
         .unwrap_or_default();
-    let title = format!(" {breadcrumb} ");
+    let title = breadcrumb_title(&path, app.glyphs, usize::from(area.width.saturating_sub(2)));
 
     let block = Block::default()
         .title(title)
@@ -91,7 +89,7 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     // degradation check below.
     if let Some(raw) = app.raw_help_for_selected() {
         render_raw_mode(frame, inner, app, raw);
-        draw_hscroll_affordance(frame, area, app);
+        draw_edge_markers(frame, area, app);
         return;
     }
 
@@ -102,7 +100,7 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     // fetches this node's own live text regardless of this branch.
     if node.same_as_ancestor {
         render_same_as_ancestor(frame, inner, app, node);
-        draw_hscroll_affordance(frame, area, app);
+        draw_edge_markers(frame, area, app);
         return;
     }
 
@@ -117,7 +115,7 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
             &format!("unparsed {} showing raw --help output", app.glyphs.absent),
             node.unparsed.iter().map(|t| t.as_str().to_string()),
         );
-        draw_hscroll_affordance(frame, area, app);
+        draw_edge_markers(frame, area, app);
         return;
     }
 
@@ -145,18 +143,55 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
         }
         None => app.clamped_detail_scroll(),
     } as u16;
-    let paragraph = Paragraph::new(built.lines)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0));
-    frame.render_widget(paragraph, inner);
-    draw_clip_marker_rails(
-        frame,
-        inner,
-        app.color_enabled,
-        &built.clip_rows,
-        scroll as usize,
-    );
-    draw_hscroll_affordance(frame, area, app);
+    draw_page(frame, inner, app, &built.lines, scroll as usize);
+    draw_edge_markers(frame, area, app);
+}
+
+/// Draw `lines` from row `scroll`. Wrapping on: every line already fits,
+/// and `Paragraph` only guards against stray wide text. Wrapping off: each
+/// visible line is windowed at the sideways offset and the lines cut at
+/// either edge get their gutter markers.
+fn draw_page(frame: &mut Frame, inner: Rect, app: &App, lines: &[Line<'static>], scroll: usize) {
+    if app.parsed_wraps() {
+        let paragraph = Paragraph::new(lines.to_vec())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll as u16, 0));
+        frame.render_widget(paragraph, inner);
+        return;
+    }
+    let (visible, clip_rows) = window_page(app, lines, scroll, inner);
+    frame.render_widget(Paragraph::new(visible), inner);
+    draw_clip_marker_rails(frame, inner, app, &clip_rows, scroll);
+}
+
+/// The rows of `lines` on screen with wrapping off, cut at the sideways
+/// offset, and the document rows that were cut at either edge. Also
+/// records the widest line, which bounds the sideways scroll.
+fn window_page(
+    app: &App,
+    lines: &[Line<'static>],
+    scroll: usize,
+    inner: Rect,
+) -> (Vec<Line<'static>>, Vec<(usize, bool, bool)>) {
+    let width = inner.width as usize;
+    let widest = lines.iter().map(Line::width).max().unwrap_or(0);
+    app.set_detail_hextent(widest, width);
+    let offset = app.clamped_detail_hscroll();
+    let start = scroll.min(lines.len());
+    let end = (start + inner.height as usize).min(lines.len());
+    let mut clip_rows = Vec::new();
+    let visible = lines[start..end]
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            let (windowed, left, right) = window_line(line, offset, width);
+            if left || right {
+                clip_rows.push((start + i, left, right));
+            }
+            windowed
+        })
+        .collect();
+    (visible, clip_rows)
 }
 
 /// The parsed view with the built document reused across frames and only
@@ -167,9 +202,7 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
 fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, node: &CommandNode) {
     let width = inner.width as usize;
     // `build_lines` does this on a rebuild; a cache hit must too.
-    if app.horizontal_scroll_enabled {
-        app.set_detail_hextent(0, width);
-    }
+    app.set_detail_hextent(0, width);
     let key = PageKey::of(app, width);
     let (built, windowable) = {
         let mut slot = app.page_cache.borrow_mut();
@@ -214,18 +247,15 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
         }
         None => app.clamped_detail_scroll(),
     };
-    let paragraph = if windowable {
+    if windowable && app.parsed_wraps() {
         let start = scroll.min(built.lines.len());
         let end = (start + height).min(built.lines.len());
-        Paragraph::new(built.lines[start..end].to_vec())
+        let paragraph = Paragraph::new(built.lines[start..end].to_vec());
+        frame.render_widget(paragraph, inner);
     } else {
-        Paragraph::new(built.lines.clone())
-            .wrap(Wrap { trim: false })
-            .scroll((scroll as u16, 0))
-    };
-    frame.render_widget(paragraph, inner);
-    draw_clip_marker_rails(frame, inner, app.color_enabled, &built.clip_rows, scroll);
-    draw_hscroll_affordance(frame, area, app);
+        draw_page(frame, inner, app, &built.lines, scroll);
+    }
+    draw_edge_markers(frame, area, app);
 }
 
 /// Where to scroll so a search-selected entity is on screen (spec §10:
@@ -251,31 +281,6 @@ fn target_scroll(built: &BuiltLines, first_line: usize, viewport: usize) -> usiz
     }
     let max = built.lines.len().saturating_sub(viewport);
     first_line.min(max)
-}
-
-/// Draw the horizontal-scroll overflow marker on the border's top edge, a
-/// couple of cells inside the corner rather than on it, so
-/// `border_integrity.rs`'s exact-corner-glyph assertion still sees only the
-/// rounded/ASCII corner. No-op when `app.horizontal_scroll_enabled` is
-/// false. Drawn regardless of pane focus, since a silently clipped edge is
-/// worse than a marker pointing at an unfocused pane (spec §9).
-fn draw_hscroll_affordance(frame: &mut Frame, area: Rect, app: &App) {
-    if !app.horizontal_scroll_enabled || area.width < 6 || area.height == 0 {
-        return;
-    }
-    let can_left = app.detail_hscroll_can_go_left();
-    let can_right = app.detail_hscroll_can_go_right();
-    if !can_left && !can_right {
-        return;
-    }
-    let buf = frame.buffer_mut();
-    let y = area.y;
-    if can_right {
-        buf[(area.x + area.width - 2, y)].set_char(app.glyphs.more_right);
-    }
-    if can_left {
-        buf[(area.x + area.width - 3, y)].set_char(app.glyphs.more_left);
-    }
 }
 
 /// Render the verbatim view (`t`): the tool's own `--help` output for the
@@ -383,7 +388,7 @@ fn render_verbatim(
     let scroll = app.clamped_detail_scroll();
     let paragraph = Paragraph::new(lines).scroll((scroll as u16, 0));
     frame.render_widget(paragraph, inner);
-    draw_clip_marker_rails(frame, inner, app.color_enabled, &clip_rows, scroll);
+    draw_clip_marker_rails(frame, inner, app, &clip_rows, scroll);
 }
 
 /// Render a same-as-ancestor node (spec [M-19], docs/design.md §16's
@@ -398,14 +403,14 @@ fn render_verbatim(
 /// parent's table doesn't document still renders, with no description.
 fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &CommandNode) {
     let width = inner.width as usize;
+    let wrap = app.parsed_wraps();
+    let text_width = if wrap { width } else { NO_WRAP };
     let mut lines: Vec<Line<'static>> = Vec::new();
 
-    if app.horizontal_scroll_enabled {
-        app.set_detail_hextent(0, width);
-    }
+    app.set_detail_hextent(0, width);
 
     if let Some(summary) = &node.summary {
-        for chunk in wrap_words(summary.as_str(), width) {
+        for chunk in wrap_words(summary.as_str(), text_width) {
             lines.push(Line::from(Span::styled(
                 chunk,
                 Style::default().add_modifier(ratatui::style::Modifier::BOLD),
@@ -414,7 +419,7 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
     }
 
     open_block(&mut lines, SECTION_BLANKS);
-    for chunk in wrap_words(mandible_core::notice::SAME_AS_ANCESTOR_NOTICE, width) {
+    for chunk in wrap_words(mandible_core::notice::SAME_AS_ANCESTOR_NOTICE, text_width) {
         lines.push(Line::from(chunk));
     }
 
@@ -445,53 +450,13 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
             app.palette,
             app.glyphs,
         ));
-        let section = section_lines(&refs, width, 0, app.palette, None, app.glyphs);
+        let section = section_lines(&refs, width, 0, app.palette, None, app.glyphs, wrap);
         lines.extend(section.lines);
     }
 
     app.set_detail_extent(lines.len(), inner.height as usize);
     let scroll = app.clamped_detail_scroll();
-    let paragraph = Paragraph::new(lines)
-        .wrap(Wrap { trim: false })
-        .scroll((scroll as u16, 0));
-    frame.render_widget(paragraph, inner);
-}
-
-/// Draw the per-line clip markers into the padding gutters either side of
-/// `inner` — the one blank column `Block::padding` leaves between border
-/// and content. `clip_rows` holds `(line index, clipped_left,
-/// clipped_right)` in the same index space the paragraph's vertical
-/// `scroll` uses, so a marker follows its line when the pane scrolls
-/// vertically and disappears with it off-screen.
-fn draw_clip_marker_rails(
-    frame: &mut Frame,
-    inner: Rect,
-    color_enabled: bool,
-    clip_rows: &[(usize, bool, bool)],
-    vscroll: usize,
-) {
-    if inner.x == 0 || clip_rows.is_empty() {
-        return;
-    }
-    let left_x = inner.x - 1;
-    let right_x = inner.x + inner.width;
-    let marker = style::muted(color_enabled);
-    let buf = frame.buffer_mut();
-    for &(idx, left, right) in clip_rows {
-        let Some(row) = idx.checked_sub(vscroll) else {
-            continue;
-        };
-        if row >= inner.height as usize {
-            continue;
-        }
-        let y = inner.y + row as u16;
-        if left {
-            buf[(left_x, y)].set_symbol("<").set_style(marker);
-        }
-        if right {
-            buf[(right_x, y)].set_symbol(">").set_style(marker);
-        }
-    }
+    draw_page(frame, inner, app, &lines, scroll);
 }
 
 /// Recognize only the display-only prose prepended by `not_attested_fallback`.
@@ -566,9 +531,6 @@ pub(crate) struct BuiltLines {
     /// The line index [`Flag`] `app.selected_flag` starts at, if it was
     /// found on `node`.
     target_flag_line: Option<usize>,
-    /// `(line index, clipped_left, clipped_right)` for each horizontally
-    /// clipped preformatted line, consumed by [`draw_clip_marker_rails`].
-    clip_rows: Vec<(usize, bool, bool)>,
     /// One entry per rendered entity, in document order — see [`EntryRow`].
     rows: Vec<EntryRow>,
 }
@@ -597,21 +559,15 @@ fn build_lines(
 ) -> BuiltLines {
     let mut lines = Vec::new();
     let mut target_flag_line = None;
-    // Every list section wraps to pane width and never clips (spec §9.3
-    // rule 15); USAGE now soft-wraps too (spec §9 rule 9), so
-    // nothing in the parsed view ever produces a clipped row any more.
-    // The field stays on [`BuiltLines`] because [`render`] still threads it
-    // through to [`draw_clip_marker_rails`] the same way the raw view does.
-    let clip_rows: Vec<(usize, bool, bool)> = Vec::new();
     let mut rows: Vec<EntryRow> = Vec::new();
-    // Reset every frame so a node with no USAGE doesn't keep the previous
-    // node's extent and draw a stale overflow marker.
-    if app.horizontal_scroll_enabled {
-        app.set_detail_hextent(0, width);
-    }
+    // Wrapping on: nothing here is wider than the pane. Wrapping off: every
+    // line is built at its natural width and the renderer windows it.
+    let wrap = app.parsed_wraps();
+    let text_width = if wrap { width } else { NO_WRAP };
+    app.set_detail_hextent(0, width);
 
     if let Some(summary) = &node.summary {
-        for chunk in wrap_words(summary.as_str(), width) {
+        for chunk in wrap_words(summary.as_str(), text_width) {
             lines.push(Line::from(Span::styled(
                 chunk,
                 Style::default().add_modifier(ratatui::style::Modifier::BOLD),
@@ -665,7 +621,7 @@ fn build_lines(
             for logical in paragraph_text.split('\n') {
                 let indent = logical.len() - logical.trim_start().len();
                 let indent_str = " ".repeat(indent);
-                let avail = width.saturating_sub(indent).max(1);
+                let avail = text_width.saturating_sub(indent).max(1);
                 for chunk in wrap_words(logical, avail) {
                     lines.push(Line::from(format!("{indent_str}{chunk}")));
                 }
@@ -691,15 +647,18 @@ fn build_lines(
         let accent = style::accent(palette.color);
         for (pad, text, path_len) in &forms {
             let lead = format!("{indent}{}", " ".repeat(*pad));
-            let avail = width.saturating_sub(display_width(&lead)).max(1);
+            let avail = text_width.saturating_sub(display_width(&lead)).max(1);
             let mut path_left = text
                 .get(..*path_len)
                 .map_or(0, |p| p.chars().filter(|c| !c.is_whitespace()).count());
-            for (i, chunk) in wrap_hanging(text, avail, USAGE_HANG).iter().enumerate() {
+            for (i, chunk) in wrap_hanging(text, avail, fit::USAGE_HANG)
+                .iter()
+                .enumerate()
+            {
                 let row_lead = if i == 0 {
                     lead.clone()
                 } else {
-                    format!("{lead}{}", " ".repeat(USAGE_HANG))
+                    format!("{lead}{}", " ".repeat(fit::USAGE_HANG))
                 };
                 lines.push(usage_line(&row_lead, chunk, &mut path_left, accent));
             }
@@ -724,7 +683,7 @@ fn build_lines(
             glyphs,
         ));
         let base = lines.len();
-        let section = section_lines(&visible, width, indent, palette, target_flag, glyphs);
+        let section = section_lines(&visible, width, indent, palette, target_flag, glyphs, wrap);
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
         }
@@ -735,7 +694,7 @@ fn build_lines(
         lines.extend(section.lines);
     }
 
-    push_examples(&mut lines, node, width, palette, glyphs);
+    push_examples(&mut lines, node, width, wrap, palette, glyphs);
 
     // Provenance is not rendered here at all any more: it describes where
     // this node's data came from, which belongs beside the pane rather than
@@ -744,7 +703,6 @@ fn build_lines(
     BuiltLines {
         lines,
         target_flag_line,
-        clip_rows,
         rows,
     }
 }
@@ -876,8 +834,7 @@ fn group_label(raw: &str) -> String {
 /// a clear step below the header's [`style::section_rule`] (spec §9.3);
 /// never bold. `ruled` is false for a divider that opens its section —
 /// see [`group_divider_lead_line`]. The label is tool-authored text of
-/// unbounded length, so it is truncated to the pane rather than trusted
-/// to fit (spec §9 border-corruption lesson).
+/// unbounded length; [`group_divider_lines`] wraps one that cannot fit.
 fn group_divider_line(
     label: &str,
     width: usize,
@@ -889,10 +846,7 @@ fn group_divider_line(
     if !ruled {
         return group_divider_lead_line(label, width, palette, glyphs);
     }
-    // A space behind the label and at least one rule cell after it: the
-    // budget the label has to fit inside.
-    let furniture = display_width(glyphs.rule) + 1;
-    let label = truncate_to_width_marker(label, width.saturating_sub(furniture), glyphs.ellipsis);
+    let label = label.to_string();
     let rule_width = width.saturating_sub(display_width(&label) + 1);
     let mut spans = vec![Span::styled(label, shade)];
     if rule_width > 0 {
@@ -913,8 +867,29 @@ fn group_divider_lead_line(
     palette: style::Palette,
     glyphs: Glyphs,
 ) -> Line<'static> {
-    let label = truncate_to_width_marker(label, width, glyphs.ellipsis);
-    Line::from(Span::styled(label, style::group_rule(palette)))
+    let _ = (width, glyphs);
+    Line::from(Span::styled(label.to_string(), style::group_rule(palette)))
+}
+
+/// The lines of one group divider. A label that does not fit the pane with
+/// a rule after it wraps over rows of its own with no rule, and is never
+/// cut: it is the only place the group's name is written.
+fn group_divider_lines(
+    label: &str,
+    width: usize,
+    wrap: bool,
+    palette: style::Palette,
+    glyphs: Glyphs,
+    ruled: bool,
+) -> Vec<Line<'static>> {
+    let furniture = display_width(glyphs.rule) + 1;
+    if !wrap || display_width(label) + furniture <= width {
+        return vec![group_divider_line(label, width, palette, glyphs, ruled)];
+    }
+    wrap_words(label, width)
+        .into_iter()
+        .map(|chunk| Line::from(Span::styled(chunk, style::group_rule(palette))))
+        .collect()
 }
 
 /// One section's rendered body: its lines, its logical rows, and where a
@@ -942,8 +917,9 @@ fn section_lines(
     palette: style::Palette,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
+    wrap: bool,
 ) -> SectionBody {
-    let layout = section_layout(entities, width, indent);
+    let layout = section_layout(entities, width, indent, wrap);
     let row = RowCtx {
         width,
         color_enabled: palette.color,
@@ -1011,8 +987,9 @@ fn section_lines(
             if ruled {
                 open_block(&mut body.lines, GROUP_BLANKS);
             }
-            body.lines
-                .push(group_divider_line(label, width, palette, glyphs, ruled));
+            body.lines.extend(group_divider_lines(
+                label, width, wrap, palette, glyphs, ruled,
+            ));
         }
         for e in group {
             push_entity(&mut body, e, false, row, target_flag);
@@ -1024,9 +1001,10 @@ fn section_lines(
         if ruled {
             open_block(&mut body.lines, GROUP_BLANKS);
         }
-        body.lines.push(group_divider_line(
+        body.lines.extend(group_divider_lines(
             INHERITED_GROUP,
             width,
+            wrap,
             palette,
             glyphs,
             ruled,
@@ -1215,6 +1193,7 @@ mod tests {
             style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
+            true,
         )
         .lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
@@ -1379,6 +1358,7 @@ mod tests {
             style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
+            true,
         )
         .lines;
 
@@ -1474,6 +1454,10 @@ mod tests {
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         for width in 20..=160 {
+            let layout = section_layout(&refs, width, 0, true);
+            if layout.man {
+                continue;
+            }
             let lines = section_lines(
                 &refs,
                 width,
@@ -1481,9 +1465,10 @@ mod tests {
                 style::Palette::extended(),
                 None,
                 crate::glyphs::UNICODE,
+                true,
             )
             .lines;
-            let column = section_layout(&refs, width, 0).description;
+            let column = layout.description;
             let starts = description_starts(&lines);
             assert!(
                 !starts.is_empty(),
@@ -1516,61 +1501,41 @@ mod tests {
         }
     }
 
-    /// A pane too narrow for the section's own column brings the column
-    /// down rather than shredding prose into a strip (spec §9.3;
-    /// [`MIN_DESC_WIDTH`]). Fixture: `docker pull`'s `--platform`.
+    /// A narrow pane never squeezes the description column: the section is
+    /// a table while the description keeps [`fit::MIN_DESC_ROOM`] columns
+    /// past the p90 head, and a man layout otherwise. Fixture: `docker
+    /// pull`'s `--platform`.
     #[test]
-    fn a_narrow_pane_clamps_the_column_rather_than_shredding_prose() {
+    fn a_narrow_pane_is_a_man_layout_exactly_when_room_runs_out() {
         let flags = docker_global_flags();
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
-        for width in 34..=60 {
-            let column = section_layout(&refs, width, 0).description;
-            assert!(
-                width - column >= MIN_DESC_WIDTH,
-                "width {width}: column {column} leaves {} for prose",
-                width - column
+        let mut seen = (false, false);
+        for width in 20..=80 {
+            let layout = section_layout(&refs, width, 0, true);
+            assert_eq!(
+                layout.man,
+                !fit::has_room(fit::section_room(width, layout.description)),
+                "width {width}"
             );
-            // ...and the clamp is a clamp, not a reset: it only ever moves
-            // the column left of where the section's own heads put it.
-            let unclamped = percentile_width(
-                refs.iter()
-                    .map(|e| entity_head_width(e, 0))
-                    .filter(|w| w + 2 <= width * DESC_COLUMN_CAP_PERCENT / 100),
-            ) + 2;
-            assert!(
-                column <= unclamped.max(LONG_COLUMN + 2),
-                "width {width}: the clamp moved the column right, to {column}"
-            );
+            if layout.man {
+                seen.0 = true;
+            } else {
+                seen.1 = true;
+                assert!(
+                    width - layout.description >= fit::MIN_DESC_ROOM,
+                    "width {width}: table column {} leaves too little",
+                    layout.description
+                );
+            }
+            assert!(!section_layout(&refs, width, 0, false).man, "wrap off");
         }
-
-        // Prose really does get that width on the page, checked against
-        // the rendered lines rather than restated from the arithmetic above.
-        let lines = section_lines(
-            &refs,
-            38,
-            0,
-            style::Palette::extended(),
-            None,
-            crate::glyphs::UNICODE,
-        )
-        .lines;
-        let widest_prose = lines
-            .iter()
-            .map(text_of)
-            .filter(|t| t.contains("zzz"))
-            .map(|t| display_width(t.trim()))
-            .max()
-            .unwrap_or(0);
-        assert!(
-            widest_prose >= MIN_DESC_WIDTH,
-            "prose still shredded: widest description line was {widest_prose}"
-        );
+        assert!(seen.0 && seen.1, "the sweep must cross the threshold");
     }
 
     /// One very long spelling must not drag every other row's description
     /// against the right-hand edge; it pushes only its own first line
-    /// instead of widening the column ([`DESC_COLUMN_CAP_PERCENT`]).
+    /// instead of widening the column ([`fit::DESC_COLUMN_CAP_PERCENT`]).
     #[test]
     fn one_overlong_head_pushes_only_its_own_first_line() {
         let mut flags = docker_global_flags();
@@ -1589,10 +1554,10 @@ mod tests {
         let refs: Vec<&mandible_core::Entity> = flags.iter().collect();
 
         let without: Vec<&mandible_core::Entity> = refs[..refs.len() - 1].to_vec();
-        let shared = section_layout(&refs, 120, 0).description;
+        let shared = section_layout(&refs, 120, 0, true).description;
         assert_eq!(
-            section_layout(&refs, 120, 0),
-            section_layout(&without, 120, 0),
+            section_layout(&refs, 120, 0, true),
+            section_layout(&without, 120, 0, true),
             "an outlier spelling must not set the column for the list"
         );
 
@@ -1603,6 +1568,7 @@ mod tests {
             style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
+            true,
         )
         .lines;
         let starts = description_starts(&lines);
@@ -1759,6 +1725,8 @@ mod tests {
             SectionLayout {
                 description: column,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1816,6 +1784,8 @@ mod tests {
             SectionLayout {
                 description: 20,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1855,6 +1825,8 @@ mod tests {
             SectionLayout {
                 description: 20,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1886,6 +1858,8 @@ mod tests {
             SectionLayout {
                 description: 20,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1911,6 +1885,8 @@ mod tests {
             SectionLayout {
                 description: 20,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1945,6 +1921,8 @@ mod tests {
             SectionLayout {
                 description: 20,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1972,6 +1950,8 @@ mod tests {
             SectionLayout {
                 description: 20,
                 indent: 0,
+                man: false,
+                wrap: true,
             },
             crate::glyphs::UNICODE,
         );
@@ -1997,6 +1977,8 @@ mod tests {
         let layout = SectionLayout {
             description: 20,
             indent: 0,
+            man: false,
+            wrap: true,
         };
         let lines = entity_line(&flag, false, 80, true, layout, crate::glyphs::UNICODE);
 
@@ -2043,6 +2025,8 @@ mod tests {
         let layout = SectionLayout {
             description: 20,
             indent: 0,
+            man: false,
+            wrap: true,
         };
         let lines = entity_line(&flag, false, 80, true, layout, crate::glyphs::UNICODE);
 
@@ -2086,6 +2070,8 @@ mod tests {
         let layout = SectionLayout {
             description: 20,
             indent: 0,
+            man: false,
+            wrap: true,
         };
         // A wide pane, deliberately: this test is about the choice list's
         // *shape* (a header line, then one row per choice), not about
@@ -2177,6 +2163,8 @@ mod tests {
         let layout = SectionLayout {
             description: 20,
             indent: 0,
+            man: false,
+            wrap: true,
         };
         // Narrow enough that "unaligned"'s longer description wraps, wide
         // enough that "gray"'s shorter one fits on a single line — the
@@ -2222,6 +2210,8 @@ mod tests {
         let layout = SectionLayout {
             description: 20,
             indent: 0,
+            man: false,
+            wrap: true,
         };
         let lines = entity_line(&flag, false, 80, true, layout, crate::glyphs::UNICODE);
 
@@ -2329,6 +2319,7 @@ mod tests {
             style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
+            true,
         )
         .lines
         .iter()
@@ -2392,14 +2383,14 @@ mod tests {
         flags.push(mk("x"));
         let refs: Vec<&Entity> = flags.iter().collect();
 
-        let cap = 60 * DESC_COLUMN_CAP_PERCENT / 100;
+        let cap = 60 * fit::DESC_COLUMN_CAP_PERCENT / 100;
         let fitting = refs
             .iter()
             .filter(|e| entity_head_width(e, 0) + 2 <= cap)
             .count();
         assert_eq!(fitting, 1, "the fixture must leave a minority fitting");
 
-        let column = section_layout(&refs, 60, 0).description;
+        let column = section_layout(&refs, 60, 0, true).description;
         let starts = description_starts(
             &section_lines(
                 &refs,
@@ -2408,6 +2399,7 @@ mod tests {
                 style::Palette::extended(),
                 None,
                 crate::glyphs::UNICODE,
+                true,
             )
             .lines,
         );
@@ -2466,6 +2458,7 @@ mod tests {
             style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
+            true,
         )
         .lines
         .iter()
@@ -2516,6 +2509,7 @@ mod tests {
                 style::Palette::extended(),
                 None,
                 crate::glyphs::UNICODE,
+                true,
             )
             .lines,
         );
@@ -2555,7 +2549,7 @@ mod tests {
         // work: a description that starts at or left of its own spelling
         // has stopped being that spelling's description.
         for width in 10..=120 {
-            let layout = section_layout(&refs, width, 0);
+            let layout = section_layout(&refs, width, 0, true);
             assert!(
                 layout.description > spelling_column(&flag, 0),
                 "width {width}: column {} is not clear of the long column",
@@ -2673,6 +2667,7 @@ mod tests {
             style::Palette::extended(),
             None,
             crate::glyphs::UNICODE,
+            true,
         )
         .lines;
         let text: Vec<String> = lines.iter().map(text_of).collect();
@@ -2711,7 +2706,7 @@ mod tests {
         // thing that can be excluding it.
         let mut flags: Vec<Entity> = (0..9).map(|i| mk(&format!("opt-{i}"))).collect();
         let short_only: Vec<&Entity> = flags.iter().collect();
-        let narrow = section_layout(&short_only, 100, 0);
+        let narrow = section_layout(&short_only, 100, 0, true);
 
         flags.push(mk("a-considerably-wider-option-name"));
         let with_outlier: Vec<&Entity> = flags.iter().collect();
@@ -2720,11 +2715,11 @@ mod tests {
         // §9.3) and the cap sees that width, not the bare text's.
         let widest = spelling_column(&flags[9], 0) + display_width(&entity_name_spec(&flags[9]));
         assert!(
-            widest + 2 <= 100 * DESC_COLUMN_CAP_PERCENT / 100,
+            widest + 2 <= 100 * fit::DESC_COLUMN_CAP_PERCENT / 100,
             "the outlier must be inside the pane cap, or this measures the cap"
         );
         assert_eq!(
-            section_layout(&with_outlier, 100, 0),
+            section_layout(&with_outlier, 100, 0, true),
             narrow,
             "the widest tenth must not set the column"
         );
@@ -2737,7 +2732,7 @@ mod tests {
         wide.push(mk("opt-0"));
         let wide_refs: Vec<&Entity> = wide.iter().collect();
         assert_ne!(
-            section_layout(&wide_refs, 100, 0),
+            section_layout(&wide_refs, 100, 0, true),
             narrow,
             "a majority of wide spellings must set a wide column"
         );
@@ -3812,7 +3807,7 @@ mod tests {
         let content_indent_of = |s: &str| s.chars().skip(2).take_while(|c| *c == ' ').count();
         assert_eq!(
             content_indent_of(second),
-            content_indent_of(first) + USAGE_HANG,
+            content_indent_of(first) + fit::USAGE_HANG,
             "the continuation row must hang right of the first row: {first:?} / {second:?}"
         );
         // No clip marker (draw_clip_marker_rails' literal "<"/">") anywhere
@@ -4414,10 +4409,6 @@ mod tests {
                 "the long token should wrap across lines ({toggle}): {:?}",
                 built.lines.iter().map(text_of).collect::<Vec<_>>()
             );
-            assert!(
-                built.clip_rows.is_empty(),
-                "USAGE must never contribute a horizontal clip marker ({toggle})"
-            );
         }
     }
 
@@ -4461,7 +4452,7 @@ mod tests {
         let indent_of = |s: &str| s.len() - s.trim_start().len();
         assert_eq!(
             indent_of(&usage_lines[1]),
-            indent_of(&usage_lines[0]) + USAGE_HANG,
+            indent_of(&usage_lines[0]) + fit::USAGE_HANG,
             "continuation rows must hang right of the first row: {usage_lines:?}"
         );
         assert!(
@@ -4469,11 +4460,6 @@ mod tests {
                 .iter()
                 .all(|l| indent_of(l) == indent_of(&usage_lines[1])),
             "every continuation row hangs by the same amount: {usage_lines:?}"
-        );
-        assert!(
-            built.clip_rows.is_empty(),
-            "a wrapped USAGE row must never be marked clipped: {:?}",
-            built.clip_rows
         );
     }
 
@@ -4508,7 +4494,6 @@ mod tests {
                 vec!["  url [-h] <command> [args]".to_string()],
                 "a fitting form must render byte for byte ({toggle})"
             );
-            assert!(built.clip_rows.is_empty());
         }
     }
 }
@@ -4524,3 +4509,6 @@ pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
 
 #[cfg(test)]
 mod identity_tests;
+
+#[cfg(test)]
+mod small_terminal_tests;

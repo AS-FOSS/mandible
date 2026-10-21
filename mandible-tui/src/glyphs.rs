@@ -49,13 +49,14 @@ pub struct Glyphs {
     pub absent: &'static str,
     /// Horizontal rule drawn after a section heading.
     pub rule: &'static str,
-    /// Overflow affordance drawn in the detail pane's top border when
-    /// horizontally-scrollable content extends further left than the
-    /// current view (spec §9: preformatted content scrolls rather than
-    /// wraps, and needs a visible sign there is more to see).
-    pub more_left: char,
-    /// Same, for content extending further right.
-    pub more_right: char,
+    /// More content to the left of the view (see [`crate::fit::marker`]).
+    pub more_left: &'static str,
+    /// More content to the right of the view.
+    pub more_right: &'static str,
+    /// More content above the view.
+    pub more_up: &'static str,
+    /// More content below the view.
+    pub more_down: &'static str,
     /// Guide drawn beside a stacked flag row's continuation spellings,
     /// on every continuation line but the last.
     pub guide_mid: &'static str,
@@ -78,8 +79,10 @@ pub const UNICODE: Glyphs = Glyphs {
     arrows_horizontal: "←→",
     absent: "—",
     rule: "─",
-    more_left: '←',
-    more_right: '→',
+    more_left: "◀",
+    more_right: "▶",
+    more_up: "▲",
+    more_down: "▼",
     guide_mid: "│",
     guide_end: "└",
 };
@@ -100,8 +103,10 @@ pub const ASCII: Glyphs = Glyphs {
     arrows_horizontal: "left/right",
     absent: "-",
     rule: "-",
-    more_left: '<',
-    more_right: '>',
+    more_left: "<",
+    more_right: ">",
+    more_up: "^",
+    more_down: "v",
     guide_mid: "|",
     guide_end: "`",
 };
@@ -142,9 +147,11 @@ mod tests {
         // The whole point: nothing here can render as tofu.
         assert!(ASCII.chevron_open.is_ascii());
         assert!(ASCII.chevron_closed.is_ascii());
-        assert!(ASCII.more_left.is_ascii());
-        assert!(ASCII.more_right.is_ascii());
         for s in [
+            ASCII.more_left,
+            ASCII.more_right,
+            ASCII.more_up,
+            ASCII.more_down,
             ASCII.ellipsis,
             ASCII.prompt,
             ASCII.breadcrumb,

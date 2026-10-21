@@ -187,6 +187,8 @@ mod tests {
         SectionLayout {
             description: 25,
             indent: 0,
+            man: false,
+            wrap: true,
         }
     }
 

@@ -3,29 +3,9 @@
 
 use super::*;
 
-/// A spelling wider than this fraction of the pane does not get to set the
-/// shared column — it runs on past it instead, pushing its own first
-/// description line and nothing else (see [`SectionLayout`]). Mirrors the
-/// tree pane's summary-column rule (spec §9.1).
-pub(super) const DESC_COLUMN_CAP_PERCENT: usize = 45;
-
-/// The share of a section's entities the shared column is fitted to
-/// (spec §9.3: "roughly the p90 spelling width — the majority, not the
-/// outliers").
-///
-/// Not the maximum. A column fitted to the widest spelling in the section
-/// is a column one entity chose for every other one, and the wider that
-/// entity is the less room the rest of the section's prose gets. Fitting
-/// the ninetieth percentile spends one extra line on the widest tenth and
-/// gives the width back to the other nine.
-pub(super) const SHARED_COLUMN_PERCENTILE: usize = 90;
-
-/// The narrowest a description is allowed to be. A section's shared
-/// column is clamped down until this much of the pane is left for prose,
-/// however wide the section's heads are (spec §9.3). Measured against
-/// real output: at 20 columns `docker pull`'s `--platform` description
-/// breaks across six lines, one mid-word; at 28 it reads as prose.
-pub(super) const MIN_DESC_WIDTH: usize = 28;
+/// The width a line is wrapped to when wrapping is off: wide enough that
+/// nothing ever breaks, small enough that column arithmetic cannot overflow.
+pub(super) const NO_WRAP: usize = usize::MAX / 8;
 
 /// Where a short spelling starts: the true left edge of the content area
 /// (spec §9.3). There is no uniform margin on a list section — the row's
@@ -113,9 +93,33 @@ pub(super) struct SectionLayout {
     /// Columns every row in the section is inset by — [`POSITIONAL_INDENT`]
     /// for POSITIONALS, zero for the flag-shaped sections.
     pub(super) indent: usize,
+    /// True when the section is laid out as a man page: the head alone on
+    /// its line, the description below it (docs/design.md, "Small
+    /// terminals"). Only ever true while wrapping is on.
+    pub(super) man: bool,
+    /// False when the user turned wrapping off: nothing in the section
+    /// wraps and every row keeps its description on its own line.
+    pub(super) wrap: bool,
 }
 
-/// The width that fits [`SHARED_COLUMN_PERCENTILE`] of `widths` — the
+impl SectionLayout {
+    /// The width text in this section is wrapped to in a pane `width`
+    /// wide: the pane's, or [`NO_WRAP`].
+    pub(super) fn text_width(self, width: usize) -> usize {
+        if self.wrap {
+            width
+        } else {
+            NO_WRAP
+        }
+    }
+
+    /// Where a man-layout description starts.
+    pub(super) fn man_column(self) -> usize {
+        self.indent + fit::MAN_DESC_INDENT
+    }
+}
+
+/// The width that fits [`fit::SHARED_COLUMN_PERCENTILE`] of `widths` — the
 /// smallest number at least that share of the entries are within.
 ///
 /// Zero for an empty section, and the maximum for a section small enough
@@ -129,24 +133,29 @@ pub(super) fn percentile_width(widths: impl Iterator<Item = usize>) -> usize {
     }
     widths.sort_unstable();
     let n = widths.len();
-    let rank = (n * SHARED_COLUMN_PERCENTILE).div_ceil(100).max(1);
+    let rank = (n * fit::SHARED_COLUMN_PERCENTILE).div_ceil(100).max(1);
     widths[rank - 1]
 }
 
 /// The layout for one section's `entities` in a pane `width` columns wide,
-/// inset by `indent`. The shared column is the lowest of three bounds:
+/// inset by `indent`. The shared column is the lower of two bounds,
+/// floored so a description never lands left of the preindented longs:
 ///
 /// 1. The percentile (spec §9.3): fitted to the majority, widest tenth
 ///    excluded rather than clamped.
-/// 2. The pane cap (spec §9.1a): a head past [`DESC_COLUMN_CAP_PERCENT`]
-///    gets no vote.
-/// 3. The clamp (spec §9.3): comes down until [`MIN_DESC_WIDTH`] columns
-///    are left for prose.
+/// 2. The pane cap (spec §9.1a): a head past
+///    [`fit::DESC_COLUMN_CAP_PERCENT`] gets no vote.
 ///
-/// ...floored at two past the deepest column a spelling can start at, so
-/// a description never lands left of the preindented longs it belongs to.
-pub(super) fn section_layout(entities: &[&Entity], width: usize, indent: usize) -> SectionLayout {
-    let cap = width * DESC_COLUMN_CAP_PERCENT / 100;
+/// The column is never squeezed. When what is left of the pane after the
+/// percentile head is not [`fit::MIN_DESC_ROOM`] columns, the section is a
+/// man layout instead (unless wrapping is off).
+pub(super) fn section_layout(
+    entities: &[&Entity],
+    width: usize,
+    indent: usize,
+    wrap: bool,
+) -> SectionLayout {
+    let cap = width * fit::DESC_COLUMN_CAP_PERCENT / 100;
     let gap = 2;
 
     // One measured width per row, from the pane's own left edge to the end
@@ -160,11 +169,11 @@ pub(super) fn section_layout(entities: &[&Entity], width: usize, indent: usize) 
         .filter(|w| fits(*w));
 
     let floor = indent + LONG_COLUMN + gap;
-    let description = (percentile_width(fitting) + gap)
-        .min(width.saturating_sub(MIN_DESC_WIDTH))
-        .max(floor);
+    let description = (percentile_width(fitting) + gap).max(floor);
     SectionLayout {
         description,
         indent,
+        man: wrap && !fit::has_room(fit::section_room(width, description)),
+        wrap,
     }
 }

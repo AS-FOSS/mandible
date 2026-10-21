@@ -24,6 +24,48 @@ pub(super) fn hscroll_line(s: &str, offset: usize, width: usize) -> (Line<'stati
     (line, clipped_left, clipped_right)
 }
 
+/// [`hscroll_line`] for a styled line: `offset` columns trimmed off the
+/// left, then at most `width` columns of what remains, every span keeping
+/// its style. Returns the window and per-edge clip flags.
+pub(super) fn window_line(
+    line: &Line<'static>,
+    offset: usize,
+    width: usize,
+) -> (Line<'static>, bool, bool) {
+    let total = line.width();
+    if offset == 0 && total <= width {
+        return (line.clone(), false, false);
+    }
+    if total <= offset || width == 0 {
+        return (Line::default(), false, false);
+    }
+    let mut skip = offset;
+    let mut budget = width;
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    'spans: for span in &line.spans {
+        let mut text = String::new();
+        for ch in span.content.chars() {
+            let w = UnicodeWidthChar::width(ch).unwrap_or(0);
+            if skip > 0 {
+                skip = skip.saturating_sub(w);
+                continue;
+            }
+            if w > budget {
+                if !text.is_empty() {
+                    spans.push(Span::styled(text, span.style));
+                }
+                break 'spans;
+            }
+            budget -= w;
+            text.push(ch);
+        }
+        if !text.is_empty() {
+            spans.push(Span::styled(text, span.style));
+        }
+    }
+    (Line::from(spans), offset > 0, total > offset + width)
+}
+
 /// Wrap one preformatted line to `width` display columns, losing nothing
 /// (wrap-mode counterpart of [`hscroll_line`], used with `[ui]
 /// horizontal_scroll` off, spec §9). Not [`wrap_words`]: that collapses
@@ -178,13 +220,44 @@ pub(super) fn wrap_words(text: &str, width: usize) -> Vec<String> {
 /// columns, and every later line takes `width - hang`, for the caller to
 /// indent by `hang`. Always returns at least one chunk.
 pub(super) fn wrap_hanging(text: &str, width: usize, hang: usize) -> Vec<String> {
-    let mut first = wrap_words(text, width);
-    if first.len() < 2 {
-        return first;
+    let first_width = width.max(1);
+    let rest_width = first_width.saturating_sub(hang).max(1);
+    let limit = |rows: usize| if rows == 0 { first_width } else { rest_width };
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut current_width = 0usize;
+    for word in text.split_whitespace() {
+        let word_width = display_width(word);
+        let sep = usize::from(!current.is_empty());
+        if current_width + sep + word_width <= limit(lines.len()) {
+            if !current.is_empty() {
+                current.push(' ');
+            }
+            current.push_str(word);
+            current_width += sep + word_width;
+            continue;
+        }
+        if !current.is_empty() {
+            lines.push(std::mem::take(&mut current));
+        }
+        // A word wider than its row breaks across rows, never clipped; the
+        // last piece stays open for the words after it.
+        let mut rest = word;
+        while display_width(rest) > limit(lines.len()) {
+            let mut cut = width_prefix_end(rest, limit(lines.len()));
+            if cut == 0 {
+                cut = rest.chars().next().map_or(rest.len(), char::len_utf8);
+            }
+            lines.push(rest[..cut].to_string());
+            rest = &rest[cut..];
+        }
+        current = rest.to_string();
+        current_width = display_width(rest);
     }
-    let rest = first.split_off(1).join(" ");
-    first.extend(wrap_words(&rest, width.saturating_sub(hang)));
-    first
+    if !current.is_empty() || lines.is_empty() {
+        lines.push(current);
+    }
+    lines
 }
 
 /// True when `s` (a single word, no surrounding punctuation) reads as an

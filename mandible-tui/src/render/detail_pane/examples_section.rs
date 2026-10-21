@@ -12,6 +12,7 @@ pub(super) fn push_examples(
     lines: &mut Vec<Line<'static>>,
     node: &CommandNode,
     width: usize,
+    wrap: bool,
     palette: style::Palette,
     glyphs: Glyphs,
 ) {
@@ -25,7 +26,9 @@ pub(super) fn push_examples(
             lines.push(Line::default());
         }
         for line in example.text.as_str().split('\n') {
-            for row in wrap_preformatted_hung(line, width, USAGE_HANG) {
+            for row in
+                wrap_preformatted_hung(line, if wrap { width } else { NO_WRAP }, fit::USAGE_HANG)
+            {
                 lines.push(Line::from(row));
             }
         }
@@ -52,6 +55,7 @@ mod tests {
             &mut lines,
             node,
             width,
+            true,
             style::Palette::extended(),
             crate::glyphs::UNICODE,
         );
@@ -92,7 +96,10 @@ mod tests {
             24,
         );
         assert!(out[4].starts_with("  tool"), "{out:?}");
-        assert!(out[5].starts_with(&" ".repeat(2 + USAGE_HANG)), "{out:?}");
+        assert!(
+            out[5].starts_with(&" ".repeat(2 + fit::USAGE_HANG)),
+            "{out:?}"
+        );
         assert!(out[4..].iter().all(|r| r.chars().count() <= 24), "{out:?}");
     }
 }

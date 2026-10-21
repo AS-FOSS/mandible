@@ -16,6 +16,7 @@
 //! positions need no offset bookkeeping against the full search haystack.
 
 use crate::app::{App, Focus};
+use crate::fit;
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width, truncate_to_width_marker};
 use crate::style;
@@ -26,11 +27,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
-/// The summary column is capped at this fraction of the pane's inner
-/// width (spec §9.1), so one very long name in a deep tree can't push
-/// every summary in the pane off past the edge.
-const SUMMARY_COLUMN_CAP_PERCENT: usize = 40;
-
 /// What a convention-discovered row says about itself (spec §5.4, §9.2).
 ///
 /// A word rather than a glyph, and an ASCII one: a symbol here would have
@@ -40,7 +36,7 @@ const SUMMARY_COLUMN_CAP_PERCENT: usize = 40;
 const UNVERIFIED_BADGE: &str = "unverified";
 
 /// Render the tree pane into `area`.
-pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
+pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let focused = app.focus == Focus::Tree;
     let border_style = if focused {
         style::accent(app.color_enabled)
@@ -60,6 +56,11 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
         ),
         None => format!(" commands ({}) ", app.rows().len()),
     };
+    let title = truncate_to_width_marker(
+        &title,
+        usize::from(area.width.saturating_sub(2)),
+        fit::marker(&app.glyphs, fit::Marker::Cut),
+    );
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -81,6 +82,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App, hide_summaries: bool) {
 
     // Computed once, over *all* rows — see the module doc for why.
     let summary_column = summary_column(rows, inner_width);
+    // The column shows only while it leaves a summary room to read in.
+    let hide_summaries = !fit::has_room(inner_width.saturating_sub(summary_column));
 
     let query = app.active_filter();
 
@@ -129,7 +132,7 @@ fn summary_column(rows: &[TreeRow], width: usize) -> usize {
         .map(|r| prefix_width(r.depth) + display_width(&defensive_single_line(row_display_name(r))))
         .max()
         .unwrap_or(0);
-    let cap = width * SUMMARY_COLUMN_CAP_PERCENT / 100;
+    let cap = width * fit::SUMMARY_COLUMN_CAP_PERCENT / 100;
     longest.min(cap) + 2
 }
 
@@ -217,34 +220,41 @@ fn build_row_line(
     // this says whether the command on the row is one the tool documents at
     // all (spec §5.4, §9.2). It takes the column first, and the summary
     // gets what is left.
-    if (row.unverified || summary.is_some()) && name_part_width < width {
-        // Align to the shared column when the name leaves room for it;
-        // otherwise the summary starts right after the name, at least one
-        // space always, never truncating the name to force alignment.
-        // Fixture: `apt-get`'s `dselect-upgradeFollow`.
-        let pad_to = summary_column.max(name_part_width + 1);
-        let mut remaining = width.saturating_sub(pad_to);
-        if remaining > 0 {
-            spans.push(Span::raw(" ".repeat(pad_to - name_part_width)));
-            if row.unverified {
-                let badge = truncate_to_width_marker(UNVERIFIED_BADGE, remaining, glyphs.ellipsis);
-                remaining = remaining.saturating_sub(display_width(&badge));
-                spans.push(Span::styled(badge, style::warning(color_enabled)));
-            }
-            if let Some(summary) = summary {
-                let separator = if row.unverified {
-                    format!(" {} ", glyphs.dot)
-                } else {
-                    String::new()
-                };
-                // The separator only earns its cells when something legible
-                // follows it.
-                if remaining > display_width(&separator) {
-                    remaining = remaining.saturating_sub(display_width(&separator));
-                    let truncated = truncate_to_width_marker(&summary, remaining, glyphs.ellipsis);
-                    spans.push(Span::styled(separator, style::muted(color_enabled)));
-                    spans.push(Span::styled(truncated, style::muted(color_enabled)));
-                }
+    //
+    // Align to the shared column when the name leaves room for it;
+    // otherwise the summary starts right after the name, at least one
+    // space always, never truncating the name to force alignment.
+    // Fixture: `apt-get`'s `dselect-upgradeFollow`.
+    let pad_to = summary_column.max(name_part_width + 1);
+    let mut remaining = width.saturating_sub(pad_to);
+    // A summary shows only where it gets room to read; a row whose long
+    // name leaves less than that hides its own summary, whole.
+    let badge_room = if row.unverified {
+        display_width(UNVERIFIED_BADGE) + display_width(&format!(" {} ", glyphs.dot))
+    } else {
+        0
+    };
+    let summary = summary.filter(|_| fit::has_room(remaining.saturating_sub(badge_room)));
+    if (row.unverified || summary.is_some()) && name_part_width < width && remaining > 0 {
+        spans.push(Span::raw(" ".repeat(pad_to - name_part_width)));
+        if row.unverified {
+            let badge = truncate_to_width_marker(UNVERIFIED_BADGE, remaining, glyphs.ellipsis);
+            remaining = remaining.saturating_sub(display_width(&badge));
+            spans.push(Span::styled(badge, style::warning(color_enabled)));
+        }
+        if let Some(summary) = summary {
+            let separator = if row.unverified {
+                format!(" {} ", glyphs.dot)
+            } else {
+                String::new()
+            };
+            // The separator only earns its cells when something legible
+            // follows it.
+            if remaining > display_width(&separator) {
+                remaining = remaining.saturating_sub(display_width(&separator));
+                let truncated = truncate_to_width_marker(&summary, remaining, glyphs.ellipsis);
+                spans.push(Span::styled(separator, style::muted(color_enabled)));
+                spans.push(Span::styled(truncated, style::muted(color_enabled)));
             }
         }
     }

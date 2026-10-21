@@ -4,20 +4,12 @@
 //! Body horizontal: tree pane `Min(24)` / detail pane fills the remainder —
 //! not a percentage split (a 35% tree pane at 80 columns leaves ~20 usable
 //! cells after borders and indentation, not enough for a name plus a
-//! summary — spec [M-7]). Below 60 columns, tree rows drop their summary
-//! text. Below 50 columns, the panes stack vertically and `Tab` switches
-//! which one is visible.
+//! summary — spec [M-7]). Which of "too small", "one pane at a time" and
+//! "both panes" applies is [`crate::fit::screen`]'s answer.
 
 use crate::app::Focus;
+use crate::fit::{self, Screen};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-
-/// The minimum total terminal width, in columns, below which the tree and
-/// detail panes stack vertically instead of sitting side by side.
-pub const STACK_BREAKPOINT: u16 = 50;
-
-/// The minimum total terminal width, in columns, below which tree rows
-/// drop their summary text (name only).
-pub const SUMMARY_BREAKPOINT: u16 = 60;
 
 /// The computed screen regions for one frame.
 #[derive(Debug, Clone, Copy)]
@@ -30,13 +22,13 @@ pub struct Regions {
     pub detail: Option<Rect>,
     /// The status bar's area.
     pub status: Rect,
-    /// True if tree row summaries should be omitted for width reasons.
-    pub hide_summaries: bool,
+    /// True when the terminal is under the minimum size: draw only the
+    /// "too small" line.
+    pub too_small: bool,
 }
 
 /// Compute this frame's layout for a terminal of size `area`, given which
-/// pane has focus (used to decide which pane to show when stacked below
-/// [`STACK_BREAKPOINT`]).
+/// pane has focus (used to decide which pane to show when stacked).
 pub fn compute(area: Rect, focus: Focus) -> Regions {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
@@ -50,19 +42,19 @@ pub fn compute(area: Rect, focus: Focus) -> Regions {
     let body = vertical[1];
     let status = vertical[2];
 
-    let hide_summaries = area.width < SUMMARY_BREAKPOINT;
-
-    let (tree, detail) = if area.width < STACK_BREAKPOINT {
-        match focus {
+    let screen = fit::screen(area);
+    let (tree, detail) = match screen {
+        Screen::Split => {
+            let cols = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([Constraint::Min(fit::TREE_MIN_WIDTH), Constraint::Fill(1)])
+                .split(body);
+            (Some(cols[0]), Some(cols[1]))
+        }
+        _ => match focus {
             Focus::Detail => (None, Some(body)),
             _ => (Some(body), None),
-        }
-    } else {
-        let cols = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Min(24), Constraint::Fill(1)])
-            .split(body);
-        (Some(cols[0]), Some(cols[1]))
+        },
     };
 
     Regions {
@@ -70,7 +62,7 @@ pub fn compute(area: Rect, focus: Focus) -> Regions {
         tree,
         detail,
         status,
-        hide_summaries,
+        too_small: screen == Screen::TooSmall,
     }
 }
 
@@ -108,7 +100,7 @@ mod tests {
         let regions = compute(area(100, 30), Focus::Tree);
         assert!(regions.tree.is_some());
         assert!(regions.detail.is_some());
-        assert!(!regions.hide_summaries);
+        assert!(!regions.too_small);
     }
 
     #[test]
@@ -123,11 +115,17 @@ mod tests {
     }
 
     #[test]
-    fn medium_terminal_hides_summaries_but_keeps_both_panes() {
+    fn medium_terminal_keeps_both_panes() {
         let regions = compute(area(55, 30), Focus::Tree);
         assert!(regions.tree.is_some());
         assert!(regions.detail.is_some());
-        assert!(regions.hide_summaries);
+    }
+
+    #[test]
+    fn a_terminal_under_the_minimum_is_too_small() {
+        assert!(compute(area(fit::MIN_WIDTH - 1, 30), Focus::Tree).too_small);
+        assert!(compute(area(80, fit::MIN_HEIGHT - 1), Focus::Tree).too_small);
+        assert!(!compute(area(fit::MIN_WIDTH, fit::MIN_HEIGHT), Focus::Tree).too_small);
     }
 
     #[test]

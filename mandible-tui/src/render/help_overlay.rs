@@ -19,16 +19,17 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (Some("/"), "Focus search; again to widen names → everything"),
     (
         Some("Esc"),
-        "Leave search, keeping the filter; again clears it",
+        "Back to column 0 if scrolled sideways; else leave search, keeping the filter; again clears it",
     ),
     (None, "VIEW"),
     (
         Some("t"),
         "Verbatim: the tool\u{2019}s own --help, unparsed",
     ),
+    (Some("w"), "Wrap text, or scroll it sideways, in this view"),
     (
         Some("h l  ← →"),
-        "Scroll preformatted text sideways (detail pane focused)",
+        "Scroll sideways when wrap is off (detail pane focused)",
     ),
     (None, "ACTIONS"),
     (Some("y"), "Copy selected flag or command path"),
@@ -244,11 +245,8 @@ pub fn render(
         // An overlay sits on top of content, so it needs more separation
         // from its own border than a pane does.
         .padding(Padding::new(2, 2, 1, 1));
-    let (up, down) = if glyphs.rounded_borders {
-        ("▲", "▼")
-    } else {
-        ("^", "v")
-    };
+    let up = crate::fit::marker(&glyphs, crate::fit::Marker::Up);
+    let down = crate::fit::marker(&glyphs, crate::fit::Marker::Down);
     if scroll > 0 {
         block = block.title_top(Line::from(format!(" {up} more ")).right_aligned());
     }

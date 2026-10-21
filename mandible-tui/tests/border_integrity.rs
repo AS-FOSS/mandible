@@ -145,16 +145,16 @@ fn assert_border_intact(buffer: &ratatui::buffer::Buffer, rect: ratatui::layout:
     }
 
     // Bottom edge never carries a title, so it must be the plain rule
-    // character in every interior cell, strictly.
-    for x in (x0 + 1)..x1 {
-        let cell = &buffer[(x, y1)];
-        let sym = cell.symbol();
-        assert_eq!(
-            sym,
-            HORIZONTAL.to_string(),
-            "bottom border at ({x},{y1}) of rect {rect:?} corrupted: got {sym:?}"
-        );
-    }
+    // character in every interior cell, strictly, except for the one
+    // "more below" marker the pane itself draws there.
+    let bottom: String = ((x0 + 1)..x1)
+        .map(|x| buffer[(x, y1)].symbol().to_string())
+        .collect();
+    let bottom = bottom.replacen(" \u{25bc} more ", &HORIZONTAL.to_string().repeat(8), 1);
+    assert!(
+        bottom.chars().all(|c| c == HORIZONTAL),
+        "bottom border of rect {rect:?} corrupted: {bottom:?}"
+    );
 
     // Left/right edges: strict glyph match, every content row.
     for y in (y0 + 1)..y1 {
@@ -535,12 +535,12 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
     let left_marker = detail_rect.x + detail_rect.width - 3;
     assert_eq!(
         buffer[(right_marker, detail_rect.y)].symbol(),
-        "→",
+        "▶",
         "should signal more content to the right"
     );
     assert_ne!(
         buffer[(left_marker, detail_rect.y)].symbol(),
-        "←",
+        "◀",
         "nothing scrolled off the left yet"
     );
 
@@ -553,12 +553,12 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
     assert_border_intact(&buffer, detail_rect);
     assert_eq!(
         buffer[(left_marker, detail_rect.y)].symbol(),
-        "←",
+        "◀",
         "should signal more content to the left once scrolled"
     );
     assert_ne!(
         buffer[(right_marker, detail_rect.y)].symbol(),
-        "→",
+        "▶",
         "fully scrolled right: nothing more to reveal"
     );
 }
@@ -612,11 +612,11 @@ fn hscroll_clip_markers_mark_only_the_clipped_lines() {
     let long_row = row_text(&buffer, find_row(&buffer, "xxxx"));
     let short_row = row_text(&buffer, find_row(&buffer, "-a"));
     assert!(
-        long_row.trim_end().ends_with('>'),
+        long_row.trim_end().ends_with('▶'),
         "clipped line must end with the extends marker: {long_row:?}"
     );
     assert!(
-        !short_row.contains('>') && !short_row.contains('<'),
+        !short_row.contains('▶') && !short_row.contains('◀'),
         "a line that fits carries no marker: {short_row:?}"
     );
 
@@ -626,11 +626,11 @@ fn hscroll_clip_markers_mark_only_the_clipped_lines() {
     let buffer = render_once(&app);
     let long_row = row_text(&buffer, find_row(&buffer, "xxxx"));
     assert!(
-        long_row.trim_start().starts_with('<'),
+        long_row.trim_start().starts_with('◀'),
         "scrolled line must open with the precedes marker: {long_row:?}"
     );
     assert!(
-        long_row.trim_end().ends_with('>'),
+        long_row.trim_end().ends_with('▶'),
         "still more to the right at offset 5: {long_row:?}"
     );
 }
@@ -670,7 +670,7 @@ fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
     let right_marker = detail_rect.x + detail_rect.width - 2;
     assert_eq!(
         buffer[(right_marker, detail_rect.y)].symbol(),
-        "→",
+        "▶",
         "the affordance is not gated on detail-pane focus"
     );
 }

@@ -7,9 +7,6 @@ use mandible_core::{reconstruct_abbrev_word, Text};
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 
-/// Columns a wrapped usage form's later lines sit right of its first line.
-pub(super) const USAGE_HANG: usize = 4;
-
 /// One rendered usage row: `lead`, then `chunk`, with the next `path_left`
 /// non-space characters (the form's command path, counted across wrapped
 /// rows) in `accent`. `path_left` drops by the characters this row used.
