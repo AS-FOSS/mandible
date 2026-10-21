@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
 - In a narrow detail pane a flag list whose descriptions would get under 20 columns is laid out like a man page: the flag with every spelling on its own line, its description beneath it. The description column is no longer squeezed to make room.
 - Tree summaries show only while they get 20 columns, and a long name hides its own row's summary instead of cutting it to a fragment.
+- A `⋯ loading` marker that does not fit beside a long command name is left out instead of cut to `⋯…`.
 - The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below behind a dim `│`/`└` guide, beside the wrapped description.

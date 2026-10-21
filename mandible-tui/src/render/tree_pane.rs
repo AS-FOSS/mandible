@@ -194,10 +194,13 @@ fn build_row_line(
             let pad_to = summary_column.max(name_part_width + 1);
             let padding = " ".repeat(pad_to.saturating_sub(name_part_width));
             let remaining = width.saturating_sub(pad_to);
-            if remaining > 0 {
+            // The marker shows whole or not at all: a cut spinner says nothing.
+            if remaining >= display_width(glyphs.loading) {
                 spans.push(Span::raw(padding));
-                let marker = truncate_to_width_marker(glyphs.loading, remaining, glyphs.ellipsis);
-                spans.push(Span::styled(marker, style::muted(color_enabled)));
+                spans.push(Span::styled(
+                    glyphs.loading.to_string(),
+                    style::muted(color_enabled),
+                ));
             }
         }
         return Line::from(spans);
