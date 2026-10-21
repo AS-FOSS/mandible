@@ -164,10 +164,11 @@ exist; everything has a default.
 
 ### Settings
 
-Long preformatted lines (the raw `--help` view, USAGE synopses) scroll
-sideways with `←`/`→` (or `h`/`l`) instead of wrapping, and a dim `<`/`>`
-marker sits beside each line that continues past the pane edge. Set
-`horizontal_scroll = false` to wrap everything instead.
+`w` turns wrapping off or on in the view on screen. With it off, lines scroll
+sideways with `←`/`→` (or `h`/`l`) and a dim `◀`/`▶` marker sits beside each
+line that continues past the pane edge. The parsed page starts wrapped; the
+raw `--help` view starts as `horizontal_scroll` says, `true` (scrolling) by
+default. Set it to `false` to start the raw view wrapped.
 
 ```toml
 # ~/.config/mandible/config.toml
