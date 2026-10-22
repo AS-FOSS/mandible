@@ -1878,10 +1878,9 @@ placeholder, and every row would pay that width whether or not it takes a
 value, so the placeholder rides behind its own spelling instead. Spelling
 and placeholder are told apart by style (§9.2), not position. A column
 most rows share and some don't is noise that looks like alignment, which
-is why the description column is one number, not a target. The 28-column
-wrap floor is measured, not picked: at 20 columns a real six-word flag
-description breaks across six lines, one mid-word; at 28 it reads as
-prose, and a column squeezed to a strip is worse than a different layout,
+is why the description column is one number, not a target. A column
+squeezed to a strip is worse than a different layout: at 20 columns a real
+six-word flag description still reads as prose, below it breaks mid-word,
 so below 20 columns the section becomes a man page whole, decided per
 section, never per row, so one list never reads as two products. A row with five
 spellings otherwise runs past the column and pushes its description right.
@@ -2129,14 +2128,15 @@ shrinks, and the only three questions allowed to decide it.
    than the pane, in any wrapped text, hard-breaks at the pane edge. A name
    is cut in the tree only when it alone does not fit the pane; the full
    path is in the detail pane's title.
-3. The man layout. The head sits alone at the row's normal left edge with
-   every spelling joined (`-R, -r, --recursive`) and its placeholder, never
-   stacked; a head longer than the pane wraps with `USAGE_HANG` (4). The
-   description goes on the lines below, indented 8 from the section's left
-   edge and wrapped to the pane. `env:` and `values:` follow, indented as
-   in §9.3 relative to the description. A `values:` table follows its flag:
-   each value name on its own line and its description on the lines below,
-   indented two more.
+3. The man layout. The head sits alone, flush at the section's left edge
+   (a long-only spelling loses its pre-indent), with every spelling joined
+   (`-R, -r, --recursive`) and its placeholder, never stacked; a head
+   longer than the pane wraps with a 2-column hang (`MAN_HEAD_HANG`), so a
+   wrapped piece never lines up with the description. The description goes
+   on the lines below, indented 4 from that edge and wrapped to the pane.
+   `env:` and `values:` follow, indented as in §9.3 relative to the
+   description. A `values:` table follows its flag: each value name on its
+   own line and its description on the lines below, indented two more.
 4. Prose (the summary, DESCRIPTION, USAGE, EXAMPLES) always wraps, hanging
    later rows of USAGE and EXAMPLES by `USAGE_HANG`, at every size. Only
    wrapping off stops it.
@@ -3018,7 +3018,7 @@ to chase.
 Every size-dependent behaviour answers one of SCREEN (do two panes fit),
 ROOM (does a description get 20 columns) or USER CHOICE (`w`), recorded
 with its numbers in §9.4: stacking below 50 columns, the too-small screen
-under 30×10, the 20-column room, the 8-column man-layout description indent.
+under 30×10, the 20-column room, the 4-column man-layout description indent.
 The 28-column floor that squeezed a description column is gone: below 20
 columns of room a section becomes a man page. `[ui] horizontal_scroll` stays,
 as the starting wrap state of the raw view and the `unparsed` fallback; the

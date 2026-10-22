@@ -142,7 +142,7 @@ fn check_sections(name: &str, node: &CommandNode, width: usize, wrap: bool) {
             .iter()
             .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
             .collect();
-        let trimmed: std::collections::HashSet<&str> = texts.iter().map(|t| t.trim()).collect();
+        let lines_set: std::collections::HashSet<&str> = texts.iter().map(String::as_str).collect();
         let broken: Vec<String> = ents
             .iter()
             .filter(|e| entity_head_width(e, indent) > width)
@@ -151,10 +151,10 @@ fn check_sections(name: &str, node: &CommandNode, width: usize, wrap: bool) {
         if layout.man {
             for e in &ents {
                 let head = format!("{}{}", entity_name_spec(e), flag_value_suffix(e));
-                if spelling_column(e, indent) + display_width(&head) <= width {
+                if indent + display_width(&head) <= width {
                     assert!(
-                        trimmed.contains(head.as_str()),
-                        "{at}: no head-only line for {head:?}"
+                        lines_set.contains(format!("{}{head}", " ".repeat(indent)).as_str()),
+                        "{at}: no flush head-only line for {head:?}"
                     );
                 }
             }

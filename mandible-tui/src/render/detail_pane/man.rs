@@ -4,8 +4,8 @@
 use super::*;
 
 /// One row in man layout. The head carries every spelling joined, then its
-/// placeholder, at the row's normal left edge; a head longer than the pane
-/// wraps with [`fit::USAGE_HANG`]. The description follows, indented
+/// placeholder, flush at the section's left edge; a head longer than the pane
+/// wraps with [`fit::MAN_HEAD_HANG`]. The description follows, indented
 /// [`fit::MAN_DESC_INDENT`] past the section's indent and wrapped to the
 /// pane, then the `values:` and `env:` lines.
 pub(super) fn man_entity_lines(
@@ -15,7 +15,7 @@ pub(super) fn man_entity_lines(
     color_enabled: bool,
     layout: SectionLayout,
 ) -> Vec<Line<'static>> {
-    let head_column = spelling_column(flag, layout.indent);
+    let head_column = layout.indent;
     let leading = " ".repeat(head_column);
     let spelling_style = if dim {
         style::muted(color_enabled)
@@ -35,7 +35,7 @@ pub(super) fn man_entity_lines(
     let avail = width.saturating_sub(head_column).max(1);
     let mut cursor = 0;
     let mut lines: Vec<Line<'static>> = Vec::new();
-    for (i, chunk) in wrap_hanging(&head_text, avail, fit::USAGE_HANG)
+    for (i, chunk) in wrap_hanging(&head_text, avail, fit::MAN_HEAD_HANG)
         .iter()
         .enumerate()
     {
@@ -47,7 +47,7 @@ pub(super) fn man_entity_lines(
         let lead = if i == 0 {
             leading.clone()
         } else {
-            format!("{leading}{}", " ".repeat(fit::USAGE_HANG))
+            format!("{leading}{}", " ".repeat(fit::MAN_HEAD_HANG))
         };
         let split = name_spec.len().clamp(start, cursor);
         let mut spans = vec![Span::styled(

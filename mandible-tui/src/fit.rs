@@ -22,7 +22,10 @@ pub const MIN_DESC_ROOM: usize = 20;
 pub const TREE_MIN_WIDTH: u16 = 24;
 
 /// Where a man-layout description starts, past the section's indent.
-pub const MAN_DESC_INDENT: usize = 8;
+pub const MAN_DESC_INDENT: usize = 4;
+
+/// Columns a man-layout head's wrapped pieces hang past its first line.
+pub const MAN_HEAD_HANG: usize = 2;
 
 /// Columns a continuation row hangs past its first row.
 pub const USAGE_HANG: usize = 4;

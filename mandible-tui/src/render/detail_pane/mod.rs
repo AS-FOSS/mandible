@@ -2545,6 +2545,9 @@ mod tests {
         // has stopped being that spelling's description.
         for width in 10..=120 {
             let layout = section_layout(&refs, width, 0, true);
+            if layout.man {
+                continue;
+            }
             assert!(
                 layout.description > spelling_column(&flag, 0),
                 "width {width}: column {} is not clear of the long column",
