@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Pages with thousands of flags scroll and search without lag, and an idle page no longer redraws its whole document ten times a second; nothing on screen changes.
 - `w` turns wrapping off or on in the view on screen: with it off, nothing in the detail pane wraps and `←`/`→` scroll it sideways.
 - A terminal under 30 columns or 10 rows shows only `Terminal too small (need 30×10). Enlarge the window or zoom out.`
-- The detail pane marks hidden rows with `▲ more` and `▼ more` on its border.
+- The detail pane marks hidden rows with a bare `▲` on its top border and `▼` on its bottom border, one cell in from the right corner, in the border's own style.
 - `Esc` first returns a sideways-scrolled detail pane to column 0.
 
 ### Changed
@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Tree summaries show only while they get 20 columns, and a long name hides its own row's summary instead of cutting it to a fragment.
 - A `⋯ loading` marker that does not fit beside a long command name is left out instead of cut to `⋯…`.
 - The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
-- The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
+- The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below behind a dim `│`/`└` guide, beside the wrapped description.
 
 ### Fixed

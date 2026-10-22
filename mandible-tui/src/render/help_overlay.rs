@@ -2,6 +2,7 @@
 
 use crate::sanitize::display_width;
 use ratatui::layout::Rect;
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Padding, Paragraph};
 use ratatui::Frame;
@@ -238,23 +239,28 @@ pub fn render(
     let scroll = scroll.min(plan.max_scroll);
     frame.render_widget(Clear, plan.popup);
 
-    let mut block = Block::default()
+    let border = Style::default();
+    let block = Block::default()
         .title(" keybindings ")
         .borders(Borders::ALL)
         .border_set(crate::style::border_set(glyphs))
+        .border_style(border)
         // An overlay sits on top of content, so it needs more separation
         // from its own border than a pane does.
         .padding(Padding::new(2, 2, 1, 1));
-    let up = crate::fit::marker(&glyphs, crate::fit::Marker::Up);
-    let down = crate::fit::marker(&glyphs, crate::fit::Marker::Down);
-    if scroll > 0 {
-        block = block.title_top(Line::from(format!(" {up} more ")).right_aligned());
-    }
-    if scroll < plan.max_scroll {
-        block = block.title_bottom(Line::from(format!(" {down} more ")).right_aligned());
-    }
     let inner = block.inner(plan.popup);
     frame.render_widget(block, plan.popup);
+    let set = crate::style::border_set(glyphs);
+    let buf = frame.buffer_mut();
+    if scroll > 0 {
+        let up = crate::fit::Marker::Up;
+        crate::fit::draw_vertical_marker(buf, plan.popup, &glyphs, up, border, set.horizontal_top);
+    }
+    if scroll < plan.max_scroll {
+        let down = crate::fit::Marker::Down;
+        let rule = set.horizontal_bottom;
+        crate::fit::draw_vertical_marker(buf, plan.popup, &glyphs, down, border, rule);
+    }
     let result = (plan.max_scroll, plan.visible);
     if inner.width == 0 || inner.height == 0 {
         return result;

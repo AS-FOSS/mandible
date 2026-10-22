@@ -50,24 +50,21 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
-    let focused = app.focus == Focus::Detail;
-    let border_style = if focused {
-        style::accent(app.color_enabled)
-    } else {
-        Style::default()
-    };
-
     let path: Vec<String> = app
         .selected_row()
         .map(|r| r.path.iter().map(|s| defensive_single_line(s)).collect())
         .unwrap_or_default();
-    let title = breadcrumb_title(&path, app.glyphs, usize::from(area.width.saturating_sub(2)));
+    let title = breadcrumb_title(
+        &path,
+        app.glyphs,
+        usize::from(area.width.saturating_sub(fit::TITLE_CLEARANCE)),
+    );
 
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
         .border_set(style::border_set(app.glyphs))
-        .border_style(border_style)
+        .border_style(border_style(app))
         // One column of padding each side; `Block::padding` removes it from
         // `inner`, so downstream width math never has to know it exists.
         .padding(Padding::horizontal(1));

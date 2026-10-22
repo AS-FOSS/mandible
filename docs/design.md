@@ -1734,9 +1734,8 @@ pane.
 9. Wrapping is a per-view choice, made with `w`. Wrapping on, every line
    of the page is re-flowed to the pane; wrapping off, nothing wraps, each
    line is one row, and `h`/`l`/`←`/`→` scroll 8 columns a press, clamped
-   to the widest line, with a `◀`/`▶` marker in the border when more sits
-   off that edge and, per line, in the gutter beside exactly the lines cut
-   at that edge. The parsed view starts wrapped. The raw `--help` view
+   to the widest line, with a `◀`/`▶` marker, per line, in the gutter beside
+   exactly the lines cut at that edge. The parsed view starts wrapped. The raw `--help` view
    (`t`) and the `unparsed` fallback are the tool author's own layout and
    share one state that starts from `[ui] horizontal_scroll` in
    `~/.config/mandible/config.toml`, default `true`, meaning not wrapping.
@@ -2065,9 +2064,10 @@ sections.
     nothing in a section is clipped; with it off (`w`, §9 rule 9) nothing
     wraps and the page scrolls sideways instead, every section in the
     table layout with each description on its row's one line. USAGE is
-    mandible's own reconstruction too (§9 rule 9). A description's
-    preserved line breaks (§4.1) wrap too, each logical line wrapped on its
-    own at its own indent.
+    mandible's own reconstruction too (§9 rule 9). Flag and positional
+    descriptions are joined into one paragraph; a command's DESCRIPTION
+    section keeps its preserved line breaks (§4.1), each logical line
+    wrapped on its own at its own indent.
 17. EXAMPLES is always the last section. It prints the node's `examples`
     as the tool printed them: its lines, indentation and interior spacing,
     one blank row between examples, with no accent, dim or other styling of
@@ -2142,10 +2142,15 @@ shrinks, and the only three questions allowed to decide it.
    wrapping off stops it.
 5. Markers. One family, one function (`fit::marker`), with the glyph set's
    ASCII fallback: `…` cut (`...`); `▲` `▼` more above or below (`^` `v`),
-   the `?` popup's own; `◀` `▶` more to the sides (`<` `>`). The detail pane
-   draws `▲ more` and `▼ more` on its border when rows are hidden, `◀`
-   `▶` on its top border for columns, and `◀` `▶` in the gutter beside each
-   line cut at that edge.
+   the `?` popup's own; `◀` `▶` more to the sides (`<` `>`). `▲` and `▼` are
+   bare glyphs, with no label, on the top and bottom border, in the same
+   column: one rule cell in from the right corner (`─▲─╮`, `─▼─╯`), shown
+   only while rows are hidden in that direction. A title never overwrites
+   that cell and is cut to leave it free; the `?` popup's border follows the
+   same rule. `◀` `▶` stand in the gutter beside each line cut at that edge,
+   and never on a border. Every marker is part of its pane's frame and is
+   drawn in exactly its border's style: the accent when the pane is focused,
+   the plain border style when not (bold and plain under `NO_COLOR`).
 6. Sideways position returns to column 0 on selecting another command, on
    a search jump to a flag, and on toggling wrap. `Esc` works in layers:
    close the `?` popup; else, if scrolled sideways, return to column 0;
@@ -2166,8 +2171,8 @@ shrinks, and the only three questions allowed to decide it.
 | Search box text | scroll | Shows the end of what is typed |
 | DESCRIPTION, USAGE, EXAMPLES, summary | USER CHOICE | Wrapped with `USAGE_HANG`; hard-break of an over-wide token; wrapping off: one row per line |
 | Raw view, `unparsed` fallback | USER CHOICE | Its own state, starting from `[ui] horizontal_scroll` (default: scrolls); preformatted lines never re-flow |
-| Detail pane rows hidden | scroll | `▲ more` `▼ more` on the border |
-| Detail pane columns hidden | scroll | `◀` `▶` on the top border and in the gutter |
+| Detail pane rows hidden | scroll | Bare `▲` `▼` on the top and bottom border, one rule cell in from the corner |
+| Detail pane columns hidden | scroll | `◀` `▶` in the gutter beside each cut line |
 | `?` popup | SCREEN | Unchanged: sized to its content, clamped to the screen, scrolls with its own `▲`/`▼` |
 | Status bar | SCREEN | Unchanged: hints are dropped whole, the last two stay |
 

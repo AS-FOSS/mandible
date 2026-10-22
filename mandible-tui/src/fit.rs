@@ -4,7 +4,9 @@
 //! USER CHOICE (`w`, held on the app). Markers come from [`marker`].
 
 use crate::glyphs::Glyphs;
+use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::style::Style;
 
 /// Below this width the panes stack and `Tab` switches between them.
 pub const STACK_BREAKPOINT: u16 = 50;
@@ -97,6 +99,52 @@ pub fn marker(glyphs: &Glyphs, marker: Marker) -> &'static str {
         Marker::Right => glyphs.more_right,
     }
 }
+
+/// Draw `which` at `(x, y)` in `border`, the style of the frame it belongs
+/// to: a marker is part of its pane's frame, so it is the accent when the
+/// pane is focused and plain when not, and never a colour of its own.
+pub fn draw_marker(
+    buf: &mut Buffer,
+    (x, y): (u16, u16),
+    glyphs: &Glyphs,
+    which: Marker,
+    border: Style,
+) {
+    buf[(x, y)]
+        .set_symbol(marker(glyphs, which))
+        .set_style(border);
+}
+
+/// Draw the `▲` (top) or `▼` (bottom) of a frame occupying `area`, one rule
+/// cell in from the right corner (`─▲─╮`). Only a plain rule cell is drawn
+/// over, so a title is never overwritten.
+pub fn draw_vertical_marker(
+    buf: &mut Buffer,
+    area: Rect,
+    glyphs: &Glyphs,
+    which: Marker,
+    border: Style,
+    rule: &str,
+) {
+    let y = match which {
+        Marker::Up => area.y,
+        Marker::Down => area.y + area.height.saturating_sub(1),
+        _ => return,
+    };
+    let Some(x) = (area.x + area.width).checked_sub(VERTICAL_MARKER_FROM_RIGHT) else {
+        return;
+    };
+    if x > area.x && buf[(x, y)].symbol() == rule {
+        draw_marker(buf, (x, y), glyphs, which, border);
+    }
+}
+
+/// Columns from a frame's right edge to its vertical marker's cell.
+pub const VERTICAL_MARKER_FROM_RIGHT: u16 = 3;
+
+/// Columns a top border's title must leave free for the vertical marker,
+/// counted from the title's start to the right edge.
+pub const TITLE_CLEARANCE: u16 = VERTICAL_MARKER_FROM_RIGHT + 1;
 
 #[cfg(test)]
 mod tests {

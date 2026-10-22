@@ -37,60 +37,29 @@ pub(super) fn breadcrumb_title(path: &[String], glyphs: Glyphs, budget: usize) -
     format!(" {cut}{tail} ")
 }
 
-/// Write `text` on the top or bottom border, ending `from_right` cells before
-/// the right-hand corner, but only over cells that are still plain rule: a title or a
-/// corner is never overwritten.
-fn stamp_border(frame: &mut Frame, area: Rect, app: &App, top: bool, from_right: u16, text: &str) {
-    let set = style::border_set(app.glyphs);
-    let (rule, y) = if top {
-        (set.horizontal_top, area.y)
+/// The style of the detail pane's border, and of every marker on it.
+pub(super) fn border_style(app: &App) -> Style {
+    if app.focus == Focus::Detail {
+        style::accent(app.color_enabled)
     } else {
-        (
-            set.horizontal_bottom,
-            area.y + area.height.saturating_sub(1),
-        )
-    };
-    let Ok(len) = u16::try_from(display_width(text)) else {
-        return;
-    };
-    let end = area.x + area.width;
-    let Some(start) = end.checked_sub(from_right + len) else {
-        return;
-    };
-    let buf = frame.buffer_mut();
-    if start <= area.x || (start..start + len).any(|x| buf[(x, y)].symbol() != rule) {
-        return;
-    }
-    let mut x = start;
-    for ch in text.chars() {
-        buf[(x, y)].set_char(ch);
-        x += u16::try_from(UnicodeWidthChar::width(ch).unwrap_or(1)).unwrap_or(1);
+        Style::default()
     }
 }
 
-/// Draw what the pane is hiding onto its border, through the one marker
-/// family: `▲`/`▼ more` for rows above or below, `◀`/`▶` for columns off
-/// either side. Drawn regardless of pane focus, since a silently clipped
-/// edge is worse than a marker pointing at an unfocused pane (spec §9).
+/// Draw `▲` and `▼` on the border for rows hidden above or below, through
+/// the one marker function. Drawn regardless of pane focus, since a silently
+/// clipped edge is worse than a marker pointing at an unfocused pane.
 pub(super) fn draw_edge_markers(frame: &mut Frame, area: Rect, app: &App) {
-    let up = fit::marker(&app.glyphs, fit::Marker::Up);
-    let down = fit::marker(&app.glyphs, fit::Marker::Down);
+    let set = style::border_set(app.glyphs);
+    let style = border_style(app);
+    let buf = frame.buffer_mut();
     if app.detail_can_scroll_up() {
-        stamp_border(frame, area, app, true, 4, &format!(" {up} more "));
+        let args = (&app.glyphs, fit::Marker::Up, style, set.horizontal_top);
+        fit::draw_vertical_marker(buf, area, args.0, args.1, args.2, args.3);
     }
     if app.detail_can_scroll_down() {
-        stamp_border(frame, area, app, false, 2, &format!(" {down} more "));
-    }
-    if !app.sideways() {
-        return;
-    }
-    if app.detail_hscroll_can_go_right() {
-        let right = fit::marker(&app.glyphs, fit::Marker::Right);
-        stamp_border(frame, area, app, true, 1, right);
-    }
-    if app.detail_hscroll_can_go_left() {
-        let left = fit::marker(&app.glyphs, fit::Marker::Left);
-        stamp_border(frame, area, app, true, 2, left);
+        let args = (&app.glyphs, fit::Marker::Down, style, set.horizontal_bottom);
+        fit::draw_vertical_marker(buf, area, args.0, args.1, args.2, args.3);
     }
 }
 
@@ -112,9 +81,7 @@ pub(super) fn draw_clip_marker_rails(
     }
     let left_x = inner.x - 1;
     let right_x = inner.x + inner.width;
-    let marker = style::muted(app.color_enabled);
-    let left_glyph = fit::marker(&app.glyphs, fit::Marker::Left);
-    let right_glyph = fit::marker(&app.glyphs, fit::Marker::Right);
+    let border = border_style(app);
     let buf = frame.buffer_mut();
     for &(idx, left, right) in clip_rows {
         let Some(row) = idx.checked_sub(vscroll) else {
@@ -125,10 +92,10 @@ pub(super) fn draw_clip_marker_rails(
         }
         let y = inner.y + row as u16;
         if left {
-            buf[(left_x, y)].set_symbol(left_glyph).set_style(marker);
+            fit::draw_marker(buf, (left_x, y), &app.glyphs, fit::Marker::Left, border);
         }
         if right {
-            buf[(right_x, y)].set_symbol(right_glyph).set_style(marker);
+            fit::draw_marker(buf, (right_x, y), &app.glyphs, fit::Marker::Right, border);
         }
     }
 }

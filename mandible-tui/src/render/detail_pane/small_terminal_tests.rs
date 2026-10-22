@@ -66,7 +66,8 @@ fn dump(b: &Buffer) -> String {
 }
 
 /// Corners, side edges and the bottom rule of a pane are intact. The only
-/// thing allowed on the bottom rule is the `more below` label.
+/// thing allowed on the bottom rule is a bare `▼`, in the same column as the
+/// top border's `▲` (one rule cell in from the corner).
 fn assert_border(b: &Buffer, r: Rect, label: &str) {
     let (x1, y1) = (r.x + r.width - 1, r.y + r.height - 1);
     for (x, y, want) in [
@@ -82,11 +83,23 @@ fn assert_border(b: &Buffer, r: Rect, label: &str) {
             assert_eq!(b[(x, y)].symbol(), "│", "{label}: side\n{}", dump(b));
         }
     }
-    let bottom = row_text(b, y1, r.x + 1, x1).replacen(" ▼ more ", &"─".repeat(8), 1);
+    let bottom = row_text(b, y1, r.x + 1, x1);
+    let marker_i = usize::from(r.width) - 4;
     assert!(
-        bottom.chars().all(|c| c == '─'),
+        bottom
+            .chars()
+            .enumerate()
+            .all(|(i, c)| c == '─' || (c == '▼' && i == marker_i)),
         "{label}: bottom {bottom:?}"
     );
+    let top = row_text(b, r.y, r.x, x1 + 1);
+    assert!(
+        !top.contains('◀') && !top.contains('▶') && !top.contains("more"),
+        "{label}: top {top:?}"
+    );
+    if let Some(i) = top.chars().position(|c| c == '▲') {
+        assert_eq!(i, usize::from(r.width) - 3, "{label}: up marker {top:?}");
+    }
 }
 
 fn assert_no_ellipsis_outside_tree_rows(b: &Buffer, area: Rect, focus: Focus, label: &str) {
@@ -287,10 +300,36 @@ fn hidden_rows_are_marked_on_the_border() {
         (row_text(&b, 3, 0, 100), row_text(&b, 10, 0, 100))
     };
     let (top, bottom) = edges(&app);
-    assert!(bottom.contains("▼ more") && !top.contains("▲ more"));
+    assert!(bottom.contains('▼') && !top.contains('▲'));
     app.detail_scroll = 5;
-    assert!(edges(&app).0.contains("▲ more"), "rows above");
+    let (top, bottom) = edges(&app);
+    let col = |s: &str, c: char| s.chars().position(|x| x == c);
+    assert_eq!(col(&top, '▲'), col(&bottom, '▼'), "same column");
+    assert_eq!(col(&top, '▲'), Some(97), "one rule cell in from the corner");
+    assert!(!top.contains("more") && !bottom.contains("more"));
     app.glyphs = crate::glyphs::ASCII;
     let (top, bottom) = edges(&app);
-    assert!(top.contains("^ more") && bottom.contains("v more"));
+    assert_eq!(col(&top, '^'), col(&bottom, 'v'));
+    assert!(col(&top, '^').is_some() && !top.contains("more"));
+}
+
+/// A title never reaches the marker cell, and a marker never overwrites a
+/// title: the title is cut to leave the cell free.
+#[test]
+fn a_long_title_is_cut_to_leave_the_marker_cell_free() {
+    let path: Vec<String> = ["a-very-long-command-name", "another-long-subcommand-name"]
+        .iter()
+        .map(|s| (*s).to_string())
+        .collect();
+    for width in [30u16, 40, 52, 60] {
+        let title = breadcrumb_title(
+            &path,
+            crate::glyphs::UNICODE,
+            usize::from(width.saturating_sub(fit::TITLE_CLEARANCE)),
+        );
+        assert!(
+            display_width(&title) < usize::from(width) - 3,
+            "{width}: {title:?}"
+        );
+    }
 }

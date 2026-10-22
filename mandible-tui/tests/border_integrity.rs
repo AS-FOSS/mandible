@@ -144,17 +144,21 @@ fn assert_border_intact(buffer: &ratatui::buffer::Buffer, rect: ratatui::layout:
         );
     }
 
-    // Bottom edge never carries a title, so it must be the plain rule
-    // character in every interior cell, strictly, except for the one
-    // "more below" marker the pane itself draws there.
-    let bottom: String = ((x0 + 1)..x1)
-        .map(|x| buffer[(x, y1)].symbol().to_string())
+    // Bottom edge never carries a title, so it is the plain rule in every
+    // interior cell, except the one `▼` the pane draws one rule cell in from
+    // the corner, with no label beside it.
+    let bottom: Vec<char> = ((x0 + 1)..x1)
+        .map(|x| buffer[(x, y1)].symbol().chars().next().unwrap())
         .collect();
-    let bottom = bottom.replacen(" \u{25bc} more ", &HORIZONTAL.to_string().repeat(8), 1);
-    assert!(
-        bottom.chars().all(|c| c == HORIZONTAL),
-        "bottom border of rect {rect:?} corrupted: {bottom:?}"
-    );
+    let marker_at = usize::from(rect.width) - 4;
+    for (i, c) in bottom.iter().enumerate() {
+        let ok = *c == HORIZONTAL || (*c == '\u{25bc}' && i == marker_at);
+        assert!(
+            ok,
+            "bottom border of rect {rect:?} corrupted: {:?}",
+            bottom.iter().collect::<String>()
+        );
+    }
 
     // Left/right edges: strict glyph match, every content row.
     for y in (y0 + 1)..y1 {
@@ -176,6 +180,18 @@ fn assert_border_intact(buffer: &ratatui::buffer::Buffer, rect: ratatui::layout:
     let top_row: String = (x0..=x1)
         .map(|x| buffer[(x, y0)].symbol().to_string())
         .collect();
+    assert!(
+        !top_row.contains('\u{25c0}') && !top_row.contains('\u{25b6}'),
+        "the top border of rect {rect:?} carries a sideways marker: {top_row:?}"
+    );
+    if let Some(i) = top_row.chars().position(|c| c == '\u{25b2}') {
+        assert_eq!(
+            i,
+            usize::from(rect.width) - 3,
+            "the up marker sits one rule cell in from the corner: {top_row:?}"
+        );
+        assert!(!top_row.contains("more"), "{top_row:?}");
+    }
     for marker in ADVERSARIAL_MARKERS {
         assert!(
             !top_row.contains(marker),
@@ -317,6 +333,24 @@ fn help_overlay_stays_inside_its_own_rect() {
                         "{w}x{h} side ({x},{y})"
                     );
                 }
+            }
+
+            // The bare markers: same column, one rule cell in, no label,
+            // drawn in the popup border's own style.
+            let col = popup.x + popup.width - 3;
+            let (top, bottom) = (&with[(col, y0)], &with[(col, y1)]);
+            let shown = |c: &ratatui::buffer::Cell| "▲▼".contains(c.symbol());
+            if (w, h) == (60, 14) && scrolled {
+                assert_eq!(top.symbol(), "▲", "{w}x{h} up marker");
+                assert_eq!(bottom.symbol(), "▼", "{w}x{h} down marker");
+            }
+            assert!(scrolled || top.symbol() != "▲", "{w}x{h}");
+            for cell in [top, bottom].into_iter().filter(|c| shown(c)) {
+                assert_eq!(cell.style(), with[(col - 1, y0)].style(), "{w}x{h}");
+            }
+            for y in [y0, y1] {
+                let row: String = (x0..=x1).map(|x| with[(x, y)].symbol()).collect();
+                assert!(!row.contains("more"), "{w}x{h}: {row:?}");
             }
 
             // (b) outside the popup the frame is exactly the frame without
@@ -527,40 +561,18 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
         terminal.backend().buffer().clone()
     };
 
-    // Unscrolled: more content to the right, none to the left.
-    let buffer = render_once(&app);
-    assert_border_intact(&buffer, regions.search);
-    assert_border_intact(&buffer, detail_rect);
-    let right_marker = detail_rect.x + detail_rect.width - 2;
-    let left_marker = detail_rect.x + detail_rect.width - 3;
-    assert_eq!(
-        buffer[(right_marker, detail_rect.y)].symbol(),
-        "▶",
-        "should signal more content to the right"
-    );
-    assert_ne!(
-        buffer[(left_marker, detail_rect.y)].symbol(),
-        "◀",
-        "nothing scrolled off the left yet"
-    );
-
-    // Scroll all the way right: the affordance should flip.
-    for _ in 0..64 {
-        app.detail_hscroll_right();
+    // Sideways scrolling is shown on the lines themselves, never on the
+    // border: unscrolled and fully scrolled, the top border has no arrows.
+    for scrolled in [false, true] {
+        if scrolled {
+            for _ in 0..64 {
+                app.detail_hscroll_right();
+            }
+        }
+        let buffer = render_once(&app);
+        assert_border_intact(&buffer, regions.search);
+        assert_border_intact(&buffer, detail_rect);
     }
-    let buffer = render_once(&app);
-    assert_border_intact(&buffer, regions.search);
-    assert_border_intact(&buffer, detail_rect);
-    assert_eq!(
-        buffer[(left_marker, detail_rect.y)].symbol(),
-        "◀",
-        "should signal more content to the left once scrolled"
-    );
-    assert_ne!(
-        buffer[(right_marker, detail_rect.y)].symbol(),
-        "▶",
-        "fully scrolled right: nothing more to reveal"
-    );
 }
 
 /// Per-line clip markers (vim's `listchars extends:>,precedes:<`): a line
@@ -667,11 +679,13 @@ fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
         .unwrap();
     let buffer = terminal.backend().buffer().clone();
     assert_border_intact(&buffer, detail_rect);
-    let right_marker = detail_rect.x + detail_rect.width - 2;
-    assert_eq!(
-        buffer[(right_marker, detail_rect.y)].symbol(),
-        "▶",
-        "the affordance is not gated on detail-pane focus"
+    let line_end = detail_rect.x + detail_rect.width - 2;
+    let gutter: Vec<&str> = (detail_rect.y + 1..detail_rect.y + detail_rect.height - 1)
+        .map(|y| buffer[(line_end, y)].symbol())
+        .collect();
+    assert!(
+        gutter.contains(&"▶"),
+        "the clip marker is not gated on detail-pane focus: {gutter:?}"
     );
 }
 
@@ -704,8 +718,12 @@ fn detail_pane_hscroll_affordance_uses_the_ascii_glyphs() {
     // ASCII borders use `+` corners, not the rounded glyphs
     // `assert_border_intact` checks for — this asserts the ASCII-specific
     // property directly instead.
-    let right_marker = detail_rect.x + detail_rect.width - 2;
-    assert_eq!(buffer[(right_marker, detail_rect.y)].symbol(), ">");
+    let line_end = detail_rect.x + detail_rect.width - 2;
+    assert!(
+        (detail_rect.y + 1..detail_rect.y + detail_rect.height - 1)
+            .any(|y| buffer[(line_end, y)].symbol() == ">"),
+        "the clipped line carries a > in the gutter"
+    );
     for y in 0..height {
         for x in 0..width {
             assert!(
@@ -770,4 +788,72 @@ fn unicode_glyph_set_still_draws_rounded_borders() {
     let buffer = terminal.backend().buffer().clone();
     let corner = buffer[(0u16, 0u16)].symbol().to_string();
     assert_eq!(corner, "╭", "expected a rounded corner, got {corner:?}");
+}
+
+/// A marker is part of its pane's frame: every `▲ ▼ ◀ ▶` is drawn in exactly
+/// the style of the border cell beside it, focused (accent) or not, with
+/// colour or without.
+#[test]
+fn markers_are_drawn_in_their_borders_style() {
+    use ratatui::layout::Rect;
+    gutter_markers_match_the_border();
+    for color in [true, false] {
+        for focus in [mandible_tui::Focus::Detail, mandible_tui::Focus::Tree] {
+            let mut root =
+                CommandNode::new("tall", Provenance::with_confidence(Source::HelpText, 0.0));
+            root.unparsed = (0..60)
+                .map(|i| Text::sanitize(&format!("tall line {i}")))
+                .collect();
+            let mut app = App::new("tall".to_string(), root);
+            app.glyphs = mandible_tui::glyphs::UNICODE;
+            app.color_enabled = color;
+            app.focus = focus;
+            let area = Rect::new(0, 0, 80, 12);
+            draw(&app, 80, 12);
+            app.detail_scroll = 1;
+            let buf = draw(&app, 80, 12);
+            let rect = mandible_tui::layout::compute(area, app.focus)
+                .detail
+                .expect("detail pane");
+            let (top, bottom) = (rect.y, rect.y + rect.height - 1);
+            let col = rect.x + rect.width - 3;
+            for y in [top, bottom] {
+                let marker = &buf[(col, y)];
+                assert!("▲▼".contains(marker.symbol()), "{color} {focus:?} y={y}");
+                let rule = &buf[(col - 1, y)];
+                assert_eq!(rule.symbol(), "─");
+                assert_eq!(marker.style(), rule.style(), "{color} {focus:?} y={y}");
+                let corner = &buf[(rect.x + rect.width - 1, y)];
+                assert_eq!(marker.style(), corner.style(), "{color} {focus:?} y={y}");
+            }
+            assert_eq!(buf[(col, top)].symbol(), "▲");
+            assert_eq!(buf[(col, bottom)].symbol(), "▼");
+        }
+    }
+}
+
+fn gutter_markers_match_the_border() {
+    let mut root = CommandNode::new("wide", Provenance::with_confidence(Source::HelpText, 0.0));
+    root.unparsed = vec![Text::sanitize(&format!("wide {}", "x".repeat(200)))];
+    for color in [true, false] {
+        for focus in [mandible_tui::Focus::Detail, mandible_tui::Focus::Tree] {
+            let mut app = App::new("wide".to_string(), root.clone());
+            app.glyphs = mandible_tui::glyphs::UNICODE;
+            app.color_enabled = color;
+            app.focus = focus;
+            let buf = draw(&app, 60, 20);
+            let rect =
+                mandible_tui::layout::compute(ratatui::layout::Rect::new(0, 0, 60, 20), focus)
+                    .detail
+                    .expect("detail pane");
+            let x = rect.x + rect.width - 2;
+            let y = (rect.y + 1..rect.y + rect.height - 1)
+                .find(|&y| buf[(x, y)].symbol() == "▶")
+                .expect("a clipped line");
+            assert_eq!(
+                buf[(x, y)].style(),
+                buf[(rect.x + rect.width - 1, y)].style()
+            );
+        }
+    }
 }
