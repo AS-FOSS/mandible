@@ -304,8 +304,15 @@ fn style_and_glyph_variants_and_changes_between_frames_match() {
             }
         }
         // One long-lived cached app driven through state changes, each
-        // frame compared with a fresh reference app in the same state.
+        // frame compared with a long-lived reference app given the same
+        // steps and the same sizes: where a re-flow leaves the pane
+        // depends on the sizes it was drawn at before.
         let mut fast = app_with(
+            node,
+            crate::style::Palette::extended(),
+            crate::glyphs::UNICODE,
+        );
+        let mut slow = app_with(
             node,
             crate::style::Palette::extended(),
             crate::glyphs::UNICODE,
@@ -317,18 +324,9 @@ fn style_and_glyph_variants_and_changes_between_frames_match() {
             Box::new(|a| a.detail_scroll = 40),
             Box::new(|a| a.focus = Focus::Tree),
         ];
-        let mut slow_state: Vec<&Step> = Vec::new();
         for step in &steps {
             step(&mut fast);
-            slow_state.push(step);
-            let mut slow = app_with(
-                node,
-                crate::style::Palette::extended(),
-                crate::glyphs::UNICODE,
-            );
-            for s in &slow_state {
-                s(&mut slow);
-            }
+            step(&mut slow);
             for w in [70u16, 120] {
                 draw(&fast, w, 30, false);
                 draw(&slow, w, 30, true);

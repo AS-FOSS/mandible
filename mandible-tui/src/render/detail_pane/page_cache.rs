@@ -70,7 +70,10 @@ pub(super) fn assert_hit_is_fresh(
         app,
     );
     assert!(
-        fresh.lines == cached.lines && fresh.target_flag_line == cached.target_flag_line,
+        fresh.lines == cached.lines
+            && fresh.target_flag_line == cached.target_flag_line
+            && fresh.items == cached.items
+            && fresh.rules == cached.rules,
         "page cache served an outdated page for {key:?}: the cached lines differ from a fresh build"
     );
 }

@@ -291,8 +291,7 @@ mod tests {
     fn a_target_on_a_stacked_row_lands_on_its_main_line() {
         let mut body = SectionBody {
             lines: vec![Line::from("above")],
-            rows: Vec::new(),
-            target: None,
+            ..SectionBody::default()
         };
         let f = codec_flag();
         let key = f.key().expect("flag key");

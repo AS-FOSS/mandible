@@ -185,6 +185,14 @@ pub struct App {
     /// The detail pane's built page, reused until one of the inputs named
     /// in `PageKey` changes. In memory, this run only.
     pub(crate) page_cache: std::cell::RefCell<Option<crate::render::PageCache>>,
+    /// The item at the top of the detail pane in the last frame, so a wrap
+    /// toggle or a resize can put the same item back at the top.
+    pub(crate) reflow_anchor: std::cell::RefCell<Option<crate::render::ReflowAnchor>>,
+    /// A scroll the renderer placed after a re-flow, as `(detail_scroll it
+    /// was placed over, the placed offset)`; it stands only while
+    /// `detail_scroll` still holds that value, and is adopted by the next
+    /// scroll the reader makes.
+    reflow_scroll: std::cell::Cell<Option<(usize, usize)>>,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -456,6 +464,8 @@ impl App {
             detail_viewport: std::cell::Cell::new(0),
             flag_scroll_shown: std::cell::Cell::new(None),
             page_cache: std::cell::RefCell::new(None),
+            reflow_anchor: std::cell::RefCell::new(None),
+            reflow_scroll: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
@@ -1176,6 +1186,7 @@ impl App {
     /// this method cannot clamp it itself, because the extent it would
     /// clamp against is still the extent of the view being left.
     pub fn toggle_raw_mode(&mut self) -> Option<Effect> {
+        self.adopt_reflow_scroll();
         self.saved_detail_offsets[view_slot(self.raw_mode)] = DetailOffsets {
             vertical: self.detail_scroll,
             horizontal: self.detail_hscroll,
@@ -1303,6 +1314,7 @@ impl App {
     /// Scroll the detail pane by `delta` lines, clamped to the last frame's
     /// extent.
     fn detail_scroll_by(&mut self, delta: isize) {
+        self.adopt_reflow_scroll();
         // A manual scroll always wins over an outstanding flag-scroll
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
@@ -1327,6 +1339,7 @@ impl App {
     /// A manual scroll ends the flag target and adopts the offset it was
     /// showing as the stored one.
     fn leave_flag_target(&mut self) {
+        self.adopt_reflow_scroll();
         if self.selected_flag.take().is_some() {
             if let Some(shown) = self.flag_scroll_shown.take() {
                 self.detail_scroll = shown;
@@ -1351,7 +1364,27 @@ impl App {
         // view's real extent: the renderer sets that extent immediately
         // before reading this, so content that shrank since the position
         // was saved lands at its own last line rather than past it.
-        self.detail_scroll.min(self.detail_max_scroll.get())
+        self.pending_detail_scroll()
+            .min(self.detail_max_scroll.get())
+    }
+
+    /// The stored offset, or the one the renderer placed over it after a
+    /// re-flow.
+    fn pending_detail_scroll(&self) -> usize {
+        match self.reflow_scroll.get() {
+            Some((over, placed)) if over == self.detail_scroll => placed,
+            _ => self.detail_scroll,
+        }
+    }
+
+    /// From the renderer: show the pane at `offset` after a re-flow.
+    pub fn place_detail_scroll(&self, offset: usize) {
+        self.reflow_scroll.set(Some((self.detail_scroll, offset)));
+    }
+
+    fn adopt_reflow_scroll(&mut self) {
+        self.detail_scroll = self.pending_detail_scroll();
+        self.reflow_scroll.set(None);
     }
 
     /// Put the detail pane back at the top-left and drop what both views
@@ -1362,6 +1395,7 @@ impl App {
     /// another's — neither the showing view's own place nor the other
     /// view's stored one — so all four numbers go at once.
     pub fn reset_detail_scroll(&mut self) {
+        self.reflow_scroll.set(None);
         self.detail_scroll = 0;
         self.detail_hscroll = 0;
         self.flag_scroll_shown.set(None);
@@ -1441,6 +1475,7 @@ impl App {
     /// `w`: flip wrapping in whichever view is showing, and return to
     /// column 0. Each view keeps its own state.
     pub fn toggle_wrap(&mut self) {
+        self.adopt_reflow_scroll();
         if self.showing_verbatim() {
             self.horizontal_scroll_enabled = !self.horizontal_scroll_enabled;
         } else {

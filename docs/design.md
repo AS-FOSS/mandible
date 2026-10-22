@@ -2156,6 +2156,12 @@ shrinks, and the only three questions allowed to decide it.
    close the `?` popup; else, if scrolled sideways, return to column 0;
    else back, as before.
 7. The search box scrolls to keep the end of what is typed in view.
+8. With wrapping off, a heading's rule (section header or group divider) still
+   reaches the pane's right edge at any sideways scroll, and a rule never
+   counts towards how far the pane scrolls or gets a `▶`.
+9. A re-flow (toggling wrap, resizing the terminal) keeps the item at the top
+   of the pane at the top, in both views: the entity, heading or source line,
+   offset by the rows of it already scrolled past, clamped to its new height.
 
 | Element | Question | What it does |
 |---|---|---|

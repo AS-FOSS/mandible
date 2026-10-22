@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- With wrapping off, a section header's rule and a group divider's rule still reach the right edge of the detail pane however far it is scrolled sideways.
+- Toggling wrap with `w` or resizing the terminal keeps the same flag, heading or line at the top of the detail pane, in the parsed and raw views.
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
 - In a narrow detail pane a flag list whose descriptions would get under 20 columns is laid out like a man page: the flag with every spelling on its own line, its description beneath it. The description column is no longer squeezed to make room.
 - Tree summaries show only while they get 20 columns, and a long name hides its own row's summary instead of cutting it to a fragment.

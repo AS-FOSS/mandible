@@ -13,9 +13,11 @@
 mod edges;
 mod entity;
 mod examples_section;
+mod heading;
 mod layout;
 mod man;
 mod page_cache;
+mod reflow;
 mod stack;
 mod usage_form;
 mod wrap;
@@ -23,9 +25,12 @@ mod wrap;
 use edges::*;
 use entity::*;
 use examples_section::push_examples;
+use heading::*;
 use layout::*;
 pub(crate) use page_cache::PageCache;
 use page_cache::PageKey;
+pub(crate) use reflow::ReflowAnchor;
+use reflow::*;
 use stack::*;
 use usage_form::*;
 use wrap::*;
@@ -139,56 +144,17 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
             target
         }
         None => app.clamped_detail_scroll(),
-    } as u16;
-    draw_page(frame, inner, app, &built.lines, scroll as usize);
+    };
+    let scroll = settle_scroll(
+        app,
+        &built.items,
+        (built.lines.len(), inner.height as usize),
+        width,
+        built.target_flag_line.is_some(),
+        scroll,
+    );
+    draw_page(frame, inner, app, (&built.lines, &built.rules), scroll);
     draw_edge_markers(frame, area, app);
-}
-
-/// Draw `lines` from row `scroll`. Wrapping on: every line already fits,
-/// and `Paragraph` only guards against stray wide text. Wrapping off: each
-/// visible line is windowed at the sideways offset and the lines cut at
-/// either edge get their gutter markers.
-fn draw_page(frame: &mut Frame, inner: Rect, app: &App, lines: &[Line<'static>], scroll: usize) {
-    if app.parsed_wraps() {
-        let paragraph = Paragraph::new(lines.to_vec())
-            .wrap(Wrap { trim: false })
-            .scroll((scroll as u16, 0));
-        frame.render_widget(paragraph, inner);
-        return;
-    }
-    let (visible, clip_rows) = window_page(app, lines, scroll, inner);
-    frame.render_widget(Paragraph::new(visible), inner);
-    draw_clip_marker_rails(frame, inner, app, &clip_rows, scroll);
-}
-
-/// The rows of `lines` on screen with wrapping off, cut at the sideways
-/// offset, and the document rows that were cut at either edge. Also
-/// records the widest line, which bounds the sideways scroll.
-fn window_page(
-    app: &App,
-    lines: &[Line<'static>],
-    scroll: usize,
-    inner: Rect,
-) -> (Vec<Line<'static>>, Vec<(usize, bool, bool)>) {
-    let width = inner.width as usize;
-    let widest = lines.iter().map(Line::width).max().unwrap_or(0);
-    app.set_detail_hextent(widest, width);
-    let offset = app.clamped_detail_hscroll();
-    let start = scroll.min(lines.len());
-    let end = (start + inner.height as usize).min(lines.len());
-    let mut clip_rows = Vec::new();
-    let visible = lines[start..end]
-        .iter()
-        .enumerate()
-        .map(|(i, line)| {
-            let (windowed, left, right) = window_line(line, offset, width);
-            if left || right {
-                clip_rows.push((start + i, left, right));
-            }
-            windowed
-        })
-        .collect();
-    (visible, clip_rows)
 }
 
 /// The parsed view with the built document reused across frames and only
@@ -244,13 +210,21 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
         }
         None => app.clamped_detail_scroll(),
     };
+    let scroll = settle_scroll(
+        app,
+        &built.items,
+        (built.lines.len(), height),
+        width,
+        built.target_flag_line.is_some(),
+        scroll,
+    );
     if windowable && app.parsed_wraps() {
         let start = scroll.min(built.lines.len());
         let end = (start + height).min(built.lines.len());
         let paragraph = Paragraph::new(built.lines[start..end].to_vec());
         frame.render_widget(paragraph, inner);
     } else {
-        draw_page(frame, inner, app, &built.lines, scroll);
+        draw_page(frame, inner, app, (&built.lines, &built.rules), scroll);
     }
     draw_edge_markers(frame, area, app);
 }
@@ -366,7 +340,9 @@ fn render_verbatim(
     };
 
     let mut clip_rows: Vec<(usize, bool, bool)> = Vec::new();
+    let mut items: Vec<usize> = vec![0];
     for (index, text) in body.into_iter().enumerate() {
+        mark(&mut items, lines.len());
         if index < wrapped_prefix_lines {
             push_wrapped_notice(&mut lines, &text, width);
         } else if app.horizontal_scroll_enabled {
@@ -381,8 +357,16 @@ fn render_verbatim(
             }
         }
     }
+    settle_items(&mut items, lines.len());
     app.set_detail_extent(lines.len(), inner.height as usize);
-    let scroll = app.clamped_detail_scroll();
+    let scroll = settle_scroll(
+        app,
+        &items,
+        (lines.len(), inner.height as usize),
+        width,
+        false,
+        app.clamped_detail_scroll(),
+    );
     let paragraph = Paragraph::new(lines).scroll((scroll as u16, 0));
     frame.render_widget(paragraph, inner);
     draw_clip_marker_rails(frame, inner, app, &clip_rows, scroll);
@@ -403,10 +387,13 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
     let wrap = app.parsed_wraps();
     let text_width = if wrap { width } else { NO_WRAP };
     let mut lines: Vec<Line<'static>> = Vec::new();
+    let mut items: Vec<usize> = Vec::new();
+    let mut rules: Vec<usize> = Vec::new();
 
     app.set_detail_hextent(0, width);
 
     if let Some(summary) = &node.summary {
+        mark(&mut items, lines.len());
         for chunk in wrap_words(summary.as_str(), text_width) {
             lines.push(Line::from(Span::styled(
                 chunk,
@@ -416,6 +403,7 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
     }
 
     open_block(&mut lines, SECTION_BLANKS);
+    mark(&mut items, lines.len());
     for chunk in wrap_words(mandible_core::notice::SAME_AS_ANCESTOR_NOTICE, text_width) {
         lines.push(Line::from(chunk));
     }
@@ -440,6 +428,7 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
         let refs: Vec<&Entity> = modifiers.iter().collect();
 
         open_block(&mut lines, SECTION_BLANKS);
+        mark(&mut items, lines.len());
         lines.push(heading_line_ruled(
             "MODIFIERS",
             Some(refs.len()),
@@ -447,13 +436,26 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
             app.palette,
             app.glyphs,
         ));
+        note_rule(&mut rules, &lines, app.glyphs);
         let section = section_lines(&refs, width, 0, app.palette, None, app.glyphs, wrap);
+        let base = lines.len();
+        items.extend(section.items.iter().map(|i| base + i));
+        rules.extend(section.rules.iter().map(|i| base + i));
         lines.extend(section.lines);
     }
+    settle_items(&mut items, lines.len());
 
-    app.set_detail_extent(lines.len(), inner.height as usize);
-    let scroll = app.clamped_detail_scroll();
-    draw_page(frame, inner, app, &lines, scroll);
+    let viewport = inner.height as usize;
+    app.set_detail_extent(lines.len(), viewport);
+    let scroll = settle_scroll(
+        app,
+        &items,
+        (lines.len(), viewport),
+        width,
+        false,
+        app.clamped_detail_scroll(),
+    );
+    draw_page(frame, inner, app, (&lines, &rules), scroll);
 }
 
 /// Recognize only the display-only prose prepended by `not_attested_fallback`.
@@ -530,6 +532,11 @@ pub(crate) struct BuiltLines {
     target_flag_line: Option<usize>,
     /// One entry per rendered entity, in document order — see [`EntryRow`].
     rows: Vec<EntryRow>,
+    /// The first line of every logical item (entity, heading, divider,
+    /// source line), in order: what a re-flow keeps in place.
+    items: Vec<usize>,
+    /// The lines that end in a rule to the pane's edge.
+    rules: Vec<usize>,
 }
 
 /// The list sections of spec §9.3, in render order: the [`EntityKind`]
@@ -557,6 +564,8 @@ fn build_lines(
     let mut lines = Vec::new();
     let mut target_flag_line = None;
     let mut rows: Vec<EntryRow> = Vec::new();
+    let mut items: Vec<usize> = Vec::new();
+    let mut rules: Vec<usize> = Vec::new();
     // Wrapping on: nothing here is wider than the pane. Wrapping off: every
     // line is built at its natural width and the renderer windows it.
     let wrap = app.parsed_wraps();
@@ -564,6 +573,7 @@ fn build_lines(
     app.set_detail_hextent(0, width);
 
     if let Some(summary) = &node.summary {
+        mark(&mut items, lines.len());
         for chunk in wrap_words(summary.as_str(), text_width) {
             lines.push(Line::from(Span::styled(
                 chunk,
@@ -579,11 +589,13 @@ fn build_lines(
     // surface that still makes it reachable without touching the commands
     // tree's own row layout (spec §9.1).
     if !node.aliases.is_empty() {
+        mark(&mut items, lines.len());
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
     if let Some(description) = &node.description {
         open_block(&mut lines, SECTION_BLANKS);
+        mark(&mut items, lines.len());
         lines.push(heading_line_ruled(
             "DESCRIPTION",
             None,
@@ -591,6 +603,7 @@ fn build_lines(
             palette,
             glyphs,
         ));
+        note_rule(&mut rules, &lines, glyphs);
         // One blank row *between* paragraphs and none after the last: the
         // separator that closes the section belongs to whatever section
         // opens next, and is `open_section`'s to place. An empty paragraph
@@ -616,6 +629,7 @@ fn build_lines(
             // `Example:` line back in the middle of the sentence after it,
             // after the IR had correctly separated them.
             for logical in paragraph_text.split('\n') {
+                mark(&mut items, lines.len());
                 let indent = logical.len() - logical.trim_start().len();
                 let indent_str = " ".repeat(indent);
                 let avail = text_width.saturating_sub(indent).max(1);
@@ -628,7 +642,9 @@ fn build_lines(
 
     if !node.usage.is_empty() {
         open_block(&mut lines, SECTION_BLANKS);
+        mark(&mut items, lines.len());
         lines.push(heading_line_ruled("USAGE", None, width, palette, glyphs));
+        note_rule(&mut rules, &lines, glyphs);
         // Indented as a block, the way API documentation sets a signature
         // apart from its prose.
         let indent = "  ";
@@ -643,6 +659,7 @@ fn build_lines(
         // command path is the accented part of its first row.
         let accent = style::accent(palette.color);
         for (pad, text, path_len) in &forms {
+            mark(&mut items, lines.len());
             let lead = format!("{indent}{}", " ".repeat(*pad));
             let avail = text_width.saturating_sub(display_width(&lead)).max(1);
             let mut path_left = text
@@ -672,6 +689,7 @@ fn build_lines(
             continue;
         }
         open_block(&mut lines, SECTION_BLANKS);
+        mark(&mut items, lines.len());
         lines.push(heading_line_ruled(
             label,
             Some(visible.len()),
@@ -679,6 +697,7 @@ fn build_lines(
             palette,
             glyphs,
         ));
+        note_rule(&mut rules, &lines, glyphs);
         let base = lines.len();
         let section = section_lines(&visible, width, indent, palette, target_flag, glyphs, wrap);
         if target_flag_line.is_none() {
@@ -688,10 +707,20 @@ fn build_lines(
             first_line: base + r.first_line,
             lines: r.lines,
         }));
+        items.extend(section.items.iter().map(|i| base + i));
+        rules.extend(section.rules.iter().map(|i| base + i));
         lines.extend(section.lines);
     }
 
-    push_examples(&mut lines, node, width, wrap, palette, glyphs);
+    push_examples(
+        &mut lines,
+        (&mut items, &mut rules),
+        node,
+        (width, wrap),
+        palette,
+        glyphs,
+    );
+    settle_items(&mut items, lines.len());
 
     // Provenance is not rendered here at all any more: it describes where
     // this node's data came from, which belongs beside the pane rather than
@@ -701,6 +730,8 @@ fn build_lines(
         lines,
         target_flag_line,
         rows,
+        items,
+        rules,
     }
 }
 
@@ -737,40 +768,6 @@ fn open_block(lines: &mut Vec<Line<'static>>, blanks: usize) {
 /// but whitespace in them.
 fn line_is_blank(line: &Line<'static>) -> bool {
     line.spans.iter().all(|s| s.content.trim().is_empty())
-}
-
-/// A section heading followed by a rule to the pane's edge, with the
-/// section's entity count for list sections: `FLAGS (41)`. Label and rule
-/// are drawn in [`style::section_rule`], the middle of the pane's three
-/// neutral steps (spec §9.3); the rule goes through the glyph set so a
-/// non-UTF-8 terminal gets `-` rather than tofu.
-///
-/// Distinguished from a group divider ([`group_divider_line`]) by shape,
-/// not styling alone — CAPS-plus-count versus mixed-case-without — since
-/// spec §9.2 forbids an attribute as the sole distinction between two
-/// kinds of text.
-fn heading_line_ruled(
-    text: &str,
-    count: Option<usize>,
-    width: usize,
-    palette: style::Palette,
-    glyphs: Glyphs,
-) -> Line<'static> {
-    let heading = match count {
-        Some(n) => format!("{text} ({n})"),
-        None => text.to_string(),
-    };
-    let used = display_width(&heading) + 1;
-    let rule_width = width.saturating_sub(used);
-    // Label drawn in exactly the rule's style, never bold: CAPS and the
-    // count mark this as the outer level, not weight (spec §9.3).
-    let shade = style::section_rule(palette);
-    let mut spans = vec![Span::styled(heading, shade)];
-    if rule_width > 0 {
-        spans.push(Span::styled(" ", shade));
-        spans.push(Span::styled(glyphs.rule.repeat(rule_width), shade));
-    }
-    Line::from(spans)
 }
 
 /// A group heading with its source's terminator stripped: single-lined,
@@ -821,81 +818,16 @@ fn group_label(raw: &str) -> String {
     label
 }
 
-/// A group divider within a section (spec §9.3): the group's label at
-/// column 0 with a rule running from it to the pane's edge,
-/// `Operation ──────…`. Rows beneath stay at the section's normal margin;
-/// grouping is drawn, never indented. Label-first like the section header
-/// ([`heading_line_ruled`]), starting at the same column-0 left edge as
-/// every heading and ungrouped row. Rule and label share
-/// [`style::group_rule`], the dimmest of the pane's three neutral steps,
-/// a clear step below the header's [`style::section_rule`] (spec §9.3);
-/// never bold. `ruled` is false for a divider that opens its section —
-/// see [`group_divider_lead_line`]. The label is tool-authored text of
-/// unbounded length; [`group_divider_lines`] wraps one that cannot fit.
-fn group_divider_line(
-    label: &str,
-    width: usize,
-    palette: style::Palette,
-    glyphs: Glyphs,
-    ruled: bool,
-) -> Line<'static> {
-    let shade = style::group_rule(palette);
-    if !ruled {
-        return group_divider_lead_line(label, width, palette, glyphs);
-    }
-    let label = label.to_string();
-    let rule_width = width.saturating_sub(display_width(&label) + 1);
-    let mut spans = vec![Span::styled(label, shade)];
-    if rule_width > 0 {
-        spans.push(Span::styled(" ", shade));
-        spans.push(Span::styled(glyphs.rule.repeat(rule_width), shade));
-    }
-    Line::from(spans)
-}
-
-/// The divider that opens a section: its label alone, at column 0, with
-/// no rule (spec §9.3) — a ruled divider directly under the header's own
-/// full-width rule would read as one doubled line. Distinguishable from
-/// the section header with every attribute stripped (spec §9.2): CAPS
-/// with a count and a rule versus mixed case with neither.
-fn group_divider_lead_line(
-    label: &str,
-    width: usize,
-    palette: style::Palette,
-    glyphs: Glyphs,
-) -> Line<'static> {
-    let _ = (width, glyphs);
-    Line::from(Span::styled(label.to_string(), style::group_rule(palette)))
-}
-
-/// The lines of one group divider. A label that does not fit the pane with
-/// a rule after it wraps over rows of its own with no rule, and is never
-/// cut: it is the only place the group's name is written.
-fn group_divider_lines(
-    label: &str,
-    width: usize,
-    wrap: bool,
-    palette: style::Palette,
-    glyphs: Glyphs,
-    ruled: bool,
-) -> Vec<Line<'static>> {
-    let furniture = display_width(glyphs.rule) + 1;
-    if !wrap || display_width(label) + furniture <= width {
-        return vec![group_divider_line(label, width, palette, glyphs, ruled)];
-    }
-    wrap_words(label, width)
-        .into_iter()
-        .map(|chunk| Line::from(Span::styled(chunk, style::group_rule(palette))))
-        .collect()
-}
-
 /// One section's rendered body: its lines, its logical rows, and where a
 /// search-targeted entity landed within it. All three index from the
 /// section's own first line; [`build_lines`] rebases them onto the pane.
+#[derive(Default)]
 struct SectionBody {
     lines: Vec<Line<'static>>,
     rows: Vec<EntryRow>,
     target: Option<usize>,
+    items: Vec<usize>,
+    rules: Vec<usize>,
 }
 
 /// The label the final dimmed group of inherited entities renders under
@@ -952,11 +884,7 @@ fn section_lines(
         own_groups.entry(key).or_default().push(e);
     }
 
-    let mut body = SectionBody {
-        lines: Vec::new(),
-        rows: Vec::new(),
-        target: None,
-    };
+    let mut body = SectionBody::default();
 
     // Ungrouped entities first, under no divider, then each group in the
     // order the tool introduced it.
@@ -984,9 +912,11 @@ fn section_lines(
             if ruled {
                 open_block(&mut body.lines, GROUP_BLANKS);
             }
+            mark(&mut body.items, body.lines.len());
             body.lines.extend(group_divider_lines(
                 label, width, wrap, palette, glyphs, ruled,
             ));
+            note_rule(&mut body.rules, &body.lines, glyphs);
         }
         for e in group {
             push_entity(&mut body, e, false, row, target_flag);
@@ -998,6 +928,7 @@ fn section_lines(
         if ruled {
             open_block(&mut body.lines, GROUP_BLANKS);
         }
+        mark(&mut body.items, body.lines.len());
         body.lines.extend(group_divider_lines(
             INHERITED_GROUP,
             width,
@@ -1006,6 +937,7 @@ fn section_lines(
             glyphs,
             ruled,
         ));
+        note_rule(&mut body.rules, &body.lines, glyphs);
         for e in inherited {
             push_entity(&mut body, e, true, row, target_flag);
         }
@@ -1048,6 +980,7 @@ fn push_entity(
         row.layout,
         row.glyphs,
     );
+    mark(&mut body.items, first_line);
     body.rows.push(EntryRow {
         first_line,
         lines: rendered.len(),
@@ -4507,3 +4440,6 @@ mod identity_tests;
 
 #[cfg(test)]
 mod small_terminal_tests;
+
+#[cfg(test)]
+mod reflow_tests;

@@ -66,6 +66,76 @@ pub(super) fn window_line(
     (Line::from(spans), offset > 0, total > offset + width)
 }
 
+/// Draw `lines` from row `scroll`. Wrapping on: every line already fits,
+/// and `Paragraph` only guards against stray wide text. Wrapping off: each
+/// visible line is windowed at the sideways offset and the lines cut at
+/// either edge get their gutter markers.
+pub(super) fn draw_page(
+    frame: &mut Frame,
+    inner: Rect,
+    app: &App,
+    (lines, rules): (&[Line<'static>], &[usize]),
+    scroll: usize,
+) {
+    if app.parsed_wraps() {
+        let paragraph = Paragraph::new(lines.to_vec())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll as u16, 0));
+        frame.render_widget(paragraph, inner);
+        return;
+    }
+    let (visible, clip_rows) = window_page(app, (lines, rules), scroll, inner);
+    frame.render_widget(Paragraph::new(visible), inner);
+    draw_clip_marker_rails(frame, inner, app, &clip_rows, scroll);
+}
+
+/// The rows of `lines` on screen with wrapping off, cut at the sideways
+/// offset, and the document rows that were cut at either edge. Also
+/// records the widest line, which bounds the sideways scroll. A rule line
+/// is decoration: it does not count towards that width, it is drawn long
+/// enough to reach the pane's right edge at the furthest offset, and it
+/// never gets a right-edge marker.
+pub(super) fn window_page(
+    app: &App,
+    (lines, rules): (&[Line<'static>], &[usize]),
+    scroll: usize,
+    inner: Rect,
+) -> (Vec<Line<'static>>, Vec<(usize, bool, bool)>) {
+    let width = inner.width as usize;
+    let widest = lines
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| rules.binary_search(i).is_err())
+        .map(|(_, l)| l.width())
+        .max()
+        .unwrap_or(0);
+    app.set_detail_hextent(widest, width);
+    let offset = app.clamped_detail_hscroll();
+    let reach = widest.saturating_sub(width);
+    let start = scroll.min(lines.len());
+    let end = (start + inner.height as usize).min(lines.len());
+    let mut clip_rows = Vec::new();
+    let visible = lines[start..end]
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            let is_rule = rules.binary_search(&(start + i)).is_ok();
+            let (windowed, left, right) = if is_rule {
+                let (w, left, _) =
+                    window_line(&lengthen_rule(line, reach, app.glyphs), offset, width);
+                (w, left, false)
+            } else {
+                window_line(line, offset, width)
+            };
+            if left || right {
+                clip_rows.push((start + i, left, right));
+            }
+            windowed
+        })
+        .collect();
+    (visible, clip_rows)
+}
+
 /// Wrap one preformatted line to `width` display columns, losing nothing
 /// (wrap-mode counterpart of [`hscroll_line`], used with `[ui]
 /// horizontal_scroll` off, spec §9). Not [`wrap_words`]: that collapses
