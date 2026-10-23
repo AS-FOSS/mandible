@@ -10,13 +10,14 @@ use mandible_core::FlagKey;
 /// Everything [`super::build_lines`] reads. A built page is reused only while all
 /// of it is equal, so a new input to `build_lines` must be added here.
 /// `tree_version` moves on every write to `app.root`; scroll, height and
-/// focus are applied after the build and `horizontal_scroll_enabled` is
+/// focus are applied after the build and the sideways offset is
 /// re-applied every frame, so none of those are inputs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PageKey {
     path: Vec<String>,
     tree_version: u64,
     width: usize,
+    wrap: bool,
     palette: style::Palette,
     glyphs: Glyphs,
     target_flag: Option<FlagKey>,
@@ -32,6 +33,7 @@ impl PageKey {
                 .unwrap_or_default(),
             tree_version: app.root.version(),
             width,
+            wrap: app.parsed_wraps(),
             palette: app.palette,
             glyphs: app.glyphs,
             target_flag: app.selected_flag.clone(),
@@ -68,7 +70,10 @@ pub(super) fn assert_hit_is_fresh(
         app,
     );
     assert!(
-        fresh.lines == cached.lines && fresh.target_flag_line == cached.target_flag_line,
+        fresh.lines == cached.lines
+            && fresh.target_flag_line == cached.target_flag_line
+            && fresh.items == cached.items
+            && fresh.rules == cached.rules,
         "page cache served an outdated page for {key:?}: the cached lines differ from a fresh build"
     );
 }

@@ -13,14 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 - The `?` overlay is sized to its content, uses two columns on wide terminals, and scrolls with `↑`/`↓` when the terminal is too short to show every binding.
 - Pages with thousands of flags scroll and search without lag, and an idle page no longer redraws its whole document ten times a second; nothing on screen changes.
+- `w` turns wrapping off or on in the view on screen: with it off, nothing in the detail pane wraps and `←`/`→` scroll it sideways.
+- A terminal under 30 columns or 10 rows shows only `Terminal too small (need 30×10). Enlarge the window or zoom out.`
+- The detail pane marks hidden rows with a bare `▲` on its top border and `▼` on its bottom border, one cell in from the right corner, in the border's own style.
+- `Esc` first returns a sideways-scrolled detail pane to column 0.
 
 ### Changed
 
+- With wrapping off, a section header's rule and a group divider's rule still reach the right edge of the detail pane however far it is scrolled sideways.
+- Toggling wrap with `w` or resizing the terminal keeps the same flag, heading or line at the top of the detail pane, in the parsed and raw views.
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
+- In a narrow detail pane a flag list whose descriptions would get under 20 columns is laid out like a man page: the flag with every spelling on its own line, its description beneath it. The description column is no longer squeezed to make room.
+- Tree summaries show only while they get 20 columns, and a long name hides its own row's summary instead of cutting it to a fragment.
+- A `⋯ loading` marker that does not fit beside a long command name is left out instead of cut to `⋯…`.
+- The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
+- The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below behind a dim `│`/`└` guide, beside the wrapped description.
 
 ### Fixed
 
+- A value name or group heading wider than a narrow detail pane is wrapped instead of running past the border.
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.
 - [S-252] A USAGE form led by another program's name (`bpftrace [options] filename` under `tcpretrans.bt`) is now shown as printed instead of being prefixed with the tool's name, and the first form under a bare `Usage:` label lines up with the forms below it.
 - After a search scrolls the detail pane to a flag, `↑` and `↓` now move one line from that position instead of jumping back to the top of the page.

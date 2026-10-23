@@ -168,8 +168,9 @@ opens a full-screen TUI:
 **Layout.** Vertical: search bar (3 rows) / body (fill) / status bar (1 row).
 Body horizontal: tree pane / detail pane. The tree pane is
 `Constraint::Min(24)` and the detail pane fills the remainder, never a
-percentage split. Below 60 columns total, drop summaries from tree rows;
-below 50, stack the panes and toggle the detail pane with `Tab`.
+percentage split. How the layout gives way as the terminal shrinks
+(stacked panes, hidden summaries, man-layout rows, the too-small screen) is
+decided in one place, §9.4.
 
 **Design principles.**
 
@@ -201,9 +202,11 @@ structure, search is for flags.
 | `→`/`Enter`/`l` | Expand (triggers lazy extraction if the subtree is unfilled). `Enter` accepts instead under `--print-selection`, below |
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
 | `/` | Focus search |
-| `Esc` | Leave search, keeping the filter pinned; `Esc` again clears it |
+| `Esc` | In layers: close the `?` popup; else, if the detail pane is scrolled sideways, return to column 0; else leave search, keeping the filter pinned, and `Esc` again clears it |
 | `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`) |
 | `t` | Verbatim view: re-probe this node and show the tool's own `--help` output instead of the parse |
+| `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
+| `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
 | `r` | Re-extract this tool. Preserves expansion, selection, filter and view mode; abandons the in-flight warming cascade and restarts it |
@@ -1728,29 +1731,25 @@ pane.
    nothing is mapped or scaled between them. An unscrolled node opens at
    top-left; a remembered position clamps to the extent the view has when
    restored; changing the selected node clears both views' memory.
-9. Preformatted content scrolls horizontally instead of wrapping; prose
-   does not. The raw `--help` view (`t`) and the `unparsed` fallback are
-   the tool author's own layout, so they scroll. `h`/`l`/`←`/`→` scroll
-   that content when the detail pane has focus, clamped to the widest
-   line, with a marker in the border when more content sits off that
-   edge. A node's USAGE synopsis soft-wraps at the pane width instead of
-   scrolling. The parser already joins a usage that wrapped over several
-   physical lines into one logical line, so a rendered USAGE line is
-   mandible's own reconstruction, not the tool author's own layout (§16).
-   A wrapped form's later rows hang four columns right of its first row.
-   USAGE, the summary, description, and flag list all keep wrapping to
-   pane width. `[ui] horizontal_scroll` in
-   `~/.config/mandible/config.toml`, default `true`, governs only the raw
-   view and the `unparsed` fallback.
-10. `horizontal_scroll = false` wraps the raw view and the `unparsed`
-    fallback; it never clips. A preformatted line wider than the pane
-    continues onto the next row instead of ending at the border, without
-    being reflowed: a fitting line arrives byte for byte, a row keeps its
-    internal spacing, the cut prefers a whitespace boundary and falls back
-    to a character boundary only when a token has none, and a continuation
-    row carries the line's own leading indent. USAGE wraps at every
-    setting of this toggle already, under rule 9's own word-wrap instead
-    of this mechanism.
+9. Wrapping is a per-view choice, made with `w`. Wrapping on, every line
+   of the page is re-flowed to the pane; wrapping off, nothing wraps, each
+   line is one row, and `h`/`l`/`←`/`→` scroll 8 columns a press, clamped
+   to the widest line, with a `◀`/`▶` marker, per line, in the gutter beside
+   exactly the lines cut at that edge. The parsed view starts wrapped. The raw `--help` view
+   (`t`) and the `unparsed` fallback are the tool author's own layout and
+   share one state that starts from `[ui] horizontal_scroll` in
+   `~/.config/mandible/config.toml`, default `true`, meaning not wrapping.
+   Toggling returns the view to column 0. A wrapped USAGE synopsis
+   hangs its later rows four columns right of its first row; the parser
+   already joins a usage that wrapped over several physical lines into one
+   logical line, so it is mandible's own reconstruction (§16).
+10. A raw or `unparsed` view that is wrapping (`horizontal_scroll = false`
+    at start, or `w` pressed) never clips. A preformatted line wider than
+    the pane continues onto the next row instead of ending at the border,
+    without being reflowed: a fitting line arrives byte for byte, a row
+    keeps its internal spacing, the cut prefers a whitespace boundary and
+    falls back to a character boundary only when a token has none, and a
+    continuation row carries the line's own leading indent.
 11. Empty and degraded states are designed, not incidental. A node whose
     children are still being extracted shows a subtle spinner row; a tool
     where only Tier B fired shows the confidence in the footer; a tool no
@@ -1759,8 +1758,8 @@ pane.
 12. The parsed detail page is built once and reused. The page cache holds
     the built lines for the selected node and is in memory for one run only;
     nothing is written to disk. It is reused while the page key is equal:
-    the selected path, the tree version, the pane width, the palette, the
-    glyph set, and the search-selected flag. The tree version moves on every
+    the selected path, the tree version, the pane width, whether the view
+    wraps, the palette, the glyph set, and the search-selected flag. The tree version moves on every
     write to the tree, because the tree can only be written through
     `TreeStore`, whose write access takes a new version from a process-wide
     counter, so no two trees or writes share one. Debug builds also rebuild
@@ -1779,7 +1778,9 @@ never share scroll state. Wrapping preformatted content reflows spacing
 that was part of its meaning, since the raw view is the tool author's own
 layout. A rendered USAGE line is not: the parser already joined a usage
 that wrapped over several physical lines into one logical line, so it is
-mandible's own reconstruction and soft-wraps instead (§16).
+mandible's own reconstruction and wraps by default (§16). Wrapping is
+the user's choice in both views, because a wide screen and a narrow one
+want opposite things from the same page.
 
 **Implemented in.** `mandible-tui/src/render/mod.rs`,
 `mandible-tui/src/sanitize.rs`, `mandible-tui/src/tree.rs`.
@@ -1798,9 +1799,12 @@ mandible's own reconstruction and soft-wraps instead (§16).
 3. Truncate at a word boundary with `…`.
 4. The name column never yields to the summary. A long name truncates the
    summary to nothing before truncating itself.
-5. Width ladder: full layout above 60 columns; names only below it (drop
-   summaries rather than showing a few useless characters); stacked panes
-   below 50.
+5. Summaries show only while the summary column leaves them room (§9.4,
+   question 2): at least 20 columns, else the column is hidden rather than
+   showing a few useless characters. A row whose own long name leaves its
+   summary under 20 columns hides that row's summary only, never cutting
+   it to a fragment. A name is cut with `…` only when the name alone does
+   not fit the pane. Panes stack below 50 columns (§9.4, question 1).
 6. An `unverified` marker (§5.4) takes the summary's column ahead of the
    summary, and the width ladder does not drop it. A plain word, not a
    glyph, so it survives a terminal with no color and no Unicode (§9.2).
@@ -1852,9 +1856,10 @@ pane's flag list.
    row wider than 45% of the pane, spelling and placeholder together, does
    not get a vote; excluding it lets it run past the column while every
    other row stays aligned.
-5. A pane too narrow for the column brings the column down, never the
-   layout. The column is clamped until the description has 28 columns to
-   wrap in.
+5. The column is never squeezed. When what the pane leaves the
+   description is under 20 columns the section is laid out as a man page
+   instead (§9.4): the head alone on its line, the description below it.
+   Stacking (rule 6) belongs to the table layout only.
 6. A flag row whose spellings, with the placeholder, do not fit the
    column is stacked. The first line holds the first short spelling, the
    first long one (`--name`, else the first one-dash word) and the
@@ -1864,18 +1869,19 @@ pane's flag list.
    in the ASCII set), then a space. The description starts on the first
    line and wraps in its own column beside the spelling lines. The row is
    as tall as the taller of the two. A spelling wider than the room left
-   by the guide keeps the single-line head of rule 3.
+   by the guide keeps the single-line head of rule 3. A section in the man
+   layout never stacks: it joins every spelling on the head line.
 
 **Why.** A placeholder column has to be as wide as the section's widest
 placeholder, and every row would pay that width whether or not it takes a
 value, so the placeholder rides behind its own spelling instead. Spelling
 and placeholder are told apart by style (§9.2), not position. A column
 most rows share and some don't is noise that looks like alignment, which
-is why the description column is one number, not a target. The 28-column
-wrap floor is measured, not picked: at 20 columns a real six-word flag
-description breaks across six lines, one mid-word; at 28 it reads as
-prose. A layout that changed shape at some threshold width would make one
-list read as two different products either side of it. A row with five
+is why the description column is one number, not a target. A column
+squeezed to a strip is worse than a different layout: at 20 columns a real
+six-word flag description still reads as prose, below it breaks mid-word,
+so below 20 columns the section becomes a man page whole, decided per
+section, never per row, so one list never reads as two products. A row with five
 spellings otherwise runs past the column and pushes its description right.
 Stacking keeps the description at the column, and the guide shows that the
 extra lines belong to the row above.
@@ -1994,7 +2000,8 @@ sections.
 6. The value placeholder is part of the spelling, one space behind and
    measured with it (§9.1a), never its own aligned column.
 7. A flag's `choices` render as their own `values:` line under the
-   description, indented two columns past the shared description column,
+   description, indented two columns past the shared description column
+   (in the man layout, past the description's own indent),
    never folded into the description text or the spelling column. A
    choice's own per-value description, when the tool documents one,
    renders one further indent past `values:`, one `name  description` row
@@ -2020,10 +2027,10 @@ sections.
     head too wide for the pane wraps within the head area, each line at
     its own spelling's column, description beginning on the line beneath
     at the shared column.
-11. A narrow pane moves the column, not the layout (§9.1a): clamped down
-    until the description has its 28 columns, never below two past the
-    long column. A 90-column terminal's 41-column detail pane clamps the
-    column to 13, still holding a short-and-long pair.
+11. A narrow pane never moves the column (§9.1a): a section whose
+    description would get under 20 columns is a man layout instead (§9.4);
+    otherwise the column is where the p90 head puts it, never below two past
+    the long column.
 12. POSITIONALS is inset by two columns; the flag-shaped sections are not.
 13. The vertical gaps are the container hierarchy: two blank rows above a
     section header, one above a ruled group divider, none below either,
@@ -2053,14 +2060,14 @@ sections.
     - A divider that opens its section drops its rule and its blank row,
       rendering its label alone at column 0 directly beneath the header.
       A divider later in the same section keeps both.
-16. Descriptions always wrap. Sections are mandible's own layout, so
-    nothing in them is ever clipped or horizontally scrolled. USAGE is
-    mandible's own reconstruction too (§9 rule 9) and wraps the same way.
-    `[ui] horizontal_scroll` governs only content whose layout is not ours
-    (the raw view, the `unparsed` fallback, which reaches the pane by the
-    same path as the raw view). A description's preserved line breaks
-    (§4.1) wrap too, each logical line wrapped on its own at its own
-    indent.
+16. Descriptions wrap by default and are never cut. With wrapping on,
+    nothing in a section is clipped; with it off (`w`, §9 rule 9) nothing
+    wraps and the page scrolls sideways instead, every section in the
+    table layout with each description on its row's one line. USAGE is
+    mandible's own reconstruction too (§9 rule 9). Flag and positional
+    descriptions are joined into one paragraph; a command's DESCRIPTION
+    section keeps its preserved line breaks (§4.1), each logical line
+    wrapped on its own at its own indent.
 17. EXAMPLES is always the last section. It prints the node's `examples`
     as the tool printed them: its lines, indentation and interior spacing,
     one blank row between examples, with no accent, dim or other styling of
@@ -2081,6 +2088,118 @@ inner shades this section needs, which is why the xterm-256 gray ramp is
 read where available.
 
 **Implemented in.** `mandible-tui/src/render/detail_pane/`.
+
+### 9.4 Small terminals
+
+**Decides.** What every size-dependent element does as the terminal
+shrinks, and the only three questions allowed to decide it.
+
+**Rules.**
+
+1. Every size-dependent behaviour answers exactly one of three questions,
+   and no other code compares a width or a height with a number. The
+   constants and the three checks live in `mandible-tui/src/fit.rs`.
+   - **SCREEN.** Do two panes fit side by side? At 50 columns and up the
+     tree and detail panes sit side by side; below 50 one pane shows at a
+     time and `Tab` switches. Under 30 columns or 10 rows nothing but one
+     centred line is drawn: `Terminal too small (need 30×10). Enlarge the
+     window or zoom out.` (the line breaks over rows only when the terminal
+     is narrower than the sentence).
+   - **ROOM.** Does a description get at least 20 columns? One constant,
+     one function. For a detail-pane list section (`FLAGS`, `POSITIONALS`,
+     `MODIFIERS`, `ENVIRONMENT`) the room is the pane width minus the p90
+     of every head in that section, outliers included (not the capped
+     figure §9.1a fits its column to), minus one. Decided per section. Room of 20 or more
+     is the table layout of §9.1a, stacking included. Less is the man
+     layout (rule 3). A tree summary column is shown while it leaves a
+     summary 20 columns, else hidden; per row, a long name that leaves its
+     own summary under 20 hides that row's summary only.
+   - **USER CHOICE.** Wrapping, toggled with `w` in whichever view is
+     showing (§9 rule 9). Wrapping off, the room rule does not apply: every
+     section is the table layout, stacking included, with each description
+     continuing on its row's one line, and nothing in the pane wraps.
+2. When space runs out the order is the same everywhere: (1) the normal
+   layout, (2) re-flow, (3) cut with `…` only where the full text is
+   readable elsewhere, (4) scroll. Tree names and summaries, the tree and
+   search titles and the detail title (cut from the left, so the current
+   command stays visible: `… › name`) are cut. Status-bar hints are
+   dropped whole, never cut. A flag, positional or choice description and
+   every other piece of detail-pane text is never cut. A single token wider
+   than the pane, in any wrapped text, hard-breaks at the pane edge. A name
+   is cut in the tree only when it alone does not fit the pane; the full
+   path is in the detail pane's title.
+3. The man layout. The head sits alone, flush at the section's left edge
+   (a long-only spelling loses its pre-indent), with every spelling joined
+   (`-R, -r, --recursive`) and its placeholder, never stacked; a head
+   longer than the pane wraps with a 2-column hang (`MAN_HEAD_HANG`), so a
+   wrapped piece never lines up with the description. The description goes
+   on the lines below, indented 4 from that edge and wrapped to the pane.
+   `env:` and `values:` follow, indented as in §9.3 relative to the
+   description. A `values:` table follows its flag: each value name on its
+   own line and its description on the lines below, indented two more.
+4. Prose (the summary, DESCRIPTION, USAGE, EXAMPLES) always wraps, hanging
+   later rows of USAGE and EXAMPLES by `USAGE_HANG`, at every size. Only
+   wrapping off stops it.
+5. Markers. One family, one function (`fit::marker`), with the glyph set's
+   ASCII fallback: `…` cut (`...`); `▲` `▼` more above or below (`^` `v`),
+   the `?` popup's own; `◀` `▶` more to the sides (`<` `>`). `▲` and `▼` are
+   bare glyphs, with no label, on the top and bottom border, in the same
+   column: one rule cell in from the right corner (`─▲─╮`, `─▼─╯`), shown
+   only while rows are hidden in that direction. A title never overwrites
+   that cell and is cut to leave it free; the `?` popup's border follows the
+   same rule. `◀` `▶` stand in the gutter beside each line cut at that edge,
+   and never on a border. Every marker is part of its pane's frame and is
+   drawn in exactly its border's style: the accent when the pane is focused,
+   the plain border style when not (bold and plain under `NO_COLOR`).
+6. Sideways position returns to column 0 on selecting another command, on
+   a search jump to a flag, and on toggling wrap. `Esc` works in layers:
+   close the `?` popup; else, if scrolled sideways, return to column 0;
+   else back, as before.
+7. The search box scrolls to keep the end of what is typed in view.
+8. With wrapping off, a heading's rule (section header or group divider) still
+   reaches the pane's right edge at any sideways scroll, and a rule never
+   counts towards how far the pane scrolls or gets a `▶`.
+9. A re-flow (toggling wrap, resizing the terminal) keeps the item at the top
+   of the pane at the top, in both views: the entity, heading or source line,
+   offset by the rows of it already scrolled past, clamped to its new height.
+
+| Element | Question | What it does |
+|---|---|---|
+| Tree and detail panes | SCREEN | Side by side from 50 columns, one at a time below |
+| Whole screen | SCREEN | Under 30×10, only the too-small line |
+| FLAGS, POSITIONALS, MODIFIERS, ENVIRONMENT | ROOM, per section | Table layout with room, man layout without; always table with wrapping off |
+| Stacked spellings (§9.1a rule 6) | ROOM | Table layout only |
+| `values:` tables | ROOM, with their flag | Table: unchanged. Man: name on a line, description two further in |
+| Tree summary column | ROOM | Shown while it leaves 20 columns, else hidden |
+| Tree row summary | ROOM, per row | Hidden for that row when its name leaves under 20; cut with `…` when longer |
+| Tree names | cut | `…` only when the name alone does not fit |
+| Pane and search titles | cut | `…`; the detail title from the left |
+| Search box text | scroll | Shows the end of what is typed |
+| DESCRIPTION, USAGE, EXAMPLES, summary | USER CHOICE | Wrapped with `USAGE_HANG`; hard-break of an over-wide token; wrapping off: one row per line |
+| Raw view, `unparsed` fallback | USER CHOICE | Its own state, starting from `[ui] horizontal_scroll` (default: scrolls); preformatted lines never re-flow |
+| Detail pane rows hidden | scroll | Bare `▲` `▼` on the top and bottom border, one rule cell in from the corner |
+| Detail pane columns hidden | scroll | `◀` `▶` in the gutter beside each cut line |
+| `?` popup | SCREEN | Unchanged: sized to its content, clamped to the screen, scrolls with its own `▲`/`▼` |
+| Status bar | SCREEN | Unchanged: hints are dropped whole, the last two stay |
+
+**Why.** The sizes at which a terminal's layout changes were scattered
+across the renderer: 60 for summaries, 50 for stacking, 28 for a column
+floor, 24 for the tree. A reader could not tell how a pane would look at a
+given size without reading all of it. Three questions with one home mean a
+size-dependent rule either answers one of them or does not belong. The
+28-column floor squeezed a description into a strip, which is worse than a
+different layout, so the table never squeezes and the man page layout takes
+over below 20 columns of room. A name cut with `…` is only acceptable where
+the whole name is readable elsewhere, which is why a flag's description,
+the only place its words are written, is never cut. 30×10 is where the
+smallest pages still read: at 30 columns the stacked panes are 28 and 26
+columns wide, and under it the search and pane titles lose their words;
+at 10 rows each pane keeps four lines, a head with its description beneath
+it, and under it a pane shows a head and nothing to read.
+
+**Implemented in.** `mandible-tui/src/fit.rs`, `layout.rs`,
+`render/tree_pane.rs`, `render/detail_pane/` (`layout.rs`, `man.rs`),
+`render/search_bar.rs`.
 
 ---
 ---
@@ -2905,6 +3024,16 @@ only as a zero-confidence fallback, which never touches a tool that already
 parsed. [M-14]'s reading wins. A tool whose only good documentation is a man
 page stays shallow in the tree, and that is a stated limit rather than a bug
 to chase.
+
+**Small terminals answer three questions and nothing else (2026-10-22).**
+Every size-dependent behaviour answers one of SCREEN (do two panes fit),
+ROOM (does a description get 20 columns) or USER CHOICE (`w`), recorded
+with its numbers in §9.4: stacking below 50 columns, the too-small screen
+under 30×10, the 20-column room, the 4-column man-layout description indent.
+The 28-column floor that squeezed a description column is gone: below 20
+columns of room a section becomes a man page. `[ui] horizontal_scroll` stays,
+as the starting wrap state of the raw view and the `unparsed` fallback; the
+parsed view always starts wrapped. A flag description is never cut with `…`.
 
 **USAGE soft-wraps at the pane width instead of scrolling horizontally
 (2026-09-03).** Shown `mandible sg_luns`, the maintainer asked "should we

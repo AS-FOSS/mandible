@@ -128,6 +128,19 @@ pub(super) fn value_glues_by_prefix(flag: &Entity) -> bool {
             .is_some_and(|v| v.starts_with(','))
 }
 
+/// The description text of a row, with its deprecation tag, or `None`
+/// when the row has neither.
+pub(super) fn row_description(flag: &Entity) -> Option<String> {
+    let mut text = flag.description.as_ref().map(|d| d.single_line());
+    if flag.deprecated.is_some() {
+        text = Some(match text {
+            Some(d) => format!("{d} (deprecated)"),
+            None => "(deprecated)".to_string(),
+        });
+    }
+    text.filter(|d| !d.is_empty())
+}
+
 /// One entity's spellings, value placeholder, and description — styled
 /// per spec §9.2 (spelling: accent; value: muted; description: default)
 /// — laid out against the section's shared column. Every description
@@ -145,6 +158,10 @@ pub(super) fn entity_line(
     layout: SectionLayout,
     glyphs: Glyphs,
 ) -> Vec<Line<'static>> {
+    if layout.man {
+        return super::man::man_entity_lines(flag, dim, width, color_enabled, layout);
+    }
+    let text_width = layout.text_width(width);
     let stack = plan(flag, layout, width);
     let name_spec = stack
         .as_ref()
@@ -196,7 +213,7 @@ pub(super) fn entity_line(
     // at column 0 with no memory of the row's indent. Regression fixture:
     // `vgchange --alloc` rendered through a real pty (AGENTS.md §3.2).
     let mut head: Vec<Line<'static>> = Vec::new();
-    if prefix_width > width {
+    if prefix_width > text_width {
         // Budget the wrap at the row's own column, so every line of the
         // head sits in the area reserved for heads rather than drifting
         // into the description's.
@@ -220,20 +237,7 @@ pub(super) fn entity_line(
         }
     }
 
-    let deprecated_tag = flag
-        .deprecated
-        .as_ref()
-        .map(|_| " (deprecated)".to_string());
-
-    let mut description_text = flag.description.as_ref().map(|d| d.single_line());
-
-    if let Some(tag) = &deprecated_tag {
-        description_text = Some(match description_text {
-            Some(d) => format!("{d}{tag}"),
-            None => tag.trim_start().to_string(),
-        });
-    }
-    let description_text = description_text.filter(|d| !d.is_empty());
+    let description_text = row_description(flag);
 
     if description_text.is_none() && flag.choices.is_empty() && flag.env_var.is_none() {
         if !head.is_empty() {
@@ -252,7 +256,7 @@ pub(super) fn entity_line(
     // §9.1); only its first description line starts one space past it,
     // every later line is back at the column.
     let column = layout.description;
-    let rest_width = width.saturating_sub(column).max(1);
+    let rest_width = text_width.saturating_sub(column).max(1);
 
     let mut lines = Vec::new();
     let mut remainder = description_text.clone().unwrap_or_default();
@@ -261,7 +265,7 @@ pub(super) fn entity_line(
             // One space past the head, or the column — whichever is
             // further right. They coincide for every row whose head fits.
             let start = column.max(prefix_width + 1);
-            let first = width.checked_sub(start).and_then(|room| {
+            let first = text_width.checked_sub(start).and_then(|room| {
                 // Never let the head's own line swallow a later
                 // enumerated item's opening token (spec §16): cap the
                 // room to the offset of the first enumerator break, if
@@ -307,18 +311,25 @@ pub(super) fn entity_line(
         }
     }
 
-    lines.extend(subordinate_lines(flag, column, width, color_enabled));
+    lines.extend(subordinate_lines(
+        flag,
+        column,
+        text_width,
+        color_enabled,
+        layout.man,
+    ));
 
     lines
 }
 
 /// The lines under a row's description: its `values:` summary or described
 /// choices, then its `env:` cross-reference (spec §9.3).
-fn subordinate_lines(
+pub(super) fn subordinate_lines(
     flag: &Entity,
     column: usize,
     width: usize,
     color_enabled: bool,
+    man: bool,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     // A flag's `choices` (spec §7 Tier B rule 4) never fold into
@@ -359,7 +370,7 @@ fn subordinate_lines(
             )));
         }
     } else if has_choice_descriptions {
-        lines.extend(choice_detail_lines(flag, column, width, color_enabled));
+        lines.extend(choice_detail_lines(flag, column, width, color_enabled, man));
     }
 
     if let Some(env_line) = env_line {
@@ -392,6 +403,7 @@ pub(super) fn choice_detail_lines(
     column: usize,
     width: usize,
     color_enabled: bool,
+    man: bool,
 ) -> Vec<Line<'static>> {
     let values_column = column + 2;
     let values_indent = " ".repeat(values_column);
@@ -412,6 +424,17 @@ pub(super) fn choice_detail_lines(
         values_style,
     ))];
 
+    // A value name is written once, so one too wide for its row breaks
+    // across rows instead of running past the pane.
+    let push_name = |lines: &mut Vec<Line<'static>>, name: &str| {
+        for chunk in wrap_words(name, choice_width) {
+            lines.push(Line::from(Span::styled(
+                format!("{choice_indent}{chunk}"),
+                values_style,
+            )));
+        }
+    };
+
     for choice in &flag.choices {
         let desc = choice
             .description
@@ -419,12 +442,23 @@ pub(super) fn choice_detail_lines(
             .map(|d| d.single_line())
             .filter(|d| !d.is_empty());
         let Some(desc) = desc else {
-            lines.push(Line::from(Span::styled(
-                format!("{choice_indent}{}", choice.name),
-                values_style,
-            )));
+            push_name(&mut lines, &choice.name);
             continue;
         };
+        if man {
+            // Man layout: the value alone on its line, its description
+            // below it two columns further in.
+            push_name(&mut lines, &choice.name);
+            let desc_indent = " ".repeat(choice_column + 2);
+            let desc_width = width.saturating_sub(choice_column + 2).max(1);
+            for chunk in wrap_words(&desc, desc_width) {
+                lines.push(Line::from(Span::styled(
+                    format!("{desc_indent}{chunk}"),
+                    values_style,
+                )));
+            }
+            continue;
+        }
         let head = format!("{:<name_width$}  ", choice.name);
         let head_width = display_width(&head);
         let first_room = choice_width.saturating_sub(head_width);
@@ -457,10 +491,7 @@ pub(super) fn choice_detail_lines(
                 }
             }
             None => {
-                lines.push(Line::from(Span::styled(
-                    format!("{choice_indent}{}", choice.name),
-                    values_style,
-                )));
+                push_name(&mut lines, &choice.name);
                 for chunk in wrap_words(&desc, choice_width) {
                     lines.push(Line::from(Span::styled(
                         format!("{choice_indent}{chunk}"),

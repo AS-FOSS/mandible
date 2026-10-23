@@ -185,6 +185,14 @@ pub struct App {
     /// The detail pane's built page, reused until one of the inputs named
     /// in `PageKey` changes. In memory, this run only.
     pub(crate) page_cache: std::cell::RefCell<Option<crate::render::PageCache>>,
+    /// The item at the top of the detail pane in the last frame, so a wrap
+    /// toggle or a resize can put the same item back at the top.
+    pub(crate) reflow_anchor: std::cell::RefCell<Option<crate::render::ReflowAnchor>>,
+    /// A scroll the renderer placed after a re-flow, as `(detail_scroll it
+    /// was placed over, the placed offset)`; it stands only while
+    /// `detail_scroll` still holds that value, and is adopted by the next
+    /// scroll the reader makes.
+    reflow_scroll: std::cell::Cell<Option<(usize, usize)>>,
     /// Detail pane horizontal scroll offset, in display columns. Only ever
     /// nonzero for preformatted content (the raw `--help` view and
     /// USAGE-section synopsis lines, spec §9) — prose is always wrapped to
@@ -212,9 +220,10 @@ pub struct App {
     /// every time. A view nobody has scrolled yet for this node holds
     /// `(0, 0)` and opens at the top-left.
     saved_detail_offsets: [DetailOffsets; 2],
-    /// Whether `h`/`l`/`←`/`→` scroll the detail pane horizontally instead
-    /// of doing nothing there, and whether preformatted content (raw view,
-    /// USAGE lines) is left unwrapped in the first place.
+    /// Whether the raw `--help` view and the `unparsed` fallback scroll
+    /// sideways (do not wrap). It is the starting value of that view's wrap
+    /// state and what `w` flips while that view is showing; the parsed view
+    /// has its own ([`Self::parsed_wrap`]).
     ///
     /// Defaults to `true` here — [`App::new`] is a pure constructor with no
     /// filesystem I/O, so it never itself reads
@@ -234,6 +243,9 @@ pub struct App {
     /// [`Self::glyphs`], so tests can set it directly without any global
     /// state to isolate.
     pub horizontal_scroll_enabled: bool,
+    /// Whether the parsed view wraps (default) or scrolls sideways; `w`
+    /// flips it while the parsed view is showing.
+    pub parsed_wrap: bool,
     /// Whether the `?` keybinding overlay is showing.
     pub show_help: bool,
     /// Lines the `?` overlay is scrolled by; only nonzero when its content
@@ -370,13 +382,6 @@ const STATUS_MESSAGE_TTL: Duration = Duration::from_secs(4);
 /// flag stays set, so no change is ever dropped.
 const REBUILD_MIN_INTERVAL: Duration = Duration::from_millis(250);
 
-/// Columns moved per `h`/`l`/`←`/`→` press in the detail pane. Larger than
-/// the vertical scroll's one-line-per-press step deliberately: preformatted
-/// content this feature targets (long USAGE synopses, wide `--help` tables)
-/// tends to overflow by tens of columns at once, and a one-column step would
-/// take many presses to reveal anything.
-const DETAIL_HSCROLL_STEP: usize = 8;
-
 /// Rows `PgUp`/`PgDn` move the tree selection.
 const TREE_PAGE_ROWS: isize = 10;
 
@@ -459,10 +464,13 @@ impl App {
             detail_viewport: std::cell::Cell::new(0),
             flag_scroll_shown: std::cell::Cell::new(None),
             page_cache: std::cell::RefCell::new(None),
+            reflow_anchor: std::cell::RefCell::new(None),
+            reflow_scroll: std::cell::Cell::new(None),
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
             horizontal_scroll_enabled: true,
+            parsed_wrap: true,
             show_help: false,
             help_scroll: 0,
             help_extent: std::cell::Cell::new((0, 0)),
@@ -552,6 +560,7 @@ impl App {
         if let Some(idx) = self.rows.iter().position(|r| r.path == path) {
             self.selected = idx;
         }
+        self.detail_hscroll = 0;
         self.selected_flag = Some(key);
     }
 
@@ -1177,6 +1186,7 @@ impl App {
     /// this method cannot clamp it itself, because the extent it would
     /// clamp against is still the extent of the view being left.
     pub fn toggle_raw_mode(&mut self) -> Option<Effect> {
+        self.adopt_reflow_scroll();
         self.saved_detail_offsets[view_slot(self.raw_mode)] = DetailOffsets {
             vertical: self.detail_scroll,
             horizontal: self.detail_hscroll,
@@ -1304,6 +1314,7 @@ impl App {
     /// Scroll the detail pane by `delta` lines, clamped to the last frame's
     /// extent.
     fn detail_scroll_by(&mut self, delta: isize) {
+        self.adopt_reflow_scroll();
         // A manual scroll always wins over an outstanding flag-scroll
         // target from a search selection — otherwise the next render
         // would just snap straight back to it.
@@ -1328,6 +1339,7 @@ impl App {
     /// A manual scroll ends the flag target and adopts the offset it was
     /// showing as the stored one.
     fn leave_flag_target(&mut self) {
+        self.adopt_reflow_scroll();
         if self.selected_flag.take().is_some() {
             if let Some(shown) = self.flag_scroll_shown.take() {
                 self.detail_scroll = shown;
@@ -1352,7 +1364,27 @@ impl App {
         // view's real extent: the renderer sets that extent immediately
         // before reading this, so content that shrank since the position
         // was saved lands at its own last line rather than past it.
-        self.detail_scroll.min(self.detail_max_scroll.get())
+        self.pending_detail_scroll()
+            .min(self.detail_max_scroll.get())
+    }
+
+    /// The stored offset, or the one the renderer placed over it after a
+    /// re-flow.
+    fn pending_detail_scroll(&self) -> usize {
+        match self.reflow_scroll.get() {
+            Some((over, placed)) if over == self.detail_scroll => placed,
+            _ => self.detail_scroll,
+        }
+    }
+
+    /// From the renderer: show the pane at `offset` after a re-flow.
+    pub fn place_detail_scroll(&self, offset: usize) {
+        self.reflow_scroll.set(Some((self.detail_scroll, offset)));
+    }
+
+    fn adopt_reflow_scroll(&mut self) {
+        self.detail_scroll = self.pending_detail_scroll();
+        self.reflow_scroll.set(None);
     }
 
     /// Put the detail pane back at the top-left and drop what both views
@@ -1363,6 +1395,7 @@ impl App {
     /// another's — neither the showing view's own place nor the other
     /// view's stored one — so all four numbers go at once.
     pub fn reset_detail_scroll(&mut self) {
+        self.reflow_scroll.set(None);
         self.detail_scroll = 0;
         self.detail_hscroll = 0;
         self.flag_scroll_shown.set(None);
@@ -1378,13 +1411,13 @@ impl App {
     /// "with the toggle off nothing is ever drawn at an offset" property
     /// to depend on holding elsewhere.
     pub fn detail_hscroll_left(&mut self) {
-        if !self.horizontal_scroll_enabled {
+        if !self.sideways() {
             return;
         }
         self.detail_hscroll = self
             .detail_hscroll
             .min(self.detail_max_hscroll.get())
-            .saturating_sub(DETAIL_HSCROLL_STEP);
+            .saturating_sub(crate::fit::HSCROLL_STEP);
     }
 
     /// `l`/`→`: scroll the detail pane right, clamped to
@@ -1392,15 +1425,73 @@ impl App {
     /// screen minus the viewport width, written by the renderer each frame
     /// exactly like [`Self::detail_max_scroll`] is for vertical scroll.
     pub fn detail_hscroll_right(&mut self) {
-        if !self.horizontal_scroll_enabled {
+        if !self.sideways() {
             return;
         }
         let max = self.detail_max_hscroll.get();
         self.detail_hscroll = self
             .detail_hscroll
             .min(max)
-            .saturating_add(DETAIL_HSCROLL_STEP)
+            .saturating_add(crate::fit::HSCROLL_STEP)
             .min(max);
+    }
+
+    /// Whether rows are hidden above the detail pane's window.
+    pub fn detail_can_scroll_up(&self) -> bool {
+        self.flag_scroll_shown
+            .get()
+            .unwrap_or_else(|| self.clamped_detail_scroll())
+            > 0
+    }
+
+    /// Whether rows are hidden below the detail pane's window.
+    pub fn detail_can_scroll_down(&self) -> bool {
+        self.flag_scroll_shown
+            .get()
+            .unwrap_or_else(|| self.clamped_detail_scroll())
+            < self.detail_max_scroll.get()
+    }
+
+    /// Whether the view the detail pane is showing is the raw `--help` text
+    /// or the `unparsed` fallback, as opposed to the parsed page.
+    pub fn showing_verbatim(&self) -> bool {
+        self.raw_mode || self.selected_node().is_some_and(|n| !n.unparsed.is_empty())
+    }
+
+    /// Whether the parsed page wraps.
+    pub fn parsed_wraps(&self) -> bool {
+        self.parsed_wrap
+    }
+
+    /// Whether the view on screen scrolls sideways instead of wrapping.
+    pub fn sideways(&self) -> bool {
+        if self.showing_verbatim() {
+            self.horizontal_scroll_enabled
+        } else {
+            !self.parsed_wrap
+        }
+    }
+
+    /// `w`: flip wrapping in whichever view is showing, and return to
+    /// column 0. Each view keeps its own state.
+    pub fn toggle_wrap(&mut self) {
+        self.adopt_reflow_scroll();
+        if self.showing_verbatim() {
+            self.horizontal_scroll_enabled = !self.horizontal_scroll_enabled;
+        } else {
+            self.parsed_wrap = !self.parsed_wrap;
+        }
+        self.detail_hscroll = 0;
+    }
+
+    /// `Esc` while the detail pane is scrolled sideways: back to column 0.
+    /// Returns whether it did anything.
+    pub fn return_to_column_zero(&mut self) -> bool {
+        if self.clamped_detail_hscroll() == 0 {
+            return false;
+        }
+        self.detail_hscroll = 0;
+        true
     }
 
     /// Record how far the detail pane's preformatted content can usefully
@@ -1503,7 +1594,7 @@ mod tests {
         app.set_detail_hextent(90, 40); // raw: max 50
         assert_eq!(app.clamped_detail_hscroll(), 0, "first visit starts left");
         app.detail_hscroll_right();
-        assert_eq!(app.clamped_detail_hscroll(), DETAIL_HSCROLL_STEP);
+        assert_eq!(app.clamped_detail_hscroll(), crate::fit::HSCROLL_STEP);
 
         app.toggle_raw_mode();
         app.set_detail_hextent(140, 40);
@@ -1511,7 +1602,7 @@ mod tests {
 
         app.toggle_raw_mode();
         app.set_detail_hextent(90, 40);
-        assert_eq!(app.clamped_detail_hscroll(), DETAIL_HSCROLL_STEP);
+        assert_eq!(app.clamped_detail_hscroll(), crate::fit::HSCROLL_STEP);
     }
 
     /// The rapid `t`-`t`-`t` comparison the key exists for: with no scroll
@@ -2757,7 +2848,7 @@ mod tests {
     #[test]
     fn detail_hscroll_clamps_at_both_ends() {
         let mut app = App::new("git".to_string(), sample_tree());
-        app.horizontal_scroll_enabled = true;
+        app.parsed_wrap = false;
         app.set_detail_hextent(50, 20); // max 30
 
         for _ in 0..10 {
@@ -2776,22 +2867,55 @@ mod tests {
     }
 
     #[test]
-    fn detail_hscroll_is_a_noop_with_the_config_toggle_off() {
+    fn detail_hscroll_is_a_noop_while_the_view_wraps() {
         let mut app = App::new("git".to_string(), sample_tree());
-        app.horizontal_scroll_enabled = false;
+        app.parsed_wrap = true;
         app.set_detail_hextent(50, 20);
         app.detail_hscroll_right();
         app.detail_hscroll_right();
         assert_eq!(
             app.clamped_detail_hscroll(),
             0,
-            "off must not scroll at all"
+            "a wrapped view must not scroll at all"
         );
+    }
+
+    #[test]
+    fn w_flips_wrapping_in_the_showing_view_only_and_returns_to_column_zero() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        assert!(app.parsed_wraps() && !app.sideways());
+        app.toggle_wrap();
+        assert!(!app.parsed_wraps() && app.sideways());
+        assert!(
+            app.horizontal_scroll_enabled,
+            "the raw view keeps its own state"
+        );
+        app.set_detail_hextent(50, 20);
+        app.detail_hscroll_right();
+        assert!(app.clamped_detail_hscroll() > 0);
+        app.toggle_wrap();
+        assert_eq!(
+            app.clamped_detail_hscroll(),
+            0,
+            "toggling returns to column 0"
+        );
+        assert!(app.parsed_wraps());
+    }
+
+    #[test]
+    fn escape_returns_to_column_zero_before_anything_else() {
+        let mut app = App::new("git".to_string(), sample_tree());
+        app.parsed_wrap = false;
+        app.set_detail_hextent(50, 20);
+        app.detail_hscroll_right();
+        assert!(app.return_to_column_zero());
+        assert!(!app.return_to_column_zero(), "already at column 0");
     }
 
     #[test]
     fn detail_hscroll_resets_on_selection_change() {
         let mut app = App::new("git".to_string(), sample_tree());
+        app.parsed_wrap = false;
         app.set_detail_hextent(50, 20);
         app.detail_hscroll_right();
         assert!(app.clamped_detail_hscroll() > 0, "precondition");
@@ -2807,6 +2931,7 @@ mod tests {
     #[test]
     fn detail_hscroll_resets_on_collapse_or_jump_to_parent() {
         let mut app = App::new("git".to_string(), sample_tree());
+        app.parsed_wrap = false;
         app.selected = 2; // rebase
         app.expand_selected();
         app.ensure_rows_fresh();
@@ -2822,6 +2947,7 @@ mod tests {
     #[test]
     fn detail_hscroll_overflow_flags_track_the_current_offset() {
         let mut app = App::new("git".to_string(), sample_tree());
+        app.parsed_wrap = false;
         app.set_detail_hextent(50, 20); // max 30
         assert!(!app.detail_hscroll_can_go_left());
         assert!(app.detail_hscroll_can_go_right());

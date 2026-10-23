@@ -15,7 +15,7 @@ use ratatui::Terminal;
 use std::path::Path;
 use std::sync::Arc;
 
-fn corpus_root() -> std::path::PathBuf {
+pub(super) fn corpus_root() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../corpus")
 }
 
@@ -100,45 +100,46 @@ fn corpus_nodes(sampled: bool) -> (Vec<(String, CommandNode)>, usize) {
     }
     for dir in dirs {
         total += 1;
-        let meta = std::fs::read_to_string(dir.join("meta.toml")).unwrap();
-        let (argv, stdout, stderr) = first_capture(&meta);
-        if argv.len() < 2 {
-            continue;
-        }
-        let read = |f: Option<String>| {
-            f.and_then(|f| std::fs::read(dir.join(f)).ok())
-                .unwrap_or_default()
-        };
-        let transcript = mandible_extract::exec::Transcript::new([(
-            argv[1..].to_vec(),
-            mandible_extract::exec::ExecOutput {
-                stdout: read(stdout),
-                stderr: read(stderr),
-                exit_code: Some(0),
-                timed_out: false,
-            },
-        )]);
-        let tier = mandible_extract::help_text::HelpTextTier::new(Arc::new(transcript));
-        let tool = mandible_extract::ResolvedTool {
-            name: argv[0].clone(),
-            path: Some(std::path::PathBuf::from("/replayed").join(&argv[0])),
-            version: None,
-        };
-        const ATTESTED: mandible_extract::NodeHints = mandible_extract::NodeHints {
-            heading_attested: true,
-            abbrev_probe_attested: false,
-            help_word_attested: false,
-        };
-        if let Ok(node) = mandible_extract::ExtractionTier::extract_node(
-            &tier,
-            &tool,
-            &[argv[0].clone()],
-            ATTESTED,
-        ) {
+        if let Some(node) = replay_fixture(&dir) {
             nodes.push((dir.display().to_string(), node));
         }
     }
     (nodes, total)
+}
+
+/// The root node a fixture's first captured `--help` parses into, or `None`
+/// when the fixture has no capture to replay.
+pub(super) fn replay_fixture(dir: &Path) -> Option<CommandNode> {
+    let meta = std::fs::read_to_string(dir.join("meta.toml")).unwrap();
+    let (argv, stdout, stderr) = first_capture(&meta);
+    if argv.len() < 2 {
+        return None;
+    }
+    let read = |f: Option<String>| {
+        f.and_then(|f| std::fs::read(dir.join(f)).ok())
+            .unwrap_or_default()
+    };
+    let transcript = mandible_extract::exec::Transcript::new([(
+        argv[1..].to_vec(),
+        mandible_extract::exec::ExecOutput {
+            stdout: read(stdout),
+            stderr: read(stderr),
+            exit_code: Some(0),
+            timed_out: false,
+        },
+    )]);
+    let tier = mandible_extract::help_text::HelpTextTier::new(Arc::new(transcript));
+    let tool = mandible_extract::ResolvedTool {
+        name: argv[0].clone(),
+        path: Some(std::path::PathBuf::from("/replayed").join(&argv[0])),
+        version: None,
+    };
+    const ATTESTED: mandible_extract::NodeHints = mandible_extract::NodeHints {
+        heading_attested: true,
+        abbrev_probe_attested: false,
+        help_word_attested: false,
+    };
+    mandible_extract::ExtractionTier::extract_node(&tier, &tool, &[argv[0].clone()], ATTESTED).ok()
 }
 
 fn draw(app: &App, w: u16, h: u16, reference: bool) -> Buffer {
@@ -303,8 +304,15 @@ fn style_and_glyph_variants_and_changes_between_frames_match() {
             }
         }
         // One long-lived cached app driven through state changes, each
-        // frame compared with a fresh reference app in the same state.
+        // frame compared with a long-lived reference app given the same
+        // steps and the same sizes: where a re-flow leaves the pane
+        // depends on the sizes it was drawn at before.
         let mut fast = app_with(
+            node,
+            crate::style::Palette::extended(),
+            crate::glyphs::UNICODE,
+        );
+        let mut slow = app_with(
             node,
             crate::style::Palette::extended(),
             crate::glyphs::UNICODE,
@@ -316,18 +324,9 @@ fn style_and_glyph_variants_and_changes_between_frames_match() {
             Box::new(|a| a.detail_scroll = 40),
             Box::new(|a| a.focus = Focus::Tree),
         ];
-        let mut slow_state: Vec<&Step> = Vec::new();
         for step in &steps {
             step(&mut fast);
-            slow_state.push(step);
-            let mut slow = app_with(
-                node,
-                crate::style::Palette::extended(),
-                crate::glyphs::UNICODE,
-            );
-            for s in &slow_state {
-                s(&mut slow);
-            }
+            step(&mut slow);
             for w in [70u16, 120] {
                 draw(&fast, w, 30, false);
                 draw(&slow, w, 30, true);

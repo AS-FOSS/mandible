@@ -10,8 +10,9 @@ use super::*;
 /// continuation rows [`USAGE_HANG`] columns past the line's own indent.
 pub(super) fn push_examples(
     lines: &mut Vec<Line<'static>>,
+    (items, rules): (&mut Vec<usize>, &mut Vec<usize>),
     node: &CommandNode,
-    width: usize,
+    (width, wrap): (usize, bool),
     palette: style::Palette,
     glyphs: Glyphs,
 ) {
@@ -19,13 +20,18 @@ pub(super) fn push_examples(
         return;
     }
     open_block(lines, SECTION_BLANKS);
+    mark(items, lines.len());
     lines.push(heading_line_ruled("EXAMPLES", None, width, palette, glyphs));
+    note_rule(rules, lines, glyphs);
     for (n, example) in node.examples.iter().enumerate() {
         if n > 0 {
             lines.push(Line::default());
         }
         for line in example.text.as_str().split('\n') {
-            for row in wrap_preformatted_hung(line, width, USAGE_HANG) {
+            mark(items, lines.len());
+            for row in
+                wrap_preformatted_hung(line, if wrap { width } else { NO_WRAP }, fit::USAGE_HANG)
+            {
                 lines.push(Line::from(row));
             }
         }
@@ -50,8 +56,9 @@ mod tests {
         let mut lines = vec![Line::from("FLAGS")];
         push_examples(
             &mut lines,
+            (&mut Vec::new(), &mut Vec::new()),
             node,
-            width,
+            (width, true),
             style::Palette::extended(),
             crate::glyphs::UNICODE,
         );
@@ -92,7 +99,10 @@ mod tests {
             24,
         );
         assert!(out[4].starts_with("  tool"), "{out:?}");
-        assert!(out[5].starts_with(&" ".repeat(2 + USAGE_HANG)), "{out:?}");
+        assert!(
+            out[5].starts_with(&" ".repeat(2 + fit::USAGE_HANG)),
+            "{out:?}"
+        );
         assert!(out[4..].iter().all(|r| r.chars().count() <= 24), "{out:?}");
     }
 }

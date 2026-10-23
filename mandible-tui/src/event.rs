@@ -49,7 +49,12 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Tab => app.toggle_focus(),
         KeyCode::Char('t') => return app.toggle_raw_mode(),
         KeyCode::Char('r') => return Some(Effect::Refresh),
-        KeyCode::Esc => app.escape_search(),
+        KeyCode::Char('w') => app.toggle_wrap(),
+        KeyCode::Esc => {
+            if !app.return_to_column_zero() {
+                app.escape_search();
+            }
+        }
         _ => {
             return match app.focus {
                 Focus::Tree => handle_tree_key(app, key),
@@ -158,6 +163,9 @@ fn copy_text_for_selection(app: &App) -> Option<String> {
 /// is hit when `col == 2*depth`"), which is what makes this arithmetic
 /// rather than guesswork.
 pub fn handle_mouse(app: &mut App, mouse: MouseEvent, regions: &Regions) -> Option<Effect> {
+    if regions.too_small {
+        return None;
+    }
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) => {
             return handle_click(app, mouse.column, mouse.row, regions)
@@ -340,6 +348,7 @@ mod tests {
         // tree row, and does not move the tree selection at all.
         a.toggle_focus();
         assert_eq!(a.focus, Focus::Detail);
+        a.parsed_wrap = false; // sideways scrolling needs wrap off
         a.set_detail_hextent(50, 10); // give it something to scroll to
         let selected_before = a.selected;
         handle_key(&mut a, key(KeyCode::Char('l')));
@@ -547,6 +556,7 @@ mod tests {
     fn clicking_the_row_already_selected_does_not_move_the_detail_pane() {
         let mut a = app();
         a.ensure_rows_fresh();
+        a.parsed_wrap = false;
         a.set_detail_extent(220, 20);
         a.set_detail_hextent(140, 40);
         a.detail_scroll = 100;
@@ -572,5 +582,41 @@ mod tests {
         assert_eq!(a.selected, 0, "the click landed on the selected row");
         assert_eq!(a.clamped_detail_scroll(), 100);
         assert_eq!(a.clamped_detail_hscroll(), 32);
+    }
+
+    /// `Esc` works in layers: the popup closes first, then a sideways
+    /// scroll returns to column 0, and only then does it go back.
+    #[test]
+    fn escape_works_in_layers() {
+        let mut a = app();
+        a.parsed_wrap = false;
+        a.toggle_focus();
+        a.set_detail_hextent(50, 10);
+        handle_key(&mut a, key(KeyCode::Char('l')));
+        assert!(a.clamped_detail_hscroll() > 0);
+        handle_key(&mut a, key(KeyCode::Char('?')));
+        assert!(a.show_help);
+
+        handle_key(&mut a, key(KeyCode::Esc));
+        assert!(!a.show_help, "the popup closes first");
+        assert!(a.clamped_detail_hscroll() > 0, "and nothing else moved");
+
+        a.search_pinned = Some("x".to_string());
+        handle_key(&mut a, key(KeyCode::Esc));
+        assert_eq!(a.clamped_detail_hscroll(), 0, "then column 0");
+        assert!(a.search_pinned.is_some(), "and not yet back");
+
+        handle_key(&mut a, key(KeyCode::Esc));
+        assert!(a.search_pinned.is_none(), "then back, as before");
+    }
+
+    #[test]
+    fn w_toggles_wrapping_from_either_pane() {
+        let mut a = app();
+        handle_key(&mut a, key(KeyCode::Char('w')));
+        assert!(!a.parsed_wraps());
+        a.toggle_focus();
+        handle_key(&mut a, key(KeyCode::Char('w')));
+        assert!(a.parsed_wraps());
     }
 }

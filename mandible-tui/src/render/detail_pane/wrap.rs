@@ -24,6 +24,118 @@ pub(super) fn hscroll_line(s: &str, offset: usize, width: usize) -> (Line<'stati
     (line, clipped_left, clipped_right)
 }
 
+/// [`hscroll_line`] for a styled line: `offset` columns trimmed off the
+/// left, then at most `width` columns of what remains, every span keeping
+/// its style. Returns the window and per-edge clip flags.
+pub(super) fn window_line(
+    line: &Line<'static>,
+    offset: usize,
+    width: usize,
+) -> (Line<'static>, bool, bool) {
+    let total = line.width();
+    if offset == 0 && total <= width {
+        return (line.clone(), false, false);
+    }
+    if total <= offset || width == 0 {
+        return (Line::default(), false, false);
+    }
+    let mut skip = offset;
+    let mut budget = width;
+    let mut spans: Vec<Span<'static>> = Vec::new();
+    'spans: for span in &line.spans {
+        let mut text = String::new();
+        for ch in span.content.chars() {
+            let w = UnicodeWidthChar::width(ch).unwrap_or(0);
+            if skip > 0 {
+                skip = skip.saturating_sub(w);
+                continue;
+            }
+            if w > budget {
+                if !text.is_empty() {
+                    spans.push(Span::styled(text, span.style));
+                }
+                break 'spans;
+            }
+            budget -= w;
+            text.push(ch);
+        }
+        if !text.is_empty() {
+            spans.push(Span::styled(text, span.style));
+        }
+    }
+    (Line::from(spans), offset > 0, total > offset + width)
+}
+
+/// Draw `lines` from row `scroll`. Wrapping on: every line already fits,
+/// and `Paragraph` only guards against stray wide text. Wrapping off: each
+/// visible line is windowed at the sideways offset and the lines cut at
+/// either edge get their gutter markers.
+pub(super) fn draw_page(
+    frame: &mut Frame,
+    inner: Rect,
+    app: &App,
+    (lines, rules): (&[Line<'static>], &[usize]),
+    scroll: usize,
+) {
+    if app.parsed_wraps() {
+        let paragraph = Paragraph::new(lines.to_vec())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll as u16, 0));
+        frame.render_widget(paragraph, inner);
+        return;
+    }
+    let (visible, clip_rows) = window_page(app, (lines, rules), scroll, inner);
+    frame.render_widget(Paragraph::new(visible), inner);
+    draw_clip_marker_rails(frame, inner, app, &clip_rows, scroll);
+}
+
+/// The rows of `lines` on screen with wrapping off, cut at the sideways
+/// offset, and the document rows that were cut at either edge. Also
+/// records the widest line, which bounds the sideways scroll. A rule line
+/// is decoration: it does not count towards that width, it is drawn long
+/// enough to reach the pane's right edge at the furthest offset, and it
+/// never gets a right-edge marker.
+pub(super) fn window_page(
+    app: &App,
+    (lines, rules): (&[Line<'static>], &[usize]),
+    scroll: usize,
+    inner: Rect,
+) -> (Vec<Line<'static>>, Vec<(usize, bool, bool)>) {
+    let width = inner.width as usize;
+    let widest = lines
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| rules.binary_search(i).is_err())
+        .map(|(_, l)| l.width())
+        .max()
+        .unwrap_or(0);
+    app.set_detail_hextent(widest, width);
+    let offset = app.clamped_detail_hscroll();
+    let reach = widest.saturating_sub(width);
+    let start = scroll.min(lines.len());
+    let end = (start + inner.height as usize).min(lines.len());
+    let mut clip_rows = Vec::new();
+    let visible = lines[start..end]
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            let is_rule = rules.binary_search(&(start + i)).is_ok();
+            let (windowed, left, right) = if is_rule {
+                let (w, left, _) =
+                    window_line(&lengthen_rule(line, reach, app.glyphs), offset, width);
+                (w, left, false)
+            } else {
+                window_line(line, offset, width)
+            };
+            if left || right {
+                clip_rows.push((start + i, left, right));
+            }
+            windowed
+        })
+        .collect();
+    (visible, clip_rows)
+}
+
 /// Wrap one preformatted line to `width` display columns, losing nothing
 /// (wrap-mode counterpart of [`hscroll_line`], used with `[ui]
 /// horizontal_scroll` off, spec §9). Not [`wrap_words`]: that collapses
@@ -178,13 +290,44 @@ pub(super) fn wrap_words(text: &str, width: usize) -> Vec<String> {
 /// columns, and every later line takes `width - hang`, for the caller to
 /// indent by `hang`. Always returns at least one chunk.
 pub(super) fn wrap_hanging(text: &str, width: usize, hang: usize) -> Vec<String> {
-    let mut first = wrap_words(text, width);
-    if first.len() < 2 {
-        return first;
+    let first_width = width.max(1);
+    let rest_width = first_width.saturating_sub(hang).max(1);
+    let limit = |rows: usize| if rows == 0 { first_width } else { rest_width };
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    let mut current_width = 0usize;
+    for word in text.split_whitespace() {
+        let word_width = display_width(word);
+        let sep = usize::from(!current.is_empty());
+        if current_width + sep + word_width <= limit(lines.len()) {
+            if !current.is_empty() {
+                current.push(' ');
+            }
+            current.push_str(word);
+            current_width += sep + word_width;
+            continue;
+        }
+        if !current.is_empty() {
+            lines.push(std::mem::take(&mut current));
+        }
+        // A word wider than its row breaks across rows, never clipped; the
+        // last piece stays open for the words after it.
+        let mut rest = word;
+        while display_width(rest) > limit(lines.len()) {
+            let mut cut = width_prefix_end(rest, limit(lines.len()));
+            if cut == 0 {
+                cut = rest.chars().next().map_or(rest.len(), char::len_utf8);
+            }
+            lines.push(rest[..cut].to_string());
+            rest = &rest[cut..];
+        }
+        current = rest.to_string();
+        current_width = display_width(rest);
     }
-    let rest = first.split_off(1).join(" ");
-    first.extend(wrap_words(&rest, width.saturating_sub(hang)));
-    first
+    if !current.is_empty() || lines.is_empty() {
+        lines.push(current);
+    }
+    lines
 }
 
 /// True when `s` (a single word, no surrounding punctuation) reads as an
