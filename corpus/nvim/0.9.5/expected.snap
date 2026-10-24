@@ -111,6 +111,7 @@ flags:
   - -o
   value_name: N
   value_kind: Optional
+  optional_join: glued
   description: 'Open N windows (default: one per file)'
   provenance:
     sources:
@@ -119,6 +120,7 @@ flags:
   - -O
   value_name: N
   value_kind: Optional
+  optional_join: glued
   description: 'Open N vertical windows (default: one per file)'
   provenance:
     sources:
@@ -127,6 +129,7 @@ flags:
   - -p
   value_name: N
   value_kind: Optional
+  optional_join: glued
   description: 'Open N tab pages (default: one per file)'
   provenance:
     sources:
@@ -187,6 +190,7 @@ flags:
   - -V
   value_name: '[N][file]'
   value_kind: Optional
+  optional_join: glued
   description: Verbose [level][file]
   provenance:
     sources:
@@ -233,6 +237,7 @@ flags:
   - --remote
   value_name: -subcommand
   value_kind: Optional
+  optional_join: glued
   description: Execute commands remotely on a server
   provenance:
     sources:
@@ -265,6 +270,7 @@ flags:
   - -q
   value_name: errorfile
   value_kind: Optional
+  optional_join: separate
   description: Edit file with first error
   provenance:
     sources:

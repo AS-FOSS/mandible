@@ -73,6 +73,7 @@ flags:
   - --dump-variables
   value_name: file
   value_kind: Optional
+  optional_join: equals
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
@@ -82,6 +83,7 @@ flags:
   - --debug
   value_name: file
   value_kind: Optional
+  optional_join: equals
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
@@ -148,6 +150,7 @@ flags:
   - --lint
   value_name: fatal|invalid|no-ext
   value_kind: Optional
+  optional_join: equals
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
@@ -178,6 +181,7 @@ flags:
   - --pretty-print
   value_name: file
   value_kind: Optional
+  optional_join: equals
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:
@@ -194,6 +198,7 @@ flags:
   - --profile
   value_name: file
   value_kind: Optional
+  optional_join: equals
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:

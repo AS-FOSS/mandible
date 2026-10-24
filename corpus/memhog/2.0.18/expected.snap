@@ -9,6 +9,13 @@ positionals:
     sources:
     - help-text
 - name: policy
+  choices:
+  - preferred-many
+  - local
+  - interleave
+  - membind
+  - preferred
+  - default
   provenance:
     sources:
     - help-text

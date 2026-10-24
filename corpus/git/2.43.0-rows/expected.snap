@@ -42,6 +42,7 @@ flags:
   - --exec-path
   value_name: <path>
   value_kind: Optional
+  optional_join: equals
   provenance:
     sources:
     - help-text-synopsis
@@ -220,6 +221,7 @@ subcommands:
     - --[no-]recurse-submodules
     value_name: <pathspec>
     value_kind: Optional
+    optional_join: equals
     description: initialize submodules in the clone
     provenance:
       sources:
@@ -228,6 +230,7 @@ subcommands:
     - --[no-]recursive
     value_name: <pathspec>
     value_kind: Optional
+    optional_join: equals
     description: alias of --recurse-submodules
     provenance:
       sources:
@@ -725,6 +728,7 @@ subcommands:
     - --unified
     value_name: <n>
     value_kind: Optional
+    optional_join: equals
     group: Diff output format options
     description: generate diffs with <n> lines context
     provenance:
@@ -778,6 +782,7 @@ subcommands:
     - --dirstat
     value_name: <param1,param2>...
     value_kind: Optional
+    optional_join: equals
     group: Diff output format options
     description: output the distribution of relative amount of changes for each sub-directory
     provenance:
@@ -794,6 +799,7 @@ subcommands:
     - --dirstat-by-file
     value_name: <param1,param2>...
     value_kind: Optional
+    optional_join: equals
     group: Diff output format options
     description: synonym for --dirstat=files,param1,param2...
     provenance:
@@ -831,6 +837,7 @@ subcommands:
     - --stat
     value_name: '[<width>[,<name-width>[,<count>]]]'
     value_kind: Optional
+    optional_join: equals
     group: Diff output format options
     description: generate diffstat
     provenance:
@@ -897,6 +904,7 @@ subcommands:
     - --[no-]color
     value_name: <when>
     value_kind: Optional
+    optional_join: equals
     group: Diff output format options
     description: show colored diff
     provenance:
@@ -922,6 +930,7 @@ subcommands:
     - --[no-]abbrev
     value_name: <n>
     value_kind: Optional
+    optional_join: equals
     group: Diff output format options
     description: use <n> digits to display object names
     provenance:
@@ -1009,6 +1018,7 @@ subcommands:
     - --break-rewrites
     value_name: '[<n>[/<m>]]'
     value_kind: Optional
+    optional_join: equals
     group: Diff rename options
     description: break complete rewrite changes into pairs of delete and create
     provenance:
@@ -1019,6 +1029,7 @@ subcommands:
     - --find-renames
     value_name: <n>
     value_kind: Optional
+    optional_join: equals
     group: Diff rename options
     description: detect renames
     provenance:
@@ -1037,6 +1048,7 @@ subcommands:
     - --find-copies
     value_name: <n>
     value_kind: Optional
+    optional_join: equals
     group: Diff rename options
     description: detect copies
     provenance:
@@ -1176,6 +1188,7 @@ subcommands:
     - --word-diff
     value_name: <mode>
     value_kind: Optional
+    optional_join: equals
     group: Diff algorithm options
     description: show word diff, using <mode> to delimit changed words
     provenance:
@@ -1194,6 +1207,7 @@ subcommands:
     - --color-words
     value_name: <regex>
     value_kind: Optional
+    optional_join: equals
     group: Diff algorithm options
     description: equivalent to --word-diff=color --word-diff-regex=<regex>
     provenance:
@@ -1203,6 +1217,7 @@ subcommands:
     - --[no-]color-moved
     value_name: <mode>
     value_kind: Optional
+    optional_join: equals
     group: Diff algorithm options
     description: moved lines of code are colored differently
     provenance:
@@ -1221,6 +1236,7 @@ subcommands:
     - --[no-]relative
     value_name: <prefix>
     value_kind: Optional
+    optional_join: equals
     group: Other diff options
     description: when run from subdir, exclude changes outside and show relative paths
     provenance:
@@ -1273,6 +1289,7 @@ subcommands:
     - --ignore-submodules
     value_name: <when>
     value_kind: Optional
+    optional_join: equals
     group: Other diff options
     description: ignore changes to submodules in the diff generation
     provenance:
@@ -1282,6 +1299,7 @@ subcommands:
     - --submodule
     value_name: <format>
     value_kind: Optional
+    optional_join: equals
     group: Other diff options
     description: specify how differences in submodules are shown
     provenance:
@@ -1373,6 +1391,7 @@ subcommands:
     - --diff-filter
     value_name: '[(A|C|D|M|R|T|U|X|B)...[*]]'
     value_kind: Optional
+    optional_join: separate
     group: Other diff options
     description: select files by diff type
     provenance:
@@ -1616,6 +1635,7 @@ subcommands:
     - --[no-]color
     value_name: <when>
     value_kind: Optional
+    optional_join: equals
     description: highlight matches
     provenance:
       sources:
@@ -1747,6 +1767,7 @@ subcommands:
     - --[no-]open-files-in-pager
     value_name: <pager>
     value_kind: Optional
+    optional_join: equals
     description: show matching files in the pager
     provenance:
       sources:

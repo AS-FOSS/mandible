@@ -30,6 +30,7 @@ flags:
   - --compatibility
   value_name: <mode>
   value_kind: Optional
+  optional_join: equals
   description: mode is 'dos' or 'nondos' (default)
   provenance:
     sources:
@@ -39,6 +40,7 @@ flags:
   - --color
   value_name: <when>
   value_kind: Optional
+  optional_join: equals
   description: colorize output (auto, always or never) colors are enabled by default
   provenance:
     sources:
@@ -87,6 +89,7 @@ flags:
   - --units
   value_name: <unit>
   value_kind: Optional
+  optional_join: equals
   description: 'display units: ''cylinders'' or ''sectors'' (default)'
   provenance:
     sources:
@@ -108,6 +111,7 @@ flags:
   - --lock
   value_name: <mode>
   value_kind: Optional
+  optional_join: equals
   description: use exclusive device lock (yes, no or nonblock)
   provenance:
     sources:

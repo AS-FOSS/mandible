@@ -18,17 +18,21 @@ pub(super) struct Stack {
 /// lacking one of them keeps the other; a row with neither keeps its
 /// first spelling. Display order only, the IR is untouched.
 fn main_indices(flag: &Entity) -> Vec<usize> {
-    let short = flag.spellings.iter().position(is_short_spelling);
+    let short = flag.spellings.iter().position(|s| is_drawn_short(flag, s));
     let long = flag
         .spellings
         .iter()
         .position(|s| matches!(s.dashes, Dashes::Double))
         .or_else(|| {
-            flag.spellings
-                .iter()
-                .position(|s| matches!(s.dashes, Dashes::Single) && !is_short_spelling(s))
+            flag.spellings.iter().position(|s| {
+                matches!(s.dashes, Dashes::Single)
+                    && !is_short_spelling(s)
+                    && !is_range_start(flag, s)
+            })
         });
-    let picked: Vec<usize> = short.into_iter().chain(long).collect();
+    // The range always stays on the main line, after the other longs.
+    let range = flag.spellings.iter().position(|s| is_range_start(flag, s));
+    let picked: Vec<usize> = short.into_iter().chain(long).chain(range).collect();
     if picked.is_empty() {
         vec![0]
     } else {
@@ -72,15 +76,12 @@ pub(super) fn plan(flag: &Entity, layout: SectionLayout, width: usize) -> Option
     let picked = main_indices(flag);
     let main = picked
         .iter()
-        .map(|&i| flag.spellings[i].render())
+        .map(|&i| spelling_text(flag, i))
         .collect::<Vec<_>>()
         .join(", ");
-    let rest: Vec<String> = flag
-        .spellings
-        .iter()
-        .enumerate()
-        .filter(|(i, _)| !picked.contains(i))
-        .map(|(_, s)| s.render())
+    let rest: Vec<String> = (0..flag.spellings.len())
+        .filter(|i| !picked.contains(i))
+        .map(|i| spelling_text(flag, i))
         .collect();
     if rest.is_empty() {
         return None;
@@ -104,12 +105,7 @@ pub(super) fn flag_value_suffix(flag: &Entity) -> String {
     let Some(v) = entity_value_text(flag) else {
         return String::new();
     };
-    let gap = if spelling_is_sigil(flag) || value_glues_by_prefix(flag) {
-        ""
-    } else {
-        " "
-    };
-    format!("{gap}{v}")
+    format!("{}{v}", value_gap(flag))
 }
 
 /// The guide glyphs for a stacked row: every continuation line but the
@@ -244,6 +240,34 @@ mod tests {
         assert!(t[1].starts_with("| -acodec"), "{t:?}");
         assert!(t[3].starts_with("` -c:a"), "{t:?}");
         assert_eq!(lines[1].spans[0].style, Style::default());
+    }
+
+    #[test]
+    fn a_range_stays_on_the_main_line_of_a_stacked_row() {
+        let mut f = Entity::flag_long("fast", Provenance::single(Source::HelpText));
+        f.spellings = vec![
+            Spelling::short('0'),
+            Spelling::long("fast"),
+            Spelling::long("best"),
+            Spelling::long("quickest"),
+            Spelling::long("fastest"),
+        ];
+        f.set_range(mandible_core::SpellingRange {
+            start: Spelling::short('0'),
+            end: Spelling::short('9'),
+        })
+        .expect("the start is one of the spellings");
+        f.description = Some(Text::sanitize("compression level"));
+        let t = text(&entity_line(
+            &f,
+            false,
+            49,
+            true,
+            layout(),
+            crate::glyphs::UNICODE,
+        ));
+        assert!(t[0].starts_with("--fast, -0 ... -9"), "{t:?}");
+        assert!(t[1].starts_with("│ --best,"), "{t:?}");
     }
 
     #[test]

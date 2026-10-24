@@ -158,6 +158,7 @@ flags:
   - --occurrence
   value_name: NUMBER
   value_kind: Optional
+  optional_join: equals
   group: 'Operation modifiers:'
   description: process only the NUMBERth occurrence of each file in the archive; this option is valid only in conjunction with one of the subcommands --delete, --diff, --extract or --list and when a list of files is given either on the command line or via the -T option; NUMBER defaults to 1
   provenance:
@@ -460,6 +461,7 @@ flags:
   - --one-top-level
   value_name: DIR
   value_kind: Optional
+  optional_join: equals
   group: 'Overwrite control:'
   description: create a subdirectory to avoid having loose files extracted
   provenance:
@@ -552,6 +554,7 @@ flags:
   - --atime-preserve
   value_name: METHOD
   value_kind: Optional
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: preserve access times on dumped files, either by restoring the times after reading (METHOD='replace'; default) or by not setting the times in the first place (METHOD='system')
   provenance:
@@ -1008,6 +1011,7 @@ flags:
   - --backup
   value_name: CONTROL
   value_kind: Optional
+  optional_join: equals
   choices:
   - name: none
     description: never make backups
@@ -1122,6 +1126,7 @@ flags:
   - --checkpoint
   value_name: NUMBER
   value_kind: Optional
+  optional_join: equals
   group: 'Informative output:'
   description: display progress messages every NUMBERth record (default 10)
   provenance:
@@ -1239,6 +1244,7 @@ flags:
   - --totals
   value_name: SIGNAL
   value_kind: Optional
+  optional_join: equals
   group: 'Informative output:'
   description: 'print total bytes after processing the archive; with an argument - print total bytes when this SIGNAL is delivered; Allowed signals are: SIGHUP, SIGQUIT, SIGINT, SIGUSR1 and SIGUSR2; the names without SIG prefix are also accepted'
   provenance:

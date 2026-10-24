@@ -111,6 +111,7 @@ flags:
   - -deferglyphs
   value_name: '[none|all|16]'
   value_kind: Optional
+  optional_join: separate
   description: defer loading of [no|all|16-bit] glyphs
   provenance:
     sources:
@@ -225,6 +226,7 @@ flags:
   - -background
   value_name: '[none]'
   value_kind: Optional
+  optional_join: separate
   description: create root window with no background
   provenance:
     sources:
@@ -265,6 +267,7 @@ flags:
   - -render
   value_name: '[default|mono|gray|color]'
   value_kind: Optional
+  optional_join: separate
   description: set render color alloc policy
   provenance:
     sources:
@@ -303,6 +306,7 @@ flags:
   - -terminate
   value_name: '[delay]'
   value_kind: Optional
+  optional_join: separate
   description: terminate at server reset (optional delay in sec)
   provenance:
     sources:
@@ -437,6 +441,7 @@ flags:
   - -multicast
   value_name: '[addr [hops]'
   value_kind: Optional
+  optional_join: separate
   description: IPv6 multicast for XDMCP
   provenance:
     sources:
@@ -499,6 +504,7 @@ flags:
   - +accessx
   value_name: '[ timeout [ timeout_mask [ feedback [ options_mask] ] ] ]'
   value_kind: Optional
+  optional_join: separate
   description: enable/disable accessx key sequences
   provenance:
     sources:
@@ -507,6 +513,7 @@ flags:
   - -accessx
   value_name: '[ timeout [ timeout_mask [ feedback [ options_mask] ] ] ]'
   value_kind: Optional
+  optional_join: separate
   description: enable/disable accessx key sequences
   provenance:
     sources:

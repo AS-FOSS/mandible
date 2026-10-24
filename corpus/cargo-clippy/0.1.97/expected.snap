@@ -43,6 +43,7 @@ flags:
   - --explain
   value_name: LINT
   value_kind: Optional
+  optional_join: separate
   group: 'Common options:'
   description: Print the documentation for a given lint
   provenance:
@@ -53,6 +54,7 @@ flags:
   - --warn
   value_name: LINT
   value_kind: Optional
+  optional_join: separate
   group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
   description: Set lint warnings
   provenance:
@@ -63,6 +65,7 @@ flags:
   - --allow
   value_name: LINT
   value_kind: Optional
+  optional_join: separate
   group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
   description: Set lint allowed
   provenance:
@@ -73,6 +76,7 @@ flags:
   - --deny
   value_name: LINT
   value_kind: Optional
+  optional_join: separate
   group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
   description: Set lint denied
   provenance:
@@ -83,6 +87,7 @@ flags:
   - --forbid
   value_name: LINT
   value_kind: Optional
+  optional_join: separate
   group: 'To allow or deny a lint from the command line you can use cargo clippy -- with:'
   description: Set lint forbidden
   provenance:

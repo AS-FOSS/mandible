@@ -42,6 +42,7 @@ flags:
   - --exec-path
   value_name: <path>
   value_kind: Optional
+  optional_join: equals
   provenance:
     sources:
     - help-text-synopsis
@@ -210,6 +211,7 @@ subcommands:
     - --[no-]recurse-submodules
     value_name: <checkout>
     value_kind: Optional
+    optional_join: equals
     description: control recursive updating of submodules
     provenance:
       sources:

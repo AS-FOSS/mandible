@@ -608,6 +608,7 @@ impl App {
                             entity
                                 .spellings
                                 .iter()
+                                .chain(entity.range().map(|r| &r.end))
                                 .any(|s| word_prefix_matches(&s.name, filter))
                         });
                         if !matches {

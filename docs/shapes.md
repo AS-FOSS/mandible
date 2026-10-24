@@ -4406,22 +4406,30 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (value or operand names), none by count. `numastat`'s bracketed operand
   still reads `required`, a separate defect.
 
-### S-181: a row spells a run of single-digit flags as `-N .. -M`
+### S-181: a row names a run of flags by its two ends
 
 - id: S-181
 - looks like: |
       -1 .. -9   - compression strength or memory usage (default: 9)
       -0 ... -9  compression preset; default is 6
-- tools: savelog, bzip2, bunzip2, bzcat, xz, unxz, xzcat, lzma, unlzma, lzcat, streamzip
-- handling: Fixed. The row parses as flag `-N` with value `..`. A post-pass
-  (`expand_numeric_range_flags`) replaces it with one flag per digit, each
-  with no value and the row's description, when the row spells both
-  endpoints and the upper digit is larger. Nine flags, not one flag with
-  nine spellings, because spellings of one entity are aliases and `-1` and
-  `-9` are not. The existence check attests every digit inside a written
-  range.
-- fleet: 11 tools gained 8 or 9 flags each in the full-PATH sweep, 95 in
-  total, no losses.
+      -0 to -9, -11  Compression level (level 11, zopfli, is much slower)
+- tools: savelog, bzip2, bunzip2, bzcat, bzless, bzmore, xz, unxz, xzcat, lzma, unlzma, lzcat, streamzip, pigz, unpigz
+- handling: Fixed. A flag row whose head is exactly `<flag> <sep> <flag>`,
+  the separator being `..`, `...`, `…` or the word `to`, optionally followed
+  by `, <name>` items, is one flag with a range (`parse_range_head`). The
+  entity keeps the author's names as spellings, the start included, and
+  holds the two ends as `range`, whose start is always one of the
+  spellings. Nothing between the ends is computed, so `-1 .. -9` is not nine
+  flags. A head with a value, a bracket or an `=` is not a range. The range
+  never joins the alias-pair fold. It draws as `<start> ... <end>` after the
+  other long names and stays on the main line of a stacked row, and search
+  finds both ends. Before, `-1 .. -9` read as `-1` with the value `..`, and
+  `pigz`'s `-0 to -9, -11` as `-0` with the value `to`.
+  Fixtures: `corpus/savelog/5.17`, `corpus/pigz/2.8`.
+- fleet: 15 rows in 15 of 2299 captured `--help` texts of PATH tools. 13
+  use `..` or `...` (`bzip2` and its four wrappers, `xz` and its five
+  wrappers, `streamzip`, `savelog`), 2 use `to` (`pigz`, `unpigz`). No row
+  pairs the range with an alias; `pigz`'s `, -11` is an extra name.
 
 ### S-182: an operand is described by a `name - text` table row
 
@@ -5397,7 +5405,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - fleet: see S-229; jarsigner is the only tool among the 2440 captured
   `--help` texts (2026-10-11) that prints this shape.
 
-### S-231: a table named for a usage operand lists the values of the flag that names it
+### S-231: a table named for a usage operand lists the values of that operand
 
 - id: S-231
 - looks like: |
@@ -5408,10 +5416,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: krb5-config, krb5-config.mit
 - handling: Fixed. A bare table whose heading equals a usage operand's name
   (case-insensitive) and that exactly one flag's description names as a
-  whole word is that flag's choices, each row's text the choice's
-  description. Operands carry no choices in the snapshot or on screen, so
-  the flag holds them. Before, the names landed on `--libs` by the
-  unproven-owner fallback with every description dropped.
+  whole word is that operand's choices, each row's text the choice's
+  description. The flag keeps its description and carries no choices. The
+  snapshot lists the choices under the operand, and the detail pane draws
+  them under the operand in the same `values:` form a flag uses. Before, the
+  names landed on `--libs` by the unproven-owner fallback with every
+  description dropped.
   Fixture: `corpus/krb5-config/1.20.1`.
 - fleet: only krb5-config and krb5-config.mit of 2440 captured `--help`
   texts of PATH tools (2026-10-11) print this shape.

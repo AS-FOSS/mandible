@@ -63,6 +63,7 @@ flags:
   - --lock
   value_name: <mode>
   value_kind: Optional
+  optional_join: equals
   description: use exclusive device lock (yes, no or nonblock)
   provenance:
     sources:

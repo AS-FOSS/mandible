@@ -5,6 +5,10 @@ positionals:
 - name: '{dir|jar|class}'
   required: true
   variadic: true
+  choices:
+  - dir
+  - jar
+  - class
   provenance:
     sources:
     - help-text

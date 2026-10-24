@@ -35,6 +35,7 @@ flags:
   - --debug
   value_name: n
   value_kind: Optional
+  optional_join: separate
   description: '[n] Set the Debug level to N'
   provenance:
     sources:

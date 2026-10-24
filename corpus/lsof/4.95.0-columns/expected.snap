@@ -90,6 +90,7 @@ flags:
   - -K
   value_name: i
   value_kind: Optional
+  optional_join: separate
   description: list|(i)gn tasKs
   provenance:
     sources:
@@ -229,6 +230,7 @@ flags:
   - -f
   value_name: gG
   value_kind: Optional
+  optional_join: glued
   description: flaGs
   provenance:
     sources:
@@ -237,6 +239,7 @@ flags:
   - -F
   value_name: f
   value_kind: Optional
+  optional_join: separate
   description: select fields; -F? for help
   provenance:
     sources:
@@ -246,6 +249,7 @@ flags:
   - -L
   value_name: l
   value_kind: Optional
+  optional_join: separate
   description: list (+) suppress (-) link counts < l (0 = all; default = 0)
   provenance:
     sources:
@@ -254,6 +258,7 @@ flags:
   - +m
   value_name: m
   value_kind: Optional
+  optional_join: glued
   description: use|create mount supplement
   provenance:
     sources:
@@ -285,6 +290,7 @@ flags:
   - -S
   value_name: t
   value_kind: Optional
+  optional_join: separate
   description: t second stat timeout (15)
   provenance:
     sources:
@@ -301,6 +307,7 @@ flags:
   - -g
   value_name: s
   value_kind: Optional
+  optional_join: separate
   description: exclude(^)|select and print process group IDs
   provenance:
     sources:
@@ -318,6 +325,7 @@ flags:
   - -r
   value_name: t[m<fmt>]
   value_kind: Optional
+  optional_join: separate
   description: repeat every t seconds (15); + until no files, - forever. An optional suffix to t is m<fmt>; m must separate t from <fmt> and <fmt> is an strftime(3) format for the marker line.
   provenance:
     sources:
@@ -342,6 +350,7 @@ flags:
   - -x
   value_name: fl
   value_kind: Optional
+  optional_join: separate
   description: cross over +d|+D File systems or symbolic Links
   provenance:
     sources:

@@ -430,6 +430,7 @@ flags:
   - --unique
   value_name: SECTION
   value_kind: Optional
+  optional_join: equals
   description: Don't merge input [SECTION | orphan] sections
   provenance:
     sources:
@@ -613,6 +614,7 @@ flags:
   - --demangle
   value_name: STYLE
   value_kind: Optional
+  optional_join: equals
   description: Demangle symbol names [using STYLE]
   provenance:
     sources:
@@ -920,6 +922,7 @@ flags:
   - --sort-common
   value_name: ascending|descending
   value_kind: Optional
+  optional_join: equals
   description: Sort common symbols by alignment [in specified order]
   provenance:
     sources:
@@ -944,6 +947,7 @@ flags:
   - --split-by-file
   value_name: SIZE
   value_kind: Optional
+  optional_join: equals
   description: Split output sections every SIZE octets
   provenance:
     sources:
@@ -952,6 +956,7 @@ flags:
   - --split-by-reloc
   value_name: COUNT
   value_kind: Optional
+  optional_join: equals
   description: Split output sections every COUNT relocs
   provenance:
     sources:
@@ -1050,6 +1055,7 @@ flags:
   - --verbose
   value_name: NUMBER
   value_kind: Optional
+  optional_join: equals
   description: Output lots of information during link
   provenance:
     sources:
@@ -1270,6 +1276,7 @@ flags:
   - --build-id
   value_name: STYLE
   value_kind: Optional
+  optional_join: equals
   group: 'ELF emulations:'
   description: Generate build ID note
   provenance:
@@ -1279,6 +1286,7 @@ flags:
   - --package-metadata
   value_name: JSON
   value_kind: Optional
+  optional_join: equals
   group: 'ELF emulations:'
   description: Generate package metadata note
   provenance:
@@ -1838,6 +1846,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64linux:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -1909,6 +1918,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64elf:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -1980,6 +1990,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64elf32:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2051,6 +2062,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64elf32b:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2122,6 +2134,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64elfb:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2485,6 +2498,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64linuxb:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2556,6 +2570,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64linux32:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2627,6 +2642,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64linux32b:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:

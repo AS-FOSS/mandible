@@ -88,6 +88,8 @@ pub(super) fn split_short_letter_word_family(flags: &mut [Entity], raw: &str) {
         let value = spaced_value(raw, &format!("-{name}"));
         flags[i].spellings = vec![Spelling::single_dash(name)];
         flags[i].value_kind = value.as_ref().map_or(ValueKind::None, |v| v.1);
+        flags[i].optional_join = (flags[i].value_kind == ValueKind::Optional)
+            .then_some(mandible_core::OptionalJoin::Separate);
         flags[i].value_name = value.map(|v| v.0);
     }
 }

@@ -30,6 +30,7 @@ flags:
   - --list
   value_name: <glob-pattern>
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: list current overrides in the database.
   provenance:

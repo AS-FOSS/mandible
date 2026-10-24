@@ -110,6 +110,7 @@ flags:
   - -b[atch]
   value_name: filename
   value_kind: Optional
+  optional_join: separate
   group: 'OPTIONS :'
   provenance:
     sources:
@@ -118,6 +119,7 @@ flags:
   - -rc[vbuf]
   value_name: size
   value_kind: Optional
+  optional_join: separate
   group: 'OPTIONS :'
   provenance:
     sources:

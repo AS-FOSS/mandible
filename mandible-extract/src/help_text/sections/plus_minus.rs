@@ -70,6 +70,7 @@ pub(super) fn parse_plus_minus_pair_spec(spec_text: &str) -> Option<(FlagSpec, S
     {
         spec.value_name = Some(inner.to_string());
         spec.value_kind = ValueKind::Optional;
+        spec.optional_join = Some(OptionalJoin::Glued);
         spec.fully_consumed = true;
         return Some((spec, after.to_string()));
     }
@@ -84,6 +85,7 @@ pub(super) fn parse_plus_minus_pair_spec(spec_text: &str) -> Option<(FlagSpec, S
         if !inner.is_empty() {
             spec.value_name = Some(inner.to_string());
             spec.value_kind = ValueKind::Optional;
+            spec.optional_join = Some(OptionalJoin::Separate);
             spec.fully_consumed = true;
             return Some((spec, after[len..].trim_start().to_string()));
         }
@@ -91,6 +93,7 @@ pub(super) fn parse_plus_minus_pair_spec(spec_text: &str) -> Option<(FlagSpec, S
     let tail = parse_flag_spec(&format!("-{name} {after}"));
     spec.value_name = tail.value_name;
     spec.value_kind = tail.value_kind;
+    spec.optional_join = tail.optional_join;
     spec.fully_consumed = tail.fully_consumed;
     Some((spec, String::new()))
 }

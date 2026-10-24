@@ -66,6 +66,7 @@ flags:
   - --verify
   value_name: <package>...
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Verify the integrity of package(s).
   provenance:
@@ -75,6 +76,7 @@ flags:
   - --get-selections
   value_name: <pattern>...
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Get list of selections to stdout.
   provenance:
@@ -98,6 +100,7 @@ flags:
   - --update-avail
   value_name: <Packages-file>
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Replace available packages info.
   provenance:
@@ -107,6 +110,7 @@ flags:
   - --merge-avail
   value_name: <Packages-file>
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Merge with info from file.
   provenance:
@@ -131,6 +135,7 @@ flags:
   - --status
   value_name: <package>...
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Display package status details.
   provenance:
@@ -141,6 +146,7 @@ flags:
   - --print-avail
   value_name: <package>...
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Display available version details.
   provenance:
@@ -161,6 +167,7 @@ flags:
   - --list
   value_name: <pattern>...
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: List packages concisely.
   provenance:
@@ -181,6 +188,7 @@ flags:
   - --audit
   value_name: <package>...
   value_kind: Optional
+  optional_join: separate
   group: 'Commands:'
   description: Check for broken package(s).
   provenance:

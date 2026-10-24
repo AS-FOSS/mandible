@@ -40,7 +40,9 @@ use crate::fit;
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
-use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling, ValueKind};
+use mandible_core::{
+    CommandNode, Dashes, Entity, EntityKind, FlagKey, OptionalJoin, Spelling, ValueKind,
+};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -2717,6 +2719,87 @@ mod tests {
             Spelling::single_dash("help"),
         ];
         assert_eq!(entity_name_spec(&e), "-h, -?, --help, -help");
+    }
+
+    fn range_flag(spellings: Vec<Spelling>, start: Spelling, end: Spelling) -> Entity {
+        let mut e = Entity::flag_long("x", Provenance::single(Source::HelpText));
+        e.spellings = spellings;
+        e.set_range(mandible_core::SpellingRange { start, end })
+            .expect("the start is one of the spellings");
+        e
+    }
+
+    /// A range draws as `<start> ... <end>` and counts as a long name:
+    /// shorts first, then longs, then the range. See docs/shapes.md S-181.
+    #[test]
+    fn a_range_draws_with_three_dots_after_the_other_longs() {
+        let xz = range_flag(
+            vec![Spelling::short('0')],
+            Spelling::short('0'),
+            Spelling::short('9'),
+        );
+        assert_eq!(entity_name_spec(&xz), "-0 ... -9");
+        let pigz = range_flag(
+            vec![Spelling::short('0'), Spelling::single_dash("11")],
+            Spelling::short('0'),
+            Spelling::short('9'),
+        );
+        assert_eq!(entity_name_spec(&pigz), "-11, -0 ... -9");
+        let mut with_short = pigz.clone();
+        with_short.spellings.push(Spelling::short('l'));
+        assert_eq!(entity_name_spec(&with_short), "-l, -11, -0 ... -9");
+    }
+
+    /// The brackets of an optional value enclose the joiner too.
+    #[test]
+    fn optional_values_draw_their_joiner_inside_the_brackets() {
+        let head = |join: Option<OptionalJoin>, spelling: Spelling, name: &str| {
+            let mut e = Entity::flag_long("x", Provenance::single(Source::HelpText));
+            e.spellings = vec![spelling];
+            e.value_name = Some(name.to_string());
+            e.value_kind = ValueKind::Optional;
+            e.optional_join = join;
+            format!(
+                "{}{}{}",
+                entity_name_spec(&e),
+                value_gap(&e),
+                entity_value_text(&e).unwrap()
+            )
+        };
+        let eq = Some(OptionalJoin::Equals);
+        assert_eq!(head(eq, Spelling::long("color"), "WHEN"), "--color[=WHEN]");
+        assert_eq!(
+            head(Some(OptionalJoin::Glued), Spelling::short('O'), "N"),
+            "-O[N]"
+        );
+        assert_eq!(
+            head(
+                Some(OptionalJoin::Glued),
+                Spelling::short('V'),
+                "[N][fname]"
+            ),
+            "-V[N][fname]"
+        );
+        assert_eq!(
+            head(eq, Spelling::long("listen"), "[ADDR:]PORT"),
+            "--listen[=[ADDR:]PORT]"
+        );
+        assert_eq!(
+            head(Some(OptionalJoin::Separate), Spelling::long("foo"), "FOO"),
+            "--foo [FOO]"
+        );
+        assert_eq!(head(None, Spelling::long("foo"), "FOO"), "--foo [FOO]");
+    }
+
+    /// A required value keeps its space and carries no brackets.
+    #[test]
+    fn a_required_value_keeps_its_space() {
+        let mut e = Entity::flag_long("max-count", Provenance::single(Source::HelpText));
+        e.value_name = Some("NUM".to_string());
+        e.value_kind = ValueKind::Required;
+        e.optional_join = Some(OptionalJoin::Equals);
+        assert_eq!(value_gap(&e), " ");
+        assert_eq!(entity_value_text(&e).unwrap(), "NUM");
     }
 
     // --- spec §16: enumerator continuation breaks (item 6, sg_luns) ---

@@ -602,36 +602,6 @@ fn occurs_as_a_bundle_member(raw: &str, short: char) -> bool {
     })
 }
 
-/// Whether `raw` spells `short`, a digit, as a member of a row-written
-/// range `-N .. -M` (`savelog`'s `-1 .. -9`, `xz`'s `-0 ... -9`) with
-/// `N <= short <= M`. See docs/shapes.md S-181.
-fn occurs_in_digit_range(raw: &str, short: char) -> bool {
-    let Some(d) = short.to_digit(10) else {
-        return false;
-    };
-    raw.lines().any(|line| {
-        let chars: Vec<char> = line.chars().collect();
-        chars.windows(2).enumerate().any(|(i, w)| {
-            if w[0] != '-' || !w[1].is_ascii_digit() {
-                return false;
-            }
-            let rest: String = chars[i + 2..].iter().collect();
-            let rest = rest.trim_start();
-            let dots = rest.chars().take_while(|c| *c == '.').count();
-            let Some(tail) = rest.get(dots..).filter(|_| dots >= 2) else {
-                return false;
-            };
-            let mut it = tail.trim_start().chars();
-            let hi = match (it.next(), it.next()) {
-                (Some('-'), Some(c)) => c.to_digit(10),
-                _ => None,
-            };
-            let lo = w[1].to_digit(10);
-            matches!((lo, hi), (Some(lo), Some(hi)) if lo <= d && d <= hi)
-        })
-    })
-}
-
 /// Candidate raw-text spellings for `flag`'s long name: the negatable-
 /// boolean bracket convention (this module's doc comment), each also in the
 /// value-reconstructed form [`short_candidates`] builds for the short half
@@ -748,8 +718,7 @@ fn check_flags(node: &CommandNode, path: &str, raw: &str, out: &mut Vec<Fabricat
             let spelling = format!("-{short}");
             let candidates = short_candidates(flag, short);
             let attested = candidates.iter().any(|c| spelling_occurs(raw, c))
-                || occurs_as_a_bundle_member(raw, short)
-                || occurs_in_digit_range(raw, short);
+                || occurs_as_a_bundle_member(raw, short);
             if !attested {
                 out.push(Fabrication {
                     path: path.to_string(),

@@ -66,6 +66,7 @@ flags:
   - --load
   value_name: <file>
   value_kind: Optional
+  optional_join: equals
   description: read values from file
   provenance:
     sources:

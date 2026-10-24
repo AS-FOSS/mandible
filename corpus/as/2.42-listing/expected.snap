@@ -7,6 +7,7 @@ flags:
   - -a
   value_name: sub-option...
   value_kind: Optional
+  optional_join: glued
   choices:
   - name: c
     description: omit false conditionals
@@ -40,6 +41,7 @@ flags:
   - --compress-debug-sections
   value_name: '{none|zlib|zlib-gnu|zlib-gabi|zstd}'
   value_kind: Optional
+  optional_join: equals
   description: 'compress DWARF debug sections Default: none'
   provenance:
     sources:

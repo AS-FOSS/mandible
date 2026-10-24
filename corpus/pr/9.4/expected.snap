@@ -65,6 +65,7 @@ flags:
   - --expand-tabs
   value_name: '[CHAR[WIDTH]]'
   value_kind: Optional
+  optional_join: equals
   description: expand input CHARs (TABs) to tab WIDTH (8)
   provenance:
     sources:
@@ -91,6 +92,7 @@ flags:
   - --output-tabs
   value_name: '[CHAR[WIDTH]]'
   value_kind: Optional
+  optional_join: equals
   description: replace spaces with CHARs (TABs) to tab WIDTH (8)
   provenance:
     sources:
@@ -123,6 +125,7 @@ flags:
   - --number-lines
   value_name: '[SEP[DIGITS]]'
   value_kind: Optional
+  optional_join: equals
   description: number lines, use DIGITS (5) digits, then SEP (TAB), default counting starts with 1st line of input file
   provenance:
     sources:
@@ -157,6 +160,7 @@ flags:
   - --separator
   value_name: CHAR
   value_kind: Optional
+  optional_join: equals
   description: separate columns by a single character, default for CHAR is the <TAB> character without -w and 'no char' with -w. -s[CHAR] turns off line truncation of all 3 column options (-COLUMN|-a -COLUMN|-m) except -w is set
   provenance:
     sources:
@@ -166,6 +170,7 @@ flags:
   - --sep-string
   value_name: STRING
   value_kind: Optional
+  optional_join: equals
   description: 'separate columns by STRING, without -S: Default separator <TAB> with -J and <space> otherwise (same as -S" "), no effect on column options'
   provenance:
     sources:

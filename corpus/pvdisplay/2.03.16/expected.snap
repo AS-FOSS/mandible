@@ -267,6 +267,7 @@ flags:
   - --units
   value_name: Number
   value_kind: Optional
+  optional_join: separate
   choices:
   - r
   - R

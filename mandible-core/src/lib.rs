@@ -24,7 +24,10 @@ mod provenance;
 mod snapshot;
 mod text;
 
-pub use entity::{is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Spelling};
+pub use entity::{
+    is_literal_choice_value, Choice, Dashes, Entity, EntityKind, OptionalJoin,
+    RangeStartNotASpelling, Spelling, SpellingRange,
+};
 pub use merge::{
     merge_entity_lists, merge_nodes, merge_subcommand_lists, pair_aliases, MergeError,
 };

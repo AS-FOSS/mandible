@@ -305,6 +305,7 @@ flags:
   - --dhcp-broadcast
   value_name: tag:<tag>...
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Force broadcast replies for hosts with tag set.
   provenance:
@@ -384,6 +385,7 @@ flags:
   - --use-stale-cache
   value_name: <max_expired>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Use expired cache data for faster reply.
   provenance:
@@ -735,6 +737,7 @@ flags:
   - --enable-dbus
   value_name: <busname>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable the DBus interface for setting upstream servers, etc.
   provenance:
@@ -744,6 +747,7 @@ flags:
   - --enable-ubus
   value_name: <busname>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable the UBus interface.
   provenance:
@@ -782,6 +786,7 @@ flags:
   - --bootp-dynamic
   value_name: tag:<tag>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable dynamic address allocation for bootp.
   provenance:
@@ -916,6 +921,7 @@ flags:
   - --dhcp-ignore-names
   value_name: tag:<tag>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Ignore hostnames provided by DHCP clients.
   provenance:
@@ -932,6 +938,7 @@ flags:
   - --enable-tftp
   value_name: '[<intr>[,<intr>]]'
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable integrated read-only TFTP server.
   provenance:
@@ -950,6 +957,7 @@ flags:
   - --tftp-unique-root
   value_name: ip|mac
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Add client IP or hardware address to tftp-root.
   provenance:
@@ -1028,6 +1036,7 @@ flags:
   - --log-async
   value_name: <integer>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable async. logging; optionally set queue length.
   provenance:
@@ -1085,6 +1094,7 @@ flags:
   - --dhcp-alternate-port
   value_name: <ports>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Use alternative ports for DHCP.
   provenance:
@@ -1128,6 +1138,7 @@ flags:
   - --dhcp-generate-names
   value_name: tag:<tag>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Generate hostnames based on MAC address for nameless clients.
   provenance:
@@ -1137,6 +1148,7 @@ flags:
   - --dhcp-proxy
   value_name: <ipaddr>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Use these DHCP relays as full proxies.
   provenance:
@@ -1189,6 +1201,7 @@ flags:
   - --add-mac
   value_name: base64|text
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Add requestor's MAC address to forwarded DNS queries.
   provenance:
@@ -1395,6 +1408,7 @@ flags:
   - --connmark-allowlist-enable
   value_name: <mask>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable filtering of DNS queries with connection-track marks.
   provenance:
@@ -1585,6 +1599,7 @@ flags:
   - --umbrella
   value_name: <optspec>
   value_kind: Optional
+  optional_join: equals
   group: 'Valid options are:'
   description: Send Cisco Umbrella identifiers including remote IP.
   provenance:

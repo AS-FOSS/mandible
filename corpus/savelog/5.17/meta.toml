@@ -1,5 +1,5 @@
-# The row `-1 .. -9` documents nine single-digit flags, read as nine
-# flags with no value (S-181). The last row `file - log file names`
+# The row `-1 .. -9` names a range of flags by its two ends, read as
+# the flag `-1` with the range `-1` to `-9` and no value (S-181). The last row `file - log file names`
 # describes the usage line's trailing `file ...` operand (S-182).
 
 [bless]
@@ -20,10 +20,10 @@ exit_code = 1
 [contract]
 expected_framework = "generic"
 must_contain_positionals = ["file..."]
-must_contain_flags = ["-1", "-5", "-9"]
+must_contain_flags = ["-1"]
 
 [contract.must_not_value_name]
 "-1" = ".."
 
 [contract.must_describe]
-"-9" = "compression strength or memory usage (default: 9, except for xz)"
+"-1" = "compression strength or memory usage (default: 9, except for xz)"

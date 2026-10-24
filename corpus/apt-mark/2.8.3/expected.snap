@@ -8,6 +8,9 @@ usage:
 positionals:
 - name: '{auto|manual}'
   required: true
+  choices:
+  - auto
+  - manual
   provenance:
     sources:
     - help-text

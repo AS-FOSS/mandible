@@ -349,6 +349,7 @@ flags:
 - spellings:
   - --groups
   value_kind: Optional
+  optional_join: separate
   choices:
   - eth-phy
   - eth-mac

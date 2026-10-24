@@ -225,6 +225,58 @@ impl Choice {
     }
 }
 
+/// How an optional value joins its flag, as the flag's own row writes it.
+///
+/// Decides where the brackets go when the value is drawn: they enclose
+/// exactly what may be left out, joiner included (`--color[=WHEN]`,
+/// `-O[N]`, `--foo [FOO]`). Meaningful only for [`ValueKind::Optional`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OptionalJoin {
+    /// Joined by `=` inside the brackets: `--color[=WHEN]`, also written
+    /// `--color=[WHEN]`.
+    Equals,
+    /// Glued straight onto the flag: `-O[N]`.
+    Glued,
+    /// A separate word: argparse's `--foo [FOO]`.
+    Separate,
+}
+
+impl OptionalJoin {
+    /// The snapshot and display word for this joiner.
+    pub fn label(self) -> &'static str {
+        match self {
+            OptionalJoin::Equals => "equals",
+            OptionalJoin::Glued => "glued",
+            OptionalJoin::Separate => "separate",
+        }
+    }
+}
+
+/// A flag row that names a run of flags by its two ends (`-0 ... -9`).
+/// Nothing between the ends is computed or implied.
+///
+/// The start is always one of the owning entity's spellings, which
+/// [`Entity::set_range`] enforces; the end is held here only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SpellingRange {
+    /// The first end, also one of the entity's `spellings`.
+    pub start: Spelling,
+    /// The last end.
+    pub end: Spelling,
+}
+
+impl SpellingRange {
+    /// How the range is drawn, whatever separator the author wrote:
+    /// `-0 ... -9`.
+    pub fn render(&self) -> String {
+        format!("{} ... {}", self.start.render(), self.end.render())
+    }
+}
+
+/// The range's start was not one of the entity's spellings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RangeStartNotASpelling;
+
 /// Which kind of documented item an [`Entity`] is. Decides which detail
 /// pane section it renders under (spec §9.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -260,6 +312,11 @@ pub struct Entity {
     /// Whether this entity takes no value, a required one, or an optional
     /// one.
     pub value_kind: ValueKind,
+    /// How an optional value joins its flag, when the row shows it.
+    /// `None` for a flag without an optional value, or when the source
+    /// does not say.
+    #[serde(default)]
+    pub optional_join: Option<OptionalJoin>,
     /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`. Each
     /// [`Choice`] carries its own description when the tool documents one
     /// per value (spec §7 Tier B rule 4, §9.3).
@@ -299,6 +356,10 @@ pub struct Entity {
     pub env_var: Option<String>,
     /// Which source(s) contributed this entity's fields.
     pub provenance: Provenance,
+    /// The two ends of a row such as `-0 ... -9`. Private so the start
+    /// stays one of `spellings`: set it through [`Entity::set_range`].
+    #[serde(default)]
+    range: Option<SpellingRange>,
 }
 
 impl Entity {
@@ -311,6 +372,7 @@ impl Entity {
             spellings: Vec::new(),
             value_name: None,
             value_kind: ValueKind::None,
+            optional_join: None,
             choices: Vec::new(),
             repeatable: false,
             required: false,
@@ -322,7 +384,33 @@ impl Entity {
             see_also: Vec::new(),
             env_var: None,
             provenance,
+            range: None,
         }
+    }
+
+    /// The range this entity's row names, if any.
+    pub fn range(&self) -> Option<&SpellingRange> {
+        self.range.as_ref()
+    }
+
+    /// Record the range this row names. The start must already be one of
+    /// `spellings` (same name and dashes), so the range never points at a
+    /// flag the entity does not carry.
+    pub fn set_range(&mut self, range: SpellingRange) -> Result<(), RangeStartNotASpelling> {
+        let owned = self
+            .spellings
+            .iter()
+            .any(|s| s.name == range.start.name && s.dashes == range.start.dashes);
+        if !owned {
+            return Err(RangeStartNotASpelling);
+        }
+        self.range = Some(range);
+        Ok(())
+    }
+
+    /// Remove the range, leaving every spelling in place.
+    pub fn clear_range(&mut self) {
+        self.range = None;
     }
 
     /// A flag with only a long spelling — the direct counterpart of the
@@ -1186,5 +1274,20 @@ mod tests {
         // populated from the other.
         assert_eq!(flag.env_var.as_deref(), Some("APP_PORT"));
         assert_eq!(item.env_var, None);
+    }
+
+    #[test]
+    fn a_range_start_must_be_one_of_the_spellings() {
+        let mut e = entity_flag(vec![Spelling::short('0'), Spelling::single_dash("11")]);
+        let range = SpellingRange {
+            start: Spelling::short('0'),
+            end: Spelling::short('9'),
+        };
+        assert_eq!(e.set_range(range.clone()), Ok(()));
+        assert_eq!(e.range().map(SpellingRange::render).unwrap(), "-0 ... -9");
+
+        let mut other = entity_flag(vec![Spelling::short('1')]);
+        assert_eq!(other.set_range(range), Err(RangeStartNotASpelling));
+        assert_eq!(other.range(), None);
     }
 }

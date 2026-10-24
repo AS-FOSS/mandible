@@ -28,7 +28,7 @@ use super::grammar::{
 use super::profile::{heading_matches_markers, FrameworkProfile};
 use mandible_core::{
     is_command_name_shaped, is_literal_choice_value, strip_escapes, Choice, CommandNode, Dashes,
-    Entity, EntityKind, Provenance, Source, Spelling, Text, ValueKind,
+    Entity, EntityKind, OptionalJoin, Provenance, Source, Spelling, Text, ValueKind,
 };
 
 mod avoption;
@@ -56,7 +56,7 @@ mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
 mod no_option_row;
-mod numeric_range;
+mod operand_rows;
 mod or_choice_fold;
 mod paren_flag_rows;
 mod per_form;
@@ -112,10 +112,7 @@ use key_value_text::key_value_paragraphs;
 pub use layout::*;
 use multiword::*;
 use no_option_row::take_no_option_row;
-use numeric_range::{
-    describe_positionals_from_name_rows, expand_numeric_range_flags,
-    fold_separator_row_into_operand,
-};
+use operand_rows::{describe_positionals_from_name_rows, fold_separator_row_into_operand};
 use or_choice_fold::fold_or_joined_choice_rows;
 use plural_owner::plural_owner_index;
 use plus_minus::*;
@@ -2490,8 +2487,6 @@ fn parse_body(
     // an already-correct, already-described row rather than needing its
     // own exception. See docs/shapes.md S-176.
     recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
-    // A `-1 .. -9` row is nine flags, not `-1` valued `..`. See docs/shapes.md S-181.
-    expand_numeric_range_flags(&mut result.flags, &lines);
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);

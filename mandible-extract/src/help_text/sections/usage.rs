@@ -135,14 +135,12 @@ pub(super) fn recover_stanza_head_flag(heading: &str, tool_name: Option<&str>) -
     if !looks_like_stanza_head_flag(rest) {
         return None;
     }
-    let spec = parse_flag_spec(rest);
+    let mut spec = parse_flag_spec(rest);
     if spec.spellings.is_empty() {
         return None;
     }
     let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
-    flag.spellings = spec.spellings;
-    flag.value_name = spec.value_name;
-    flag.value_kind = spec.value_kind;
+    spec.fill_entity(&mut flag);
     flag.group = meaningful_flag_group(heading.to_string());
     Some(flag)
 }
@@ -1103,7 +1101,7 @@ pub(super) fn push_usage_token(out: &mut Vec<Entity>, token: &str, pairs: &Switc
 /// but distinct so spec §13's `pct_flags_with_text` can tell a
 /// structurally-undescribable flag apart from one merely undescribed. See
 /// S-088.
-pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
+pub(super) fn push_usage_flag(out: &mut Vec<Entity>, mut spec: FlagSpec) {
     if spec.spellings.is_empty() {
         return;
     }
@@ -1111,9 +1109,7 @@ pub(super) fn push_usage_flag(out: &mut Vec<Entity>, spec: FlagSpec) {
         EntityKind::Flag,
         Provenance::single(Source::HelpTextSynopsis),
     );
-    flag.spellings = spec.spellings;
-    flag.value_name = spec.value_name;
-    flag.value_kind = spec.value_kind;
+    spec.fill_entity(&mut flag);
     flag.choices = spec.choices.into_iter().map(Choice::bare).collect();
     // The usage-line twin of `emit::value_name_duplicates_its_own_choices`:
     // a docopt bracket row's own trailing `|`-list (`trailing_choice_list`,
@@ -1177,6 +1173,12 @@ pub(super) fn pair_short_and_long(a: FlagSpec, b: FlagSpec) -> Option<FlagSpec> 
             short_spec.value_kind
         },
         value_name: long_spec.value_name.or(short_spec.value_name),
+        optional_join: if long_had_value {
+            long_spec.optional_join
+        } else {
+            short_spec.optional_join
+        },
+        range: None,
         // Neither side of a short/long pair reaches this merge already
         // carrying `choices`: only a docopt bracket row does, and that
         // row is one whole flag, never split into a short/long pair
