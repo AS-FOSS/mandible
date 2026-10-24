@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- An optional value draws its brackets around what may be left out, joiner included: `--color[=WHEN]` for `grep`, `-O[N]` for `nvim`, `--explain [LINT]` for `cargo-clippy`. A required value still reads `--max-count NUM`. A row written `--log-file=[PATH]` is now the optional value `PATH` instead of a value named `[PATH]`.
+- [S-231] `krb5-config` lists the `Libraries:` values under its `LIBRARIES` operand instead of under `--libs`, and a positional's values show under it as a flag's do.
+- The search box title reads `search · names` instead of `search [names]`, and the `--review` bar reads `REVIEW tool · stratum`: square brackets in mandible's own text always mean may be left out.
 - With wrapping off, a section header's rule and a group divider's rule still reach the right edge of the detail pane however far it is scrolled sideways.
 - Toggling wrap with `w` or resizing the terminal keeps the same flag, heading or line at the top of the detail pane, in the parsed and raw views.
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
@@ -32,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-181] A range row reads as one flag with two ends drawn `-0 ... -9`, not as nine flags or as `-0` with the value `to`: `mandible xz`, `mandible bzip2`, `mandible savelog`, `mandible streamzip` and `mandible pigz`. Search finds both ends.
 - A value name or group heading wider than a narrow detail pane is wrapped instead of running past the border.
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.
 - [S-252] A USAGE form led by another program's name (`bpftrace [options] filename` under `tcpretrans.bt`) is now shown as printed instead of being prefixed with the tool's name, and the first form under a bare `Usage:` label lines up with the forms below it.
