@@ -57,11 +57,6 @@ pub struct Glyphs {
     pub more_up: &'static str,
     /// More content below the view.
     pub more_down: &'static str,
-    /// Guide drawn beside a stacked flag row's continuation spellings,
-    /// on every continuation line but the last.
-    pub guide_mid: &'static str,
-    /// The same guide on the last continuation line.
-    pub guide_end: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -83,8 +78,6 @@ pub const UNICODE: Glyphs = Glyphs {
     more_right: "▶",
     more_up: "▲",
     more_down: "▼",
-    guide_mid: "│",
-    guide_end: "└",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -107,8 +100,6 @@ pub const ASCII: Glyphs = Glyphs {
     more_right: ">",
     more_up: "^",
     more_down: "v",
-    guide_mid: "|",
-    guide_end: "`",
 };
 
 /// Pick a glyph set from the environment.
@@ -162,8 +153,6 @@ mod tests {
             ASCII.arrows_horizontal,
             ASCII.absent,
             ASCII.rule,
-            ASCII.guide_mid,
-            ASCII.guide_end,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

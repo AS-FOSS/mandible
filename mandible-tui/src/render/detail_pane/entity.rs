@@ -213,7 +213,6 @@ pub(super) fn entity_line(
     // Where the value and description columns begin, shared across the
     // whole section — see `section_layout`.
     layout: SectionLayout,
-    glyphs: Glyphs,
 ) -> Vec<Line<'static>> {
     if layout.man {
         return super::man::man_entity_lines(flag, dim, width, color_enabled, layout);
@@ -298,8 +297,8 @@ pub(super) fn entity_line(
         }
         let mut lines = vec![Line::from(first_line_spans)];
         if let Some(stack) = &stack {
-            let dim = style::muted(color_enabled);
-            lines.extend(stack.rows(layout, &[], guides(glyphs), (dim, dim)));
+            let or_style = style::muted(color_enabled);
+            lines.extend(stack.rows(layout, &[], (or_style, spelling_style, desc_style)));
         }
         return lines;
     }
@@ -353,8 +352,8 @@ pub(super) fn entity_line(
         wrap_description(&remainder, rest_width)
     };
     if let Some(stack) = &stack {
-        let dim = style::muted(color_enabled);
-        lines.extend(stack.rows(layout, &chunks, guides(glyphs), (dim, desc_style)));
+        let or_style = style::muted(color_enabled);
+        lines.extend(stack.rows(layout, &chunks, (or_style, spelling_style, desc_style)));
     } else {
         for chunk in chunks {
             lines.push(Line::from(Span::styled(

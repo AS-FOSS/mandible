@@ -187,9 +187,8 @@ fn check_sections(name: &str, node: &CommandNode, width: usize, wrap: bool) {
             let broken_head = broken.iter().any(|h| h.starts_with(first));
             for (n, line) in lines.iter().enumerate().skip(1) {
                 let t = texts[row.first_line + n].trim_start();
-                let guide = t.starts_with(crate::glyphs::UNICODE.guide_mid)
-                    || t.starts_with(crate::glyphs::UNICODE.guide_end);
-                if guide || broken_head || t.is_empty() {
+                let more_names = t.starts_with("or ");
+                if more_names || broken_head || t.is_empty() {
                     continue;
                 }
                 assert!(

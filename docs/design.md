@@ -1883,12 +1883,12 @@ pane's flag list.
    column is stacked. The first line holds the first short spelling, the
    first long one (`--name`, else the first one-dash word) and the
    placeholder after it. The other spellings follow in printed order,
-   wrapped at the commas inside the column, one line each behind a dim
-   guide: `│` on every line but the last, `└` on the last (`|` and `` ` ``
-   in the ASCII set), then a space. The description starts on the first
-   line and wraps in its own column beside the spelling lines. The row is
-   as tall as the taller of the two. A spelling wider than the room left
-   by the guide keeps the single-line head of rule 3. A section in the man
+   wrapped at the commas inside the column, each line indented two
+   columns past the row's first spelling and led by a dim `or` and a
+   space; the spellings keep their own style. The description starts on
+   the first line and wraps in its own column beside the spelling lines.
+   The row is as tall as the taller of the two. A spelling wider than the room left
+   after `or` keeps the single-line head of rule 3. A section in the man
    layout never stacks: it joins every spelling on the head line.
 
 **Why.** A placeholder column has to be as wide as the section's widest
@@ -1902,8 +1902,9 @@ six-word flag description still reads as prose, below it breaks mid-word,
 so below 20 columns the section becomes a man page whole, decided per
 section, never per row, so one list never reads as two products. A row with five
 spellings otherwise runs past the column and pushes its description right.
-Stacking keeps the description at the column, and the guide shows that the
-extra lines belong to the row above.
+Stacking keeps the description at the column. The indent shows that the
+extra lines belong to the row above, and `or` says how: they are other
+names of the same flag, which a glyph or a colour cannot say.
 
 **Implemented in.** `mandible-tui/src/render/detail_pane/`, stacking in
 `stack.rs`.
