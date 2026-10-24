@@ -6,6 +6,7 @@ flags:
   - --ensure
   value_name: FILENAME
   value_kind: Optional
+  optional_join: equals
   provenance:
     sources:
     - help-text-synopsis
@@ -13,6 +14,7 @@ flags:
   - --get
   value_name: FILENAME
   value_kind: Optional
+  optional_join: equals
   provenance:
     sources:
     - help-text-synopsis

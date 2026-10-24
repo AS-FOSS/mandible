@@ -67,3 +67,10 @@ must_contain_flags = ["--", "+", "-c"]
 [contract.must_describe]
 "-t" = "Edit file where tag is defined"
 "-q" = "Edit file with first error"
+
+[contract.must_not_describe]
+"-l" = "[args...]"
+
+[xfail]
+broken = true
+reason = "1. `-l <script> [args...] Execute Lua <script>` has one space before its description, so the row splits after `<script>` and `[args...]` lands in the description; it is part of the value. 2. `+<cmd>, -c <cmd>`: the value is glued to `+` (`nvim + cmd` would open a file named cmd), but required values always draw after a space, so the pane shows `-c, + <cmd>`. The tree records no joiner for required values."

@@ -95,6 +95,7 @@ flags:
   - -verbose
   value_name: :suboptions
   value_kind: Optional
+  optional_join: glued
   description: verbose output when signing/verifying. suboptions can be all, grouped or summary
   provenance:
     sources:

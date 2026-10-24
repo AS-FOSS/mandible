@@ -17,7 +17,11 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         Style::default()
     };
-    let title = format!(" search [{}]  (/ switches) ", app.search_mode.label());
+    let title = format!(
+        " search {} {}  (/ switches) ",
+        app.glyphs.dot,
+        app.search_mode.label()
+    );
     let title = crate::sanitize::truncate_to_width_marker(
         &title,
         usize::from(area.width.saturating_sub(2)),

@@ -102,6 +102,7 @@ flags:
   - -M
   value_name: <mri-script
   value_kind: Optional
+  optional_join: separate
   provenance:
     sources:
     - help-text-synopsis

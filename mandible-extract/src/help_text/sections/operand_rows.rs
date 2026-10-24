@@ -1,57 +1,6 @@
-//! A row spelling a run of single-digit flags as `-N .. -M`.
+//! Operand descriptions taken from `name - text` table rows.
 
 use super::*;
-
-/// Replace the one flag a `-1 .. -9` row parses as (short `1`, value `..`)
-/// with one flag per digit in the range, each carrying the row's
-/// description and no value. The row must spell both endpoints
-/// (`-N .. -M`, `N < M`); a digit another flag already owns is skipped.
-/// See docs/shapes.md S-181 and corpus/savelog/5.17.
-pub(super) fn expand_numeric_range_flags(flags: &mut Vec<Entity>, lines: &[&str]) {
-    let mut out: Vec<Entity> = Vec::with_capacity(flags.len());
-    for flag in flags.iter() {
-        let range = flag
-            .short()
-            .filter(|c| c.is_ascii_digit() && flag.long().is_none())
-            .filter(|_| matches!(flag.value_name.as_deref(), Some("..") | Some("...")))
-            .and_then(|first| row_range_end(lines, first).map(|last| (first, last)));
-        let Some((first, last)) = range else {
-            out.push(flag.clone());
-            continue;
-        };
-        for digit in first..=last {
-            let taken = flags
-                .iter()
-                .any(|f| f.short() == Some(digit) && !std::ptr::eq(f, flag));
-            if taken {
-                continue;
-            }
-            let mut member = flag.clone();
-            member.spellings = vec![Spelling::short(digit)];
-            member.value_name = None;
-            member.value_kind = ValueKind::None;
-            out.push(member);
-        }
-    }
-    *flags = out;
-}
-
-/// The upper endpoint of the row `-<first> .. -<last>`, when the document
-/// has exactly that row and `last` is a larger digit.
-fn row_range_end(lines: &[&str], first: char) -> Option<char> {
-    let prefix = format!("-{first}");
-    lines.iter().find_map(|line| {
-        let rest = line.trim_start().strip_prefix(prefix.as_str())?;
-        let rest = rest.trim_start().strip_prefix("..")?;
-        let rest = rest
-            .trim_start_matches('.')
-            .trim_start()
-            .strip_prefix('-')?;
-        let mut chars = rest.chars();
-        let last = chars.next().filter(|c| c.is_ascii_digit() && *c > first)?;
-        chars.next().is_none_or(char::is_whitespace).then_some(last)
-    })
-}
 
 /// A positional with no description takes it from the one table row that
 /// opens with the positional's own name as its first token, then either

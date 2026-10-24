@@ -120,6 +120,7 @@ flags:
   - --multi
   value_name: MAX
   value_kind: Optional
+  optional_join: equals
   group: Interface
   description: Enable multi-select with tab/shift-tab
   provenance:
@@ -227,6 +228,7 @@ flags:
   - --border
   value_name: STYLE
   value_kind: Optional
+  optional_join: equals
   group: Layout
   description: 'Draw border around the finder [rounded|sharp|bold|block|thinblock|double|horizontal|vertical| top|bottom|left|right|none] (default: rounded)'
   provenance:
@@ -297,6 +299,7 @@ flags:
   - --scrollbar
   value_name: '[C1[C2]]'
   value_kind: Optional
+  optional_join: equals
   group: Layout
   description: Scrollbar character(s) (each for main and preview window)
   provenance:
@@ -532,6 +535,7 @@ flags:
   - --listen
   value_name: '[[ADDR:]PORT]'
   value_kind: Optional
+  optional_join: equals
   group: Scripting
   description: Start HTTP server to receive actions (POST /) (To allow remote process execution, use --listen-unsafe)
   provenance:

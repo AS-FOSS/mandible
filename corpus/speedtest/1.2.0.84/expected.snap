@@ -111,6 +111,7 @@ flags:
   - --unit
   value_name: ARG
   value_kind: Optional
+  optional_join: equals
   choices:
   - name: bps
     description: Decimal prefix, bits per second

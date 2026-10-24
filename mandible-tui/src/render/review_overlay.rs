@@ -72,9 +72,10 @@ pub fn render(frame: &mut Frame, full_area: Rect, state: &ReviewOverlay, glyphs:
                 .map(|r| format!("  forced({r})"))
                 .unwrap_or_default();
             format!(
-                "REVIEW {} [{}]{}  {} {} {}  {} pending of {}   \
+                "REVIEW {} {} {}{}  {} {} {}  {} pending of {}   \
                  c correct  i incomplete  w wrong  s skip  ^C quit session",
                 state.tool,
+                glyphs.dot,
                 state.stratum,
                 reason,
                 compact_tag("K1", state.k1),

@@ -1046,6 +1046,7 @@ flags:
   - --preproxy
   value_name: protocol://
   value_kind: Optional
+  optional_join: separate
   description: Use this proxy first
   provenance:
     sources:
@@ -1086,6 +1087,7 @@ flags:
   - --proxy
   value_name: protocol://
   value_kind: Optional
+  optional_join: separate
   description: Use this proxy
   provenance:
     sources:

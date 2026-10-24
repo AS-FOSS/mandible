@@ -356,7 +356,7 @@ fn description_is_second_flag(first: &FlagSpec, text: &str) -> Option<FlagSpec> 
 /// row's two-entity expansion — the exact steps every flag entity needs
 /// regardless of which spec produced it. See docs/shapes.md S-163.
 fn push_flag_entity(
-    spec: FlagSpec,
+    mut spec: FlagSpec,
     description: &str,
     choice_names: &[(String, Option<String>)],
     group: Option<String>,
@@ -364,9 +364,7 @@ fn push_flag_entity(
     out: &mut ParsedHelp,
 ) {
     let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
-    flag.spellings = spec.spellings;
-    flag.value_name = spec.value_name;
-    flag.value_kind = spec.value_kind;
+    spec.fill_entity(&mut flag);
     flag.group = group;
     flag.description = non_empty_text(description);
     // Sub-rows nested directly under this flag's own row (llvm-ar's
@@ -569,7 +567,7 @@ pub(super) fn emit_three_column_env_table(
             break;
         }
         seen += 1;
-        let spec = three_column_argument_spec(&argument);
+        let mut spec = three_column_argument_spec(&argument);
         if spec.spellings.is_empty() {
             continue;
         }
@@ -577,9 +575,7 @@ pub(super) fn emit_three_column_env_table(
             clean += 1;
         }
         let mut flag = Entity::new(EntityKind::Flag, Provenance::single(Source::HelpText));
-        flag.spellings = spec.spellings;
-        flag.value_name = spec.value_name;
-        flag.value_kind = spec.value_kind;
+        spec.fill_entity(&mut flag);
         flag.group = group.clone();
         flag.description = non_empty_text(&description);
         flag.env_var = env_var;

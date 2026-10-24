@@ -512,10 +512,7 @@ pub(super) fn parse_plus_sigil_spec(spec_text: &str) -> FlagSpec {
             ..FlagSpec::default()
         };
         let tail = parse_flag_spec(rest);
-        spec.value_name = tail.value_name;
-        spec.value_kind = tail.value_kind;
-        spec.spellings.extend(tail.spellings);
-        spec.fully_consumed = tail.fully_consumed;
+        spec.take_tail(tail);
         return spec;
     }
     // `+word` (S-163): the whole run is the spelling, verbatim, `+`
@@ -534,10 +531,7 @@ pub(super) fn parse_plus_sigil_spec(spec_text: &str) -> FlagSpec {
     };
     if !after.is_empty() {
         let tail = parse_flag_spec(after);
-        spec.value_name = tail.value_name;
-        spec.value_kind = tail.value_kind;
-        spec.spellings.extend(tail.spellings);
-        spec.fully_consumed = tail.fully_consumed;
+        spec.take_tail(tail);
     }
     spec
 }
@@ -590,10 +584,12 @@ pub(super) fn parse_plus_minus_alternation_spec(spec_text: &str) -> Option<(Flag
     } else {
         (Some(rest.to_string()), ValueKind::Optional)
     };
+    let optional_join = (value_kind == ValueKind::Optional).then_some(OptionalJoin::Separate);
     let plus = FlagSpec {
         spellings: vec![Spelling::bare(format!("+{word}"))],
         value_name: value_name.clone(),
         value_kind,
+        optional_join,
         fully_consumed: true,
         ..FlagSpec::default()
     };
@@ -601,6 +597,7 @@ pub(super) fn parse_plus_minus_alternation_spec(spec_text: &str) -> Option<(Flag
         spellings: vec![Spelling::single_dash(word)],
         value_name,
         value_kind,
+        optional_join,
         fully_consumed: true,
         ..FlagSpec::default()
     };

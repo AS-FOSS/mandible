@@ -3,6 +3,19 @@ usage:
 - 'Usage: /usr/bin/krb5-config [OPTIONS] [LIBRARIES]'
 positionals:
 - name: LIBRARIES
+  choices:
+  - name: krb5
+    description: Kerberos 5 application
+  - name: gssapi
+    description: GSSAPI application with Kerberos 5 bindings
+  - name: gssrpc
+    description: GSSAPI RPC application
+  - name: kadm-client
+    description: Kadmin client
+  - name: kadm-server
+    description: Kadmin server
+  - name: kdb
+    description: Application that accesses the kerberos database
   provenance:
     sources:
     - help-text
@@ -75,19 +88,6 @@ flags:
     - help-text
 - spellings:
   - --libs
-  choices:
-  - name: krb5
-    description: Kerberos 5 application
-  - name: gssapi
-    description: GSSAPI application with Kerberos 5 bindings
-  - name: gssrpc
-    description: GSSAPI RPC application
-  - name: kadm-client
-    description: Kadmin client
-  - name: kadm-server
-    description: Kadmin server
-  - name: kdb
-    description: Application that accesses the kerberos database
   description: List libraries required to link [LIBRARIES]
   provenance:
     sources:

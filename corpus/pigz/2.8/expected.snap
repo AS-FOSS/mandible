@@ -1,0 +1,268 @@
+name: pigz
+usage:
+- 'Usage: pigz [options] [files ...] will compress files in place, adding the suffix ''.gz''. If no files are specified, stdin will be compressed to stdout. pigz does what gzip does,'
+flags:
+- spellings:
+  - '-0'
+  - '-11'
+  range: -0 ... -9
+  description: Compression level (level 11, zopfli, is much slower)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fast
+  - --best
+  description: Compression levels 1 and 9 respectively
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --alias
+  value_name: xxx
+  value_kind: Required
+  description: Use xxx as the name for any --zip entry from stdin
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --blocksize
+  value_name: mmm
+  value_kind: Required
+  description: Set compression block size to mmmK (default 128K)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --stdout
+  description: Write all processed output to stdout (won't delete)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --comment
+  value_name: ccc
+  value_kind: Required
+  description: Put comment ccc in the gzip or zip header
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --decompress
+  description: Decompress the compressed input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force
+  description: Force overwrite, compress .gz, links, and to terminal
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --first
+  description: Do iterations first, before block split for -11
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: Display a help screen and quit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --huffman
+  description: Use only Huffman coding for compression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --independent
+  description: Compress blocks independently for damage recovery
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --iterations
+  value_name: n
+  value_kind: Required
+  description: Number of iterations for -11 optimization
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  - --maxsplits
+  value_name: n
+  value_kind: Required
+  description: Maximum number of split blocks for -11
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --keep
+  description: Do not delete original file after processing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --zip
+  description: Compress to PKWare zip (.zip) single entry format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --list
+  description: List the contents of the compressed input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --license
+  description: Display the pigz license and quit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --no-time
+  description: Do not store or restore mod time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --time
+  description: Store or restore mod time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-name
+  description: Do not store or restore file name or mod time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --name
+  description: Store or restore file name and mod time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --oneblock
+  description: Do not split into smaller blocks for -11
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --processes
+  value_name: n
+  value_kind: Required
+  description: Allow up to n compression threads (default is the number of online processors, or 8 if unknown)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: Print no messages, even on error
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --recursive
+  description: Process the contents of all subdirectories
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --rsyncable
+  description: Input-determined block locations for rsync
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --suffix
+  value_name: .sss
+  value_kind: Required
+  description: Use suffix .sss instead of .gz (for compression)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --test
+  description: Test the integrity of the compressed input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --rle
+  description: Use run-length encoding for compression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Provide more verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Show the version of pigz
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Y
+  - --synchronous
+  description: Force output file write to permanent storage
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --zlib
+  description: Compress to zlib (.zz) instead of gzip format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --
+  description: All arguments after "--" are treated as files
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

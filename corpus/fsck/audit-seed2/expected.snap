@@ -22,6 +22,7 @@ flags:
   - -C
   value_name: <fd>
   value_kind: Optional
+  optional_join: separate
   description: display progress bar; file descriptor is for GUIs
   provenance:
     sources:
@@ -60,6 +61,7 @@ flags:
   - -r
   value_name: <fd>
   value_kind: Optional
+  optional_join: separate
   description: report statistics for each device checked; file descriptor is for GUIs
   provenance:
     sources:

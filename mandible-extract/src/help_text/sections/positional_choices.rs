@@ -1,10 +1,9 @@
 //! A table under a heading that is a usage operand's own name (`Libraries:`
 //! beside `Usage: krb5-config [OPTIONS] [LIBRARIES]`) lists the values of
-//! the one flag whose description names that operand (`--libs  List
-//! libraries required to link [LIBRARIES]`). Each row is a choice of that
-//! flag, its text the choice's description. Operands carry no choices on
-//! screen, the flag does. The heading must equal the operand's name
-//! (case-insensitive) and exactly one flag may name it. See
+//! that operand. Each row is a choice of the operand, its text the choice's
+//! description. The heading must equal the operand's name
+//! (case-insensitive) and exactly one flag's description may name it, as
+//! in `--libs  List libraries required to link [LIBRARIES]`. See
 //! docs/shapes.md S-231.
 
 use super::ParsedHelp;
@@ -16,8 +15,8 @@ fn names_word(text: &str, word: &str) -> bool {
         .any(|w| w == word)
 }
 
-/// Attach `entries` to the flag whose description names the operand
-/// `heading` is; `false` (nothing changed) when there is no such single flag.
+/// Attach `entries` as the choices of the operand `heading` names; `false`
+/// (nothing changed) when no single flag's description names it.
 pub(super) fn take_operand_values(
     heading: &str,
     entries: &[(&str, String)],
@@ -39,26 +38,27 @@ pub(super) fn take_operand_values(
     if !plain {
         return false;
     }
-    let Some(operand) = out.positionals.iter().find_map(|p| {
+    let Some((at, operand)) = out.positionals.iter().enumerate().find_map(|(at, p)| {
         let name = p.spellings.first()?.name.trim_end_matches("...");
-        name.eq_ignore_ascii_case(word).then(|| name.to_string())
+        name.eq_ignore_ascii_case(word)
+            .then(|| (at, name.to_string()))
     }) else {
         return false;
     };
-    let mut owners = out.flags.iter().enumerate().filter(|(_, f)| {
+    let mut owners = out.flags.iter().filter(|f| {
         f.description
             .as_ref()
             .is_some_and(|d| names_word(d.as_str(), &operand))
     });
-    let (Some((idx, _)), None) = (owners.next(), owners.next()) else {
+    let (Some(_), None) = (owners.next(), owners.next()) else {
         return false;
     };
-    if !out.flags[idx].choices.is_empty() {
+    if !out.positionals[at].choices.is_empty() {
         return false;
     }
     for (name, desc) in entries {
         let desc = desc.trim();
-        out.flags[idx].choices.push(Choice {
+        out.positionals[at].choices.push(Choice {
             name: (*name).to_string(),
             description: (!desc.is_empty()).then(|| Text::sanitize(desc)),
         });

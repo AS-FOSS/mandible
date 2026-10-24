@@ -31,6 +31,7 @@ flags:
   - --demangle
   value_name: STYLE
   value_kind: Optional
+  optional_join: equals
   group: 'The options are:'
   description: Decode mangled/processed symbol names STYLE can be "none", "auto", "gnu-v3", "java", "gnat", "dlang", "rust"
   provenance:

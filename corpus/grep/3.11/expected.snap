@@ -406,6 +406,7 @@ flags:
   - --color
   value_name: WHEN
   value_kind: Optional
+  optional_join: equals
   group: 'Context control:'
   provenance:
     sources:
@@ -414,6 +415,7 @@ flags:
   - --colour
   value_name: WHEN
   value_kind: Optional
+  optional_join: equals
   group: 'Context control:'
   description: use markers to highlight the matching strings; WHEN is 'always', 'never', or 'auto'
   provenance:

@@ -280,6 +280,16 @@ fn push_entity(
         haystack.push_str(&spelling.name);
         haystack.push(' ');
     }
+    // A range row (`-0 ... -9`) is findable by both of its ends.
+    if let Some(range) = entity.range() {
+        haystack.push_str(match range.end.dashes {
+            mandible_core::Dashes::None => "",
+            mandible_core::Dashes::Single => "-",
+            mandible_core::Dashes::Double => "--",
+        });
+        haystack.push_str(&range.end.name);
+        haystack.push(' ');
+    }
     if let Some(v) = &entity.value_name {
         haystack.push_str(v);
         haystack.push(' ');
@@ -440,6 +450,33 @@ mod tests {
         assert!(
             has_modifier_match,
             "expected the 'd' modifier among results: {results:?}"
+        );
+    }
+
+    /// A range row (`-0 ... -9`) is findable by its end as well as its
+    /// start.
+    #[test]
+    fn searching_a_range_end_returns_the_range_flag() {
+        let mut root = CommandNode::new("xz", Provenance::single(Source::HelpText));
+        let mut preset = Entity::flag_short('0', Provenance::single(Source::HelpText));
+        preset
+            .set_range(mandible_core::SpellingRange {
+                start: mandible_core::Spelling::short('0'),
+                end: mandible_core::Spelling::single_dash("77"),
+            })
+            .expect("the start is a spelling");
+        preset.description = Some(Text::sanitize("compression preset"));
+        root.entities.push(preset);
+
+        let mut index = SearchIndex::new();
+        index.populate(&root);
+        index.set_query("-77");
+        settle(&mut index);
+        let results = index.results();
+        assert!(
+            results.iter().any(|r| matches!(r, NodeRef::Flag { key, .. }
+                if key == &mandible_core::FlagKey::Short('0'))),
+            "{results:?}"
         );
     }
 

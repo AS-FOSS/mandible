@@ -119,6 +119,7 @@ subcommands:
     - --fix
     value_name: method
     value_kind: Optional
+    optional_join: separate
     description: 'Fix the audited vulnerabilities using the specified method: "override" or "update". "override" adds overrides to the package.json file in order to force non-vulnerable versions of the dependencies. "update" attempts to update the vulnerable packages in the lockfile to non-vulnerable versions. If no method is specified, "override" is used by default.'
     provenance:
       sources:

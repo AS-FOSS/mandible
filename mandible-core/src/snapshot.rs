@@ -73,7 +73,7 @@
 //! strip — elapsed time lives on `mandible-extract::ExtractionResult`, one
 //! layer above the IR this module snapshots, so it never reaches here.
 
-use crate::entity::{Choice, Entity, Spelling};
+use crate::entity::{Choice, Entity, OptionalJoin, Spelling, SpellingRange};
 use crate::node::{CommandNode, Example, ValueKind};
 use crate::provenance::{Provenance, Source};
 use serde::Serialize;
@@ -186,6 +186,10 @@ pub struct FlagSnapshot {
     /// them rather than a structured `Spelling` list.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub spellings: Vec<String>,
+    /// The two ends of a range row, drawn as `"-0 ... -9"`. Its start is
+    /// also one of `spellings`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub range: Option<String>,
     /// The value placeholder, e.g. `"FILE"` in `--output FILE`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value_name: Option<String>,
@@ -193,6 +197,10 @@ pub struct FlagSnapshot {
     /// one. Omitted for the common no-value case.
     #[serde(skip_serializing_if = "is_no_value")]
     pub value_kind: ValueKind,
+    /// How an optional value joins its flag: `equals`, `glued` or
+    /// `separate`. Omitted when the row does not show it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub optional_join: Option<&'static str>,
     /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub choices: Vec<ChoiceSnapshot>,
@@ -234,8 +242,10 @@ impl From<&Entity> for FlagSnapshot {
     fn from(e: &Entity) -> Self {
         FlagSnapshot {
             spellings: e.spellings.iter().map(Spelling::render).collect(),
+            range: e.range().map(SpellingRange::render),
             value_name: e.value_name.clone(),
             value_kind: e.value_kind,
+            optional_join: e.optional_join.map(OptionalJoin::label),
             choices: e.choices.iter().map(ChoiceSnapshot::from).collect(),
             repeatable: e.repeatable,
             required: e.required,
@@ -262,6 +272,9 @@ pub struct PositionalSnapshot {
     /// True if this positional accepts multiple values (`...`).
     #[serde(skip_serializing_if = "is_false")]
     pub variadic: bool,
+    /// Enumerated values the operand accepts.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub choices: Vec<ChoiceSnapshot>,
     /// The positional's description.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -282,6 +295,7 @@ impl From<&Entity> for PositionalSnapshot {
             name: e.primary_name().to_string(),
             required: e.required,
             variadic: e.repeatable,
+            choices: e.choices.iter().map(ChoiceSnapshot::from).collect(),
             description: e.description.as_ref().map(|t| t.as_str().to_string()),
             provenance: ProvenanceSnapshot::from(&e.provenance),
         }

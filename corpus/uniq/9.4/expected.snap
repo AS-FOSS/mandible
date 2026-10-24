@@ -39,6 +39,7 @@ flags:
   - --all-repeated
   value_name: METHOD
   value_kind: Optional
+  optional_join: equals
   description: like -D, but allow separating groups with an empty line; METHOD={none(default),prepend,separate}
   provenance:
     sources:
@@ -56,6 +57,7 @@ flags:
   - --group
   value_name: METHOD
   value_kind: Optional
+  optional_join: equals
   description: show all items, separating groups with an empty line; METHOD={separate(default),prepend,append,both}
   provenance:
     sources:

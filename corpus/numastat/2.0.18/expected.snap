@@ -39,6 +39,7 @@ flags:
   - -s
   value_name: <node>
   value_kind: Optional
+  optional_join: glued
   description: to sort data by total column or <node>
   provenance:
     sources:

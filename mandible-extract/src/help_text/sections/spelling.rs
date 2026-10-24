@@ -271,7 +271,7 @@ pub(super) fn split_aligned_spelling_entry(line: &str) -> (String, String) {
             .collect::<Vec<_>>()
             .join(", ");
         match run.spellings.iter().find_map(|cell| value_suffix(cell)) {
-            Some(value) => format!("{spellings} {value}"),
+            Some(value) => attach_value(&spellings, &value, drawn_join(&run.spellings)),
             None => spellings,
         }
     } else {
@@ -290,6 +290,32 @@ pub(super) fn split_aligned_spelling_entry(line: &str) -> (String, String) {
     };
     let description = strip_equals_separator(description.trim_end()).to_string();
     (spec, description)
+}
+
+/// How the last cell naming a value joins it to its spelling, when that is
+/// a bracket group: the long spelling is drawn last, and the value follows
+/// it.
+fn drawn_join(cells: &[String]) -> Option<OptionalJoin> {
+    let cell = cells.iter().rev().find(|c| value_suffix(c).is_some())?;
+    let rest = cell.trim_start().get(bare_spelling(cell).len()..)?;
+    if rest.starts_with("[=") || rest.starts_with("=[") {
+        Some(OptionalJoin::Equals)
+    } else if rest.starts_with('[') {
+        Some(OptionalJoin::Glued)
+    } else {
+        None
+    }
+}
+
+/// `spellings` followed by `value`, written the way the optional value
+/// joins: `--dump[=file]`, `-d[file]`, or a separate word.
+fn attach_value(spellings: &str, value: &str, join: Option<OptionalJoin>) -> String {
+    let group = value.starts_with('[') && value.ends_with(']');
+    match join {
+        Some(OptionalJoin::Equals) if group => format!("{spellings}[={}", &value[1..]),
+        Some(OptionalJoin::Glued) if group => format!("{spellings}{value}"),
+        _ => format!("{spellings} {value}"),
+    }
 }
 
 /// The single-column way to split one flags-block entry line: one

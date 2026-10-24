@@ -36,6 +36,7 @@ flags:
   - --unified
   value_name: <n>
   value_kind: Optional
+  optional_join: equals
   group: Diff output format options
   description: generate diffs with <n> lines context
   provenance:
@@ -89,6 +90,7 @@ flags:
   - --dirstat
   value_name: <param1,param2>...
   value_kind: Optional
+  optional_join: equals
   group: Diff output format options
   description: output the distribution of relative amount of changes for each sub-directory
   provenance:
@@ -105,6 +107,7 @@ flags:
   - --dirstat-by-file
   value_name: <param1,param2>...
   value_kind: Optional
+  optional_join: equals
   group: Diff output format options
   description: synonym for --dirstat=files,param1,param2...
   provenance:
@@ -142,6 +145,7 @@ flags:
   - --stat
   value_name: '[<width>[,<name-width>[,<count>]]]'
   value_kind: Optional
+  optional_join: equals
   group: Diff output format options
   description: generate diffstat
   provenance:
@@ -208,6 +212,7 @@ flags:
   - --[no-]color
   value_name: <when>
   value_kind: Optional
+  optional_join: equals
   group: Diff output format options
   description: show colored diff
   provenance:
@@ -233,6 +238,7 @@ flags:
   - --[no-]abbrev
   value_name: <n>
   value_kind: Optional
+  optional_join: equals
   group: Diff output format options
   description: use <n> digits to display object names
   provenance:
@@ -320,6 +326,7 @@ flags:
   - --break-rewrites
   value_name: '[<n>[/<m>]]'
   value_kind: Optional
+  optional_join: equals
   group: Diff rename options
   description: break complete rewrite changes into pairs of delete and create
   provenance:
@@ -330,6 +337,7 @@ flags:
   - --find-renames
   value_name: <n>
   value_kind: Optional
+  optional_join: equals
   group: Diff rename options
   description: detect renames
   provenance:
@@ -348,6 +356,7 @@ flags:
   - --find-copies
   value_name: <n>
   value_kind: Optional
+  optional_join: equals
   group: Diff rename options
   description: detect copies
   provenance:
@@ -487,6 +496,7 @@ flags:
   - --word-diff
   value_name: <mode>
   value_kind: Optional
+  optional_join: equals
   group: Diff algorithm options
   description: show word diff, using <mode> to delimit changed words
   provenance:
@@ -505,6 +515,7 @@ flags:
   - --color-words
   value_name: <regex>
   value_kind: Optional
+  optional_join: equals
   group: Diff algorithm options
   description: equivalent to --word-diff=color --word-diff-regex=<regex>
   provenance:
@@ -514,6 +525,7 @@ flags:
   - --[no-]color-moved
   value_name: <mode>
   value_kind: Optional
+  optional_join: equals
   group: Diff algorithm options
   description: moved lines of code are colored differently
   provenance:
@@ -532,6 +544,7 @@ flags:
   - --[no-]relative
   value_name: <prefix>
   value_kind: Optional
+  optional_join: equals
   group: Other diff options
   description: when run from subdir, exclude changes outside and show relative paths
   provenance:
@@ -584,6 +597,7 @@ flags:
   - --ignore-submodules
   value_name: <when>
   value_kind: Optional
+  optional_join: equals
   group: Other diff options
   description: ignore changes to submodules in the diff generation
   provenance:
@@ -593,6 +607,7 @@ flags:
   - --submodule
   value_name: <format>
   value_kind: Optional
+  optional_join: equals
   group: Other diff options
   description: specify how differences in submodules are shown
   provenance:
@@ -684,6 +699,7 @@ flags:
   - --diff-filter
   value_name: '[(A|C|D|M|R|T|U|X|B)...[*]]'
   value_kind: Optional
+  optional_join: separate
   group: Other diff options
   description: select files by diff type
   provenance:

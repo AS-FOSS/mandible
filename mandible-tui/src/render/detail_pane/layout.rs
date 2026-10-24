@@ -72,7 +72,7 @@ pub(super) fn bare_spelling_column(entity: &Entity) -> usize {
     }) {
         return SHORT_COLUMN;
     }
-    if entity.short_spelling().is_some() {
+    if entity.spellings.iter().any(|s| is_drawn_short(entity, s)) {
         return SHORT_COLUMN;
     }
     LONG_COLUMN

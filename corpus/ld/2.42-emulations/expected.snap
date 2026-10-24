@@ -15,6 +15,7 @@ flags:
   - --build-id
   value_name: STYLE
   value_kind: Optional
+  optional_join: equals
   group: 'ELF emulations:'
   description: Generate build ID note
   provenance:
@@ -24,6 +25,7 @@ flags:
   - --package-metadata
   value_name: JSON
   value_kind: Optional
+  optional_join: equals
   group: 'ELF emulations:'
   description: Generate package metadata note
   provenance:
@@ -585,6 +587,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64linux:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -656,6 +659,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64elf:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -727,6 +731,7 @@ flags:
   - --fix-cortex-a53-843419
   value_name: full|adr|adrp
   value_kind: Optional
+  optional_join: equals
   group: 'aarch64elf32:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:

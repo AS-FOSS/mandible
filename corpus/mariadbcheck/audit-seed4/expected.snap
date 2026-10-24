@@ -143,6 +143,7 @@ flags:
   - --debug
   value_name: '#'
   value_kind: Optional
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: This is a non-debug version. Catch this and exit.
   provenance:
@@ -271,6 +272,7 @@ flags:
   - --password
   value_name: name
   value_kind: Optional
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Password to use when connecting to server. If password is not given, it's solicited on the tty.
   provenance:
@@ -485,6 +487,7 @@ flags:
   - --process-views
   value_name: name
   value_kind: Optional
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: 'Perform the requested operation (check or repair) on views. One of: NO, YES (correct the checksum, if necessary, add the mariadb-version field), UPGRADE (run from mariadb-upgrade), UPGRADE_FROM_MYSQL (same as YES and toggle the algorithm MERGE<->TEMPTABLE.'
   provenance:

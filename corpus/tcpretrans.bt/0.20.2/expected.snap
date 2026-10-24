@@ -68,6 +68,7 @@ flags:
   - -l
   value_name: search
   value_kind: Optional
+  optional_join: separate
   description: list probes
   provenance:
     sources:

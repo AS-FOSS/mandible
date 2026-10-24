@@ -1,0 +1,24 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "less"
+version = "590"
+platform = "ubuntu-24.04"
+captured_with = "manual capture per corpus/README.md step 2 (TERM=dumb NO_COLOR=1 COLUMNS=100 LC_ALL=C.UTF-8); less 590"
+
+[[capture]]
+argv = ["less", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--search-skip-screen", "--clear-screen"]
+
+[contract.must_describe]
+"--search-skip-screen" = "Search skips current screen."
+
+[xfail]
+broken = true
+reason = "Option rows put a dot leader between the short and the long name (`-a  ........  --search-skip-screen`, description on the next line). The dots and the long name land in the description of the short flag, so the long names are missing as spellings, on all 45 option rows. A fix reads the dot leader as the separator of one alias run, `-a, --search-skip-screen`, with the next line as the description."

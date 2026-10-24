@@ -146,6 +146,7 @@ subcommands:
     - --concise
     value_name: <concise_device_spec_list>
     value_kind: Optional
+    optional_join: separate
     provenance:
       sources:
       - help-text-synopsis

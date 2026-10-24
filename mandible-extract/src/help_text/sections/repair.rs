@@ -347,6 +347,8 @@ pub(super) fn repair_single_dash_long_options(
             Some((value, kind)) => {
                 flag.value_name = Some(value);
                 flag.value_kind = kind;
+                flag.optional_join =
+                    (kind == ValueKind::Optional).then_some(OptionalJoin::Separate);
             }
             None => match glued_value {
                 // The document wrote the value spec, so it survives.
@@ -455,15 +457,16 @@ pub(super) fn recover_bare_word_first_description_word(
         // lists other flags, reads boolean when the row's remainder has
         // prose past the guessed value. See docs/shapes.md S-176 and
         // corpus/host/9.18.39-unlisted.
-        let (usage_value, usage_kind) = match usage_derived_value_for_short(usage_lines, short) {
-            Some(found) => found,
-            None if usage_names_flags(usage_lines)
-                && row_has_prose_past_value(lines, short, flag) =>
-            {
-                (None, ValueKind::None)
-            }
-            None => continue,
-        };
+        let (usage_value, usage_kind, usage_join) =
+            match usage_derived_value_for_short(usage_lines, short) {
+                Some(found) => found,
+                None if usage_names_flags(usage_lines)
+                    && row_has_prose_past_value(lines, short, flag) =>
+                {
+                    (None, ValueKind::None, None)
+                }
+                None => continue,
+            };
         let prefix = format!("-{short}");
         // Exactly one candidate row, never the first of several: `lsof`
         // documents `-T` twice, once in a packed multi-column summary
@@ -514,6 +517,7 @@ pub(super) fn recover_bare_word_first_description_word(
         }
         flag.value_name = usage_value;
         flag.value_kind = usage_kind;
+        flag.optional_join = usage_join;
         flag.description = non_empty_text(desc);
     }
 }
@@ -581,11 +585,11 @@ fn strip_leading_value_spelling<'a>(trimmed: &'a str, value: &str) -> Option<&'a
 fn usage_derived_value_for_short(
     usage_lines: &[String],
     short: char,
-) -> Option<(Option<String>, ValueKind)> {
+) -> Option<(Option<String>, ValueKind, Option<OptionalJoin>)> {
     extract_usage_flags(usage_lines)
         .into_iter()
         .find(|f| f.short() == Some(short) && f.long().is_none())
-        .map(|f| (f.value_name, f.value_kind))
+        .map(|f| (f.value_name, f.value_kind, f.optional_join))
 }
 
 /// A dash-prefixed usage-line word that normally reads as the generic
@@ -1088,6 +1092,7 @@ pub(super) fn token_is_uniformly_lowercase(token: &str) -> bool {
 pub(super) fn recover_anchored_values(mut flags: Vec<Entity>, raw: &str) -> Vec<Entity> {
     fn eligible(f: &Entity) -> bool {
         f.spellings.len() == 1
+            && f.range().is_none()
             && f.description.is_some()
             && f.provenance.sources.contains(&Source::HelpText)
             && !f.provenance.sources.contains(&Source::HelpTextSynopsis)
@@ -1126,7 +1131,7 @@ pub(super) fn recover_anchored_values(mut flags: Vec<Entity>, raw: &str) -> Vec<
 /// ordinary repair to guess at bare words. Never overwrites a `-word` row
 /// that already carries its own value. See docs/shapes.md S-163.
 pub(super) fn borrow_plus_word_value_for_dash_sibling(mut flags: Vec<Entity>) -> Vec<Entity> {
-    let borrowed: Vec<(String, String, ValueKind)> = flags
+    let borrowed: Vec<(String, String, ValueKind, Option<OptionalJoin>)> = flags
         .iter()
         .filter_map(|f| {
             if f.spellings.len() != 1 || f.spellings[0].dashes != Dashes::None {
@@ -1138,10 +1143,15 @@ pub(super) fn borrow_plus_word_value_for_dash_sibling(mut flags: Vec<Entity>) ->
                 return None;
             }
             let value = f.value_name.as_ref()?;
-            Some((base.to_string(), value.clone(), f.value_kind))
+            Some((
+                base.to_string(),
+                value.clone(),
+                f.value_kind,
+                f.optional_join,
+            ))
         })
         .collect();
-    for (base, value, kind) in borrowed {
+    for (base, value, kind, join) in borrowed {
         if let Some(sibling) = flags.iter_mut().find(|f| {
             f.spellings.len() == 1
                 && f.spellings[0].dashes == Dashes::Single
@@ -1150,6 +1160,7 @@ pub(super) fn borrow_plus_word_value_for_dash_sibling(mut flags: Vec<Entity>) ->
         }) {
             sibling.value_name = Some(value);
             sibling.value_kind = kind;
+            sibling.optional_join = join;
         }
     }
     flags
@@ -1222,9 +1233,10 @@ fn recover_run(run: &mut [Entity], raw: &str) {
             (
                 f.value_name.clone().expect("checked Some above"),
                 f.value_kind,
+                f.optional_join,
             )
         });
-    let Some((value, kind)) = anchor else {
+    let Some((value, kind, join)) = anchor else {
         return;
     };
     for f in run.iter_mut() {
@@ -1237,6 +1249,7 @@ fn recover_run(run: &mut [Entity], raw: &str) {
             if token_occurs_glued(raw, &phrase) {
                 f.value_name = Some(value.clone());
                 f.value_kind = kind;
+                f.optional_join = join;
             }
         }
     }

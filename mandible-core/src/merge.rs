@@ -554,6 +554,12 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     merged.spellings = spellings;
     merged.value_name = value_name;
     merged.value_kind = value_kind;
+    merged.optional_join = bucket.iter().find_map(|f| f.optional_join);
+    if let Some(range) = bucket.iter().find_map(|f| f.range().cloned()) {
+        // A range whose start the merge dropped from the spellings is not
+        // kept: the setter refuses it.
+        let _ = merged.set_range(range);
+    }
     merged.choices = choices;
     merged.repeatable = repeatable;
     merged.required = required;
@@ -669,6 +675,11 @@ where
 pub fn pair_aliases(flags: Vec<Entity>) -> Vec<Entity> {
     let mut result: Vec<Entity> = Vec::with_capacity(flags.len());
     'outer: for flag in flags {
+        // A range names its own ends; it is never half of an alias pair.
+        if flag.range().is_some() {
+            result.push(flag);
+            continue;
+        }
         if flag.short().is_some() && flag.long().is_some() {
             result.push(flag);
             continue;
@@ -679,7 +690,8 @@ pub fn pair_aliases(flags: Vec<Entity>) -> Vec<Entity> {
             continue;
         }
         for existing in result.iter_mut() {
-            if complementary(existing, &flag)
+            if existing.range().is_none()
+                && complementary(existing, &flag)
                 && same_description(existing, &flag)
                 && same_value_shape(existing, &flag)
             {

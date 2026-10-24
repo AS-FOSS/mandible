@@ -10,7 +10,8 @@
 //! reports whether it fully consumed the input, which
 //! `help_text::sections` uses to compute this tier's confidence score.
 
-use mandible_core::{Dashes, Spelling, ValueKind};
+use super::spec_parts::{optional_join_of, parse_range_head};
+use mandible_core::{Dashes, OptionalJoin, Spelling, SpellingRange, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
 use winnow::error::ContextError;
@@ -33,6 +34,12 @@ pub struct FlagSpec {
     pub value_name: Option<String>,
     /// Whether the value (if any) is required or optional.
     pub value_kind: ValueKind,
+    /// How an optional value joins its flag, read from the characters
+    /// between the last spelling and the value.
+    pub optional_join: Option<OptionalJoin>,
+    /// The two ends of a `<flag> .. <flag>` head (S-181). `spellings`
+    /// holds the start and any `, name` items after the end.
+    pub range: Option<SpellingRange>,
     /// A bare `|`-separated choice list, when a caller recovered one from
     /// the row alongside this spec (docs/shapes.md S-120) — e.g. a
     /// docopt bracket row's own trailing list
@@ -98,7 +105,13 @@ impl FlagSpec {
 pub fn parse_flag_spec(input: &str) -> FlagSpec {
     let normalized = unwrap_brace_alternation(input.trim());
     let mut rest = normalized.as_ref().trim();
+    if let Some(spec) = parse_range_head(rest) {
+        return spec;
+    }
     let mut spec = FlagSpec::default();
+    // The text right after the last spelling collected, before any
+    // separator is skipped: it tells how an optional value joins.
+    let mut after_spellings;
 
     loop {
         // One run of alias spellings: `-p`, `--pid`, `-A, --catenate`.
@@ -111,6 +124,7 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
         let mut saw_explicit_anywhere = false;
         loop {
             let before = rest;
+            after_spellings = rest;
             rest = skip_separators(rest);
             if rest.is_empty() {
                 break;
@@ -277,6 +291,13 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 None => value_name,
             });
             spec.value_kind = kind;
+            if kind == ValueKind::Optional {
+                spec.optional_join = Some(optional_join_of(after_spellings, rest));
+            }
+        } else if kind == ValueKind::Optional && spec.value_kind == ValueKind::Optional {
+            // The value is drawn after the last spelling, so that
+            // spelling's own joiner is the one that applies.
+            spec.optional_join = Some(optional_join_of(after_spellings, rest));
         }
 
         // The alias list may continue past it via `,`/`|`, see
@@ -1134,6 +1155,19 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
     // `=VALUE`
     if equals_sign(&mut s).is_ok() {
         let (name, tail) = take_rest_value_token(s);
+        // `--log-file=[PATH]`: one bracketed word after the `=` is the
+        // optional value `PATH`, not a value named `[PATH]`.
+        if let Some(word) = name
+            .strip_prefix('[')
+            .and_then(|n| n.strip_suffix(']'))
+            .filter(|w| {
+                !w.is_empty()
+                    && w.chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+            })
+        {
+            return Some((word.to_string(), ValueKind::Optional, tail));
+        }
         if let Some((combined, consumed)) = take_glued_second_metavar_word(&name, tail) {
             return Some((combined, ValueKind::Required, &tail[consumed..]));
         }
@@ -3096,5 +3130,68 @@ mod tests {
         // always was.
         let spec = parse_flag_spec("-- <rustfmt_options>...");
         assert_eq!(spec.value_name.as_deref(), Some("<rustfmt_options>"));
+    }
+
+    /// A head that is `<flag> <sep> <flag>` is a range, with any `, name`
+    /// items kept as spellings after the start. See docs/shapes.md S-181.
+    #[test]
+    fn a_range_head_keeps_its_ends_and_its_extra_names() {
+        let ends = |row: &str| {
+            let spec = parse_flag_spec(row);
+            let range = spec.range.map(|r| (r.start.render(), r.end.render()));
+            let names: Vec<String> = spec.spellings.iter().map(Spelling::render).collect();
+            (names, range, spec.value_name, spec.fully_consumed)
+        };
+        let pair = |a: &str, b: &str| Some((a.to_string(), b.to_string()));
+        for row in ["-1 .. -9", "-1..-9", "-1 ... -9", "-1 … -9", "-1 to -9"] {
+            assert_eq!(
+                ends(row),
+                (vec!["-1".to_string()], pair("-1", "-9"), None, true),
+                "{row}"
+            );
+        }
+        assert_eq!(
+            ends("-0 to -9, -11"),
+            (
+                vec!["-0".to_string(), "-11".to_string()],
+                pair("-0", "-9"),
+                None,
+                true
+            )
+        );
+    }
+
+    /// A value, a bracket or an `=` on the head means it is not a range.
+    #[test]
+    fn a_head_with_a_value_is_not_a_range() {
+        for row in [
+            "-a to -b FILE",
+            "-a .. -b=X",
+            "-a [..] -b",
+            "-a, -b",
+            "--to FILE",
+        ] {
+            assert!(parse_flag_spec(row).range.is_none(), "{row}");
+        }
+    }
+
+    /// The joiner of an optional value comes from how the row writes it.
+    #[test]
+    fn an_optional_value_records_how_it_joins_its_flag() {
+        let join = |row: &str| {
+            let spec = parse_flag_spec(row);
+            assert_eq!(spec.value_kind, ValueKind::Optional, "{row}");
+            spec.optional_join
+        };
+        assert_eq!(join("--color[=WHEN]"), Some(OptionalJoin::Equals));
+        assert_eq!(join("--color=[WHEN]"), Some(OptionalJoin::Equals));
+        assert_eq!(join("-O[N]"), Some(OptionalJoin::Glued));
+        assert_eq!(join("-V[N][fname]"), Some(OptionalJoin::Glued));
+        assert_eq!(join("--foo [FOO]"), Some(OptionalJoin::Separate));
+        assert_eq!(
+            join("-e[CHAR[WIDTH]], --expand-tabs[=CHAR[WIDTH]]"),
+            Some(OptionalJoin::Equals)
+        );
+        assert_eq!(parse_flag_spec("--max-count NUM").optional_join, None);
     }
 }

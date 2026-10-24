@@ -36,6 +36,7 @@ flags:
   - --backup
   value_name: CONTROL
   value_kind: Optional
+  optional_join: equals
   choices:
   - name: none
     description: never make backups (even if --backup is given)
@@ -139,6 +140,7 @@ flags:
   - --preserve
   value_name: ATTR_LIST
   value_kind: Optional
+  optional_join: equals
   description: preserve the specified attributes
   provenance:
     sources:
@@ -169,6 +171,7 @@ flags:
   - --reflink
   value_name: WHEN
   value_kind: Optional
+  optional_join: equals
   description: control clone/CoW copies. See below
   provenance:
     sources:
@@ -229,6 +232,7 @@ flags:
   - --update
   value_name: UPDATE
   value_kind: Optional
+  optional_join: equals
   description: control which existing files are updated; UPDATE={all,none,older(default)}. See below
   provenance:
     sources:
@@ -263,6 +267,7 @@ flags:
   - --context
   value_name: CTX
   value_kind: Optional
+  optional_join: equals
   description: like -Z, or if CTX is specified then set the SELinux or SMACK security context to CTX
   provenance:
     sources:

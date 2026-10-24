@@ -58,6 +58,7 @@ flags:
   - --block-signal
   value_name: SIG
   value_kind: Optional
+  optional_join: equals
   description: block delivery of SIG signal(s) to COMMAND
   provenance:
     sources:
@@ -66,6 +67,7 @@ flags:
   - --default-signal
   value_name: SIG
   value_kind: Optional
+  optional_join: equals
   description: reset handling of SIG signal(s) to the default
   provenance:
     sources:
@@ -74,6 +76,7 @@ flags:
   - --ignore-signal
   value_name: SIG
   value_kind: Optional
+  optional_join: equals
   description: set handling of SIG signal(s) to do nothing
   provenance:
     sources:

@@ -42,6 +42,7 @@ flags:
   - --exec-path
   value_name: <path>
   value_kind: Optional
+  optional_join: equals
   provenance:
     sources:
     - help-text-synopsis

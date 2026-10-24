@@ -42,6 +42,7 @@ flags:
   - --exec-path
   value_name: <path>
   value_kind: Optional
+  optional_join: equals
   provenance:
     sources:
     - help-text-synopsis
@@ -466,6 +467,7 @@ subcommands:
     - --[no-]decorate
     value_name: '...'
     value_kind: Optional
+    optional_join: equals
     description: decorate options
     provenance:
       sources:
@@ -558,6 +560,7 @@ subcommands:
     - --[no-]decorate
     value_name: '...'
     value_kind: Optional
+    optional_join: equals
     description: decorate options
     provenance:
       sources:
@@ -931,6 +934,7 @@ subcommands:
     - -w
     value_name: '[<w>[,<i1>[,<i2>]]]'
     value_kind: Optional
+    optional_join: glued
     description: linewrap output
     provenance:
       sources:
@@ -2502,6 +2506,7 @@ subcommands:
       - --split
       value_name: <strategy>
       value_kind: Optional
+      optional_join: equals
       provenance:
         sources:
         - help-text-synopsis

@@ -385,6 +385,14 @@ pub struct Entity {
     pub spellings: Vec<Spelling>,
     pub value_name: Option<String>,
     pub value_kind: ValueKind,
+    /// How an optional value joins its flag, as the flag's own row writes
+    /// it: `Equals` (`--color[=WHEN]`, also written `--color=[WHEN]`),
+    /// `Glued` (`-O[N]`) or `Separate` (argparse's `--foo [FOO]`).
+    /// `None` when there is no optional value or the source does not say.
+    pub optional_join: Option<OptionalJoin>,
+    /// The two ends of a range row, `-0 ... -9`. Private: set through
+    /// `set_range`, which refuses a start that is not one of `spellings`.
+    range: Option<SpellingRange>,
     pub choices: Vec<Choice>,
     pub description: Option<Text>,
     pub group: Option<String>,
@@ -418,6 +426,16 @@ pub struct Choice { pub name: String, pub description: Option<Text> }
 when the name is longer than a single character (`-help`, `-vv`, `-CC`) and
 short otherwise. A one-character single-dash spelling is a short flag,
 because `-x` is `-x` whichever slot a previous schema filed it under.
+
+A range row names a run of flags by its two ends and computes nothing
+between them. Its head is exactly `<flag> <sep> <flag>`, the separator being
+`..`, `...`, `…` or the word `to`, optionally followed by `, <name>` items
+(`-0 to -9, -11`). The entity keeps the author's names in `spellings`,
+start included and in the author's order, and `range` holds `{ start, end }`
+with `start` one of the spellings. `-1 .. -9` is one flag `-1` whose range
+ends at `-9`, never nine flags and never one flag with nine aliases. A head
+carrying a value, a bracket or an `=` is not a range. A range never joins
+the alias-pair fold. See `docs/shapes.md` S-181.
 
 A dashless kind carries exactly one `Spelling`, and that bare name is the
 whole of its spelling: a positional's `pathspec`, a modifier letter, a
@@ -1844,8 +1862,9 @@ pane's flag list.
 
 1. The detail pane's flag list is a two-column table: spelling,
    description. A value placeholder belongs to the spelling it follows,
-   measured with it one space behind (`--env list`), never given its own
-   aligned column.
+   measured with it, never given its own aligned column. A required value
+   sits one space behind (`--env list`); an optional one joins as §9.3
+   rule 6 says.
 2. The description column is one number for the whole list, not a target
    some rows are allowed to miss.
 3. A row too wide for the column starts its own first description line one
@@ -1864,12 +1883,12 @@ pane's flag list.
    column is stacked. The first line holds the first short spelling, the
    first long one (`--name`, else the first one-dash word) and the
    placeholder after it. The other spellings follow in printed order,
-   wrapped at the commas inside the column, one line each behind a dim
-   guide: `│` on every line but the last, `└` on the last (`|` and `` ` ``
-   in the ASCII set), then a space. The description starts on the first
-   line and wraps in its own column beside the spelling lines. The row is
-   as tall as the taller of the two. A spelling wider than the room left
-   by the guide keeps the single-line head of rule 3. A section in the man
+   wrapped at the commas inside the column, each line indented two
+   columns past the row's first spelling and led by a dim `or` and a
+   space; the spellings keep their own style. The description starts on
+   the first line and wraps in its own column beside the spelling lines.
+   The row is as tall as the taller of the two. A spelling wider than the room left
+   after `or` keeps the single-line head of rule 3. A section in the man
    layout never stacks: it joins every spelling on the head line.
 
 **Why.** A placeholder column has to be as wide as the section's widest
@@ -1883,8 +1902,9 @@ six-word flag description still reads as prose, below it breaks mid-word,
 so below 20 columns the section becomes a man page whole, decided per
 section, never per row, so one list never reads as two products. A row with five
 spellings otherwise runs past the column and pushes its description right.
-Stacking keeps the description at the column, and the guide shows that the
-extra lines belong to the row above.
+Stacking keeps the description at the column. The indent shows that the
+extra lines belong to the row above, and `or` says how: they are other
+names of the same flag, which a glyph or a colour cannot say.
 
 **Implemented in.** `mandible-tui/src/render/detail_pane/`, stacking in
 `stack.rs`.
@@ -1997,9 +2017,14 @@ sections.
 5. A repeatable positional renders `name...`. Only POSITIONALS uses it
    this way: a flag says the same thing by being accepted again
    (`-v -v -v`), never by an ellipsis on its spelling.
-6. The value placeholder is part of the spelling, one space behind and
-   measured with it (§9.1a), never its own aligned column.
-7. A flag's `choices` render as their own `values:` line under the
+6. The value placeholder is part of the spelling and measured with it
+   (§9.1a), never its own aligned column. A required value sits one space
+   behind the spelling and has no brackets (`--max-count NUM`). An optional
+   value draws its brackets around exactly what may be left out, joiner
+   included: `--color[=WHEN]`, `-O[N]`, `--foo [FOO]`. In mandible's own
+   notation, square brackets always mean may be left out; text quoted from
+   the tool is shown as written.
+7. A flag's or positional's `choices` render as their own `values:` line under the
    description, indented two columns past the shared description column
    (in the man layout, past the description's own indent),
    never folded into the description text or the spelling column. A
@@ -2068,7 +2093,12 @@ sections.
     descriptions are joined into one paragraph; a command's DESCRIPTION
     section keeps its preserved line breaks (§4.1), each logical line
     wrapped on its own at its own indent.
-17. EXAMPLES is always the last section. It prints the node's `examples`
+17. A range renders as `<start> ... <end>` with three dots, whatever the
+    author wrote. It counts as a long name: shorts first, then the other
+    longs in printed order, then the range, so `pigz` draws
+    `-11, -0 ... -9`. It stays on the main line of a stacked row, and search
+    finds both of its ends.
+18. EXAMPLES is always the last section. It prints the node's `examples`
     as the tool printed them: its lines, indentation and interior spacing,
     one blank row between examples, with no accent, dim or other styling of
     commands or comments. A long line wraps with its continuation rows hung
@@ -3181,6 +3211,16 @@ Taken without the maintainer present: gluing the `=` onto the spelling column
 would move every optional-value row fleet-wide, including the named control
 tools `git` and `tar`, to restore one character that the IR already carries.
 `fdisk`'s `--lock[=<mode>]` is the same shape and the same answer.
+
+**An optional value records its joiner and draws the brackets around it
+(2026-10-24).** The maintainer ruled that the brackets of an optional value
+enclose exactly what may be left out, so the `=` and the glue belong inside
+them, and that the value is no longer drawn in a column of its own. This
+supersedes the ruling above. `Entity::optional_join` records `Equals`, `Glued`
+or `Separate` from the flag's own row, and §9.3 rule 6 draws `--color[=WHEN]`,
+`-O[N]` and `--foo [FOO]`. A required value is unchanged. A row that writes
+`--log=[PATH]` is the optional value `PATH` joined by `=`, where it used to be
+a required value named `[PATH]`.
 
 **A mixed bracket-and-angle glued value spec ships below the five-tool bar
 (2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a

@@ -4,6 +4,9 @@ usage:
 positionals:
 - name: '{device|file}'
   required: true
+  choices:
+  - device
+  - file
   provenance:
     sources:
     - help-text

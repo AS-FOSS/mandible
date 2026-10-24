@@ -133,6 +133,7 @@ flags:
   - --repo
   value_name: HOST/
   value_kind: Optional
+  optional_join: separate
   group: INHERITED FLAGS
   description: Select another repository using the [HOST/]OWNER/REPO format
   provenance:

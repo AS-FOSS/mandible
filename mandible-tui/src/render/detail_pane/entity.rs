@@ -10,6 +10,47 @@ pub(super) fn is_short_spelling(s: &Spelling) -> bool {
     matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1
 }
 
+/// True for the spelling a range row starts at: it is drawn as the whole
+/// range (`-0 ... -9`), which counts as a long name.
+pub(super) fn is_range_start(entity: &Entity, s: &Spelling) -> bool {
+    entity
+        .range()
+        .is_some_and(|r| r.start.name == s.name && r.start.dashes == s.dashes)
+}
+
+/// True for a short spelling that is drawn as a short: [`is_short_spelling`]
+/// and not the start of a range.
+pub(super) fn is_drawn_short(entity: &Entity, s: &Spelling) -> bool {
+    is_short_spelling(s) && !is_range_start(entity, s)
+}
+
+/// How spelling `i` is drawn: its own rendering, or the whole range when
+/// it is the range's start.
+pub(super) fn spelling_text(entity: &Entity, i: usize) -> String {
+    let s = &entity.spellings[i];
+    match entity.range() {
+        Some(range) if is_range_start(entity, s) => range.render(),
+        _ => s.render(),
+    }
+}
+
+/// The order spellings are drawn in: shorts, then longs in source order,
+/// then the range.
+pub(super) fn display_order(entity: &Entity) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..entity.spellings.len()).collect();
+    order.sort_by_key(|&i| {
+        let s = &entity.spellings[i];
+        if is_range_start(entity, s) {
+            2
+        } else if is_drawn_short(entity, s) {
+            0
+        } else {
+            1
+        }
+    });
+    order
+}
+
 /// An entity's spellings, e.g. `-i, --interactive` for a flag or
 /// `pathspec` for a positional — with a repeatable positional's `...`
 /// (spec §9.3).
@@ -26,11 +67,9 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
     // Shorts before longs, always (spec §16): display-side only, a stable
     // sort so each group keeps its own source order and the IR's
     // `spellings` vector is untouched.
-    let mut ordered: Vec<&Spelling> = flag.spellings.iter().collect();
-    ordered.sort_by_key(|s| !is_short_spelling(s));
-    let spellings = ordered
+    let spellings = display_order(flag)
         .into_iter()
-        .map(Spelling::render)
+        .map(|i| spelling_text(flag, i))
         .collect::<Vec<_>>()
         .join(", ");
     // `repeatable` is one fact spelled two ways by the two kinds'
@@ -59,18 +98,15 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
 pub(super) fn entity_head_width(entity: &Entity, indent: usize) -> usize {
     let mut width = spelling_column(entity, indent) + display_width(&entity_name_spec(entity));
     if let Some(v) = entity_value_text(entity) {
-        let gap = if spelling_is_sigil(entity) || value_glues_by_prefix(entity) {
-            0
-        } else {
-            1
-        };
-        width += gap + display_width(&v);
+        width += display_width(value_gap(entity)) + display_width(&v);
     }
     width
 }
 
 /// An entity's value placeholder, e.g. `FILE` or `[FILE]` when optional.
-/// `None` when it takes no value.
+/// The brackets of an optional value enclose what may be left out, joiner
+/// included: `[=WHEN]` after `--color`, `[N]` after `-O`, `[FOO]` after
+/// `--foo `. `None` when it takes no value.
 pub(super) fn entity_value_text(flag: &Entity) -> Option<String> {
     flag.value_name
         .as_ref()
@@ -83,12 +119,33 @@ pub(super) fn entity_value_text(flag: &Entity) -> Option<String> {
             // (`try_value` stops at the first one), so this check only
             // ever fires on an already-fully-bracketed folded run, never
             // wrapping it a second time.
-            ValueKind::Optional if name.starts_with('[') && name.ends_with(']') => {
-                Some(name.clone())
+            ValueKind::Optional => {
+                let run = name.starts_with('[') && name.ends_with(']');
+                Some(match (flag.optional_join, run) {
+                    (Some(OptionalJoin::Equals), true) => format!("[={}", &name[1..]),
+                    (Some(OptionalJoin::Equals), false) => format!("[={name}]"),
+                    (_, true) => name.clone(),
+                    (_, false) => format!("[{name}]"),
+                })
             }
-            ValueKind::Optional => Some(format!("[{name}]")),
             ValueKind::None => None,
         })
+}
+
+/// What sits between the spellings and the value placeholder: nothing
+/// when the value glues on (the argfile sigil, a literal glue character,
+/// an optional value joined by `=` or glued), one space otherwise.
+pub(super) fn value_gap(flag: &Entity) -> &'static str {
+    let glued_optional = flag.value_kind == ValueKind::Optional
+        && matches!(
+            flag.optional_join,
+            Some(OptionalJoin::Equals | OptionalJoin::Glued)
+        );
+    if spelling_is_sigil(flag) || value_glues_by_prefix(flag) || glued_optional {
+        ""
+    } else {
+        " "
+    }
 }
 
 /// True when this entity's value placeholder glues directly onto its
@@ -156,7 +213,6 @@ pub(super) fn entity_line(
     // Where the value and description columns begin, shared across the
     // whole section — see `section_layout`.
     layout: SectionLayout,
-    glyphs: Glyphs,
 ) -> Vec<Line<'static>> {
     if layout.man {
         return super::man::man_entity_lines(flag, dim, width, color_enabled, layout);
@@ -198,11 +254,7 @@ pub(super) fn entity_line(
         // (spec §9.3), except the argfile sigil flag (spec §4.5, `@<file>`)
         // and a value that glues by its own literal character
         // (docs/shapes.md S-116, `-Wa,<options>`).
-        let gap = if spelling_is_sigil(flag) || value_glues_by_prefix(flag) {
-            ""
-        } else {
-            " "
-        };
+        let gap = value_gap(flag);
         first_line_spans.push(Span::raw(gap));
         first_line_spans.push(Span::styled(v.clone(), value_style));
         prefix_width += display_width(gap) + display_width(v);
@@ -245,8 +297,8 @@ pub(super) fn entity_line(
         }
         let mut lines = vec![Line::from(first_line_spans)];
         if let Some(stack) = &stack {
-            let dim = style::muted(color_enabled);
-            lines.extend(stack.rows(layout, &[], guides(glyphs), (dim, dim)));
+            let or_style = style::muted(color_enabled);
+            lines.extend(stack.rows(layout, &[], (or_style, spelling_style, desc_style)));
         }
         return lines;
     }
@@ -300,8 +352,8 @@ pub(super) fn entity_line(
         wrap_description(&remainder, rest_width)
     };
     if let Some(stack) = &stack {
-        let dim = style::muted(color_enabled);
-        lines.extend(stack.rows(layout, &chunks, guides(glyphs), (dim, desc_style)));
+        let or_style = style::muted(color_enabled);
+        lines.extend(stack.rows(layout, &chunks, (or_style, spelling_style, desc_style)));
     } else {
         for chunk in chunks {
             lines.push(Line::from(Span::styled(
