@@ -20,6 +20,11 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 must_contain_flags = ["-0", "-11", "--fast", "--best"]
+must_not_contain_usage_text = ["will compress files in place"]
 
 [contract.must_describe]
 "-0" = "Compression level (level 11, zopfli, is much slower)"
+
+[xfail]
+broken = true
+reason = "The indented prose under `Usage: pigz [options] [files ...]` (four lines saying what pigz does) is folded into the usage line, and its last line is dropped. It belongs in the root description; the usage is the first line alone."
