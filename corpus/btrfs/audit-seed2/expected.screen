@@ -1,0 +1,273 @@
+=== btrfs ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  btrfs [global] <group> [<group>...] <command> [<args>]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  group
+  command
+  args
+
+
+FLAGS (7) ──────────────────────────────────────────────────────────────────
+Global options
+    --format <format>  if supported, print subcommand output in that format
+                       (text, json)
+-v, --verbose          increase verbosity of the subcommand
+-q, --quiet            print only errors
+    --log <level>      set log level (default, info, verbose, debug, quiet)
+    --dry-run          if supported, do not do any active/changing actions
+
+Options for the main command only ──────────────────────────────────────────
+    --help             print condensed help for all subcommands
+    --version          print version string
+
+=== btrfs balance ===
+
+=== btrfs balance start ===
+Balance chunks across the devices
+
+=== btrfs balance pause ===
+Pause running balance
+
+=== btrfs balance cancel ===
+Cancel running or paused balance
+
+=== btrfs balance resume ===
+Resume interrupted balance
+
+=== btrfs balance status ===
+Show status of running or paused balance
+
+=== btrfs check ===
+Check structural integrity of a filesystem (unmounted).
+
+=== btrfs device ===
+
+=== btrfs device add ===
+Add one or more devices to a mounted filesystem.
+
+=== btrfs device delete ===
+Remove a device from a filesystem
+
+=== btrfs device remove ===
+Remove a device from a filesystem
+
+=== btrfs device replace ===
+Replace a device (alias of "btrfs replace")
+
+=== btrfs device scan ===
+Scan or forget (unregister) devices of btrfs filesystems
+
+=== btrfs device ready ===
+Check and wait until a group of devices of a filesystem is ready for mount
+
+=== btrfs device stats ===
+Show device IO error statistics
+
+=== btrfs device usage ===
+Show detailed information about internal allocations in devices.
+
+=== btrfs filesystem ===
+
+=== btrfs filesystem df ===
+Show space usage information for a mount point
+
+=== btrfs filesystem du ===
+Summarize disk usage of each file.
+
+=== btrfs filesystem show ===
+Show the structure of a filesystem
+
+=== btrfs filesystem sync ===
+Force a sync on a filesystem
+
+=== btrfs filesystem defragment ===
+Defragment a file or a directory
+
+=== btrfs filesystem resize ===
+Resize a filesystem
+
+=== btrfs filesystem label ===
+Get or change the label of a filesystem
+
+=== btrfs filesystem usage ===
+Show detailed information about internal filesystem usage .
+
+=== btrfs filesystem mkswapfile ===
+Create a new file that's suitable and formatted as a swapfile.
+
+=== btrfs inspect-internal ===
+
+=== btrfs inspect-internal inode-resolve ===
+Get file system paths for the given inode
+
+=== btrfs inspect-internal logical-resolve ===
+Get file system paths for the given logical address
+
+=== btrfs inspect-internal subvolid-resolve ===
+Get file system paths for the given subvolume ID.
+
+=== btrfs inspect-internal rootid ===
+Get tree ID of the containing subvolume of path.
+
+=== btrfs inspect-internal map-swapfile ===
+Print physical offset of first block and resume offset if file is suitable
+as swapfile
+
+=== btrfs inspect-internal min-dev-size ===
+Get the minimum size the device can be shrunk to
+
+=== btrfs inspect-internal dump-tree ===
+Dump tree structures from a given device
+
+=== btrfs inspect-internal dump-super ===
+Dump superblock from a device in a textual form
+
+=== btrfs inspect-internal tree-stats ===
+Print various stats for trees
+
+=== btrfs property ===
+
+=== btrfs property get ===
+Get a property value of a btrfs object
+
+=== btrfs property set ===
+Set a property on a btrfs object
+
+=== btrfs property list ===
+Lists available properties with their descriptions for the given object
+
+=== btrfs qgroup ===
+
+=== btrfs qgroup assign ===
+Assign SRC as the child qgroup of DST.
+
+=== btrfs qgroup remove ===
+Remove the relation between child qgroup SRC from DST.
+
+=== btrfs qgroup create ===
+Create a subvolume quota group.
+
+=== btrfs qgroup clear-stale ===
+Clear all stale qgroups (level 0/subvolid), without a subvolume.
+
+=== btrfs qgroup destroy ===
+Destroy a quota group.
+
+=== btrfs qgroup show ===
+List subvolume quota groups.
+
+=== btrfs qgroup limit ===
+Set the limits a subvolume quota group.
+
+=== btrfs quota ===
+
+=== btrfs quota enable ===
+Enable subvolume quota support for a filesystem.
+
+=== btrfs quota disable ===
+Disable subvolume quota support for a filesystem.
+
+=== btrfs quota rescan ===
+Trash all qgroup numbers and scan the metadata again with the current
+config.
+
+=== btrfs receive ===
+Receive subvolumes from a stream
+
+=== btrfs replace ===
+
+=== btrfs replace start ===
+Replace device of a btrfs filesystem.
+
+=== btrfs replace status ===
+Print status and progress information of a running device replace operation
+
+=== btrfs replace cancel ===
+Cancel a running device replace operation.
+
+=== btrfs rescue ===
+
+=== btrfs rescue chunk-recover ===
+Recover the chunk tree by scanning the devices one by one.
+
+=== btrfs rescue super-recover ===
+Recover bad superblocks from good copies
+
+=== btrfs rescue zero-log ===
+Clear the tree log. Usable if it's corrupted and prevents mount.
+
+=== btrfs rescue fix-device-size ===
+Re-align device and super block sizes. Usable if newer kernel refuse to
+mount it due to mismatch super size
+
+=== btrfs rescue create-control-device ===
+Create /dev/btrfs-control (see 'CONTROL DEVICE' in btrfs(5))
+
+=== btrfs rescue clear-ino-cache ===
+remove leftover items pertaining to the deprecated inode cache feature
+
+=== btrfs rescue clear-space-cache ===
+completely remove the v1 or v2 free space cache
+
+=== btrfs rescue clear-uuid-tree ===
+Delete uuid tree so that kernel can rebuild it at mount time
+
+=== btrfs restore ===
+Try to restore files from a damaged filesystem (unmounted)
+
+=== btrfs scrub ===
+
+=== btrfs scrub start ===
+Start a new scrub. If a scrub is already running, the new one fails.
+
+=== btrfs scrub cancel ===
+Cancel a running scrub
+
+=== btrfs scrub resume ===
+Resume previously canceled or interrupted scrub
+
+=== btrfs scrub status ===
+Show status of running or finished scrub
+
+=== btrfs scrub limit ===
+Show or set scrub limits on devices of the given filesystem.
+
+=== btrfs send ===
+Send the subvolume(s) to stdout.
+
+=== btrfs subvolume ===
+
+=== btrfs subvolume create ===
+Create subvolume(s)
+
+=== btrfs subvolume delete ===
+Delete subvolume(s)
+
+=== btrfs subvolume list ===
+List subvolumes and snapshots in the filesystem.
+
+=== btrfs subvolume snapshot ===
+
+=== btrfs subvolume get-default ===
+Get the default subvolume of a filesystem
+
+=== btrfs subvolume set-default ===
+Set the default subvolume of the filesystem mounted as default.
+
+=== btrfs subvolume find-new ===
+List the recently modified files in a filesystem
+
+=== btrfs subvolume show ===
+Show more information about the subvolume (UUIDs, generations, times,
+snapshots)
+
+=== btrfs subvolume sync ===
+Wait until given subvolume(s) are completely removed from the filesystem.
+
+=== btrfs help ===
+Display help information
+
+=== btrfs version ===
+Display btrfs-progs version

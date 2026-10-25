@@ -1,0 +1,119 @@
+=== vgchange ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  vgchange ( -l|--logicalvolume Number, -p|--maxphysicalvolumes Number,
+      -u|--uuid, -s|--physicalextentsize Size[m|UNIT], -x|--resizeable y|n,
+      --addtag Tag, --deltag Tag, --alloc
+      contiguous|cling|cling_by_tags|normal|anywhere|inherit,
+      --pvmetadatacopies 0|1|2, --vgmetadatacopies all|unmanaged|Number,
+      --profile String, --detachprofile, --metadataprofile String,
+      --setautoactivation y|n ) [ -A|--autobackup y|n ] [ -S|--select String
+      ] [ -f|--force ] [ --poll y|n ] [ --ignoremonitoring ] [ --noudevsync
+      ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag|Select ...
+      ]
+  vgchange --monitor y|n [ -A|--autobackup y|n ] [ -S|--select String ] [
+      -f|--force ] [ --sysinit ] [ --ignorelockingfailure ] [ --poll y|n ] [
+      --ignoremonitoring ] [ --noudevsync ] [ --reportformat basic|json ] [
+      COMMON_OPTIONS ] [ VG|Tag|Select ... ]
+  vgchange --poll y|n [ -A|--autobackup y|n ] [ -S|--select String ] [
+      -f|--force ] [ --ignorelockingfailure ] [ --ignoremonitoring ] [
+      --noudevsync ] [ --reportformat basic|json ] [ COMMON_OPTIONS ] [
+      VG|Tag|Select ... ]
+  vgchange -a|--activate y|n|ay
+  vgchange --refresh
+  vgchange --systemid String VG
+  vgchange --lockstart
+  vgchange --lockstop
+  vgchange --locktype sanlock|dlm|none VG
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMON_OPTIONS
+
+
+FLAGS (63) ─────────────────────────────────────────────────────────────────
+-l, --logicalvolume Number
+-p, --maxphysicalvolumes Number
+-u, --uuid
+-s, --physicalextentsize Size[m|UNIT]
+-x, --resizeable y|n
+    --addtag Tag
+    --deltag Tag
+    --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit
+    --pvmetadatacopies 0|1|2
+    --vgmetadatacopies all|unmanaged|Number
+    --detachprofile
+    --metadataprofile String
+    --setautoactivation y|n
+
+Activate or deactivate LVs ─────────────────────────────────────────────────
+-a, --activate y|n|ay
+-K, --ignoreactivationskip
+-P, --partial
+-A, --autobackup
+                               values: y, n
+-S, --select String
+-f, --force
+    --activationmode
+                               values: partial, degraded, complete
+    --sysinit
+    --readonly
+    --ignorelockingfailure
+    --monitor
+                               values: y, n
+    --poll
+                               values: y, n
+    --autoactivation String
+    --ignoremonitoring
+    --noudevsync
+    --reportformat
+                               values: basic, json
+
+Reactivate LVs using the latest metadata ───────────────────────────────────
+    --refresh
+-A, --autobackup
+                               values: y, n
+-S, --select String
+-f, --force
+    --sysinit
+    --ignorelockingfailure
+    --poll
+                               values: y, n
+    --ignoremonitoring
+    --noudevsync
+    --reportformat
+                               values: basic, json
+
+Change the system ID of a VG ───────────────────────────────────────────────
+    --systemid String
+
+Start the lockspace of a shared VG in lvmlockd ─────────────────────────────
+    --lockstart
+-S, --select String
+
+Stop the lockspace of a shared VG in lvmlockd ──────────────────────────────
+    --lockstop
+-S, --select String
+
+Change the lock type for a shared VG ───────────────────────────────────────
+    --locktype sanlock|dlm|none
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                               values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

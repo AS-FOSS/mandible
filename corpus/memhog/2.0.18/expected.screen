@@ -1,0 +1,21 @@
+=== memhog ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Policies: preferred-many local interleave membind preferred default
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  memhog [-fFILE] [-rNUM] [-H] size[kmg] [policy [nodeset]]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  size
+  policy
+             values: preferred-many, local, interleave, membind, preferred,
+             default
+  nodeset
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-f FILE  mmap is backed by FILE
+-r NUM   repeat memset NUM times
+-H       disable transparent hugepages

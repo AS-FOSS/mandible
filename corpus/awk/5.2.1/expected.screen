@@ -1,0 +1,56 @@
+=== awk ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+POSIX options: GNU long options: (standard) Short options: GNU long options:
+(extensions)
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  awk [POSIX or GNU style options] -f progfile [--] file ...
+  awk [POSIX or GNU style options] [--] 'program' file ...
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  POSIX
+  GNU
+  file...
+
+
+FLAGS (29) ─────────────────────────────────────────────────────────────────
+--
+
+POSIX options:GNU long options: (standard) ─────────────────────────────────
+-f, --file progfile
+-F, --field-separator fs
+-v, --assign var=val
+
+Short options:GNU long options: (extensions) ───────────────────────────────
+-b, --characters-as-bytes
+-c, --traditional
+-C, --copyright
+-d, --dump-variables[=file]
+-D, --debug[=file]
+-e, --source 'program-text'
+-E, --exec file
+-g, --gen-pot
+-h, --help
+-i, --include includefile
+-I, --trace
+-l, --load library
+-L, --lint[=fatal|invalid|no-ext]
+-M, --bignum
+-N, --use-lc-numeric
+-n, --non-decimal-data
+-o, --pretty-print[=file]
+-O, --optimize
+-p, --profile[=file]
+-P, --posix
+-r, --re-interval
+-s, --no-optimize
+-S, --sandbox
+-t, --lint-old
+-V, --version
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+awk '{ sum += $1 }; END { print sum }' file
+awk -F: '{ print $1 }' /etc/passwd

@@ -1,0 +1,21 @@
+=== aarch64-linux-gnu-dwp ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Report bugs to <https://sourceware.org/bugzilla/>
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  aarch64-linux-gnu-dwp [options] [file...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  file...
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-h, --help         Print this help message
+-e, --exec EXE     Get list of dwo files from EXE (defaults output to
+                   EXE.dwp)
+-o, --output FILE  Set output dwp file name
+-v, --verbose      Verbose output
+    --verify-only  Verify output file against exec file
+-V, --version      Print version number

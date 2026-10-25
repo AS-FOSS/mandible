@@ -1,0 +1,42 @@
+=== apt-mark ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+apt 2.8.3 (arm64)
+
+apt-mark is a simple command line interface for marking packages as manually
+or automatically installed. It can also be used to manipulate the dpkg(1)
+selection states of packages, and to list all packages with or without a
+certain marking.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  apt-mark [options] {auto|manual} pkg1 [pkg2 ...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  {auto|manual}
+                   values: auto, manual
+  pkg...
+
+=== apt-mark auto ===
+Mark the given packages as automatically installed
+
+=== apt-mark manual ===
+Mark the given packages as manually installed
+
+=== apt-mark minimize-manual ===
+Mark all dependencies of meta packages as automatically installed.
+
+=== apt-mark hold ===
+Mark a package as held back
+
+=== apt-mark unhold ===
+Unset a package set as held back
+
+=== apt-mark showauto ===
+Print the list of automatically installed packages
+
+=== apt-mark showmanual ===
+Print the list of manually installed packages
+
+=== apt-mark showhold ===
+Print the list of packages on hold

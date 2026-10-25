@@ -1,0 +1,245 @@
+=== dmsetup ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  dmsetup [--version] [-h|--help [-c|-C|--columns]] [-v|--verbose
+      [-v|--verbose ...]] [-f|--force] [--checks] [--manglename
+      {none|hex|auto}] [-r|--readonly] [--noopencount] [--noflush]
+      [--nolockfs] [--inactive] [--udevcookie <cookie>] [--noudevrules]
+      [--noudevsync] [--verifyudev] [-y|--yes] [--readahead
+      {[+]<sectors>|auto|none}] [--retry] [-c|-C|--columns] [-o <fields>]
+      [-O|--sort <sort_fields>] [-S|--select <selection>] [--nameprefixes]
+      [--noheadings] [--separator <separator>]
+
+
+FLAGS (27) ─────────────────────────────────────────────────────────────────
+    --version
+-h, --help
+-c
+-C
+    --columns
+-v, --verbose
+-f, --force
+    --checks
+    --manglename {none|hex|auto}
+-r, --readonly
+    --noopencount
+    --noflush
+    --nolockfs
+    --inactive
+    --udevcookie <cookie>
+    --noudevrules
+    --noudevsync
+    --verifyudev
+-y, --yes
+    --readahead {[+]<sectors>|auto|none}
+    --retry
+-o <fields>
+-O, --sort <sort_fields>
+-S, --select <selection>
+    --nameprefixes
+    --noheadings
+    --separator <separator>
+
+=== dmsetup help ===
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-c
+-C
+    --columns
+
+=== dmsetup create ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  dev_name
+
+
+FLAGS (12) ─────────────────────────────────────────────────────────────────
+-j, --major <major>
+-m, --minor <minor>
+-U, --uid <uid>
+-G, --gid <gid>
+-M, --mode <octal_mode>
+-u, --uuid <uuid>
+    --addnodeonresume
+    --addnodeoncreate
+    --readahead {[+]<sectors>|auto|none}
+-n, --notable
+    --table {<table>|<table_file>}
+    --concise [<concise_device_spec_list>]
+
+=== dmsetup remove ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --deferred
+-f, --force
+    --retry
+
+=== dmsetup remove_all ===
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-f, --force
+
+=== dmsetup suspend ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --noflush
+    --nolockfs
+
+=== dmsetup resume ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+    --noflush
+    --nolockfs
+    --addnodeonresume
+    --addnodeoncreate
+    --readahead {[+]<sectors>|auto|none}
+
+=== dmsetup load ===
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  device
+  table|table_file
+
+=== dmsetup clear ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device
+
+=== dmsetup reload ===
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  device
+  table|table_file
+
+=== dmsetup wipe_table ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-f, --force
+    --noflush
+    --nolockfs
+
+=== dmsetup rename ===
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  device
+  new_name_or_uuid
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --setuuid
+
+=== dmsetup measure ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+=== dmsetup message ===
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  device
+  sector
+  message
+
+=== dmsetup ls ===
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+    --target <target_type>
+    --exec <command>
+-o <options>
+    --tree
+
+=== dmsetup info ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+=== dmsetup deps ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-o <options>
+
+=== dmsetup stats ===
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  command
+  options
+  device...
+
+=== dmsetup status ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --noflush
+    --target <target_type>
+
+=== dmsetup table ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --concise
+    --target <target_type>
+    --showkeys
+
+=== dmsetup wait ===
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  device
+  event_nr
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --noflush
+
+=== dmsetup mknodes ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+=== dmsetup mangle ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+=== dmsetup udevcreatecookie ===
+
+=== dmsetup udevreleasecookie ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  cookie
+
+=== dmsetup udevflags ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  cookie
+
+=== dmsetup udevcomplete ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  cookie
+
+=== dmsetup udevcomplete_all ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  age_in_minutes
+
+=== dmsetup udevcookies ===
+
+=== dmsetup target-version ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  target...
+
+=== dmsetup targets ===
+
+=== dmsetup version ===
+
+=== dmsetup setgeometry ===
+POSITIONALS (5) ────────────────────────────────────────────────────────────
+  device
+  cyl
+  head
+  sect
+  start
+
+=== dmsetup splitname ===
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  device
+  subsystem

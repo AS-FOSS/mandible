@@ -1,0 +1,19 @@
+=== ptargrep ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+#!/usr/bin/perl #!/usr/bin/perl
+############################################################################
+##
+# Tool for using regular expressions against the contents of files in a tar
+# archive. See 'ptargrep --help' for more documentation. #
+
+
+FLAGS (7) ──────────────────────────────────────────────────────────────────
+-b, --basename     ignore directory paths from archive
+-i, --ignore-case  do case-insensitive pattern matching
+-l, --list-only    list matching filenames rather than extracting matches
+-v, --verbose      write debugging message to STDERR
+-?, --help         detailed help message
+
+Pod2usage(-exitval => 1,  -verbose => 0, ───────────────────────────────────
+    -message       "No pattern specified",
+    -message       "No tar files specified",

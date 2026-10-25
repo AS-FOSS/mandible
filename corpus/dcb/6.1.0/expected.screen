@@ -1,0 +1,22 @@
+=== dcb ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  dcb [ OPTIONS ] OBJECT { COMMAND | help }
+  dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  OBJECT
+  COMMAND
+
+
+FLAGS (10) ─────────────────────────────────────────────────────────────────
+-V, --Version
+-i, --iec
+-j, --json
+-N, --Numeric
+-p, --pretty
+-s, --statistics
+-v, --verbose
+-f, --force
+-b, --batch
+-n, --netns

@@ -1,0 +1,436 @@
+=== git ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+      [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p |
+      --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+      [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+      [--config-env=<name>=<envvar>] <command> [<args>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  command
+  args
+
+
+FLAGS (18) ─────────────────────────────────────────────────────────────────
+-v, --version
+-h, --help
+-C <path>
+-c <name>
+    --exec-path[=<path>]
+    --html-path
+    --man-path
+    --info-path
+-p
+    --paginate
+-P
+    --no-pager
+    --no-replace-objects
+    --bare
+    --git-dir <path>
+    --work-tree <path>
+    --namespace <name>
+    --config-env <name>
+
+=== git clone ===
+Clone a repository into a new directory
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git clone [<options>] [--] <repo> [<dir>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  repo
+  dir
+
+
+FLAGS (40) ─────────────────────────────────────────────────────────────────
+-v, --[no-]verbose             be more verbose
+-q, --[no-]quiet               be more quiet
+    --[no-]progress            force progress reporting
+    --[no-]reject-shallow      don't clone shallow repository
+-n, --no-checkout              don't create a checkout
+    --checkout                 opposite of --no-checkout
+    --[no-]bare                create a bare repository
+    --[no-]mirror              create a mirror repository (implies bare)
+-l, --[no-]local               to clone from a local repository
+    --no-hardlinks             don't use local hardlinks, always copy
+    --hardlinks                opposite of --no-hardlinks
+-s, --[no-]shared              setup as shared repository
+    --[no-]recurse-submodules[=<pathspec>] initialize submodules in the
+                               clone
+    --[no-]recursive[=<pathspec>] alias of --recurse-submodules
+-j, --[no-]jobs <n>            number of submodules cloned in parallel
+    --[no-]template <template-directory> directory from which templates will
+                               be used
+    --[no-]reference <repo>    reference repository
+    --[no-]reference-if-able <repo> reference repository
+    --[no-]dissociate          use --reference only while cloning
+-o, --[no-]origin <name>       use <name> instead of 'origin' to track
+                               upstream
+-b, --[no-]branch <branch>     checkout <branch> instead of the remote's
+                               HEAD
+-u, --[no-]upload-pack <path>  path to git-upload-pack on the remote
+    --[no-]depth <depth>       create a shallow clone of that depth
+    --[no-]shallow-since <time> create a shallow clone since a specific time
+    --[no-]shallow-exclude <revision> deepen history of shallow clone,
+                               excluding rev
+    --[no-]single-branch       clone only one branch, HEAD or --branch
+    --no-tags                  don't clone any tags, and make later fetches
+                               not to follow them
+    --tags                     opposite of --no-tags
+    --[no-]shallow-submodules  any cloned submodules will be shallow
+    --[no-]separate-git-dir <gitdir> separate git dir from working tree
+-c, --[no-]config <key=value>  set config inside the new repository
+    --[no-]server-option <server-specific> option to transmit
+-4, --ipv4                     use IPv4 addresses only
+-6, --ipv6                     use IPv6 addresses only
+    --[no-]filter <args>       object filtering
+    --[no-]also-filter-submodules apply partial clone filters to submodules
+    --[no-]remote-submodules   any cloned submodules will use their
+                               remote-tracking branch
+    --[no-]sparse              initialize sparse-checkout file to include
+                               only files at root
+    --[no-]bundle-uri <uri>    a URI for downloading bundles before fetching
+                               from origin remote
+--
+
+=== git init ===
+Create an empty Git repository or reinitialize an existing one
+
+=== git add ===
+Add file contents to the index
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git add [<options>] [--] <pathspec>...
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  pathspec...
+
+
+FLAGS (19) ─────────────────────────────────────────────────────────────────
+-n, --[no-]dry-run         dry run
+-v, --[no-]verbose         be verbose
+-i, --[no-]interactive     interactive picking
+-p, --[no-]patch           select hunks interactively
+-e, --[no-]edit            edit current diff and apply
+-f, --[no-]force           allow adding otherwise ignored files
+-u, --[no-]update          update tracked files
+    --[no-]renormalize     renormalize EOL of tracked files (implies -u)
+-N, --[no-]intent-to-add   record only the fact that the path will be added
+                           later
+-A, --[no-]all             add changes from all tracked and untracked files
+    --[no-]ignore-removal  ignore paths removed in the working tree (same as
+                           --no-all)
+    --[no-]refresh         don't add, only refresh the index
+    --[no-]ignore-errors   just skip files which cannot be added because of
+                           errors
+    --[no-]ignore-missing  check if
+                           - even missing
+                           - files are ignored in dry run
+    --[no-]sparse          allow updating entries outside of the
+                           sparse-checkout cone
+    --[no-]chmod (+|-)x    override the executable bit of the listed files
+    --[no-]pathspec-from-file <file> read pathspec from file
+    --[no-]pathspec-file-nul with --pathspec-from-file, pathspec elements
+                           are separated with NUL character
+--
+
+=== git mv ===
+Move or rename a file, a directory, or a symlink
+
+=== git restore ===
+Restore working tree files
+
+=== git rm ===
+Remove files from the working tree and from the index
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git rm [-f | --force] [-n] [-r] [--cached] [--ignore-unmatch] [--quiet]
+      [--pathspec-from-file=<file> [--pathspec-file-nul]] [--]
+      [<pathspec>...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  pathspec...
+
+
+FLAGS (10) ─────────────────────────────────────────────────────────────────
+-n, --[no-]dry-run            dry run
+-q, --[no-]quiet              do not list removed files
+    --[no-]cached             only remove from the index
+-f, --[no-]force              override the up-to-date check
+-r                            allow recursive removal
+    --[no-]ignore-unmatch     exit with a zero status even if nothing
+                              matched
+    --[no-]sparse             allow updating entries outside of the
+                              sparse-checkout cone
+    --[no-]pathspec-from-file <file> read pathspec from file
+    --[no-]pathspec-file-nul  with --pathspec-from-file, pathspec elements
+                              are separated with NUL character
+--
+
+=== git bisect ===
+Use binary search to find the commit that introduced a bug
+
+=== git diff ===
+Show changes between commits, commit and working tree, etc
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git diff --no-index [<options>] <path> <path>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  path
+
+
+FLAGS (86) ─────────────────────────────────────────────────────────────────
+    --no-index
+
+Diff output format options ─────────────────────────────────────────────────
+-p, --patch                     generate patch
+-s, --no-patch                  suppress diff output
+-u                              generate patch
+-U, --unified[=<n>]             generate diffs with <n> lines context
+-W, --[no-]function-context     generate diffs with <n> lines context
+    --raw                       generate the diff in raw format
+    --patch-with-raw            synonym for '-p --raw'
+    --patch-with-stat           synonym for '-p --stat'
+    --numstat                   machine friendly --stat
+    --shortstat                 output only the last line of --stat
+-X, --dirstat[=<param1,param2>...] output the distribution of relative
+                                amount of changes for each sub-directory
+    --cumulative                synonym for --dirstat=cumulative
+    --dirstat-by-file[=<param1,param2>...] synonym for
+                                --dirstat=files,param1,param2...
+    --check                     warn if changes introduce conflict markers
+                                or whitespace errors
+    --summary                   condensed summary such as creations, renames
+                                and mode changes
+    --name-only                 show only names of changed files
+    --name-status               show only names and status of changed files
+    --stat[=<width>[,<name-width>[,<count>]]] generate diffstat
+    --stat-width <width>        generate diffstat with a given width
+    --stat-name-width <width>   generate diffstat with a given name width
+    --stat-graph-width <width>  generate diffstat with a given graph width
+    --stat-count <count>        generate diffstat with limited lines
+    --[no-]compact-summary      generate compact summary in diffstat
+    --binary                    output a binary diff that can be applied
+    --[no-]full-index           show full pre- and post-image object names
+                                on the "index" lines
+    --[no-]color[=<when>]       show colored diff
+    --ws-error-highlight <kind> highlight whitespace errors in the
+                                'context', 'old' or 'new' lines in the diff
+-z                              do not munge pathnames and use NULs as
+                                output field terminators in --raw or
+                                --numstat
+    --[no-]abbrev[=<n>]         use <n> digits to display object names
+    --src-prefix <prefix>       show the given source prefix instead of "a/"
+    --dst-prefix <prefix>       show the given destination prefix instead of
+                                "b/"
+    --line-prefix <prefix>      prepend an additional prefix to every line
+                                of output
+    --no-prefix                 do not show any source or destination prefix
+    --default-prefix            use default prefixes a/ and b/
+    --inter-hunk-context <n>    show context between diff hunks up to the
+                                specified number of lines
+    --output-indicator-new <char> specify the character to indicate a new
+                                line instead of '+'
+    --output-indicator-old <char> specify the character to indicate an old
+                                line instead of '-'
+    --output-indicator-context <char> specify the character to indicate a
+                                context instead of ' '
+
+Diff rename options ────────────────────────────────────────────────────────
+-B, --break-rewrites[=<n>[/<m>]] break complete rewrite changes into pairs
+                                of delete and create
+-M, --find-renames[=<n>]        detect renames
+-D, --irreversible-delete       omit the preimage for deletes
+-C, --find-copies[=<n>]         detect copies
+    --[no-]find-copies-harder   use unmodified files as source to find
+                                copies
+    --no-renames                disable rename detection
+    --[no-]rename-empty         use empty blobs as rename source
+    --[no-]follow               continue listing the history of a file
+                                beyond renames
+-l <n>                          prevent rename/copy detection if the number
+                                of rename/copy targets exceeds given limit
+
+Diff algorithm options ─────────────────────────────────────────────────────
+    --minimal                   produce the smallest possible diff
+-w, --ignore-all-space          ignore whitespace when comparing lines
+-b, --ignore-space-change       ignore changes in amount of whitespace
+    --ignore-space-at-eol       ignore changes in whitespace at EOL
+    --ignore-cr-at-eol          ignore carrier-return at the end of line
+    --ignore-blank-lines        ignore changes whose lines are all blank
+-I, --[no-]ignore-matching-lines <regex> ignore changes whose all lines
+                                match <regex>
+    --[no-]indent-heuristic     heuristic to shift diff hunk boundaries for
+                                easy reading
+    --patience                  generate diff using the "patience diff"
+                                algorithm
+    --histogram                 generate diff using the "histogram diff"
+                                algorithm
+    --diff-algorithm <algorithm> choose a diff algorithm
+    --anchored <text>           generate diff using the "anchored diff"
+                                algorithm
+    --word-diff[=<mode>]        show word diff, using <mode> to delimit
+                                changed words
+    --word-diff-regex <regex>   use <regex> to decide what a word is
+    --color-words[=<regex>]     equivalent to --word-diff=color
+                                --word-diff-regex=<regex>
+    --[no-]color-moved[=<mode>] moved lines of code are colored differently
+    --[no-]color-moved-ws <mode> how white spaces are ignored in
+                                --color-moved
+
+Other diff options ─────────────────────────────────────────────────────────
+    --[no-]relative[=<prefix>]  when run from subdir, exclude changes
+                                outside and show relative paths
+-a, --[no-]text                 treat all files as text
+-R                              swap two inputs, reverse the diff
+    --[no-]exit-code            exit with 1 if there were differences, 0
+                                otherwise
+    --[no-]quiet                disable all output of the program
+    --[no-]ext-diff             allow an external diff helper to be executed
+    --[no-]textconv             run external text conversion filters when
+                                comparing binary files
+    --ignore-submodules[=<when>] ignore changes to submodules in the diff
+                                generation
+    --submodule[=<format>]      specify how differences in submodules are
+                                shown
+    --ita-invisible-in-index    hide 'git add -N' entries from the index
+    --ita-visible-in-index      treat 'git add -N' entries as real in the
+                                index
+-S <string>                     look for differences that change the number
+                                of occurrences of the specified string
+-G <regex>                      look for differences that change the number
+                                of occurrences of the specified regex
+    --pickaxe-all               show all changes in the changeset with -S or
+                                -G
+    --pickaxe-regex             treat <string> in -S as extended POSIX
+                                regular expression
+-O <file>                       control the order in which files appear in
+                                the output
+    --rotate-to <path>          show the change in the specified path first
+    --skip-to <path>            skip the output to the specified path
+    --find-object <object-id>   look for differences that change the number
+                                of occurrences of the specified object
+    --diff-filter [(A|C|D|M|R|T|U|X|B)...[*]] select files by diff type
+    --output <file>             output to a specific file
+
+=== git grep ===
+Print lines matching a pattern
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git grep [<options>] [-e] <pattern> [<rev>...] [[--] <path>...]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  pattern
+  rev...
+  path...
+
+
+FLAGS (51) ─────────────────────────────────────────────────────────────────
+    --[no-]cached            search in index instead of in the work tree
+    --no-index               find in contents not managed by git
+    --index                  opposite of --no-index
+    --[no-]untracked         search in both tracked and untracked files
+    --[no-]exclude-standard  ignore files specified via '.gitignore'
+    --[no-]recurse-submodules recursively search in each submodule
+-v, --[no-]invert-match      show non-matching lines
+-i, --[no-]ignore-case       case insensitive matching
+-w, --[no-]word-regexp       match patterns only at word boundaries
+-a, --[no-]text              process binary files as text
+-I                           don't match patterns in binary files
+    --[no-]textconv          process binary files with textconv filters
+-r, --[no-]recursive         search in subdirectories (default)
+    --max-depth <n>          descend at most <n> levels
+-E, --[no-]extended-regexp   use extended POSIX regular expressions
+-G, --[no-]basic-regexp      use basic POSIX regular expressions (default)
+-F, --[no-]fixed-strings     interpret patterns as fixed strings
+-P, --[no-]perl-regexp       use Perl-compatible regular expressions
+-n, --[no-]line-number       show line numbers
+    --[no-]column            show column number of first match
+-h                           don't show filenames
+-H                           show filenames
+    --[no-]full-name         show filenames relative to top directory
+-l, --[no-]files-with-matches show only filenames instead of matching lines
+    --[no-]name-only         synonym for --files-with-matches
+-L, --[no-]files-without-match show only the names of files without match
+-z, --[no-]null              print NUL after filenames
+-o, --[no-]only-matching     show only matching parts of a line
+-c, --[no-]count             show the number of matches instead of matching
+                             lines
+    --[no-]color[=<when>]    highlight matches
+    --[no-]break             print empty line between matches from different
+                             files
+    --[no-]heading           show filename only once above matches from same
+                             file
+-C, --[no-]context <n>       show <n> context lines before and after matches
+-B, --[no-]before-context <n> show <n> context lines before matches
+-A, --[no-]after-context <n> show <n> context lines after matches
+    --[no-]threads <n>       use <n> worker threads
+    -NUM                     shortcut for -C NUM
+-p, --[no-]show-function     show a line with the function name before
+                             matches
+-W, --[no-]function-context  show the surrounding function
+-f <file>                    read patterns from file
+-e <pattern>                 match <pattern>
+    --and                    combine patterns specified with -e
+    --or
+    --not
+(
+)
+-q, --[no-]quiet             indicate hit with exit status without output
+    --[no-]all-match         show only matches from files that match all
+                             patterns
+-O, --[no-]open-files-in-pager[=<pager>] show matching files in the pager
+    --[no-]ext-grep          allow calling of grep(1) (ignored by this
+                             build)
+-m, --[no-]max-count <n>     maximum number of results per file
+
+=== git log ===
+Show commit logs
+
+=== git show ===
+Show various types of objects
+
+=== git status ===
+Show the working tree status
+
+=== git branch ===
+List, create, or delete branches
+
+=== git commit ===
+Record changes to the repository
+
+=== git merge ===
+Join two or more development histories together
+
+=== git rebase ===
+Reapply commits on top of another base tip
+
+=== git reset ===
+Reset current HEAD to the specified state
+
+=== git switch ===
+Switch branches
+
+=== git tag ===
+Create, list, delete or verify a tag object signed with GPG
+
+=== git fetch ===
+Download objects and refs from another repository
+
+=== git pull ===
+Fetch from and integrate with another repository or a local branch
+
+=== git push ===
+Update remote refs along with associated objects

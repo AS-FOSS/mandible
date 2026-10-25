@@ -1,0 +1,26 @@
+=== c++filt ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Demangled names are displayed to stdout. If a name cannot be demangled it is
+just echoed to stdout. If no names are provided on the command line, stdin
+is read. Report bugs to <https://sourceware.org/bugzilla/>.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  c++filt [options] [mangled names]
+
+
+FLAGS (11) ─────────────────────────────────────────────────────────────────
+-h, --help              Display this information
+-v, --version           Show the version information
+
+Options are ────────────────────────────────────────────────────────────────
+-_, --strip-underscore  Ignore first leading underscore
+-n, --no-strip-underscore Do not ignore a leading underscore (default)
+-p, --no-params         Do not display function arguments
+-i, --no-verbose        Do not show implementation details (if any)
+-R, --recurse-limit     Enable a limit on recursion whilst demangling.
+                        [Default]
+-r, --no-recurse-limit  Disable a limit on recursion whilst demangling
+-t, --types             Also attempt to demangle type encodings
+-s, --format {none,auto,gnu-v3,java,gnat,dlang,rust}
+@<file>                 Read extra options from <file>

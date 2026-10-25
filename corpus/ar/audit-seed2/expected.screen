@@ -1,0 +1,82 @@
+=== ar ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+/usr/bin/ar: supported targets: elf64-littleaarch64 elf64-bigaarch64
+elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm
+pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little
+elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to
+<https://sourceware.org/bugzilla/>
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  ar [emulation options] [-]{dmpqrstx}[abcDfilMNoOPsSTuvV] [--plugin <name>]
+      [member-name] [count] archive-file file...
+  ar -M [<mri-script]
+
+
+POSITIONALS (4) ────────────────────────────────────────────────────────────
+  member-name
+  count
+  archive-file
+  file...
+
+
+FLAGS (7) ──────────────────────────────────────────────────────────────────
+-M [<mri-script]
+
+Generic modifiers ──────────────────────────────────────────────────────────
+@<file>                      read options from <file>
+    --target BFDNAME         specify the target object format as BFDNAME
+    --output DIRNAME         specify the output directory for extraction
+                             operations
+    --record-libdeps <text>  specify the dependencies of this library
+    --thin                   make a thin archive
+
+Optional ───────────────────────────────────────────────────────────────────
+    --plugin <p>             load the specified plugin
+
+
+MODIFIERS (17) ─────────────────────────────────────────────────────────────
+Command specific modifiers
+a     put file(s) after [member-name]
+b     put file(s) before [member-name] (same as [i])
+D     use zero for timestamps and uids/gids (default)
+U     use actual timestamps and uids/gids
+N     use instance [count] of name
+f     truncate inserted file names
+P     use full path names when matching
+o     preserve original dates
+O     display offsets of files in the archive
+u     only replace files that are newer than current archive contents
+
+Generic modifiers ──────────────────────────────────────────────────────────
+c     do not warn if the library had to be created
+s     create an archive index (cf. ranlib)
+l <text> specify the dependencies of this library
+S     do not build a symbol table
+T     deprecated, use --thin instead
+v     be verbose
+V     display the version number
+
+=== ar d ===
+delete file(s) from the archive
+
+=== ar m ===
+move file(s) in the archive
+
+=== ar p ===
+print file(s) found in the archive
+
+=== ar q ===
+quick append file(s) to the archive
+
+=== ar r ===
+replace existing or insert new file(s) into the archive
+
+=== ar s ===
+act as ranlib
+
+=== ar t ===
+display contents of the archive
+
+=== ar x ===
+extract file(s) from the archive

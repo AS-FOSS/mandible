@@ -1,0 +1,21 @@
+=== lcf ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Debian GNU/Linux lcf Revision: 3.00. This is free software; see the GNU
+General Public Licence for copying conditions. There is NO warranty.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  lcf [options] dest_file src_dir
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  dest_file
+  src_dir
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-h, --help         print this message
+-s, --src-dir foo  foo Set the src dir (historical md5sums live here)
+-d, --debug [n]    [n] Set the Debug level to N
+-n, --no-action    Dry run. No action is actually taken.
+-v, --verbose      Make the script verbose

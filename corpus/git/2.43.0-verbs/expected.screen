@@ -1,0 +1,1241 @@
+=== git ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+      [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p |
+      --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+      [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+      [--config-env=<name>=<envvar>] <command> [<args>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  command
+  args
+
+
+FLAGS (18) ─────────────────────────────────────────────────────────────────
+-v, --version
+-h, --help
+-C <path>
+-c <name>
+    --exec-path[=<path>]
+    --html-path
+    --man-path
+    --info-path
+-p
+    --paginate
+-P
+    --no-pager
+    --no-replace-objects
+    --bare
+    --git-dir <path>
+    --work-tree <path>
+    --namespace <name>
+    --config-env <name>
+
+=== git clone ===
+Clone a repository into a new directory
+
+=== git init ===
+Create an empty Git repository or reinitialize an existing one
+
+=== git add ===
+Add file contents to the index
+
+=== git mv ===
+Move or rename a file, a directory, or a symlink
+
+=== git restore ===
+Restore working tree files
+
+=== git rm ===
+Remove files from the working tree and from the index
+
+=== git bisect ===
+Use binary search to find the commit that introduced a bug
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect start [--term-(new|bad)=<term> --term-(old|good)=<term>]
+      [--no-checkout] [--first-parent] [<bad> [<good>...]] [--]
+      [<pathspec>...]
+  git bisect (good|bad) [<rev>...]
+  git bisect terms [--term-good | --term-bad]
+  git bisect skip [(<rev>|<range>)...]
+  git bisect next
+  git bisect reset [<commit>]
+  git bisect visualize
+  git bisect replay <logfile>
+  git bisect log
+  git bisect run <cmd> [<arg>...]
+
+=== git bisect start ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect start [--term-(new|bad)=<term> --term-(old|good)=<term>]
+      [--no-checkout] [--first-parent] [<bad> [<good>...]] [--]
+      [<pathspec>...]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  bad
+  good...
+  pathspec...
+
+
+FLAGS (7) ──────────────────────────────────────────────────────────────────
+    --term-new <term>
+    --term-bad <term>
+    --term-old <term>
+    --term-good <term>
+    --no-checkout
+    --first-parent
+--
+
+=== git bisect good ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect (good|bad) [<rev>...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  rev...
+
+=== git bisect bad ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect (good|bad) [<rev>...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  rev...
+
+=== git bisect terms ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect terms [--term-good | --term-bad]
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --term-good
+    --term-bad
+
+=== git bisect skip ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect skip [(<rev>|<range>)...]
+
+=== git bisect next ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect next
+
+=== git bisect reset ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect reset [<commit>]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  commit
+
+=== git bisect visualize ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect visualize
+
+=== git bisect replay ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect replay <logfile>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  logfile
+
+=== git bisect log ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect log
+
+=== git bisect run ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bisect run <cmd> [<arg>...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  cmd
+  arg...
+
+=== git diff ===
+Show changes between commits, commit and working tree, etc
+
+=== git grep ===
+Print lines matching a pattern
+
+=== git log ===
+Show commit logs
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git log [<options>] [<revision-range>] [[--] <path>...]
+  git show [<options>] <object>...
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  revision-range
+  path...
+  object...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-q, --[no-]quiet           suppress diff output
+    --[no-]source          show source
+    --[no-]use-mailmap     use mail map file
+    --[no-]mailmap         alias of --use-mailmap
+    --clear-decorations    clear all previously-defined decoration filters
+    --[no-]decorate-refs <pattern> only decorate refs that match <pattern>
+    --[no-]decorate-refs-exclude <pattern> do not decorate refs that match
+                           <pattern>
+    --[no-]decorate[=...]  decorate options
+-L <range:file>            trace the evolution of line range <start>,<end>
+                           or function :<funcname> in <file>
+
+=== git show ===
+Show various types of objects
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git log [<options>] [<revision-range>] [[--] <path>...]
+  git show [<options>] <object>...
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  revision-range
+  path...
+  object...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-q, --[no-]quiet           suppress diff output
+    --[no-]source          show source
+    --[no-]use-mailmap     use mail map file
+    --[no-]mailmap         alias of --use-mailmap
+    --clear-decorations    clear all previously-defined decoration filters
+    --[no-]decorate-refs <pattern> only decorate refs that match <pattern>
+    --[no-]decorate-refs-exclude <pattern> do not decorate refs that match
+                           <pattern>
+    --[no-]decorate[=...]  decorate options
+-L <range:file>            trace the evolution of line range <start>,<end>
+                           or function :<funcname> in <file>
+
+=== git status ===
+Show the working tree status
+
+=== git branch ===
+List, create, or delete branches
+
+=== git commit ===
+Record changes to the repository
+
+=== git merge ===
+Join two or more development histories together
+
+=== git rebase ===
+Reapply commits on top of another base tip
+
+=== git reset ===
+Reset current HEAD to the specified state
+
+=== git switch ===
+Switch branches
+
+=== git tag ===
+Create, list, delete or verify a tag object signed with GPG
+
+=== git fetch ===
+Download objects and refs from another repository
+
+=== git pull ===
+Fetch from and integrate with another repository or a local branch
+
+=== git push ===
+Update remote refs along with associated objects
+
+=== git am ===
+Apply a series of patches from a mailbox
+
+=== git archive ===
+Create an archive of files from a named tree
+
+=== git bundle ===
+Move objects and refs by archive
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bundle create [-q | --quiet | --progress] [--version=<version>] <file>
+      <git-rev-list-args>
+  git bundle verify [-q | --quiet] <file>
+  git bundle list-heads <file> [<refname>...]
+  git bundle unbundle [--progress] <file> [<refname>...]
+
+=== git bundle create ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bundle create [-q | --quiet | --progress] [--version=<version>] <file>
+      <git-rev-list-args>
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  file
+  git-rev-list-args
+
+
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+-q
+    --quiet
+    --progress
+    --version <version>
+
+=== git bundle verify ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bundle verify [-q | --quiet] <file>
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-q, --quiet
+
+=== git bundle list-heads ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bundle list-heads <file> [<refname>...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  file
+  refname...
+
+=== git bundle unbundle ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git bundle unbundle [--progress] <file> [<refname>...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  file
+  refname...
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --progress
+
+=== git checkout ===
+Switch branches or restore working tree files
+
+=== git cherry-pick ===
+Apply the changes introduced by some existing commits
+
+=== git citool ===
+Graphical alternative to git-commit
+
+=== git clean ===
+Remove untracked files from the working tree
+
+=== git describe ===
+Give an object a human readable name based on an available ref
+
+=== git format-patch ===
+Prepare patches for e-mail submission
+
+=== git gc ===
+Cleanup unnecessary files and optimize the local repository
+
+=== git gitk ===
+The Git repository browser
+
+=== git gui ===
+A portable graphical interface to Git
+
+=== git maintenance ===
+Run tasks to optimize Git repository data
+
+=== git notes ===
+Add or inspect object notes
+
+=== git range-diff ===
+Compare two commit ranges (e.g. two versions of a branch)
+
+=== git revert ===
+Revert some existing commits
+
+=== git scalar ===
+A tool for managing large Git repositories
+
+=== git shortlog ===
+Summarize 'git log' output
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git shortlog [<options>] [<revision-range>] [[--] <path>...]
+  git log --pretty=short | git shortlog [<options>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  revision-range
+  path...
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-c, --[no-]committer      group by committer rather than author
+-n, --[no-]numbered       sort output according to the number of commits per
+                          author
+-s, --[no-]summary        suppress commit descriptions, only provides commit
+                          count
+-e, --[no-]email          show the email address of each author
+-w[<w>[,<i1>[,<i2>]]]     linewrap output
+    --[no-]group <field>  group by field
+
+=== git sparse-checkout ===
+Reduce your working tree to a subset of tracked files
+
+=== git stash ===
+Stash the changes in a dirty working directory away
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash list [<log-options>]
+  git stash show [-u | --include-untracked | --only-untracked]
+      [<diff-options>] [<stash>]
+  git stash drop [-q | --quiet] [<stash>]
+  git stash pop [--index] [-q | --quiet] [<stash>]
+  git stash apply [--index] [-q | --quiet] [<stash>]
+  git stash branch <branchname> [<stash>]
+  git stash [push [-p | --patch] [-S | --staged] [-k | --[no-]keep-index]
+      [-q | --quiet] [-u | --include-untracked] [-a | --all] [(-m |
+      --message) <message>] [--pathspec-from-file=<file>
+      [--pathspec-file-nul]] [--] [<pathspec>...]]
+  git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q
+      | --quiet] [-u | --include-untracked] [-a | --all] [<message>]
+  git stash clear
+  git stash create [<message>]
+  git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+
+
+POSITIONALS (6) ────────────────────────────────────────────────────────────
+  log-options
+  stash
+  diff-options
+  branchname
+  message
+  commit
+
+
+FLAGS (13) ─────────────────────────────────────────────────────────────────
+-u
+    --include-untracked
+    --only-untracked
+-q, --quiet
+    --index
+-p, --patch
+-S, --staged
+-k, --[no-]keep-index
+-a, --all
+-m, --message <message>
+    --pathspec-from-file <file>
+    --pathspec-file-nul
+--
+
+=== git stash list ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash list [<log-options>]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  log-options
+
+=== git stash show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash show [-u | --include-untracked | --only-untracked]
+      [<diff-options>] [<stash>]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  stash
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-u
+    --include-untracked
+    --only-untracked
+
+=== git stash drop ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash drop [-q | --quiet] [<stash>]
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-q, --quiet
+
+=== git stash pop ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash pop [--index] [-q | --quiet] [<stash>]
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --index
+-q, --quiet
+
+=== git stash apply ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash apply [--index] [-q | --quiet] [<stash>]
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --index
+-q, --quiet
+
+=== git stash branch ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash branch <branchname> [<stash>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  branchname
+  stash
+
+=== git stash save ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q
+      | --quiet] [-u | --include-untracked] [-a | --all] [<message>]
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-p, --patch
+-S, --staged
+-k, --[no-]keep-index
+-q, --quiet
+-u, --include-untracked
+-a, --all
+
+=== git stash clear ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash clear
+
+=== git stash create ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash create [<message>]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  message
+
+=== git stash store ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-m, --message <message>
+-q, --quiet
+
+=== git submodule ===
+Initialize, update or inspect submodules
+
+=== git worktree ===
+Manage multiple working trees
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree add [-f] [--detach] [--checkout] [--lock [--reason <string>]]
+      [--orphan] [(-b | -B) <new-branch>] <path> [<commit-ish>]
+  git worktree list [-v | --porcelain [-z]]
+  git worktree lock [--reason <string>] <worktree>
+  git worktree move <worktree> <new-path>
+  git worktree prune [-n] [-v] [--expire <expire>]
+  git worktree remove [-f] <worktree>
+  git worktree repair [<path>...]
+  git worktree unlock <worktree>
+
+=== git worktree add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree add [-f] [--detach] [--checkout] [--lock [--reason <string>]]
+      [--orphan] [(-b | -B) <new-branch>] <path> [<commit-ish>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  path
+  commit-ish
+
+
+FLAGS (8) ──────────────────────────────────────────────────────────────────
+-f
+    --detach
+    --checkout
+    --lock
+    --reason <string>
+    --orphan
+-b <new-branch>
+-B <new-branch>
+
+=== git worktree list ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree list [-v | --porcelain [-z]]
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-v, --porcelain
+-z
+
+=== git worktree lock ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree lock [--reason <string>] <worktree>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  worktree
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --reason <string>
+
+=== git worktree move ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree move <worktree> <new-path>
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  worktree
+  new-path
+
+=== git worktree prune ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree prune [-n] [-v] [--expire <expire>]
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-n
+-v
+    --expire <expire>
+
+=== git worktree remove ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree remove [-f] <worktree>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  worktree
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-f
+
+=== git worktree repair ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree repair [<path>...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  path...
+
+=== git worktree unlock ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git worktree unlock <worktree>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  worktree
+
+=== git config ===
+Get and set repository or global options
+
+=== git fast-export ===
+Git data exporter
+
+=== git fast-import ===
+Backend for fast Git data importers
+
+=== git filter-branch ===
+Rewrite branches
+
+=== git mergetool ===
+Run merge conflict resolution tools to resolve merge conflicts
+
+=== git pack-refs ===
+Pack heads and tags for efficient repository access
+
+=== git prune ===
+Prune all unreachable objects from the object database
+
+=== git reflog ===
+Manage reflog information
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git reflog [show] [<log-options>] [<ref>]
+  git reflog expire [--expire=<time>] [--expire-unreachable=<time>]
+      [--rewrite] [--updateref] [--stale-fix] [--dry-run | -n] [--verbose]
+      [--all [--single-worktree] | <refs>...]
+  git reflog delete [--rewrite] [--updateref] [--dry-run | -n] [--verbose]
+      <ref>@{<specifier>}...
+  git reflog exists <ref>
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  log-options
+  ref
+  refs...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+    --expire <time>
+    --expire-unreachable <time>
+    --rewrite
+    --updateref
+    --stale-fix
+-n, --dry-run
+    --verbose
+    --all
+    --single-worktree
+
+=== git reflog expire ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git reflog expire [--expire=<time>] [--expire-unreachable=<time>]
+      [--rewrite] [--updateref] [--stale-fix] [--dry-run | -n] [--verbose]
+      [--all [--single-worktree] | <refs>...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  refs...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+    --expire <time>
+    --expire-unreachable <time>
+    --rewrite
+    --updateref
+    --stale-fix
+-n, --dry-run
+    --verbose
+    --all
+    --single-worktree
+
+=== git reflog delete ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git reflog delete [--rewrite] [--updateref] [--dry-run | -n] [--verbose]
+      <ref>@{<specifier>}...
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ref...
+
+
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+    --rewrite
+    --updateref
+-n, --dry-run
+    --verbose
+
+=== git reflog exists ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git reflog exists <ref>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ref
+
+=== git remote ===
+Manage set of tracked repositories
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote [-v | --verbose]
+  git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags]
+      [--mirror=<fetch|push>] <name> <url>
+  git remote rename [--[no-]progress] <old> <new>
+  git remote remove <name>
+  git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+  git remote [-v | --verbose] show [-n] <name>
+  git remote prune [-n | --dry-run] <name>
+  git remote [-v | --verbose] update [-p | --prune] [(<group> |
+      <remote>)...]
+  git remote set-branches [--add] <name> <branch>...
+  git remote get-url [--push] [--all] <name>
+  git remote set-url [--push] <name> <newurl> [<oldurl>]
+  git remote set-url --add <name> <newurl>
+  git remote set-url --delete <name> <url>
+
+
+POSITIONALS (8) ────────────────────────────────────────────────────────────
+  name
+  url
+  old
+  new
+  branch
+  remote...
+  newurl
+  oldurl
+
+
+FLAGS (17) ─────────────────────────────────────────────────────────────────
+-v, --[no-]verbose   be verbose; must be placed before a subcommand
+-t <branch>
+-m <master>
+-f
+    --tags
+    --no-tags
+    --mirror <fetch|push>
+    --[no-]progress
+-a
+    --auto
+-d
+    --delete
+-n
+-p, --prune
+    --add
+    --push
+    --all
+
+=== git remote add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags]
+      [--mirror=<fetch|push>] <name> <url>
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  name
+  url
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-t <branch>
+-m <master>
+-f
+    --tags
+    --no-tags
+    --mirror <fetch|push>
+
+=== git remote rename ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote rename [--[no-]progress] <old> <new>
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  old
+  new
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --[no-]progress
+
+=== git remote remove ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote remove <name>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  name
+
+=== git remote set-head ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  name
+  branch
+
+
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+-a
+    --auto
+-d
+    --delete
+
+=== git remote show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote [-v | --verbose] show [-n] <name>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  name
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-n
+-v, --verbose
+
+=== git remote prune ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote prune [-n | --dry-run] <name>
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-n, --dry-run
+
+=== git remote update ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote [-v | --verbose] update [-p | --prune] [(<group> |
+      <remote>)...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  remote...
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-p, --prune
+-v, --verbose
+
+=== git remote set-branches ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote set-branches [--add] <name> <branch>...
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  name
+  branch...
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --add
+
+=== git remote get-url ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote get-url [--push] [--all] <name>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  name
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --push
+    --all
+
+=== git remote set-url ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git remote set-url [--push] <name> <newurl> [<oldurl>]
+  git remote set-url --add <name> <newurl>
+  git remote set-url --delete <name> <url>
+
+
+POSITIONALS (4) ────────────────────────────────────────────────────────────
+  name
+  newurl
+  oldurl
+  url
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --push
+    --add
+    --delete
+
+=== git repack ===
+Pack unpacked objects in a repository
+
+=== git replace ===
+Create, list, delete refs to replace objects
+
+=== git annotate ===
+Annotate file lines with commit information
+
+=== git blame ===
+Show what revision and author last modified each line of a file
+
+=== git bugreport ===
+Collect information for user to file a bug report
+
+=== git count-objects ===
+Count unpacked number of objects and their disk consumption
+
+=== git diagnose ===
+Generate a zip archive of diagnostic information
+
+=== git difftool ===
+Show changes using common diff tools
+
+=== git fsck ===
+Verifies the connectivity and validity of the objects in the database
+
+=== git gitweb ===
+Git web interface (web frontend to Git repositories)
+
+=== git help ===
+Display help information about Git
+
+=== git instaweb ===
+Instantly browse your working repository in gitweb
+
+=== git merge-tree ===
+Perform merge without touching index or working tree
+
+=== git rerere ===
+Reuse recorded resolution of conflicted merges
+
+=== git show-branch ===
+Show branches and their commits
+
+=== git verify-commit ===
+Check the GPG signature of commits
+
+=== git verify-tag ===
+Check the GPG signature of tags
+
+=== git version ===
+Display version information about Git
+
+=== git whatchanged ===
+Show logs with differences each commit introduces
+
+=== git archimport ===
+Import a GNU Arch repository into Git
+
+=== git cvsexportcommit ===
+Export a single commit to a CVS checkout
+
+=== git cvsimport ===
+Salvage your data out of another SCM people love to hate
+
+=== git cvsserver ===
+A CVS server emulator for Git
+
+=== git imap-send ===
+Send a collection of patches from stdin to an IMAP folder
+
+=== git p4 ===
+Import from and submit to Perforce repositories
+
+=== git quiltimport ===
+Applies a quilt patchset onto the current branch
+
+=== git request-pull ===
+Generates a summary of pending changes
+
+=== git send-email ===
+Send a collection of patches as emails
+
+=== git svn ===
+Bidirectional operation between a Subversion repository and Git
+
+=== git apply ===
+Apply a patch to files and/or to the index
+
+=== git checkout-index ===
+Copy files from the index to the working tree
+
+=== git commit-graph ===
+Write and verify Git commit-graph files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git commit-graph verify [--object-dir <dir>] [--shallow] [--[no-]progress]
+  git commit-graph write [--object-dir <dir>] [--append]
+      [--split[=<strategy>]] [--reachable | --stdin-packs | --stdin-commits]
+      [--changed-paths] [--[no-]max-new-filters <n>] [--[no-]progress]
+      <split options>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  split options
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --[no-]object-dir <dir>  the object directory to store the graph
+
+=== git commit-graph verify ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git commit-graph verify [--object-dir <dir>] [--shallow] [--[no-]progress]
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --object-dir <dir>
+    --shallow
+    --[no-]progress
+
+=== git commit-graph write ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git commit-graph write [--object-dir <dir>] [--append]
+      [--split[=<strategy>]] [--reachable | --stdin-packs | --stdin-commits]
+      [--changed-paths] [--[no-]max-new-filters <n>] [--[no-]progress]
+      <split options>
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+    --object-dir <dir>
+    --append
+    --split[=<strategy>]
+    --reachable
+    --stdin-packs
+    --stdin-commits
+    --changed-paths
+    --[no-]max-new-filters <n>
+    --[no-]progress
+
+=== git commit-tree ===
+Create a new commit object
+
+=== git hash-object ===
+Compute object ID and optionally create an object from a file
+
+=== git index-pack ===
+Build pack index file for an existing packed archive
+
+=== git merge-file ===
+Run a three-way file merge
+
+=== git merge-index ===
+Run a merge for files needing merging
+
+=== git mktag ===
+Creates a tag object with extra validation
+
+=== git mktree ===
+Build a tree-object from ls-tree formatted text
+
+=== git multi-pack-index ===
+Write and verify multi-pack-indexes
+
+=== git pack-objects ===
+Create a packed archive of objects
+
+=== git prune-packed ===
+Remove extra objects that are already in pack files
+
+=== git read-tree ===
+Reads tree information into the index
+
+=== git symbolic-ref ===
+Read, modify and delete symbolic refs
+
+=== git unpack-objects ===
+Unpack objects from a packed archive
+
+=== git update-index ===
+Register file contents in the working tree to the index
+
+=== git update-ref ===
+Update the object name stored in a ref safely
+
+=== git write-tree ===
+Create a tree object from the current index
+
+=== git cat-file ===
+Provide contents or details of repository objects
+
+=== git cherry ===
+Find commits yet to be applied to upstream
+
+=== git diff-files ===
+Compares files in the working tree and the index
+
+=== git diff-index ===
+Compare a tree to the working tree or index
+
+=== git diff-tree ===
+Compares the content and mode of blobs found via two tree objects
+
+=== git for-each-ref ===
+Output information on each ref
+
+=== git for-each-repo ===
+Run a Git command on a list of repositories
+
+=== git get-tar-commit-id ===
+Extract commit ID from an archive created using git-archive
+
+=== git ls-files ===
+Show information about files in the index and the working tree
+
+=== git ls-remote ===
+List references in a remote repository
+
+=== git ls-tree ===
+List the contents of a tree object
+
+=== git merge-base ===
+Find as good common ancestors as possible for a merge
+
+=== git name-rev ===
+Find symbolic names for given revs
+
+=== git pack-redundant ===
+Find redundant pack files
+
+=== git rev-list ===
+Lists commit objects in reverse chronological order
+
+=== git rev-parse ===
+Pick out and massage parameters
+
+=== git show-index ===
+Show packed archive index
+
+=== git show-ref ===
+List references in a local repository
+
+=== git unpack-file ===
+Creates a temporary file with a blob's contents
+
+=== git var ===
+Show a Git logical variable
+
+=== git verify-pack ===
+Validate packed Git archive files
+
+=== git daemon ===
+A really simple server for Git repositories
+
+=== git fetch-pack ===
+Receive missing objects from another repository
+
+=== git http-backend ===
+Server side implementation of Git over HTTP
+
+=== git send-pack ===
+Push objects over Git protocol to another repository
+
+=== git update-server-info ===
+Update auxiliary info file to help dumb servers
+
+=== git check-attr ===
+Display gitattributes information
+
+=== git check-ignore ===
+Debug gitignore / exclude files
+
+=== git check-mailmap ===
+Show canonical names and email addresses of contacts
+
+=== git check-ref-format ===
+Ensures that a reference name is well formed
+
+=== git column ===
+Display data in columns
+
+=== git credential ===
+Retrieve and store user credentials
+
+=== git credential-cache ===
+Helper to temporarily store passwords in memory
+
+=== git credential-store ===
+Helper to store credentials on disk
+
+=== git fmt-merge-msg ===
+Produce a merge commit message
+
+=== git hook ===
+Run git hooks
+
+=== git interpret-trailers ===
+Add or parse structured information in commit messages
+
+=== git mailinfo ===
+Extracts patch and authorship from a single e-mail message
+
+=== git mailsplit ===
+Simple UNIX mbox splitter program
+
+=== git merge-one-file ===
+The standard helper program to use with git-merge-index
+
+=== git patch-id ===
+Compute unique ID for a patch
+
+=== git sh-i18n ===
+Git's i18n setup code for shell scripts
+
+=== git sh-setup ===
+Common Git shell script setup code
+
+=== git stripspace ===
+Remove unnecessary whitespace
+
+=== git lfs ===

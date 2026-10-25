@@ -1,0 +1,20 @@
+=== tmux ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  tmux [-2CDlNuVv] [-c shell-command] [-f file] [-L socket-name] [-S
+      socket-path] [-T features] [command [flags]]
+
+
+FLAGS (13) ─────────────────────────────────────────────────────────────────
+-2
+-C
+-D
+-l
+-N
+-u
+-V
+-v
+-c shell-command
+-f file
+-L socket-name
+-S socket-path
+-T features

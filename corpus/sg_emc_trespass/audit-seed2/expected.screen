@@ -1,0 +1,19 @@
+=== sg_emc_trespass ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Unrecognized switch: --help
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  DEVICE  sg or block device (latter in lk 2.6 or lk 3 series)
+
+
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+-d    output debug
+-h r  Set Honor Reservation bit
+-s    Send Short Trespass Command page (default: long) (for FC series)
+-V    print version string then exit DEVICE sg or block device (latter in lk
+      2.6 or lk 3 series) Example: sg_emc_trespass /dev/sda

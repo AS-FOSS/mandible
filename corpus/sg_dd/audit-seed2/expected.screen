@@ -1,0 +1,15 @@
+=== sg_dd ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  sg_dd [bs=BS] [conv=CONV] [count=COUNT] [ibs=BS] [if=IFILE] [iflag=FLAGS]
+      [obs=BS] [of=OFILE] [oflag=FLAGS] [seek=SEEK] [skip=SKIP] [--dry-run]
+      [--help] [--verbose] [--version]
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+    --dry-run   do preparation but bypass copy (or read)
+-h, --help      print out this usage message then exit
+-p, --progress  print progress report every 2 minutes
+-v, --verbose   same as 'verbose=1', can be used multiple times
+-x, --verify    do verify/compare rather than copy (OFILE must be a sg
+                device)
+-V, --version   print version information then exit

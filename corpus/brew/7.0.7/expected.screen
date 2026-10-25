@@ -1,0 +1,595 @@
+=== brew ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew search TEXT|/REGEX/
+  brew info [FORMULA|CASK...]
+  brew install FORMULA|CASK...
+  brew update
+  brew upgrade [FORMULA|CASK...]
+  brew uninstall FORMULA|CASK...
+  brew list [FORMULA|CASK...]
+
+=== brew search ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Perform a substring search of cask tokens and formula names for text. If
+text is flanked by slashes, it is interpreted as a regular expression.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew search, -S [options] text|/regex/ [...]
+
+
+FLAGS (20) ─────────────────────────────────────────────────────────────────
+    --formula   Search for formulae.
+ or --formulae
+    --cask      Search for casks.
+ or --casks
+    --desc      Search for formulae with a description matching text and
+                casks with a name or description matching text.
+    --pull-request Search for GitHub pull requests containing text.
+    --open      Search for only open GitHub pull requests.
+    --closed    Search for only closed GitHub pull requests.
+    --alpine    Search for text in the given database.
+    --repology  Search for text in the given database.
+    --macports  Search for text in the given database.
+    --fink      Search for text in the given database.
+    --opensuse  Search for text in the given database.
+    --fedora    Search for text in the given database.
+    --archlinux Search for text in the given database.
+    --debian    Search for text in the given database.
+    --ubuntu    Search for text in the given database.
+-d, --debug     Display any debugging information.
+-q, --quiet     Make some output more quiet.
+-v, --verbose   Make some output more verbose.
+-h, --help      Show this message.
+-S
+
+=== brew info ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Display brief statistics for your Homebrew installation. If a formula or
+cask is provided, show summary of information about it.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew info, abv [options] [formula|cask ...]
+
+
+FLAGS (14) ─────────────────────────────────────────────────────────────────
+    --analytics  List global Homebrew analytics data or, if specified,
+                 installation and build error data for formula (provided
+                 neither $HOMEBREW_NO_ANALYTICS nor $HOMEBREW_NO_GITHUB_API
+                 are set).
+    --days       How many days of analytics data to retrieve. The value for
+                 days must be 30, 90 or 365. The default is 30.
+    --category   Which type of analytics data to retrieve. The value for
+                 category must be install, install-on-request or
+                 build-error; cask-install or os-version may be specified if
+                 formula is not. The default is install.
+    --github     Open the GitHub source page for formula and cask in a
+                 browser. To view the history locally: brew log -p formula
+                 or cask
+    --json       Print a JSON representation. Currently the default value
+                 for version is v1.v1 is valid for formula only. v2 is valid
+                 for both formula and cask.See the docs for
+    --installed  Output a human-readable inventory of installed formulae and
+                 casks. If --json is passed, print JSON for installed
+                 formulae and, with --json=v2, installed casks.
+    --variations Include the variations hash in each formula's JSON output.
+-v, --verbose    Show more verbose data for formula, or full information
+                 with --installed.
+    --formula    Treat all named arguments as formulae.
+ or --formulae
+    --cask       Treat all named arguments as casks.
+ or --casks
+    --sizes      Show the size of installed formulae and casks.
+-d, --debug      Display any debugging information.
+-q, --quiet      Make some output more quiet.
+-h, --help       Show this message.
+
+=== brew install ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Install a formula or cask. Additional options specific to a formula may be
+appended to the command.
+
+Unless $HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK is set, brew upgrade or brew
+reinstall will be run for outdated dependents and dependents with broken
+linkage, respectively.
+
+Unless $HOMEBREW_NO_INSTALL_CLEANUP is set, brew cleanup will then be run
+for the installed formulae and casks or, every 30 days, for all packages.
+
+Unless $HOMEBREW_NO_INSTALL_UPGRADE is set, brew install formula will
+upgrade formula if it is already installed but outdated.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew install [options] formula|cask [...]
+
+
+FLAGS (50) ─────────────────────────────────────────────────────────────────
+-d, --debug              If brewing fails, open an interactive debugging
+                         session with access to IRB or a shell inside the
+                         temporary build directory.
+    --display-times      Print install times for each package at the end of
+                         the run. Enabled by default if
+                         $HOMEBREW_DISPLAY_INSTALL_TIMES is set.
+-f, --force              Install formulae without checking for previously
+                         installed keg-only or non-migrated versions. When
+                         installing casks, overwrite existing files
+                         (binaries and symlinks are excluded, unless
+                         originally from the same cask).
+-v, --verbose            Print the verification and post-install steps.
+-n, --dry-run            Show what would be installed, but do not actually
+                         install anything.
+-y, --no-ask             Do not ask for confirmation before downloading and
+ or --yes                installing. Ask mode is the default. Enabled by
+                         default if $HOMEBREW_NO_ASK is set.
+    --formula            Treat all named arguments as formulae.
+ or --formulae
+    --ignore-dependencies An unsupported Homebrew development option to skip
+                         installing any dependencies of any kind. If the
+                         dependencies are not already present, the formula
+                         will have issues. If you're not developing
+                         Homebrew, consider adjusting your PATH rather than
+                         using this option.
+    --only-dependencies  Install the dependencies with specified options but
+                         do not install the formula itself.
+    --cc                 Attempt to compile using the specified compiler,
+                         which should be the name of the compiler's
+                         executable, e.g. gcc-9 for GCC 9. In order to use
+                         LLVM's clang, specify llvm_clang. To use the
+                         Apple-provided clang, specify clang. This option
+                         will only accept compilers that are provided by
+                         Homebrew or bundled with macOS. Please do not file
+                         issues if you encounter errors while using this
+                         option.
+-s, --build-from-source  Compile formula from source even if a bottle is
+                         provided. Dependencies will still be installed from
+                         bottles if they are available.
+    --force-bottle       Install from a bottle if it exists for the current
+                         or newest version of macOS, even if it would not
+                         normally be used for installation.
+    --include-test       Install testing dependencies required to run brew
+                         test formula.
+    --HEAD               If formula defines it, install the HEAD version,
+                         aka. main, trunk, unstable, master.
+    --fetch-HEAD         Fetch the upstream repository to detect if the HEAD
+                         installation of the formula is outdated. Otherwise,
+                         the repository's HEAD will only be checked for
+                         updates when a new stable or development version
+                         has been released.
+    --keep-tmp           Retain the temporary files created during
+                         installation.
+    --debug-symbols      Generate debug symbols on build. Source will be
+                         retained in a cache directory.
+    --build-bottle       Prepare the formula for eventual bottling during
+                         installation, skipping any post-install steps.
+    --skip-post-install  Install but skip any post-install steps.
+    --skip-link          Install but skip linking the keg into the prefix.
+    --as-dependency      Install but mark as installed as a dependency and
+                         not installed on request.
+    --bottle-arch        Optimise bottles for the specified architecture
+                         rather than the oldest architecture supported by
+                         the version of macOS the bottles are built on.
+-i, --interactive        Download and patch formula, then open a shell. This
+                         allows the user to run ./configure --help and
+                         otherwise determine how to turn the software
+                         package into a Homebrew package.
+-g, --git                Create a Git repository, useful for creating
+                         patches to the software.
+    --overwrite          Delete files that already exist in the prefix while
+                         linking.
+    --cask               Treat all named arguments as casks.
+ or --casks
+    --[no-]binaries      Disable/enable linking of helper executables
+                         (default: enabled).
+    --require-sha        Require all casks to have a checksum.
+    --adopt              Adopt existing artifacts in the destination that
+                         are identical to those being installed. Cannot be
+                         combined with --force.
+    --skip-cask-deps     Skip installing cask dependencies.
+    --zap                For use with brew reinstall --cask. Remove all
+                         files associated with a cask. May remove files
+                         which are shared between applications.
+    --appdir             Target location for Applications (default:
+                         /Applications).
+    --appimagedir        Target location for AppImages (default:
+                         ~/Applications).
+    --keyboard-layoutdir Target location for Keyboard Layouts (default:
+                         /Library/Keyboard Layouts).
+    --colorpickerdir     Target location for Color Pickers (default:
+                         ~/Library/ColorPickers).
+    --prefpanedir        Target location for Preference Panes (default:
+                         ~/Library/PreferencePanes).
+    --qlplugindir        Target location for Quick Look Plugins (default:
+                         ~/Library/QuickLook).
+    --mdimporterdir      Target location for Spotlight Plugins (default:
+                         ~/Library/Spotlight).
+    --dictionarydir      Target location for Dictionaries (default:
+                         ~/Library/Dictionaries).
+    --fontdir            Target location for Fonts (default:
+                         ~/Library/Fonts).
+    --servicedir         Target location for Services (default:
+                         ~/Library/Services).
+    --input-methoddir    Target location for Input Methods (default:
+                         ~/Library/Input Methods).
+    --internet-plugindir Target location for Internet Plugins (default:
+                         ~/Library/Internet Plug-Ins).
+    --audio-unit-plugindir Target location for Audio Unit Plugins (default:
+                         ~/Library/Audio/Plug-Ins/Components).
+    --vst-plugindir      Target location for VST Plugins (default:
+                         ~/Library/Audio/Plug-Ins/VST).
+    --vst3-plugindir     Target location for VST3 Plugins (default:
+                         ~/Library/Audio/Plug-Ins/VST3).
+    --screen-saverdir    Target location for Screen Savers (default:
+                         ~/Library/Screen Savers).
+    --language           Comma-separated list of language codes to prefer
+                         for cask installation. The first matching language
+                         is used, otherwise it reverts to the cask's default
+                         language. The default value is the language of your
+                         system.
+-q, --quiet              Make some output more quiet.
+-h, --help               Show this message.
+
+=== brew update ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Fetch the newest version of Homebrew and all formulae from GitHub using
+git(1) and perform any necessary migrations.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew update, up [options]
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+    --auto-update  Run on auto-updates (e.g. before brew install). Skips
+                   some slower steps.
+-f, --force        Always do a slower, full update check (even if
+                   unnecessary).
+-q, --quiet        Make some output more quiet.
+-v, --verbose      Print the directories checked and git operations
+                   performed.
+-d, --debug        Display a trace of all shell commands as they are
+                   executed.
+-h, --help         Show this message.
+
+=== brew upgrade ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Upgrade outdated, unpinned packages using the same options they were
+originally installed with, plus any appended brew formula options. If cask
+or formula are specified, upgrade only the given cask or formula (unless
+they are pinned; see pin, unpin).
+
+Unless $HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK is set, brew upgrade or brew
+reinstall will be run for outdated dependents and dependents with broken
+linkage, respectively.
+
+Unless $HOMEBREW_NO_INSTALL_CLEANUP is set, brew cleanup will then be run
+for the upgraded formulae and casks or, every 30 days, for all packages.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew upgrade [options] [installed_formula|installed_cask ...]
+
+
+FLAGS (42) ─────────────────────────────────────────────────────────────────
+-d, --debug              If brewing fails, open an interactive debugging
+                         session with access to IRB or a shell inside the
+                         temporary build directory.
+    --display-times      Print install times for each package at the end of
+                         the run. Enabled by default if
+                         $HOMEBREW_DISPLAY_INSTALL_TIMES is set.
+-f, --force              Install formulae without checking for previously
+                         installed keg-only or non-migrated versions. When
+                         installing casks, overwrite existing files
+                         (binaries and symlinks are excluded, unless
+                         originally from the same cask).
+-v, --verbose            Print the verification and post-install steps.
+-n, --dry-run            Show what would be upgraded, but do not actually
+                         upgrade anything.
+    --minimum-version    Only upgrade a named formula or cask with an
+ or --min-version        installed version below the given minimum version.
+-y, --no-ask             Do not ask for confirmation before downloading and
+ or --yes                upgrading. Ask mode is the default. Enabled by
+                         default if $HOMEBREW_NO_ASK is set.
+    --formula            Treat all named arguments as formulae. If no named
+ or --formulae           arguments are specified, upgrade only outdated
+                         formulae.
+-s, --build-from-source  Compile formula from source even if a bottle is
+                         available.
+-i, --interactive        Download and patch formula, then open a shell. This
+                         allows the user to run ./configure --help and
+                         otherwise determine how to turn the software
+                         package into a Homebrew package.
+    --force-bottle       Install from a bottle if it exists for the current
+                         or newest version of macOS, even if it would not
+                         normally be used for installation.
+    --fetch-HEAD         Fetch the upstream repository to detect if the HEAD
+                         installation of the formula is outdated. Otherwise,
+                         the repository's HEAD will only be checked for
+                         updates when a new stable or development version
+                         has been released.
+    --keep-tmp           Retain the temporary files created during
+                         installation.
+    --debug-symbols      Generate debug symbols on build. Source will be
+                         retained in a cache directory.
+    --overwrite          Delete files that already exist in the prefix while
+                         linking.
+    --cask               Treat all named arguments as casks. If no named
+ or --casks              arguments are specified, upgrade only outdated
+                         casks.
+    --skip-cask-deps     Skip installing cask dependencies.
+    --no-quit            Prevent running cask applications from being quit
+                         during upgrade. Enabled by default if
+                         $HOMEBREW_NO_UPGRADE_QUIT_CASKS is set.
+-g, --greedy             Also include casks with version :latest and
+                         auto_updates true casks that would otherwise be
+                         skipped. Enabled by default if
+                         $HOMEBREW_UPGRADE_GREEDY is set.
+    --greedy-latest      Also include casks with version :latest.
+    --greedy-auto-updates Also include auto_updates true casks that would
+                         otherwise be skipped.
+    --[no-]binaries      Disable/enable linking of helper executables
+                         (default: enabled).
+    --require-sha        Require all casks to have a checksum.
+    --appdir             Target location for Applications (default:
+                         /Applications).
+    --appimagedir        Target location for AppImages (default:
+                         ~/Applications).
+    --keyboard-layoutdir Target location for Keyboard Layouts (default:
+                         /Library/Keyboard Layouts).
+    --colorpickerdir     Target location for Color Pickers (default:
+                         ~/Library/ColorPickers).
+    --prefpanedir        Target location for Preference Panes (default:
+                         ~/Library/PreferencePanes).
+    --qlplugindir        Target location for Quick Look Plugins (default:
+                         ~/Library/QuickLook).
+    --mdimporterdir      Target location for Spotlight Plugins (default:
+                         ~/Library/Spotlight).
+    --dictionarydir      Target location for Dictionaries (default:
+                         ~/Library/Dictionaries).
+    --fontdir            Target location for Fonts (default:
+                         ~/Library/Fonts).
+    --servicedir         Target location for Services (default:
+                         ~/Library/Services).
+    --input-methoddir    Target location for Input Methods (default:
+                         ~/Library/Input Methods).
+    --internet-plugindir Target location for Internet Plugins (default:
+                         ~/Library/Internet Plug-Ins).
+    --audio-unit-plugindir Target location for Audio Unit Plugins (default:
+                         ~/Library/Audio/Plug-Ins/Components).
+    --vst-plugindir      Target location for VST Plugins (default:
+                         ~/Library/Audio/Plug-Ins/VST).
+    --vst3-plugindir     Target location for VST3 Plugins (default:
+                         ~/Library/Audio/Plug-Ins/VST3).
+    --screen-saverdir    Target location for Screen Savers (default:
+                         ~/Library/Screen Savers).
+    --language           Comma-separated list of language codes to prefer
+                         for cask installation. The first matching language
+                         is used, otherwise it reverts to the cask's default
+                         language. The default value is the language of your
+                         system.
+-q, --quiet              Make some output more quiet.
+-h, --help               Show this message.
+
+=== brew uninstall ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Uninstall a formula or cask.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew uninstall, remove, rm [options] installed_formula|installed_cask
+      [...]
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-f, --force                Delete all installed versions of formula.
+                           Uninstall even if cask is not installed,
+                           overwrite existing files and ignore errors when
+                           removing files.
+    --zap                  Remove all files associated with a cask. May
+                           remove files which are shared between
+                           applications.
+    --ignore-dependencies  Don't fail uninstall, even if formula is a
+                           dependency of any installed formulae.
+    --formula              Treat all named arguments as formulae.
+ or --formulae
+    --cask                 Treat all named arguments as casks.
+ or --casks
+-d, --debug                Display any debugging information.
+-q, --quiet                Make some output more quiet.
+-v, --verbose              Make some output more verbose.
+-h, --help                 Show this message.
+
+=== brew list ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+List all installed formulae and casks. If formula is provided, summarise the
+paths within its current keg. If cask is provided, list its artifacts.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew list, ls [options] [installed_formula|installed_cask ...]
+
+
+FLAGS (19) ─────────────────────────────────────────────────────────────────
+    --formula               List only formulae, or treat all named arguments
+ or --formulae              as formulae.
+    --cask                  List only casks, or treat all named arguments as
+ or --casks                 casks.
+    --full-name             Print formulae with fully-qualified names.
+                            Unless --full-name, --versions or --pinned are
+                            passed, other options (i.e. -1, -l, -r and -t)
+                            are passed to ls(1) which produces the actual
+                            output.
+    --versions              Show the version number for installed formulae,
+                            or only the specified formulae if formula are
+                            provided.
+    --json                  Output installed formulae and casks with
+                            versions, linked and opt-linked formula versions
+                            and pinned versions as JSON using the fast Bash
+                            command path. Requires --versions, no named
+                            arguments and jq.
+    --multiple              Only show formulae with multiple versions
+                            installed. Implies --versions.
+    --pinned                List only pinned packages, or only the specified
+                            (pinned) packages if formula or cask are
+                            provided. See also pin, unpin.
+    --installed-on-request  List the formulae installed on request.
+    --no-installed-on-request List the formulae not installed on request
+                            (i.e. installed as dependencies).
+    --poured-from-bottle    List the formulae installed from a bottle.
+    --built-from-source     List the formulae compiled from source.
+-1                          Force output to be one entry per line. This is
+                            the default when output is not to a terminal.
+-l                          List formulae and/or casks in long format. Has
+                            no effect when a formula or cask name is passed
+                            as an argument.
+-r                          Reverse the order of formula and/or cask sorting
+                            to list the oldest entries first. Has no effect
+                            when a formula or cask name is passed as an
+                            argument.
+-t                          Sort formulae and/or casks by time modified,
+                            listing most recently modified first. Has no
+                            effect when a formula or cask name is passed as
+                            an argument.
+-d, --debug                 Display any debugging information.
+-q, --quiet                 Make some output more quiet.
+-v, --verbose               Make some output more verbose.
+-h, --help                  Show this message.
+
+=== brew config ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Show Homebrew and system configuration info useful for debugging. If you
+file a bug report, you will be required to provide this information.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew config, --config
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-d, --debug    Display any debugging information.
+-q, --quiet    Make some output more quiet.
+-v, --verbose  Make some output more verbose.
+-h, --help     Show this message.
+    --config
+
+=== brew doctor ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Check your system for potential problems. Will exit with a non-zero status
+if any potential problems are found.
+
+Please note that these warnings are just used to help the Homebrew
+maintainers with debugging if you file an issue. If everything you use
+Homebrew for is working fine: please don't worry or file an issue; just
+ignore this.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew doctor, dr [--list-checks] [--audit-debug] [diagnostic_check ...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  diagnostic_check...
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+    --list-checks  List all audit methods, which can be run individually if
+                   provided as arguments.
+-D, --audit-debug  Enable debugging and profiling of audit methods.
+-d, --debug        Display any debugging information.
+-q, --quiet        Make some output more quiet.
+-v, --verbose      Make some output more verbose.
+-h, --help         Show this message.
+
+=== brew create ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Generate a formula or, with --cask, a cask for the downloadable file at URL
+and open it in the editor. Homebrew will attempt to automatically derive the
+formula name and version, but if it fails, you'll have to make your own
+template. The wget formula serves as a simple example. For the complete API,
+see: https://docs.brew.sh/rubydoc/Formula
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew create [options] URL
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  URL
+
+
+FLAGS (24) ─────────────────────────────────────────────────────────────────
+See: https://docs.brew.sh/rubydoc/Formula
+    --autotools  Create a basic template for an Autotools-style build.
+    --cabal      Create a basic template for a Cabal build.
+    --cask       Create a basic template for a cask.
+    --cmake      Create a basic template for a CMake-style build.
+    --crystal    Create a basic template for a Crystal build.
+    --go         Create a basic template for a Go build.
+    --meson      Create a basic template for a Meson-style build.
+    --node       Create a basic template for a Node build.
+    --perl       Create a basic template for a Perl build.
+    --python     Create a basic template for a Python build.
+    --ruby       Create a basic template for a Ruby build.
+    --rust       Create a basic template for a Rust build.
+    --zig        Create a basic template for a Zig build.
+    --no-fetch   Homebrew will not download URL to the cache and will thus
+                 not add its SHA-256 to the formula for you, nor will it
+                 check the GitHub API for GitHub projects (to fill out its
+                 description and homepage).
+    --HEAD       Indicate that URL points to the package's repository rather
+                 than a file.
+    --set-name   Explicitly set the name of the new formula or cask.
+    --set-version Explicitly set the version of the new formula or cask.
+    --set-license Explicitly set the license of the new formula.
+    --tap        Generate the new formula within the given tap, specified as
+                 user/repo.
+-f, --force      Ignore errors for disallowed formula names and names that
+                 shadow aliases.
+-d, --debug      Display any debugging information.
+-q, --quiet      Make some output more quiet.
+-v, --verbose    Make some output more verbose.
+-h, --help       Show this message.
+
+=== brew edit ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Open a formula, cask or tap in the editor set by $EDITOR or
+$HOMEBREW_EDITOR, or open the Homebrew repository for editing if no argument
+is provided.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew edit [options] [formula|cask|tap ...]
+
+
+FLAGS (7) ──────────────────────────────────────────────────────────────────
+Is provided
+    --formula     Treat all named arguments as formulae.
+ or --formulae
+    --cask        Treat all named arguments as casks.
+ or --casks
+    --print-path  Print the file path to be edited, without opening an
+                  editor.
+-d, --debug       Display any debugging information.
+-q, --quiet       Make some output more quiet.
+-v, --verbose     Make some output more verbose.
+-h, --help        Show this message.
+
+=== brew commands ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Show lists of built-in and external commands.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew commands [--quiet] [--include-aliases]
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-q, --quiet            List only the names of commands without category
+                       headers.
+    --include-aliases  Include aliases of internal commands.
+-d, --debug            Display any debugging information.
+-v, --verbose          Make some output more verbose.
+-h, --help             Show this message.
+
+=== brew help ===

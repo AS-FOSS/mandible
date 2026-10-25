@@ -1,0 +1,23 @@
+=== jinfo ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+With no option: to print both VM flags and system properties
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  jinfo <option> <pid> (to connect to a running process)
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  pid
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-?, --help                to print this help message
+ or -h, -help
+
+Where <option> is one of ───────────────────────────────────────────────────
+    -flag <name>          to print the value of the named VM flag
+    -flag [+|-]<name>     to enable or disable the named VM flag
+    -flag <name>=<value>  to set the named VM flag to the given value
+    -flags                to print VM flags
+    -sysprops             to print Java system properties

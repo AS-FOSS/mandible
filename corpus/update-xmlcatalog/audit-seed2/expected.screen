@@ -1,0 +1,20 @@
+=== update-xmlcatalog ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  update-xmlcatalog <options> --add --root --type <type> --id <id> --package
+      <package>
+  update-xmlcatalog <options> --del --root --type <type> --id <id>
+
+
+FLAGS (10) ─────────────────────────────────────────────────────────────────
+    --verbose        be verbose
+    --sort           sorts the manipulated catalog content
+    --add
+    --del
+
+With ───────────────────────────────────────────────────────────────────────
+    --file <file>    a local filename
+    --id <id>        catalog entry idenitifier
+    --local <local>  a local XML catalog
+    --package <package> a package XML catalog
+    --root           the root XML catalog (= /etc/xml/catalog)
+    --type <type>    catalog entry type (= public, system, uri)

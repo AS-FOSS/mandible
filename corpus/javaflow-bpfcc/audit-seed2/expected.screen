@@ -1,0 +1,29 @@
+=== javaflow-bpfcc ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Trace method execution flow in high-level languages.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  uflow [-h] [-l {java,perl,php,python,ruby,tcl}] [-M METHOD] [-C CLAZZ]
+      [-v] pid
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  pid   process id to attach to
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-h, --help           show this help message and exit
+-l, --language       language to trace
+                       values: java, perl, php, python, ruby, tcl
+-M, --method METHOD  trace only calls to methods starting with this prefix
+-C, --class CLAZZ    trace only calls to classes starting with this prefix
+-v, --verbose        verbose mode: print the BPF program (for debugging
+                     purposes)
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+./uflow -l java 185                # trace Java method calls in process 185
+./uflow -l ruby 134                # trace Ruby method calls in process 134
+./uflow -M indexOf -l java 185     # trace only 'indexOf'-prefixed methods
+./uflow -C '<stdin>' -l python 180 # trace only REPL-defined methods

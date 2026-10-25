@@ -1,0 +1,35 @@
+=== vgck ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  vgck [ --reportformat basic|json ] [ COMMON_OPTIONS ] [ VG|Tag ... ]
+  vgck --updatemetadata VG [ COMMON_OPTIONS ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMON_OPTIONS
+
+
+FLAGS (20) ─────────────────────────────────────────────────────────────────
+    --reportformat
+                           values: basic, json
+    --updatemetadata VG
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                           values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

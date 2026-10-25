@@ -1,0 +1,43 @@
+=== linux-version ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+The version arguments should be kernel version strings as shown by 'uname
+-r' and used in filenames.
+
+The valid comparison operators are: lt le eq ge gt
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  linux-version compare VERSION1 OP VERSION2
+  linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+  linux-version list [--paths]
+
+=== linux-version compare ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  /usr/bin/linux-version compare VERSION1 OP VERSION2
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  VERSION1
+  OP
+  VERSION2
+
+=== linux-version sort ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  /usr/bin/linux-version sort [--reverse] [VERSION1 VERSION2 ...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  VERSION1
+  VERSION2...
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --reverse
+
+=== linux-version list ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  /usr/bin/linux-version list [--paths]
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --paths

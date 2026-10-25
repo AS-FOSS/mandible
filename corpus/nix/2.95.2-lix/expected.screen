@@ -1,0 +1,156 @@
+=== nix ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+If a fileish starts with flake:, the rest of the argument is interpreted as
+a flakeref (see nix flake --help or man nix3-flake), which requires the
+"flakes" experimental feature to be enabled. This is is not quite the same
+as specifying a flake output attrpath. It does not access the flake directly
+and does not even consider the existence of flake.nix, but instead fetches
+it as if it is not a flake at all and imports the unpacked directory. In
+other words, it assumes that the flake has a default.nix file, and then
+interprets the attribute path relative to what default.nix evaluates to.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  nix [option...] subcommand
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+Logging-related options
+    --debug                Set the logging verbosity level to 'debug'.
+-L, --print-build-logs     Print full build logs on standard error.
+    --quiet                Decrease the logging verbosity level.
+-v, --verbose              Increase the logging verbosity level.
+
+Miscellaneous global options ───────────────────────────────────────────────
+    --help                 Show usage information.
+    --offline              Disable substituters and consider all previously
+                           downloaded files up-to-date.
+    --option <name value>  Set the Lix configuration setting name to value
+                           (overriding nix.conf).
+    --refresh              Consider all previously downloaded files
+                           out-of-date.
+    --version              Show version information.
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+· Create a new flake:
+
+    │ # nix flake new hello
+    │ # cd hello
+
+· Build the flake in the current directory:
+
+    │ # nix build
+    │ # ./result/bin/hello
+    │ Hello, world!
+
+· Run the flake in the current directory:
+
+    │ # nix run
+    │ Hello, world!
+
+· Start a development shell for hacking on this
+  flake:
+
+    │ # nix develop
+    │ # unpackPhase
+    │ # cd hello-*
+    │ # configurePhase
+    │ # buildPhase
+    │ # ./hello
+    │ Hello, world!
+    │ # installPhase
+    │ # ../outputs/out/bin/hello
+    │ Hello, world!
+
+=== nix help ===
+show help about nix or a particular subcommand
+
+=== nix help-stores ===
+show help about store types and their settings
+
+=== nix build ===
+build a derivation or fetch a store path
+
+=== nix develop ===
+run a bash shell that provides the build environment of a derivation
+
+=== nix flake ===
+manage Nix flakes
+
+=== nix profile ===
+manage Nix profiles
+
+=== nix run ===
+run a Nix application
+
+=== nix search ===
+search for packages
+
+=== nix shell ===
+run a shell in which the specified packages are available
+
+=== nix repl ===
+start an interactive environment for evaluating Nix expressions
+
+=== nix bundle ===
+bundle an application so that it works outside of the Nix store
+
+=== nix copy ===
+copy paths between Nix stores
+
+=== nix edit ===
+open the Nix expression of a Nix package in $EDITOR
+
+=== nix eval ===
+evaluate a Nix expression
+
+=== nix fmt ===
+reformat your code in the standard style
+
+=== nix log ===
+show the build log of the specified packages or paths, if available
+
+=== nix path-info ===
+query information about store paths
+
+=== nix registry ===
+manage the flake registry
+
+=== nix why-depends ===
+show why a package has another package in its closure
+
+=== nix config ===
+manipulate the Lix configuration
+
+=== nix daemon ===
+daemon to perform store operations on behalf of non-root clients
+
+=== nix derivation ===
+Work with derivations, Nix's notion of a build plan.
+
+=== nix hash ===
+compute and convert cryptographic hashes
+
+=== nix key ===
+generate and convert Nix signing keys
+
+=== nix nar ===
+create or inspect NAR files
+
+=== nix print-dev-env ===
+print shell code that can be sourced by bash to reproduce the build
+environment of a derivation
+
+=== nix realisation ===
+manipulate a Nix realisation
+
+=== nix store ===
+manipulate a Nix store
+
+=== nix doctor ===
+check your system for potential problems and print a PASS or FAIL for each
+check
+
+=== nix upgrade-nix ===
+upgrade Nix to the stable version declared in Nixpkgs

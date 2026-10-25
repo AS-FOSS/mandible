@@ -1,0 +1,38 @@
+=== vgcfgrestore ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  vgcfgrestore -f|--file String VG
+  vgcfgrestore -l|--list VG
+  vgcfgrestore -l|--list -f|--file String
+
+
+FLAGS (22) ─────────────────────────────────────────────────────────────────
+Restore VG metadata from specified file
+-f, --file String
+
+List all VG metadata backups ───────────────────────────────────────────────
+-l, --list VG
+
+Common options for command ─────────────────────────────────────────────────
+-M, --metadatatype lvm2
+    --force
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                           values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

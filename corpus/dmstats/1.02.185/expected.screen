@@ -1,0 +1,123 @@
+=== dmstats ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  dmstats [-h|--help] [-v|--verbose [-v|--verbose ...]] [--areas <nr_areas>]
+      [--areasize <size>] [--userdata <data>] [--clear] [--count <count>]
+      [--interval <seconds>] [-o <fields>] [-O|--sort <sort_fields>]
+      [--programid <id>] [--start <start>] [--length <length>] [--segments]
+      [--units <units>]
+
+
+FLAGS (15) ─────────────────────────────────────────────────────────────────
+-h, --help
+-v, --verbose
+    --areas <nr_areas>
+    --areasize <size>
+    --userdata <data>
+    --clear
+    --count <count>
+    --interval <seconds>
+-o <fields>
+-O, --sort <sort_fields>
+    --programid <id>
+    --start <start>
+    --length <length>
+    --segments
+    --units <units>
+
+=== dmstats help ===
+
+=== dmstats clear ===
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --allregions
+    --regionid id
+    --alldevices
+
+=== dmstats create ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  file_path
+
+
+FLAGS (13) ─────────────────────────────────────────────────────────────────
+    --length <len>
+    --areas <nr_areas>
+    --areasize <size>
+    --programid <id>
+    --userdata <data>
+    --bounds histogram_boundaries
+    --precise
+    --segments
+    --alldevices
+    --filemap
+    --nogroup
+    --nomonitor
+    --follow mode
+
+=== dmstats delete ===
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+    --allprograms
+    --programid id
+    --allregions id
+ or --regionid
+    --alldevices <device>
+
+=== dmstats group ===
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+    --alias NAME
+    --regions <regions>
+    --allprograms
+    --programid id
+    --alldevices
+
+=== dmstats list ===
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+    --allprograms
+    --programid id
+    --allregions
+    --regionid id
+
+=== dmstats print ===
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+    --clear
+    --allprograms
+    --programid id
+    --allregions id
+ or --regionid
+    --alldevices <device>
+
+=== dmstats report ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (12) ─────────────────────────────────────────────────────────────────
+    --interval <seconds>
+    --count <cnt>
+    --units <u>
+    --programid <id>
+    --regionid <id>
+-o <fields>
+-O, --sort <sort_fields>
+-S, --select <selection>
+    --nameprefixes
+    --noheadings
+    --separator <separator>
+    --allprograms
+
+=== dmstats ungroup ===
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+    --groupid <id>
+    --allprograms
+    --programid id
+    --alldevices <device>
+
+=== dmstats update_filemap ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  file_path
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --groupid <id>
+    --nomonitor
+    --follow mode
+
+=== dmstats version ===

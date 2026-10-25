@@ -1,0 +1,16 @@
+=== chattr ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  chattr [-RVf] [-+=aAcCdDeijPsStTuFx] [-p project] [-v version] files...
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  -+=aAcCdDeijPsStTuFx
+  files...
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-R
+-V
+-f
+-p project
+-v version

@@ -1,0 +1,45 @@
+=== sg_luns ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Performs a SCSI REPORT LUNS command or decodes the given ALUN. When SR is
+0x10 or 0x11 DEVICE must be LUN 0 or REPORT LUNS well known logical unit;
+when SR is 0x12 DEVICE must be an administrative logical unit. When the
+--test=ALUN option is given, decodes ALUN rather than sending a REPORT LUNS
+command.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  sg_luns [--decode] [--help] [--hex] [--linux] [--lu_cong] [--maxlen=LEN]
+      [--quiet] [--raw] [--readonly] [--select=SR] [--verbose] [--version]
+      DEVICE
+  sg_luns --test=ALUN [--decode] [--hex] [--lu_cong] [--verbose]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  DEVICE
+
+
+FLAGS (13) ─────────────────────────────────────────────────────────────────
+Where
+-d, --decode     decode all luns into component parts
+-h, --help       print out usage message
+-H, --hex        output response in hexadecimal; used twice shows decoded
+                 values in hex
+-l, --linux      show Linux integer lun after T10 representation
+-L, --lu_cong    decode as if LU_CONG is set; used twice: decode as if
+                 LU_CONG is clear
+-m, --maxlen LEN max response length (allocation length in cdb) (def: 0 ->
+                 8192 bytes)
+-q, --quiet      output only ASCII hex lun values
+-r, --raw        output response in binary
+-R, --readonly   open DEVICE read-only (def: read-write)
+-s, --select SR  select report SR (def: 0)
+                 0 -> luns apart from 'well known' lus
+                 1 -> only 'well known' logical unit numbers
+                 2 -> all luns
+                 0x10 -> administrative luns
+                 0x11 -> admin luns + non-conglomerate luns
+                 0x12 -> admin lun + its subsidiary luns
+-t, --test ALUN  decode ALUN and ignore most other options and DEVICE (apart
+                 from '-H')
+-v, --verbose    increase verbosity
+-V, --version    print version string and exit

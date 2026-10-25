@@ -1,0 +1,73 @@
+=== dmsetup ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  dmsetup [--version] [-h|--help [-c|-C|--columns]]
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+    --version
+-h, --help
+-c
+-C
+    --columns
+
+=== dmsetup help ===
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-c
+-C
+    --columns
+
+=== dmsetup create ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  dev_name
+
+
+FLAGS (12) ─────────────────────────────────────────────────────────────────
+-j, --major <major>
+-m, --minor <minor>
+-U, --uid <uid>
+-G, --gid <gid>
+-M, --mode <octal_mode>
+-u, --uuid <uuid>
+    --addnodeonresume
+    --addnodeoncreate
+    --readahead {[+]<sectors>|auto|none}
+-n, --notable
+    --table {<table>|<table_file>}
+    --concise [<concise_device_spec_list>]
+
+=== dmsetup remove ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --deferred
+-f, --force
+    --retry
+
+=== dmsetup remove_all ===
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-f, --force
+
+=== dmsetup deps ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+-o <options>
+
+=== dmsetup stats ===
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  command
+  options
+  device...
+
+=== dmsetup status ===
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device...
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+    --noflush
+    --target <target_type>

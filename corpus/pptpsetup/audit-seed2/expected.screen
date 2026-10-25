@@ -1,0 +1,16 @@
+=== pptpsetup ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  pptpsetup --create <TUNNEL> --server <SERVER> [--domain <DOMAIN>]
+      --username <USERNAME> [--password <PASSWORD>] [--encrypt] [--start]
+  pptpsetup --delete <TUNNEL>
+
+
+FLAGS (8) ──────────────────────────────────────────────────────────────────
+    --create <TUNNEL>
+    --server <SERVER>
+    --domain <DOMAIN>
+    --username <USERNAME>
+    --password <PASSWORD>
+    --encrypt
+    --start
+    --delete <TUNNEL>

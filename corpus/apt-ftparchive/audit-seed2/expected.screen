@@ -1,0 +1,43 @@
+=== apt-ftparchive ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+apt 2.8.3 (arm64) Commands: packages binarypath [overridefile [pathprefix]]
+
+apt-ftparchive generates index files for Debian archives. It supports many
+styles of generation from fully automated to functional replacements for
+dpkg-scanpackages and dpkg-scansources
+
+apt-ftparchive generates Package files from a tree of .debs. The Package
+file contains the contents of all the control fields from each package as
+well as the MD5 hash and filesize. An override file is supported to force
+the value of Priority and Section.
+
+Similarly apt-ftparchive generates Sources files from a tree of .dscs. The
+--source-override option can be used to specify a src override file
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  apt-ftparchive [options] command
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-h               This help text
+    --md5        Control MD5 generation
+-s ?             Source override file
+-q               Quiet
+-d ?             Select the optional caching database
+    --no-delink  Enable delinking debug mode
+    --contents   Control contents file generation
+-c ?             Read this configuration file
+-o ?             Set an arbitrary configuration option
+
+=== apt-ftparchive packages ===
+
+=== apt-ftparchive sources ===
+
+=== apt-ftparchive contents ===
+
+=== apt-ftparchive release ===
+
+=== apt-ftparchive generate ===
+
+=== apt-ftparchive clean ===

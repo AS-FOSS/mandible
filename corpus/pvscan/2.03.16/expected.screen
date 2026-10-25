@@ -1,0 +1,65 @@
+=== pvscan ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  pvscan [ -e|--exported ] [ -n|--novolumegroup ] [ -s|--short ] [ -u|--uuid
+      ] [ --ignorelockingfailure ] [ --reportformat basic|json ] [
+      COMMON_OPTIONS ]
+  pvscan --cache [ -j|--major Number ] [ --ignorelockingfailure ] [
+      --reportformat basic|json ] [ --minor Number ] [ --noudevsync ] [
+      COMMON_OPTIONS ] [ String|PV ... ]
+  pvscan --cache -a|--activate ay [ -j|--major Number ] [
+      --ignorelockingfailure ] [ --reportformat basic|json ] [ --minor
+      Number ] [ --noudevsync ] [ --autoactivation String ] [ COMMON_OPTIONS
+      ] [ String|PV ... ]
+  pvscan --cache --listvg PV [ --ignorelockingfailure ] [ --checkcomplete ]
+      [ --vgonline ] [ --udevoutput ] [ --autoactivation String ] [
+      COMMON_OPTIONS ]
+  pvscan --cache --listlvs PV [ --ignorelockingfailure ] [ --checkcomplete ]
+      [ --vgonline ] [ COMMON_OPTIONS ]
+  pvscan --listlvs PV [ COMMON_OPTIONS ]
+  pvscan --listvg PV [ COMMON_OPTIONS ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMON_OPTIONS
+
+
+FLAGS (35) ─────────────────────────────────────────────────────────────────
+-e, --exported
+-n, --novolumegroup
+-s, --short
+-u, --uuid
+    --ignorelockingfailure
+    --reportformat
+                            values: basic, json
+    --cache
+-j, --major Number
+    --minor Number
+    --noudevsync
+-a, --activate ay
+    --autoactivation String
+    --listvg PV
+    --checkcomplete
+    --vgonline
+    --udevoutput
+    --listlvs PV
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                            values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

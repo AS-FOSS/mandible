@@ -1,0 +1,44 @@
+=== sginfo ===
+FLAGS (32) ─────────────────────────────────────────────────────────────────
+-m    Access modifiable fields instead of current values
+-M    Access manufacturer defaults instead of current values
+-S    Access saved defaults instead of current values
+-X    Use list (space separated values) rather than table.
+-R    Replace parameters - best used with -X (expert use only) [replacement
+      parameters placed after device on command line] sginfo version: 2.43
+      [20190913]; See man page for more details.
+
+Allowed options are ────────────────────────────────────────────────────────
+-6    Do 6 byte mode sense and select commands (def: 10 bytes).
+-a    Display inquiry info, serial # and all mode pages.
+-A    Similar to '-a' but displays all subpages as well.
+-c    Access Caching Page.
+-C    Access Control Mode Page.
+-d    Display defect lists (default format: index).
+-D    Access Disconnect-Reconnect Page.
+-e    Access Read-Write Error Recovery page.
+-E    Access Control Extension page.
+-f    Access Format Device Page.
+-F arg Format of the defect list:
+        values:
+          logical   logical block addresses (32 bit)
+          lba64     logical block addresses (64 bit)
+          physical  physical blocks
+          index     defect bytes from index
+          head      sort by head
+-g    Access Rigid Disk Drive Geometry Page.
+-G    Display 'grown' defect list (default format: index).
+-i    Display information from INQUIRY command.
+-I    Access Informational Exception page.
+-l    List known scsi devices on the system [DEPRECATED]
+-n    Access Notch and Partition Page.
+-N    Negate (stop) storing to saved page (active with -R).
+-P    Access Power Condition Page.
+-r    List known raw scsi devices on the system
+-s    Display serial number (from INQUIRY VPD page).
+-t <pn[,sp]> Access mode page <pn> [subpage <sp>] and decode.
+-T    Trace commands (for debugging, double for more)
+-u <pn[,sp]> Access mode page <pn> [subpage <sp>], output in hex
+-v    Show version number
+-V    Access Verify Error Recovery Page.
+-z    single fetch mode pages (rather than double fetch)

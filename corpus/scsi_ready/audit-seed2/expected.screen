@@ -1,0 +1,18 @@
+=== scsi_ready ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Send SCSI TEST UNIT READY to each <device>
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  scsi_ready [-b] [-h] [-v] <device>+
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  device
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+Where
+-b, --brief    print 'ready' or 'device not ready' only
+-h, --help     print usage message
+-v, --verbose  more verbose output

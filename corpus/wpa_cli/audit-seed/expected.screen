@@ -1,0 +1,664 @@
+=== wpa_cli ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  wpa_cli [-p<path to ctrl sockets>] [-i<ifname>] [-hvBr] [-a<action file>]
+      [-P<pid file>] [-g<global ctrl>] [-G<ping interval>]
+      [-s<wpa_client_socket_file_path>] [command..]
+
+
+FLAGS (11) ─────────────────────────────────────────────────────────────────
+-h                         help (show this usage text)
+-v                         shown version information
+-a                         run in daemon mode executing the action file
+                           based on events from wpa_supplicant
+-r                         try to reconnect when client socket is
+                           disconnected. This is useful only when used with
+                           -a.
+-B                         run a daemon in the background
+-p <path to ctrl sockets>
+-i <ifname>
+-P <pid file>
+-g <global ctrl>
+-G <ping interval>
+-s <wpa_client_socket_file_path>
+
+=== wpa_cli status ===
+get current WPA/EAPOL/EAP status
+
+=== wpa_cli ifname ===
+get current interface name
+
+=== wpa_cli ping ===
+pings wpa_supplicant
+
+=== wpa_cli relog ===
+re-open log-file (allow rolling logs)
+
+=== wpa_cli note ===
+add a note to wpa_supplicant debug log
+
+=== wpa_cli mib ===
+get MIB variables (dot1x, dot11)
+
+=== wpa_cli help ===
+show usage help
+
+=== wpa_cli interface ===
+show interfaces/select interface
+
+=== wpa_cli level ===
+change debug level
+
+=== wpa_cli license ===
+show full wpa_cli license
+
+=== wpa_cli quit ===
+exit wpa_cli
+
+=== wpa_cli set ===
+set variables (shows list of variables when run without arguments)
+
+=== wpa_cli dump ===
+dump config variables
+
+=== wpa_cli get ===
+get information
+
+=== wpa_cli driver_flags ===
+list driver flags
+
+=== wpa_cli logon ===
+IEEE 802.1X EAPOL state machine logon
+
+=== wpa_cli logoff ===
+IEEE 802.1X EAPOL state machine logoff
+
+=== wpa_cli pmksa ===
+show PMKSA cache
+
+=== wpa_cli pmksa_flush ===
+flush PMKSA cache entries
+
+=== wpa_cli pmksa_get ===
+fetch all stored PMKSA cache entries
+
+=== wpa_cli pmksa_add ===
+store PMKSA cache entry from external storage
+
+=== wpa_cli mesh_pmksa_get ===
+fetch all stored mesh PMKSA cache entries
+
+=== wpa_cli mesh_pmksa_add ===
+store mesh PMKSA cache entry from external storage
+
+=== wpa_cli reassociate ===
+force reassociation
+
+=== wpa_cli reattach ===
+force reassociation back to the same BSS
+
+=== wpa_cli preauthenticate ===
+force preauthentication
+
+=== wpa_cli identity ===
+configure identity for an SSID
+
+=== wpa_cli password ===
+configure password for an SSID
+
+=== wpa_cli new_password ===
+change password for an SSID
+
+=== wpa_cli pin ===
+configure pin for an SSID
+
+=== wpa_cli otp ===
+configure one-time-password for an SSID
+
+=== wpa_cli psk_passphrase ===
+configure PSK/passphrase for an SSID
+
+=== wpa_cli passphrase ===
+configure private key passphrase for an SSID
+
+=== wpa_cli sim ===
+report SIM operation result
+
+=== wpa_cli bssid ===
+set preferred BSSID for an SSID
+
+=== wpa_cli bssid_ignore ===
+add a BSSID to the list of temporarily ignored BSSs
+
+=== wpa_cli blacklist ===
+deprecated alias for bssid_ignore
+
+=== wpa_cli log_level ===
+update the log level/timestamp
+
+=== wpa_cli list_networks ===
+list configured networks
+
+=== wpa_cli select_network ===
+select a network (disable others)
+
+=== wpa_cli enable_network ===
+enable a network
+
+=== wpa_cli disable_network ===
+disable a network
+
+=== wpa_cli add_network ===
+add a network
+
+=== wpa_cli remove_network ===
+remove a network
+
+=== wpa_cli set_network ===
+set network variables (shows list of variables when run without arguments)
+
+=== wpa_cli get_network ===
+get network variables
+
+=== wpa_cli dup_network ===
+duplicate network variables
+
+=== wpa_cli list_creds ===
+list configured credentials
+
+=== wpa_cli add_cred ===
+add a credential
+
+=== wpa_cli remove_cred ===
+remove a credential
+
+=== wpa_cli set_cred ===
+set credential variables
+
+=== wpa_cli get_cred ===
+get credential variables
+
+=== wpa_cli save_config ===
+save the current configuration
+
+=== wpa_cli disconnect ===
+disconnect and wait for reassociate/reconnect command before connecting
+
+=== wpa_cli reconnect ===
+like reassociate, but only takes effect if already disconnected
+
+=== wpa_cli scan ===
+request new BSS scan
+
+=== wpa_cli scan_results ===
+get latest scan results
+
+=== wpa_cli abort_scan ===
+request ongoing scan to be aborted
+
+=== wpa_cli bss ===
+get detailed scan result info
+
+=== wpa_cli get_capability ===
+get capabilities
+
+=== wpa_cli reconfigure ===
+force wpa_supplicant to re-read its configuration file
+
+=== wpa_cli terminate ===
+terminate wpa_supplicant
+
+=== wpa_cli interface_add ===
+<bridge_name> <create> <type> = adds new interface, all parameters but
+<ifname> are optional. Supported types are station ('sta') and AP ('ap')
+
+=== wpa_cli interface_remove ===
+removes the interface
+
+=== wpa_cli interface_list ===
+list available interfaces
+
+=== wpa_cli ap_scan ===
+set ap_scan parameter
+
+=== wpa_cli scan_interval ===
+set scan_interval parameter (in seconds)
+
+=== wpa_cli bss_expire_age ===
+set BSS expiration age parameter
+
+=== wpa_cli bss_expire_count ===
+set BSS expiration scan count parameter
+
+=== wpa_cli bss_flush ===
+set BSS flush age (0 by default)
+
+=== wpa_cli ft_ds ===
+request over-the-DS FT with <addr>
+
+=== wpa_cli wps_pbc ===
+start Wi-Fi Protected Setup: Push Button Configuration
+
+=== wpa_cli wps_pin ===
+start WPS PIN method (returns PIN, if not hardcoded)
+
+=== wpa_cli wps_check_pin ===
+verify PIN checksum
+
+=== wpa_cli wps_cancel ===
+
+=== wpa_cli wps_nfc ===
+start Wi-Fi Protected Setup: NFC
+
+=== wpa_cli wps_nfc_config_token ===
+build configuration token
+
+=== wpa_cli wps_nfc_token ===
+create password token
+
+=== wpa_cli wps_nfc_tag_read ===
+report read NFC tag with WPS data
+
+=== wpa_cli nfc_get_handover_req ===
+create NFC handover request
+
+=== wpa_cli nfc_get_handover_sel ===
+create NFC handover select
+
+=== wpa_cli nfc_report_handover ===
+report completed NFC handover
+
+=== wpa_cli wps_reg ===
+start WPS Registrar to configure an AP
+
+=== wpa_cli wps_ap_pin ===
+enable/disable AP PIN
+
+=== wpa_cli wps_er_start ===
+start Wi-Fi Protected Setup External Registrar
+
+=== wpa_cli wps_er_stop ===
+stop Wi-Fi Protected Setup External Registrar
+
+=== wpa_cli wps_er_pin ===
+add an Enrollee PIN to External Registrar
+
+=== wpa_cli wps_er_pbc ===
+accept an Enrollee PBC using External Registrar
+
+=== wpa_cli wps_er_learn ===
+learn AP configuration
+
+=== wpa_cli wps_er_set_config ===
+set AP configuration for enrolling
+
+=== wpa_cli wps_er_config ===
+configure AP
+
+=== wpa_cli wps_er_nfc_config_token ===
+build NFC configuration token
+
+=== wpa_cli ibss_rsn ===
+request RSN authentication with <addr> in IBSS
+
+=== wpa_cli sta ===
+get information about an associated station (AP)
+
+=== wpa_cli all_sta ===
+get information about all associated stations (AP)
+
+=== wpa_cli list_sta ===
+list all stations (AP)
+
+=== wpa_cli deauthenticate ===
+deauthenticate a station
+
+=== wpa_cli disassociate ===
+disassociate a station
+
+=== wpa_cli chan_switch ===
+CSA parameters
+
+=== wpa_cli update_beacon ===
+update Beacon frame contents
+
+=== wpa_cli suspend ===
+notification of suspend/hibernate
+
+=== wpa_cli resume ===
+notification of resume/thaw
+
+=== wpa_cli roam ===
+roam to the specified BSS
+
+=== wpa_cli mesh_interface_add ===
+Create a new mesh interface
+
+=== wpa_cli mesh_group_add ===
+join a mesh network (disable others)
+
+=== wpa_cli mesh_group_remove ===
+Remove mesh group interface
+
+=== wpa_cli mesh_peer_remove ===
+Remove a mesh peer
+
+=== wpa_cli mesh_peer_add ===
+Add a mesh peer
+
+=== wpa_cli mesh_link_probe ===
+Probe a mesh link for a given peer by injecting a frame.
+
+=== wpa_cli p2p_find ===
+find P2P Devices for up-to timeout seconds
+
+=== wpa_cli p2p_stop_find ===
+stop P2P Devices search
+
+=== wpa_cli p2p_asp_provision ===
+provision with a P2P ASP Device
+
+=== wpa_cli p2p_asp_provision_resp ===
+provision with a P2P ASP Device
+
+=== wpa_cli p2p_connect ===
+connect to a P2P Device
+
+=== wpa_cli p2p_listen ===
+listen for P2P Devices for up-to timeout seconds
+
+=== wpa_cli p2p_group_remove ===
+remove P2P group interface (terminate group if GO)
+
+=== wpa_cli p2p_group_add ===
+add a new P2P group (local end as GO)
+
+=== wpa_cli p2p_group_member ===
+Get peer interface address on local GO using peer Device Address
+
+=== wpa_cli p2p_prov_disc ===
+request provisioning discovery
+
+=== wpa_cli p2p_get_passphrase ===
+get the passphrase for a group (GO only)
+
+=== wpa_cli p2p_serv_disc_req ===
+schedule service discovery request
+
+=== wpa_cli p2p_serv_disc_cancel_req ===
+cancel pending service discovery request
+
+=== wpa_cli p2p_serv_disc_resp ===
+service discovery response
+
+=== wpa_cli p2p_service_update ===
+indicate change in local services
+
+=== wpa_cli p2p_serv_disc_external ===
+set external processing of service discovery
+
+=== wpa_cli p2p_service_flush ===
+remove all stored service entries
+
+=== wpa_cli p2p_service_add ===
+add a local service
+
+=== wpa_cli p2p_service_rep ===
+replace local ASP service
+
+=== wpa_cli p2p_service_del ===
+remove a local service
+
+=== wpa_cli p2p_reject ===
+reject connection attempts from a specific peer
+
+=== wpa_cli p2p_invite ===
+invite peer
+
+=== wpa_cli p2p_peers ===
+list known (optionally, only fully discovered) P2P peers
+
+=== wpa_cli p2p_peer ===
+show information about known P2P peer
+
+=== wpa_cli p2p_set ===
+set a P2P parameter
+
+=== wpa_cli p2p_flush ===
+flush P2P state
+
+=== wpa_cli p2p_cancel ===
+cancel P2P group formation
+
+=== wpa_cli p2p_unauthorize ===
+unauthorize a peer
+
+=== wpa_cli p2p_presence_req ===
+request GO presence
+
+=== wpa_cli p2p_ext_listen ===
+set extended listen timing
+
+=== wpa_cli p2p_remove_client ===
+remove a peer from all groups
+
+=== wpa_cli vendor_elem_add ===
+add vendor specific IEs to frame(s) 0: Probe Req (P2P), 1: Probe Resp (P2P)
+, 2: Probe Resp (GO), 3: Beacon (GO), 4: PD Req, 5: PD Resp, 6: GO Neg Req,
+7: GO Neg Resp, 8: GO Neg Conf, 9: Inv Req, 10: Inv Resp, 11: Assoc Req
+(P2P), 12: Assoc Resp (P2P)
+
+=== wpa_cli vendor_elem_get ===
+get vendor specific IE(s) to frame(s) 0: Probe Req (P2P), 1: Probe Resp
+(P2P) , 2: Probe Resp (GO), 3: Beacon (GO), 4: PD Req, 5: PD Resp, 6: GO Neg
+Req, 7: GO Neg Resp, 8: GO Neg Conf, 9: Inv Req, 10: Inv Resp, 11: Assoc Req
+(P2P), 12: Assoc Resp (P2P)
+
+=== wpa_cli vendor_elem_remove ===
+remove vendor specific IE(s) in frame(s) 0: Probe Req (P2P), 1: Probe Resp
+(P2P) , 2: Probe Resp (GO), 3: Beacon (GO), 4: PD Req, 5: PD Resp, 6: GO Neg
+Req, 7: GO Neg Resp, 8: GO Neg Conf, 9: Inv Req, 10: Inv Resp, 11: Assoc Req
+(P2P), 12: Assoc Resp (P2P)
+
+=== wpa_cli wfd_subelem_set ===
+set Wi-Fi Display subelement
+
+=== wpa_cli wfd_subelem_get ===
+get Wi-Fi Display subelement
+
+=== wpa_cli fetch_anqp ===
+fetch ANQP information for all APs
+
+=== wpa_cli stop_fetch_anqp ===
+stop fetch_anqp operation
+
+=== wpa_cli interworking_select ===
+perform Interworking network selection
+
+=== wpa_cli interworking_connect ===
+connect using Interworking credentials
+
+=== wpa_cli interworking_add_network ===
+connect using Interworking credentials
+
+=== wpa_cli anqp_get ===
+request ANQP information
+
+=== wpa_cli gas_request ===
+GAS request
+
+=== wpa_cli gas_response_get ===
+Fetch last GAS response
+
+=== wpa_cli hs20_anqp_get ===
+request HS 2.0 ANQP information
+
+=== wpa_cli nai_home_realm_list ===
+get HS20 nai home realm list
+
+=== wpa_cli hs20_icon_request ===
+get Hotspot 2.0 OSU icon
+
+=== wpa_cli fetch_osu ===
+fetch OSU provider information from all APs
+
+=== wpa_cli cancel_fetch_osu ===
+cancel fetch_osu command
+
+=== wpa_cli sta_autoconnect ===
+disable/enable automatic reconnection
+
+=== wpa_cli tdls_discover ===
+request TDLS discovery with <addr>
+
+=== wpa_cli tdls_setup ===
+request TDLS setup with <addr>
+
+=== wpa_cli tdls_teardown ===
+tear down TDLS with <addr>
+
+=== wpa_cli tdls_link_status ===
+TDLS link status with <addr>
+
+=== wpa_cli wmm_ac_addts ===
+add WMM-AC traffic stream
+
+=== wpa_cli wmm_ac_delts ===
+delete WMM-AC traffic stream
+
+=== wpa_cli wmm_ac_status ===
+show status for Wireless Multi-Media Admission-Control
+
+=== wpa_cli tdls_chan_switch ===
+enable channel switching with TDLS peer
+
+=== wpa_cli tdls_cancel_chan_switch ===
+disable channel switching with TDLS peer <addr>
+
+=== wpa_cli signal_poll ===
+get signal parameters
+
+=== wpa_cli signal_monitor ===
+set signal monitor parameters
+
+=== wpa_cli pktcnt_poll ===
+get TX/RX packet counters
+
+=== wpa_cli reauthenticate ===
+trigger IEEE 802.1X/EAPOL reauthentication
+
+=== wpa_cli autoscan ===
+Set or unset (if none) autoscan parameters
+
+=== wpa_cli wnm_sleep ===
+enter/exit WNM-Sleep mode
+
+=== wpa_cli wnm_bss_query ===
+Send BSS Transition Management Query
+
+=== wpa_cli raw ===
+Sent unprocessed command
+
+=== wpa_cli flush ===
+flush wpa_supplicant state
+
+=== wpa_cli radio_work ===
+radio_work <show/add/done>
+
+=== wpa_cli vendor ===
+Send vendor command
+
+=== wpa_cli neighbor_rep_request ===
+Trigger request to AP for neighboring AP report (with optional given SSID in
+hex or enclosed in double quotes, default: current SSID; with optional LCI
+and location civic request)
+
+=== wpa_cli twt_setup ===
+Send TWT Setup frame
+
+=== wpa_cli twt_teardown ===
+Send TWT Teardown frame
+
+=== wpa_cli erp_flush ===
+flush ERP keys
+
+=== wpa_cli mac_rand_scan ===
+scan MAC randomization
+
+=== wpa_cli get_pref_freq_list ===
+retrieve preferred freq list for the specified interface type
+
+=== wpa_cli p2p_lo_start ===
+start P2P listen offload
+
+=== wpa_cli p2p_lo_stop ===
+stop P2P listen offload
+
+=== wpa_cli dpp_qr_code ===
+
+=== wpa_cli dpp_bootstrap_gen ===
+generate DPP bootstrap information
+
+=== wpa_cli dpp_bootstrap_remove ===
+remove DPP bootstrap information
+
+=== wpa_cli dpp_bootstrap_get_uri ===
+get DPP bootstrap URI
+
+=== wpa_cli dpp_bootstrap_info ===
+show DPP bootstrap information
+
+=== wpa_cli dpp_bootstrap_set ===
+set DPP configurator parameters
+
+=== wpa_cli dpp_auth_init ===
+initiate DPP bootstrapping
+
+=== wpa_cli dpp_listen ===
+start DPP listen
+
+=== wpa_cli dpp_stop_listen ===
+stop DPP listen
+
+=== wpa_cli dpp_configurator_add ===
+add DPP configurator
+
+=== wpa_cli dpp_configurator_remove ===
+remove DPP configurator
+
+=== wpa_cli dpp_configurator_get_key ===
+Get DPP configurator's private key
+
+=== wpa_cli dpp_configurator_sign ===
+generate self DPP configuration
+
+=== wpa_cli dpp_pkex_add ===
+
+=== wpa_cli dpp_pkex_remove ===
+remove DPP pkex information
+
+=== wpa_cli dpp_controller_start ===
+start DPP controller
+
+=== wpa_cli dpp_controller_stop ===
+stop DPP controller
+
+=== wpa_cli dpp_chirp ===
+start DPP chirp
+
+=== wpa_cli dpp_stop_chirp ===
+stop DPP chirp
+
+=== wpa_cli all_bss ===
+list all BSS entries (scan results)
+
+=== wpa_cli mscs ===
+Configure MSCS request
+
+=== wpa_cli scs ===
+Send SCS request
+
+=== wpa_cli dscp_resp ===
+Send DSCP response
+
+=== wpa_cli dscp_query ===
+Send DSCP Query

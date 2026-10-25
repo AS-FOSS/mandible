@@ -1,0 +1,58 @@
+=== qemu-arm64-static ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Linux CPU emulator (compiled for aarch64 emulation)
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  qemu-aarch64 [options] program [arguments...]
+
+
+FLAGS (24) ─────────────────────────────────────────────────────────────────
+Options and associated environment variables
+-h               print this help
+    -help
+-g port          wait gdb connection to 'port'
+                   env: QEMU_GDB
+-L path          set the elf interpreter prefix to 'path'
+                   env: QEMU_LD_PREFIX
+-s size          set the stack size to 'size' bytes
+                   env: QEMU_STACK_SIZE
+    -cpu model   select CPU (-cpu help for list)
+                   env: QEMU_CPU
+-E var=value     sets targets environment variable (see below)
+                   env: QEMU_SET_ENV
+-U var           unsets targets environment variable (see below)
+                   env: QEMU_UNSET_ENV
+-0 argv0         forces target process argv[0] to be 'argv0'
+                   env: QEMU_ARGV0
+-r uname         set qemu uname release string to 'uname'
+                   env: QEMU_UNAME
+-B address       set guest_base address to 'address'
+                   env: QEMU_GUEST_BASE
+-R size          reserve 'size' bytes for guest virtual address space
+                   env: QEMU_RESERVED_VA
+-d item[,...]    enable logging of specified items (use '-d help' for a list
+                 of items)
+                   env: QEMU_LOG
+    -dfilter range[,...] filter logging based on address range
+                   env: QEMU_DFILTER
+-D logfile       write logs to 'logfile' (default stderr)
+                   env: QEMU_LOG_FILENAME
+-p pagesize      set the host page size to 'pagesize'
+                   env: QEMU_PAGESIZE
+    -one-insn-per-tb run with one guest instruction per emulated TB
+                   env: QEMU_ONE_INSN_PER_TB
+    -singlestep  deprecated synonym for -one-insn-per-tb
+                   env: QEMU_SINGLESTEP
+    -strace      log system calls
+                   env: QEMU_STRACE
+    -seed        Seed for pseudo-random number generator
+                   env: QEMU_RAND_SEED
+    -trace       [[enable=]<pattern>][,events=<file>][,file=<file>]
+                   env: QEMU_TRACE
+    -version     display version information and exit
+                   env: QEMU_VERSION
+    -perfmap     Generate a /tmp/perf-${pid}.map file for perf
+                   env: QEMU_PERFMAP
+    -jitdump     Generate a jit-${pid}.dump file for perf
+                   env: QEMU_JITDUMP

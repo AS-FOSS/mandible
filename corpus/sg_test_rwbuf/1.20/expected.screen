@@ -1,0 +1,24 @@
+=== sg_test_rwbuf ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  sg_test_rwbuf [--addrd=AR] [--addwr=AW] [--help] [--quick] --size=SZ
+      [--times=NUM] [--verbose] [--version] DEVICE
+  sg_test_rwbuf DEVICE SZ [AW] [AR]
+
+
+POSITIONALS (4) ────────────────────────────────────────────────────────────
+  DEVICE
+  SZ
+  AW
+  AR
+
+
+FLAGS (8) ──────────────────────────────────────────────────────────────────
+Where
+-r, --addrd AR   extra bytes to fetch during READ BUFFER
+-w, --addwr AW   extra bytes to send to WRITE BUFFER
+-l, --help       output this usage message then exit
+-q, --quick      output read buffer size then exit
+-s, --size SZ    size of buffer (in bytes) to write then read back
+-t, --times NUM  number of times to run test (default 1)
+-v, --verbose    increase verbosity of output
+-V, --version    output version then exit
