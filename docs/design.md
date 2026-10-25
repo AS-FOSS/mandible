@@ -213,6 +213,9 @@ structure, search is for flags.
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
+Command letters work in either case, so Caps Lock never disables a key;
+text typed into the search box keeps its case.
+
 `t` re-probes the node rather than retaining its raw text. §6 rule 0
 applies unchanged in this mode: `pkill --help` is shown, but
 `pkill something --help` stays refused exactly as in the extraction
@@ -2188,7 +2191,7 @@ shrinks, and the only three questions allowed to decide it.
 7. The search box scrolls to keep the end of what is typed in view.
 8. With wrapping off, a heading's rule (section header or group divider) still
    reaches the pane's right edge at any sideways scroll, and a rule never
-   counts towards how far the pane scrolls or gets a `▶`.
+   counts towards how far the pane scrolls or gets a `◀` or `▶`.
 9. A re-flow (toggling wrap, resizing the terminal) keeps the item at the top
    of the pane at the top, in both views: the entity, heading or source line,
    offset by the rows of it already scrolled past, clamped to its new height.
