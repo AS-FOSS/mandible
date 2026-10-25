@@ -1882,17 +1882,22 @@ pane's flag list.
    description is under 20 columns the section is laid out as a man page
    instead (§9.4): the head alone on its line, the description below it.
    Stacking (rule 6) belongs to the table layout only.
-6. A flag row whose spellings, with the placeholder, do not fit the
-   column is stacked. The first line holds the first short spelling, the
-   first long one (`--name`, else the first one-dash word) and the
-   placeholder after it. The other spellings follow in printed order,
-   wrapped at the commas inside the column, each line led by a dim `or`
-   that ends at the long column, so the names line up with the
-   section's longs on every row; the spellings keep their own style. The description starts on
-   the first line and wraps in its own column beside the spelling lines.
-   The row is as tall as the taller of the two. A spelling wider than the room left
-   after `or` keeps the single-line head of rule 3. A section in the man
-   layout never stacks: it joins every spelling on the head line.
+6. A flag row with more spellings than one short and one long is
+   stacked, at every width the table layout is drawn at, whether or not
+   the whole list would fit, so a row looks the same at any width. The
+   first line holds the first short spelling, the first long one
+   (`--name`, else the first one-dash word) and the placeholder after it,
+   and starts in the column those spellings alone take (a lone long in
+   the long column). The other spellings follow in printed order, wrapped
+   at the commas inside the column, each line led by a dim `or` that ends
+   at the long column, so the names line up with the section's longs on
+   every row; the spellings keep their own style. The description starts
+   on the first line and wraps in its own column beside the spelling
+   lines; the row is as tall as the taller of the two. The section's
+   description column is measured from first lines only. A spelling wider
+   than the room left after `or` keeps the single-line head of rule 3. A
+   section in the man layout never stacks: it joins every spelling on the
+   head line.
 
 **Why.** A placeholder column has to be as wide as the section's widest
 placeholder, and every row would pay that width whether or not it takes a
@@ -2026,7 +2031,9 @@ sections.
    value draws its brackets around exactly what may be left out, joiner
    included: `--color[=WHEN]`, `-O[N]`, `--foo [FOO]`. In mandible's own
    notation, square brackets always mean may be left out; text quoted from
-   the tool is shown as written.
+   the tool is shown as written. Only values carry them in the parsed view:
+   a positional is drawn bare, and whether it is optional is read from the
+   USAGE line above it, which shows the author's own brackets.
 7. A flag's or positional's `choices` render as their own `values:` line under the
    description, indented two columns past the shared description column
    (in the man layout, past the description's own indent),

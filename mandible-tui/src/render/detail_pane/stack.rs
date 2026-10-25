@@ -71,24 +71,54 @@ fn fill(items: &[String], budget: usize) -> Option<Vec<String>> {
     Some(lines)
 }
 
-/// The stack for `flag`, or `None` when the row keeps its single-line
-/// head: it fits the column, it has no second spelling, or a spelling is
-/// wider than the room after `or` (it then renders as before, its
-/// description one space past the head).
+/// The first line's spellings: [`main_indices`] joined as drawn.
+fn main_text(flag: &Entity) -> String {
+    main_indices(flag)
+        .iter()
+        .map(|&i| spelling_text(flag, i))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Where a stacked row's first line starts: the column its first-line
+/// spellings alone would take (a lone long is preindented to the long
+/// column), not the one the whole spelling list would.
+pub(super) fn first_line_column(flag: &Entity, indent: usize) -> usize {
+    let mut first = flag.clone();
+    first.spellings = main_indices(flag)
+        .iter()
+        .map(|&i| flag.spellings[i].clone())
+        .collect();
+    spelling_column(&first, indent)
+}
+
+/// A row's head as the section's description column measures it: a flag
+/// that stacks is measured by its first line, the only one beside the
+/// column; every other row by its whole head.
+pub(super) fn column_head_width(entity: &Entity, indent: usize) -> usize {
+    let stacks =
+        entity.kind == EntityKind::Flag && main_indices(entity).len() < entity.spellings.len();
+    if !stacks {
+        return entity_head_width(entity, indent);
+    }
+    first_line_column(entity, indent)
+        + display_width(&main_text(entity))
+        + display_width(&flag_value_suffix(entity))
+}
+
+/// The stack for `flag`, at every width the table layout is drawn at:
+/// every spelling past the first short and the first long goes on an `or`
+/// line. `None` when there is nothing past those two, or when a spelling
+/// is wider than the room after `or` or the first line wider than the
+/// pane (the row then keeps its single-line head, its description one
+/// space past it).
 pub(super) fn plan(flag: &Entity, layout: SectionLayout, width: usize) -> Option<Stack> {
     if flag.kind != EntityKind::Flag || flag.spellings.len() < 2 {
         return None;
     }
     let column = layout.description;
-    if entity_head_width(flag, layout.indent) < column {
-        return None;
-    }
     let picked = main_indices(flag);
-    let main = picked
-        .iter()
-        .map(|&i| spelling_text(flag, i))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let main = main_text(flag);
     let rest: Vec<String> = (0..flag.spellings.len())
         .filter(|i| !picked.contains(i))
         .map(|i| spelling_text(flag, i))
@@ -98,7 +128,7 @@ pub(super) fn plan(flag: &Entity, layout: SectionLayout, width: usize) -> Option
     }
     let budget = column.checked_sub(or_column(layout) + OR.len() + 1)?;
     let rest = fill(&rest, budget)?;
-    let head = spelling_column(flag, layout.indent)
+    let head = first_line_column(flag, layout.indent)
         + display_width(&main)
         + display_width(&flag_value_suffix(flag));
     (head <= width).then_some(Stack { main, rest })
@@ -250,12 +280,28 @@ mod tests {
         .expect("the start is one of the spellings");
         f.description = Some(Text::sanitize("compression level"));
         let t = text(&entity_line(&f, false, 49, true, layout()));
-        assert!(t[0].starts_with("--fast, -0 ... -9"), "{t:?}");
+        assert!(t[0].starts_with("    --fast, -0 ... -9"), "{t:?}");
         assert!(t[1].starts_with(" or --best, --quickest"), "{t:?}");
     }
 
     #[test]
-    fn a_row_that_fits_the_column_is_not_stacked() {
+    fn a_third_name_stacks_even_when_the_row_would_fit() {
+        let mut f = Entity::flag_long("quiet", Provenance::single(Source::HelpText));
+        f.spellings = vec![
+            Spelling::short('q'),
+            Spelling::long("quiet"),
+            Spelling::long("silent"),
+        ];
+        f.description = Some(Text::sanitize("suppress all normal output"));
+        let mut l = layout();
+        l.description = 40;
+        let t = text(&entity_line(&f, false, 120, true, l));
+        assert!(t[0].starts_with("-q, --quiet "), "{t:?}");
+        assert!(t[1].starts_with(" or --silent"), "{t:?}");
+    }
+
+    #[test]
+    fn a_short_and_a_long_alone_are_not_stacked() {
         let mut f = codec_flag();
         f.spellings.truncate(2);
         let lines = entity_line(&f, false, 60, true, layout());
@@ -276,7 +322,7 @@ mod tests {
         let lines = entity_line(&f, false, 60, true, layout());
         let t = text(&lines);
         assert!(
-            t[0].starts_with("--video-codec CODEC_NAME_OF_VIDEO"),
+            t[0].starts_with("    --video-codec CODEC_NAME_OF_VIDEO"),
             "{t:?}"
         );
         assert!(t[1].starts_with(" or -vcodec, -c:v, -vc"), "{t:?}");

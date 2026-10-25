@@ -228,7 +228,11 @@ pub(super) fn entity_line(
     // section's own indent: shorts at the content edge, longs preindented
     // so every long in the section starts in the same place whether or not
     // a short precedes it.
-    let head_column = spelling_column(flag, layout.indent);
+    let head_column = if stack.is_some() {
+        first_line_column(flag, layout.indent)
+    } else {
+        spelling_column(flag, layout.indent)
+    };
     let leading = " ".repeat(head_column);
     let leading = leading.as_str();
     let spelling_style = if dim {

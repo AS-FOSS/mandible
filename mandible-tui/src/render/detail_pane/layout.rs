@@ -165,7 +165,7 @@ pub(super) fn section_layout(
     let fits = |w: usize| w + gap <= cap;
     let fitting = entities
         .iter()
-        .map(|e| entity_head_width(e, indent))
+        .map(|e| column_head_width(e, indent))
         .filter(|w| fits(*w));
 
     let floor = indent + LONG_COLUMN + gap;
