@@ -34,5 +34,9 @@ must_describe_root = [
     "class-loading=<true|false>",
     "To run interactive configuration wizard:",
     "jfr configure --interactive",
-    "jfr configure --input none +Hello#enabled=true --output minimal.jfc",
 ]
+must_not_describe_root = ["jfr configure --input none +Hello#enabled=true --output minimal.jfc"]
+
+[xfail]
+broken = true
+reason = "The block under `Example usage:` (five `jfr configure ...` command lines) stays in the root description, which makes it the longest description in the corpus. The EXAMPLES rule (S-071) recognizes an `Examples:` heading and not `Example usage:`, so these lines never reach the EXAMPLES section. The `option=value` rows, the prose and the `Options for default.jfc:` list stay description text as printed."
