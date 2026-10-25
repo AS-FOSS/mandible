@@ -2401,15 +2401,16 @@ mod tests {
         let short_only = row("-D ");
         assert!(short_only.starts_with("-D"), "{short_only:?}");
 
-        // More than two spellings flows from the short column: there is no
-        // single "the long" in such a row for a column to align.
-        for needle in ["-h, -help, --help", "--one, --two, --three"] {
-            let many = row(needle);
-            assert!(
-                many.starts_with(needle),
-                "a multi-spelling row flows from the edge: {many:?}"
-            );
-        }
+        // A row with more spellings stacks the rest on `or` lines, and its
+        // first line starts where those first-line spellings alone would.
+        let help = row("-h, --help");
+        assert!(help.starts_with("-h, --help"), "{help:?}");
+        let one = row("--one");
+        assert_eq!(one.find("--one"), Some(LONG_COLUMN), "{one:?}");
+        assert!(
+            text.iter().any(|t| t.starts_with(" or --two, --three")),
+            "{text:?}"
+        );
 
         // ...and the whole section still shares one description column.
         let starts = description_columns(
