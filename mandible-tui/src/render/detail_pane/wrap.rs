@@ -121,9 +121,8 @@ pub(super) fn window_page(
         .map(|(i, line)| {
             let is_rule = rules.binary_search(&(start + i)).is_ok();
             let (windowed, left, right) = if is_rule {
-                let (w, left, _) =
-                    window_line(&lengthen_rule(line, reach, app.glyphs), offset, width);
-                (w, left, false)
+                let (w, _, _) = window_line(&lengthen_rule(line, reach, app.glyphs), offset, width);
+                (w, false, false)
             } else {
                 window_line(line, offset, width)
             };

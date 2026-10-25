@@ -155,7 +155,7 @@ pub fn handle_review_key(app: &mut App, key: KeyEvent) -> Option<ReviewKeyOutcom
         return None;
     }
 
-    let verdict = match key.code {
+    let verdict = match crate::event::command_key(key).code {
         KeyCode::Char('c') => "correct",
         KeyCode::Char('i') => "incomplete",
         KeyCode::Char('w') => "wrong",

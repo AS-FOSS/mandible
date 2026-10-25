@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - An optional value draws its brackets around what may be left out, joiner included: `--color[=WHEN]` for `grep`, `-O[N]` for `nvim`, `--explain [LINT]` for `cargo-clippy`. A required value still reads `--max-count NUM`. A row written `--log-file=[PATH]` is now the optional value `PATH` instead of a value named `[PATH]`.
 - [S-231] `krb5-config` lists the `Libraries:` values under its `LIBRARIES` operand instead of under `--libs`, and a positional's values show under it as a flag's do.
 - The search box title reads `search · names` instead of `search [names]`, and the `--review` bar reads `REVIEW tool · stratum`: square brackets in mandible's own text always mean may be left out.
-- With wrapping off, a section header's rule and a group divider's rule still reach the right edge of the detail pane however far it is scrolled sideways.
+- With wrapping off, a section header's rule and a group divider's rule still reach the right edge of the detail pane however far it is scrolled sideways, and carry no `◀` marker.
+- Command keys work with Caps Lock on: `Q` quits like `q`.
 - Toggling wrap with `w` or resizing the terminal keeps the same flag, heading or line at the top of the detail pane, in the parsed and raw views.
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
 - In a narrow detail pane a flag list whose descriptions would get under 20 columns is laid out like a man page: the flag with every spelling on its own line, its description beneath it. The description column is no longer squeezed to make room.
@@ -31,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A `⋯ loading` marker that does not fit beside a long command name is left out instead of cut to `⋯…`.
 - The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
-- A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, indented under the first and led by a dim `or`, beside the wrapped description.
+- A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, led by a dim `or` and lined up with the long names, beside the wrapped description.
 
 ### Fixed
 

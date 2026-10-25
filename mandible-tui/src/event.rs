@@ -42,6 +42,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         return handle_search_key(app, key);
     }
 
+    let key = command_key(key);
     match key.code {
         KeyCode::Char('q') => return Some(Effect::Quit),
         KeyCode::Char('?') => app.toggle_help(),
@@ -64,6 +65,23 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         }
     }
     None
+}
+
+/// A command letter means the same in either case: no binding uses a
+/// capital, so Caps Lock (or Shift) sending `Q` for `q` still quits.
+/// Typed text never comes through here: search and review notes keep case.
+pub(crate) fn command_key(key: KeyEvent) -> KeyEvent {
+    match key.code {
+        KeyCode::Char(c)
+            if c.is_ascii_uppercase()
+                && !key
+                    .modifiers
+                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+        {
+            KeyEvent::new(KeyCode::Char(c.to_ascii_lowercase()), key.modifiers)
+        }
+        _ => key,
+    }
 }
 
 fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
@@ -271,6 +289,27 @@ mod tests {
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)
+    }
+
+    #[test]
+    fn a_capital_command_letter_does_what_the_small_one_does() {
+        let mut app = app();
+        let before = app.parsed_wrap;
+        let quit = handle_key(
+            &mut app,
+            KeyEvent::new(KeyCode::Char('Q'), KeyModifiers::SHIFT),
+        );
+        assert!(matches!(quit, Some(Effect::Quit)));
+        assert!(handle_key(&mut app, key(KeyCode::Char('W'))).is_none());
+        assert_ne!(app.parsed_wrap, before);
+    }
+
+    #[test]
+    fn search_keeps_the_case_it_is_typed_in() {
+        let mut app = app();
+        handle_key(&mut app, key(KeyCode::Char('/')));
+        handle_key(&mut app, key(KeyCode::Char('Q')));
+        assert_eq!(app.search_query, "Q");
     }
 
     #[test]
