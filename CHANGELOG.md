@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A `⋯ loading` marker that does not fit beside a long command name is left out instead of cut to `⋯…`.
 - The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
-- A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, indented under the first and led by a dim `or`, beside the wrapped description.
+- A flag row whose spellings do not fit the flag column now stacks: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, led by a dim `or` and lined up with the long names, beside the wrapped description.
 
 ### Fixed
 

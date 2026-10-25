@@ -1883,9 +1883,9 @@ pane's flag list.
    column is stacked. The first line holds the first short spelling, the
    first long one (`--name`, else the first one-dash word) and the
    placeholder after it. The other spellings follow in printed order,
-   wrapped at the commas inside the column, each line indented two
-   columns past the row's first spelling and led by a dim `or` and a
-   space; the spellings keep their own style. The description starts on
+   wrapped at the commas inside the column, each line led by a dim `or`
+   that ends at the long column, so the names line up with the
+   section's longs on every row; the spellings keep their own style. The description starts on
    the first line and wraps in its own column beside the spelling lines.
    The row is as tall as the taller of the two. A spelling wider than the room left
    after `or` keeps the single-line head of rule 3. A section in the man

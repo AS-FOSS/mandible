@@ -11,14 +11,17 @@ pub(super) struct Stack {
     pub(super) main: String,
     /// The continuation lines' text, each already wrapped to the column.
     pub(super) rest: Vec<String>,
-    /// Where each continuation line's `or` starts: two columns past the
-    /// row's first spelling.
-    pub(super) start: usize,
 }
 
 /// The word that leads every continuation line: the names after it are
-/// other spellings of the same flag. The same in every glyph set.
+/// other spellings of the same flag. The same in every glyph set. It ends
+/// at the long column, so the names line up with the section's longs.
 const OR: &str = "or ";
+
+/// Where every continuation line's `or` starts, on every row alike.
+fn or_column(layout: SectionLayout) -> usize {
+    layout.indent + LONG_COLUMN - OR.len()
+}
 
 /// The first line of a stacked row: the first short spelling and the
 /// first long one (`--name`, else the first one-dash word). A row
@@ -93,13 +96,12 @@ pub(super) fn plan(flag: &Entity, layout: SectionLayout, width: usize) -> Option
     if rest.is_empty() {
         return None;
     }
-    let start = spelling_column(flag, layout.indent) + 2;
-    let budget = column.checked_sub(start + OR.len() + 1)?;
+    let budget = column.checked_sub(or_column(layout) + OR.len() + 1)?;
     let rest = fill(&rest, budget)?;
     let head = spelling_column(flag, layout.indent)
         + display_width(&main)
         + display_width(&flag_value_suffix(flag));
-    (head <= width).then_some(Stack { main, rest, start })
+    (head <= width).then_some(Stack { main, rest })
 }
 
 /// The gap and placeholder that follow a row's spellings, as drawn.
@@ -128,8 +130,9 @@ impl Stack {
                 let mut spans = Vec::new();
                 let mut used = 0;
                 if let Some(text) = self.rest.get(r) {
-                    used = self.start + OR.len() + display_width(text);
-                    spans.push(Span::raw(" ".repeat(self.start)));
+                    let start = or_column(layout);
+                    used = start + OR.len() + display_width(text);
+                    spans.push(Span::raw(" ".repeat(start)));
                     spans.push(Span::styled(OR, or_style));
                     spans.push(Span::styled(text.clone(), name_style));
                 }
@@ -189,9 +192,9 @@ mod tests {
             text(&lines),
             vec![
                 "-c, -codec CODEC         force the codec for the",
-                "  or -acodec, -vcodec    matching stream; \"copy\"",
-                "  or -scodec, -dcodec    keeps the original",
-                "  or -c:a, -c:v",
+                " or -acodec, -vcodec     matching stream; \"copy\"",
+                " or -scodec, -dcodec     keeps the original",
+                " or -c:a, -c:v",
             ]
         );
     }
@@ -211,13 +214,13 @@ mod tests {
     fn no_color_keeps_the_or() {
         let lines = entity_line(&codec_flag(), false, 49, false, layout());
         let t = text(&lines);
-        assert!(t[1].starts_with("  or -acodec"), "{t:?}");
-        assert!(t[3].starts_with("  or -c:a"), "{t:?}");
+        assert!(t[1].starts_with(" or -acodec"), "{t:?}");
+        assert!(t[3].starts_with(" or -c:a"), "{t:?}");
         assert_eq!(lines[1].spans[1].style, Style::default());
     }
 
     #[test]
-    fn a_row_without_a_short_puts_its_or_under_its_first_name() {
+    fn every_row_puts_its_or_in_the_same_column() {
         let mut f = Entity::flag_long("old-dirs", Provenance::single(Source::HelpText));
         f.spellings.push(Spelling::long("old-d"));
         f.description = Some(Text::sanitize(
@@ -227,7 +230,7 @@ mod tests {
         l.description = 18;
         let t = text(&entity_line(&f, false, 50, true, l));
         assert!(t[0].starts_with("    --old-dirs    works"), "{t:?}");
-        assert!(t[1].starts_with("      or --old-d  "), "{t:?}");
+        assert!(t[1].starts_with(" or --old-d       "), "{t:?}");
     }
 
     #[test]
@@ -248,7 +251,7 @@ mod tests {
         f.description = Some(Text::sanitize("compression level"));
         let t = text(&entity_line(&f, false, 49, true, layout()));
         assert!(t[0].starts_with("--fast, -0 ... -9"), "{t:?}");
-        assert!(t[1].starts_with("  or --best, --quickest"), "{t:?}");
+        assert!(t[1].starts_with(" or --best, --quickest"), "{t:?}");
     }
 
     #[test]
@@ -276,7 +279,7 @@ mod tests {
             t[0].starts_with("--video-codec CODEC_NAME_OF_VIDEO"),
             "{t:?}"
         );
-        assert!(t[1].starts_with("  or -vcodec, -c:v, -vc"), "{t:?}");
+        assert!(t[1].starts_with(" or -vcodec, -c:v, -vc"), "{t:?}");
     }
 
     #[test]
