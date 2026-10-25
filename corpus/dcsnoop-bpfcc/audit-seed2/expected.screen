@@ -1,0 +1,17 @@
+=== dcsnoop-bpfcc ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Trace directory entry cache (dcache) lookups
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  dcsnoop-bpfcc [-h] [-a]
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-h, --help  show this help message and exit
+-a, --all   trace all lookups (default is fails only)
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+./dcsnoop           # trace failed dcache lookups
+./dcsnoop -a        # trace all dcache lookups

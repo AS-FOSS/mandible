@@ -1,0 +1,257 @@
+=== lvcreate ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  lvcreate -L|--size Size[m|UNIT] VG
+  lvcreate -i|--stripes Number -L|--size Size[m|UNIT] VG
+  lvcreate -m|--mirrors Number -L|--size Size[m|UNIT] VG
+  lvcreate --type raid -L|--size Size[m|UNIT] VG
+  lvcreate -m|--mirrors Number -i|--stripes Number -L|--size Size[m|UNIT] VG
+  lvcreate -s|--snapshot -L|--size Size[m|UNIT] LV
+  lvcreate --type thin-pool -L|--size Size[m|UNIT] VG
+  lvcreate --type cache-pool -L|--size Size[m|UNIT] VG
+  lvcreate -V|--virtualsize Size[m|UNIT] --thinpool LV VG
+  lvcreate -s|--snapshot LV
+  lvcreate --type thin --thinpool LV LV
+  lvcreate --type vdo -L|--size Size[m|UNIT] VG
+  lvcreate --type cache -L|--size Size[m|UNIT] --cachepool LV VG
+  lvcreate --type cache -L|--size Size[m|UNIT] --cachevol LV VG
+  lvcreate --type cache -L|--size Size[m|UNIT] --cachedevice PV VG
+  lvcreate --type writecache -L|--size Size[m|UNIT] --cachevol LV VG
+  lvcreate --type writecache -L|--size Size[m|UNIT] --cachedevice PV VG
+
+
+FLAGS (156) ────────────────────────────────────────────────────────────────
+Create a linear LV
+-L, --size Size[m|UNIT]
+    --type linear
+-l, --extents Number[PERCENT]
+
+Create a striped LV ────────────────────────────────────────────────────────
+    --type striped
+-l, --extents Number[PERCENT]
+-I, --stripesize Size[k|UNIT]
+
+Create a raid1 or mirror LV ────────────────────────────────────────────────
+    --type
+                                 values: raid1, mirror
+-l, --extents Number[PERCENT]
+-I, --stripesize Size[k|UNIT]
+-R, --regionsize Size[m|UNIT]
+    --mirrorlog
+                                 values: core, disk
+    --minrecoveryrate Size[k|UNIT]
+    --maxrecoveryrate Size[k|UNIT]
+
+Create a raid LV (a specific raid level must be used, e.g. raid1) ──────────
+    --type raid
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-m, --mirrors Number
+-R, --regionsize Size[m|UNIT]
+    --minrecoveryrate Size[k|UNIT]
+    --maxrecoveryrate Size[k|UNIT]
+    --raidintegrity
+                                 values: y, n
+    --raidintegritymode String
+    --raidintegrityblocksize Number
+
+Create a raid10 LV ─────────────────────────────────────────────────────────
+    --type raid10
+-l, --extents Number[PERCENT]
+-I, --stripesize Size[k|UNIT]
+-R, --regionsize Size[m|UNIT]
+    --minrecoveryrate Size[k|UNIT]
+    --maxrecoveryrate Size[k|UNIT]
+
+Create a COW snapshot LV of an origin LV ───────────────────────────────────
+    --type snapshot
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-c, --chunksize Size[k|UNIT]
+
+Create a thin pool ─────────────────────────────────────────────────────────
+    --type thin-pool
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-T, --thin
+-c, --chunksize Size[k|UNIT]
+    --thinpool LV_new
+    --discards
+                                 values: passdown, nopassdown, ignore
+    --errorwhenfull
+                                 values: y, n
+    --poolmetadatasize Size[m|UNIT]
+    --poolmetadataspare
+                                 values: y, n
+
+Create a cache pool ────────────────────────────────────────────────────────
+    --type cache-pool
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-H, --cache
+-c, --chunksize Size[k|UNIT]
+    --cachemode
+                                 values: writethrough, writeback,
+                                 passthrough
+    --cachepolicy String
+    --cachesettings String
+    --cachemetadataformat
+                                 values: auto, 1, 2
+    --poolmetadatasize Size[m|UNIT]
+    --poolmetadataspare
+                                 values: y, n
+
+Create a thin LV in a thin pool ────────────────────────────────────────────
+    --type thin
+-T, --thin
+
+Create a thin LV that is a snapshot of an existing thin LV ─────────────────
+-s, --snapshot LV
+    --type thin
+
+Create a thin LV that is a snapshot of an external origin LV ───────────────
+    --type thin
+-T, --thin
+
+Create a LV that returns VDO when used ─────────────────────────────────────
+    --type vdo
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-V, --virtualsize Size[m|UNIT]
+    --vdo
+    --vdopool LV_new
+    --compression
+                                 values: y, n
+    --deduplication
+                                 values: y, n
+    --vdosettings String
+
+Create a new LV, then attach the specified cachepool which converts the new
+LV to type cache
+    --type cache
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-H, --cache
+-c, --chunksize Size[k|UNIT]
+    --cachemode
+                                 values: writethrough, writeback,
+                                 passthrough
+    --cachepolicy String
+    --cachesettings String
+    --cachemetadataformat
+                                 values: auto, 1, 2
+    --poolmetadatasize Size[m|UNIT]
+    --poolmetadataspare
+                                 values: y, n
+
+Create a new LV, then attach the specified cachevol which converts the new
+LV to type cache
+    --type cache
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-c, --chunksize Size[k|UNIT]
+    --cachemode
+                                 values: writethrough, writeback,
+                                 passthrough
+    --cachepolicy String
+    --cachesettings String
+    --cachemetadataformat
+                                 values: auto, 1, 2
+
+Create a new LV, then attach a cachevol created from the specified cache
+device, which converts the new LV to type cache
+    --type cache
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+-c, --chunksize Size[k|UNIT]
+    --cachesize Size[m|UNIT]
+    --cachemode
+                                 values: writethrough, writeback,
+                                 passthrough
+    --cachepolicy String
+    --cachesettings String
+    --cachemetadataformat
+                                 values: auto, 1, 2
+
+Create a new LV, then attach the specified cachevol which converts the new
+LV to type writecache
+    --type writecache
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+    --cachesettings String
+
+Create a new LV, then attach a cachevol created from the specified cache
+device, which converts the new LV to type writecache
+    --type writecache
+-l, --extents Number[PERCENT]
+-i, --stripes Number
+-I, --stripesize Size[k|UNIT]
+    --cachesize Size[m|UNIT]
+    --cachesettings String
+
+Common options for command ─────────────────────────────────────────────────
+-a, --activate
+                                 values: y, n, ay
+-A, --autobackup
+                                 values: y, n
+-C, --contiguous
+                                 values: y, n
+-M, --persistent
+                                 values: y, n
+-j, --major Number
+-k, --setactivationskip
+                                 values: y, n
+-K, --ignoreactivationskip
+-n, --name String
+-p, --permission
+                                 values: rw, r
+-r, --readahead
+                                 values: auto, none, Number
+-W, --wipesignatures
+                                 values: y, n
+-Z, --zero
+                                 values: y, n
+    --addtag Tag
+    --alloc
+                                 values: contiguous, cling, cling_by_tags,
+                                 normal, anywhere, inherit
+    --setautoactivation
+                                 values: y, n
+    --ignoremonitoring
+    --metadataprofile String
+    --minor Number
+    --monitor
+                                 values: y, n
+    --nosync
+    --noudevsync
+    --reportformat
+                                 values: basic, json
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                                 values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

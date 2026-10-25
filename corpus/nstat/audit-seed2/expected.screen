@@ -1,0 +1,21 @@
+=== nstat ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  nstat [OPTION] [ PATTERN [ PATTERN ] ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  PATTERN
+
+
+FLAGS (11) ─────────────────────────────────────────────────────────────────
+-h, --help       this message
+-a, --ignore     ignore history
+-d, --scan SECS  sample every statistics every SECS
+-j, --json       format output in JSON
+-n, --nooutput   do history only
+-p, --pretty     pretty print
+-r, --reset      reset history
+-s, --noupdate   don't update history
+-t, --interval SECS report average over the last SECS
+-V, --version    output version information
+-z, --zeros      show entries with zero activity

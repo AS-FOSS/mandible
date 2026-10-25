@@ -1,0 +1,18 @@
+=== sbverify ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Verify a UEFI secure boot image.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  sbverify [options] --cert <certfile> <efi-boot-image>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  efi-boot-image
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+    --cert <certfile>  certificate (x509 certificate)
+    --list             list all signatures (but don't verify)
+    --detached <file>  read signature from <file>, instead of looking for an
+                       embedded signature

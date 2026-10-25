@@ -1,0 +1,26 @@
+=== iptables-apply ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+iptables-apply 1.1 -- a safer way to update iptables remotely
+
+The script will try to apply a new rulesfile (as output by iptables-save,
+read by iptables-restore) or run a command to configure iptables and then
+prompt the user whether the changes are okay. If the new iptables rules cut
+the existing connection, the user will not be able to answer affirmatively.
+In this case, the script rolls back to the previous working iptables rules
+after the timeout expires.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  iptables-apply [-hV] [-t timeout] [-w savefile] {[rulesfile]|-c [runcmd]}
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-t, --timeout seconds  Specify the timeout in seconds (default: 10).
+-w, --write savefile   Specify the savefile where successfully applied rules
+                       will be written to (default if empty string is given:
+                       /etc/network/iptables.up.rules).
+-c, --command runcmd   Run command runcmd to configure iptables instead of
+                       applying a rulesfile (default:
+                       /etc/network/iptables.up.run).
+-h, --help             Display this help text.
+-V, --version          Display version information.

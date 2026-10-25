@@ -1,0 +1,23 @@
+=== makeconv ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  makeconv [-options] files...
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  files...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-h, --help               this usage text
+ or -?
+-V, --version            show a version message
+-c, --copyright          include a copyright notice
+-d, --destdir            destination directory, followed by the path
+-v, --verbose            Turn on verbose output
+-q, --quiet              do not display warnings and progress
+-s, --sourcedir          source directory, followed by the path
+    --small              Generate smaller .cnv files. They will be
+                         significantly smaller but may not be compatible
+                         with older versions of ICU and will require heap
+                         memory allocation when loaded.
+    --ignore-siso-check  Use SI/SO other than 0xf/0xe.

@@ -1,0 +1,29 @@
+=== vgrename ===
+FLAGS (21) ─────────────────────────────────────────────────────────────────
+Common options for command
+-A, --autobackup
+                        values: y, n
+-f, --force
+    --reportformat
+                        values: basic, json
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                        values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

@@ -1,0 +1,35 @@
+=== brew ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  brew search TEXT|/REGEX/
+  brew info [FORMULA|CASK...]
+  brew install FORMULA|CASK...
+  brew update
+  brew upgrade [FORMULA|CASK...]
+  brew uninstall FORMULA|CASK...
+  brew list [FORMULA|CASK...]
+
+=== brew search ===
+
+=== brew info ===
+
+=== brew install ===
+
+=== brew update ===
+
+=== brew upgrade ===
+
+=== brew uninstall ===
+
+=== brew list ===
+
+=== brew config ===
+
+=== brew doctor ===
+
+=== brew create ===
+
+=== brew edit ===
+
+=== brew commands ===
+
+=== brew help ===

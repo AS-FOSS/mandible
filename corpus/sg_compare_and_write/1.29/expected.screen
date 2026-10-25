@@ -1,0 +1,41 @@
+=== sg_compare_and_write ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Performs a SCSI COMPARE AND WRITE operation. Sends a double size buffer, the
+first half is used to compare what is at LBA for NUM blocks. If and only if
+the comparison is equal, then the second half of the buffer is written to
+LBA for NUM blocks.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  sg_compare_and_write [--dpo] [--fua] [--fua_nv] [--grpnum=GN] [--help]
+      --in=IF|--inc=IF [--inw=WF] --lba=LBA [--num=NUM] [--quiet]
+      [--timeout=TO] [--verbose] [--version] [--wrprotect=WP]
+      [--xferlen=LEN] DEVICE
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  DEVICE
+
+
+FLAGS (16) ─────────────────────────────────────────────────────────────────
+Where
+-d, --dpo          set the dpo bit in cdb (def: clear)
+-f, --fua          set the fua bit in cdb (def: clear)
+-F, --fua_nv       set the fua_nv bit in cdb (def: clear)
+-g, --grpnum GN    GN is GROUP NUMBER to set in cdb (def: 0)
+-h, --help         print out usage message
+-i, --in IF        IF is a file containing a compare buffer and optionally a
+                   write buffer (when --inw=WF is not given)
+-C, --inc IF       The same as the --in option
+-D, --inw WF       WF is a file containing a write buffer
+-l, --lba LBA      LBA of the first block to compare and write
+-n, --num NUM      number of blocks to compare/write (def: 1)
+-q, --quiet        suppress MISCOMPARE report to stderr, still sets exit
+                   status of 14
+-t, --timeout TO   timeout for the command (def: 60 secs)
+-v, --verbose      increase verbosity (use '-vv' for more)
+-V, --version      print version string then exit
+-w, --wrprotect WP write protect information (def: 0)
+-x, --xferlen LEN  number of bytes to transfer. Default is (2
+                   * NUM
+                   * 512) or 1024 when NUM is 1

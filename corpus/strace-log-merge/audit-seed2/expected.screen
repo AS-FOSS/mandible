@@ -1,0 +1,15 @@
+=== strace-log-merge ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Finds all STRACE_LOG.PID files, adds PID prefix to every line, then combines
+and sorts them, and prints result to standard output.
+
+It is assumed that STRACE_LOGs were produced by strace with -tt[t] option
+which prints timestamps (otherwise sorting won't do any good).
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  strace-log-merge STRACE_LOG
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  STRACE_LOG

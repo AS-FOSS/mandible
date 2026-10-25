@@ -258,6 +258,7 @@ fn run_fixtures(
                     std::fs::write(fixture.expected_snap_path(), &rendered).map_err(|e| {
                         anyhow::anyhow!("writing {}: {e}", fixture.expected_snap_path().display())
                     })?;
+                    bless_screens(fixture, root)?;
                     lines.push(format!("blessed {} ({:?})", fixture.label, elapsed));
                 }
                 None => {
@@ -271,6 +272,7 @@ fn run_fixtures(
         }
 
         let snapshot_check = check_snapshot(fixture, root.as_ref())?;
+        let screen_check = check_screens(fixture, root.as_ref())?;
         let mut contract_failures = check_contract(&fixture.meta.contract, root.as_ref());
         contract_failures.extend(
             super::refill_contract::check_must_value_names_after_root_refill(
@@ -305,7 +307,7 @@ fn run_fixtures(
             SnapshotCheck::Missing => is_xfail,
             SnapshotCheck::NoRoot | SnapshotCheck::Mismatch { .. } => false,
         };
-        let all_pass = snapshot_ok && contract_failures.is_empty();
+        let all_pass = snapshot_ok && screen_check.passes(is_xfail) && contract_failures.is_empty();
 
         let mut detail = Vec::new();
         for failure in &contract_failures {
@@ -330,6 +332,8 @@ fn run_fixtures(
                 "snapshot mismatch at expected.snap:{line}: expected `{expected}` got `{actual}`"
             )),
         }
+
+        detail.extend(screen_check.detail(is_xfail));
 
         // Only when a scope is actually recorded — an unscoped fixture
         // (the overwhelming majority, today) stays silent here exactly

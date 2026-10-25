@@ -1,0 +1,15 @@
+=== cache_repair ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  cache_repair [options] {device|file}
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  {device|file}
+                   values: device, file
+
+
+FLAGS (4) ──────────────────────────────────────────────────────────────────
+-h, --help
+-i, --input <input metadata (binary format)>
+-o, --output <output metadata (binary format)>
+-V, --version

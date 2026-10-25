@@ -1,0 +1,33 @@
+=== ffplay ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Simple media player
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  ffplay [options] input_file
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  input_file
+
+
+FLAGS (10) ─────────────────────────────────────────────────────────────────
+Main options
+-L                             show license
+-h topic                       show help
+
+AVCodecContext AVOptions ───────────────────────────────────────────────────
+    -flags flags               (default 0)
+    -ch_layout channel_layout  ED..A......
+    -channel_layout channel_layout (default 0x0)
+    -request_channel_layout channel_layout (default 0x0)
+
+Srtp AVOptions ─────────────────────────────────────────────────────────────
+    -srtp_in_suite string      .D.........
+    -srtp_in_params string     .D.........
+
+Pcm demuxer AVOptions ──────────────────────────────────────────────────────
+    -ch_layout channel_layout  .D.........
+
+Bluray AVOptions ───────────────────────────────────────────────────────────
+    -playlist int              (from -1 to 99999) (default -1)

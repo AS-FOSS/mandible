@@ -1,0 +1,214 @@
+=== snap ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+The snap command lets you install, configure, refresh and remove snaps.
+Snaps are packages that work across many different Linux distributions,
+enabling secure delivery and operation of the latest apps and utilities.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  snap <command> [<options>...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  command
+
+=== snap find ===
+Find packages to install
+
+=== snap info ===
+Show detailed information about snaps
+
+=== snap install ===
+Install snaps on the system
+
+=== snap remove ===
+Remove snaps from the system
+
+=== snap list ===
+List installed snaps
+
+=== snap components ===
+List available and installed components for installed snaps
+
+=== snap component ===
+Show detailed information about snap components
+
+=== snap refresh ===
+Refresh snaps in the system
+
+=== snap revert ===
+Reverts the given snap to the previous state
+
+=== snap switch ===
+Switches snap to a different channel
+
+=== snap disable ===
+Disable a snap in the system
+
+=== snap enable ===
+Enable a snap in the system
+
+=== snap create-cohort ===
+Create cohort keys for a set of snaps
+
+=== snap changes ===
+List system changes
+
+=== snap tasks ===
+List a change's tasks
+
+=== snap abort ===
+Abort a pending change
+
+=== snap watch ===
+Watch a change in progress
+
+=== snap services ===
+Query the status of services
+
+=== snap start ===
+Start services
+
+=== snap stop ===
+Stop services
+
+=== snap restart ===
+Restart services
+
+=== snap logs ===
+Retrieve logs for services
+
+=== snap connections ===
+List interface connections
+
+=== snap interface ===
+Show details of snap interfaces
+
+=== snap connect ===
+Connect a plug to a slot
+
+=== snap disconnect ===
+Disconnect a plug from a slot
+
+=== snap get ===
+Print configuration options
+
+=== snap set ===
+Change configuration options
+
+=== snap unset ===
+Remove configuration options
+
+=== snap wait ===
+Wait for configuration
+
+=== snap alias ===
+Set up a manual alias
+
+=== snap aliases ===
+List aliases in the system
+
+=== snap unalias ===
+Remove a manual alias, or the aliases for an entire snap
+
+=== snap prefer ===
+Enable aliases from a snap, disabling any conflicting aliases
+
+=== snap login ===
+Authenticate to snapd and the store
+
+=== snap logout ===
+Log out of snapd and the store
+
+=== snap whoami ===
+Show the email the user is logged in with
+
+=== snap saved ===
+List currently stored snapshots
+
+=== snap save ===
+Save a snapshot of the current data
+
+=== snap check-snapshot ===
+Check a snapshot
+
+=== snap restore ===
+Restore a snapshot
+
+=== snap forget ===
+Delete a snapshot
+
+=== snap export-snapshot ===
+Export a snapshot
+
+=== snap import-snapshot ===
+Import a snapshot
+
+=== snap report-issue ===
+Show contact information and optionally navigate to relevant issue tracker
+
+=== snap model ===
+Get the active model for this device
+
+=== snap remodel ===
+Remodel this device
+
+=== snap reboot ===
+Reboot into selected system and mode
+
+=== snap recovery ===
+List available recovery systems
+
+=== snap warnings ===
+List warnings
+
+=== snap okay ===
+Acknowledge warnings
+
+=== snap known ===
+Show known assertions of the provided type
+
+=== snap ack ===
+Add an assertion to the system
+
+=== snap version ===
+Show version details
+
+=== snap debug ===
+Run debug commands
+
+=== snap download ===
+Download the given snap
+
+=== snap pack ===
+Pack the given directory as a snap
+
+=== snap run ===
+Run the given snap command
+
+=== snap try ===
+Test an unpacked snap in the system
+
+=== snap sign ===
+Sign an assertion
+
+=== snap prepare-image ===
+Prepare a device image
+
+=== snap export-key ===
+Export cryptographic public key
+
+=== snap set-quota ===
+Create or update a quota group.
+
+=== snap remove-quota ===
+Remove quota group
+
+=== snap quotas ===
+Show quota groups
+
+=== snap quota ===
+Show quota group for a set of snaps
+
+=== snap validate ===
+List or apply validation sets

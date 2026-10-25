@@ -19,6 +19,7 @@ path = "src/main.rs"
 [dependencies]
 mandible-core.workspace = true
 mandible-extract.workspace = true
+mandible-tui.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 rayon.workspace = true

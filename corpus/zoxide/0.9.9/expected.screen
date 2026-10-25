@@ -1,0 +1,46 @@
+=== zoxide ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+A smarter cd command for your terminal
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  zoxide <COMMAND>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-h, --help     Print help
+-V, --version  Print version
+
+
+ENVIRONMENT (6) ────────────────────────────────────────────────────────────
+Environment variables
+_ZO_DATA_DIR          Path for zoxide data files
+_ZO_ECHO              Print the matched directory before navigating to it
+                      when set to 1
+_ZO_EXCLUDE_DIRS      List of directory globs to be excluded
+_ZO_FZF_OPTS          Custom flags to pass to fzf
+_ZO_MAXAGE            Maximum total age after which entries start getting
+                      deleted
+_ZO_RESOLVE_SYMLINKS  Resolve symlinks when storing paths
+
+=== zoxide add ===
+Add a new directory or increment its rank
+
+=== zoxide edit ===
+Edit the database
+
+=== zoxide import ===
+Import entries from another application
+
+=== zoxide init ===
+Generate shell configuration
+
+=== zoxide query ===
+Search for a directory in the database
+
+=== zoxide remove ===
+Remove a directory from the database

@@ -1,0 +1,17 @@
+=== filegone-bpfcc ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Trace why file gone (deleted or renamed)
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  filegone-bpfcc [-h] [-p PID]
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-h, --help     show this help message and exit
+-p, --pid PID  trace this PID only
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+./filegone           # trace all file gone events
+./filegone -p 181    # only trace PID 181

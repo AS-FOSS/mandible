@@ -1,0 +1,545 @@
+=== systemctl ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Query or send control commands to the system manager.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  systemctl [OPTIONS...] COMMAND ...
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (56) ─────────────────────────────────────────────────────────────────
+-h, --help               Show this help
+    --version            Show package version
+    --system             Connect to system manager
+    --user               Connect to user service manager
+-H, --host [USER@]HOST   Operate on remote host
+-M, --machine CONTAINER  Operate on a local container
+-t, --type TYPE          List units of a particular type
+    --state STATE        List units with particular LOAD or SUB or ACTIVE
+                         state
+    --failed             Shortcut for --state=failed
+-p, --property NAME      Show only properties by this name
+-P NAME                  Equivalent to --value --property=NAME
+-a, --all                Show all properties/all units currently in memory,
+                         including dead/empty ones. To list all units
+                         installed on the system, use 'list-unit-files'
+                         instead.
+-l, --full               Don't ellipsize unit names on output
+-r, --recursive          Show unit list of host and local containers
+    --reverse            Show reverse dependencies with 'list-dependencies'
+    --with-dependencies  Show unit dependencies with 'status', 'cat',
+                         'list-units', and 'list-unit-files'.
+    --job-mode MODE      Specify how to deal with already queued jobs, when
+                         queueing a new job
+-T, --show-transaction   When enqueuing a unit job, show full transaction
+    --show-types         When showing sockets, explicitly show their type
+    --value              When showing properties, only print the value
+    --check-inhibitors MODE Whether to check inhibitors before shutting
+                         down, sleeping, or hibernating
+-i                       Shortcut for --check-inhibitors=no
+    --kill-whom WHOM     Whom to send signal to
+    --kill-value INT     Signal value to enqueue
+-s, --signal SIGNAL      Which signal to send
+    --what RESOURCES     Which types of resources to remove
+    --now                Start or stop unit after enabling or disabling it
+    --dry-run            Only print what would be done Currently supported
+                         by verbs: halt, poweroff, reboot, kexec,
+                         soft-reboot, suspend, hibernate,
+                         suspend-then-hibernate, hybrid-sleep, default,
+                         rescue, emergency, and exit.
+-q, --quiet              Suppress output
+    --no-warn            Suppress several warnings shown by default
+    --wait               For (re)start, wait until service stopped again For
+                         is-system-running, wait until startup is completed
+    --no-block           Do not wait until operation finished
+    --no-wall            Don't send wall message before
+                         halt/power-off/reboot
+    --no-reload          Don't reload daemon after en-/dis-abling unit files
+    --legend BOOL        Enable/disable the legend (column headers and
+                         hints)
+    --no-pager           Do not pipe output into a pager
+    --no-ask-password    Do not ask for system passwords
+    --global             Edit/enable/disable/mask default user unit files
+                         globally
+    --runtime            Edit/enable/disable/mask unit files temporarily
+                         until next reboot
+-f, --force              When enabling unit files, override existing
+                         symlinks When shutting down, execute action
+                         immediately
+    --preset-mode        Apply only enable, only disable, or all presets
+    --root PATH          Edit/enable/disable/mask unit files in the
+                         specified root directory
+    --image PATH         Edit/enable/disable/mask unit files in the
+                         specified disk image
+    --image-policy POLICY Specify disk image dissection policy
+-n, --lines INTEGER      Number of journal entries to show
+-o, --output STRING      Change journal output mode (short, short-precise,
+                         short-iso, short-iso-precise, short-full,
+                         short-monotonic, short-unix, short-delta, verbose,
+                         export, json, json-pretty, json-sse, cat)
+    --firmware-setup     Tell the firmware to show the setup menu on next
+                         boot
+    --boot-loader-menu TIME Boot into boot loader menu on next boot
+    --boot-loader-entry NAME Boot into a specific boot loader entry on next
+                         boot
+    --plain              Print unit dependencies as a list instead of a tree
+    --timestamp FORMAT   Change format of printed timestamps (pretty, unix,
+                         us, utc, us+utc)
+    --read-only          Create read-only bind mount
+    --mkdir              Create directory before mounting, if missing
+    --marked             Restart/reload previously marked units
+    --drop-in NAME       Edit unit files using the specified drop-in file
+                         name
+    --when TIME          Schedule halt/power-off/reboot/kexec action after a
+                         certain timestamp
+
+=== systemctl list-units ===
+List units currently in memory
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-units [PATTERN...]
+
+=== systemctl list-automounts ===
+List automount units currently in memory, ordered by path
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-automounts [PATTERN...]
+
+=== systemctl list-paths ===
+List path units currently in memory, ordered by path
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-paths [PATTERN...]
+
+=== systemctl list-sockets ===
+List socket units currently in memory, ordered by address
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-sockets [PATTERN...]
+
+=== systemctl list-timers ===
+List timer units currently in memory, ordered by next elapse
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-timers [PATTERN...]
+
+=== systemctl is-active ===
+Check whether units are active
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  is-active PATTERN...
+
+=== systemctl is-failed ===
+Check whether units are failed or system is in degraded state
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  is-failed [PATTERN...]
+
+=== systemctl status ===
+Show runtime status of one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  status [PATTERN...|PID...]
+
+=== systemctl show ===
+Show properties of one or more units/jobs or the manager
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  show [PATTERN...|JOB...]
+
+=== systemctl cat ===
+Show files and drop-ins of specified units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  cat PATTERN...
+
+=== systemctl help ===
+Show manual for one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  help PATTERN...|PID...
+
+=== systemctl list-dependencies ===
+Recursively show units which are required or wanted by the units or by which
+those units are required or wanted
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-dependencies [UNIT...]
+
+=== systemctl start ===
+Start (activate) one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  start UNIT...
+
+=== systemctl stop ===
+Stop (deactivate) one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  stop UNIT...
+
+=== systemctl reload ===
+Reload one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  reload UNIT...
+
+=== systemctl restart ===
+Start or restart one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  restart UNIT...
+
+=== systemctl try-restart ===
+Restart one or more units if active
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  try-restart UNIT...
+
+=== systemctl reload-or-restart ===
+Reload one or more units if possible, otherwise start or restart
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  reload-or-restart UNIT...
+
+=== systemctl try-reload-or-restart ===
+If active, reload one or more units, if supported, otherwise restart
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  try-reload-or-restart UNIT...
+
+=== systemctl isolate ===
+Start one unit and stop all others
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  isolate UNIT
+
+=== systemctl kill ===
+Send signal to processes of a unit
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  kill UNIT...
+
+=== systemctl clean ===
+Clean runtime, cache, state, logs or configuration of unit
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  clean UNIT...
+
+=== systemctl freeze ===
+Freeze execution of unit processes
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  freeze PATTERN...
+
+=== systemctl thaw ===
+Resume execution of a frozen unit
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  thaw PATTERN...
+
+=== systemctl set-property ===
+Sets one or more properties of a unit
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  set-property UNIT PROPERTY=VALUE...
+
+=== systemctl bind ===
+Bind-mount a path from the host into a unit's namespace
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  bind UNIT PATH [PATH]
+
+=== systemctl mount-image ===
+Mount an image from the host into a unit's namespace
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  mount-image UNIT PATH [PATH [OPTS]]
+
+=== systemctl service-log-level ===
+Get/set logging threshold for service
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  service-log-level SERVICE [LEVEL]
+
+=== systemctl service-log-target ===
+Get/set logging target for service
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  service-log-target SERVICE [TARGET]
+
+=== systemctl reset-failed ===
+Reset failed state for all, one, or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  reset-failed [PATTERN...]
+
+=== systemctl whoami ===
+Return unit caller or specified PIDs are part of
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  whoami [PID...]
+
+=== systemctl list-unit-files ===
+List installed unit files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-unit-files [PATTERN...]
+
+=== systemctl enable ===
+Enable one or more unit files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  enable [UNIT...|PATH...]
+
+=== systemctl disable ===
+Disable one or more unit files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  disable UNIT...
+
+=== systemctl reenable ===
+Reenable one or more unit files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  reenable UNIT...
+
+=== systemctl preset ===
+Enable/disable one or more unit files based on preset configuration
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  preset UNIT...
+
+=== systemctl preset-all ===
+Enable/disable all unit files based on preset configuration
+
+=== systemctl is-enabled ===
+Check whether unit files are enabled
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  is-enabled UNIT...
+
+=== systemctl mask ===
+Mask one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  mask UNIT...
+
+=== systemctl unmask ===
+Unmask one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  unmask UNIT...
+
+=== systemctl link ===
+Link one or more units files into the search path
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  link PATH...
+
+=== systemctl revert ===
+Revert one or more unit files to vendor version
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  revert UNIT...
+
+=== systemctl add-wants ===
+Add 'Wants' dependency for the target on specified one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  add-wants TARGET UNIT...
+
+=== systemctl add-requires ===
+Add 'Requires' dependency for the target on specified one or more units
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  add-requires TARGET UNIT...
+
+=== systemctl edit ===
+Edit one or more unit files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  edit UNIT...
+
+=== systemctl get-default ===
+Get the name of the default target
+
+=== systemctl set-default ===
+Set the default target
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  set-default TARGET
+
+=== systemctl list-machines ===
+List local containers and host
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-machines [PATTERN...]
+
+=== systemctl list-jobs ===
+List jobs
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  list-jobs [PATTERN...]
+
+=== systemctl cancel ===
+Cancel all, one, or more jobs
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  cancel [JOB...]
+
+=== systemctl show-environment ===
+Dump environment
+
+=== systemctl set-environment ===
+Set one or more environment variables
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  set-environment VARIABLE=VALUE...
+
+=== systemctl unset-environment ===
+Unset one or more environment variables
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  unset-environment VARIABLE...
+
+=== systemctl import-environment ===
+Import all or some environment variables
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  import-environment VARIABLE...
+
+=== systemctl daemon-reload ===
+Reload systemd manager configuration
+
+=== systemctl daemon-reexec ===
+Reexecute systemd manager
+
+=== systemctl log-level ===
+Get/set logging threshold for manager
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  log-level [LEVEL]
+
+=== systemctl log-target ===
+Get/set logging target for manager
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  log-target [TARGET]
+
+=== systemctl service-watchdogs ===
+Get/set service watchdog state
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  service-watchdogs [BOOL]
+
+=== systemctl is-system-running ===
+Check whether system is fully running
+
+=== systemctl default ===
+Enter system default mode
+
+=== systemctl rescue ===
+Enter system rescue mode
+
+=== systemctl emergency ===
+Enter system emergency mode
+
+=== systemctl halt ===
+Shut down and halt the system
+
+=== systemctl poweroff ===
+Shut down and power-off the system
+
+=== systemctl reboot ===
+Shut down and reboot the system
+
+=== systemctl kexec ===
+Shut down and reboot the system with kexec
+
+=== systemctl soft-reboot ===
+Shut down and reboot userspace
+
+=== systemctl exit ===
+Request user instance or container exit
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  exit [EXIT_CODE]
+
+=== systemctl switch-root ===
+Change to a different root file system
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  switch-root [ROOT [INIT]]
+
+=== systemctl suspend ===
+Suspend the system
+
+=== systemctl hibernate ===
+Hibernate the system
+
+=== systemctl hybrid-sleep ===
+Hibernate and suspend the system
+
+=== systemctl suspend-then-hibernate ===
+Suspend the system, wake after a period of time, and hibernate

@@ -1,0 +1,39 @@
+=== sg_sanitize ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  sg_sanitize [--ause] [--block] [--count=OC] [--crypto] [--dry-run]
+      [--early] [--fail] [--help] [--invert] [--ipl=LEN] [--overwrite]
+      [--pattern=PF] [--quick] [--test=TE] [--timeout=SECS] [--verbose]
+      [--version] [--wait] [--zero] [--znr] DEVICE
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  DEVICE
+
+
+FLAGS (21) ─────────────────────────────────────────────────────────────────
+Where
+-A, --ause       set AUSE bit in cdb
+-B, --block      do BLOCK ERASE sanitize
+-c, --count OC   OC is overwrite count field (from 1 (def) to 31)
+-C, --crypto     do CRYPTOGRAPHIC ERASE sanitize
+-d, --desc       polling request sense sets 'desc' field (def: clear 'desc'
+                 field)
+-D, --dry-run    to preparation but bypass SANITIZE commnd
+-e, --early      exit once sanitize started (IMMED set in cdb) user can
+                 monitor progress with REQUEST SENSE
+-F, --fail       do EXIT FAILURE MODE sanitize
+-h, --help       print out usage message
+-I, --invert     set INVERT bit in OVERWRITE parameter list
+-i, --ipl LEN    initialization pattern length (in bytes)
+-O, --overwrite  do OVERWRITE sanitize
+-p, --pattern PF PF is file containing initialization pattern for OVERWRITE
+-Q, --quick      start sanitize without pause for user intervention (i.e. no
+                 time to reconsider)
+-T, --test TE    TE is placed in TEST field of OVERWRITE parameter list
+                 (def: 0)
+-t, --timeout SECS SANITIZE command timeout in seconds
+-v, --verbose    increase verbosity
+-V, --version    print version string then exit
+-w, --wait       wait for command to finish (could take hours)
+-z, --zero       use pattern of zeros for OVERWRITE
+-Z, --znr        set ZNR (zone no reset) bit in cdb

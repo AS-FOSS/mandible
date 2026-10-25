@@ -1,0 +1,15 @@
+=== man-recode ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  man-recode [OPTION...]
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-t CODE
+-d, --debug          emit debugging messages
+    --in-place       overwrite input files in place
+-q, --quiet          produce fewer warnings
+    --suffix SUFFIX  suffix to append to output file name
+-t, --to-code CODE   encoding for output
+-?, --help           give this help list
+    --usage          give a short usage message
+-V, --version        print program version

@@ -1,0 +1,129 @@
+=== git ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+      [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p |
+      --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+      [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+      [--config-env=<name>=<envvar>] <command> [<args>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  command
+  args
+
+
+FLAGS (18) ─────────────────────────────────────────────────────────────────
+-v, --version
+-h, --help
+-C <path>
+-c <name>
+    --exec-path[=<path>]
+    --html-path
+    --man-path
+    --info-path
+-p
+    --paginate
+-P
+    --no-pager
+    --no-replace-objects
+    --bare
+    --git-dir <path>
+    --work-tree <path>
+    --namespace <name>
+    --config-env <name>
+
+=== git clone ===
+Clone a repository into a new directory
+
+=== git init ===
+Create an empty Git repository or reinitialize an existing one
+
+=== git add ===
+Add file contents to the index
+
+=== git mv ===
+Move or rename a file, a directory, or a symlink
+
+=== git restore ===
+Restore working tree files
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git restore [<options>] [--source=<branch>] <file>...
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  file...
+
+
+FLAGS (16) ─────────────────────────────────────────────────────────────────
+-s, --[no-]source <tree-ish>  which tree-ish to checkout from
+-S, --[no-]staged             restore the index
+-W, --[no-]worktree           restore the working tree (default)
+    --[no-]ignore-unmerged    ignore unmerged entries
+    --[no-]overlay            use overlay mode
+-q, --[no-]quiet              suppress progress reporting
+    --[no-]recurse-submodules[=<checkout>] control recursive updating of
+                              submodules
+    --[no-]progress           force progress reporting
+-m, --[no-]merge              perform a 3-way merge with the new branch
+    --[no-]conflict <style>   conflict style (merge, diff3, or zdiff3)
+-2, --ours                    checkout our version for unmerged files
+-3, --theirs                  checkout their version for unmerged files
+-p, --[no-]patch              select hunks interactively
+    --[no-]ignore-skip-worktree-bits do not limit pathspecs to sparse
+                              entries only
+    --[no-]pathspec-from-file <file> read pathspec from file
+    --[no-]pathspec-file-nul  with --pathspec-from-file, pathspec elements
+                              are separated with NUL character
+
+=== git rm ===
+Remove files from the working tree and from the index
+
+=== git bisect ===
+Use binary search to find the commit that introduced a bug
+
+=== git diff ===
+Show changes between commits, commit and working tree, etc
+
+=== git grep ===
+Print lines matching a pattern
+
+=== git log ===
+Show commit logs
+
+=== git show ===
+Show various types of objects
+
+=== git status ===
+Show the working tree status
+
+=== git branch ===
+List, create, or delete branches
+
+=== git commit ===
+Record changes to the repository
+
+=== git merge ===
+Join two or more development histories together
+
+=== git rebase ===
+Reapply commits on top of another base tip
+
+=== git reset ===
+Reset current HEAD to the specified state
+
+=== git switch ===
+Switch branches
+
+=== git tag ===
+Create, list, delete or verify a tag object signed with GPG
+
+=== git fetch ===
+Download objects and refs from another repository
+
+=== git pull ===
+Fetch from and integrate with another repository or a local branch
+
+=== git push ===
+Update remote refs along with associated objects

@@ -1,0 +1,16 @@
+=== caffeinate ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  caffeinate [-disu] [-t timeout] [-w Process ID] [command arguments...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  command arguments...
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-d
+-i
+-s
+-u
+-t timeout
+-w Process ID

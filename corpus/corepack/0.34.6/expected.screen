@@ -1,0 +1,67 @@
+=== corepack ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Corepack - 0.34.6
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  $ corepack <command>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  command
+
+=== corepack cache ===
+
+=== corepack cache clean ===
+Cleans Corepack cache
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack cache clean
+
+=== corepack disable ===
+Remove the Corepack shims from the install directory
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack disable [--install-directory #0] ...
+
+=== corepack enable ===
+Add the Corepack shims to the install directory
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack enable [--install-directory #0] ...
+
+=== corepack install ===
+Install the package manager configured in the local project
+
+
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Install package managers on the system
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack install
+  corepack install <-g,--global> [--cache-only] ...
+
+=== corepack pack ===
+Store package managers in a tarball
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack pack [--json] [-o,--output #0] ...
+
+=== corepack up ===
+Update the package manager used in the current project
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack up
+
+=== corepack use ===
+Define the package manager to use for the current project
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  corepack use <pattern>

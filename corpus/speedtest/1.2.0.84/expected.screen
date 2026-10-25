@@ -1,0 +1,85 @@
+=== speedtest ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Speedtest by Ookla is the official command line client for testing the speed
+and performance of your internet connection.
+
+Version: speedtest 1.2.0.84
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  speedtest [<options>]
+
+
+FLAGS (20) ─────────────────────────────────────────────────────────────────
+-h, --help               Print usage information
+-V, --version            Print version number
+-L, --servers            List nearest servers
+-s, --server-id #        Specify a server from the server list using its id
+-I, --interface ARG      Attempt to bind to the specified interface when
+                         connecting to servers
+-i, --ip ARG             Attempt to bind to the specified IP address when
+                         connecting to servers
+-o, --host ARG           Specify a server, from the server list, using its
+                         host's fully qualified domain name
+-p, --progress yes|no    Enable or disable progress bar (Note: only
+                         available for 'human-readable' or 'json' and
+                         defaults to yes when interactive)
+-P, --precision #        Number of decimals to use (0-8, default=2)
+-f, --format ARG         Output format (see below for valid formats) Machine
+                         readable formats (csv, tsv, json, jsonl,
+                         json-pretty) use bytes as the unit of measure with
+                         max precision
+                           values:
+                             human-readable  (default)
+                             csv
+                             tsv
+                             json
+                             jsonl
+                             json-pretty
+    --progress-update-interval # Progress update interval (100-1000
+                         milliseconds)
+-u, --unit[=ARG]         Output unit for displaying speeds (Note: this is
+                         only applicable for ‘human-readable’ output format
+                         and the default unit is Mbps)
+                           values:
+                             bps                 Decimal prefix, bits per
+                                                 second
+                             kbps                Decimal prefix, bits per
+                                                 second
+                             Mbps                Decimal prefix, bits per
+                                                 second
+                             Gbps                Decimal prefix, bits per
+                                                 second
+                             B/s                 Decimal prefix, bytes per
+                                                 second
+                             kB/s                Decimal prefix, bytes per
+                                                 second
+                             MB/s                Decimal prefix, bytes per
+                                                 second
+                             GB/s                Decimal prefix, bytes per
+                                                 second
+                             kibps               Binary prefix, bits per
+                                                 second
+                             Mibps               Binary prefix, bits per
+                                                 second
+                             Gibps               Binary prefix, bits per
+                                                 second
+                             kiB/s               Binary prefix, bytes per
+                                                 second
+                             MiB/s               Binary prefix, bytes per
+                                                 second
+                             GiB/s               Binary prefix, bytes per
+                                                 second
+                             auto-binary-bits    Auto-scaled prefix
+                             auto-binary-bytes   Auto-scaled prefix
+                             auto-decimal-bits   Auto-scaled prefix
+                             auto-decimal-bytes  Auto-scaled prefix
+-a                       Shortcut for [-u auto-decimal-bits]
+-A                       Shortcut for [-u auto-decimal-bytes]
+-b                       Shortcut for [-u auto-binary-bits]
+-B                       Shortcut for [-u auto-binary-bytes]
+    --selection-details  Show server selection details
+    --ca-certificate ARG CA Certificate bundle path
+-v                       Logging verbosity. Specify multiple times for
+                         higher verbosity
+    --output-header      Show output header for CSV and TSV formats

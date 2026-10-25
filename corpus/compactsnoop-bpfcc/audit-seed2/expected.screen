@@ -1,0 +1,24 @@
+=== compactsnoop-bpfcc ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Trace compact zone
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  compactsnoop-bpfcc [-h] [-T] [-p PID] [-d DURATION] [-K] [-e]
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-h, --help               show this help message and exit
+-T, --timestamp          include timestamp on output
+-p, --pid PID            trace this PID only
+-d, --duration DURATION  total duration of trace in seconds
+-K, --kernel-stack       output kernel stack trace
+-e, --extended_fields    show system memory state
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+./compactsnoop          # trace all compact stall
+./compactsnoop -T       # include timestamps
+./compactsnoop -d 10    # trace for 10 seconds only
+./compactsnoop -K       # output kernel stack trace
+./compactsnoop -e       # show extended fields

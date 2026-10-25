@@ -1,0 +1,16 @@
+=== pcre2-config ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  pcre2-config [--prefix] [--exec-prefix] [--version] [--libs8]
+      [--libs-posix] [--libs32] [--libs16] [--cflags] [--cflags-posix]
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+    --prefix
+    --exec-prefix
+    --version
+    --libs8
+    --libs-posix
+    --libs32
+    --libs16
+    --cflags
+    --cflags-posix

@@ -1,0 +1,72 @@
+=== autom4te ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  autom4te [OPTION]... [FILES]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  FILES
+
+
+FLAGS (17) ─────────────────────────────────────────────────────────────────
+Operation modes
+-h, --help                 print this help, then exit
+-V, --version              print version number, then exit
+-v, --verbose              verbosely report processing
+-d, --debug                don't remove temporary files
+-o, --output FILE          save output in FILE (defaults to '-', stdout)
+-f, --force                don't rely on cached values
+-W, --warnings CATEGORY    report the warnings falling in CATEGORY
+                             values:
+                               cross                  cross compilation
+                                                      issues
+                               gnu                    GNU coding standards
+                                                      (default in gnu and
+                                                      gnits modes)
+                               obsolete               obsolete features or
+                                                      constructions
+                                                      (default)
+                               override               user redefinitions of
+                                                      Automake rules or
+                                                      variables
+                               portability            portability issues
+                                                      (default in gnu and
+                                                      gnits modes)
+                               portability-recursive  nested Make variables
+                                                      (default with
+                                                      -Wportability)
+                               extra-portability      extra portability
+                                                      issues related to
+                                                      obscure tools
+                               syntax                 dubious syntactic
+                                                      constructs (default)
+                               unsupported            unsupported or
+                                                      incomplete features
+                                                      (default)
+                               all                    all the warnings
+                               no-CATEGORY            turn off warnings in
+                                                      CATEGORY
+                               none                   turn off all the
+                                                      warnings
+                               error                  treat warnings as
+                                                      errors
+-l, --language LANG        specify the set of M4 macros to use
+                             values:
+                               Autoconf  create Autoconf configure scripts
+                               Autotest  create Autotest test suites
+                               M4sh      create M4sh shell scripts
+                               M4sugar   create M4sugar output
+-C, --cache DIRECTORY      preserve results for future runs in DIRECTORY
+    --no-cache             disable the cache
+-m, --mode OCTAL           change the non trace output file mode (0666)
+-M, --melt                 don't use M4 frozen files
+
+Library directories ────────────────────────────────────────────────────────
+-B, --prepend-include DIR  prepend directory DIR to search path
+-I, --include DIR          append directory DIR to search path
+
+Tracing ────────────────────────────────────────────────────────────────────
+-t, --trace MACRO[:FORMAT] report the MACRO invocations
+-p, --preselect MACRO      prepare to trace MACRO in a future run
+
+Freezing ───────────────────────────────────────────────────────────────────
+-F, --freeze               produce an M4 frozen state file for FILES

@@ -1,0 +1,62 @@
+=== pvdisplay ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  pvdisplay [ -a|--all ] [ -c|--colon ] [ -C|--columns ] [ -m|--maps ] [
+      -o|--options String ] [ -S|--select String ] [ -s|--short ] [
+      -O|--sort String ] [ --aligned ] [ --binary ] [ --configreport
+      log|vg|lv|pv|pvseg|seg ] [ --foreign ] [ --ignorelockingfailure ] [
+      --logonly ] [ --noheadings ] [ --nosuffix ] [ --readonly ] [
+      --separator String ] [ --shared ] [ --unbuffered ] [ --units
+      [Number]r|R|h|H|b|B|s|S|k|K|m|M|g|G|t|T|p|P|e|E ] [ COMMON_OPTIONS ] [
+      PV|Tag ... ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMON_OPTIONS
+
+
+FLAGS (39) ─────────────────────────────────────────────────────────────────
+-a, --all
+-c, --colon
+-C, --columns
+-m, --maps
+-o, --options String
+-S, --select String
+-s, --short
+-O, --sort String
+    --aligned
+    --binary
+    --configreport
+                          values: log, vg, lv, pv, pvseg, seg
+    --foreign
+    --ignorelockingfailure
+    --logonly
+    --noheadings
+    --nosuffix
+    --readonly
+    --separator String
+    --shared
+    --unbuffered
+    --units [Number]
+                          values: r, R, h, H, b, B, s, S, k, K, m, M, g, G,
+                          t, T, p, P, e, E
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                          values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String

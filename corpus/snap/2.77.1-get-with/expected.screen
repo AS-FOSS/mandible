@@ -1,0 +1,42 @@
+=== snap ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+The get command prints configuration options for the provided snap.
+
+$ snap get snap-name username
+  frank
+
+If multiple option names are provided, the corresponding values are
+returned:
+
+$ snap get snap-name username password
+  Key Value
+  username frank
+  password ...
+
+Nested values may be retrieved via a dotted path:
+
+$ snap get snap-name author.name
+  frank
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  snap get [get-OPTIONS] <snap> [<key>...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  snap
+  key...
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+[get command options]
+-t                               Strict typing with nulls and quoted strings
+-d                               Always return document, even with single
+                                 key
+-l                               Always return list, even with single key
+    --default                    A strictly typed default value to be used
+                                 when none is found
+    --with <param>=<constraint>  Parameter constraints for filtering confdb
+                                 queries
+    --wait-for                   Maximum duration to wait for confdb access
+                                 (e.g. 10s)

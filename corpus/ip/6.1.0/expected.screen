@@ -1,0 +1,34 @@
+=== ip ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip [ OPTIONS ] OBJECT { COMMAND | help }
+  ip [ -force ] -batch filename
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  OBJECT
+  COMMAND
+
+
+FLAGS (21) ─────────────────────────────────────────────────────────────────
+Options
+    -V[ersion]
+    -s[tatistics]
+    -d[etails]
+    -r[esolve]
+    -h[uman-readable] | -iec | -j[son] | -p[retty] |
+    -f[amily]         { inet | inet6 | mpls | bridge | link } |
+-4
+-6
+-M
+-B
+-0
+    -l[oops]          { maximum-addr-flush-attempts } | -br[ief] |
+    -o[neline]
+    -t[imestamp]
+    -ts[hort]
+    -b[atch] [filename]
+    -rc[vbuf] [size]
+    -n[etns] name
+    -N[umeric]
+    -a[ll]
+    -c[olor]

@@ -1,0 +1,16 @@
+=== rmiregistry ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+port argument, --help, is not a number.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  rmiregistry <options> <port>
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  port
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+Where <options> includes
+-J <runtime flag>  Pass argument to the java interpreter

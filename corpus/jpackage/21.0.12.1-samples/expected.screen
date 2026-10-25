@@ -1,0 +1,13 @@
+=== jpackage ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  jpackage <options>
+
+
+FLAGS (2) ──────────────────────────────────────────────────────────────────
+-t, --type <type>  The type of package to create Valid values are:
+                   {"app-image", "rpm", "deb"} If this option is not
+                   specified a platform dependent default type will be
+                   created.
+
+Generic Options ────────────────────────────────────────────────────────────
+@<filename>

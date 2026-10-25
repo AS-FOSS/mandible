@@ -1,0 +1,7 @@
+=== corepack ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Remove the Corepack shims from the install directory
+
+
+FLAGS (1) ──────────────────────────────────────────────────────────────────
+    --install-directory #0  Where the shims are located

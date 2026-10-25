@@ -1,0 +1,15 @@
+=== ld ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ld [options] file...
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+    -assert               Ignored for SunOS compatibility
+    -Bdynamic             Link against shared libraries
+ or -dy, -call_shared
+    -Bstatic              Do not link against shared libraries
+ or -dn, -non_shared
+ or -static
+    -Bno-symbolic         Don't bind global references locally
+    -Bsymbolic            Bind global references locally
+    -Bsymbolic-functions  Bind global function references locally

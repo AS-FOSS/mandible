@@ -1,0 +1,20 @@
+=== wall ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Write a message to all users.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  wall [options] [<file> | <message>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  file
+  message
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-g, --group <group>      only send message to group
+-n, --nobanner           do not print banner, works only for root
+-t, --timeout <timeout>  write timeout in seconds
+-h, --help               display this help
+-V, --version            display version

@@ -1,0 +1,19 @@
+=== grub-set-default ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Set the default boot menu entry for GRUB. This requires setting
+GRUB_DEFAULT=saved in /etc/default/grub.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  grub-set-default [OPTION] MENU_ENTRY
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  MENU_ENTRY
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-h, --help                print this message and exit
+-V, --version             print the version information and exit
+    --boot-directory DIR  expect GRUB images under the directory DIR/grub
+                          instead of the /boot/grub directory

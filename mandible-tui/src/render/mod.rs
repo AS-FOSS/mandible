@@ -15,6 +15,7 @@ mod search_bar;
 mod status_bar;
 mod tree_pane;
 
+pub use detail_pane::page_text;
 pub(crate) use detail_pane::{PageCache, ReflowAnchor};
 
 use crate::app::App;

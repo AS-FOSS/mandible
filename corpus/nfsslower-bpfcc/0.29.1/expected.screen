@@ -1,0 +1,18 @@
+=== nfsslower-bpfcc ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Trace READ, WRITE, OPEN, GETATTR and COMMIT NFS calls slower than a
+threshold,supports NFSv{3,4}
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  nfsslower-bpfcc [-h] [-j] [-p PID] [min_ms]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  min_ms  Minimum IO duration to trace in ms (default=10ms)
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-h, --help     show this help message and exit
+-j, --csv      just print fields: comma-separated values
+-p, --pid PID  Trace this pid only

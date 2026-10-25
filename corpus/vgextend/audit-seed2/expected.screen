@@ -1,0 +1,54 @@
+=== vgextend ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  vgextend VG PV ... [ -A|--autobackup y|n ] [ -f|--force ] [ -Z|--zero y|n
+      ] [ -M|--metadatatype lvm2 ] [ --labelsector Number ] [ --metadatasize
+      Size[m|UNIT] ] [ --pvmetadatacopies 0|1|2 ] [ --metadataignore y|n ] [
+      --dataalignment Size[k|UNIT] ] [ --dataalignmentoffset Size[k|UNIT] ]
+      [ --reportformat basic|json ] [ --restoremissing ] [ COMMON_OPTIONS ]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  VG
+  PV
+  COMMON_OPTIONS
+
+
+FLAGS (30) ─────────────────────────────────────────────────────────────────
+-A, --autobackup
+                               values: y, n
+-f, --force
+-Z, --zero
+                               values: y, n
+-M, --metadatatype lvm2
+    --labelsector Number
+    --metadatasize Size[m|UNIT]
+    --pvmetadatacopies
+                               values: 0, 1, 2
+    --metadataignore
+                               values: y, n
+    --dataalignment Size[k|UNIT]
+    --dataalignmentoffset Size[k|UNIT]
+    --reportformat
+                               values: basic, json
+    --restoremissing
+
+Common options for lvm ─────────────────────────────────────────────────────
+-d, --debug
+-h, --help
+-q, --quiet
+-v, --verbose
+-y, --yes
+-t, --test
+    --commandprofile String
+    --config String
+    --driverloaded
+                               values: y, n
+    --nolocking
+    --lockopt String
+    --longhelp
+    --profile String
+    --version
+    --devicesfile String
+    --devices PV
+    --nohints
+    --journal String
