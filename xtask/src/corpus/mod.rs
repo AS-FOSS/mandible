@@ -57,6 +57,7 @@ mod not_attach_choices;
 mod refill_contract;
 mod report;
 mod runner;
+mod screen;
 mod subcommand;
 mod summary;
 
@@ -64,6 +65,7 @@ pub(crate) use contract::*;
 pub(crate) use markdown::*;
 pub(crate) use report::*;
 pub(crate) use runner::*;
+pub(crate) use screen::*;
 pub(crate) use summary::*;
 
 /// Mechanical net for the O(n²)-in-a-loop class of bug (AGENTS.md: a
@@ -613,6 +615,10 @@ impl Fixture {
 
     fn expected_snap_path(&self) -> PathBuf {
         self.dir.join("expected.snap")
+    }
+
+    fn expected_screen_path(&self) -> PathBuf {
+        self.dir.join("expected.screen")
     }
 
     /// Build the [`Transcript`] this fixture's tiers will replay against,

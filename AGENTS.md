@@ -89,8 +89,8 @@ Read the gains and the losses as two separate numbers. A heuristic that gains
 six tools and loses two has moved four, and the two it lost are the interesting
 half. Five moved tools is evidence that the shape recurs, and the pull request
 states the count. Fewer than five may ship when the sweep-diff shows zero
-losses, the nine controls stay byte-identical, the corpus stays green, and
-every moved tool has been read against its raw help (docs/design.md §16).
+losses, every changed `expected.screen` is blessed on purpose, the corpus stays
+green, and every moved tool has been read against its raw help (docs/design.md §16).
 A flag the sweep counts as lost is a fix, not a loss, when raw help shows
 the tool never documented it and a fixture asserts it is gone.
 
@@ -130,8 +130,8 @@ its note in `meta.toml`. It never becomes a bullet in an issue. A fixture is
 executable and it survives; a bullet rots and nobody rereads it. The note says
 what looks broken and what a fix would need. See `corpus/README.md`.
 
-An xfail fixture has no `expected.snap`. `xtask corpus --bless` skips every
-`[xfail]` fixture and says so; to promote one, remove `[xfail]` first, then
+An xfail fixture has no `expected.snap` or `expected.screen`. `xtask corpus
+--bless` skips every `[xfail]` fixture and says so; to promote one, remove `[xfail]` first, then
 bless.
 
 ### 3.5 Green gates do not mean it works

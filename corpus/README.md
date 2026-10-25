@@ -33,6 +33,7 @@ corpus/<tool>/<version>/
                     # [[capture]], not by a fixed convention (see below)
   help.stderr.txt   # that capture's stderr, only when non-empty
   expected.snap     # the CommandNode tree snapshot (plain YAML — see below)
+  expected.screen   # the detail pane's page for every parsed node, as plain text
 ```
 
 `<version>` is the tool's own reported version (`git --version` → `2.43`).
@@ -56,8 +57,17 @@ distinction is what makes the ratchet work:
   broke, if a change violates them. Weakening one is allowed only by editing
   this file — an explicit, reviewable act.
 
+- `expected.screen` is the other half of the same record: the detail pane's
+  page for every parsed node of the tree, drawn by the TUI's own renderer as
+  plain text, one `=== <node path> ===` section per node. It is drawn at a
+  fixed size (pane text width 76, which a 160-column terminal gives the pane,
+  wrapping on, Unicode glyphs, the whole page, no window chrome), so a change
+  that only alters how a page is drawn shows up in the diff and fails
+  `cargo xtask corpus` until it is blessed. `--bless` rewrites it together
+  with `expected.snap`; a missing file fails a checking run.
+
 **`--bless` is a human assertion of correctness, not a mechanical accept.**
-It rewrites `expected.snap` to match whatever the parser just produced —
+It rewrites `expected.snap` and `expected.screen` to match whatever the parser just produced —
 it does not check that production against anything, and a clean `cargo
 xtask corpus` run afterward only proves the snapshot now matches itself,
 never that either one is right. Running `--bless` and committing the diff

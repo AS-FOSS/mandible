@@ -2372,6 +2372,7 @@ dependencies = [
  "clap",
  "mandible-core",
  "mandible-extract",
+ "mandible-tui",
  "rayon",
  "serde",
  "serde_yaml",
