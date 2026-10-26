@@ -1780,7 +1780,7 @@ pane.
     the built lines for the selected node and is in memory for one run only;
     nothing is written to disk. It is reused while the page key is equal:
     the selected path, the tree version, the pane width, whether the view
-    wraps, the palette, the glyph set, and the search-selected flag. The tree version moves on every
+    wraps, the pane height, the palette, the glyph set, and the search-selected flag. The tree version moves on every
     write to the tree, because the tree can only be written through
     `TreeStore`, whose write access takes a new version from a process-wide
     counter, so no two trees or writes share one. Debug builds also rebuild
@@ -1935,6 +1935,7 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Breadcrumb | Ancestors muted, leaf bold |
 | Section heading (`DESCRIPTION`, `FLAGS`) | Its own rule's shade exactly, never bolder (§9.3) |
 | Group divider | One step below the section heading, label and rule alike (§9.3) |
+| Description preview pointer (§9.3 rule 19) | The section heading's grey; the rows above it are drawn as in the full text |
 | **Flag spelling** | **Accent**, the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
 | Flag description | Default foreground |
@@ -2011,7 +2012,8 @@ sections.
 
 1. The right pane is one scrollable document of sections, rendered in this
    order and only when non-empty: `DESCRIPTION`, `USAGE`, `POSITIONALS`,
-   `FLAGS`, `MODIFIERS`, `ENVIRONMENT`, `EXAMPLES`.
+   `FLAGS`, `MODIFIERS`, `ENVIRONMENT`, `EXAMPLES`. A long command
+   description moves to the end (rule 19).
 2. Empty sections do not render, and list-section headers carry a count:
    `FLAGS (41)`, `MODIFIERS (17)`.
 3. Spellings collapse to one row: `-h, -?, -help, --help` is a single
@@ -2108,12 +2110,31 @@ sections.
     longs in printed order, then the range, so `pigz` draws
     `-11, -0 ... -9`. It stays on the main line of a stacked row, and search
     finds both of its ends.
-18. EXAMPLES is always the last section. It prints the node's `examples`
+18. EXAMPLES is the last section, except for a long description's full
+    text (rule 19). It prints the node's `examples`
     as the tool printed them: its lines, indentation and interior spacing,
     one blank row between examples, with no accent, dim or other styling of
     commands or comments. A long line wraps with its continuation rows hung
     `USAGE_HANG` columns past the line's own indent, as a wrapped USAGE form
     is, keeping interior spacing.
+19. A command's own DESCRIPTION previews when it takes more rows than half
+    the pane's inner height `H` (integer division) and the preview would
+    hide at least six of them, measured as drawn at the current width and
+    wrap mode (wrapping off counts its own lines). The preview is
+    `max(6, H / 3)` drawn rows, so 6 at 80x24, 8 at 120x30, 11 at 160x40
+    and 14 at 200x50. A pane of height zero never previews. The page then
+    opens with `DESCRIPTION · preview` in the usual heading style, then
+    those rows exactly as the full text draws them, with trailing blank
+    rows dropped and nothing faded. Two rows follow: the ellipsis alone
+    (`…`, `...` in ASCII) at the description's left edge, then
+    `↓ full description at the end` (`v` in ASCII), right-aligned in the
+    section heading's grey. The next section's heading follows that row
+    with no blank row between; every other section break keeps its two.
+    The page decides the form from its own rows alone, with no memory of
+    how it was drawn before. The whole text sits under a plain
+    `DESCRIPTION` heading as the last section, after EXAMPLES. Flag and
+    positional descriptions are never previewed. Every layout decides
+    again: a resize or the wrap toggle can turn the preview on or off.
 
 **Why.** A label in a different shade or weight from the line running out
 of it reads as two unrelated marks sharing a row, which is why a group

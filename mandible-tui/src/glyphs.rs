@@ -29,6 +29,8 @@ pub struct Glyphs {
     pub chevron_closed: char,
     /// Truncation marker.
     pub ellipsis: &'static str,
+    /// Points down at where the rest of the content is.
+    pub arrow_down: &'static str,
     /// Prefix for the search input.
     pub prompt: &'static str,
     /// Separator between breadcrumb path segments.
@@ -64,6 +66,7 @@ pub const UNICODE: Glyphs = Glyphs {
     chevron_open: '▾',
     chevron_closed: '▸',
     ellipsis: "…",
+    arrow_down: "↓",
     prompt: "›",
     breadcrumb: "›",
     dot: "·",
@@ -86,6 +89,7 @@ pub const ASCII: Glyphs = Glyphs {
     chevron_open: 'v',
     chevron_closed: '>',
     ellipsis: "...",
+    arrow_down: "v",
     prompt: ">",
     breadcrumb: ">",
     dot: "|",
@@ -144,6 +148,7 @@ mod tests {
             ASCII.more_up,
             ASCII.more_down,
             ASCII.ellipsis,
+            ASCII.arrow_down,
             ASCII.prompt,
             ASCII.breadcrumb,
             ASCII.dot,

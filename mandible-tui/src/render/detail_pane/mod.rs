@@ -1,15 +1,16 @@
 //! The detail pane: a breadcrumb header over one scrollable document of
 //! sections, in order, skipping empty ones: `DESCRIPTION`, `USAGE`,
-//! `POSITIONALS`, `FLAGS`, `MODIFIERS`, `ENVIRONMENT`, `EXAMPLES` (spec §9.3). The four
-//! list sections share one loop over [`LIST_SECTIONS`] and
-//! [`mandible_core::EntityKind`]; [`mandible_core::Entity::group`] renders
-//! as a divider, inherited entities in a final dimmed `Inherited` group.
+//! `POSITIONALS`, `FLAGS`, `MODIFIERS`, `ENVIRONMENT`, `EXAMPLES` (spec
+//! §9.3), then a long description's full text. The list sections share
+//! one loop over [`LIST_SECTIONS`]; [`mandible_core::Entity::group`]
+//! renders as a divider, inherited entities in a final `Inherited` group.
 //!
 //! Every line handed to `Paragraph` is pre-wrapped to the pane's exact
 //! width here, not by `ratatui::widgets::Wrap`: flag continuations must
 //! hang-indent at the description column (spec §9.1a) and search must
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
+mod description_preview;
 mod edges;
 mod entity;
 mod examples_section;
@@ -23,6 +24,7 @@ mod stack;
 mod usage_form;
 mod wrap;
 
+use description_preview::*;
 use edges::*;
 use entity::*;
 use examples_section::push_examples;
@@ -84,6 +86,7 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
     if inner.width == 0 || inner.height == 0 {
         return;
     }
+    app.set_pane_height(usize::from(inner.height));
 
     let Some(node) = app.selected_node() else {
         let paragraph = Paragraph::new("Nothing selected.");
@@ -597,55 +600,38 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    if let Some(description) = &node.description {
-        open_block(&mut lines, SECTION_BLANKS);
-        mark(&mut items, lines.len());
-        lines.push(heading_line_ruled(
-            "DESCRIPTION",
-            None,
-            width,
-            palette,
-            glyphs,
-        ));
-        note_rule(&mut rules, &lines, glyphs);
-        // One blank row *between* paragraphs and none after the last: the
-        // separator that closes the section belongs to whatever section
-        // opens next, and is `open_section`'s to place. An empty paragraph
-        // — what a source `\n\n\n\n` splits into — is skipped rather than
-        // rendered as a second blank row.
-        let mut first = true;
-        for paragraph_text in description.as_str().split("\n\n") {
-            if paragraph_text.trim().is_empty() {
-                continue;
-            }
-            if !first {
-                lines.push(Line::default());
-            }
-            first = false;
-            // A single `\n` inside a paragraph is structure the author
-            // marked and `Text::sanitize` kept — a bullet, an indented
-            // row, an example invocation (spec §4.1). Flowing prose has
-            // already been joined into one logical line by that point, so
-            // every break here is deliberate and each logical line is
-            // wrapped on its own, at its own indent, rather than being
-            // fed to one `split_whitespace` that would erase it. Wrapping
-            // the whole paragraph as one string is what put `grep`'s
-            // `Example:` line back in the middle of the sentence after it,
-            // after the IR had correctly separated them.
-            for logical in paragraph_text.split('\n') {
-                mark(&mut items, lines.len());
-                let indent = logical.len() - logical.trim_start().len();
-                let indent_str = " ".repeat(indent);
-                let avail = text_width.saturating_sub(indent).max(1);
-                for chunk in wrap_words(logical, avail) {
-                    lines.push(Line::from(format!("{indent_str}{chunk}")));
-                }
-            }
+    // A description that fills most of the pane previews at the top and
+    // is drawn in full as the last section (see `description_preview`).
+    let description = node
+        .description
+        .as_ref()
+        .map(|d| description_body(d.as_str(), text_width));
+    let pane_height = app.pane_height();
+    let preview = description
+        .as_ref()
+        .is_some_and(|d| wants_preview(d.lines.len(), pane_height));
+    // Blank rows above the next section: none right after a preview's
+    // pointer, two everywhere else.
+    let mut gap = SECTION_BLANKS;
+    let mut full_description = None;
+    if let Some(body) = description {
+        let mut page = Page {
+            lines: &mut lines,
+            items: &mut items,
+            rules: &mut rules,
+        };
+        if preview {
+            push_preview(&mut page, &body, (width, palette, glyphs), pane_height);
+            full_description = Some(body);
+            gap = 0;
+        } else {
+            let args = (width, palette, glyphs);
+            push_description(&mut page, "DESCRIPTION", body, args, SECTION_BLANKS);
         }
     }
 
     if !node.usage.is_empty() {
-        open_block(&mut lines, SECTION_BLANKS);
+        open_block(&mut lines, std::mem::replace(&mut gap, SECTION_BLANKS));
         mark(&mut items, lines.len());
         lines.push(heading_line_ruled("USAGE", None, width, palette, glyphs));
         note_rule(&mut rules, &lines, glyphs);
@@ -692,7 +678,7 @@ fn build_lines(
         if visible.is_empty() {
             continue;
         }
-        open_block(&mut lines, SECTION_BLANKS);
+        open_block(&mut lines, std::mem::replace(&mut gap, SECTION_BLANKS));
         mark(&mut items, lines.len());
         lines.push(heading_line_ruled(
             label,
@@ -723,7 +709,22 @@ fn build_lines(
         (width, wrap),
         palette,
         glyphs,
+        gap,
     );
+    if let Some(body) = full_description {
+        let mut page = Page {
+            lines: &mut lines,
+            items: &mut items,
+            rules: &mut rules,
+        };
+        let args = (width, palette, glyphs);
+        let gap = if node.examples.is_empty() {
+            gap
+        } else {
+            SECTION_BLANKS
+        };
+        push_description(&mut page, "DESCRIPTION", body, args, gap);
+    }
     settle_items(&mut items, lines.len());
 
     // Provenance is not rendered here at all any more: it describes where
@@ -4513,3 +4514,6 @@ mod small_terminal_tests;
 
 #[cfg(test)]
 mod reflow_tests;
+
+#[cfg(test)]
+mod description_preview_tests;

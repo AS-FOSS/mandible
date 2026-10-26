@@ -1,4 +1,4 @@
-//! The EXAMPLES section: a node's worked examples, last in the pane, each
+//! The EXAMPLES section: a node's worked examples, each
 //! line as the tool printed it (spec §9.3). No styling, so nothing here
 //! guesses which words are the command and which the comment.
 
@@ -15,11 +15,12 @@ pub(super) fn push_examples(
     (width, wrap): (usize, bool),
     palette: style::Palette,
     glyphs: Glyphs,
+    gap: usize,
 ) {
     if node.examples.is_empty() {
         return;
     }
-    open_block(lines, SECTION_BLANKS);
+    open_block(lines, gap);
     mark(items, lines.len());
     lines.push(heading_line_ruled("EXAMPLES", None, width, palette, glyphs));
     note_rule(rules, lines, glyphs);
@@ -61,6 +62,7 @@ mod tests {
             (width, true),
             style::Palette::extended(),
             crate::glyphs::UNICODE,
+            SECTION_BLANKS,
         );
         lines
             .iter()
