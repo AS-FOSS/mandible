@@ -182,6 +182,9 @@ pub struct App {
     /// positioned the pane, else `None`. Written by the renderer; `↑`/`↓`
     /// continue from it so a manual scroll starts at what is on screen.
     flag_scroll_shown: std::cell::Cell<Option<usize>>,
+    /// Rows inside the detail pane's border at the last draw; zero until one.
+    /// Decides whether a long description previews.
+    pane_height: std::cell::Cell<usize>,
     /// The detail pane's built page, reused until one of the inputs named
     /// in `PageKey` changes. In memory, this run only.
     pub(crate) page_cache: std::cell::RefCell<Option<crate::render::PageCache>>,
@@ -463,6 +466,7 @@ impl App {
             detail_max_scroll: std::cell::Cell::new(0),
             detail_viewport: std::cell::Cell::new(0),
             flag_scroll_shown: std::cell::Cell::new(None),
+            pane_height: std::cell::Cell::new(0),
             page_cache: std::cell::RefCell::new(None),
             reflow_anchor: std::cell::RefCell::new(None),
             reflow_scroll: std::cell::Cell::new(None),
@@ -1346,6 +1350,16 @@ impl App {
                 self.detail_scroll = shown;
             }
         }
+    }
+
+    /// Record the rows inside the detail pane's border, written by the renderer.
+    pub(crate) fn set_pane_height(&self, rows: usize) {
+        self.pane_height.set(rows);
+    }
+
+    /// The rows inside the detail pane's border at the last draw.
+    pub(crate) fn pane_height(&self) -> usize {
+        self.pane_height.get()
     }
 
     /// Record how far the detail pane can scroll, from the renderer.

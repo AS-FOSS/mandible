@@ -9,14 +9,15 @@ use mandible_core::FlagKey;
 
 /// Everything [`super::build_lines`] reads. A built page is reused only while all
 /// of it is equal, so a new input to `build_lines` must be added here.
-/// `tree_version` moves on every write to `app.root`; scroll, height and
-/// focus are applied after the build and the sideways offset is
+/// `tree_version` moves on every write to `app.root`; `height` decides
+/// whether the description previews. Scroll and focus are applied after the build and the sideways offset is
 /// re-applied every frame, so none of those are inputs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PageKey {
     path: Vec<String>,
     tree_version: u64,
     width: usize,
+    height: usize,
     wrap: bool,
     palette: style::Palette,
     glyphs: Glyphs,
@@ -33,6 +34,7 @@ impl PageKey {
                 .unwrap_or_default(),
             tree_version: app.root.version(),
             width,
+            height: app.pane_height(),
             wrap: app.parsed_wraps(),
             palette: app.palette,
             glyphs: app.glyphs,

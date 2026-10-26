@@ -1,5 +1,5 @@
 === argdist-bpfcc ===
-DESCRIPTION ────────────────────────────────────────────────────────────────
+DESCRIPTION · preview ──────────────────────────────────────────────────────
 Trace a function and display a summary of its parameter values.
 
 Probe specifier syntax:
@@ -11,16 +11,8 @@ Where:
         tracepoint, or USDT probe
         in exit probes: can use $retval, $entry(param), $latency
   library -- the library that contains the function
-        (leave empty for kernel functions)
-  category -- the category of the kernel tracepoint (e.g. net, sched)
-  function -- the function name to trace (or tracepoint name)
-  signature -- the function's parameters, as in the C header
-  type -- the type of the expression to collect (supports multiple)
-  expr -- the expression to collect (supports multiple)
-  filter -- the filter that is applied to collected values
-  label -- the label for this probe in the resulting output
-
-
+…
+                                               ↓ full description at the end
 USAGE ──────────────────────────────────────────────────────────────────────
   argdist-bpfcc [-h] [-p PID] [-t TID] [-z STRING_SIZE] [-i INTERVAL] [-d
       DURATION] [-n COUNT] [-v] [-c] [-T TOP] [-H specifier] [-C specifier]
@@ -131,3 +123,25 @@ argdist -I 'kernel/sched/sched.h' \
         package.  So this command needs to run at the kernel source tree
             root directory
         so that the added header file can be found by the compiler.
+
+
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Trace a function and display a summary of its parameter values.
+
+Probe specifier syntax:
+  {p,r,t,u}:{[library],category}:function(signature):type[,type...]:expr[,ex
+  pr...][:filter]][#label]
+
+Where:
+  p,r,t,u -- probe at function entry, function exit, kernel
+        tracepoint, or USDT probe
+        in exit probes: can use $retval, $entry(param), $latency
+  library -- the library that contains the function
+        (leave empty for kernel functions)
+  category -- the category of the kernel tracepoint (e.g. net, sched)
+  function -- the function name to trace (or tracepoint name)
+  signature -- the function's parameters, as in the C header
+  type -- the type of the expression to collect (supports multiple)
+  expr -- the expression to collect (supports multiple)
+  filter -- the filter that is applied to collected values
+  label -- the label for this probe in the resulting output

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A terminal under 30 columns or 10 rows shows only `Terminal too small (need 30×10). Enlarge the window or zoom out.`
 - The detail pane marks hidden rows with a bare `▲` on its top border and `▼` on its bottom border, one cell in from the right corner, in the border's own style.
 - `Esc` first returns a sideways-scrolled detail pane to column 0.
+- A command description that fills more than half the detail pane shows as a `DESCRIPTION · preview` of a third of the pane, six rows at least, at the top, with the full text as the last section.
 
 ### Changed
 
