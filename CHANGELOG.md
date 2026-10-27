@@ -36,9 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row with more than one short and one long spelling now stacks at every width: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, led by a dim `or` and lined up with the long names, beside the wrapped description.
 - The command under the cursor is read first, ahead of the background walk, once the cursor rests on it.
+- A help probe may run for 30 seconds instead of 10.
 
 ### Fixed
 
+- A slow command's page differed between launches: `git filter-branch` showed the parsed `-h` page on one launch and the man page on the next, because its `-h` sleeps 10 s and the limit was 10 s. A page whose help does not finish in time is the same every launch.
 - `r` froze the whole screen while a slow tool was re-read; the page stays usable and the new tree swaps in when it is ready.
 - The verbatim view (`t`) lagged while you scrolled and froze the screen on a slow tool, such as `git filter-branch`; it now shows the output the page was read from.
 - A row opened past the background limit stayed `⋯ loading` for good; it now loads.

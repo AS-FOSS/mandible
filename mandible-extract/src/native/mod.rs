@@ -74,8 +74,6 @@ use std::time::Duration;
 
 /// Wall-clock cap for a `detect` probe (spec §6 rule 4).
 const DETECT_TIMEOUT: Duration = Duration::from_secs(2);
-/// Wall-clock cap for an `extract_node` probe (spec §6 rule 4).
-const EXTRACT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Never probe a path deeper than this many segments below the tool root.
 /// Real command trees essentially never nest this deep [M-3].
@@ -270,9 +268,13 @@ impl NativeTier {
             return node;
         }
 
-        if let Some(candidates) =
-            probe_cobra_list(self.probe.as_ref(), tool_path, words, "", EXTRACT_TIMEOUT)
-        {
+        if let Some(candidates) = probe_cobra_list(
+            self.probe.as_ref(),
+            tool_path,
+            words,
+            "",
+            crate::exec::extract_limit(),
+        ) {
             let fingerprint = fingerprint_candidates(&candidates);
             let is_root = words.is_empty();
             if is_root {
@@ -285,9 +287,13 @@ impl NativeTier {
             }
         }
 
-        if let Some(candidates) =
-            probe_cobra_list(self.probe.as_ref(), tool_path, words, "-", EXTRACT_TIMEOUT)
-        {
+        if let Some(candidates) = probe_cobra_list(
+            self.probe.as_ref(),
+            tool_path,
+            words,
+            "-",
+            crate::exec::extract_limit(),
+        ) {
             for candidate in candidates {
                 // No description gate here: a flag candidate is already
                 // filtered by its own dash shape, and cobra emits plenty

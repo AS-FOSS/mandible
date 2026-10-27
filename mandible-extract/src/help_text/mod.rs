@@ -107,10 +107,6 @@ use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-
-/// Wall-clock cap for an `extract_node` probe (spec §6 rule 4).
-const EXTRACT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The probe label returned for a `help <word>` probe (spec §6 rule 2,
 /// docs/shapes.md S-189). [`render_argv`] turns it into the typed argv.
@@ -522,8 +518,11 @@ fn probe_help_text_reporting_flag(
             &InertArgv::HelpSubcommand {
                 words: words.to_vec(),
             },
-            EXTRACT_TIMEOUT,
+            crate::exec::extract_limit(),
         )?;
+        if out.timed_out {
+            return Err(ExtractError::TimedOut);
+        }
         if out.stdout.is_empty() && out.stderr.is_empty() {
             return Err(ExtractError::Other(format!(
                 "`help {}` printed nothing",
@@ -546,17 +545,24 @@ fn probe_help_text_reporting_flag(
         &InertArgv::HelpLongForPath {
             words: words.to_vec(),
         },
-        EXTRACT_TIMEOUT,
+        crate::exec::extract_limit(),
     )?;
 
-    if long.stdout.is_empty() && long.stderr.is_empty() {
+    // Output cut off by the cap is never read as the page: a probe that
+    // timed out is answered by `-h` alone, and a page whose help did not
+    // finish in time is reported as timed out, the same on every launch.
+    if long.timed_out || (long.stdout.is_empty() && long.stderr.is_empty()) {
         let short = probe.run(
             tool_path,
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            EXTRACT_TIMEOUT,
+            crate::exec::extract_limit(),
         )?;
+        if short.timed_out || (long.timed_out && short.stdout.is_empty() && short.stderr.is_empty())
+        {
+            return Err(ExtractError::TimedOut);
+        }
         return Ok((pick_stream(&short.stdout, &short.stderr), "-h"));
     }
 
@@ -572,15 +578,18 @@ fn probe_help_text_reporting_flag(
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            EXTRACT_TIMEOUT,
+            crate::exec::extract_limit(),
         ) {
+            if short.timed_out {
+                return Err(ExtractError::TimedOut);
+            }
             let short_text = pick_stream(&short.stdout, &short.stderr);
             if looks_like_help_output(&short_text) {
                 return Ok((short_text, "-h"));
             }
         }
-        // `-h` refused, errored, timed out, or didn't validate: keep the
-        // man page text, so this node degrades to verbatim.
+        // `-h` refused, errored, or didn't validate: keep the man page
+        // text, so this node degrades to verbatim.
     }
 
     Ok((long_text, "--help"))
@@ -628,7 +637,7 @@ fn probe_help_text_confession_aware(
         words: words.to_vec(),
         word: chosen.word.clone(),
     };
-    match probe.run(tool_path, &expand_argv, EXTRACT_TIMEOUT) {
+    match probe.run(tool_path, &expand_argv, crate::exec::extract_limit()) {
         Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
             pick_stream(&out.stdout, &out.stderr),
             format!("{} {}", chosen.flag, chosen.word),
@@ -831,8 +840,11 @@ fn raw_probe_streams(
             &InertArgv::HelpSubcommand {
                 words: words.to_vec(),
             },
-            EXTRACT_TIMEOUT,
+            crate::exec::extract_limit(),
         )?;
+        if out.timed_out {
+            return Err(ExtractError::TimedOut);
+        }
         return Ok(RawProbeOutcome::Streams(
             RawStreams::from_output(&out),
             HELP_WORD_PROBE.to_string(),
@@ -847,21 +859,22 @@ fn raw_probe_streams(
         &InertArgv::HelpLongForPath {
             words: words.to_vec(),
         },
-        EXTRACT_TIMEOUT,
+        crate::exec::extract_limit(),
     )?;
     let long_streams = RawStreams::from_output(&long);
-    if long_streams.is_empty() {
+    if long.timed_out || long_streams.is_empty() {
         let short = probe.run(
             tool_path,
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            EXTRACT_TIMEOUT,
+            crate::exec::extract_limit(),
         )?;
-        return Ok(RawProbeOutcome::Streams(
-            RawStreams::from_output(&short),
-            "-h".to_string(),
-        ));
+        let short_streams = RawStreams::from_output(&short);
+        if short.timed_out || (long.timed_out && short_streams.is_empty()) {
+            return Err(ExtractError::TimedOut);
+        }
+        return Ok(RawProbeOutcome::Streams(short_streams, "-h".to_string()));
     }
 
     if !words.is_empty() && sections::is_man_page_banner(&long_streams.merged()) {
@@ -870,15 +883,18 @@ fn raw_probe_streams(
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            EXTRACT_TIMEOUT,
+            crate::exec::extract_limit(),
         ) {
+            if short.timed_out {
+                return Err(ExtractError::TimedOut);
+            }
             let short_streams = RawStreams::from_output(&short);
             if looks_like_help_output(&short_streams.merged()) {
                 return Ok(RawProbeOutcome::Streams(short_streams, "-h".to_string()));
             }
         }
-        // `-h` was refused, errored, timed out, or didn't validate: keep
-        // the man page text, exactly as the parsing path does.
+        // `-h` was refused, errored, or didn't validate: keep the man page
+        // text, exactly as the parsing path does.
     }
 
     Ok(RawProbeOutcome::Streams(long_streams, "--help".to_string()))
@@ -913,7 +929,7 @@ fn raw_probe_streams_confession_aware(
         words: words.to_vec(),
         word: chosen.word.clone(),
     };
-    match probe.run(tool_path, &expand_argv, EXTRACT_TIMEOUT) {
+    match probe.run(tool_path, &expand_argv, crate::exec::extract_limit()) {
         Ok(out) => {
             let expanded = RawStreams::from_output(&out);
             if expanded.is_empty() {
@@ -1161,6 +1177,7 @@ fn verbatim_node(name: &str, raw: &str, detected_framework: Option<String>) -> C
 mod tests {
     use super::*;
     use crate::resolve::resolve_tool;
+    use std::time::Duration;
 
     /// Every test path is a real, structurally-known source, never an
     /// invented word, so `heading_attested: true` is honest throughout.

@@ -1128,9 +1128,19 @@ allowlist below.
 
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 
-4. **Hard wall-clock cap**, 2 s for `detect`, 10 s for `extract_node`. On
+4. **Hard wall-clock cap**, 2 s for `detect`, 30 s for `extract_node`. On
    expiry, kill the process group, not just the child, since a completion
    script can spawn helpers a direct-child kill would leak.
+
+   A help probe that hits the cap is a timed-out page. Its partial output is
+   never read, and the page is never answered from another probe's text:
+   `git filter-branch --help` prints a man page at once and `-h` sleeps 10 s
+   by the tool's own design, so a cap shorter than the sleep made the page
+   the parsed `-h` text on one launch and the man page on the next. The coverage sweep and the
+   audit read through `RecordingProbe` (`xtask/src/misattribution.rs`), which
+   caps every probe at 10 s, so their recorded results do not move with the
+   app's cap. The cap is read through `mandible_extract::exec::extract_limit`,
+   so one scope can change it for one request.
 
    The process group is not sufficient on its own: a program that
    daemonises (`fork`, parent exits, child `setsid`s) leaves the group and

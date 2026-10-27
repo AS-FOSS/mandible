@@ -20,6 +20,7 @@
 pub mod canary;
 pub mod containment;
 mod kept;
+mod limit;
 mod policy;
 mod probe;
 mod reap;
@@ -27,6 +28,7 @@ mod scratch_root;
 mod spawn;
 
 pub use kept::{KeptProbes, Recorder, Replay};
+pub use limit::{extract_limit, with_extract_limit, EXTRACT_LIMIT};
 pub use policy::InertArgv;
 pub use probe::{LiveProbe, Probe, Transcript};
 pub use spawn::{is_help_only_probe, run_inert, ExecError, ExecOutput, MAX_OUTPUT_BYTES};

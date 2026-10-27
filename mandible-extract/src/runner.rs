@@ -8,6 +8,7 @@
 //! Background warming (step 4) lives above this crate, in the binary's
 //! event loop.
 
+use crate::errors::ExtractError;
 use crate::exec::KeptProbes;
 use crate::resolve::{resolve_tool, ResolvedTool};
 use crate::tier::{ExtractionTier, NodeHints};
@@ -249,6 +250,7 @@ impl Runner {
         let mut candidates = vec![existing];
         let mut statuses = Vec::new();
         let mut kept = Vec::new();
+        let mut timed_out = false;
 
         for tier in &self.tiers {
             if !tier.is_incremental() {
@@ -261,7 +263,10 @@ impl Runner {
                 kept.push(probes);
                 match result {
                     Ok(node) => candidates.push(node),
-                    Err(e) => error = Some(e.to_string()),
+                    Err(e) => {
+                        timed_out |= matches!(e, ExtractError::TimedOut);
+                        error = Some(e.to_string());
+                    }
                 }
             }
             statuses.push(TierStatus {
@@ -281,6 +286,7 @@ impl Runner {
             tier_statuses: statuses,
             elapsed: start.elapsed(),
             kept: KeptProbes::concat(&kept),
+            timed_out,
         }
     }
 }
@@ -298,6 +304,9 @@ pub struct FillResult {
     /// The probes the fill ran, kept for the verbatim view. Present on a
     /// failed fill too.
     pub kept: KeptProbes,
+    /// A tier's help probe was stopped at the wall-clock cap, so the node
+    /// holds only what was already known.
+    pub timed_out: bool,
 }
 
 #[cfg(test)]

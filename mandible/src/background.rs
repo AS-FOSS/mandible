@@ -574,6 +574,7 @@ mod tests {
                 tier_statuses: Vec::new(),
                 elapsed: std::time::Duration::ZERO,
                 kept: KeptProbes::default(),
+                timed_out: false,
             },
         }
     }

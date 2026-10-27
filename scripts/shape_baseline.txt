@@ -136,7 +136,6 @@ ratio	1	mandible-extract/src/exec/spawn.rs
 ratio	1	mandible-extract/src/framework/help_text_signature.rs
 ratio	1	mandible-extract/src/framework/mod.rs
 ratio	1	mandible-extract/src/help_text/grammar.rs
-ratio	1	mandible-extract/src/help_text/mod.rs
 ratio	1	mandible-extract/src/help_text/profile.rs
 ratio	1	mandible-extract/src/help_text/sections/entry.rs
 ratio	1	mandible-extract/src/help_text/sections/flag_rows.rs

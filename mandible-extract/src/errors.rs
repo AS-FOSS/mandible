@@ -20,6 +20,12 @@ pub enum ExtractError {
     /// Running the tool under the §6 execution policy failed.
     #[error("execution failed: {0}")]
     Exec(#[from] crate::exec::ExecError),
+    /// The tool's help probe was stopped at the wall-clock cap, so the page
+    /// has no text to read (spec §6 rule 4). Never answered from another
+    /// probe's text, because which probe finished in time would then differ
+    /// from one launch to the next.
+    #[error("the help probe took too long and was stopped")]
+    TimedOut,
     /// A catch-all for tier-specific failures not covered above.
     #[error("{0}")]
     Other(String),
