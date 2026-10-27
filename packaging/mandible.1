@@ -90,6 +90,14 @@ instead of opening the TUI: which tiers detected and succeeded, node
 and flag counts, the percentage of flags with a description, and
 elapsed time. Exits non-zero if no tier produced anything.
 .TP
+.B \-\-no\-timeout
+With
+.B \-\-doctor
+or
+.BR \-\-report ,
+let every probe run as long as it needs. Without it a probe is stopped
+after 30 seconds and the timeout is reported as a failure.
+.TP
 .B \-\-completions \fISHELL\fR
 Print a shell completion script for
 .I SHELL

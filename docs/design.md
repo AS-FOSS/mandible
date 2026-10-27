@@ -1148,7 +1148,9 @@ allowlist below.
    `git filter-branch --help` prints a man page at once and `-h` sleeps 10 s
    by the tool's own design, so a cap shorter than the sleep made the page
    the parsed `-h` text on one launch and the man page on the next. `r` reads
-   a command whose last read timed out under a 2-minute cap. The coverage sweep and the
+   a command whose last read timed out under a 2-minute cap. `--doctor` and
+   `--report` take `--no-timeout` to let every probe run as long as it needs,
+   and without it report the timeout as a failure. The coverage sweep and the
    audit read through `RecordingProbe` (`xtask/src/misattribution.rs`), which
    caps every probe at 10 s, so their recorded results do not move with the
    app's cap. The cap is read through `mandible_extract::exec::extract_limit`,

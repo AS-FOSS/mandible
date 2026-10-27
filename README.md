@@ -254,6 +254,9 @@ contributed, and how much of the tool it understood. It turns "mandible is
 wrong about tool X" into "the cobra grammar mishandles Y", which is a bug
 someone can actually fix.
 
+A probe is stopped after 30 seconds and reported as a failure. `--no-timeout`
+with `--doctor` or `--report` lets every probe run as long as it needs.
+
 ### Running as root
 
 mandible refuses to start as root, printing the flag that lifts the refusal.

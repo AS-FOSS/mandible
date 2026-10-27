@@ -117,9 +117,15 @@ fn main() -> anyhow::Result<()> {
     // visible consequence is that they never gain a subcommand tree, which
     // is correct — they do not have one.
 
+    // The standard cap applies unless `--no-timeout` lifts it for the
+    // diagnostics, which run on this thread.
+    let diagnostic_limit = cli.diagnostic_limit();
+
     if let Some(report_tool) = &cli.report {
-        let loaded = pipeline::load(report_tool);
-        report::print_report(&loaded);
+        mandible_extract::exec::with_extract_limit(diagnostic_limit, || {
+            let loaded = pipeline::load(report_tool);
+            report::print_report(&loaded);
+        });
         // Unlike `--doctor` below, this never bails on an empty root: the
         // whole point of `--report` is to hand a maintainer *something*
         // paste-ready even when extraction found nothing at all — the
@@ -131,7 +137,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     if let Some(doctor_tool) = &cli.doctor {
-        let loaded = pipeline::load(doctor_tool);
+        let loaded = pipeline::load_within(doctor_tool, diagnostic_limit);
         let ok = loaded.root.is_some();
         doctor::print_report(&loaded);
         // Note: deliberately `anyhow::bail!` rather than
