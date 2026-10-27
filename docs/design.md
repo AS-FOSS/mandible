@@ -813,9 +813,16 @@ The runner:
    TUI does no extraction before its first frame.
 2. Queues the root for a background fill, then cascades: every completed
    fill queues the children it just discovered, walking the whole reachable
-   tree on a bounded pool, cancelled on quit and capped at 4096 nodes.
-3. On expand, a node not yet filled is queued at the front of that same
-   mechanism; nodes still in flight render as `⋯ loading` rows.
+   tree on a bounded pool, cancelled on quit and capped at 4096 nodes. The
+   walk is roughly breadth-first: each fill queues its children behind
+   everything already waiting. The cap stops only this walk.
+3. The row under the cursor, once the cursor has rested on it, and any node
+   the user expands, is read ahead of the queued walk when it is not yet
+   loaded: a queued node moves to the front, a node the walk never queued
+   (past the cap) takes the front slot, and a running probe is left alone.
+   Only the latest such node holds the front, so a held arrow key probes
+   nothing on the rows it passes. A node shows `⋯ loading` from the moment
+   its probe is queued until its result is spliced in.
 
 **Warming covers the whole tree, not one level ahead.**
 
@@ -823,7 +830,7 @@ The runner:
 
 **Pool sizing is one worker per core, clamped to `[2, 8]`.** The cost is a
 slower background warm, paid in time nobody is waiting on, since the
-expand path still jumps the queue.
+row under the cursor still jumps the queue.
 
 Non-incremental sources (carapace) return their full subtree at step 1.
 

@@ -35,9 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row with more than one short and one long spelling now stacks at every width: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, led by a dim `or` and lined up with the long names, beside the wrapped description.
+- The command under the cursor is read first, ahead of the background walk, once the cursor rests on it.
 
 ### Fixed
 
+- A row opened past the background limit stayed `⋯ loading` for good; it now loads.
 - [S-181] A range row reads as one flag with two ends drawn `-0 ... -9`, not as nine flags or as `-0` with the value `to`: `mandible xz`, `mandible bzip2`, `mandible savelog`, `mandible streamzip` and `mandible pigz`. Search finds both ends.
 - A value name or group heading wider than a narrow detail pane is wrapped instead of running past the border.
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.

@@ -289,6 +289,7 @@ fn run_loop(
     // finds. Nothing is extracted on the main thread, which is what makes
     // launching instant regardless of how slow the tool is to probe.
     submit_root_fill(app, &runner, &resolved, &warmer);
+    let mut asked: Option<(usize, Vec<String>)> = None;
 
     loop {
         // Splice in any background fills that completed since the last
@@ -360,6 +361,7 @@ fn run_loop(
         term.draw(|frame| render::render(frame, app))?;
 
         if !event::poll(Duration::from_millis(100))? {
+            probe_selection(app, &runner, &resolved, &warmer, &mut asked);
             continue;
         }
 
@@ -484,16 +486,7 @@ fn apply_effect(
             }
             discard_input_typed_during_the_block();
         }
-        Effect::Fill(path) => {
-            if let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() {
-                // Same redirect the background cascade applies (spec §5.4):
-                // an expand on a convention-discovered node probes that
-                // node's own binary, never the parent with a guessed word.
-                let (tool, probe_path) = crate::discovery::probe_target(&app.root, resolved, &path);
-                app.mark_pending(path.clone());
-                warmer.submit(Arc::clone(runner), tool, probe_path, path, existing);
-            }
-        }
+        Effect::Fill(path) => prioritize_path(app, runner, resolved, warmer, path),
         // Run on the UI thread rather than through the warm pool. This is
         // one probe of a node the warmer has almost certainly already
         // faulted in, so it costs tens of milliseconds; routing it through
@@ -559,14 +552,67 @@ fn submit_root_fill(
     warmer: &Warmer,
 ) {
     let root_path = vec![app.root.name.clone()];
-    app.mark_pending(root_path.clone());
-    warmer.submit(
+    let queued = warmer.submit(
         Arc::clone(runner),
         resolved.clone(),
         root_path.clone(),
-        root_path,
+        root_path.clone(),
         app.root.clone(),
     );
+    if queued {
+        app.mark_pending(root_path);
+    }
+}
+
+/// Read `path` ahead of the background walk, and show it as loading only
+/// once the probe is really queued. A node that held the front until now
+/// and will not be probed stops showing as loading.
+fn prioritize_path(
+    app: &mut App,
+    runner: &Arc<Runner>,
+    resolved: &mandible_extract::ResolvedTool,
+    warmer: &Warmer,
+    path: Vec<String>,
+) {
+    let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() else {
+        return;
+    };
+    // Same redirect the background cascade applies (spec §5.4): a node
+    // discovered by convention probes its own binary, never the parent
+    // with a guessed word.
+    let (tool, probe_path) = crate::discovery::probe_target(&app.root, resolved, &path);
+    let outcome = warmer.prioritize(Arc::clone(runner), tool, probe_path, path.clone(), existing);
+    if let Some(dropped) = outcome.dropped {
+        app.clear_pending(&dropped);
+    }
+    if outcome.accepted {
+        app.mark_pending(path);
+    }
+}
+
+/// Ask for the row under the cursor once the cursor has rested, unless it
+/// is already read or was asked for last time. Called when no input
+/// arrived during a poll, so a held arrow key asks for nothing on the rows
+/// it passes.
+fn probe_selection(
+    app: &mut App,
+    runner: &Arc<Runner>,
+    resolved: &mandible_extract::ResolvedTool,
+    warmer: &Warmer,
+    asked: &mut Option<(usize, Vec<String>)>,
+) {
+    let Some(path) = app.selected_path() else {
+        return;
+    };
+    // Keyed by generation too: a re-extract forgets what was asked.
+    let key = (warmer.generation(), path.clone());
+    if asked.as_ref() == Some(&key) {
+        return;
+    }
+    *asked = Some(key);
+    if !app.is_loaded(&path) {
+        prioritize_path(app, runner, resolved, warmer, path);
+    }
 }
 
 /// Throw away input that arrived while a blocking re-extract held the loop.
@@ -653,5 +699,28 @@ mod tests {
         assert!(app.horizontal_scroll_enabled);
 
         std::env::remove_var(CONFIG_DIR_ENV);
+    }
+
+    /// A node is shown as loading only when its probe was queued: with the
+    /// session quitting nothing is accepted, so nothing may be marked.
+    #[test]
+    fn a_refused_request_leaves_no_pending_mark() {
+        let mut root = stub();
+        root.subcommands.push(mandible_core::CommandNode::new(
+            "rebase",
+            mandible_core::Provenance::default(),
+        ));
+        let mut app = App::new("git".to_string(), root);
+        let runner = Arc::new(Runner::new(Vec::new()));
+        let resolved = mandible_extract::resolve_tool("git");
+        let warmer = Warmer::new();
+        warmer.cancel();
+        let path = vec!["git".to_string(), "rebase".to_string()];
+        prioritize_path(&mut app, &runner, &resolved, &warmer, path.clone());
+        assert!(!app.is_pending(&path));
+
+        let live = Warmer::new();
+        prioritize_path(&mut app, &runner, &resolved, &live, path.clone());
+        assert!(app.is_pending(&path), "control: an accepted request marks");
     }
 }

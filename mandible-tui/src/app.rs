@@ -918,6 +918,13 @@ impl App {
         self.filled.contains(path) && !self.pending.contains(path)
     }
 
+    /// True if `path` has been read, or came back already holding its
+    /// children: nothing more is owed for it.
+    pub fn is_loaded(&self, path: &[String]) -> bool {
+        self.filled.contains(path)
+            || mandible_core::resolve(&self.root, path).is_some_and(|n| n.children_filled)
+    }
+
     /// True if `path` is currently being lazily filled.
     pub fn is_pending(&self, path: &[String]) -> bool {
         self.pending.contains(path)
