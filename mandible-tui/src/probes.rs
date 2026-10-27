@@ -208,6 +208,14 @@ impl Probes {
         matches!(self.map.get(path), Some(Probe::Waiting { .. }))
     }
 
+    /// Queued or running with no earlier result to show.
+    pub fn first_read(&self, path: &[String]) -> bool {
+        matches!(
+            self.map.get(path),
+            Some(Probe::Waiting { before: None, .. })
+        )
+    }
+
     /// On a worker now.
     pub fn is_running(&self, path: &[String]) -> bool {
         matches!(

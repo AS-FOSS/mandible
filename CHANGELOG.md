@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- While a command's help is being read for the first time, its page in the parsed view and in the verbatim view says `Reading this command's help…`; the verbatim view used to say `running the probe…` and the parsed page was blank.
 - An optional value draws its brackets around what may be left out, joiner included: `--color[=WHEN]` for `grep`, `-O[N]` for `nvim`, `--explain [LINT]` for `cargo-clippy`. A required value still reads `--max-count NUM`. A row written `--log-file=[PATH]` is now the optional value `PATH` instead of a value named `[PATH]`.
 - [S-231] `krb5-config` lists the `Libraries:` values under its `LIBRARIES` operand instead of under `--libs`, and a positional's values show under it as a flag's do.
 - The search box title reads `search · names` instead of `search [names]`, and the `--review` bar reads `REVIEW tool · stratum`: square brackets in mandible's own text always mean may be left out.

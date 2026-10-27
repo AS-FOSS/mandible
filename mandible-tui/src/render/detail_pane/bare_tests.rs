@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::probes::{FillEnd, Outcome};
-use mandible_core::notice::{NO_FURTHER_HELP_NOTICE, TIMED_OUT_NOTICE};
+use mandible_core::notice::{NO_FURTHER_HELP_NOTICE, READING_NOTICE, TIMED_OUT_NOTICE};
 use mandible_core::{Provenance, Source, Text};
 use mandible_extract::KeptProbes;
 use ratatui::backend::TestBackend;
@@ -252,4 +252,96 @@ fn the_timed_out_notice_wraps_at_the_pane_width() {
     let joined = rows.join("\n");
     assert!(joined.contains("Press r to try again"), "{joined}");
     assert!(rows.iter().all(|r| r.chars().count() <= 40));
+}
+
+fn has_reading_line(app: &App) -> bool {
+    screen(app).contains(READING_NOTICE)
+}
+
+#[test]
+fn a_first_read_in_flight_shows_the_loading_line_under_the_summary() {
+    let mut app = app_over(child(Some("Runs a script")));
+    assert!(!has_reading_line(&app));
+    app.mark_pending(start());
+    let text = screen(&app);
+    assert!(text.contains("Runs a script"), "{text}");
+    assert!(text.contains(READING_NOTICE), "{text}");
+    app.mark_running(&start());
+    assert!(has_reading_line(&app));
+}
+
+#[test]
+fn the_startup_root_shows_the_loading_line() {
+    let root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+    let mut app = App::new("tool".to_string(), root);
+    app.mark_pending(vec!["tool".to_string()]);
+    assert!(has_reading_line(&app));
+}
+
+#[test]
+fn a_re_read_keeps_the_old_page_without_the_loading_line() {
+    let mut app = app_over(child(Some("Runs a script")));
+    finish(&mut app, child(Some("Runs a script")), FillEnd::TimedOut);
+    app.mark_pending(start());
+    assert!(!has_reading_line(&app));
+    let mut read = child(Some("Runs a script"));
+    read.description = Some(Text::sanitize("Does the work."));
+    finish(&mut app, read, FillEnd::Read);
+    app.mark_pending(start());
+    assert!(!has_reading_line(&app));
+}
+
+#[test]
+fn a_loaded_page_has_no_loading_line() {
+    let mut app = app_over(child(Some("Runs a script")));
+    app.mark_pending(start());
+    finish(&mut app, child(Some("Runs a script")), FillEnd::Read);
+    assert!(!has_reading_line(&app));
+    let mut read = child(Some("Runs a script"));
+    read.description = Some(Text::sanitize("Does the work."));
+    let mut app = app_over(read);
+    app.mark_pending(start());
+    assert!(!has_reading_line(&app));
+}
+
+#[test]
+fn the_loading_line_gives_way_to_every_other_notice() {
+    let mut node = child(Some("Runs a script"));
+    node.same_as_ancestor = true;
+    let mut app = app_over(node);
+    app.mark_pending(start());
+    let text = screen(&app);
+    assert!(
+        text.contains("prints the same help as its parent"),
+        "{text}"
+    );
+    assert!(!text.contains(READING_NOTICE), "{text}");
+
+    let mut app = app_over(child(Some("Runs a script")));
+    app.mark_pending(start());
+    let text = screen(&app);
+    assert!(!has_notice(&app) && !has_timed_out_notice(&app), "{text}");
+}
+
+#[test]
+fn the_loading_line_wraps_like_the_other_notices() {
+    let mut app = app_over(child(Some("Runs a script")));
+    app.mark_pending(start());
+    let mut terminal = Terminal::new(TestBackend::new(24, 24)).unwrap();
+    terminal
+        .draw(|frame| {
+            let area = frame.area();
+            render(frame, area, &app);
+        })
+        .unwrap();
+    let rows: Vec<String> = terminal
+        .backend()
+        .buffer()
+        .content()
+        .chunks(24)
+        .map(|r| r.iter().map(|c| c.symbol()).collect::<String>())
+        .collect();
+    let joined = rows.join("\n");
+    assert!(joined.contains("help"), "{joined}");
+    assert!(!joined.contains(READING_NOTICE), "{joined}");
 }

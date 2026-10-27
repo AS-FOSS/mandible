@@ -3204,7 +3204,14 @@ the same place, the same style and the same wrapping, `Reading this
 command's help took longer than 30 seconds, so it was stopped. Press r to try
 again with more time.` (`mandible_core::notice::TIMED_OUT_NOTICE`). A page
 carries one notice: the repeated-parent notice first, then the timed-out one,
-then the empty one. A node being read again shows none until the result lands.
+then the empty one, then the reading one. A node being read again shows none
+until the result lands.
+
+A page whose command is queued or running with no earlier result, and that
+holds nothing past its summary, gets `Reading this command's help…`
+(`mandible_core::notice::READING_NOTICE`) in the same place and style. The
+startup root shows it too. A re-read shows the old page without it. The
+verbatim view shows the same text while its fetch is waiting.
 
 **A snap launcher can fail before the target program ever runs
 (2026-09-04).** `lxd.check-kernel`'s `--help` reached a snap launcher,

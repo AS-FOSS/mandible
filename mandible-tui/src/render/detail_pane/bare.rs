@@ -50,6 +50,13 @@ pub(super) fn page_timed_out(app: &App) -> bool {
         && app.probe_outcome(&row.path) == Some(crate::probes::Outcome::TimedOut)
 }
 
+/// Whether the page `app` is drawing for `node` is waiting on its first
+/// read and holds nothing past its summary.
+pub(super) fn page_is_reading(node: &CommandNode, app: &App) -> bool {
+    app.selected_row()
+        .is_some_and(|row| app.is_first_read(&row.path) && is_empty_page(node))
+}
+
 /// Push the notice below the summary, wrapped like the repeated-ancestor one.
 pub(super) fn push_notice(page: &mut Page<'_>, notice: &str, text_width: usize) {
     open_block(page.lines, SECTION_BLANKS);

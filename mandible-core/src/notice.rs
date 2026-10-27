@@ -37,6 +37,10 @@ pub const NO_FURTHER_HELP_NOTICE: &str =
 pub const TIMED_OUT_NOTICE: &str =
     "Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.";
 
+/// The line a command shows while its help is being read for the first
+/// time, in the parsed view and in the verbatim view.
+pub const READING_NOTICE: &str = "Reading this command's help…";
+
 /// The notice a same-as-ancestor node's detail pane shows in place of its
 /// usage/children/flags (spec [M-19], docs/design.md §16's ruling): this
 /// command's own `--help` fingerprinted as byte-identical to an ancestor's,

@@ -932,6 +932,11 @@ impl App {
             || mandible_core::resolve(&self.root, path).is_some_and(|n| n.children_filled)
     }
 
+    /// True if `path` is being read now and has no earlier result.
+    pub fn is_first_read(&self, path: &[String]) -> bool {
+        self.probes.first_read(path)
+    }
+
     /// True if `path` is currently being lazily filled.
     pub fn is_pending(&self, path: &[String]) -> bool {
         self.probes.in_flight(path)

@@ -26,7 +26,7 @@ mod usage_form;
 mod wrap;
 
 pub(crate) use bare::is_empty_page;
-use bare::{page_is_bare, page_timed_out, push_notice};
+use bare::{page_is_bare, page_is_reading, page_timed_out, push_notice};
 use description_preview::*;
 use edges::*;
 use entity::*;
@@ -285,7 +285,7 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
                 inner,
                 app,
                 &heading,
-                std::iter::once("running the probe…".to_string()),
+                std::iter::once(mandible_core::notice::READING_NOTICE.to_string()),
             );
         }
         crate::app::RawHelp::Ready(lines, _) => {
@@ -603,12 +603,15 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    // One notice per page: a probe stopped at the time limit says so, and
-    // only a page that read fine and holds nothing says it has nothing.
+    // One notice per page: a probe stopped at the time limit says so, a
+    // page that read fine and holds nothing says it has nothing, and a
+    // first read still waiting says so.
     let notice = if page_timed_out(app) {
         Some(mandible_core::notice::TIMED_OUT_NOTICE)
     } else if page_is_bare(node, app) {
         Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+    } else if page_is_reading(node, app) {
+        Some(mandible_core::notice::READING_NOTICE)
     } else {
         None
     };
@@ -3503,7 +3506,11 @@ mod tests {
         app.mark_raw_pending(path.clone());
         let pending = screen(&app);
         assert!(pending.contains("verbatim"), "{pending}");
-        assert!(pending.contains("running the probe"), "{pending}");
+        assert!(
+            pending.contains(mandible_core::notice::READING_NOTICE),
+            "{pending}"
+        );
+        assert!(!pending.contains("running the probe"), "{pending}");
 
         app.set_raw_help(
             path.clone(),
