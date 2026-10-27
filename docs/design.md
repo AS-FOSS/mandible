@@ -1147,14 +1147,19 @@ allowlist below.
    never read, and the page is never answered from another probe's text:
    `git filter-branch --help` prints a man page at once and `-h` sleeps 10 s
    by the tool's own design, so a cap shorter than the sleep made the page
-   the parsed `-h` text on one launch and the man page on the next. `r` reads
-   a command whose last read timed out under a 2-minute cap. `--doctor` and
+   the parsed `-h` text on one launch and the man page on the next. The cap is
+   the total for one read of one command, every help form together: each later
+   form gets what is left, and once nothing is left no further form is
+   started and the read is recorded as timed out. `r` reads
+   a command whose last read timed out under a 2-minute cap, also in total. `--doctor` and
    `--report` take `--no-timeout` to let every probe run as long as it needs,
    and without it report the timeout as a failure. The coverage sweep and the
    audit read through `RecordingProbe` (`xtask/src/misattribution.rs`), which
    caps every probe at 10 s, so their recorded results do not move with the
-   app's cap. The cap is read through `mandible_extract::exec::extract_limit`,
-   so one scope can change it for one request.
+   app's cap. A scope (`mandible_extract::exec::with_extract_limit`) sets the
+   limit for each read inside it, and tiers run their probes through
+   `exec::run_probe`, which hands each probe what is left of the read's limit.
+   Outside a scope each probe has the default cap to itself.
 
    The process group is not sufficient on its own: a program that
    daemonises (`fork`, parent exits, child `setsid`s) leaves the group and

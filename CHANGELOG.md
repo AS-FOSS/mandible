@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `Esc` first returns a sideways-scrolled detail pane to column 0.
 - A command description that fills more than half the detail pane shows as a `DESCRIPTION · preview` of a third of the pane, six rows at least, at the top, with the full text as the last section.
 - A command whose page holds nothing past its summary, such as `pnpm start` or `git citool`, shows `No further help was read for this command. Press t to see what it printed.`
-- A command whose help took longer than 30 seconds shows `Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.`, and `r` then reads it under a 2-minute limit.
+- A command whose help took longer than 30 seconds shows `Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.`, and `r` then reads it under a 2-minute limit. The 30 seconds are the total for reading one command, `--help` and `-h` together, so the notice appears 30 seconds after the read starts.
 - `--doctor` and `--report` take `--no-timeout` to let every probe run as long as it needs; without it a probe is stopped after 30 seconds and reported as a failure.
 
 ### Changed

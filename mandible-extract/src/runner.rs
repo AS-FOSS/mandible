@@ -172,6 +172,10 @@ impl Runner {
     /// Same as [`Self::extract_full`] but for an already-resolved tool,
     /// useful when the caller already paid for `PATH` resolution.
     pub fn extract_full_for(&self, resolved: &ResolvedTool) -> ExtractionResult {
+        crate::exec::within_read(|| self.extract_root(resolved)).0
+    }
+
+    fn extract_root(&self, resolved: &ResolvedTool) -> ExtractionResult {
         let start = Instant::now();
         let root_path = vec![resolved.name.clone()];
         let mut statuses = Vec::with_capacity(self.tiers.len());
@@ -186,6 +190,14 @@ impl Runner {
         };
 
         for tier in &self.tiers {
+            if crate::exec::read_spent() {
+                statuses.push(TierStatus {
+                    tier: tier.name(),
+                    detected: false,
+                    error: Some(ExtractError::TimedOut.to_string()),
+                });
+                continue;
+            }
             let detected = tier.detect(resolved);
             let mut error = None;
             if detected {
@@ -237,6 +249,18 @@ impl Runner {
         path: &[String],
         existing: CommandNode,
     ) -> FillResult {
+        let (mut filled, cut) =
+            crate::exec::within_read(|| self.fill_within_read(resolved, path, existing));
+        filled.timed_out |= cut;
+        filled
+    }
+
+    fn fill_within_read(
+        &self,
+        resolved: &ResolvedTool,
+        path: &[String],
+        existing: CommandNode,
+    ) -> FillResult {
         let start = Instant::now();
         // `existing` already carries whatever the last merge decided about
         // this node's provenance (spec §4.4), so it's the correct source
@@ -255,6 +279,10 @@ impl Runner {
         for tier in &self.tiers {
             if !tier.is_incremental() {
                 continue;
+            }
+            if crate::exec::read_spent() {
+                timed_out = true;
+                break;
             }
             let detected = tier.detect(resolved);
             let mut error = None;

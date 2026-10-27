@@ -183,7 +183,15 @@ impl ExtractionTier for NativeTier {
         if !self.evidence.speaks_cobra(tool) {
             return false;
         }
-        if probe_cobra_list(self.probe.as_ref(), tool_path, &[], "", DETECT_TIMEOUT).is_some() {
+        if probe_cobra_list(
+            self.probe.as_ref(),
+            tool_path,
+            &[],
+            "",
+            Some(DETECT_TIMEOUT),
+        )
+        .is_some()
+        {
             self.set_protocol(&tool.name, Protocol::Cobra);
             return true;
         }
@@ -268,13 +276,8 @@ impl NativeTier {
             return node;
         }
 
-        if let Some(candidates) = probe_cobra_list(
-            self.probe.as_ref(),
-            tool_path,
-            words,
-            "",
-            crate::exec::extract_limit(),
-        ) {
+        if let Some(candidates) = probe_cobra_list(self.probe.as_ref(), tool_path, words, "", None)
+        {
             let fingerprint = fingerprint_candidates(&candidates);
             let is_root = words.is_empty();
             if is_root {
@@ -287,13 +290,8 @@ impl NativeTier {
             }
         }
 
-        if let Some(candidates) = probe_cobra_list(
-            self.probe.as_ref(),
-            tool_path,
-            words,
-            "-",
-            crate::exec::extract_limit(),
-        ) {
+        if let Some(candidates) = probe_cobra_list(self.probe.as_ref(), tool_path, words, "-", None)
+        {
             for candidate in candidates {
                 // No description gate here: a flag candidate is already
                 // filtered by its own dash shape, and cobra emits plenty
@@ -313,25 +311,25 @@ impl NativeTier {
 /// Run `<tool> <words...> <trailing>` as `InertArgv::CobraComplete` and
 /// parse the response, returning `None` if the output doesn't look like a
 /// genuine cobra completion response (no `:N` directive line found).
+/// `fixed` is the probe's own cap (detect); `None` runs it inside the read's limit.
 fn probe_cobra_list(
     probe: &dyn Probe,
     tool_path: &Path,
     words: &[String],
     trailing: &str,
-    timeout: Duration,
+    fixed: Option<Duration>,
 ) -> Option<Vec<Candidate>> {
     let mut argv_words = words.to_vec();
     // The empty word is required by cobra's protocol, not incidental.
     // Safe here: never the first positional, always shielded behind the
     // `__complete` sentinel, which a non-cobra tool rejects. Spec §6 rule 2a.
     argv_words.push(trailing.to_string());
-    let out = probe
-        .run(
-            tool_path,
-            &InertArgv::CobraComplete { words: argv_words },
-            timeout,
-        )
-        .ok()?;
+    let argv = InertArgv::CobraComplete { words: argv_words };
+    let out = match fixed {
+        Some(timeout) => probe.run(tool_path, &argv, timeout),
+        None => crate::exec::run_probe(probe, tool_path, &argv),
+    }
+    .ok()?;
     parse_cobra_response(&out.stdout)
 }
 

@@ -2,7 +2,7 @@
 //! a command, standing in for a slow tool.
 
 use mandible_core::{Authority, CommandNode, Provenance, Source};
-use mandible_extract::exec::extract_limit;
+use mandible_extract::exec::read_limit;
 use mandible_extract::{ExtractError, ExtractionTier, NodeHints, ResolvedTool, Runner};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Condvar, Mutex};
@@ -126,7 +126,7 @@ impl ExtractionTier for SpyTier {
     ) -> Result<CommandNode, ExtractError> {
         let word = path.last().cloned().unwrap_or_default();
         let mut state = self.0.state.lock().unwrap();
-        state.calls.push((path.to_vec(), extract_limit()));
+        state.calls.push((path.to_vec(), read_limit()));
         let end = Instant::now() + Duration::from_secs(15);
         while state.held.contains(&word) && Instant::now() < end {
             state = self

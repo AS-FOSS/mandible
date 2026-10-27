@@ -513,12 +513,12 @@ fn probe_help_text_reporting_flag(
         && !hints.abbrev_probe_attested
         && hints.help_word_attested
     {
-        let out = probe.run(
+        let out = crate::exec::run_probe(
+            probe,
             tool_path,
             &InertArgv::HelpSubcommand {
                 words: words.to_vec(),
             },
-            crate::exec::extract_limit(),
         )?;
         if out.timed_out {
             return Err(ExtractError::TimedOut);
@@ -540,24 +540,24 @@ fn probe_help_text_reporting_flag(
         )));
     }
 
-    let long = probe.run(
+    let long = crate::exec::run_probe(
+        probe,
         tool_path,
         &InertArgv::HelpLongForPath {
             words: words.to_vec(),
         },
-        crate::exec::extract_limit(),
     )?;
 
     // Output cut off by the cap is never read as the page: a probe that
     // timed out is answered by `-h` alone, and a page whose help did not
     // finish in time is reported as timed out, the same on every launch.
     if long.timed_out || (long.stdout.is_empty() && long.stderr.is_empty()) {
-        let short = probe.run(
+        let short = crate::exec::run_probe(
+            probe,
             tool_path,
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            crate::exec::extract_limit(),
         )?;
         if short.timed_out || (long.timed_out && short.stdout.is_empty() && short.stderr.is_empty())
         {
@@ -573,12 +573,12 @@ fn probe_help_text_reporting_flag(
     // `words`, so reaching this line with `words` non-empty means it's
     // attested by construction.
     if !words.is_empty() && sections::is_man_page_banner(&long_text) {
-        if let Ok(short) = probe.run(
+        if let Ok(short) = crate::exec::run_probe(
+            probe,
             tool_path,
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            crate::exec::extract_limit(),
         ) {
             if short.timed_out {
                 return Err(ExtractError::TimedOut);
@@ -637,7 +637,7 @@ fn probe_help_text_confession_aware(
         words: words.to_vec(),
         word: chosen.word.clone(),
     };
-    match probe.run(tool_path, &expand_argv, crate::exec::extract_limit()) {
+    match crate::exec::run_probe(probe, tool_path, &expand_argv) {
         Ok(out) if !out.stdout.is_empty() || !out.stderr.is_empty() => Ok((
             pick_stream(&out.stdout, &out.stderr),
             format!("{} {}", chosen.flag, chosen.word),
@@ -706,7 +706,7 @@ pub fn raw_help(
     path: &[String],
     hints: NodeHints,
 ) -> Result<(Vec<Text>, String), ExtractError> {
-    raw_help_with_probe(&LiveProbe, tool, path, hints)
+    crate::exec::within_read(|| raw_help_with_probe(&LiveProbe, tool, path, hints)).0
 }
 
 /// [`raw_help`], but against an explicit [`Probe`] — the seam a corpus
@@ -835,12 +835,12 @@ fn raw_probe_streams(
         && !hints.abbrev_probe_attested
         && hints.help_word_attested
     {
-        let out = probe.run(
+        let out = crate::exec::run_probe(
+            probe,
             tool_path,
             &InertArgv::HelpSubcommand {
                 words: words.to_vec(),
             },
-            crate::exec::extract_limit(),
         )?;
         if out.timed_out {
             return Err(ExtractError::TimedOut);
@@ -854,21 +854,21 @@ fn raw_probe_streams(
         return Ok(RawProbeOutcome::NotAttested);
     }
 
-    let long = probe.run(
+    let long = crate::exec::run_probe(
+        probe,
         tool_path,
         &InertArgv::HelpLongForPath {
             words: words.to_vec(),
         },
-        crate::exec::extract_limit(),
     )?;
     let long_streams = RawStreams::from_output(&long);
     if long.timed_out || long_streams.is_empty() {
-        let short = probe.run(
+        let short = crate::exec::run_probe(
+            probe,
             tool_path,
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            crate::exec::extract_limit(),
         )?;
         let short_streams = RawStreams::from_output(&short);
         if short.timed_out || (long.timed_out && short_streams.is_empty()) {
@@ -878,12 +878,12 @@ fn raw_probe_streams(
     }
 
     if !words.is_empty() && sections::is_man_page_banner(&long_streams.merged()) {
-        if let Ok(short) = probe.run(
+        if let Ok(short) = crate::exec::run_probe(
+            probe,
             tool_path,
             &InertArgv::HelpShortForPath {
                 words: words.to_vec(),
             },
-            crate::exec::extract_limit(),
         ) {
             if short.timed_out {
                 return Err(ExtractError::TimedOut);
@@ -929,7 +929,7 @@ fn raw_probe_streams_confession_aware(
         words: words.to_vec(),
         word: chosen.word.clone(),
     };
-    match probe.run(tool_path, &expand_argv, crate::exec::extract_limit()) {
+    match crate::exec::run_probe(probe, tool_path, &expand_argv) {
         Ok(out) => {
             let expanded = RawStreams::from_output(&out);
             if expanded.is_empty() {

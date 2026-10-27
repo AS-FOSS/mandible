@@ -380,11 +380,8 @@ pub fn probe_and_merge(
     root_subcommands: &mut Vec<CommandNode>,
 ) {
     for option in listing_options(raw, tool) {
-        let Ok(out) = probe.run(
-            tool_path,
-            &InertArgv::HelpListing { option },
-            crate::exec::extract_limit(),
-        ) else {
+        let Ok(out) = crate::exec::run_probe(probe, tool_path, &InertArgv::HelpListing { option })
+        else {
             continue;
         };
         let text = pick_stream(&out.stdout, &out.stderr);

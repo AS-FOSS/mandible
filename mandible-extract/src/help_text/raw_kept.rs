@@ -26,7 +26,7 @@ pub fn raw_help_kept(
 
 /// Run the probes the verbatim view needs for `path` and keep them.
 pub fn probe_raw(tool: &ResolvedTool, path: &[String], hints: NodeHints) -> KeptProbes {
-    probe_raw_with(&LiveProbe, tool, path, hints)
+    crate::exec::within_read(|| probe_raw_with(&LiveProbe, tool, path, hints)).0
 }
 
 /// [`probe_raw`] against an explicit [`Probe`].
