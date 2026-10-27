@@ -25,6 +25,7 @@ FLAGS (15) ───────────────────────
     --units <units>
 
 === dmstats help ===
+No further help was read for this command. Press t to see what it printed.
 
 === dmstats clear ===
 FLAGS (3) ──────────────────────────────────────────────────────────────────
@@ -121,3 +122,4 @@ FLAGS (3) ───────────────────────�
     --follow mode
 
 === dmstats version ===
+No further help was read for this command. Press t to see what it printed.
