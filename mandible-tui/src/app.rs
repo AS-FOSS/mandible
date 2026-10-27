@@ -120,6 +120,10 @@ pub struct App {
     /// and drained by the caller (the binary's event loop), which owns
     /// the actual extraction I/O; `App` itself never spawns anything.
     pending: HashSet<Vec<String>>,
+    /// Paths whose fill has completed, whatever it found: a failed probe
+    /// splices its node like any other. Never queued past the warming cap
+    /// means never in here.
+    filled: HashSet<Vec<String>>,
     /// The flattened, currently-visible row list. Rebuilt only when
     /// `dirty` (spec §9: "The flattened row list is cached").
     rows: Vec<TreeRow>,
@@ -451,6 +455,7 @@ impl App {
             root: crate::tree_store::TreeStore::new(root),
             expanded,
             pending: HashSet::new(),
+            filled: HashSet::new(),
             rows: Vec::new(),
             dirty: true,
             selected: 0,
@@ -908,6 +913,11 @@ impl App {
         self.detail_max_scroll.get()
     }
 
+    /// True once a fill for `path` has completed and none is in flight.
+    pub fn fill_finished(&self, path: &[String]) -> bool {
+        self.filled.contains(path) && !self.pending.contains(path)
+    }
+
     /// True if `path` is currently being lazily filled.
     pub fn is_pending(&self, path: &[String]) -> bool {
         self.pending.contains(path)
@@ -920,6 +930,7 @@ impl App {
     /// visible rather than requiring a second expand press.
     pub fn splice_filled_node(&mut self, path: &[String], node: CommandNode) {
         self.pending.remove(path);
+        self.filled.insert(path.to_vec());
         if let Some(slot) = mandible_core::resolve_mut(self.root.edit(), path) {
             *slot = node;
         }
@@ -1138,6 +1149,7 @@ impl App {
         // Fills queued against the old tree are abandoned by the caller,
         // so nothing is still pending for this one.
         self.pending.clear();
+        self.filled.clear();
         // Re-probed on demand. The point of a re-extract is that the tool
         // may have changed, which makes cached raw output exactly as stale
         // as the tree it came from.

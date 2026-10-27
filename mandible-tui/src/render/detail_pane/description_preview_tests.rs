@@ -388,7 +388,7 @@ fn a_flag_target_is_found_below_the_preview() {
 
 #[test]
 fn the_corpus_page_uses_the_pane_height_of_a_160_by_40_terminal() {
-    let rows_for = |n: usize| page_text(&node(n), 76).unwrap();
+    let rows_for = |n: usize| page_text(&node(n), 76, true).unwrap();
     assert!(!rows_for(17).iter().any(|l| l.contains("preview")));
     assert!(rows_for(18)
         .iter()

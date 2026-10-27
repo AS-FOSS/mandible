@@ -3146,6 +3146,15 @@ with the commands pane reading `display_name` in
 `mandible-tui/src/render/tree_pane.rs`. Fixture:
 `corpus/ar/audit-seed2`.
 
+A command that is not the tool's root, is not a repeat of an ancestor's help,
+has finished loading and holds no description, usage, entity, example or
+subcommand gets one neutral notice line under its summary (`No further help
+was read for this command. Press t to see what it printed.`). Finished means
+its fill completed, failed or not, or it came back filled; a node still
+loading, or never queued past the warming cap, gets no notice. Corpus screens
+count only nodes the fixture probed. Implemented in
+`mandible-tui/src/render/detail_pane/bare.rs`.
+
 **A snap launcher can fail before the target program ever runs
 (2026-09-04).** `lxd.check-kernel`'s `--help` reached a snap launcher,
 which hands `--help` to the wrapped application instead of reading it

@@ -24,6 +24,12 @@ pub const UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX: &str = "mandible could not verify
 pub const ROOT_HELP_FALLBACK_LABEL: &str =
     "Showing the tool's own root --help instead, labelled below:";
 
+/// The notice on a loaded command page that holds nothing past its
+/// summary: the command printed no help mandible could read, and `t`
+/// shows what it did print.
+pub const NO_FURTHER_HELP_NOTICE: &str =
+    "No further help was read for this command. Press t to see what it printed.";
+
 /// The notice a same-as-ancestor node's detail pane shows in place of its
 /// usage/children/flags (spec [M-19], docs/design.md §16's ruling): this
 /// command's own `--help` fingerprinted as byte-identical to an ancestor's,

@@ -10,6 +10,7 @@
 //! hang-indent at the description column (spec §9.1a) and search must
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
+mod bare;
 mod description_preview;
 mod edges;
 mod entity;
@@ -24,6 +25,7 @@ mod stack;
 mod usage_form;
 mod wrap;
 
+use bare::{page_is_bare, push_bare_notice};
 use description_preview::*;
 use edges::*;
 use entity::*;
@@ -598,6 +600,15 @@ fn build_lines(
     if !node.aliases.is_empty() {
         mark(&mut items, lines.len());
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
+    }
+
+    if page_is_bare(node, app) {
+        let mut page = Page {
+            lines: &mut lines,
+            items: &mut items,
+            rules: &mut rules,
+        };
+        push_bare_notice(&mut page, text_width);
     }
 
     // A description that fills most of the pane previews at the top and
@@ -4517,3 +4528,6 @@ mod reflow_tests;
 
 #[cfg(test)]
 mod description_preview_tests;
+
+#[cfg(test)]
+mod bare_tests;

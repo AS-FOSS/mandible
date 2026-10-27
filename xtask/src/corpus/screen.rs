@@ -26,8 +26,8 @@ pub(crate) fn render_screens(root: &CommandNode) -> String {
     let mut nodes = Vec::new();
     walk(root, &mut Vec::new(), &mut nodes);
     let mut out = String::new();
-    for (path, node) in nodes {
-        let Some(page) = mandible_tui::render::page_text(node, PANE_WIDTH) else {
+    for (i, (path, node)) in nodes.into_iter().enumerate() {
+        let Some(page) = mandible_tui::render::page_text(node, PANE_WIDTH, i == 0) else {
             continue;
         };
         if !out.is_empty() {
