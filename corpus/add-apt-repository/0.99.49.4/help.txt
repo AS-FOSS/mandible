@@ -1,0 +1,31 @@
+usage: add-apt-repository [-h] [-d] [-r] [-s] [-c COMPONENT] [-p POCKET] [-y]
+                          [-n] [-l] [--dry-run] [-L] [-P PPA] [-C CLOUD]
+                          [-U URI] [-S SOURCESLIST [SOURCESLIST ...]]
+                          [line ...]
+
+Only ONE of -P, -C, -U, -S, or old-style 'line' can be specified
+
+positional arguments:
+  line                  sources.list line to add (deprecated)
+
+options:
+  -h, --help            show this help message and exit
+  -d, --debug           Print debug
+  -r, --remove          Disable repository
+  -s, --enable-source   Allow downloading of the source packages from the
+                        repository
+  -c COMPONENT, --component COMPONENT
+                        Components to use with the repository
+  -p POCKET, --pocket POCKET
+                        Add entry for this pocket
+  -y, --yes             Assume yes to all queries
+  -n, --no-update       Do not update package cache after adding
+  -l, --login           Login to Launchpad.
+  --dry-run             Don't actually make any changes.
+  -L, --list            List currently configured repositories
+  -P PPA, --ppa PPA     PPA to add
+  -C CLOUD, --cloud CLOUD
+                        Cloud Archive to add
+  -U URI, --uri URI     Archive URI to add
+  -S SOURCESLIST [SOURCESLIST ...], --sourceslist SOURCESLIST [SOURCESLIST ...]
+                        Full sources.list entry line to add

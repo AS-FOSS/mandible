@@ -1,0 +1,24 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "add-apt-repository"
+version = "0.99.49.4"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["add-apt-repository", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "argparse"
+must_contain_flags = ["-d", "--debug", "-c", "--component", "-P", "--ppa", "-U", "--uri", "-S", "--sourceslist"]
+
+[contract.must_value_name]
+"-S" = "SOURCESLIST"
+"--sourceslist" = "SOURCESLIST [SOURCESLIST ...]"
+
+[xfail]
+broken = true
+reason = "The row `-S SOURCESLIST [SOURCESLIST ...], --sourceslist SOURCESLIST [SOURCESLIST ...]` takes one or more values. The tree keeps only `-S SOURCESLIST`: the long spelling `--sourceslist` and the `[SOURCESLIST ...]` repeat are dropped. A fix would keep both spellings on one row and keep the placeholder text as the tool wrote it."
