@@ -1275,6 +1275,12 @@ impl App {
         self.raw_help.insert(path, result);
     }
 
+    /// Whether the verbatim view holds anything for this node, text or a
+    /// failure.
+    pub fn has_raw_help(&self, path: &[String]) -> bool {
+        self.raw_help.contains_key(path)
+    }
+
     /// Whether this node's verbatim text is still being waited for.
     pub fn raw_is_pending(&self, path: &[String]) -> bool {
         matches!(self.raw_help.get(path), Some(RawHelp::Pending))

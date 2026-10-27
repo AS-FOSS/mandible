@@ -54,7 +54,8 @@ pub fn serve(app: &mut App, resolved: &ResolvedTool, path: &[String]) -> bool {
 }
 
 /// After a fill kept its output for `path`: forget the views whose output
-/// was dropped for it, and show the view if it is waiting on this output.
+/// was dropped, and show the view if it is waiting on this output or was
+/// shown from the output this one replaced.
 /// `forced` says the fill was run for the view alone, so a view that still
 /// cannot be built from it is reported.
 pub fn after_fill(
@@ -70,6 +71,11 @@ pub fn after_fill(
         } else {
             app.forget_raw_help(&gone);
         }
+    }
+    // A view shown from the output a re-read replaced is out of date.
+    if app.has_raw_help(path) && !app.raw_is_pending(path) {
+        app.forget_raw_help(path);
+        app.mark_raw_pending(path.to_vec());
     }
     if app.raw_is_pending(path) && !serve(app, resolved, path) && forced {
         app.set_raw_help(
@@ -205,5 +211,27 @@ mod tests {
         probes.reset();
         assert_eq!(probes.kept_bytes(), 0);
         assert!(view(&tree(1), &probes, &tool("/opt/t"), &path("c00")).is_none());
+    }
+
+    #[test]
+    fn a_view_shown_from_replaced_output_is_shown_again_from_the_new_output() {
+        let probe = Counting(AtomicUsize::new(0));
+        let mut app = App::new("t".to_string(), tree(2));
+        let resolved = tool("/opt/t");
+        app.probes
+            .finish(path("c00"), Outcome::TimedOut, kept_for(&probe, "c00"));
+        app.set_raw_help(path("c00"), RawHelp::Failed("old".to_string()));
+        app.toggle_raw_mode();
+
+        app.probes
+            .finish(path("c00"), Outcome::Parsed, kept_for(&probe, "c00"));
+        after_fill(&mut app, &resolved, &path("c00"), Vec::new(), true);
+
+        app.move_down();
+        assert_eq!(app.selected_path(), Some(path("c00")));
+        assert!(matches!(
+            app.raw_help_for_selected(),
+            Some(RawHelp::Ready(..))
+        ));
     }
 }
