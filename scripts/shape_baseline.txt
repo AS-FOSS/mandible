@@ -54,7 +54,7 @@ block	1	mandible-tui/tests/drawing_goes_through_the_sink.rs
 block	1	mandible-tui/tests/wrap_when_horizontal_scroll_is_off.rs
 block	1	mandible/src/about.rs
 block	2	mandible/src/app_runner.rs
-block	4	mandible/src/background.rs
+block	2	mandible/src/background.rs
 block	1	mandible/src/cli.rs
 block	3	mandible/src/discovery.rs
 block	1	mandible/src/doctor.rs
@@ -169,7 +169,6 @@ ratio	1	mandible/src/background.rs
 ratio	1	mandible/src/cli.rs
 ratio	1	mandible/src/discovery.rs
 ratio	1	mandible/src/doctor.rs
-ratio	1	mandible/src/main.rs
 ratio	1	mandible/src/pipeline.rs
 ratio	1	mandible/src/report.rs
 ratio	1	mandible/src/shell_init.rs

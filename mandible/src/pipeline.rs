@@ -34,6 +34,11 @@ pub fn load(tool_name: &str) -> LoadedTool {
     runner.extract_full(tool_name)
 }
 
+/// [`load`] with the probes capped at `limit`, `None` for no cap.
+pub fn load_within(tool_name: &str, limit: Option<std::time::Duration>) -> LoadedTool {
+    mandible_extract::exec::with_extract_limit(limit, || load(tool_name))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

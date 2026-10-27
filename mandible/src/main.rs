@@ -13,8 +13,12 @@ mod background;
 mod cli;
 mod discovery;
 mod doctor;
+#[cfg(test)]
+mod doubles;
 mod pipeline;
-mod raw_store;
+mod probing;
+mod queue;
+mod raw_view;
 mod reload;
 mod report;
 mod root_guard;

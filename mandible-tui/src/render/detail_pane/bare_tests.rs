@@ -1,8 +1,10 @@
 //! The notice on a loaded page that holds nothing past its summary.
 
 use super::*;
-use mandible_core::notice::NO_FURTHER_HELP_NOTICE;
+use crate::probes::{FillEnd, Outcome};
+use mandible_core::notice::{NO_FURTHER_HELP_NOTICE, TIMED_OUT_NOTICE};
 use mandible_core::{Provenance, Source, Text};
+use mandible_extract::KeptProbes;
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
@@ -152,4 +154,102 @@ fn the_corpus_page_counts_only_a_probed_node() {
         .unwrap()
         .iter()
         .any(|l| l.contains("No further help")));
+}
+
+fn start() -> Vec<String> {
+    vec!["tool".to_string(), "start".to_string()]
+}
+
+fn finish(app: &mut App, node: CommandNode, end: FillEnd) {
+    app.finish_fill(&start(), node, end, KeptProbes::default());
+}
+
+fn has_timed_out_notice(app: &App) -> bool {
+    screen(app).contains("took longer than 30 seconds")
+}
+
+#[test]
+fn the_timed_out_notice_names_the_cap_the_probes_run_under() {
+    let secs = mandible_extract::exec::EXTRACT_LIMIT.as_secs();
+    assert!(TIMED_OUT_NOTICE.contains(&format!("longer than {secs} seconds")));
+    assert!(TIMED_OUT_NOTICE.contains("Press r to try again with more time."));
+}
+
+#[test]
+fn a_probe_stopped_at_the_limit_shows_its_notice_and_not_the_empty_one() {
+    let mut app = app_over(child(Some("Runs a script")));
+    finish(&mut app, child(Some("Runs a script")), FillEnd::TimedOut);
+    let text = screen(&app);
+    assert!(text.contains("Runs a script"), "{text}");
+    assert!(has_timed_out_notice(&app), "{text}");
+    assert!(!has_notice(&app), "two notices on one page: {text}");
+}
+
+#[test]
+fn an_empty_read_shows_the_empty_notice_and_not_the_timed_out_one() {
+    let mut app = app_over(child(Some("Runs a script")));
+    finish(&mut app, child(Some("Runs a script")), FillEnd::Read);
+    assert!(has_notice(&app));
+    assert!(!has_timed_out_notice(&app));
+    assert_eq!(app.probe_outcome(&start()), Some(Outcome::Empty));
+}
+
+#[test]
+fn a_same_as_parent_page_keeps_its_own_notice_over_a_timed_out_one() {
+    let mut node = child(Some("Runs a script"));
+    node.same_as_ancestor = true;
+    let mut app = app_over(node.clone());
+    finish(&mut app, node, FillEnd::TimedOut);
+    let text = screen(&app);
+    assert!(
+        text.contains("prints the same help as its parent"),
+        "{text}"
+    );
+    assert!(!has_timed_out_notice(&app), "{text}");
+    assert!(!has_notice(&app));
+}
+
+#[test]
+fn a_timed_out_notice_is_replaced_when_a_later_read_succeeds() {
+    let mut app = app_over(child(Some("Runs a script")));
+    finish(&mut app, child(Some("Runs a script")), FillEnd::TimedOut);
+    assert!(has_timed_out_notice(&app));
+    let mut read = child(Some("Runs a script"));
+    read.description = Some(Text::sanitize("Does the work."));
+    finish(&mut app, read, FillEnd::Read);
+    assert!(!has_timed_out_notice(&app));
+    assert!(!has_notice(&app));
+    assert_eq!(app.probe_outcome(&start()), Some(Outcome::Parsed));
+}
+
+#[test]
+fn a_re_read_in_flight_drops_the_timed_out_notice_from_the_cached_page() {
+    let mut app = app_over(child(Some("Runs a script")));
+    finish(&mut app, child(Some("Runs a script")), FillEnd::TimedOut);
+    assert!(has_timed_out_notice(&app));
+    app.mark_pending(start());
+    assert!(!has_timed_out_notice(&app));
+}
+
+#[test]
+fn the_timed_out_notice_wraps_at_the_pane_width() {
+    let mut app = app_over(child(Some("Runs a script")));
+    finish(&mut app, child(Some("Runs a script")), FillEnd::TimedOut);
+    let mut terminal = Terminal::new(TestBackend::new(40, 24)).unwrap();
+    terminal
+        .draw(|frame| {
+            let area = frame.area();
+            render(frame, area, &app);
+        })
+        .unwrap();
+    let rows: Vec<String> = terminal
+        .backend()
+        .buffer()
+        .content()
+        .chunks(40)
+        .map(|r| r.iter().map(|c| c.symbol()).collect::<String>())
+        .collect();
+    let joined = rows.join("\n");
+    assert!(joined.contains("Press r to try again"), "{joined}");
+    assert!(rows.iter().all(|r| r.chars().count() <= 40));
 }

@@ -1,4 +1,5 @@
-//! The notice on a loaded command page that holds nothing past its summary.
+//! The notices on a loaded command page that holds nothing past its summary:
+//! the empty one, and the one for a help probe stopped at the time limit.
 
 use super::*;
 
@@ -7,10 +8,13 @@ use super::*;
 /// subcommand. A node whose fill has not finished, one drawn by another branch of
 /// the pane (raw help, repeated ancestor) and the tool's root are not bare.
 pub(crate) fn is_bare(node: &CommandNode, is_root: bool, loaded: bool) -> bool {
-    !is_root
-        && loaded
-        && !node.same_as_ancestor
-        && node.unparsed.is_empty()
+    !is_root && loaded && !node.same_as_ancestor && is_empty_page(node)
+}
+
+/// True when `node` has no section to draw: no description, usage, flag,
+/// positional, modifier, environment variable, example or subcommand.
+pub(crate) fn is_empty_page(node: &CommandNode) -> bool {
+    node.unparsed.is_empty()
         && node.description.is_none()
         && node.usage.is_empty()
         && node.entities.is_empty()
@@ -35,11 +39,22 @@ pub(super) fn is_loaded(node: &CommandNode, app: &App) -> bool {
     })
 }
 
+/// Whether the page `app` is drawing is one whose help probe was
+/// stopped at the time limit. A repeated-ancestor page is drawn by its own
+/// branch before this one is reached, so it never shows this notice.
+pub(super) fn page_timed_out(app: &App) -> bool {
+    let Some(row) = app.selected_row() else {
+        return false;
+    };
+    !app.is_pending(&row.path)
+        && app.probe_outcome(&row.path) == Some(crate::probes::Outcome::TimedOut)
+}
+
 /// Push the notice below the summary, wrapped like the repeated-ancestor one.
-pub(super) fn push_bare_notice(page: &mut Page<'_>, text_width: usize) {
+pub(super) fn push_notice(page: &mut Page<'_>, notice: &str, text_width: usize) {
     open_block(page.lines, SECTION_BLANKS);
     mark(page.items, page.lines.len());
-    for chunk in wrap_words(mandible_core::notice::NO_FURTHER_HELP_NOTICE, text_width) {
+    for chunk in wrap_words(notice, text_width) {
         page.lines.push(Line::from(chunk));
     }
 }

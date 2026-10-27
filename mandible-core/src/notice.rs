@@ -30,6 +30,13 @@ pub const ROOT_HELP_FALLBACK_LABEL: &str =
 pub const NO_FURTHER_HELP_NOTICE: &str =
     "No further help was read for this command. Press t to see what it printed.";
 
+/// The notice on a command page whose help probe was stopped at the
+/// wall-clock cap, so the page has nothing to show. The seconds are
+/// `mandible_extract::exec::EXTRACT_LIMIT`; a test in `mandible-tui` holds
+/// the two together.
+pub const TIMED_OUT_NOTICE: &str =
+    "Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.";
+
 /// The notice a same-as-ancestor node's detail pane shows in place of its
 /// usage/children/flags (spec [M-19], docs/design.md §16's ruling): this
 /// command's own `--help` fingerprinted as byte-identical to an ancestor's,

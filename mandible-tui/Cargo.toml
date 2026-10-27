@@ -17,6 +17,7 @@ path = "src/lib.rs"
 
 [dependencies]
 mandible-core.workspace = true
+mandible-extract.workspace = true
 mandible-search.workspace = true
 ratatui.workspace = true
 crossterm.workspace = true
@@ -28,4 +29,3 @@ base64.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
-mandible-extract.workspace = true

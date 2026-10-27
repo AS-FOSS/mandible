@@ -24,9 +24,10 @@ impl Reloader {
         }
     }
 
-    /// Start re-extracting `tool`. False when one is already running.
-    pub fn start(&mut self, tool: &str) -> bool {
-        self.start_with(tool, pipeline::load)
+    /// Start re-extracting `tool` with its probes capped at `limit`, `None`
+    /// for no cap. False when one is already running.
+    pub fn start(&mut self, tool: &str, limit: Option<std::time::Duration>) -> bool {
+        self.start_with(tool, move |tool| pipeline::load_within(tool, limit))
     }
 
     fn start_with(
@@ -56,7 +57,7 @@ impl Reloader {
     }
 
     #[cfg(test)]
-    fn is_running(&self) -> bool {
+    pub(crate) fn is_running(&self) -> bool {
         self.running
     }
 }

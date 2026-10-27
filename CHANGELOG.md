@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `Esc` first returns a sideways-scrolled detail pane to column 0.
 - A command description that fills more than half the detail pane shows as a `DESCRIPTION · preview` of a third of the pane, six rows at least, at the top, with the full text as the last section.
 - A command whose page holds nothing past its summary, such as `pnpm start` or `git citool`, shows `No further help was read for this command. Press t to see what it printed.`
+- A command whose help took longer than 30 seconds shows `Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.`, and `r` then reads it under a 2-minute limit.
 
 ### Changed
 
@@ -36,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row with more than one short and one long spelling now stacks at every width: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, led by a dim `or` and lined up with the long names, beside the wrapped description.
 - The command under the cursor is read first, ahead of the background walk, once the cursor rests on it.
-- A help probe may run for 30 seconds instead of 10.
+- `r` reloads what you are looking at: on a command's page that command and then its subcommands, on the tool's root page the whole tool. A second `r` on a command being read does nothing.
+- A help probe may run for 30 seconds instead of 10, and one thread of the pool is kept for the command under the cursor and for `r`.
 
 ### Fixed
 

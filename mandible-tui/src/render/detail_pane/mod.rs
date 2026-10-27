@@ -25,7 +25,8 @@ mod stack;
 mod usage_form;
 mod wrap;
 
-use bare::{page_is_bare, push_bare_notice};
+pub(crate) use bare::is_empty_page;
+use bare::{page_is_bare, page_timed_out, push_notice};
 use description_preview::*;
 use edges::*;
 use entity::*;
@@ -602,13 +603,22 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    if page_is_bare(node, app) {
+    // One notice per page: a probe stopped at the time limit says so, and
+    // only a page that read fine and holds nothing says it has nothing.
+    let notice = if page_timed_out(app) {
+        Some(mandible_core::notice::TIMED_OUT_NOTICE)
+    } else if page_is_bare(node, app) {
+        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+    } else {
+        None
+    };
+    if let Some(notice) = notice {
         let mut page = Page {
             lines: &mut lines,
             items: &mut items,
             rules: &mut rules,
         };
-        push_bare_notice(&mut page, text_width);
+        push_notice(&mut page, notice, text_width);
     }
 
     // A description that fills most of the pane previews at the top and

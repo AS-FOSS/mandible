@@ -209,7 +209,7 @@ structure, search is for flags.
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
-| `r` | Re-extract this tool in the background; a second `r` while one runs does nothing. The page stays usable meanwhile, and the new tree then replaces it, preserving expansion, selection, filter and view mode, abandoning the in-flight warming cascade and restarting it |
+| `r` | Reload what you are looking at, in the background. On a command's page that command is read again at user urgency and then its subcommands at walk urgency; on the tool's root page the whole tool is extracted again, preserving expansion, selection, filter and view mode, abandoning the in-flight warming cascade and restarting it. A command whose last read timed out gets a 2-minute limit. A second `r` while it runs does nothing, and the page stays usable until the new result replaces it |
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
@@ -220,9 +220,9 @@ text typed into the search box keeps its case.
 streams, kept in memory when the fill finished, and a failed fill keeps its
 output too. It never runs a probe on the UI thread. Kept output totals at
 most 64 MB per session. Past that the entries least recently filled or
-viewed are dropped, and a node with nothing kept is probed in the
-background through the front lane, the pane saying it is loading. `r`
-discards the kept output with the page and fills it again. §6 rule 0
+viewed are dropped, and a node with nothing kept is read again in the
+background as a forced user request, the pane saying it is loading. A
+whole-tool `r` discards the kept output with the page and fills it again. §6 rule 0
 applies unchanged in this mode: `pkill --help` is shown, but
 `pkill something --help` stays refused exactly as in the extraction
 pipeline.
@@ -829,13 +829,24 @@ The runner:
    tree on a bounded pool, cancelled on quit and capped at 4096 nodes. The
    walk is roughly breadth-first: each fill queues its children behind
    everything already waiting. The cap stops only this walk.
-3. The row under the cursor, once the cursor has rested on it, and any node
-   the user expands, is read ahead of the queued walk when it is not yet
-   loaded: a queued node moves to the front, a node the walk never queued
-   (past the cap) takes the front slot, and a running probe is left alone.
-   Only the latest such node holds the front, so a held arrow key probes
-   nothing on the rows it passes. A node shows `⋯ loading` from the moment
-   its probe is queued until its result is spliced in.
+3. The queue has one entry point, a request for one command carrying its
+   urgency (walk or user), whether to force a re-run, and a time limit. The
+   walk, the cursor coming to rest, `→`/`Enter`, the verbatim view's fetch
+   and `r` all send it, and the queue alone decides: a command already
+   waiting is promoted and never added twice, one running is left alone and
+   a forced request re-runs it once after it finishes, and one done runs
+   again only when forced. A user request for a node the walk never queued
+   (past the cap) takes the front, and only the latest unforced one holds
+   it, so a held arrow key probes nothing on the rows it passes; a forced
+   request is never displaced. One pool thread is kept for user requests, so
+   the walk never occupies the thread the row under the cursor needs.
+4. Each command has one probe record on the screen: not probed, queued,
+   running, or done with its outcome (parsed, empty, failed, timed out) and
+   the output kept for `t`. The tree's `⋯ loading` rows, the page notices and
+   the verbatim view all read it, and a reload, re-extract or quit clears it.
+   A re-run keeps the previous result until the new one lands. A node shows
+   `⋯ loading` from the moment its probe is queued until its result is
+   spliced in.
 
 **Warming covers the whole tree, not one level ahead.**
 
@@ -1136,7 +1147,8 @@ allowlist below.
    never read, and the page is never answered from another probe's text:
    `git filter-branch --help` prints a man page at once and `-h` sleeps 10 s
    by the tool's own design, so a cap shorter than the sleep made the page
-   the parsed `-h` text on one launch and the man page on the next. The coverage sweep and the
+   the parsed `-h` text on one launch and the man page on the next. `r` reads
+   a command whose last read timed out under a 2-minute cap. The coverage sweep and the
    audit read through `RecordingProbe` (`xtask/src/misattribution.rs`), which
    caps every probe at 10 s, so their recorded results do not move with the
    app's cap. The cap is read through `mandible_extract::exec::extract_limit`,
@@ -3185,6 +3197,13 @@ loading, or never queued past the warming cap, gets no notice. Corpus screens
 count only nodes the fixture probed. Implemented in
 `mandible-tui/src/render/detail_pane/bare.rs`.
 
+A page whose help probe was stopped at the time limit (§6 rule 4) gets, in
+the same place, the same style and the same wrapping, `Reading this
+command's help took longer than 30 seconds, so it was stopped. Press r to try
+again with more time.` (`mandible_core::notice::TIMED_OUT_NOTICE`). A page
+carries one notice: the repeated-parent notice first, then the timed-out one,
+then the empty one. A node being read again shows none until the result lands.
+
 **A snap launcher can fail before the target program ever runs
 (2026-09-04).** `lxd.check-kernel`'s `--help` reached a snap launcher,
 which hands `--help` to the wrapped application instead of reading it
@@ -3988,7 +4007,7 @@ any of these as current.
   factored out as `verbatim_node`) instead of reporting the root's
   subcommands as its own: `children_filled: true`, `subcommands: []`, raw
   text still available to the `t` view. An empty `subcommands` list is
-  what stops `Warmer::warm_children`'s loop from queuing anything further
+  what stops `probing::cascade`'s loop from queuing anything further
   for that node, so the cascade halts at depth 1 instead of growing
   exponentially. This generalizes to any multi-call binary or getopt
   permutation with the same behavior, not just `systemctl` — the check

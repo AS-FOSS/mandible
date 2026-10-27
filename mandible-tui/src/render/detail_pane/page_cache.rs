@@ -23,6 +23,7 @@ pub(crate) struct PageKey {
     glyphs: Glyphs,
     target_flag: Option<FlagKey>,
     loaded: bool,
+    timed_out: bool,
 }
 
 impl PageKey {
@@ -43,6 +44,7 @@ impl PageKey {
             loaded: app
                 .selected_node()
                 .is_some_and(|n| super::bare::is_loaded(n, app)),
+            timed_out: super::bare::page_timed_out(app),
         }
     }
 }

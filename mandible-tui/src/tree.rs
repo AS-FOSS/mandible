@@ -6,6 +6,7 @@
 //! navigation (↑/↓) — see [`crate::app::App::ensure_rows_fresh`], which only
 //! rebuilds when a dirty flag is set.
 
+use crate::probes::Probes;
 use mandible_core::CommandNode;
 use std::collections::HashSet;
 
@@ -67,7 +68,7 @@ pub fn flatten(
     root: &CommandNode,
     expanded: &HashSet<Vec<String>>,
     matching_paths: Option<&HashSet<Vec<String>>>,
-    pending: &HashSet<Vec<String>>,
+    pending: &Probes,
 ) -> Vec<TreeRow> {
     let mut out = Vec::new();
     let root_path = vec![root.name.clone()];
@@ -106,11 +107,11 @@ fn push_plain(
     path: Vec<String>,
     depth: usize,
     expanded: &HashSet<Vec<String>>,
-    pending: &HashSet<Vec<String>>,
+    pending: &Probes,
     out: &mut Vec<TreeRow>,
 ) {
     let is_expanded = expanded.contains(&path);
-    let is_pending = pending.contains(&path);
+    let is_pending = pending.in_flight(&path);
     out.push(make_row(node, path.clone(), depth, is_expanded, is_pending));
     if is_expanded {
         for child in &node.subcommands {
@@ -130,7 +131,7 @@ fn push_filtered(
     depth: usize,
     expanded: &HashSet<Vec<String>>,
     matches: &HashSet<Vec<String>>,
-    pending: &HashSet<Vec<String>>,
+    pending: &Probes,
     out: &mut Vec<TreeRow>,
 ) -> bool {
     let self_match = matches.contains(&path);
@@ -159,7 +160,7 @@ fn push_filtered(
 
     let user_expanded = expanded.contains(&path);
     let effective_expanded = user_expanded || any_child_match;
-    let is_pending = pending.contains(&path);
+    let is_pending = pending.in_flight(&path);
     out.push(make_row(node, path, depth, effective_expanded, is_pending));
     if effective_expanded {
         out.extend(child_rows);
@@ -204,7 +205,7 @@ mod tests {
     #[test]
     fn root_collapsed_shows_only_root() {
         let root = tree();
-        let rows = flatten(&root, &HashSet::new(), None, &HashSet::new());
+        let rows = flatten(&root, &HashSet::new(), None, &Probes::new(0));
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].name, "git");
         assert!(rows[0].has_children);
@@ -216,7 +217,7 @@ mod tests {
         let root = tree();
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
-        let rows = flatten(&root, &expanded, None, &HashSet::new());
+        let rows = flatten(&root, &expanded, None, &Probes::new(0));
         assert_eq!(rows.len(), 4); // git, add, rebase, stash
         assert_eq!(rows[1].name, "add");
         assert_eq!(rows[1].depth, 1);
@@ -230,7 +231,7 @@ mod tests {
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
         expanded.insert(vec!["git".to_string(), "rebase".to_string()]);
-        let rows = flatten(&root, &expanded, None, &HashSet::new());
+        let rows = flatten(&root, &expanded, None, &Probes::new(0));
         // git, add, rebase, --onto-helper, stash
         assert_eq!(rows.len(), 5);
         assert_eq!(rows[3].name, "--onto-helper");
@@ -243,7 +244,7 @@ mod tests {
         // Nothing manually expanded, but a match on --onto-helper should
         // reveal git -> rebase -> --onto-helper.
         let m = matches(&[&["git", "rebase", "--onto-helper"]]);
-        let rows = flatten(&root, &HashSet::new(), Some(&m), &HashSet::new());
+        let rows = flatten(&root, &HashSet::new(), Some(&m), &Probes::new(0));
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "rebase", "--onto-helper"]);
     }
@@ -255,7 +256,7 @@ mod tests {
         // of its matched and got mapped to its parent path) should show
         // just git -> rebase, not its children.
         let m = matches(&[&["git", "rebase"]]);
-        let rows = flatten(&root, &HashSet::new(), Some(&m), &HashSet::new());
+        let rows = flatten(&root, &HashSet::new(), Some(&m), &Probes::new(0));
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "rebase"]);
     }
@@ -264,7 +265,7 @@ mod tests {
     fn filter_hides_non_matching_siblings() {
         let root = tree();
         let m = matches(&[&["git", "stash"]]);
-        let rows = flatten(&root, &HashSet::new(), Some(&m), &HashSet::new());
+        let rows = flatten(&root, &HashSet::new(), Some(&m), &Probes::new(0));
         let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
         assert_eq!(names, vec!["git", "stash"]);
     }
@@ -275,8 +276,8 @@ mod tests {
         let mut expanded = HashSet::new();
         expanded.insert(vec!["git".to_string()]);
         let empty = HashSet::new();
-        let with_empty = flatten(&root, &expanded, Some(&empty), &HashSet::new());
-        let without = flatten(&root, &expanded, None, &HashSet::new());
+        let with_empty = flatten(&root, &expanded, Some(&empty), &Probes::new(0));
+        let without = flatten(&root, &expanded, None, &Probes::new(0));
         assert_eq!(with_empty, without);
     }
 }
