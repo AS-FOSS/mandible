@@ -26,11 +26,12 @@
 //! (AGENTS.md §3.2). See the batch report for this called out explicitly.
 
 use crate::background::Warmer;
+use crate::raw_store::{self, RawStore, RAW_BUDGET_BYTES};
 use anyhow::Context;
 use crossterm::event::{self, Event};
 use mandible_core::audit::{self, Entry};
 use mandible_extract::{default_tiers, resolve_tool, Runner};
-use mandible_tui::app::{App, RawHelp};
+use mandible_tui::app::App;
 use mandible_tui::app_review::{
     handle_review_key, ReviewKeyOutcome, ReviewOverlay, ReviewSubmission,
 };
@@ -290,11 +291,16 @@ fn run_loop(
     // launching instant regardless of how slow the tool is to probe.
     submit_root_fill(app, &runner, &resolved, &warmer);
     let mut asked: Option<(usize, Vec<String>)> = None;
+    let mut raw = RawStore::new(RAW_BUDGET_BYTES);
 
     loop {
         // Splice in any background fills that completed since the last
         // iteration before rendering, so the tree reflects them promptly.
+        for fetched in warmer.drain_raw() {
+            raw_store::keep(app, &mut raw, &resolved, fetched.path, fetched.kept, true);
+        }
         for warmed in warmer.drain() {
+            let kept = warmed.result.kept;
             let mut node = warmed.result.node;
             // The root's children are the tool's own documented commands
             // plus whatever the `<tool>-<sub>` convention finds on PATH
@@ -321,6 +327,7 @@ fn run_loop(
             // The node `mandible <tool> <sub>` asked for may have just
             // arrived — or may now be known not to exist (spec §5.4).
             app.settle_requested_path();
+            raw_store::keep(app, &mut raw, &resolved, warmed.path, kept, false);
         }
 
         // Let a transient status message ("copied: …") time out. This loop
@@ -362,6 +369,7 @@ fn run_loop(
 
         if !event::poll(Duration::from_millis(100))? {
             probe_selection(app, &runner, &resolved, &warmer, &mut asked);
+            raw_store::fetch_at_rest(app, &runner, &resolved, &warmer);
             continue;
         }
 
@@ -387,7 +395,7 @@ fn run_loop(
                 if !claimed {
                     if let Some(effect) = tui_event::handle_key(app, key) {
                         if let Control::Exit(exit) =
-                            apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                            apply_effect(app, effect, &runner, &resolved, &warmer, &mut raw, sink)
                         {
                             warmer.cancel();
                             return Ok(exit);
@@ -401,7 +409,7 @@ fn run_loop(
                 let regions = layout::compute(area, app.focus);
                 if let Some(effect) = tui_event::handle_mouse(app, mouse, &regions) {
                     if let Control::Exit(exit) =
-                        apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                        apply_effect(app, effect, &runner, &resolved, &warmer, &mut raw, sink)
                     {
                         warmer.cancel();
                         return Ok(exit);
@@ -426,7 +434,7 @@ fn run_loop(
         // node is genuinely unfetched.
         if let Some(effect) = app.raw_fetch_needed() {
             if let Control::Exit(exit) =
-                apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                apply_effect(app, effect, &runner, &resolved, &warmer, &mut raw, sink)
             {
                 warmer.cancel();
                 return Ok(exit);
@@ -443,6 +451,7 @@ fn apply_effect(
     runner: &Arc<Runner>,
     resolved: &mandible_extract::ResolvedTool,
     warmer: &Warmer,
+    raw: &mut RawStore,
     sink: terminal::Sink,
 ) -> Control {
     match effect {
@@ -467,6 +476,7 @@ fn apply_effect(
             // every `r` left another cascade running against a discarded
             // tree while eating from a warming budget that never refilled.
             warmer.reset();
+            raw.clear();
 
             let loaded = crate::pipeline::load(&app.tool);
             match loaded.root {
@@ -487,53 +497,13 @@ fn apply_effect(
             discard_input_typed_during_the_block();
         }
         Effect::Fill(path) => prioritize_path(app, runner, resolved, warmer, path),
-        // Run on the UI thread rather than through the warm pool. This is
-        // one probe of a node the warmer has almost certainly already
-        // faulted in, so it costs tens of milliseconds; routing it through
-        // the background pool would need a second result channel to carry
-        // a different payload type, for a wait nobody would notice. The
-        // pathological case is a tool that hangs until EXTRACT_TIMEOUT,
-        // which the timeout itself bounds.
+        // Served from the output the fill kept; nothing is probed here.
+        // With nothing kept the pane says it is loading, and the fetch
+        // goes to the background pool once the cursor rests.
         Effect::FetchRaw(path) => {
-            app.mark_raw_pending(path.clone());
-            // Read attestation from the node this view is *about*, so the
-            // raw fetch reproduces the same probe the parse used. The `t`
-            // key's whole job is letting a reader check our reading against
-            // the author's own bytes; fetching a different document than
-            // the tree came from answers a question nobody asked. A node
-            // the tree doesn't have cannot be attested, so `false` is the
-            // right default rather than a fallback worth worrying about.
-            let hints = mandible_extract::NodeHints {
-                heading_attested: mandible_core::resolve(&app.root, &path)
-                    .is_some_and(|n| n.heading_attested),
-                abbrev_probe_attested: mandible_core::resolve(&app.root, &path)
-                    .is_some_and(|n| n.abbrev_probe_attested),
-                help_word_attested: mandible_core::resolve(&app.root, &path)
-                    .is_some_and(|n| n.help_word_attested),
-            };
-            // Through the same redirect the parse itself went through
-            // (spec §5.4), for exactly the reason above: under a
-            // convention-discovered node the tree was built from
-            // `cargo-clippy --help`, so that is the document `t` has to
-            // show — and the argv line it prints names the binary that was
-            // really run, not an invocation nobody made.
-            let (raw_tool, raw_path) = crate::discovery::probe_target(&app.root, resolved, &path);
-            let result = match mandible_extract::help_text::raw_help(&raw_tool, &raw_path, hints) {
-                // Render the argv exactly as a human would type it, so
-                // the pane can name its own source rather than assume one.
-                Ok((lines, flag)) => {
-                    let words: Vec<String> = raw_path.iter().skip(1).cloned().collect();
-                    RawHelp::Ready(
-                        lines,
-                        mandible_extract::help_text::render_argv(&raw_tool.name, &words, &flag),
-                    )
-                }
-                // Shown in the pane, not swallowed: "refused: kill is
-                // never probed" is a useful answer to `t`, and a blank
-                // pane is not.
-                Err(e) => RawHelp::Failed(format!("could not fetch raw --help: {e}")),
-            };
-            app.set_raw_help(path, result);
+            if !raw_store::serve(app, raw, resolved, &path) {
+                app.mark_raw_pending(path);
+            }
         }
     }
     Control::Continue
@@ -584,6 +554,7 @@ fn prioritize_path(
     let outcome = warmer.prioritize(Arc::clone(runner), tool, probe_path, path.clone(), existing);
     if let Some(dropped) = outcome.dropped {
         app.clear_pending(&dropped);
+        app.clear_raw_pending(&dropped);
     }
     if outcome.accepted {
         app.mark_pending(path);

@@ -204,7 +204,7 @@ structure, search is for flags.
 | `/` | Focus search |
 | `Esc` | In layers: close the `?` popup; else, if the detail pane is scrolled sideways, return to column 0; else leave search, keeping the filter pinned, and `Esc` again clears it |
 | `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`) |
-| `t` | Verbatim view: re-probe this node and show the tool's own `--help` output instead of the parse |
+| `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
@@ -216,7 +216,13 @@ structure, search is for flags.
 Command letters work in either case, so Caps Lock never disables a key;
 text typed into the search box keeps its case.
 
-`t` re-probes the node rather than retaining its raw text. §6 rule 0
+`t` shows the output of the probes the node's page was parsed from, both
+streams, kept in memory when the fill finished, and a failed fill keeps its
+output too. It never runs a probe on the UI thread. Kept output totals at
+most 64 MB per session. Past that the entries least recently filled or
+viewed are dropped, and a node with nothing kept is probed in the
+background through the front lane, the pane saying it is loading. `r`
+discards the kept output with the page and fills it again. §6 rule 0
 applies unchanged in this mode: `pkill --help` is shown, but
 `pkill something --help` stays refused exactly as in the extraction
 pipeline.
@@ -257,10 +263,13 @@ document's honesty machinery cannot signal: a grammar that misreads a
 layout and produces a plausible tree is indistinguishable from one that
 read it correctly, until a human reads the tool's real output beside ours
 [M-10]. Rather than reserve that check for the coverage harness, `t` puts
-it one key away for every user, on every node. It re-probes rather than
-retains raw text because retention costs megabytes across a warmed tree
-and would show what the tool said at startup rather than now, the same
-staleness argument that removed the cache (§11).
+it one key away for every user, on every node. It shows the kept bytes
+rather than probing again because a second probe ran on every row the
+cursor crossed: 40 downs on `git` left a 3.2 s backlog, and `git
+filter-branch -h` sleeps 10 s by its own design. The kept bytes are also
+the document the page was parsed from, not a later run of it. The
+budget bounds the cost across a warmed tree. Nothing persists between
+sessions, so the on-disk cache's staleness argument (§11) does not apply.
 
 The journey `y` serves ends at the prompt, and the clipboard is one paste
 short of it. `--print-selection` closes that gap.

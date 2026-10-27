@@ -2,6 +2,7 @@
 //! implements. See spec §5.2.
 
 use crate::errors::ExtractError;
+use crate::exec::KeptProbes;
 use crate::resolve::ResolvedTool;
 use mandible_core::{Authority, CommandNode};
 
@@ -65,6 +66,18 @@ pub trait ExtractionTier: Send + Sync {
         path: &[String],
         hints: NodeHints,
     ) -> Result<CommandNode, ExtractError>;
+
+    /// [`Self::extract_node`], also returning the probes it ran. The
+    /// probes come back whether or not extraction succeeded. A tier that
+    /// reads no tool output keeps the default, which returns none.
+    fn extract_node_kept(
+        &self,
+        tool: &ResolvedTool,
+        path: &[String],
+        hints: NodeHints,
+    ) -> (Result<CommandNode, ExtractError>, KeptProbes) {
+        (self.extract_node(tool, path, hints), KeptProbes::default())
+    }
 
     /// `false` when the source is already fully in memory (e.g. carapace),
     /// in which case the runner requests the whole tree in one call. `true`

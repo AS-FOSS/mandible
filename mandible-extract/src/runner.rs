@@ -8,6 +8,7 @@
 //! Background warming (step 4) lives above this crate, in the binary's
 //! event loop.
 
+use crate::exec::KeptProbes;
 use crate::resolve::{resolve_tool, ResolvedTool};
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{merge_nodes, CommandNode};
@@ -247,6 +248,7 @@ impl Runner {
         };
         let mut candidates = vec![existing];
         let mut statuses = Vec::new();
+        let mut kept = Vec::new();
 
         for tier in &self.tiers {
             if !tier.is_incremental() {
@@ -255,7 +257,9 @@ impl Runner {
             let detected = tier.detect(resolved);
             let mut error = None;
             if detected {
-                match tier.extract_node(resolved, path, hints) {
+                let (result, probes) = tier.extract_node_kept(resolved, path, hints);
+                kept.push(probes);
+                match result {
                     Ok(node) => candidates.push(node),
                     Err(e) => error = Some(e.to_string()),
                 }
@@ -276,6 +280,7 @@ impl Runner {
             node,
             tier_statuses: statuses,
             elapsed: start.elapsed(),
+            kept: KeptProbes::concat(&kept),
         }
     }
 }
@@ -290,6 +295,9 @@ pub struct FillResult {
     pub tier_statuses: Vec<TierStatus>,
     /// Wall-clock time spent filling.
     pub elapsed: Duration,
+    /// The probes the fill ran, kept for the verbatim view. Present on a
+    /// failed fill too.
+    pub kept: KeptProbes,
 }
 
 #[cfg(test)]

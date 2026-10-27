@@ -74,9 +74,10 @@ pub enum Effect {
     /// [`App::mark_pending`], run the extraction, then
     /// [`App::splice_filled_node`] with the result.
     Fill(Vec<String>),
-    /// Fetch this node's raw `--help` output for the verbatim view (`t`).
-    /// The caller should run the probe and hand the result back through
-    /// [`App::set_raw_help`].
+    /// Show this node's raw `--help` output in the verbatim view (`t`).
+    /// The caller serves it from the output kept with the node and hands
+    /// it back through [`App::set_raw_help`], or marks it pending and
+    /// fetches it in the background when nothing is kept.
     FetchRaw(Vec<String>),
     /// Print this composed command line on stdout and exit (spec §2's
     /// `--print-selection`). Only ever produced while
@@ -1157,9 +1158,8 @@ impl App {
         // so nothing is still pending for this one.
         self.pending.clear();
         self.filled.clear();
-        // Re-probed on demand. The point of a re-extract is that the tool
-        // may have changed, which makes cached raw output exactly as stale
-        // as the tree it came from.
+        // The point of a re-extract is that the tool may have changed,
+        // which makes shown raw output as stale as the tree it came from.
         self.raw_help.clear();
 
         self.search_index = SearchIndex::new();
@@ -1249,6 +1249,25 @@ impl App {
     /// Hand back the result of a [`Effect::FetchRaw`].
     pub fn set_raw_help(&mut self, path: Vec<String>, result: RawHelp) {
         self.raw_help.insert(path, result);
+    }
+
+    /// Whether this node's verbatim text is still being waited for.
+    pub fn raw_is_pending(&self, path: &[String]) -> bool {
+        matches!(self.raw_help.get(path), Some(RawHelp::Pending))
+    }
+
+    /// Stop waiting on this node's verbatim text, so the next look at it
+    /// asks again. Leaves text already shown alone.
+    pub fn clear_raw_pending(&mut self, path: &[String]) {
+        if self.raw_is_pending(path) {
+            self.raw_help.remove(path);
+        }
+    }
+
+    /// Drop this node's shown verbatim text, so the next look at it asks
+    /// again. Called when the bytes it came from are no longer kept.
+    pub fn forget_raw_help(&mut self, path: &[String]) {
+        self.raw_help.remove(path);
     }
 
     /// The verbatim text for the current selection, if the mode is on.

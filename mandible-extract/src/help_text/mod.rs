@@ -21,6 +21,7 @@ mod help_word;
 mod listing_probe;
 mod not_a_command;
 mod profile;
+mod raw_kept;
 mod sections;
 mod spec_parts;
 
@@ -28,6 +29,7 @@ mod spec_parts;
 /// ask whether a root's captured `--help` was a rendered man page without a
 /// second copy of the rule. See docs/shapes.md S-066.
 pub use grammar::parse_bundled_shorts;
+pub use raw_kept::{probe_raw, probe_raw_with, raw_help_kept};
 pub use sections::is_man_page_banner;
 
 /// Re-exported for `xtask/src/alternation.rs`'s `brace-alternation-flag`
@@ -96,7 +98,7 @@ pub use grammar::looks_like_bracket_flag_row;
 pub use sections::is_option_list_placeholder;
 
 use crate::errors::ExtractError;
-use crate::exec::{ExecOutput, InertArgv, LiveProbe, Probe};
+use crate::exec::{ExecOutput, InertArgv, KeptProbes, LiveProbe, Probe, Recorder};
 use crate::framework::{self, Framework};
 use crate::resolve::ResolvedTool;
 use crate::tier::{ExtractionTier, NodeHints};
@@ -369,24 +371,12 @@ impl HelpTextTier {
     }
 }
 
-impl ExtractionTier for HelpTextTier {
-    fn name(&self) -> &'static str {
-        "help_text"
-    }
-
-    fn authority(&self) -> Authority {
-        Source::HelpText.authority()
-    }
-
-    fn detect(&self, tool: &ResolvedTool) -> bool {
-        // `--help` is universal (spec §3); only precondition is a
-        // resolved executable. A failure to produce useful output is
-        // recorded per-node later (spec §5.3), not here.
-        tool.path.is_some()
-    }
-
-    fn extract_node(
+impl HelpTextTier {
+    /// [`ExtractionTier::extract_node`] reading help text through `probe`.
+    /// The root's listing probes always go through the tier's own probe.
+    fn extract_through(
         &self,
+        probe: &dyn Probe,
         tool: &ResolvedTool,
         path: &[String],
         hints: NodeHints,
@@ -395,7 +385,7 @@ impl ExtractionTier for HelpTextTier {
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
         let generation = self.begin_help_probe(tool_path, &words);
         let (raw, _argv_display, confession) =
-            probe_help_text_confession_aware(self.probe.as_ref(), tool_path, &words, hints)?;
+            probe_help_text_confession_aware(probe, tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
         // The tool refusing the word is not help for it (S-217).
@@ -450,6 +440,43 @@ impl ExtractionTier for HelpTextTier {
             );
         }
         Ok(node)
+    }
+}
+
+impl ExtractionTier for HelpTextTier {
+    fn name(&self) -> &'static str {
+        "help_text"
+    }
+
+    fn authority(&self) -> Authority {
+        Source::HelpText.authority()
+    }
+
+    fn detect(&self, tool: &ResolvedTool) -> bool {
+        // `--help` is universal (spec §3); only precondition is a
+        // resolved executable. A failure to produce useful output is
+        // recorded per-node later (spec §5.3), not here.
+        tool.path.is_some()
+    }
+
+    fn extract_node(
+        &self,
+        tool: &ResolvedTool,
+        path: &[String],
+        hints: NodeHints,
+    ) -> Result<CommandNode, ExtractError> {
+        self.extract_through(self.probe.as_ref(), tool, path, hints)
+    }
+
+    fn extract_node_kept(
+        &self,
+        tool: &ResolvedTool,
+        path: &[String],
+        hints: NodeHints,
+    ) -> (Result<CommandNode, ExtractError>, KeptProbes) {
+        let recorder = Recorder::new(self.probe.as_ref());
+        let result = self.extract_through(&recorder, tool, path, hints);
+        (result, recorder.finish())
     }
 
     fn is_incremental(&self) -> bool {
@@ -659,9 +686,10 @@ fn looks_like_help_output(text: &str) -> bool {
 /// verbatim view (`t`), letting a reader check a confident-but-wrong parse
 /// against the author's own bytes.
 ///
-/// Deliberately re-probes rather than reading a retained copy (same
-/// staleness argument as spec §11's cache removal); refusal for a
-/// never-probe tool (spec §6 rule 0) propagates unchanged.
+/// Runs the probes itself, so it is for callers with nothing kept
+/// (`mandible report`). The TUI shows the probes a fill kept
+/// ([`raw_help_kept`]). Refusal for a never-probe tool (spec §6 rule 0)
+/// propagates unchanged.
 ///
 /// Thin [`LiveProbe`] wrapper over [`raw_help_with_probe`].
 pub fn raw_help(

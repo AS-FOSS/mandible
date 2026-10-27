@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The verbatim view (`t`) lagged while you scrolled and froze the screen on a slow tool, such as `git filter-branch`; it now shows the output the page was read from.
 - A row opened past the background limit stayed `⋯ loading` for good; it now loads.
 - [S-181] A range row reads as one flag with two ends drawn `-0 ... -9`, not as nine flags or as `-0` with the value `to`: `mandible xz`, `mandible bzip2`, `mandible savelog`, `mandible streamzip` and `mandible pigz`. Search finds both ends.
 - A value name or group heading wider than a narrow detail pane is wrapped instead of running past the border.

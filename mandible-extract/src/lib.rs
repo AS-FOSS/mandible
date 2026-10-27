@@ -44,7 +44,7 @@ pub mod native;
 pub mod overrides;
 
 pub use errors::ExtractError;
-pub use exec::is_help_only_probe;
+pub use exec::{is_help_only_probe, KeptProbes};
 pub use resolve::{
     discover_path_siblings, discover_path_siblings_in, resolve_tool, PathSibling, ResolvedTool,
 };

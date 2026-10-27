@@ -29,7 +29,7 @@
 //! each iteration (`Warmer::drain`), never by touching `App` from a
 //! background thread.
 
-use mandible_extract::{FillResult, ResolvedTool, Runner};
+use mandible_extract::{FillResult, KeptProbes, NodeHints, ResolvedTool, Runner};
 use std::collections::{HashSet, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender};
@@ -53,6 +53,15 @@ pub struct WarmedNode {
     pub result: FillResult,
 }
 
+/// The probes behind one node's verbatim view, run because nothing was
+/// kept for it.
+pub struct RawFetched {
+    /// The node the probes were for.
+    pub path: Vec<String>,
+    /// What they printed.
+    pub kept: KeptProbes,
+}
+
 /// Owns a bounded thread pool and a cancellation flag; submits fills and
 /// delivers completed ones back without ever touching `App` off the main
 /// thread.
@@ -74,6 +83,8 @@ pub struct Warmer {
     generation: Arc<AtomicUsize>,
     tx: Sender<WarmedNode>,
     rx: Receiver<WarmedNode>,
+    raw_tx: Sender<RawFetched>,
+    raw_rx: Receiver<RawFetched>,
 }
 
 impl Warmer {
@@ -104,6 +115,7 @@ impl Warmer {
             .build()
             .expect("failed to build the background warming thread pool");
         let (tx, rx) = mpsc::channel();
+        let (raw_tx, raw_rx) = mpsc::channel();
         Warmer {
             pool,
             lanes: Arc::new(Mutex::new(Lanes::default())),
@@ -112,6 +124,8 @@ impl Warmer {
             generation: Arc::new(AtomicUsize::new(0)),
             tx,
             rx,
+            raw_tx,
+            raw_rx,
         }
     }
 
@@ -172,6 +186,30 @@ impl Warmer {
         outcome
     }
 
+    /// [`Self::prioritize`] for the verbatim view: probe `path` for its
+    /// raw output instead of filling it. Takes the same front slot, so
+    /// only the row under the cursor is fetched. The result comes back
+    /// through [`Self::drain_raw`].
+    pub fn prioritize_raw(
+        &self,
+        runner: Arc<Runner>,
+        tool: ResolvedTool,
+        probe_path: Vec<String>,
+        path: Vec<String>,
+        existing: mandible_core::CommandNode,
+    ) -> Prioritized {
+        if self.cancelled.load(Ordering::Relaxed) {
+            return Prioritized::default();
+        }
+        let mut job = self.job(runner, tool, probe_path, existing);
+        job.raw = true;
+        let (outcome, added) = lock(&self.lanes).prioritize(path, job);
+        if added {
+            self.spawn_worker();
+        }
+        outcome
+    }
+
     fn job(
         &self,
         runner: Arc<Runner>,
@@ -184,6 +222,7 @@ impl Warmer {
             tool,
             probe_path,
             existing,
+            raw: false,
             submitted_under: self.generation.load(Ordering::Relaxed),
         }
     }
@@ -196,6 +235,7 @@ impl Warmer {
         let cancelled = Arc::clone(&self.cancelled);
         let generation = Arc::clone(&self.generation);
         let tx = self.tx.clone();
+        let raw_tx = self.raw_tx.clone();
         self.pool.spawn(move || {
             if cancelled.load(Ordering::Relaxed) {
                 return;
@@ -203,6 +243,24 @@ impl Warmer {
             let Some((path, job)) = lock(&lanes).take() else {
                 return;
             };
+            if job.raw {
+                let hints = NodeHints {
+                    heading_attested: job.existing.heading_attested,
+                    abbrev_probe_attested: job.existing.abbrev_probe_attested,
+                    help_word_attested: job.existing.help_word_attested,
+                };
+                let probe =
+                    || mandible_extract::help_text::probe_raw(&job.tool, &job.probe_path, hints);
+                deliver_raw(
+                    &cancelled,
+                    &generation,
+                    job.submitted_under,
+                    &raw_tx,
+                    path,
+                    probe,
+                );
+                return;
+            }
             let fill = || {
                 job.runner
                     .fill_node(&job.tool, &job.probe_path, job.existing)
@@ -289,6 +347,16 @@ impl Warmer {
         done
     }
 
+    /// Drain any raw fetches that have completed, without blocking.
+    pub fn drain_raw(&self) -> Vec<RawFetched> {
+        let done: Vec<RawFetched> = self.raw_rx.try_iter().collect();
+        let mut lanes = lock(&self.lanes);
+        for fetched in &done {
+            lanes.finish(&fetched.path);
+        }
+        done
+    }
+
     /// Signal in-flight and not-yet-started jobs to skip their work on
     /// quit. Already-running jobs still run to completion — a std/rayon
     /// thread can't be safely force-killed — but nothing new is submitted
@@ -322,6 +390,7 @@ impl Warmer {
         // Results that arrived from the old generation but haven't been
         // drained yet describe the discarded tree too.
         while self.rx.try_recv().is_ok() {}
+        while self.raw_rx.try_recv().is_ok() {}
     }
 }
 
@@ -331,6 +400,8 @@ struct Job {
     tool: ResolvedTool,
     probe_path: Vec<String>,
     existing: mandible_core::CommandNode,
+    /// Probe for the verbatim view only; the node is not filled.
+    raw: bool,
     /// The generation current when the job was queued, which is what the
     /// result is checked against before it is delivered.
     submitted_under: usize,
@@ -362,17 +433,37 @@ fn deliver(
     path: Vec<String>,
     fill: impl FnOnce() -> FillResult,
 ) {
-    let stale = || {
-        cancelled.load(Ordering::Relaxed) || generation.load(Ordering::Relaxed) != submitted_under
-    };
-    if stale() {
+    if is_stale(cancelled, generation, submitted_under) {
         return;
     }
     let result = fill();
-    if stale() {
+    if is_stale(cancelled, generation, submitted_under) {
         return;
     }
     let _ = tx.send(WarmedNode { path, result });
+}
+
+/// [`deliver`] for a raw fetch.
+fn deliver_raw(
+    cancelled: &AtomicBool,
+    generation: &AtomicUsize,
+    submitted_under: usize,
+    tx: &Sender<RawFetched>,
+    path: Vec<String>,
+    probe: impl FnOnce() -> KeptProbes,
+) {
+    if is_stale(cancelled, generation, submitted_under) {
+        return;
+    }
+    let kept = probe();
+    if is_stale(cancelled, generation, submitted_under) {
+        return;
+    }
+    let _ = tx.send(RawFetched { path, kept });
+}
+
+fn is_stale(cancelled: &AtomicBool, generation: &AtomicUsize, submitted_under: usize) -> bool {
+    cancelled.load(Ordering::Relaxed) || generation.load(Ordering::Relaxed) != submitted_under
 }
 
 /// Waiting work, in the order workers take it.
@@ -482,6 +573,7 @@ mod tests {
                 ),
                 tier_statuses: Vec::new(),
                 elapsed: std::time::Duration::ZERO,
+                kept: KeptProbes::default(),
             },
         }
     }
@@ -704,6 +796,28 @@ mod tests {
         cancelled.store(false, Ordering::Relaxed);
         deliver(&cancelled, &generation, under, &tx, path, fill);
         assert!(rx.try_recv().is_ok(), "control: a live job delivers");
+    }
+
+    #[test]
+    fn a_raw_fetch_result_is_dropped_after_quit_or_a_reset() {
+        let (tx, rx) = mpsc::channel();
+        let cancelled = AtomicBool::new(false);
+        let generation = AtomicUsize::new(0);
+        let probe = || KeptProbes::default();
+
+        deliver_raw(&cancelled, &generation, 0, &tx, p("git rebase"), || {
+            generation.fetch_add(1, Ordering::Relaxed);
+            probe()
+        });
+        assert!(rx.try_recv().is_err(), "reset mid-probe must drop it");
+
+        cancelled.store(true, Ordering::Relaxed);
+        deliver_raw(&cancelled, &generation, 1, &tx, p("git rebase"), probe);
+        assert!(rx.try_recv().is_err(), "quit must drop it");
+
+        cancelled.store(false, Ordering::Relaxed);
+        deliver_raw(&cancelled, &generation, 1, &tx, p("git rebase"), probe);
+        assert!(rx.try_recv().is_ok(), "control: a live fetch delivers");
     }
 
     #[test]

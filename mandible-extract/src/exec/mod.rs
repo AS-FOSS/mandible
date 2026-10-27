@@ -19,12 +19,14 @@
 
 pub mod canary;
 pub mod containment;
+mod kept;
 mod policy;
 mod probe;
 mod reap;
 mod scratch_root;
 mod spawn;
 
+pub use kept::{KeptProbes, Recorder, Replay};
 pub use policy::InertArgv;
 pub use probe::{LiveProbe, Probe, Transcript};
 pub use spawn::{is_help_only_probe, run_inert, ExecError, ExecOutput, MAX_OUTPUT_BYTES};
