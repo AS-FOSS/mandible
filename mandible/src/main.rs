@@ -15,6 +15,7 @@ mod discovery;
 mod doctor;
 mod pipeline;
 mod raw_store;
+mod reload;
 mod report;
 mod root_guard;
 mod shell_init;

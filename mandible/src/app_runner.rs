@@ -27,6 +27,7 @@
 
 use crate::background::Warmer;
 use crate::raw_store::{self, RawStore, RAW_BUDGET_BYTES};
+use crate::reload::Reloader;
 use anyhow::Context;
 use crossterm::event::{self, Event};
 use mandible_core::audit::{self, Entry};
@@ -40,8 +41,12 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Upper bound on events dropped after a blocking re-extract.
-const MAX_DISCARDED_EVENTS: usize = 1024;
+/// State the loop keeps beside the tree: the kept raw output and the
+/// re-extraction in flight.
+struct Session {
+    raw: RawStore,
+    reload: Reloader,
+}
 
 /// Why [`run_loop`] returned.
 enum LoopExit {
@@ -291,13 +296,33 @@ fn run_loop(
     // launching instant regardless of how slow the tool is to probe.
     submit_root_fill(app, &runner, &resolved, &warmer);
     let mut asked: Option<(usize, Vec<String>)> = None;
-    let mut raw = RawStore::new(RAW_BUDGET_BYTES);
+    let mut session = Session {
+        raw: RawStore::new(RAW_BUDGET_BYTES),
+        reload: Reloader::new(),
+    };
 
     loop {
         // Splice in any background fills that completed since the last
         // iteration before rendering, so the tree reflects them promptly.
+        if let Some(loaded) = session.reload.poll(&app.tool) {
+            apply_reload(
+                app,
+                loaded.root,
+                &runner,
+                &resolved,
+                &warmer,
+                &mut session.raw,
+            );
+        }
         for fetched in warmer.drain_raw() {
-            raw_store::keep(app, &mut raw, &resolved, fetched.path, fetched.kept, true);
+            raw_store::keep(
+                app,
+                &mut session.raw,
+                &resolved,
+                fetched.path,
+                fetched.kept,
+                true,
+            );
         }
         for warmed in warmer.drain() {
             let kept = warmed.result.kept;
@@ -327,7 +352,7 @@ fn run_loop(
             // The node `mandible <tool> <sub>` asked for may have just
             // arrived — or may now be known not to exist (spec §5.4).
             app.settle_requested_path();
-            raw_store::keep(app, &mut raw, &resolved, warmed.path, kept, false);
+            raw_store::keep(app, &mut session.raw, &resolved, warmed.path, kept, false);
         }
 
         // Let a transient status message ("copied: …") time out. This loop
@@ -394,9 +419,15 @@ fn run_loop(
                 }
                 if !claimed {
                     if let Some(effect) = tui_event::handle_key(app, key) {
-                        if let Control::Exit(exit) =
-                            apply_effect(app, effect, &runner, &resolved, &warmer, &mut raw, sink)
-                        {
+                        if let Control::Exit(exit) = apply_effect(
+                            app,
+                            effect,
+                            &runner,
+                            &resolved,
+                            &warmer,
+                            &mut session,
+                            sink,
+                        ) {
                             warmer.cancel();
                             return Ok(exit);
                         }
@@ -409,7 +440,7 @@ fn run_loop(
                 let regions = layout::compute(area, app.focus);
                 if let Some(effect) = tui_event::handle_mouse(app, mouse, &regions) {
                     if let Control::Exit(exit) =
-                        apply_effect(app, effect, &runner, &resolved, &warmer, &mut raw, sink)
+                        apply_effect(app, effect, &runner, &resolved, &warmer, &mut session, sink)
                     {
                         warmer.cancel();
                         return Ok(exit);
@@ -434,7 +465,7 @@ fn run_loop(
         // node is genuinely unfetched.
         if let Some(effect) = app.raw_fetch_needed() {
             if let Control::Exit(exit) =
-                apply_effect(app, effect, &runner, &resolved, &warmer, &mut raw, sink)
+                apply_effect(app, effect, &runner, &resolved, &warmer, &mut session, sink)
             {
                 warmer.cancel();
                 return Ok(exit);
@@ -451,7 +482,7 @@ fn apply_effect(
     runner: &Arc<Runner>,
     resolved: &mandible_extract::ResolvedTool,
     warmer: &Warmer,
-    raw: &mut RawStore,
+    session: &mut Session,
     sink: terminal::Sink,
 ) -> Control {
     match effect {
@@ -471,37 +502,16 @@ fn apply_effect(
             app.set_status(status);
         }
         Effect::Refresh => {
-            // Abandon the previous whole-tree walk *first*. Its results
-            // describe the tree about to be replaced, and without this
-            // every `r` left another cascade running against a discarded
-            // tree while eating from a warming budget that never refilled.
-            warmer.reset();
-            raw.clear();
-
-            let loaded = crate::pipeline::load(&app.tool);
-            match loaded.root {
-                Some(root) => {
-                    app.reload(root);
-                    // Re-queue the root fill. This is what restarts the
-                    // cascade that walks the tree; without it the pane sat
-                    // empty after a re-extract until the user pressed
-                    // Enter, because expand was the only remaining path
-                    // that still triggered extraction.
-                    submit_root_fill(app, runner, resolved, warmer);
-                    app.set_status("re-extracted");
-                }
-                None => {
-                    app.set_status("re-extraction failed: no tier produced a result");
-                }
+            if session.reload.start(&app.tool) {
+                app.set_status("re-extracting");
             }
-            discard_input_typed_during_the_block();
         }
         Effect::Fill(path) => prioritize_path(app, runner, resolved, warmer, path),
         // Served from the output the fill kept; nothing is probed here.
         // With nothing kept the pane says it is loading, and the fetch
         // goes to the background pool once the cursor rests.
         Effect::FetchRaw(path) => {
-            if !raw_store::serve(app, raw, resolved, &path) {
+            if !raw_store::serve(app, &mut session.raw, resolved, &path) {
                 app.mark_raw_pending(path);
             }
         }
@@ -586,28 +596,27 @@ fn probe_selection(
     }
 }
 
-/// Throw away input that arrived while a blocking re-extract held the loop.
-///
-/// `pipeline::load` runs a full extraction on this thread, so on a slow
-/// tool the UI is unresponsive for seconds. Key auto-repeat keeps filling
-/// crossterm's buffer throughout, and every one of those events was typed
-/// blind at a frozen screen. Replaying them meant holding `r` queued one
-/// more complete re-extraction per repeat, which is what made the key look
-/// like it spawned unbounded work.
-///
-/// Bounded rather than looping until empty, so a key that is genuinely
-/// stuck down cannot keep us here indefinitely.
-fn discard_input_typed_during_the_block() {
-    for _ in 0..MAX_DISCARDED_EVENTS {
-        match event::poll(Duration::from_millis(0)) {
-            Ok(true) => {
-                if event::read().is_err() {
-                    return;
-                }
-            }
-            _ => return,
-        }
-    }
+/// Swap a finished re-extraction in. The previous whole-tree walk is
+/// abandoned first, since its results describe the tree being replaced, and
+/// the root fill restarts the walk (without it the pane sat empty until the
+/// user pressed Enter).
+fn apply_reload(
+    app: &mut App,
+    root: Option<mandible_core::CommandNode>,
+    runner: &Arc<Runner>,
+    resolved: &mandible_extract::ResolvedTool,
+    warmer: &Warmer,
+    raw: &mut RawStore,
+) {
+    let Some(root) = root else {
+        app.set_status("re-extraction failed: no tier produced a result");
+        return;
+    };
+    warmer.reset();
+    raw.clear();
+    app.reload(root);
+    submit_root_fill(app, runner, resolved, warmer);
+    app.set_status("re-extracted");
 }
 
 #[cfg(test)]

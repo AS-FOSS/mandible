@@ -209,7 +209,7 @@ structure, search is for flags.
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
-| `r` | Re-extract this tool. Preserves expansion, selection, filter and view mode; abandons the in-flight warming cascade and restarts it |
+| `r` | Re-extract this tool in the background; a second `r` while one runs does nothing. The page stays usable meanwhile, and the new tree then replaces it, preserving expansion, selection, filter and view mode, abandoning the in-flight warming cascade and restarting it |
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
@@ -226,6 +226,10 @@ discards the kept output with the page and fills it again. §6 rule 0
 applies unchanged in this mode: `pkill --help` is shown, but
 `pkill something --help` stays refused exactly as in the extraction
 pipeline.
+
+No tool process runs on the UI thread. Fills, the verbatim view's fetch and
+`r` all run on background threads and reach the screen through channels the
+event loop polls.
 
 **Handing the command over: `--print-selection`.** `mandible
 --print-selection <tool>` browses identically, except that `Enter`
