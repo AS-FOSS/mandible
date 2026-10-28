@@ -355,9 +355,10 @@ mod tests {
     fn a_leading_dash_lines_up_with_the_dashes_before_a_word() {
         let long = Spelling::long("squash");
         let short = Spelling::short('s');
-        assert_eq!(spelling_tier(&long, "--squash"), Some(Tier::Exact));
+        assert_eq!(spelling_tier(&long, "--squash"), Some(Tier::ExactCase));
+        assert_eq!(spelling_tier(&long, "--SQUASH"), Some(Tier::Exact));
         assert_eq!(spelling_tier(&long, "--sq"), Some(Tier::Prefix));
-        assert_eq!(spelling_tier(&short, "-s"), Some(Tier::Exact));
+        assert_eq!(spelling_tier(&short, "-s"), Some(Tier::ExactCase));
         assert_eq!(spelling_tier(&long, "-s"), Some(Tier::Prefix));
         assert_eq!(spelling_tier(&short, "--s"), None);
     }
