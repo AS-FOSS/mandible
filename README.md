@@ -195,8 +195,8 @@ everyone. (Local per-tool corrections do exist for the impatient:
 
 `?` inside mandible lists every binding, and the footer keeps the important ones
 on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`→`
-to scroll wide lines sideways, `t` for the tool's own `--help`, `y` to copy the
-selected flag, `q` to quit.
+to scroll wide lines sideways, `t` for the tool's own `--help`, `s` to sort the
+focused pane A–Z, `y` to copy the selected flag, `q` to quit.
 
 Search has two modes. `names` matches a command name or any spelling of a flag,
 positional, modifier or environment variable; `everything` also searches

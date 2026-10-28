@@ -206,6 +206,7 @@ structure, search is for flags.
 | `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`). In the search box, take the dim suggestion (§10) |
 | `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
+| `s` | Sort the focused pane A to Z (§9.3 rule 20). The detail pane cycles the tool's order, A to Z within each section, A to Z over each section; the commands pane switches between the tool's order and A to Z |
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
 | `n`/`p` | While a search is active: select the next or previous matching entity on the selected command's page and scroll it into view, wrapping at the ends |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
@@ -1880,6 +1881,8 @@ want opposite things from the same page.
 6. An `unverified` marker (§5.4) takes the summary's column ahead of the
    summary, and the width ladder does not drop it. A plain word, not a
    glyph, so it survives a terminal with no color and no Unicode (§9.2).
+7. `s` with this pane focused lists the siblings under each parent A to Z
+   (§9.3 rule 20).
 
 ```
 ╭ git ───────────────────────────────────────────╮
@@ -2190,6 +2193,32 @@ sections.
     `DESCRIPTION` heading as the last section, after EXAMPLES. Flag and
     positional descriptions are never previewed. Every layout decides
     again: a resize or the wrap toggle can turn the preview on or off.
+20. Sorting. `s` sorts the pane that has focus. Each pane keeps its own
+    state for the session, so moving to another command keeps it.
+    - The detail pane has three states: the tool's order, A to Z within
+      each section, and A to Z over each section. The second keeps the
+      group dividers and sorts the rows inside each group. The third drops
+      the tool's own dividers and draws one sorted list per section. The
+      `Inherited` group stays last and is sorted inside itself.
+    - The commands pane has two states: the tool's order, and A to Z
+      among the siblings under each parent.
+    - The key is the row's bare name (`Spelling.name`: no dashes, no
+      `[no-]`, no brackets), compared without regard to case. A row with a
+      long name sorts by it, a row with only a short sorts by its letter,
+      and a command sorts by its name. Equal keys keep the tool's order.
+    - Only the rows of FLAGS, MODIFIERS and ENVIRONMENT and the commands
+      move. POSITIONALS, USAGE, DESCRIPTION, EXAMPLES and the other prose
+      are never sorted.
+    - The selected command stays selected and in view. In the detail pane
+      the row at the top stays at the top, scrolled into by the same
+      number of lines, and a current search match stays in view.
+    - The title names the state after the pane name: `· A–Z in sections`
+      or `· A–Z` in the detail pane, `· A–Z` in the commands pane (`A-Z`
+      in the ASCII set). When the title and the indicator do not both
+      fit, the indicator goes first and the title is cut as it is
+      without one (§9.4 rule 2).
+    - In the verbatim view and on an `unparsed` page there is nothing to
+      sort, and `s` says so in the status row.
 
 **Why.** A label in a different shade or weight from the line running out
 of it reads as two unrelated marks sharing a row, which is why a group
@@ -2293,6 +2322,7 @@ shrinks, and the only three questions allowed to decide it.
 | Tree row summary | ROOM, per row | Hidden for that row when its name leaves under 20; cut with `…` when longer |
 | Tree names | cut | `…` only when the name alone does not fit |
 | Pane and search titles | cut | `…`; the detail title from the left |
+| Sort indicator (§9.3 rule 20) | cut | Dropped whole before its title is cut |
 | Search box text | scroll | Shows the end of what is typed |
 | DESCRIPTION, USAGE, EXAMPLES, summary | USER CHOICE | Wrapped with `USAGE_HANG`; hard-break of an over-wide token; wrapping off: one row per line |
 | Raw view, `unparsed` fallback | USER CHOICE | Its own state, starting from `[ui] horizontal_scroll` (default: scrolls); preformatted lines never re-flow |
@@ -2390,8 +2420,10 @@ findable, and how a match is shown in context.
    comes first, then the tree's display order, then an entity's place on
    its command's page, top to bottom, and any remaining tie keeps the
    index's order. `/rebase` ranks `git rebase` above `git submodule`,
-   whose `--rebase` flag only reaches the word tier. `n` and `p` keep
-   walking the page top to bottom.
+   whose `--rebase` flag only reaches the word tier. The tree's display
+   order and an entity's place on its page are the order the panes draw
+   them in, so they follow `s` (§9.3 rule 20). `n` and `p` keep walking
+   the page top to bottom.
 10. The result list is one list. The tree rows, the title count and the
     jump all come from it, so the jump never lands on an item the tree
     does not show. The cursor goes to the row of the first-ranked match: a

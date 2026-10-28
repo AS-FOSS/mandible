@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `s` sorts the focused pane by name, ignoring case: the detail pane cycles the tool's order, A–Z within each section and A–Z over each section, the commands list switches between the tool's order and A–Z, and the pane title names the state.
 - [S-071] The detail pane ends with an `EXAMPLES` section that prints the tool's own example lines as written, such as `tar`, `argdist-bpfcc`, `bpftrace`, `jq` and `gh pr list`; an `Example: ...` row that sat in `grep`'s description moves there too.
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 - The `?` overlay is sized to its content, uses two columns on wide terminals, and scrolls with `↑`/`↓` when the terminal is too short to show every binding.
