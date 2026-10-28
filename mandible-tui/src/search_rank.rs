@@ -29,6 +29,20 @@ pub(crate) fn name_matches(name: &str, query: &str) -> bool {
     name.to_lowercase().contains(&query.to_lowercase())
 }
 
+/// Where `query` matches inside `text`, as a byte offset into the
+/// lowercased text: 0 for the start, else just after a `-`/`_` found at or
+/// past `skip`. Both arguments are already lowercase.
+fn match_start(text: &str, skip: usize, query: &str) -> Option<usize> {
+    if text.starts_with(query) {
+        return Some(0);
+    }
+    let from = skip.min(text.len());
+    text[from..]
+        .match_indices(['-', '_'])
+        .map(|(i, _)| from + i + 1)
+        .find(|&start| text[start..].starts_with(query))
+}
+
 /// The tier of `query` within `text`, or `None`. Word starts are offset 0
 /// and the position after each `-`/`_` found at or past `skip`; `skip`
 /// keeps a spelling's leading dashes from counting as separators.
@@ -38,14 +52,55 @@ fn tier_in(text: &str, skip: usize, query: &str) -> Option<Tier> {
     if text == query {
         return Some(Tier::Exact);
     }
-    if text.starts_with(&query) {
-        return Some(Tier::Prefix);
+    match match_start(&text, skip, &query)? {
+        0 => Some(Tier::Prefix),
+        _ => Some(Tier::Word),
     }
-    let from = skip.min(text.len());
-    let word = text[from..]
-        .match_indices(['-', '_'])
-        .any(|(i, _)| text[from + i + 1..].starts_with(&query));
-    word.then_some(Tier::Word)
+}
+
+/// The letters of one spelling a name-mode `query` matched.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Marked {
+    /// Leading dashes covered by a dash-led query.
+    pub(crate) dashes: usize,
+    /// Char positions within the spelling's bare name.
+    pub(crate) name: Vec<usize>,
+}
+
+/// The letters of `spelling` that `query` matched in name mode, or `None`
+/// when the spelling does not match.
+pub(crate) fn marked_in_spelling(spelling: &Spelling, query: &str) -> Option<Marked> {
+    let query = query.to_lowercase();
+    let qlen = query.chars().count();
+    if !query.starts_with('-') {
+        let name = spelling.name.to_lowercase();
+        let start = match_start(&name, 0, &query)?;
+        let first = name[..start].chars().count();
+        return Some(Marked {
+            dashes: 0,
+            name: (first..first + qlen).collect(),
+        });
+    }
+    let dash_len = match spelling.dashes {
+        Dashes::None => return None,
+        Dashes::Single => 1,
+        Dashes::Double => 2,
+    };
+    let text = format!("{}{}", "-".repeat(dash_len), spelling.name.to_lowercase());
+    let start = match_start(&text, dash_len, &query)?;
+    let first = text[..start].chars().count();
+    if first == 0 {
+        let dashes = dash_len.min(qlen);
+        return Some(Marked {
+            dashes,
+            name: (0..qlen - dashes).collect(),
+        });
+    }
+    let first = first - dash_len;
+    Some(Marked {
+        dashes: 0,
+        name: (first..first + qlen).collect(),
+    })
 }
 
 /// The tier of one spelling. A query starting with `-` is matched against
@@ -158,6 +213,17 @@ mod tests {
         assert_eq!(command_tier("grep", "re"), Some(Tier::Substring));
         assert!(Tier::Exact < Tier::Prefix && Tier::Prefix < Tier::Word);
         assert!(Tier::Word < Tier::Substring);
+    }
+
+    #[test]
+    fn marked_letters_are_the_matched_prefix_of_a_word() {
+        let s = Spelling::long("no-verify");
+        assert_eq!(marked_in_spelling(&s, "ver").unwrap().name, vec![3, 4, 5]);
+        assert_eq!(marked_in_spelling(&s, "no").unwrap().name, vec![0, 1]);
+        let long = Spelling::long("squash");
+        let m = marked_in_spelling(&long, "--sq").unwrap();
+        assert_eq!((m.dashes, m.name), (2, vec![0, 1]));
+        assert_eq!(marked_in_spelling(&long, "-s"), None);
     }
 
     #[test]

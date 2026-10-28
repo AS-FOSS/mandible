@@ -21,6 +21,7 @@ mod man;
 mod page_cache;
 mod page_text;
 mod reflow;
+mod search_marks;
 mod stack;
 mod usage_form;
 mod wrap;
@@ -38,6 +39,7 @@ use page_cache::PageKey;
 pub use page_text::page_text;
 pub(crate) use reflow::ReflowAnchor;
 use reflow::*;
+use search_marks::*;
 use stack::*;
 use usage_form::*;
 use wrap::*;
@@ -164,6 +166,8 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
         scroll,
     );
     draw_page(frame, inner, app, (&built.lines, &built.rules), scroll);
+    app.set_page_matches(built.matches.clone());
+    draw_match_bars(frame, inner, app, &built.matches, scroll);
     draw_edge_markers(frame, area, app);
 }
 
@@ -236,6 +240,8 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
     } else {
         draw_page(frame, inner, app, (&built.lines, &built.rules), scroll);
     }
+    app.set_page_matches(built.matches.clone());
+    draw_match_bars(frame, inner, app, &built.matches, scroll);
     draw_edge_markers(frame, area, app);
 }
 
@@ -547,6 +553,8 @@ pub(crate) struct BuiltLines {
     items: Vec<usize>,
     /// The lines that end in a rule to the pane's edge.
     rules: Vec<usize>,
+    /// The rows that match the active search, in page order.
+    matches: std::rc::Rc<Vec<crate::app::MatchRow>>,
 }
 
 /// The list sections of spec §9.3, in render order: the [`EntityKind`]
@@ -576,6 +584,8 @@ fn build_lines(
     let mut rows: Vec<EntryRow> = Vec::new();
     let mut items: Vec<usize> = Vec::new();
     let mut rules: Vec<usize> = Vec::new();
+    let mut matches: Vec<crate::app::MatchRow> = Vec::new();
+    let page_marks = PageMarks::of(app);
     // Wrapping on: nothing here is wider than the pane. Wrapping off: every
     // line is built at its natural width and the renderer windows it.
     let wrap = app.parsed_wraps();
@@ -713,7 +723,18 @@ fn build_lines(
         ));
         note_rule(&mut rules, &lines, glyphs);
         let base = lines.len();
-        let section = section_lines(&visible, width, indent, palette, target_flag, glyphs, wrap);
+        let mut section =
+            section_lines(&visible, width, indent, palette, target_flag, glyphs, wrap);
+        if let Some(marks) = &page_marks {
+            matches.extend(
+                mark_section(&visible, &mut section, marks)
+                    .into_iter()
+                    .map(|m| crate::app::MatchRow {
+                        first_line: base + m.first_line,
+                        ..m
+                    }),
+            );
+        }
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
         }
@@ -761,6 +782,7 @@ fn build_lines(
         rows,
         items,
         rules,
+        matches: std::rc::Rc::new(matches),
     }
 }
 
@@ -854,6 +876,8 @@ fn group_label(raw: &str) -> String {
 struct SectionBody {
     lines: Vec<Line<'static>>,
     rows: Vec<EntryRow>,
+    /// The key of each entity in `rows`, in the same order.
+    keys: Vec<Option<FlagKey>>,
     target: Option<usize>,
     items: Vec<usize>,
     rules: Vec<usize>,
@@ -1005,6 +1029,7 @@ fn push_entity(
         first_line,
         lines: rendered.len(),
     });
+    body.keys.push(entity.key());
     body.lines.extend(rendered);
 }
 

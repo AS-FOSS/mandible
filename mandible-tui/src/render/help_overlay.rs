@@ -18,6 +18,7 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (Some("Tab"), "Switch between tree and detail"),
     (None, "SEARCH"),
     (Some("/"), "Search; again to widen names → everything"),
+    (Some("n N"), "Next or previous match on the page"),
     (
         Some("Esc"),
         "Back to column 0 if scrolled sideways; else clear the search. In the box: Enter keeps it, Esc cancels it",

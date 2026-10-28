@@ -24,7 +24,7 @@ use crate::tree::TreeRow;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph};
 use ratatui::Frame;
 
 /// What a convention-discovered row says about itself (spec §5.4, §9.2).
@@ -80,8 +80,12 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         let notice = mandible_core::notice::no_matches_notice(&defensive_single_line(
             app.active_filter().unwrap_or(""),
         ));
-        let notice = truncate_to_width_marker(&notice, inner_width, glyphs_cut(app));
-        frame.render_widget(Paragraph::new(Line::from(notice)), inner);
+        // The same one-column padding the detail pane's block gives its notices.
+        let padded = Block::default()
+            .padding(Padding::horizontal(1))
+            .inner(inner);
+        let notice = truncate_to_width_marker(&notice, usize::from(padded.width), glyphs_cut(app));
+        frame.render_widget(Paragraph::new(Line::from(notice)), padded);
         return;
     }
     let rows = app.rows();
@@ -89,10 +93,25 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let max_scroll = rows.len().saturating_sub(visible_height);
     let scroll = app.tree_scroll.min(max_scroll);
 
+    let marks = app.hit_marks();
+    let searching = app.active_filter().is_some();
+    // The count column is reserved while any row has a count, and only
+    // while a summary would still have ROOM beside it (§9.4): a pane that
+    // cannot give both drops the counts first.
+    let has_counts = searching && rows.iter().any(|r| marks.entity_count(&r.path) > 0);
+    let full_column = summary_column(rows, inner_width);
+    let show_counts =
+        has_counts && fit::has_room(inner_width.saturating_sub(full_column + COUNT_RESERVE));
+    let text_width = if show_counts {
+        inner_width - COUNT_RESERVE
+    } else {
+        inner_width
+    };
+
     // Computed once, over *all* rows — see the module doc for why.
-    let summary_column = summary_column(rows, inner_width);
+    let summary_column = summary_column(rows, text_width);
     // The column shows only while it leaves a summary room to read in.
-    let hide_summaries = !fit::has_room(inner_width.saturating_sub(summary_column));
+    let hide_summaries = !fit::has_room(text_width.saturating_sub(summary_column));
 
     let query = app.active_filter();
 
@@ -102,21 +121,83 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         .skip(scroll)
         .take(visible_height)
         .map(|(i, row)| {
-            build_row_line(
+            let selected = i == app.selected;
+            // Only a row that matched by its own name underlines letters;
+            // rows kept for the tree's shape stay plain.
+            let name_query = query.filter(|_| marks.commands.contains(&row.path));
+            let mut line = build_row_line(
                 row,
-                inner_width,
+                text_width,
                 hide_summaries,
-                i == app.selected,
+                selected,
                 summary_column,
                 app.color_enabled,
-                query,
+                name_query,
                 app.glyphs,
-            )
+            );
+            if searching && !selected && marks.is_hit(&row.path) {
+                embolden(&mut line);
+            }
+            if show_counts {
+                let count = marks.entity_count(&row.path);
+                append_count(&mut line, inner_width, count, selected, app.color_enabled);
+            }
+            line
         })
         .collect();
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, inner);
+}
+
+/// Columns the count column takes: the count, `99+` at most, a space, and
+/// `match` or `matches` padded to the longer.
+const COUNT_WIDTH: usize = 11;
+
+/// Columns reserved for the counts: the column and the gap before it.
+const COUNT_RESERVE: usize = COUNT_WIDTH + 2;
+
+/// `  1 match  `, ` 14 matches`, `99+ matches`: always `COUNT_WIDTH` wide.
+fn count_text(count: usize) -> String {
+    let number = if count >= 100 {
+        "99+".to_string()
+    } else {
+        format!("{count:>3}")
+    };
+    let word = if count == 1 { "match" } else { "matches" };
+    format!("{number} {word:<7}")
+}
+
+/// Add bold to every span of `line`.
+fn embolden(line: &mut Line<'_>) {
+    for span in &mut line.spans {
+        span.style = span.style.add_modifier(ratatui::style::Modifier::BOLD);
+    }
+}
+
+/// Right-align the count of matching entities at the pane's edge. A row
+/// without one gets no text there.
+fn append_count(
+    line: &mut Line<'static>,
+    width: usize,
+    count: usize,
+    selected: bool,
+    color_enabled: bool,
+) {
+    if count == 0 {
+        return;
+    }
+    let style = if selected {
+        style::selected(color_enabled)
+    } else {
+        style::muted(color_enabled)
+    };
+    let pad = width.saturating_sub(COUNT_WIDTH + line.width());
+    line.spans.push(Span::styled(
+        " ".repeat(pad),
+        if selected { style } else { Style::default() },
+    ));
+    line.spans.push(Span::styled(count_text(count), style));
 }
 
 fn glyphs_cut(app: &App) -> &'static str {

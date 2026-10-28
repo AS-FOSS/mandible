@@ -47,6 +47,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Char('q') => return Some(Effect::Quit),
         KeyCode::Char('?') => app.toggle_help(),
         KeyCode::Char('/') => app.focus_search(),
+        KeyCode::Char('n') => app.step_match(true),
+        KeyCode::Char('N') => app.step_match(false),
         KeyCode::Tab => app.toggle_focus(),
         KeyCode::Char('t') => return app.toggle_raw_mode(),
         KeyCode::Char('r') => return Some(Effect::Refresh),
@@ -68,12 +70,13 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
 }
 
 /// A command letter means the same in either case: no binding uses a
-/// capital, so Caps Lock (or Shift) sending `Q` for `q` still quits.
+/// capital but `N`, so Caps Lock (or Shift) sending `Q` for `q` still quits.
 /// Typed text never comes through here: search and review notes keep case.
 pub(crate) fn command_key(key: KeyEvent) -> KeyEvent {
     match key.code {
         KeyCode::Char(c)
             if c.is_ascii_uppercase()
+                && c != 'N'
                 && !key
                     .modifiers
                     .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>

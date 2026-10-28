@@ -59,6 +59,8 @@ pub struct Glyphs {
     pub more_up: &'static str,
     /// More content below the view.
     pub more_down: &'static str,
+    /// Marks a detail-pane row that matches the search, in its left margin.
+    pub match_bar: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -81,6 +83,7 @@ pub const UNICODE: Glyphs = Glyphs {
     more_right: "▶",
     more_up: "▲",
     more_down: "▼",
+    match_bar: "▌",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -104,6 +107,7 @@ pub const ASCII: Glyphs = Glyphs {
     more_right: ">",
     more_up: "^",
     more_down: "v",
+    match_bar: "|",
 };
 
 /// Pick a glyph set from the environment.
@@ -158,6 +162,7 @@ mod tests {
             ASCII.arrows_horizontal,
             ASCII.absent,
             ASCII.rule,
+            ASCII.match_bar,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

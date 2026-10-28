@@ -206,6 +206,12 @@ pub struct App {
     /// The detail pane's built page, reused until one of the inputs named
     /// in `PageKey` changes. In memory, this run only.
     pub(crate) page_cache: std::cell::RefCell<Option<crate::render::PageCache>>,
+    /// What the finished search matched, for marking both panes.
+    hit_marks: HitMarks,
+    hit_marks_version: u64,
+    /// The selected command's matching entity rows as the last frame laid
+    /// them out, with the command path they belong to.
+    page_matches: std::cell::RefCell<(Vec<String>, std::rc::Rc<Vec<MatchRow>>)>,
     /// The item at the top of the detail pane in the last frame, so a wrap
     /// toggle or a resize can put the same item back at the top.
     pub(crate) reflow_anchor: std::cell::RefCell<Option<crate::render::ReflowAnchor>>,
@@ -440,6 +446,9 @@ impl App {
             flag_scroll_shown: std::cell::Cell::new(None),
             pane_height: std::cell::Cell::new(0),
             page_cache: std::cell::RefCell::new(None),
+            hit_marks: HitMarks::default(),
+            hit_marks_version: 0,
+            page_matches: std::cell::RefCell::new((Vec::new(), std::rc::Rc::default())),
             reflow_anchor: std::cell::RefCell::new(None),
             reflow_scroll: std::cell::Cell::new(None),
             detail_hscroll: 0,
@@ -503,12 +512,19 @@ impl App {
             // and stay dirty until it has.
             SearchHits::Pending => return,
             SearchHits::NoMatch => {
+                self.set_hit_marks(HitMarks::default());
                 self.show_no_match();
                 return;
             }
             SearchHits::Off => None,
             SearchHits::Found(list) => Some(list),
         };
+        let wide = self.search_mode == SearchMode::Wide;
+        let marks = match (&hits, self.active_filter()) {
+            (Some(list), Some(query)) => HitMarks::from_hits(list, query, wide),
+            _ => HitMarks::default(),
+        };
+        self.set_hit_marks(marks);
         self.no_match = false;
         let matching_paths = hits
             .as_ref()
@@ -1694,6 +1710,11 @@ impl App {
     }
 }
 
+mod hit_marks;
+pub(crate) use hit_marks::{HitMarks, MatchRow};
+
+#[cfg(test)]
+mod marking_tests;
 #[cfg(test)]
 mod search_tests;
 

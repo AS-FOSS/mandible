@@ -6,17 +6,17 @@ use mandible_core::{Entity, Provenance, Source, Text};
 use ratatui::backend::TestBackend;
 use ratatui::Terminal;
 
-fn prov() -> Provenance {
+pub(super) fn prov() -> Provenance {
     Provenance::single(Source::HelpText)
 }
 
-fn cmd(name: &str) -> CommandNode {
+pub(super) fn cmd(name: &str) -> CommandNode {
     let mut node = CommandNode::new(name, prov());
     node.children_filled = true;
     node
 }
 
-fn with_flag(mut node: CommandNode, long: &str) -> CommandNode {
+pub(super) fn with_flag(mut node: CommandNode, long: &str) -> CommandNode {
     node.entities.push(Entity::flag_long(long, prov()));
     node
 }
@@ -54,7 +54,7 @@ fn names(app: &App) -> Vec<String> {
     app.rows().iter().map(|r| r.name.clone()).collect()
 }
 
-fn settle(app: &mut App) {
+pub(super) fn settle(app: &mut App) {
     app.flush_search_index();
     let deadline = Instant::now() + Duration::from_secs(5);
     while !app.search_index.is_settled() && Instant::now() < deadline {
@@ -64,7 +64,7 @@ fn settle(app: &mut App) {
     app.ensure_rows_fresh();
 }
 
-fn type_query(app: &mut App, query: &str) {
+pub(super) fn type_query(app: &mut App, query: &str) {
     for c in query.chars() {
         app.search_input_char(c);
     }
@@ -78,7 +78,7 @@ fn searched(query: &str) -> App {
     app
 }
 
-fn selected_name(app: &App) -> String {
+pub(super) fn selected_name(app: &App) -> String {
     app.selected_row().unwrap().name.clone()
 }
 
@@ -370,4 +370,24 @@ fn no_match_while_typing_returns_to_the_row_from_before_the_slash() {
     settle(&mut app);
     assert!(!app.no_match());
     assert!(selected_name(&app).starts_with("re"), "the jump resumes");
+}
+
+/// Two matches of one tier whose index order is the reverse of the order
+/// the tree shows them in: the tree's order wins.
+#[test]
+fn the_display_order_breaks_a_tie_the_index_order_would_break_the_other_way() {
+    let mut root = cmd("tool");
+    root.subcommands = vec![cmd("gre"), cmd("xRe")];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "re");
+    let index_first = match app.search_index.results().into_iter().next() {
+        Some(NodeRef::Command(path)) => path.last().cloned().unwrap_or_default(),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(
+        index_first, "xRe",
+        "precondition: the index ranks xRe first"
+    );
+    assert_eq!(selected_name(&app), "gre");
 }
