@@ -809,9 +809,24 @@ mod tests {
     #[test]
     fn wide_mode_ranks_word_starts_before_mid_word_hits() {
         let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
-        root.entities.push(flag(None, Some("aaa"), "x nossl x"));
-        root.entities.push(flag(None, Some("bbb"), "x ssl x"));
-        assert_eq!(long_keys(&wide_index(&root, "ssl")), ["bbb", "aaa"]);
+        root.entities.push(flag(None, Some("assl"), ""));
+        root.entities.push(flag(None, Some("bbb"), "uses ssl here"));
+        assert_eq!(long_keys(&wide_index(&root, "ssl")), ["bbb", "assl"]);
+    }
+
+    #[test]
+    fn a_word_start_is_the_first_character_or_one_after_a_non_alphanumeric() {
+        let hay = |t: &str| nucleo::Utf32String::from(t);
+        let words = |q: &str| -> Vec<Vec<char>> {
+            q.split_whitespace().map(|w| w.chars().collect()).collect()
+        };
+        assert!(every_word_starts_a_word(
+            &hay("--ssl-reqd use"),
+            &words("ssl use")
+        ));
+        assert!(every_word_starts_a_word(&hay("--ssl-reqd"), &words("-ssl")));
+        assert!(!every_word_starts_a_word(&hay("--nossl"), &words("ssl")));
+        assert!(!every_word_starts_a_word(&hay("ssl x"), &words("ssl y")));
     }
 
     #[test]

@@ -309,6 +309,11 @@ mod tests {
     }
 
     #[test]
+    fn a_word_starts_with_a_letter_not_a_separator() {
+        assert_eq!(long_tier("a-_x", "-_x"), None);
+    }
+
+    #[test]
     fn a_dashless_spelling_never_matches_a_dash_led_query() {
         let letter = Spelling::bare("s");
         assert_eq!(spelling_tier(&letter, "-s"), None);
