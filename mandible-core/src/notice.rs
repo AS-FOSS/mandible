@@ -50,3 +50,12 @@ pub const READING_NOTICE: &str = "Reading this command's help…";
 /// in the pane and in the test.
 pub const SAME_AS_ANCESTOR_NOTICE: &str =
     "This command prints the same help as its parent. Press t to see it.";
+
+/// What the commands pane says when a search finished and nothing matched.
+/// The query is quoted after [`NO_MATCHES_NOTICE_PREFIX`].
+pub const NO_MATCHES_NOTICE_PREFIX: &str = "No matches for \"";
+
+/// The whole no-match line for `query`: `No matches for "<query>"`.
+pub fn no_matches_notice(query: &str) -> String {
+    format!("{NO_MATCHES_NOTICE_PREFIX}{query}\"")
+}

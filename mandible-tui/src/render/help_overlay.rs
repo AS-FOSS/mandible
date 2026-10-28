@@ -17,10 +17,13 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (Some("←  h"), "Collapse, or jump to parent"),
     (Some("Tab"), "Switch between tree and detail"),
     (None, "SEARCH"),
-    (Some("/"), "Focus search; again to widen names → everything"),
+    (Some("/"), "Search; again to widen names → everything"),
+    (Some("Tab"), "In the box: take the dim suggestion"),
+    (Some("n"), "Next match on the page"),
+    (Some("p"), "Previous match"),
     (
         Some("Esc"),
-        "Back to column 0 if scrolled sideways; else leave search, keeping the filter; again clears it",
+        "Back to column 0 if scrolled sideways; else clear the search. In the box: Enter keeps it, Esc cancels it",
     ),
     (None, "VIEW"),
     (
@@ -28,6 +31,10 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
         "Verbatim: the tool\u{2019}s own --help, unparsed",
     ),
     (Some("w"), "Wrap text, or scroll it sideways, in this view"),
+    (
+        Some("s"),
+        "Sort the focused pane A–Z; the detail pane sorts within each section first",
+    ),
     (
         Some("h l  ← →"),
         "Scroll sideways when wrap is off (detail pane focused)",
@@ -342,6 +349,23 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    #[test]
+    fn no_two_keys_differ_only_by_case_and_n_and_p_are_listed() {
+        let rows = bindings(false);
+        let keys: Vec<&str> = rows
+            .iter()
+            .filter_map(|(k, _)| *k)
+            .flat_map(str::split_whitespace)
+            .collect();
+        for a in &keys {
+            for b in &keys {
+                assert!(a == b || a.to_lowercase() != b.to_lowercase(), "{a} {b}");
+            }
+        }
+        assert!(rows.contains(&(Some("n"), "Next match on the page")));
+        assert!(rows.contains(&(Some("p"), "Previous match")));
     }
 
     #[test]

@@ -25,6 +25,8 @@ pub(crate) struct PageKey {
     loaded: bool,
     timed_out: bool,
     reading: bool,
+    marks_version: u64,
+    sort: crate::sort::DetailSort,
 }
 
 impl PageKey {
@@ -49,6 +51,8 @@ impl PageKey {
             reading: app
                 .selected_row()
                 .is_some_and(|r| app.is_first_read(&r.path)),
+            marks_version: app.hit_marks_version(),
+            sort: app.sorts.detail,
         }
     }
 }
@@ -85,7 +89,8 @@ pub(super) fn assert_hit_is_fresh(
         fresh.lines == cached.lines
             && fresh.target_flag_line == cached.target_flag_line
             && fresh.items == cached.items
-            && fresh.rules == cached.rules,
+            && fresh.rules == cached.rules
+            && fresh.matches == cached.matches,
         "page cache served an outdated page for {key:?}: the cached lines differ from a fresh build"
     );
 }

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `s` sorts the focused pane by name, ignoring case: the detail pane cycles the tool's order, A–Z within each section and A–Z over each section, the commands list switches between the tool's order and A–Z, and the pane title names the state.
 - [S-071] The detail pane ends with an `EXAMPLES` section that prints the tool's own example lines as written, such as `tar`, `argdist-bpfcc`, `bpftrace`, `jq` and `gh pr list`; an `Example: ...` row that sat in `grep`'s description moves there too.
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
 - The `?` overlay is sized to its content, uses two columns on wide terminals, and scrolls with `↑`/`↓` when the terminal is too short to show every binding.
@@ -21,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A command whose page holds nothing past its summary, such as `pnpm start` or `git citool`, shows `No further help was read for this command. Press t to see what it printed.`
 - A command whose help took longer than 30 seconds shows `Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.`, and `r` then reads it under a 2-minute limit. The 30 seconds are the total for reading one command, `--help` and `-h` together, so the notice appears 30 seconds after the read starts.
 - `--doctor` and `--report` take `--no-timeout` to let every probe run as long as it needs; without it a probe is stopped after 30 seconds and reported as a failure.
+- `n` and `p` select the next or previous matching entity on the page while a search is active, from the commands list or the detail pane, wrapping at the ends; the footer and the `?` overlay list them. The current match sits on the same gray bar as the selected list row, and `N` and `P` work like `n` and `p`.
+- A commands-list row with matching flags, positionals, modifiers or environment variables shows how many in a fixed-width column on the right (`  1 found`, ` 14 found`, `99+ found`), one column in from the border; a pane too narrow to keep summaries beside it drops the counts first.
+- While you type in the search box, a dim suggestion shows where `Enter` will land: the rest of the spelling when it continues what you typed (`--sq` shows `uash`), or `→ --name-math-flag` when the match is in the middle or the query has several words, or `→ --squash` after a typo when nothing matches, preferring the name that shares the longer start (`--sqas` finds `--squash` over `--stat`); `Tab` puts it in the box and searches again, and the footer names `Tab accept` whenever the box has focus; the `?` overlay lists it.
+- Every spelling the page draws can be typed into search: `-r[esolve]`, `--color[=WHEN]`, `FILE...`, a command's aliases, and both ends of a range such as `-0 ... -9` (but not `-5`).
 
 ### Changed
 
@@ -30,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The search box title reads `search · names` instead of `search [names]`, and the `--review` bar reads `REVIEW tool · stratum`: square brackets in mandible's own text always mean may be left out.
 - With wrapping off, a section header's rule and a group divider's rule still reach the right edge of the detail pane however far it is scrolled sideways, and carry no `◀` marker.
 - Command keys work with Caps Lock on: `Q` quits like `q`.
+- The selected row of the commands list is a whole-row gray bar with the name in the accent, or a reversed row on a terminal without 256 colors or under `NO_COLOR`.
 - Toggling wrap with `w` or resizing the terminal keeps the same flag, heading or line at the top of the detail pane, in the parsed and raw views.
 - The detail pane draws the command path at the start of each USAGE form in the accent style, and a USAGE form that wraps continues on rows indented four columns further than its first row.
 - In a narrow detail pane a flag list whose descriptions would get under 20 columns is laid out like a man page: the flag with every spelling on its own line, its description beneath it. The description column is no longer squeezed to make room.
@@ -41,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The command under the cursor is read first, ahead of the background walk, once the cursor rests on it.
 - `r` reloads what you are looking at: on a command's page that command and then its subcommands, on the tool's root page the whole tool. A second `r` on a command being read does nothing.
 - A help probe may run for 30 seconds instead of 10, and one thread of the pool is kept for the command under the cursor and for `r`.
+- `Esc` in the search box cancels the search: the keyword and filter clear and the cursor returns to the row it was on before `/`. `Esc` in the filtered list clears them and the cursor stays on its row. The `(pinned)` and `(filter)` labels are gone, and the bar shows the keyword with `›` only while typing.
+- `/` in the filtered list reopens the search box with the keyword, and `Enter` jumps to the first match again.
+- Search matches a row that contains every word you type, in any case, in both `names` and `everything`, and a dash is an ordinary character: `size` finds `--blocksize`, `no verify` finds `--no-verify`, `--no-squash` finds a `--[no-]squash` flag, and `-ssl` no longer lists commands whose letters are scattered. Every occurrence of each word is underlined, and the best match, not the tree, decides where the cursor jumps first.
+- With a search active, matching rows are marked in both panes: the list's matching rows are bold, rows kept only for the tree's shape stay plain, and the detail pane's matching rows get a bar in the left margin and underlined matched letters, `NO_COLOR` included. The row `n`, `p` or the jump landed on is the only one on the gray bar.
+- The `No matches for "…"` line in the commands list now has the one-column margin the detail pane's notices have.
 
 ### Fixed
 
@@ -53,6 +64,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.
 - [S-252] A USAGE form led by another program's name (`bpftrace [options] filename` under `tcpretrans.bt`) is now shown as printed instead of being prefixed with the tool's name, and the first form under a bare `Usage:` label lines up with the forms below it.
 - After a search scrolls the detail pane to a flag, `↑` and `↓` now move one line from that position instead of jumping back to the top of the page.
+- Search jumped to a command the list did not rank first: `/rebase` selected `git submodule` and `/re` selected `git bisect`. The jump now goes to the first match, ranked exact name, name prefix, word prefix, then anywhere inside the name, commands first, then the shallower and earlier row.
+- A search with no match showed every command and jumped to a fuzzy guess; it now shows `No matches for "<query>"`, counts 0, and the cursor and page return to the row from before `/`.
+- `Esc` after `Enter` did nothing; it now clears the search.
 
 ## [0.8.4] - 2026-10-12
 

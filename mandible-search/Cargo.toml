@@ -7,7 +7,7 @@ license.workspace = true
 repository.workspace = true
 readme.workspace = true
 authors.workspace = true
-description = "Fuzzy search index over commands and flags for mandible, backed by nucleo. Not independently useful outside the mandible workspace."
+description = "Search index over commands and flags for mandible. Not independently useful outside the mandible workspace."
 keywords = ["cli", "search", "mandible"]
 categories = ["command-line-interface"]
 
@@ -17,4 +17,3 @@ path = "src/lib.rs"
 
 [dependencies]
 mandible-core.workspace = true
-nucleo.workspace = true

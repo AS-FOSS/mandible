@@ -3,8 +3,10 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::probes::{FillEnd, Outcome};
+use crate::search_ghost::Ghost;
+use crate::search_rank::{hit_path, page_order_within_groups, rank_by_name};
 use crate::tree::{flatten, TreeRow};
-use mandible_core::{resolve, resolve_flag, CommandNode, NodeRef, Text};
+use mandible_core::{resolve, CommandNode, NodeRef, Text};
 use mandible_extract::KeptProbes;
 use mandible_search::SearchIndex;
 use std::collections::{HashMap, HashSet};
@@ -44,6 +46,16 @@ impl SearchMode {
             SearchMode::Wide => SearchMode::Name,
         }
     }
+}
+
+/// What the active filter's match came to.
+enum SearchHits {
+    /// No filter is active.
+    Off,
+    /// Nothing matched.
+    NoMatch,
+    /// The ranked result list; the first entry is the jump target.
+    Found(Vec<NodeRef>),
 }
 
 /// Which pane currently receives keyboard input.
@@ -128,12 +140,17 @@ pub struct App {
     dirty: bool,
     /// Index into `rows` of the currently selected tree row.
     pub selected: usize,
-    /// Live search box contents.
+    /// The search keyword: what is typed while the box has focus, and the
+    /// filter in effect once `Enter` has moved focus to the list.
     pub search_query: String,
-    /// The filter kept active after `Esc` leaves the search box (spec §2:
-    /// "`Esc` Leave search, keeping the filter pinned; `Esc` again clears
-    /// it").
-    pub search_pinned: Option<String>,
+    /// The row the cursor was on when `/` opened the box, so `Esc` while
+    /// typing can put it back.
+    pre_search_path: Option<Vec<String>>,
+    /// True while the active filter has a finished match with no result:
+    /// the tree pane shows a notice and `rows` is left as it was.
+    no_match: bool,
+    /// The dim suggestion for the input the box holds.
+    ghost: Option<Ghost>,
     /// Which pane has input focus.
     pub focus: Focus,
     /// Whether the detail pane is showing the tool's own `--help` bytes
@@ -190,6 +207,12 @@ pub struct App {
     /// The detail pane's built page, reused until one of the inputs named
     /// in `PageKey` changes. In memory, this run only.
     pub(crate) page_cache: std::cell::RefCell<Option<crate::render::PageCache>>,
+    /// What the finished search matched, for marking both panes.
+    hit_marks: HitMarks,
+    hit_marks_version: u64,
+    /// The selected command's matching entity rows as the last frame laid
+    /// them out, with the command path they belong to.
+    page_matches: std::cell::RefCell<(Vec<String>, std::rc::Rc<Vec<MatchRow>>)>,
     /// The item at the top of the detail pane in the last frame, so a wrap
     /// toggle or a resize can put the same item back at the top.
     pub(crate) reflow_anchor: std::cell::RefCell<Option<crate::render::ReflowAnchor>>,
@@ -268,9 +291,9 @@ pub struct App {
     /// When [`Self::status_message`] should disappear. `None` whenever
     /// there is no message.
     status_expires_at: Option<Instant>,
-    /// The `nucleo`-backed fuzzy index over this tree's commands and flags
-    /// (spec §10). Populated from `root` at construction and whenever the
-    /// tree's structure changes; queried (not text-matched directly) by
+    /// The search index over this tree's commands and flags (spec §10).
+    /// Populated from `root` at construction and whenever the tree's
+    /// structure changes; queried (not text-matched directly) by
     /// [`Self::ensure_rows_fresh`] to compute which tree paths are
     /// currently showing as matches.
     search_index: SearchIndex,
@@ -348,6 +371,14 @@ pub struct App {
     /// background root fill arrives (spec §5.2 step 1), so this is an intent
     /// held across frames rather than an action taken on one.
     pub requested_path: Option<Vec<String>>,
+    /// How `s` has sorted each pane (spec §2). Session state: it stays
+    /// while the selection moves to another command.
+    pub sorts: crate::sort::Sorts,
+    /// The detail pane's top row across a re-order.
+    pub(crate) sort_hold: crate::sort::SortHold,
+    /// Set while `s` rebuilds the rows, so the sort does not move the
+    /// selection to a new first match.
+    keep_jump: bool,
 }
 
 /// One view's scroll position in the detail pane: a line offset and a
@@ -390,53 +421,6 @@ const REBUILD_MIN_INTERVAL: Duration = Duration::from_millis(250);
 /// Rows `PgUp`/`PgDn` move the tree selection.
 const TREE_PAGE_ROWS: isize = 10;
 
-/// Case-insensitive **substring** match of `query` against a command's own
-/// `name`.
-///
-/// Deliberately literal, not a subsequence, because that is the whole
-/// point of `SearchMode::Name` existing as a separate mode. Subsequence
-/// matching is what made the narrow mode feel broken: searching `run` in
-/// `docker` surfaced `ps` and `build`, because `--no-trunc` contains
-/// r…u…n in order and a matching flag surfaces its parent command. Every
-/// hit was technically correct and none of them looked it.
-///
-/// So the two modes are now genuinely different kinds of search rather
-/// than the same search over different fields:
-///
-/// - [`SearchMode::Name`] — commands match by literal substring
-///   ([`name_matches`]); every entity (flag, positional, modifier, env
-///   var) matches by word-prefix ([`word_prefix_matches`]). Every row
-///   shown visibly relates to what you typed.
-/// - [`SearchMode::Wide`] — the fuzzy index over names, summaries,
-///   descriptions and entity values, where `gco` still finds `checkout`.
-///
-/// One keystroke apart, and the search bar says which is active.
-fn name_matches(name: &str, query: &str) -> bool {
-    name.to_lowercase().contains(&query.to_lowercase())
-}
-
-/// True if `query` is a case-insensitive prefix of `name` starting at any
-/// `-`/`_`-separated word boundary (including the start of `name` itself).
-///
-/// This is the constraint that keeps [`SearchMode::Name`] admitting entity
-/// results (spec §10) without reopening the defect `name_matches`' own doc
-/// comment describes: `run` must never match `--no-trunc`. A prefix test
-/// anchored only at word boundaries refuses that — `no-trunc`'s boundaries
-/// are `no-trunc` (the whole name) and `trunc` (after the `-`), and `run`
-/// is a prefix of neither — while `no` and `trunc` both still match, each
-/// from its own boundary, and `NODE_D` matches `NODE_DEBUG` from the start
-/// of the whole name in the same pass that lets `debug` match it from
-/// after the `_`. Byte offsets from `match_indices` are safe to slice at
-/// unadjusted here: `-`/`_` are single ASCII bytes, so the position right
-/// after one is always a char boundary.
-fn word_prefix_matches(name: &str, query: &str) -> bool {
-    let name_lower = name.to_lowercase();
-    let query_lower = query.to_lowercase();
-    std::iter::once(0)
-        .chain(name_lower.match_indices(['-', '_']).map(|(i, _)| i + 1))
-        .any(|start| name_lower[start..].starts_with(&query_lower))
-}
-
 impl App {
     /// Build a new app over an already-extracted (and merged) tree, with
     /// the root expanded so the first screen isn't empty.
@@ -457,7 +441,9 @@ impl App {
             dirty: true,
             selected: 0,
             search_query: String::new(),
-            search_pinned: None,
+            pre_search_path: None,
+            no_match: false,
+            ghost: None,
             focus: Focus::Tree,
             raw_mode: false,
             raw_help: HashMap::new(),
@@ -470,6 +456,9 @@ impl App {
             flag_scroll_shown: std::cell::Cell::new(None),
             pane_height: std::cell::Cell::new(0),
             page_cache: std::cell::RefCell::new(None),
+            hit_marks: HitMarks::default(),
+            hit_marks_version: 0,
+            page_matches: std::cell::RefCell::new((Vec::new(), std::rc::Rc::default())),
             reflow_anchor: std::cell::RefCell::new(None),
             reflow_scroll: std::cell::Cell::new(None),
             detail_hscroll: 0,
@@ -493,21 +482,27 @@ impl App {
             print_selection: false,
             review: None,
             requested_path: None,
+            sorts: crate::sort::Sorts::default(),
+            sort_hold: crate::sort::SortHold::default(),
+            keep_jump: false,
         };
         app.ensure_rows_fresh();
         app
     }
 
-    /// The currently active filter text, if any: the live query while
-    /// typing, else the pinned filter. Also used by the tree pane to
-    /// compute which characters within a row's name matched, for
-    /// underlining (spec §9.2).
+    /// The currently active filter text, if any: the search keyword while
+    /// typing and after `Enter`. Also used by the tree pane to compute
+    /// which characters within a row's name matched, for underlining
+    /// (spec §9.2).
     pub fn active_filter(&self) -> Option<&str> {
-        if !self.search_query.is_empty() {
-            Some(self.search_query.as_str())
-        } else {
-            self.search_pinned.as_deref()
-        }
+        (!self.search_query.is_empty()).then_some(self.search_query.as_str())
+    }
+
+    /// True when the active filter finished matching and nothing matched.
+    /// The tree pane then shows a notice, the title counts 0, and the
+    /// cursor and detail page stay where they were.
+    pub fn no_match(&self) -> bool {
+        self.no_match
     }
 
     /// Recompute `rows` if a structural change (expand/collapse, search)
@@ -525,119 +520,141 @@ impl App {
         // a query active the throttle is a no-op and the rows below are
         // computed against a fully current index.
         self.sync_search_index(Instant::now());
-        let matching_paths = self.compute_matching_paths();
+        let hits = match self.search_hits() {
+            SearchHits::NoMatch => {
+                self.set_closest();
+                self.set_hit_marks(HitMarks::default());
+                self.show_no_match();
+                return;
+            }
+            SearchHits::Off => None,
+            SearchHits::Found(list) => Some(list),
+        };
+        let marks = match (&hits, self.active_filter()) {
+            (Some(list), Some(query)) => HitMarks::from_hits(list, query),
+            _ => HitMarks::default(),
+        };
+        self.set_completion(hits.as_deref().and_then(<[NodeRef]>::first));
+        self.set_hit_marks(marks);
+        self.no_match = false;
+        let matching_paths = hits
+            .as_ref()
+            .map(|list| list.iter().map(|hit| hit_path(hit).clone()).collect());
         self.rows = flatten(
             &self.root,
             &self.expanded,
             matching_paths.as_ref(),
             &self.probes,
+            self.sorts.tree,
         );
         if self.selected >= self.rows.len() {
             self.selected = self.rows.len().saturating_sub(1);
         }
-        self.sync_selected_flag_to_top_search_result();
+        self.jump_to_first_match(hits.as_deref());
         self.dirty = false;
         // Filtering/expanding can move the selection under the viewport
         // just as arrow keys can, so the same rule applies here.
         self.follow_selection();
     }
 
-    /// Spec §10: "Selecting one [a flag search result] selects the parent
-    /// command and scrolls the detail pane to that flag." The best-ranked
-    /// (first) live search result stands in for "the selected result" —
-    /// there's no separate cursor over the result list itself, only over
-    /// the resulting filtered tree — so when it's a flag, jump the tree
-    /// selection to its owning command and remember which flag to scroll
-    /// the detail pane to; when it's a command, or there's no active
-    /// filter at all, there's no flag target.
-    fn sync_selected_flag_to_top_search_result(&mut self) {
+    /// Spec §10: the cursor goes to the first row of the result list the
+    /// tree shows. The list's first hit stands in for "the selected
+    /// result": a command hit selects its row, an entity hit selects its
+    /// parent command's row and remembers which entity the detail pane
+    /// scrolls to. Runs when the query or the first hit changes, and again
+    /// whenever `Enter` clears `flag_target_source`.
+    fn jump_to_first_match(&mut self, hits: Option<&[NodeRef]>) {
         let top = self.active_filter().and_then(|query| {
-            let first = self.search_index.results().into_iter().next()?;
+            let first = hits?.first()?.clone();
             Some((query.to_string(), first))
         });
         if top == self.flag_target_source {
             return;
         }
+        if self.keep_jump {
+            self.flag_target_source = top;
+            return;
+        }
         self.selected_flag = None;
         self.flag_target_source = top.clone();
-        let Some((_, NodeRef::Flag { path, key })) = top else {
+        let Some((_, hit)) = top else {
             return;
         };
+        if let Some(idx) = self.rows.iter().position(|r| r.path == *hit_path(&hit)) {
+            self.selected = idx;
+        }
+        match hit {
+            NodeRef::Flag { key, .. } => {
+                self.detail_hscroll = 0;
+                self.selected_flag = Some(key);
+            }
+            NodeRef::Command(_) => self.reset_detail_scroll(),
+        }
+    }
+
+    /// A finished match with no result. While typing, the cursor and the
+    /// detail page go back to the row from before `/` (the rows are rebuilt
+    /// unfiltered behind the notice so that row exists); a later keystroke
+    /// that matches jumps again.
+    fn show_no_match(&mut self) {
+        self.no_match = true;
+        self.dirty = false;
+        let Some(path) = self.pre_search_path.clone() else {
+            return;
+        };
+        let was = self.selected_path();
+        let build =
+            |app: &App| flatten(&app.root, &app.expanded, None, &app.probes, app.sorts.tree);
+        self.rows = build(self);
+        if !self.rows.iter().any(|r| r.path == path) && resolve(&self.root, &path).is_some() {
+            for depth in 1..path.len() {
+                self.expanded.insert(path[..depth].to_vec());
+            }
+            self.rows = build(self);
+        }
         if let Some(idx) = self.rows.iter().position(|r| r.path == path) {
             self.selected = idx;
         }
-        self.detail_hscroll = 0;
-        self.selected_flag = Some(key);
+        self.selected = self.selected.min(self.rows.len().saturating_sub(1));
+        self.flag_target_source = None;
+        self.settle_selection(was);
+        self.selected_flag = None;
     }
 
-    /// The set of command paths currently matching the active filter, if
-    /// any, derived from [`SearchIndex::results`] — a
-    /// [`mandible_core::NodeRef::Flag`] match contributes its *parent*
-    /// command's path, since flags aren't tree rows (spec §2) but a flag
-    /// match should still force-expand and highlight the command that
-    /// owns it (spec §10: "Selecting one selects the parent command").
-    fn compute_matching_paths(&self) -> Option<HashSet<Vec<String>>> {
-        let filter = self.active_filter()?;
+    /// The active filter's result list, ranked, or why there is none.
+    ///
+    /// Name mode keeps the hits whose names contain every word of the
+    /// keyword and ranks them by tier ([`rank_by_name`]); wide mode keeps
+    /// the index's own order.
+    fn search_hits(&self) -> SearchHits {
+        let Some(filter) = self.active_filter() else {
+            return SearchHits::Off;
+        };
         if filter.trim().is_empty() {
-            return None;
+            return SearchHits::Off;
         }
-        // The index matches one combined haystack per item (name plus
-        // summary, description and entity value), which is what
-        // `SearchMode::Wide` wants. `SearchMode::Name` narrows that same
-        // result set down to items that actually match by name, rather
-        // than maintaining a second index: nucleo has already done the
-        // expensive part, and this filter runs over matches only.
-        let mut paths = HashSet::new();
-        for node_ref in self.search_index.results() {
-            match node_ref {
-                NodeRef::Command(path) => {
-                    if self.search_mode == SearchMode::Name
-                        && !name_matches(path.last().map(String::as_str).unwrap_or(""), filter)
-                    {
-                        continue;
-                    }
-                    paths.insert(path);
-                }
-                NodeRef::Flag { path, key } => {
-                    // An entity match surfaces its *parent command* (spec
-                    // §10), whatever kind the entity is — flag, positional,
-                    // modifier, or env var; there is no per-kind branch
-                    // here or below. In name mode, every spelling is
-                    // checked against `word_prefix_matches`, which is what
-                    // keeps `run` from admitting `docker`'s `--no-trunc`
-                    // (its words are `no` and `trunc`, and `run` is a
-                    // prefix of neither) while still letting `trunc`, `no`,
-                    // a bare modifier letter, or an env var's own word
-                    // (`NODE_D`, `debug`) through.
-                    if self.search_mode == SearchMode::Name {
-                        let matches = resolve_flag(&self.root, &path, &key).is_some_and(|entity| {
-                            entity
-                                .spellings
-                                .iter()
-                                .chain(entity.range().map(|r| &r.end))
-                                .any(|s| word_prefix_matches(&s.name, filter))
-                        });
-                        if !matches {
-                            continue;
-                        }
-                    }
-                    paths.insert(path);
-                }
+        let list = match self.search_mode {
+            SearchMode::Name => {
+                rank_by_name(&self.root, self.search_index.results(), filter, self.sorts)
             }
+            SearchMode::Wide => {
+                let (hits, groups): (Vec<_>, Vec<_>) =
+                    self.search_index.results_grouped().into_iter().unzip();
+                page_order_within_groups(&self.root, hits, &groups, self.sorts.detail)
+            }
+        };
+        if list.is_empty() {
+            SearchHits::NoMatch
+        } else {
+            SearchHits::Found(list)
         }
-        Some(paths)
     }
 
-    /// Drive the search index's background matcher forward (spec §10
-    /// "Threading": must be called from the event loop's own poll timeout,
-    /// never a blocking spin inside a keystroke handler). Marks the row
-    /// list dirty if the result set changed, so the next
-    /// [`Self::ensure_rows_fresh`] picks up fresh matches.
-    pub fn tick_search(&mut self, timeout_ms: u64) {
+    /// Rebuild the search index if the tree changed (spec §10), once per
+    /// event-loop iteration. Marks the row list dirty when it does, so the
+    /// next [`Self::ensure_rows_fresh`] picks up fresh matches.
+    pub fn tick_search(&mut self) {
         self.sync_search_index(Instant::now());
-        if self.search_index.tick(timeout_ms) {
-            self.mark_dirty();
-        }
     }
 
     /// Rebuild the search index if the tree changed since the last rebuild,
@@ -807,6 +824,9 @@ impl App {
     /// stale row list makes both sides address the wrong node.
     fn move_selection_by(&mut self, delta: isize) {
         self.ensure_rows_fresh();
+        if self.no_match {
+            return;
+        }
         let was = self.selected_path();
         let last = self.rows.len().saturating_sub(1);
         self.selected = self.selected.saturating_add_signed(delta).min(last);
@@ -873,6 +893,9 @@ impl App {
     /// "never probed this node" case for a Tier-B-only tool.
     pub fn expand_selected(&mut self) -> Option<Vec<String>> {
         self.ensure_rows_fresh();
+        if self.no_match {
+            return None;
+        }
         let row = self.rows.get(self.selected)?;
         let needs_fill = !row.children_filled && !self.probes.in_flight(&row.path);
         let path = row.path.clone();
@@ -1052,6 +1075,9 @@ impl App {
     /// selection to its parent.
     pub fn collapse_or_jump_to_parent(&mut self) {
         self.ensure_rows_fresh();
+        if self.no_match {
+            return;
+        }
         let was = self.selected_path();
         let Some(row) = self.rows.get(self.selected).cloned() else {
             return;
@@ -1116,11 +1142,16 @@ impl App {
     /// user sees is the mode whose results explain themselves.
     pub fn cycle_search_mode(&mut self) {
         self.search_mode = self.search_mode.toggled();
+        self.search_index
+            .set_wide(self.search_mode == SearchMode::Wide);
         self.mark_dirty();
     }
 
-    /// `/`: focus the search box.
+    /// `/`: open the search box. Typing and the filtered list are the two
+    /// search states: the box opens on the keyword already in effect, and
+    /// the row the cursor is on is remembered for `Esc`.
     pub fn focus_search(&mut self) {
+        self.pre_search_path = self.selected_path();
         self.focus = Focus::Search;
     }
 
@@ -1131,29 +1162,87 @@ impl App {
         self.mark_dirty();
     }
 
-    /// Backspace in the search box.
+    /// Backspace in the search box. Emptying the box leaves no filter, so
+    /// the cursor goes back to the row it was on before `/`.
     pub fn search_backspace(&mut self) {
         self.search_query.pop();
         self.search_index.set_query(&self.search_query);
         self.mark_dirty();
+        if self.search_query.is_empty() {
+            self.drop_filter();
+            self.restore_cursor(self.pre_search_path.clone());
+        }
     }
 
-    /// `Esc`: leave the search box, pinning the current query as the
-    /// active filter. A second `Esc` (called while already out of the
-    /// search box, i.e. this is called again with an empty live query)
-    /// clears the pinned filter entirely.
-    pub fn escape_search(&mut self) {
-        if self.focus == Focus::Search {
-            if !self.search_query.is_empty() {
-                self.search_pinned = Some(std::mem::take(&mut self.search_query));
-            }
-            self.focus = Focus::Tree;
-        } else if self.search_pinned.is_some() {
-            self.search_pinned = None;
-            self.search_query.clear();
-            self.search_index.set_query("");
+    /// `Enter` in the search box: jump to the first match and hand focus to
+    /// the commands list, keeping the keyword and the filter.
+    pub fn accept_search(&mut self) {
+        self.focus = Focus::Tree;
+        self.pre_search_path = None;
+        if self.active_filter().is_some() {
+            self.flag_target_source = None;
             self.mark_dirty();
+            self.ensure_rows_fresh();
         }
+    }
+
+    /// `Esc` in the search box: cancel the search. The keyword and the
+    /// filter are cleared and the cursor returns to the row it was on
+    /// before `/`.
+    pub fn cancel_search(&mut self) {
+        self.search_query.clear();
+        self.search_index.set_query("");
+        self.drop_filter();
+        self.focus = Focus::Tree;
+        let back = self.pre_search_path.take();
+        self.restore_cursor(back);
+    }
+
+    /// `Esc` in the filtered list: clear the keyword and the filter. The
+    /// cursor stays on the row it is on, and the detail pane stays where
+    /// it is.
+    pub fn clear_filter(&mut self) {
+        if self.search_query.is_empty() {
+            return;
+        }
+        let here = self.selected_path();
+        self.search_query.clear();
+        self.search_index.set_query("");
+        self.leave_flag_target();
+        self.drop_filter();
+        self.restore_cursor(here);
+    }
+
+    /// The filter is gone: forget the jump it made and the no-match state.
+    fn drop_filter(&mut self) {
+        self.flag_target_source = None;
+        self.no_match = false;
+        self.mark_dirty();
+    }
+
+    /// Rebuild the unfiltered rows and put the cursor on `path`, opening
+    /// its ancestors when the filter was the only thing showing it. The
+    /// detail pane keeps its place when the node is the one it described.
+    fn restore_cursor(&mut self, path: Option<Vec<String>>) {
+        let was = self.selected_path();
+        self.ensure_rows_fresh();
+        let Some(path) = path else {
+            return;
+        };
+        let mut idx = self.rows.iter().position(|r| r.path == path);
+        if idx.is_none() && resolve(&self.root, &path).is_some() {
+            for depth in 1..path.len() {
+                self.expanded.insert(path[..depth].to_vec());
+            }
+            self.mark_dirty();
+            self.ensure_rows_fresh();
+            idx = self.rows.iter().position(|r| r.path == path);
+        }
+        if let Some(idx) = idx {
+            self.selected = idx;
+        }
+        self.settle_selection(was);
+        self.selected_flag = None;
     }
 
     /// `Tab`: move focus between tree and detail pane. (Search has its own
@@ -1192,6 +1281,8 @@ impl App {
         self.raw_help.clear();
 
         self.search_index = SearchIndex::new();
+        self.search_index
+            .set_wide(self.search_mode == SearchMode::Wide);
         self.search_index.populate(&self.root);
         // Freshly built from this very tree: nothing pending, and the next
         // splice's rebuild must not be throttled against a rebuild that
@@ -1633,6 +1724,22 @@ impl App {
     }
 }
 
+mod ghost;
+mod hit_marks;
+mod sort_keys;
+pub(crate) use hit_marks::{HitMarks, MatchRow};
+
+#[cfg(test)]
+mod contains_tests;
+#[cfg(test)]
+mod ghost_tests;
+#[cfg(test)]
+mod marking_tests;
+#[cfg(test)]
+mod search_tests;
+#[cfg(test)]
+mod sort_tests;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1959,26 +2066,10 @@ mod tests {
         assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
-    /// Drive the (real, async, `nucleo`-backed) search index until its
-    /// results stop changing for a few consecutive polls, bounded overall
-    /// so a bug can't hang the test suite. Mirrors how the real event loop
-    /// calls `tick_search` from its own poll timeout (spec §10
-    /// "Threading") rather than assuming a single call finishes matching.
+    /// Bring the search index up to date with the tree, as the event
+    /// loop's `tick_search` does before every render.
     fn settle_search(app: &mut App) {
-        // The event loop's own `tick_search` does this first; a test that
-        // spliced nodes in would otherwise settle a match against the index
-        // as it was before the splice.
         app.flush_search_index();
-        let deadline = Instant::now() + Duration::from_secs(2);
-        let mut quiet_polls = 0;
-        while Instant::now() < deadline && quiet_polls < 3 {
-            let changed = app.search_index.tick(20);
-            if changed {
-                quiet_polls = 0;
-            } else {
-                quiet_polls += 1;
-            }
-        }
     }
 
     fn sample_tree() -> CommandNode {
@@ -2108,38 +2199,6 @@ mod tests {
     }
 
     #[test]
-    fn search_pins_on_escape_and_clears_on_second_escape() {
-        let mut app = App::new("git".to_string(), sample_tree());
-        app.focus_search();
-        for c in "onto".chars() {
-            app.search_input_char(c);
-        }
-        settle_search(&mut app);
-        app.ensure_rows_fresh();
-        assert!(app.rows().iter().any(|r| r.name == "--onto-helper"));
-
-        app.escape_search();
-        assert_eq!(app.focus, Focus::Tree);
-        assert_eq!(app.search_pinned.as_deref(), Some("onto"));
-        settle_search(&mut app);
-        app.ensure_rows_fresh();
-        assert!(
-            app.rows().iter().any(|r| r.name == "--onto-helper"),
-            "filter stays pinned"
-        );
-
-        app.escape_search();
-        assert!(app.search_pinned.is_none());
-        settle_search(&mut app);
-        app.ensure_rows_fresh();
-        assert_eq!(
-            app.rows().len(),
-            3,
-            "filter cleared, back to expanded-root view"
-        );
-    }
-
-    #[test]
     fn a_status_message_expires_and_restores_the_hints() {
         let mut app = App::new("git".to_string(), sample_tree());
         let t0 = Instant::now();
@@ -2229,72 +2288,16 @@ mod tests {
         );
     }
 
-    /// The exact docker guard `word_prefix_matches` exists to preserve:
-    /// `run` must never match `--no-trunc`, because `run` is a prefix of
-    /// neither of its `-`-separated words (`no`, `trunc`) nor of the whole
-    /// name.
+    /// Spec §10, name mode: a name that contains the query anywhere
+    /// matches, so `run` surfaces the command that owns `--no-trunc` as
+    /// well as the command named `prune`, and the command comes first.
     #[test]
-    fn word_prefix_matches_refuses_the_docker_run_no_trunc_case() {
-        assert!(!word_prefix_matches("no-trunc", "run"));
-    }
-
-    /// The two `-`-separated words of `--no-trunc` each match their own
-    /// prefix.
-    #[test]
-    fn word_prefix_matches_finds_either_word_of_a_dashed_name() {
-        assert!(word_prefix_matches("no-trunc", "trunc"));
-        assert!(word_prefix_matches("no-trunc", "no"));
-    }
-
-    /// A one-letter dashless name (a modifier letter) matches itself.
-    #[test]
-    fn word_prefix_matches_finds_a_bare_modifier_letter() {
-        assert!(word_prefix_matches("d", "d"));
-    }
-
-    /// An underscore-separated env var name matches both from the start of
-    /// the whole name and from after the separator.
-    #[test]
-    fn word_prefix_matches_finds_either_half_of_an_underscored_name() {
-        assert!(word_prefix_matches("NODE_DEBUG", "NODE_D"));
-        assert!(word_prefix_matches("NODE_DEBUG", "debug"));
-    }
-
-    /// Case-insensitive, both sides.
-    #[test]
-    fn word_prefix_matches_is_case_insensitive() {
-        assert!(word_prefix_matches("NODE_DEBUG", "node_d"));
-        assert!(word_prefix_matches("node_debug", "DEBUG"));
-    }
-
-    /// A query longer than the word it's being compared against is not a
-    /// prefix of it — `word_prefix_matches` must not panic on a slice
-    /// that runs past the word's own end.
-    #[test]
-    fn word_prefix_matches_refuses_a_query_longer_than_the_word() {
-        assert!(!word_prefix_matches("no-trunc", "truncated"));
-    }
-
-    /// Spec §10, name mode: an entity match (any kind) is admitted only
-    /// when the query is a word-prefix of one of its spellings — the same
-    /// guard `word_prefix_matches` is unit-tested against, now proven
-    /// through the real filtering path. `--no-trunc`-shaped flag: `run`
-    /// (a docker-guard-style non-prefix query) must not surface its parent
-    /// command in name mode, even though `run` is a fuzzy subsequence
-    /// match the wide-mode index would happily return.
-    #[test]
-    fn name_mode_refuses_a_non_word_prefix_flag_match() {
+    fn name_mode_admits_the_middle_of_a_flag_name() {
         let mut root = sample_tree();
         let mut no_trunc =
             mandible_core::Entity::flag_long("no-trunc", Provenance::single(Source::HelpText));
         no_trunc.description = Some(mandible_core::Text::sanitize("don't truncate output"));
         root.subcommands[1].entities.push(no_trunc); // rebase, standing in for the node
-
-        // A sibling whose *name* legitimately contains "run" as a
-        // substring, so the matching set is non-empty and the tree
-        // renders the real filter rather than falling back to the
-        // unfiltered tree on an empty result set — which would make
-        // "rebase" appear regardless of whether the flag guard works.
         root.subcommands.push(CommandNode::new(
             "prune",
             Provenance::single(Source::HelpText),
@@ -2302,7 +2305,6 @@ mod tests {
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
-        // Name mode is the default; no toggle needed.
         for c in "run".chars() {
             app.search_input_char(c);
         }
@@ -2310,14 +2312,9 @@ mod tests {
         app.ensure_rows_fresh();
 
         let names: Vec<&str> = app.rows().iter().map(|r| r.name.as_str()).collect();
-        assert!(
-            names.contains(&"prune"),
-            "precondition: 'prune' should match 'run' by substring: {names:?}"
-        );
-        assert!(
-            !names.contains(&"rebase"),
-            "'run' must not admit '--no-trunc' in name mode: {names:?}"
-        );
+        assert!(names.contains(&"prune"), "{names:?}");
+        assert!(names.contains(&"rebase"), "{names:?}");
+        assert_eq!(app.selected_row().unwrap().name, "prune");
     }
 
     /// The word-prefix half of the same case: `trunc` (a real word of
@@ -2829,7 +2826,7 @@ mod tests {
             "splicing must not rebuild the index at all; the event loop does that"
         );
 
-        app.tick_search(0);
+        app.tick_search();
         assert_eq!(
             app.search_populate_count(),
             after_construction + 1,

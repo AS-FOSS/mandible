@@ -195,12 +195,16 @@ everyone. (Local per-tool corrections do exist for the impatient:
 
 `?` inside mandible lists every binding, and the footer keeps the important ones
 on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`→`
-to scroll wide lines sideways, `t` for the tool's own `--help`, `y` to copy the
-selected flag, `q` to quit.
+to scroll wide lines sideways, `t` for the tool's own `--help`, `s` to sort the
+focused pane A–Z, `y` to copy the selected flag, `q` to quit.
 
-Search has two modes: `names` matches command names literally; `everything`
-searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
-the first, pressing it again switches to the second.
+Search has two modes. `names` matches a command name or any spelling of a flag,
+positional, modifier or environment variable; `everything` also searches
+descriptions. In both, a row matches when it contains every word you type, in any
+case, and a dash counts like any other character: `size` finds `--blocksize`,
+`no verify` finds `--no-verify`. The best match is where the cursor jumps; every
+other match stays in the tree. While you type, a dim suggestion shows where
+`Enter` will land, or the closest name when nothing matches, and `Tab` takes it. `/` opens the first mode, pressing it again switches to the second.
 
 ### Completions
 

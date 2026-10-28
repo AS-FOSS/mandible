@@ -33,6 +33,8 @@ pub struct Glyphs {
     pub arrow_down: &'static str,
     /// Prefix for the search input.
     pub prompt: &'static str,
+    /// Points from the typed text at the closest name.
+    pub suggest: &'static str,
     /// Separator between breadcrumb path segments.
     pub breadcrumb: &'static str,
     /// Separator between provenance footer fields.
@@ -59,6 +61,10 @@ pub struct Glyphs {
     pub more_up: &'static str,
     /// More content below the view.
     pub more_down: &'static str,
+    /// Marks a detail-pane row that matches the search, in its left margin.
+    pub match_bar: &'static str,
+    /// The A to Z range the sort indicator names.
+    pub a_to_z: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -68,6 +74,7 @@ pub const UNICODE: Glyphs = Glyphs {
     ellipsis: "…",
     arrow_down: "↓",
     prompt: "›",
+    suggest: "→",
     breadcrumb: "›",
     dot: "·",
     check: "✓",
@@ -81,6 +88,8 @@ pub const UNICODE: Glyphs = Glyphs {
     more_right: "▶",
     more_up: "▲",
     more_down: "▼",
+    match_bar: "▌",
+    a_to_z: "A–Z",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -91,6 +100,7 @@ pub const ASCII: Glyphs = Glyphs {
     ellipsis: "...",
     arrow_down: "v",
     prompt: ">",
+    suggest: "->",
     breadcrumb: ">",
     dot: "|",
     check: "ok",
@@ -104,6 +114,8 @@ pub const ASCII: Glyphs = Glyphs {
     more_right: ">",
     more_up: "^",
     more_down: "v",
+    match_bar: "|",
+    a_to_z: "A-Z",
 };
 
 /// Pick a glyph set from the environment.
@@ -150,6 +162,7 @@ mod tests {
             ASCII.ellipsis,
             ASCII.arrow_down,
             ASCII.prompt,
+            ASCII.suggest,
             ASCII.breadcrumb,
             ASCII.dot,
             ASCII.check,
@@ -158,6 +171,8 @@ mod tests {
             ASCII.arrows_horizontal,
             ASCII.absent,
             ASCII.rule,
+            ASCII.match_bar,
+            ASCII.a_to_z,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

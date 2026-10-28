@@ -19,10 +19,15 @@ mod heading;
 mod layout;
 mod man;
 mod page_cache;
+mod page_order;
 mod page_text;
 mod reflow;
+mod search_marks;
+mod section_plan;
+mod sort_hold;
 mod stack;
 mod usage_form;
+mod usage_section;
 mod wrap;
 
 pub(crate) use bare::is_empty_page;
@@ -35,11 +40,16 @@ use heading::*;
 use layout::*;
 pub(crate) use page_cache::PageCache;
 use page_cache::PageKey;
+pub(crate) use page_order::page_positions;
 pub use page_text::page_text;
 pub(crate) use reflow::ReflowAnchor;
 use reflow::*;
+use search_marks::*;
+use section_plan::*;
+use sort_hold::*;
 use stack::*;
 use usage_form::*;
+use usage_section::push_usage;
 use wrap::*;
 
 use crate::app::{App, Focus};
@@ -47,15 +57,14 @@ use crate::fit;
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
-use mandible_core::{
-    CommandNode, Dashes, Entity, EntityKind, FlagKey, OptionalJoin, Spelling, ValueKind,
-};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling};
+#[cfg(test)]
+use mandible_core::{OptionalJoin, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Padding, Paragraph, Wrap};
 use ratatui::Frame;
-use std::collections::HashMap;
 use unicode_width::UnicodeWidthChar;
 
 /// Render the detail pane into `area`.
@@ -68,11 +77,8 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
         .selected_row()
         .map(|r| r.path.iter().map(|s| defensive_single_line(s)).collect())
         .unwrap_or_default();
-    let title = breadcrumb_title(
-        &path,
-        app.glyphs,
-        usize::from(area.width.saturating_sub(fit::TITLE_CLEARANCE)),
-    );
+    let budget = usize::from(area.width.saturating_sub(fit::TITLE_CLEARANCE));
+    let title = detail_title(app, &path, budget);
 
     let block = Block::default()
         .title(title)
@@ -155,15 +161,14 @@ fn render_impl(frame: &mut Frame, area: Rect, app: &App, cached: bool) {
         }
         None => app.clamped_detail_scroll(),
     };
-    let scroll = settle_scroll(
-        app,
-        &built.items,
-        (built.lines.len(), inner.height as usize),
-        width,
-        built.target_flag_line.is_some(),
-        scroll,
-    );
+    let extent = (built.lines.len(), inner.height as usize);
+    let follow = built.target_flag_line.is_some();
+    let scroll = keep_top_row(app, &built, extent, follow, scroll);
+    let scroll = settle_scroll(app, &built.items, extent, width, follow, scroll);
+    note_top_row(app, &built, scroll);
     draw_page(frame, inner, app, (&built.lines, &built.rules), scroll);
+    app.set_page_matches(built.matches.clone());
+    draw_match_bars(frame, inner, app, &built.matches, scroll);
     draw_edge_markers(frame, area, app);
 }
 
@@ -220,14 +225,11 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
         }
         None => app.clamped_detail_scroll(),
     };
-    let scroll = settle_scroll(
-        app,
-        &built.items,
-        (built.lines.len(), height),
-        width,
-        built.target_flag_line.is_some(),
-        scroll,
-    );
+    let extent = (built.lines.len(), height);
+    let follow = built.target_flag_line.is_some();
+    let scroll = keep_top_row(app, &built, extent, follow, scroll);
+    let scroll = settle_scroll(app, &built.items, extent, width, follow, scroll);
+    note_top_row(app, &built, scroll);
     if windowable && app.parsed_wraps() {
         let start = scroll.min(built.lines.len());
         let end = (start + height).min(built.lines.len());
@@ -236,6 +238,8 @@ fn render_parsed_cached(frame: &mut Frame, area: Rect, inner: Rect, app: &App, n
     } else {
         draw_page(frame, inner, app, (&built.lines, &built.rules), scroll);
     }
+    app.set_page_matches(built.matches.clone());
+    draw_match_bars(frame, inner, app, &built.matches, scroll);
     draw_edge_markers(frame, area, app);
 }
 
@@ -542,11 +546,16 @@ pub(crate) struct BuiltLines {
     target_flag_line: Option<usize>,
     /// One entry per rendered entity, in document order — see [`EntryRow`].
     rows: Vec<EntryRow>,
+    /// The place of each row in `rows` in the tool's own order, as a
+    /// section and a position in it.
+    ids: Vec<crate::sort::RowId>,
     /// The first line of every logical item (entity, heading, divider,
     /// source line), in order: what a re-flow keeps in place.
     items: Vec<usize>,
     /// The lines that end in a rule to the pane's edge.
     rules: Vec<usize>,
+    /// The rows that match the active search, in page order.
+    matches: std::rc::Rc<Vec<crate::app::MatchRow>>,
 }
 
 /// The list sections of spec §9.3, in render order: the [`EntityKind`]
@@ -563,6 +572,21 @@ const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
     (EntityKind::EnvVar, "ENVIRONMENT", 0),
 ];
 
+/// The one notice a page carries: a probe stopped at the time limit says
+/// so, a page that read fine and holds nothing says it has nothing, and a
+/// first read still waiting says so.
+fn page_notice(node: &CommandNode, app: &App) -> Option<&'static str> {
+    if page_timed_out(app) {
+        Some(mandible_core::notice::TIMED_OUT_NOTICE)
+    } else if page_is_bare(node, app) {
+        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+    } else if page_is_reading(node, app) {
+        Some(mandible_core::notice::READING_NOTICE)
+    } else {
+        None
+    }
+}
+
 fn build_lines(
     node: &CommandNode,
     width: usize,
@@ -574,8 +598,11 @@ fn build_lines(
     let mut lines = Vec::new();
     let mut target_flag_line = None;
     let mut rows: Vec<EntryRow> = Vec::new();
+    let mut ids: Vec<crate::sort::RowId> = Vec::new();
     let mut items: Vec<usize> = Vec::new();
     let mut rules: Vec<usize> = Vec::new();
+    let mut matches: Vec<crate::app::MatchRow> = Vec::new();
+    let page_marks = PageMarks::of(app);
     // Wrapping on: nothing here is wider than the pane. Wrapping off: every
     // line is built at its natural width and the renderer windows it.
     let wrap = app.parsed_wraps();
@@ -603,19 +630,7 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    // One notice per page: a probe stopped at the time limit says so, a
-    // page that read fine and holds nothing says it has nothing, and a
-    // first read still waiting says so.
-    let notice = if page_timed_out(app) {
-        Some(mandible_core::notice::TIMED_OUT_NOTICE)
-    } else if page_is_bare(node, app) {
-        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
-    } else if page_is_reading(node, app) {
-        Some(mandible_core::notice::READING_NOTICE)
-    } else {
-        None
-    };
-    if let Some(notice) = notice {
+    if let Some(notice) = page_notice(node, app) {
         let mut page = Page {
             lines: &mut lines,
             items: &mut items,
@@ -655,49 +670,20 @@ fn build_lines(
     }
 
     if !node.usage.is_empty() {
-        open_block(&mut lines, std::mem::replace(&mut gap, SECTION_BLANKS));
-        mark(&mut items, lines.len());
-        lines.push(heading_line_ruled("USAGE", None, width, palette, glyphs));
-        note_rule(&mut rules, &lines, glyphs);
-        // Indented as a block, the way API documentation sets a signature
-        // apart from its prose.
-        let indent = "  ";
-        let forms = usage_forms(&node.name, &node.usage);
-        // A rendered USAGE line is mandible's own reconstruction, not the
-        // tool author's layout: the parser already joined a usage that
-        // wrapped over several physical lines into one logical line, so it
-        // soft-wraps at the pane width in both modes instead of forcing
-        // horizontal scroll (spec §9 rule 9). Continuation rows hang
-        // `USAGE_HANG` columns right of the form's first row, so a form
-        // that has to wrap still reads as one form, and the form's
-        // command path is the accented part of its first row.
-        let accent = style::accent(palette.color);
-        for (pad, text, path_len) in &forms {
-            mark(&mut items, lines.len());
-            let lead = format!("{indent}{}", " ".repeat(*pad));
-            let avail = text_width.saturating_sub(display_width(&lead)).max(1);
-            let mut path_left = text
-                .get(..*path_len)
-                .map_or(0, |p| p.chars().filter(|c| !c.is_whitespace()).count());
-            for (i, chunk) in wrap_hanging(text, avail, fit::USAGE_HANG)
-                .iter()
-                .enumerate()
-            {
-                let row_lead = if i == 0 {
-                    lead.clone()
-                } else {
-                    format!("{lead}{}", " ".repeat(fit::USAGE_HANG))
-                };
-                lines.push(usage_line(&row_lead, chunk, &mut path_left, accent));
-            }
-        }
+        let blanks = std::mem::replace(&mut gap, SECTION_BLANKS);
+        let page = Page {
+            lines: &mut lines,
+            items: &mut items,
+            rules: &mut rules,
+        };
+        push_usage(page, node, (width, text_width), (palette, glyphs), blanks);
     }
 
     // The four list sections, in spec §9.3's order, from one loop. An
     // empty section renders nothing at all — not a heading over blank
     // space — which is what keeps a tool with only a description and flags
     // looking exactly as it did before this section model existed.
-    for (kind, label, indent) in LIST_SECTIONS {
+    for (at, (kind, label, indent)) in LIST_SECTIONS.into_iter().enumerate() {
         let visible: Vec<&Entity> = node.entities_of(kind).collect();
         if visible.is_empty() {
             continue;
@@ -713,7 +699,19 @@ fn build_lines(
         ));
         note_rule(&mut rules, &lines, glyphs);
         let base = lines.len();
-        let section = section_lines(&visible, width, indent, palette, target_flag, glyphs, wrap);
+        let plan = plan_section(&visible, kind, app.sorts.detail);
+        let mut section = section_planned(
+            &plan,
+            &visible,
+            (width, indent),
+            palette,
+            target_flag,
+            glyphs,
+            wrap,
+        );
+        if let Some(marks) = &page_marks {
+            matches.extend(mark_section(&visible, &mut section, marks, base));
+        }
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
         }
@@ -721,6 +719,7 @@ fn build_lines(
             first_line: base + r.first_line,
             lines: r.lines,
         }));
+        ids.extend(section.ids.iter().map(|&i| (at, i)));
         items.extend(section.items.iter().map(|i| base + i));
         rules.extend(section.rules.iter().map(|i| base + i));
         lines.extend(section.lines);
@@ -759,8 +758,10 @@ fn build_lines(
         lines,
         target_flag_line,
         rows,
+        ids,
         items,
         rules,
+        matches: std::rc::Rc::new(matches),
     }
 }
 
@@ -854,6 +855,10 @@ fn group_label(raw: &str) -> String {
 struct SectionBody {
     lines: Vec<Line<'static>>,
     rows: Vec<EntryRow>,
+    /// The key of each entity in `rows`, in the same order.
+    keys: Vec<Option<FlagKey>>,
+    /// Each row's place in the tool's own order of the section.
+    ids: Vec<usize>,
     target: Option<usize>,
     items: Vec<usize>,
     rules: Vec<usize>,
@@ -864,14 +869,32 @@ struct SectionBody {
 /// one.
 const INHERITED_GROUP: &str = "Inherited";
 
-/// Render one section's entities: ungrouped first under no divider, then
-/// each [`Entity::group`] behind its divider, then inherited entities last
-/// as their own dimmed group, whatever their source `group` said
-/// (spec §9, §9.3).
+/// Render one section's entities in the tool's own order: ungrouped first
+/// under no divider, then each [`Entity::group`] behind its divider, then
+/// inherited entities last as their own dimmed group, whatever their source
+/// `group` said (spec §9, §9.3).
 fn section_lines(
     entities: &[&Entity],
     width: usize,
     indent: usize,
+    palette: style::Palette,
+    target_flag: Option<&FlagKey>,
+    glyphs: Glyphs,
+    wrap: bool,
+) -> SectionBody {
+    let sort = crate::sort::DetailSort::Printed;
+    let plan = plan_section(entities, EntityKind::Flag, sort);
+    let dims = (width, indent);
+    section_planned(&plan, entities, dims, palette, target_flag, glyphs, wrap)
+}
+
+/// Render one section's rows as `plan` orders them. Groups keep the order
+/// the tool printed them in, which is editorial: `tar --help` leads with
+/// "Main operation mode" because that is what you need first.
+fn section_planned(
+    plan: &[PlanGroup],
+    entities: &[&Entity],
+    (width, indent): (usize, usize),
     palette: style::Palette,
     target_flag: Option<&FlagKey>,
     glyphs: Glyphs,
@@ -883,50 +906,9 @@ fn section_lines(
         color_enabled: palette.color,
         layout,
     };
-    // Groups keep the order the tool printed them in, which is editorial:
-    // `tar --help` leads with "Main operation mode" because that is what you
-    // need first, and its 17 groups are sequenced deliberately. A BTreeMap
-    // here sorted them alphabetically, so "Archive format selection" came
-    // first and the author's ordering was silently discarded.
-    let mut group_order: Vec<Option<String>> = Vec::new();
-    let mut labels: HashMap<String, String> = HashMap::new();
-    let mut own_groups: HashMap<Option<String>, Vec<&Entity>> = HashMap::new();
-    let mut inherited: Vec<&Entity> = Vec::new();
-
-    for e in entities {
-        if e.inherited {
-            inherited.push(e);
-            continue;
-        }
-        let raw = e.group.as_deref().unwrap_or_default();
-        let key = Some(group_key(raw)).filter(|k| !k.is_empty());
-        if !own_groups.contains_key(&key) {
-            group_order.push(key.clone());
-            if let Some(k) = &key {
-                // First occurrence names the group: two spellings of one
-                // heading collapse under `group_key`, and the label the
-                // reader sees is the one the tool introduced it with.
-                labels.insert(k.clone(), group_label(raw));
-            }
-        }
-        own_groups.entry(key).or_default().push(e);
-    }
-
     let mut body = SectionBody::default();
-
-    // Ungrouped entities first, under no divider, then each group in the
-    // order the tool introduced it.
-    if let Some(ungrouped) = own_groups.remove(&None) {
-        for e in ungrouped {
-            push_entity(&mut body, e, false, row, target_flag);
-        }
-    }
-    for key in group_order {
-        let Some(group) = own_groups.remove(&key) else {
-            continue;
-        };
-        if let Some(key) = key {
-            let label = labels.get(&key).map_or(key.as_str(), String::as_str);
+    for group in plan {
+        if let Some(label) = &group.label {
             // A divider that opens its section drops its rule: the section
             // header a line above already drew one, and two full-width
             // rules in a row read as one doubled line (spec §9.3).
@@ -946,31 +928,11 @@ fn section_lines(
             ));
             note_rule(&mut body.rules, &body.lines, glyphs);
         }
-        for e in group {
-            push_entity(&mut body, e, false, row, target_flag);
+        for &(id, e) in &group.rows {
+            push_entity(&mut body, e, group.inherited, row, target_flag);
+            body.ids.push(id);
         }
     }
-
-    if !inherited.is_empty() {
-        let ruled = !body.lines.is_empty();
-        if ruled {
-            open_block(&mut body.lines, GROUP_BLANKS);
-        }
-        mark(&mut body.items, body.lines.len());
-        body.lines.extend(group_divider_lines(
-            INHERITED_GROUP,
-            width,
-            wrap,
-            palette,
-            glyphs,
-            ruled,
-        ));
-        note_rule(&mut body.rules, &body.lines, glyphs);
-        for e in inherited {
-            push_entity(&mut body, e, true, row, target_flag);
-        }
-    }
-
     body
 }
 
@@ -1005,6 +967,7 @@ fn push_entity(
         first_line,
         lines: rendered.len(),
     });
+    body.keys.push(entity.key());
     body.lines.extend(rendered);
 }
 
@@ -4536,6 +4499,8 @@ pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
 
 #[cfg(test)]
 mod identity_tests;
+#[cfg(test)]
+mod spelling_fence_tests;
 
 #[cfg(test)]
 mod small_terminal_tests;

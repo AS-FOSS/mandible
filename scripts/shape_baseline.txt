@@ -37,8 +37,8 @@ block	1	mandible-extract/tests/corpus_snapshot_format.rs
 block	7	mandible-extract/tests/exec_policy.rs
 block	1	mandible-extract/tests/native_cobra_gate.rs
 block	2	mandible-extract/tests/no_machine_local_paths.rs
-block	4	mandible-search/src/lib.rs
-block	9	mandible-tui/src/app.rs
+block	1	mandible-search/src/lib.rs
+block	7	mandible-tui/src/app.rs
 block	1	mandible-tui/src/app_review.rs
 block	1	mandible-tui/src/glyphs.rs
 block	1	mandible-tui/src/lib.rs
@@ -153,7 +153,6 @@ ratio	1	mandible-extract/src/tier.rs
 ratio	1	mandible-extract/tests/corpus_snapshot_format.rs
 ratio	1	mandible-extract/tests/native_cobra_gate.rs
 ratio	1	mandible-extract/tests/no_machine_local_paths.rs
-ratio	1	mandible-search/src/lib.rs
 ratio	1	mandible-tui/src/app.rs
 ratio	1	mandible-tui/src/app_review.rs
 ratio	1	mandible-tui/src/clipboard.rs

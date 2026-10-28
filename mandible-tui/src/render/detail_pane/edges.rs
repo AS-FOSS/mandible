@@ -37,6 +37,27 @@ pub(super) fn breadcrumb_title(path: &[String], glyphs: Glyphs, budget: usize) -
     format!(" {cut}{tail} ")
 }
 
+/// The pane title: the breadcrumb, then the sort indicator while the page
+/// is sorted. The indicator is the first thing to go: it shows only when
+/// the whole breadcrumb and the indicator fit `budget` columns, so the
+/// breadcrumb is cut the same way with or without it (spec §9.4).
+pub(super) fn detail_title(app: &App, path: &[String], budget: usize) -> Line<'static> {
+    let crumb = breadcrumb_title(path, app.glyphs, budget);
+    let sorted =
+        !app.showing_verbatim() && app.selected_node().is_some_and(|n| !n.same_as_ancestor);
+    let tag = app.sorts.detail.indicator(app.glyphs).filter(|_| sorted);
+    let Some(tag) = tag else {
+        return Line::from(crumb);
+    };
+    let sep = format!(" {} ", app.glyphs.breadcrumb);
+    let head = format!(" {}", path.join(&sep));
+    let tail = format!(" {} {tag} ", app.glyphs.dot);
+    if display_width(&head) + display_width(&tail) > budget {
+        return Line::from(crumb);
+    }
+    Line::from(vec![Span::raw(head), Span::styled(tail, Style::reset())])
+}
+
 /// The style of the detail pane's border, and of every marker on it.
 pub(super) fn border_style(app: &App) -> Style {
     if app.focus == Focus::Detail {

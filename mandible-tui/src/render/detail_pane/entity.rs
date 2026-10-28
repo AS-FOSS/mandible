@@ -10,18 +10,16 @@ pub(super) fn is_short_spelling(s: &Spelling) -> bool {
     matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1
 }
 
-/// True for the spelling a range row starts at: it is drawn as the whole
-/// range (`-0 ... -9`), which counts as a long name.
+/// True for the spelling a range row starts at; see
+/// [`Entity::is_range_start`].
 pub(super) fn is_range_start(entity: &Entity, s: &Spelling) -> bool {
-    entity
-        .range()
-        .is_some_and(|r| r.start.name == s.name && r.start.dashes == s.dashes)
+    entity.is_range_start(s)
 }
 
-/// True for a short spelling that is drawn as a short: [`is_short_spelling`]
-/// and not the start of a range.
+/// True for a short spelling that is drawn as a short; see
+/// [`Entity::is_drawn_short`].
 pub(super) fn is_drawn_short(entity: &Entity, s: &Spelling) -> bool {
-    is_short_spelling(s) && !is_range_start(entity, s)
+    entity.is_drawn_short(s)
 }
 
 /// How spelling `i` is drawn: its own rendering, or the whole range when
@@ -34,21 +32,9 @@ pub(super) fn spelling_text(entity: &Entity, i: usize) -> String {
     }
 }
 
-/// The order spellings are drawn in: shorts, then longs in source order,
-/// then the range.
+/// The order spellings are drawn in; see [`Entity::display_order`].
 pub(super) fn display_order(entity: &Entity) -> Vec<usize> {
-    let mut order: Vec<usize> = (0..entity.spellings.len()).collect();
-    order.sort_by_key(|&i| {
-        let s = &entity.spellings[i];
-        if is_range_start(entity, s) {
-            2
-        } else if is_drawn_short(entity, s) {
-            0
-        } else {
-            1
-        }
-    });
-    order
+    entity.display_order()
 }
 
 /// An entity's spellings, e.g. `-i, --interactive` for a flag or
@@ -103,86 +89,15 @@ pub(super) fn entity_head_width(entity: &Entity, indent: usize) -> usize {
     width
 }
 
-/// An entity's value placeholder, e.g. `FILE` or `[FILE]` when optional.
-/// The brackets of an optional value enclose what may be left out, joiner
-/// included: `[=WHEN]` after `--color`, `[N]` after `-O`, `[FOO]` after
-/// `--foo `. `None` when it takes no value.
+/// An entity's value placeholder as drawn; see [`Entity::value_text`].
 pub(super) fn entity_value_text(flag: &Entity) -> Option<String> {
-    flag.value_name
-        .as_ref()
-        .and_then(|name| match flag.value_kind {
-            ValueKind::Required => Some(name.clone()),
-            // A glued run of optional bracketed groups (docs/shapes.md
-            // S-097, `try_value` in help_text/grammar.rs) keeps the source
-            // spelling of the whole run, brackets included (`[N][fname]`).
-            // A single group's own value name never carries a `]` at all
-            // (`try_value` stops at the first one), so this check only
-            // ever fires on an already-fully-bracketed folded run, never
-            // wrapping it a second time.
-            ValueKind::Optional => {
-                let run = name.starts_with('[') && name.ends_with(']');
-                Some(match (flag.optional_join, run) {
-                    (Some(OptionalJoin::Equals), true) => format!("[={}", &name[1..]),
-                    (Some(OptionalJoin::Equals), false) => format!("[={name}]"),
-                    (_, true) => name.clone(),
-                    (_, false) => format!("[{name}]"),
-                })
-            }
-            ValueKind::None => None,
-        })
+    flag.value_text()
 }
 
-/// What sits between the spellings and the value placeholder: nothing
-/// when the value glues on (the argfile sigil, a literal glue character,
-/// an optional value joined by `=` or glued), one space otherwise.
+/// The gap between the spellings and the placeholder; see
+/// [`Entity::value_gap`].
 pub(super) fn value_gap(flag: &Entity) -> &'static str {
-    let glued_optional = flag.value_kind == ValueKind::Optional
-        && matches!(
-            flag.optional_join,
-            Some(OptionalJoin::Equals | OptionalJoin::Glued)
-        );
-    if spelling_is_sigil(flag) || value_glues_by_prefix(flag) || glued_optional {
-        ""
-    } else {
-        " "
-    }
-}
-
-/// True when this entity's value placeholder glues directly onto its
-/// spelling with no space — the argfile sigil flag's row-verbatim shape,
-/// `@<file>` (spec §4.5), rather than the ordinary `--output FILE` gap
-/// (spec §9.3). Decided by shape (a single dashless spelling that is
-/// nothing but its own leading sigil character, `@`, `+`), not by the
-/// literal `"@"`: a dashed short option like `-?` must not match, since
-/// it does take a value (`ffplay`'s `-? topic`) with the ordinary space —
-/// and neither must a `+word` spelling that already carries its own word
-/// (`+extension`, `+accessx`, S-163), whose value is a separate word in
-/// the source and renders with the ordinary space the same way
-/// `-extension`'s does, never glued into `+extensionname`.
-pub(super) fn spelling_is_sigil(flag: &Entity) -> bool {
-    flag.spellings.len() == 1
-        && matches!(flag.spellings[0].dashes, Dashes::None)
-        && flag.spellings[0]
-            .name
-            .chars()
-            .next()
-            .is_some_and(|c| !c.is_alphanumeric())
-        && flag.spellings[0].name.chars().count() == 1
-}
-
-/// True when a required value glues to its spelling by a literal
-/// character other than whitespace, rather than the ordinary space
-/// (docs/shapes.md S-116, `-Wa,<options>`): the tool's own invocation
-/// requires that exact character, so drawing a space there would render
-/// a syntax the tool refuses. `help_text::grammar::parse_flag_spec`
-/// folds that character into `value_name`'s own first character for
-/// exactly this reason.
-pub(super) fn value_glues_by_prefix(flag: &Entity) -> bool {
-    flag.value_kind == ValueKind::Required
-        && flag
-            .value_name
-            .as_deref()
-            .is_some_and(|v| v.starts_with(','))
+    flag.value_gap()
 }
 
 /// The description text of a row, with its deprecation tag, or `None`
