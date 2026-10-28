@@ -59,6 +59,7 @@ fn hints(
         "Esc back".to_string(),
         "y copy".to_string(),
         "r reload".to_string(),
+        "s sort".to_string(),
         "? help".to_string(),
         "^C quit".to_string(),
     ]);
@@ -210,7 +211,7 @@ mod tests {
 
     #[test]
     fn wide_terminal_shows_every_hint() {
-        let rendered = hints_for_width(120, crate::glyphs::UNICODE, true, false, false, false);
+        let rendered = hints_for_width(130, crate::glyphs::UNICODE, true, false, false, false);
         for h in hints(crate::glyphs::UNICODE, true, false, false, false) {
             assert!(rendered.contains(&h), "{h} missing from {rendered:?}");
         }
@@ -222,7 +223,7 @@ mod tests {
     fn every_action_key_is_named_at_full_width() {
         let rendered = hints_for_width(140, crate::glyphs::UNICODE, true, false, false, false);
         for key in [
-            "/ search", "Tab pane", "t raw", "y copy", "r reload", "? help",
+            "/ search", "Tab pane", "t raw", "y copy", "r reload", "s sort", "? help",
         ] {
             assert!(rendered.contains(key), "{key} missing from {rendered:?}");
         }

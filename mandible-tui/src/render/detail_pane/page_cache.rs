@@ -26,6 +26,7 @@ pub(crate) struct PageKey {
     timed_out: bool,
     reading: bool,
     marks_version: u64,
+    sort: crate::sort::DetailSort,
 }
 
 impl PageKey {
@@ -51,6 +52,7 @@ impl PageKey {
                 .selected_row()
                 .is_some_and(|r| app.is_first_read(&r.path)),
             marks_version: app.hit_marks_version(),
+            sort: app.sorts.detail,
         }
     }
 }

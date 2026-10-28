@@ -507,7 +507,7 @@ fn page_positions_follow_the_order_the_page_draws_groups_in() {
         .collect();
     by_screen.sort();
     let node = crate::search_rank::tests_node(&app);
-    let positions = crate::render::page_positions(&node);
+    let positions = crate::render::page_positions(&node, crate::sort::DetailSort::Printed);
     let mut by_rank: Vec<(usize, String)> = by_screen
         .iter()
         .map(|(_, n)| {

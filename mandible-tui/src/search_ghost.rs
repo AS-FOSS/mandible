@@ -2,6 +2,7 @@
 //! land, or the closest name when nothing matched.
 
 use crate::search_rank::{best_name, PagePositions};
+use crate::sort::Sorts;
 use mandible_core::{CommandNode, NodeRef};
 
 /// The most edits between the input and a suggested name.
@@ -85,7 +86,7 @@ fn shared_start(a: &str, b: &str) -> usize {
 /// most [`MAX_EDITS`]; ties go to the name sharing the longer beginning
 /// with the input, then the earlier row in the tree, then the earlier line
 /// on its page.
-pub(crate) fn closest(root: &CommandNode, input: &str) -> Option<Ghost> {
+pub(crate) fn closest(root: &CommandNode, input: &str, sorts: Sorts) -> Option<Ghost> {
     let wanted = input.to_lowercase();
     let mut best: Option<(usize, usize, usize)> = None;
     let mut found: Vec<(usize, usize, u8, NodeRef, String)> = Vec::new();
@@ -94,7 +95,7 @@ pub(crate) fn closest(root: &CommandNode, input: &str) -> Option<Ghost> {
         root,
         vec![root.name.clone()],
         &wanted,
-        &mut order,
+        (&mut order, sorts.tree),
         &mut found,
     );
     for (dist, pos, _, _, name) in &found {
@@ -104,7 +105,7 @@ pub(crate) fn closest(root: &CommandNode, input: &str) -> Option<Ghost> {
         }
     }
     let (dist, rev_shared, pos) = best?;
-    let mut pages = PagePositions::default();
+    let mut pages = PagePositions::new(sorts.detail);
     found
         .into_iter()
         .filter(|(d, p, _, _, name)| {
@@ -125,7 +126,7 @@ fn collect(
     node: &CommandNode,
     path: Vec<String>,
     wanted: &str,
-    order: &mut usize,
+    (order, sorted): (&mut usize, bool),
     out: &mut Vec<(usize, usize, u8, NodeRef, String)>,
 ) {
     let pos = *order;
@@ -152,9 +153,9 @@ fn collect(
             );
         }
     }
-    for child in &node.subcommands {
+    for child in crate::tree::children_in_order(node, sorted) {
         let mut p = path.clone();
         p.push(child.name.clone());
-        collect(child, p, wanted, order, out);
+        collect(child, p, wanted, (order, sorted), out);
     }
 }

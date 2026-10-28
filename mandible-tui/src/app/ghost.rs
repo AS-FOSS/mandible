@@ -25,7 +25,7 @@ impl App {
     pub(super) fn set_closest(&mut self) {
         self.ghost = self
             .active_filter()
-            .and_then(|query| search_ghost::closest(&self.root, query));
+            .and_then(|query| search_ghost::closest(&self.root, query, self.sorts));
     }
 
     /// `Tab` in the search box: put the suggested spelling in the box and

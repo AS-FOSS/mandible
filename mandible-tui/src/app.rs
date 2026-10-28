@@ -371,6 +371,14 @@ pub struct App {
     /// background root fill arrives (spec §5.2 step 1), so this is an intent
     /// held across frames rather than an action taken on one.
     pub requested_path: Option<Vec<String>>,
+    /// How `s` has sorted each pane (spec §2). Session state: it stays
+    /// while the selection moves to another command.
+    pub sorts: crate::sort::Sorts,
+    /// The detail pane's top row across a re-order.
+    pub(crate) sort_hold: crate::sort::SortHold,
+    /// Set while `s` rebuilds the rows, so the sort does not move the
+    /// selection to a new first match.
+    keep_jump: bool,
 }
 
 /// One view's scroll position in the detail pane: a line offset and a
@@ -474,6 +482,9 @@ impl App {
             print_selection: false,
             review: None,
             requested_path: None,
+            sorts: crate::sort::Sorts::default(),
+            sort_hold: crate::sort::SortHold::default(),
+            keep_jump: false,
         };
         app.ensure_rows_fresh();
         app
@@ -534,6 +545,7 @@ impl App {
             &self.expanded,
             matching_paths.as_ref(),
             &self.probes,
+            self.sorts.tree,
         );
         if self.selected >= self.rows.len() {
             self.selected = self.rows.len().saturating_sub(1);
@@ -557,6 +569,10 @@ impl App {
             Some((query.to_string(), first))
         });
         if top == self.flag_target_source {
+            return;
+        }
+        if self.keep_jump {
+            self.flag_target_source = top;
             return;
         }
         self.selected_flag = None;
@@ -587,7 +603,8 @@ impl App {
             return;
         };
         let was = self.selected_path();
-        let build = |app: &App| flatten(&app.root, &app.expanded, None, &app.probes);
+        let build =
+            |app: &App| flatten(&app.root, &app.expanded, None, &app.probes, app.sorts.tree);
         self.rows = build(self);
         if !self.rows.iter().any(|r| r.path == path) && resolve(&self.root, &path).is_some() {
             for depth in 1..path.len() {
@@ -617,11 +634,13 @@ impl App {
             return SearchHits::Off;
         }
         let list = match self.search_mode {
-            SearchMode::Name => rank_by_name(&self.root, self.search_index.results(), filter),
+            SearchMode::Name => {
+                rank_by_name(&self.root, self.search_index.results(), filter, self.sorts)
+            }
             SearchMode::Wide => {
                 let (hits, groups): (Vec<_>, Vec<_>) =
                     self.search_index.results_grouped().into_iter().unzip();
-                page_order_within_groups(&self.root, hits, &groups)
+                page_order_within_groups(&self.root, hits, &groups, self.sorts.detail)
             }
         };
         if list.is_empty() {
@@ -1707,6 +1726,7 @@ impl App {
 
 mod ghost;
 mod hit_marks;
+mod sort_keys;
 pub(crate) use hit_marks::{HitMarks, MatchRow};
 
 #[cfg(test)]
@@ -1717,6 +1737,8 @@ mod ghost_tests;
 mod marking_tests;
 #[cfg(test)]
 mod search_tests;
+#[cfg(test)]
+mod sort_tests;
 
 #[cfg(test)]
 mod tests {

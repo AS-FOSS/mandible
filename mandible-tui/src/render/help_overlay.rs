@@ -32,6 +32,10 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     ),
     (Some("w"), "Wrap text, or scroll it sideways, in this view"),
     (
+        Some("s"),
+        "Sort the focused pane A–Z; the detail pane sorts within each section first",
+    ),
+    (
         Some("h l  ← →"),
         "Scroll sideways when wrap is off (detail pane focused)",
     ),

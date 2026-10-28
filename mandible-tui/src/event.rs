@@ -53,6 +53,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Char('t') => return app.toggle_raw_mode(),
         KeyCode::Char('r') => return Some(Effect::Refresh),
         KeyCode::Char('w') => app.toggle_wrap(),
+        KeyCode::Char('s') => app.sort_focused(),
         KeyCode::Esc => {
             if !app.return_to_column_zero() {
                 app.clear_filter();

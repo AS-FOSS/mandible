@@ -4,6 +4,7 @@
 //! only choose which match the cursor jumps to first; they never hide or
 //! reorder the tree.
 
+use crate::sort::{DetailSort, Sorts};
 use mandible_core::{resolve, CommandNode, FlagKey, NodeRef};
 use std::collections::HashMap;
 
@@ -117,31 +118,41 @@ fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u
 /// command's page.
 type RankKey = (Tier, u8, usize, usize, usize);
 
-/// Each command path's position in the tree's top-to-bottom order.
-fn display_order(root: &CommandNode) -> std::collections::HashMap<Vec<String>, usize> {
+/// Each command path's position in the tree's top-to-bottom order, as the
+/// commands pane lists it.
+pub(crate) fn display_order(
+    root: &CommandNode,
+    sorted: bool,
+) -> std::collections::HashMap<Vec<String>, usize> {
     fn walk(
         node: &CommandNode,
         path: Vec<String>,
+        sorted: bool,
         out: &mut std::collections::HashMap<Vec<String>, usize>,
     ) {
         out.insert(path.clone(), out.len());
-        for child in &node.subcommands {
+        for child in crate::tree::children_in_order(node, sorted) {
             let mut p = path.clone();
             p.push(child.name.clone());
-            walk(child, p, out);
+            walk(child, p, sorted, out);
         }
     }
     let mut out = std::collections::HashMap::new();
-    walk(root, vec![root.name.clone()], &mut out);
+    walk(root, vec![root.name.clone()], sorted, &mut out);
     out
 }
 
 /// Keep the hits whose names relate to `query` and order them: by tier,
 /// commands before entities within a tier, then the shallower path, then
 /// the tree's display order, then the index's own order.
-pub(crate) fn rank_by_name(root: &CommandNode, hits: Vec<NodeRef>, query: &str) -> Vec<NodeRef> {
-    let order = display_order(root);
-    let mut pages = PagePositions::default();
+pub(crate) fn rank_by_name(
+    root: &CommandNode,
+    hits: Vec<NodeRef>,
+    query: &str,
+    sorts: Sorts,
+) -> Vec<NodeRef> {
+    let order = display_order(root, sorts.tree);
+    let mut pages = PagePositions::new(sorts.detail);
     let mut keyed: Vec<(RankKey, usize, NodeRef)> = hits
         .into_iter()
         .enumerate()
@@ -157,18 +168,26 @@ pub(crate) fn rank_by_name(root: &CommandNode, hits: Vec<NodeRef>, query: &str) 
     keyed.into_iter().map(|(_, _, item)| item).collect()
 }
 
-/// Entity positions on their command's page, read once per command.
+/// Entity positions on their command's page, as the page draws them, read
+/// once per command.
 #[derive(Default)]
-pub(crate) struct PagePositions(HashMap<Vec<String>, HashMap<FlagKey, usize>>);
+pub(crate) struct PagePositions(DetailSort, HashMap<Vec<String>, HashMap<FlagKey, usize>>);
 
 impl PagePositions {
+    /// Positions on pages drawn in the `sort` state.
+    pub(crate) fn new(sort: DetailSort) -> PagePositions {
+        PagePositions(sort, HashMap::new())
+    }
+
     /// The line rank of a hit on its command's page: 0 for a command.
     pub(crate) fn of(&mut self, root: &CommandNode, item: &NodeRef) -> usize {
         let NodeRef::Flag { path, key } = item else {
             return 0;
         };
-        let page = self.0.entry(path.clone()).or_insert_with(|| {
-            resolve(root, path).map_or_else(HashMap::new, crate::render::page_positions)
+        let sort = self.0;
+        let page = self.1.entry(path.clone()).or_insert_with(|| {
+            resolve(root, path)
+                .map_or_else(HashMap::new, |n| crate::render::page_positions(n, sort))
         });
         page.get(key).copied().unwrap_or(usize::MAX)
     }
@@ -181,8 +200,9 @@ pub(crate) fn page_order_within_groups(
     root: &CommandNode,
     hits: Vec<NodeRef>,
     groups: &[u8],
+    sort: DetailSort,
 ) -> Vec<NodeRef> {
-    let mut pages = PagePositions::default();
+    let mut pages = PagePositions::new(sort);
     let mut slots: HashMap<(u8, Vec<String>), Vec<usize>> = HashMap::new();
     for (i, hit) in hits.iter().enumerate() {
         if matches!(hit, NodeRef::Flag { .. }) {
@@ -311,7 +331,7 @@ mod tests {
         root.entities.push(Entity::flag_short('S', prov()));
         root.entities.push(Entity::flag_short('s', prov()));
         let hits: Vec<NodeRef> = (0..4).map(|i| hit(&root, i)).collect();
-        let ranked = rank_by_name(&root, hits.clone(), "-s");
+        let ranked = rank_by_name(&root, hits.clone(), "-s", Sorts::default());
         assert_eq!(
             ranked,
             vec![
