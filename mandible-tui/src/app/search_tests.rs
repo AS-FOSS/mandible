@@ -165,17 +165,17 @@ fn a_dashed_prefix_works_as_a_prefix_of_the_spelling() {
 }
 
 #[test]
-fn no_match_shows_a_notice_and_leaves_cursor_and_page_alone() {
-    let mut app = searched("re");
-    app.move_up();
-    let row = app.selected;
-    assert!(row > 0 && row + 1 < app.rows().len(), "precondition");
-    let rows = names(&app);
+fn no_match_shows_a_notice_and_the_hidden_cursor_does_not_move() {
+    let mut app = App::new("git".to_string(), git());
+    app.move_down();
+    let before = app.selected_path();
+    app.focus_search();
+    type_query(&mut app, "re");
     app.search_input_char('x');
     settle(&mut app);
     assert!(app.no_match());
-    assert_eq!(app.selected, row);
-    assert_eq!(names(&app), rows, "rows are untouched");
+    assert_eq!(app.selected_path(), before);
+    let row = app.selected;
     let text = screen(&app);
     assert!(text.contains("No matches for \"rex\""), "{text}");
     assert!(text.contains("commands (0)"), "{text}");
@@ -332,4 +332,42 @@ fn the_bar_shows_the_keyword_in_both_states_and_the_marker_only_while_typing() {
         "{filtered}"
     );
     assert!(!filtered.contains("pinned") && !filtered.contains("(filter)"));
+}
+
+#[test]
+fn a_shallower_match_beats_a_nested_one_of_the_same_tier() {
+    let mut root = cmd("tool");
+    let mut group = cmd("group");
+    group.subcommands = vec![cmd("reset")];
+    root.subcommands = vec![group, cmd("rebase")];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "re");
+    assert_eq!(selected_name(&app), "rebase");
+}
+
+#[test]
+fn equal_matches_jump_to_the_first_in_display_order() {
+    let app = searched("--squash");
+    assert_eq!(selected_name(&app), "commit");
+}
+
+#[test]
+fn no_match_while_typing_returns_to_the_row_from_before_the_slash() {
+    let mut app = App::new("git".to_string(), git());
+    for _ in 0..3 {
+        app.move_down();
+    }
+    let before = app.selected_path();
+    app.focus_search();
+    type_query(&mut app, "re");
+    assert_ne!(app.selected_path(), before, "precondition: the jump moved");
+    app.search_input_char('z');
+    settle(&mut app);
+    assert!(app.no_match());
+    assert_eq!(app.selected_path(), before);
+    app.search_backspace();
+    settle(&mut app);
+    assert!(!app.no_match());
+    assert!(selected_name(&app).starts_with("re"), "the jump resumes");
 }

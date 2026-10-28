@@ -503,8 +503,7 @@ impl App {
             // and stay dirty until it has.
             SearchHits::Pending => return,
             SearchHits::NoMatch => {
-                self.no_match = true;
-                self.dirty = false;
+                self.show_no_match();
                 return;
             }
             SearchHits::Off => None,
@@ -559,6 +558,34 @@ impl App {
             }
             NodeRef::Command(_) => self.reset_detail_scroll(),
         }
+    }
+
+    /// A finished match with no result. While typing, the cursor and the
+    /// detail page go back to the row from before `/` (the rows are rebuilt
+    /// unfiltered behind the notice so that row exists); a later keystroke
+    /// that matches jumps again.
+    fn show_no_match(&mut self) {
+        self.no_match = true;
+        self.dirty = false;
+        let Some(path) = self.pre_search_path.clone() else {
+            return;
+        };
+        let was = self.selected_path();
+        let build = |app: &App| flatten(&app.root, &app.expanded, None, &app.probes);
+        self.rows = build(self);
+        if !self.rows.iter().any(|r| r.path == path) && resolve(&self.root, &path).is_some() {
+            for depth in 1..path.len() {
+                self.expanded.insert(path[..depth].to_vec());
+            }
+            self.rows = build(self);
+        }
+        if let Some(idx) = self.rows.iter().position(|r| r.path == path) {
+            self.selected = idx;
+        }
+        self.selected = self.selected.min(self.rows.len().saturating_sub(1));
+        self.flag_target_source = None;
+        self.settle_selection(was);
+        self.selected_flag = None;
     }
 
     /// The active filter's result list, ranked, or why there is none.

@@ -90,14 +90,39 @@ fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u
     }
 }
 
+/// Each command path's position in the tree's top-to-bottom order.
+fn display_order(root: &CommandNode) -> std::collections::HashMap<Vec<String>, usize> {
+    fn walk(
+        node: &CommandNode,
+        path: Vec<String>,
+        out: &mut std::collections::HashMap<Vec<String>, usize>,
+    ) {
+        out.insert(path.clone(), out.len());
+        for child in &node.subcommands {
+            let mut p = path.clone();
+            p.push(child.name.clone());
+            walk(child, p, out);
+        }
+    }
+    let mut out = std::collections::HashMap::new();
+    walk(root, vec![root.name.clone()], &mut out);
+    out
+}
+
 /// Keep the hits whose names relate to `query` and order them: by tier,
-/// commands before entities within a tier, and the index's own order within
-/// both. `hits` arrives in that index order.
+/// commands before entities within a tier, then the shallower path, then
+/// the tree's display order, then the index's own order.
 pub(crate) fn rank_by_name(root: &CommandNode, hits: Vec<NodeRef>, query: &str) -> Vec<NodeRef> {
-    let mut keyed: Vec<((Tier, u8), usize, NodeRef)> = hits
+    let order = display_order(root);
+    let mut keyed: Vec<((Tier, u8, usize, usize), usize, NodeRef)> = hits
         .into_iter()
         .enumerate()
-        .filter_map(|(i, item)| Some((item_rank(root, &item, query)?, i, item)))
+        .filter_map(|(i, item)| {
+            let (tier, kind) = item_rank(root, &item, query)?;
+            let path = hit_path(&item);
+            let pos = order.get(path).copied().unwrap_or(usize::MAX);
+            Some(((tier, kind, path.len(), pos), i, item))
+        })
         .collect();
     keyed.sort_by_key(|(rank, i, _)| (*rank, *i));
     keyed.into_iter().map(|(_, _, item)| item).collect()
