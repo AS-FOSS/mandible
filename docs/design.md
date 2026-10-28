@@ -2366,7 +2366,8 @@ findable, and how a match is shown in context.
    `nucleo`'s substring atoms, with the query's own `!`, `^`, `'` and
    `$` kept literal. A hit where every word starts a word ranks above
    one where a word begins mid-word, and a name starting with the query
-   ranks above both. Its jump lands on the first row it shows.
+   ranks above both. Entities of one command in the same rank group
+   stand in page order, so the jump lands on the topmost.
 7. Filtering preserves hierarchy: matching a node force-expands its
    ancestor chain and the tree renders normally with non-matching siblings
    hidden.
@@ -2376,7 +2377,8 @@ findable, and how a match is shown in context.
    that starts with the query, then a name with a `-`/`_` word that
    starts with it, then a command name that only contains it. Within a
    tier commands come before entities, then the shallower path comes
-   first, then the tree's display order, and any remaining tie keeps the
+   first, then the tree's display order, then an entity's place on its
+   command's page, top to bottom, and any remaining tie keeps the
    index's order.
    `/rebase` ranks `git rebase` above `git submodule`, whose `--rebase`
    flag only reaches the word tier.

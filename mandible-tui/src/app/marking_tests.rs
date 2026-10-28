@@ -482,7 +482,7 @@ fn the_count_column_goes_when_a_summary_would_get_under_20_columns() {
 
 #[test]
 fn page_positions_follow_the_order_the_page_draws_groups_in() {
-    let mut grouped = |name: &str, group: Option<&str>| {
+    let grouped = |name: &str, group: Option<&str>| {
         let mut e = flag(name, "x");
         e.group = group.map(str::to_string);
         e

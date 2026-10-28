@@ -286,10 +286,7 @@ fn wide_mode_takes_connected_text_only() {
     app.cycle_search_mode();
     type_query(&mut app, "-ssl");
     assert!(!app.no_match());
-    assert_eq!(
-        app.selected_flag,
-        Some(mandible_core::FlagKey::Long("ssl".into()))
-    );
+    assert_eq!(app.selected_flag, long("ssl-reqd"), "the top of the page");
     app.cancel_search();
     app.focus_search();
     type_query(&mut app, "s-s-l");
