@@ -2340,11 +2340,19 @@ findable, and how a match is shown in context.
    entity's name can take, `Long`/`Short` for a flag's dashed spelling and
    `Name` for a dashless entity's bare `primary_name()` (a positional's
    placeholder, a modifier's letter, an environment variable's name, §4.5's
-   three dashless `EntityKind`s). Each entry's haystack is every documented
-   spelling as typed, `value_name`, and description, the same shape for
-   every kind, dashless spellings indexed with no dash prefix. A `--[no-]x`
-   spelling is indexed as both `--x` and `--no-x`, never as the `[no-]`
-   notation.
+   three dashless `EntityKind`s). Each entry's haystack is every spelling
+   as the page draws it, `value_name`, the drawn value, and description, the
+   same shape for every kind, dashless spellings indexed with no dash
+   prefix. Search text is built from the same model pieces the detail pane
+   draws from (`Spelling::render`, `Entity::value_text`), so what is on
+   screen can be typed. A `--[no-]x` spelling is indexed as both `--x` and
+   `--no-x`, never as the `[no-]` notation. An abbreviation bracket is
+   indexed as drawn and in full (`-r[esolve]`, `-resolve`). A value drawn
+   against its spelling is indexed joined to it (`--color[=WHEN]`,
+   `-O[N]`, `@<file>`), and a repeatable positional with its ellipsis
+   (`FILE...`). A range is indexed at the two ends the page draws and
+   nowhere between: `-0 ... -9` is found by `-0` and `-9`, never by `-5`.
+   A command is indexed by its name and its aliases.
 3. Selecting a result selects the parent command and scrolls the detail
    pane to that entity's own row, in whichever of
    FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT section documents it (§9.3),
@@ -2438,21 +2446,27 @@ findable, and how a match is shown in context.
     active search, and the footer names them (`n/p match`) only while one
     is active.
 16. Suggestion. While the box is being typed in, a dim suggestion follows
-    the typed text and never changes the input. When the first jump
-    target's best spelling (or a command's name) starts with the input,
-    ignoring case, the rest of that spelling is shown: `--sq` shows
-    `uash`. When matches exist but the target does not start with the
-    input, there is no suggestion. When nothing matches, the suggestion
-    is `   → <name>` (`   -> ` in the ASCII glyph set), where the name is
-    the command name or entity spelling with the fewest edits from the
-    whole input, at most 2 whatever the length of the input, ties going to
-    the earlier row of the tree and then the earlier line of its page.
-    Under `NO_COLOR` the suggestion is italic and dim, so it stays
-    distinct from the typed text. `Tab` in the box replaces the input with
-    the suggested spelling and searches again, so the jump lands on it;
+    the typed text and never changes the input. It shows where `Enter` will
+    take you, which is the first jump target's best spelling (or a
+    command's name). When that spelling continues the input, ignoring
+    case, the rest of it is shown inline: `--sq` shows `uash`. Otherwise,
+    when the match is in the middle of the spelling or the query has
+    several words, the suggestion is `   → <spelling>` (`   -> ` in the
+    ASCII glyph set): `/math` shows `→ --name-math-flag` and `cherry pick`
+    shows `→ cherry-pick`. Nothing shows when the spelling is the input.
+    When nothing matches, the suggestion is `   → <name>`, where the name
+    is the command name or entity spelling with the fewest edits from the
+    whole input, at most 2 whatever the length of the input. Among names
+    with the same number of edits, the one sharing the longer beginning
+    with the input wins (`--sqas` suggests `--squash`, which shares `--sq`,
+    over `--stat`, which shares `--s`), then the earlier row of the tree,
+    then the earlier line of its page. Under `NO_COLOR` the suggestion is
+    italic and dim, so it stays distinct from the typed text. `Tab` in the
+    box replaces the input with the suggested spelling or name, whichever of
+    the three shapes is shown, and searches again, so the jump lands on it;
     without a suggestion `Tab` does nothing. `Enter` is unchanged. The
-    footer names `Tab accept` in place of `Tab pane` while a suggestion
-    shows.
+    footer names `Tab accept` in place of `Tab pane` whenever the box has
+    focus, with or without a suggestion.
 
 **Why.** Revision 1 folded flag names into the parent command's
 haystack, so searching `--squash` selected `git rebase` rather than the

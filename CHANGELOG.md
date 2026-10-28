@@ -23,7 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `--doctor` and `--report` take `--no-timeout` to let every probe run as long as it needs; without it a probe is stopped after 30 seconds and reported as a failure.
 - `n` and `p` select the next or previous matching entity on the page while a search is active, from the commands list or the detail pane, wrapping at the ends; the footer and the `?` overlay list them. The current match sits on the same gray bar as the selected list row, and `N` and `P` work like `n` and `p`.
 - A commands-list row with matching flags, positionals, modifiers or environment variables shows how many in a fixed-width column on the right (`  1 found`, ` 14 found`, `99+ found`), one column in from the border; a pane too narrow to keep summaries beside it drops the counts first.
-- While you type in the search box, a dim suggestion shows the rest of the spelling the cursor will land on (`--sq` shows `uash`), or `→ --squash` after a typo when nothing matches; `Tab` puts it in the box and searches again, and the footer and the `?` overlay list it.
+- While you type in the search box, a dim suggestion shows where `Enter` will land: the rest of the spelling when it continues what you typed (`--sq` shows `uash`), or `→ --name-math-flag` when the match is in the middle or the query has several words, or `→ --squash` after a typo when nothing matches, preferring the name that shares the longer start (`--sqas` finds `--squash` over `--stat`); `Tab` puts it in the box and searches again, and the footer names `Tab accept` whenever the box has focus; the `?` overlay lists it.
+- Every spelling the page draws can be typed into search: `-r[esolve]`, `--color[=WHEN]`, `FILE...`, a command's aliases, and both ends of a range such as `-0 ... -9` (but not `-5`).
 
 ### Changed
 

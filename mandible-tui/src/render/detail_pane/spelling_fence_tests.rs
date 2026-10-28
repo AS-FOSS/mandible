@@ -5,7 +5,7 @@
 
 use super::identity_tests::corpus_nodes;
 use super::*;
-use crate::search_rank::rank_by_name;
+use crate::search_rank::names_match;
 use mandible_core::{CommandNode, NodeRef};
 use mandible_search::SearchIndex;
 
@@ -45,7 +45,7 @@ fn drawn_spellings(entity: &Entity) -> Vec<String> {
 
 fn finds(root: &CommandNode, index: &mut SearchIndex, query: &str, item: &NodeRef) -> bool {
     index.set_query(query);
-    rank_by_name(root, index.results(), query).contains(item)
+    index.results().contains(item) && names_match(root, item, query)
 }
 
 fn missing(root: &CommandNode, tool: &str) -> Vec<String> {

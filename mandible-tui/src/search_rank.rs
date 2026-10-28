@@ -91,6 +91,13 @@ fn matched_names(root: &CommandNode, item: &NodeRef, query: &str) -> Option<Vec<
     Some(tiered)
 }
 
+/// Whether the names of a hit carry every word of the query: the filter
+/// name mode applies to the index's hits.
+#[cfg(test)]
+pub(crate) fn names_match(root: &CommandNode, item: &NodeRef, query: &str) -> bool {
+    matched_names(root, item, query).is_some()
+}
+
 /// The spelling (or command name) the query matched best on a hit: the one
 /// a suggestion completes.
 pub(crate) fn best_name(root: &CommandNode, item: &NodeRef, query: &str) -> Option<String> {

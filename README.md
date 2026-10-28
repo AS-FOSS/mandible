@@ -203,9 +203,8 @@ positional, modifier or environment variable; `everything` also searches
 descriptions. In both, a row matches when it contains every word you type, in any
 case, and a dash counts like any other character: `size` finds `--blocksize`,
 `no verify` finds `--no-verify`. The best match is where the cursor jumps; every
-other match stays in the tree. While you type, a dim suggestion shows the rest of
-that match's spelling, or the closest name when nothing matches, and `Tab` takes
-it. `/` opens the first mode, pressing it again switches to the second.
+other match stays in the tree. While you type, a dim suggestion shows where
+`Enter` will land, or the closest name when nothing matches, and `Tab` takes it. `/` opens the first mode, pressing it again switches to the second.
 
 ### Completions
 
