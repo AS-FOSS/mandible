@@ -2360,7 +2360,9 @@ findable, and how a match is shown in context.
 9. Name mode ranks its matches in tiers: an exact name, then a name
    that starts with the query, then a name with a `-`/`_` word that
    starts with it, then a command name that only contains it. Within a
-   tier commands come before entities, and ties keep the index's order.
+   tier commands come before entities, then the shallower path comes
+   first, then the tree's display order, and any remaining tie keeps the
+   index's order.
    `/rebase` ranks `git rebase` above `git submodule`, whose `--rebase`
    flag only reaches the word tier.
 10. The result list is one list. The tree rows, the title count and the
@@ -2372,8 +2374,9 @@ findable, and how a match is shown in context.
     `↑`/`↓` walk the rows in the order shown.
 11. A search with no match shows `No matches for "<query>"` in the
     commands pane in place of the rows, and the title counts 0. The
-    cursor and the detail page stay where they were, and `↑`/`↓` do not
-    move the hidden cursor. No match is only ever decided from a finished
+    cursor and the detail page are the row's from before `/` while typing
+    (a later keystroke that matches jumps again), and `↑`/`↓` do not move
+    the hidden cursor. No match is only ever decided from a finished
     match: `nucleo` clears its snapshot when the index is rebuilt or the
     query changes, and until `Nucleo::tick` reports the matcher no longer
     running, the pane keeps the last complete result and never shows the
