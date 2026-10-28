@@ -203,6 +203,16 @@ impl SearchIndex {
     /// mode, items where every word of the query starts a word of the
     /// haystack, and within each group `nucleo`'s own score order.
     pub fn results(&self) -> Vec<NodeRef> {
+        self.results_grouped()
+            .into_iter()
+            .map(|(hit, _)| hit)
+            .collect()
+    }
+
+    /// [`SearchIndex::results`] with each hit's rank group: 0 when its name
+    /// starts with the query, 1 when every word starts a word, else 2. Hits
+    /// of one group are the ones the ranking does not tell apart by kind.
+    pub fn results_grouped(&self) -> Vec<(NodeRef, u8)> {
         let snapshot = self.nucleo.snapshot();
         let n = snapshot.matched_item_count();
         let query_lower = self.current_query.to_lowercase();
@@ -234,7 +244,9 @@ impl SearchIndex {
         ranked.sort_by_key(|(not_prefix, not_word, rank, _)| (*not_prefix, *not_word, *rank));
         ranked
             .into_iter()
-            .map(|(_, _, _, node_ref)| node_ref)
+            .map(|(not_prefix, not_word, _, node_ref)| {
+                (node_ref, u8::from(not_prefix) + u8::from(not_word))
+            })
             .collect()
     }
 }

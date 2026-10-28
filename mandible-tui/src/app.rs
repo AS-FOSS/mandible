@@ -3,7 +3,7 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::probes::{FillEnd, Outcome};
-use crate::search_rank::{hit_path, rank_by_name};
+use crate::search_rank::{hit_path, page_order_within_groups, rank_by_name};
 use crate::tree::{flatten, TreeRow};
 use mandible_core::{resolve, CommandNode, NodeRef, Text};
 use mandible_extract::KeptProbes;
@@ -621,10 +621,13 @@ impl App {
         if !self.search_index.is_settled() {
             return SearchHits::Pending;
         }
-        let results = self.search_index.results();
         let list = match self.search_mode {
-            SearchMode::Name => rank_by_name(&self.root, results, filter),
-            SearchMode::Wide => results,
+            SearchMode::Name => rank_by_name(&self.root, self.search_index.results(), filter),
+            SearchMode::Wide => {
+                let (hits, groups): (Vec<_>, Vec<_>) =
+                    self.search_index.results_grouped().into_iter().unzip();
+                page_order_within_groups(&self.root, hits, &groups)
+            }
         };
         if list.is_empty() {
             SearchHits::NoMatch

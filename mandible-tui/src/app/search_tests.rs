@@ -190,6 +190,71 @@ fn a_dash_led_query_finds_a_later_word_of_a_flag() {
     assert!(app.no_match(), "only one dash stands before squash");
 }
 
+/// Flags in page order whose index order (shorter spelling first) runs the
+/// other way for the query `--no`.
+fn no_flags() -> CommandNode {
+    let mut curl = cmd("curl");
+    for name in ["no-alpn", "no-buffer", "no-keepalive", "no-npn"] {
+        curl.entities.push(Entity::flag_long(name, prov()));
+    }
+    let mut root = cmd("tool");
+    root.subcommands = vec![curl];
+    root
+}
+
+fn first_flag(hits: &[NodeRef]) -> Option<mandible_core::FlagKey> {
+    hits.iter().find_map(|h| match h {
+        NodeRef::Flag { key, .. } => Some(key.clone()),
+        NodeRef::Command(_) => None,
+    })
+}
+
+fn long(name: &str) -> Option<mandible_core::FlagKey> {
+    Some(mandible_core::FlagKey::Long(name.into()))
+}
+
+#[test]
+fn the_jump_lands_on_the_top_matching_flag_of_the_page_in_name_mode() {
+    let mut app = App::new("tool".to_string(), no_flags());
+    app.focus_search();
+    type_query(&mut app, "--no");
+    let index_first = first_flag(&app.search_index.results());
+    assert_eq!(
+        index_first,
+        long("no-npn"),
+        "precondition: index order disagrees"
+    );
+    assert_eq!(app.selected_flag, long("no-alpn"));
+}
+
+#[test]
+fn the_jump_lands_on_the_top_matching_flag_of_the_page_in_wide_mode() {
+    let mut app = App::new("tool".to_string(), no_flags());
+    app.focus_search();
+    app.cycle_search_mode();
+    type_query(&mut app, "--no");
+    let index_first = first_flag(&app.search_index.results());
+    assert_eq!(
+        index_first,
+        long("no-npn"),
+        "precondition: index order disagrees"
+    );
+    assert_eq!(app.selected_flag, long("no-alpn"));
+}
+
+#[test]
+fn a_better_tier_still_beats_the_top_of_the_page() {
+    let mut curl = cmd("curl");
+    curl.entities.push(Entity::flag_long("no-s", prov()));
+    curl.entities.push(Entity::flag_short('s', prov()));
+    let mut root = cmd("tool");
+    root.subcommands = vec![curl];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "-s");
+    assert_eq!(app.selected_flag, Some(mandible_core::FlagKey::Short('s')));
+}
+
 #[test]
 fn a_plain_word_still_refuses_the_middle_of_a_flag_name() {
     let mut root = cmd("docker");

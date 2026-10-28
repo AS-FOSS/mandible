@@ -481,6 +481,50 @@ fn the_count_column_goes_when_a_summary_would_get_under_20_columns() {
 }
 
 #[test]
+fn page_positions_follow_the_order_the_page_draws_groups_in() {
+    let mut grouped = |name: &str, group: Option<&str>| {
+        let mut e = flag(name, "x");
+        e.group = group.map(str::to_string);
+        e
+    };
+    let mut c = cmd("c");
+    c.entities = vec![
+        grouped("re-b1", Some("Beta")),
+        grouped("re-plain", None),
+        grouped("re-a1", Some("Alpha")),
+        grouped("re-b2", Some("Beta")),
+    ];
+    let mut root = cmd("tool");
+    root.subcommands = vec![c];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "re-");
+    app.accept_search();
+    let buf = draw(&app, 120, 40);
+    let mut by_screen: Vec<(u16, String)> = ["re-b1", "re-plain", "re-a1", "re-b2"]
+        .iter()
+        .map(|n| (find(&buf, &format!("--{n}")).unwrap().0, n.to_string()))
+        .collect();
+    by_screen.sort();
+    let node = crate::search_rank::tests_node(&app);
+    let positions = crate::render::page_positions(&node);
+    let mut by_rank: Vec<(usize, String)> = by_screen
+        .iter()
+        .map(|(_, n)| {
+            (
+                positions[&mandible_core::FlagKey::Long(n.clone())],
+                n.clone(),
+            )
+        })
+        .collect();
+    by_rank.sort();
+    let screen: Vec<&str> = by_screen.iter().map(|(_, n)| n.as_str()).collect();
+    let ranked: Vec<&str> = by_rank.iter().map(|(_, n)| n.as_str()).collect();
+    assert_eq!(screen, ranked);
+    assert_eq!(screen, ["re-plain", "re-b1", "re-b2", "re-a1"]);
+}
+
+#[test]
 fn n_does_nothing_without_a_search() {
     let mut app = App::new("tool".to_string(), tool());
     draw(&app, 120, 30);

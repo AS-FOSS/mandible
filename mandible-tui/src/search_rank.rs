@@ -4,7 +4,8 @@
 //! names relate to the query and orders them in tiers, so the first entry is
 //! the row the cursor jumps to and the tree shows.
 
-use mandible_core::{resolve_flag, CommandNode, Dashes, NodeRef, Spelling};
+use mandible_core::{resolve, resolve_flag, CommandNode, Dashes, FlagKey, NodeRef, Spelling};
+use std::collections::HashMap;
 
 /// How closely a name relates to the query. Smaller is better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -173,8 +174,9 @@ fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u
     }
 }
 
-/// Tier, kind (command first), path depth, display position.
-type RankKey = (Tier, u8, usize, usize);
+/// Tier, kind (command first), path depth, display position, line on the
+/// command's page.
+type RankKey = (Tier, u8, usize, usize, usize);
 
 /// Each command path's position in the tree's top-to-bottom order.
 fn display_order(root: &CommandNode) -> std::collections::HashMap<Vec<String>, usize> {
@@ -200,6 +202,7 @@ fn display_order(root: &CommandNode) -> std::collections::HashMap<Vec<String>, u
 /// the tree's display order, then the index's own order.
 pub(crate) fn rank_by_name(root: &CommandNode, hits: Vec<NodeRef>, query: &str) -> Vec<NodeRef> {
     let order = display_order(root);
+    let mut pages = PagePositions::default();
     let mut keyed: Vec<(RankKey, usize, NodeRef)> = hits
         .into_iter()
         .enumerate()
@@ -207,11 +210,58 @@ pub(crate) fn rank_by_name(root: &CommandNode, hits: Vec<NodeRef>, query: &str) 
             let (tier, kind) = item_rank(root, &item, query)?;
             let path = hit_path(&item);
             let pos = order.get(path).copied().unwrap_or(usize::MAX);
-            Some(((tier, kind, path.len(), pos), i, item))
+            let line = pages.of(root, &item);
+            Some(((tier, kind, path.len(), pos, line), i, item))
         })
         .collect();
     keyed.sort_by_key(|(rank, i, _)| (*rank, *i));
     keyed.into_iter().map(|(_, _, item)| item).collect()
+}
+
+/// Entity positions on their command's page, read once per command.
+#[derive(Default)]
+pub(crate) struct PagePositions(HashMap<Vec<String>, HashMap<FlagKey, usize>>);
+
+impl PagePositions {
+    /// The line rank of a hit on its command's page: 0 for a command.
+    pub(crate) fn of(&mut self, root: &CommandNode, item: &NodeRef) -> usize {
+        let NodeRef::Flag { path, key } = item else {
+            return 0;
+        };
+        let page = self.0.entry(path.clone()).or_insert_with(|| {
+            resolve(root, path).map_or_else(HashMap::new, crate::render::page_positions)
+        });
+        page.get(key).copied().unwrap_or(usize::MAX)
+    }
+}
+
+/// Wide mode's order with each command's entities of one rank group
+/// reordered to stand top to bottom on its page, in the slots that group's
+/// entities already held. `groups[i]` is the rank group of `hits[i]`.
+pub(crate) fn page_order_within_groups(
+    root: &CommandNode,
+    hits: Vec<NodeRef>,
+    groups: &[u8],
+) -> Vec<NodeRef> {
+    let mut pages = PagePositions::default();
+    let mut slots: HashMap<(u8, Vec<String>), Vec<usize>> = HashMap::new();
+    for (i, hit) in hits.iter().enumerate() {
+        if matches!(hit, NodeRef::Flag { .. }) {
+            slots
+                .entry((groups[i], hit_path(hit).clone()))
+                .or_default()
+                .push(i);
+        }
+    }
+    let mut out = hits.clone();
+    for slot in slots.values() {
+        let mut members: Vec<&NodeRef> = slot.iter().map(|&i| &hits[i]).collect();
+        members.sort_by_key(|m| pages.of(root, m));
+        for (&i, m) in slot.iter().zip(members) {
+            out[i] = m.clone();
+        }
+    }
+    out
 }
 
 /// The command path a hit lands on: a command's own, or the owning command
@@ -220,6 +270,14 @@ pub(crate) fn hit_path(item: &NodeRef) -> &Vec<String> {
     match item {
         NodeRef::Command(path) | NodeRef::Flag { path, .. } => path,
     }
+}
+
+/// The `c` node of a test tree, for page-order checks.
+#[cfg(test)]
+pub(crate) fn tests_node(app: &crate::app::App) -> CommandNode {
+    resolve(&app.root, &[app.root.name.clone(), "c".to_string()])
+        .cloned()
+        .unwrap()
 }
 
 #[cfg(test)]
