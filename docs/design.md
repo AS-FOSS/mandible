@@ -201,8 +201,8 @@ structure, search is for flags.
 | `Home`/`End` | First or last visible tree row; top or bottom of the focused detail pane |
 | `→`/`Enter`/`l` | Expand (triggers lazy extraction if the subtree is unfilled). `Enter` accepts instead under `--print-selection`, below |
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
-| `/` | Focus search |
-| `Esc` | In layers: close the `?` popup; else, if the detail pane is scrolled sideways, return to column 0; else leave search, keeping the filter pinned, and `Esc` again clears it |
+| `/` | Open the search box, with the keyword already in effect if there is one. `Enter` in the box jumps to the first match and focuses the commands list, keeping the keyword and filter |
+| `Esc` | In layers: close the `?` popup; else, if the detail pane is scrolled sideways, return to column 0; else clear the search keyword and filter, the cursor staying on its row. In the search box, `Esc` cancels the search and the cursor returns to the row it was on before `/` |
 | `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`) |
 | `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
@@ -240,8 +240,8 @@ the flag, `Enter` is one of the three expand keys, unchanged.
 
 **Accepting is bound to the focus, not to the key.** `Enter` accepts only
 from browse focus, the tree or the detail pane. While the search box has
-focus, `Enter` commits the query, moves focus to the tree, and keeps the
-filter.
+focus, `Enter` jumps to the first match, moves focus to the tree, and keeps
+the keyword and the filter.
 
 Stdout carries the composed line and nothing else. The UI draws on stderr
 in this mode, and the OSC-52 clipboard fallback and the color-support
@@ -2344,16 +2344,49 @@ findable, and how a match is shown in context.
    `-`/`_`-separated word of any of its spellings, the whole name counting
    as its own first word. `NODE_D` matches `NODE_DEBUG` from the start and
    `debug` matches it from after the `_`.
+   A query starting with `-` searches only entities with dashed
+   spellings, and matches the spelling with its dashes: `--squash` finds
+   the `--squash` flags of `commit`, `merge` and `pull`, and `-s` finds
+   the short `-s` flags and no `--squash`. The dashes in front of a name
+   are not word separators, so `--no-` is a prefix of `--no-trunc`.
+   Commands and dashless entities never match such a query.
 6. Wide mode's ranking stays the fuzzy index, where `gco` still finds
-   `checkout`.
+   `checkout`. Its jump lands on the first row it shows.
 7. Filtering preserves hierarchy: matching a node force-expands its
    ancestor chain and the tree renders normally with non-matching siblings
    hidden.
 8. `Nucleo::tick` is driven from the event loop's poll timeout, never from
    a blocking spin inside the keystroke handler.
-9. Ranking boosts exact prefix matches on names above description matches,
-   so typing `reb` puts `rebase` above every command whose description
-   contains "rebase".
+9. Name mode ranks its matches in tiers: an exact name, then a name
+   that starts with the query, then a name with a `-`/`_` word that
+   starts with it, then a command name that only contains it. Within a
+   tier commands come before entities, and ties keep the index's order.
+   `/rebase` ranks `git rebase` above `git submodule`, whose `--rebase`
+   flag only reaches the word tier.
+10. The result list is one list. The tree rows, the title count and the
+    jump all come from it, so the jump never lands on an item the tree
+    does not show. The cursor goes to the row of the first-ranked match: a
+    command's own row, or an entity's parent command with the detail pane
+    scrolled to the entity. Rows keep the tree's display order (rule 7),
+    so the first-ranked match may sit below other matching rows, and
+    `↑`/`↓` walk the rows in the order shown.
+11. A search with no match shows `No matches for "<query>"` in the
+    commands pane in place of the rows, and the title counts 0. The
+    cursor and the detail page stay where they were, and `↑`/`↓` do not
+    move the hidden cursor. No match is only ever decided from a finished
+    match: `nucleo` clears its snapshot when the index is rebuilt or the
+    query changes, and until `Nucleo::tick` reports the matcher no longer
+    running, the pane keeps the last complete result and never shows the
+    notice or the unfiltered tree.
+12. Search has two states. While typing, the bar shows `›` and the
+    keyword. `Enter` jumps to the first match and focuses the commands
+    list, keeping keyword and filter; the bar then shows the keyword
+    without the marker. `Esc` while typing cancels: keyword and filter
+    clear and the cursor returns to the row it was on before `/`. `Esc` in
+    the filtered list clears keyword and filter and the cursor stays on
+    its row, opening that row's ancestors if the filter alone was
+    showing it. `/` in the filtered list reopens the box with the keyword,
+    editable, and `Enter` jumps to the first match again.
 
 **Why.** `nucleo` is faster than `fuzzy-matcher`/`skim`, correct on Unicode
 graphemes, and designed to match on a background thread pool so typing
@@ -2378,7 +2411,8 @@ expand/collapse keys would mutate state nothing reads. A 50 ms synchronous
 deadline per keystroke on the UI thread defeats the reason nucleo was
 chosen, hence driving `tick` from the poll timeout.
 
-**Implemented in.** `mandible-search/src/lib.rs`.
+**Implemented in.** `mandible-search/src/lib.rs` and
+`mandible-tui/src/search_rank.rs`.
 
 ---
 

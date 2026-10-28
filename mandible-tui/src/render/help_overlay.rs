@@ -17,10 +17,10 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (Some("←  h"), "Collapse, or jump to parent"),
     (Some("Tab"), "Switch between tree and detail"),
     (None, "SEARCH"),
-    (Some("/"), "Focus search; again to widen names → everything"),
+    (Some("/"), "Search; again to widen names → everything"),
     (
         Some("Esc"),
-        "Back to column 0 if scrolled sideways; else leave search, keeping the filter; again clears it",
+        "Back to column 0 if scrolled sideways; else clear the search. In the box: Enter keeps it, Esc cancels it",
     ),
     (None, "VIEW"),
     (

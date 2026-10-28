@@ -1673,7 +1673,6 @@ mod search_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::search_rank::word_prefix_matches;
     use mandible_core::{Provenance, Source};
     use std::time::{Duration, Instant};
 
@@ -2233,52 +2232,6 @@ mod tests {
             app.selected_flag,
             Some(mandible_core::FlagKey::Name("d".to_string()))
         );
-    }
-
-    /// The exact docker guard `word_prefix_matches` exists to preserve:
-    /// `run` must never match `--no-trunc`, because `run` is a prefix of
-    /// neither of its `-`-separated words (`no`, `trunc`) nor of the whole
-    /// name.
-    #[test]
-    fn word_prefix_matches_refuses_the_docker_run_no_trunc_case() {
-        assert!(!word_prefix_matches("no-trunc", "run"));
-    }
-
-    /// The two `-`-separated words of `--no-trunc` each match their own
-    /// prefix.
-    #[test]
-    fn word_prefix_matches_finds_either_word_of_a_dashed_name() {
-        assert!(word_prefix_matches("no-trunc", "trunc"));
-        assert!(word_prefix_matches("no-trunc", "no"));
-    }
-
-    /// A one-letter dashless name (a modifier letter) matches itself.
-    #[test]
-    fn word_prefix_matches_finds_a_bare_modifier_letter() {
-        assert!(word_prefix_matches("d", "d"));
-    }
-
-    /// An underscore-separated env var name matches both from the start of
-    /// the whole name and from after the separator.
-    #[test]
-    fn word_prefix_matches_finds_either_half_of_an_underscored_name() {
-        assert!(word_prefix_matches("NODE_DEBUG", "NODE_D"));
-        assert!(word_prefix_matches("NODE_DEBUG", "debug"));
-    }
-
-    /// Case-insensitive, both sides.
-    #[test]
-    fn word_prefix_matches_is_case_insensitive() {
-        assert!(word_prefix_matches("NODE_DEBUG", "node_d"));
-        assert!(word_prefix_matches("node_debug", "DEBUG"));
-    }
-
-    /// A query longer than the word it's being compared against is not a
-    /// prefix of it — `word_prefix_matches` must not panic on a slice
-    /// that runs past the word's own end.
-    #[test]
-    fn word_prefix_matches_refuses_a_query_longer_than_the_word() {
-        assert!(!word_prefix_matches("no-trunc", "truncated"));
     }
 
     /// Spec §10, name mode: an entity match (any kind) is admitted only

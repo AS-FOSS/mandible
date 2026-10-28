@@ -29,17 +29,6 @@ pub(crate) fn name_matches(name: &str, query: &str) -> bool {
     name.to_lowercase().contains(&query.to_lowercase())
 }
 
-/// True if `query` is a case-insensitive prefix of `name` starting at any
-/// `-`/`_`-separated word boundary (including the start of `name` itself).
-///
-/// `run` never matches `--no-trunc` (its words are `no` and `trunc`), while
-/// `no`, `trunc`, a bare modifier letter and either half of `NODE_DEBUG`
-/// still do.
-#[cfg(test)]
-pub(crate) fn word_prefix_matches(name: &str, query: &str) -> bool {
-    tier_in(name, 0, query).is_some()
-}
-
 /// The tier of `query` within `text`, or `None`. Word starts are offset 0
 /// and the position after each `-`/`_` found at or past `skip`; `skip`
 /// keeps a spelling's leading dashes from counting as separators.
@@ -126,6 +115,13 @@ pub(crate) fn hit_path(item: &NodeRef) -> &Vec<String> {
 mod tests {
     use super::*;
 
+    /// `query` is a case-insensitive prefix of `name` at the start or after
+    /// a `-`/`_`: `run` never matches `--no-trunc`, while `no`, `trunc`, a
+    /// bare modifier letter and either half of `NODE_DEBUG` do.
+    fn word_prefix_matches(name: &str, query: &str) -> bool {
+        tier_in(name, 0, query).is_some()
+    }
+
     #[test]
     fn tiers_order_exact_prefix_word_substring() {
         assert_eq!(tier_in("rebase", 0, "rebase"), Some(Tier::Exact));
@@ -159,5 +155,51 @@ mod tests {
         let letter = Spelling::bare("s");
         assert_eq!(spelling_tier(&letter, "-s"), None);
         assert_eq!(command_tier("squash", "-s"), None);
+    }
+
+    /// The exact docker guard `word_prefix_matches` exists to preserve:
+    /// `run` must never match `--no-trunc`, because `run` is a prefix of
+    /// neither of its `-`-separated words (`no`, `trunc`) nor of the whole
+    /// name.
+    #[test]
+    fn word_prefix_matches_refuses_the_docker_run_no_trunc_case() {
+        assert!(!word_prefix_matches("no-trunc", "run"));
+    }
+
+    /// The two `-`-separated words of `--no-trunc` each match their own
+    /// prefix.
+    #[test]
+    fn word_prefix_matches_finds_either_word_of_a_dashed_name() {
+        assert!(word_prefix_matches("no-trunc", "trunc"));
+        assert!(word_prefix_matches("no-trunc", "no"));
+    }
+
+    /// A one-letter dashless name (a modifier letter) matches itself.
+    #[test]
+    fn word_prefix_matches_finds_a_bare_modifier_letter() {
+        assert!(word_prefix_matches("d", "d"));
+    }
+
+    /// An underscore-separated env var name matches both from the start of
+    /// the whole name and from after the separator.
+    #[test]
+    fn word_prefix_matches_finds_either_half_of_an_underscored_name() {
+        assert!(word_prefix_matches("NODE_DEBUG", "NODE_D"));
+        assert!(word_prefix_matches("NODE_DEBUG", "debug"));
+    }
+
+    /// Case-insensitive, both sides.
+    #[test]
+    fn word_prefix_matches_is_case_insensitive() {
+        assert!(word_prefix_matches("NODE_DEBUG", "node_d"));
+        assert!(word_prefix_matches("node_debug", "DEBUG"));
+    }
+
+    /// A query longer than the word it's being compared against is not a
+    /// prefix of it — `word_prefix_matches` must not panic on a slice
+    /// that runs past the word's own end.
+    #[test]
+    fn word_prefix_matches_refuses_a_query_longer_than_the_word() {
+        assert!(!word_prefix_matches("no-trunc", "truncated"));
     }
 }

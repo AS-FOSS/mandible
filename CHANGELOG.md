@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The command under the cursor is read first, ahead of the background walk, once the cursor rests on it.
 - `r` reloads what you are looking at: on a command's page that command and then its subcommands, on the tool's root page the whole tool. A second `r` on a command being read does nothing.
 - A help probe may run for 30 seconds instead of 10, and one thread of the pool is kept for the command under the cursor and for `r`.
+- `Esc` in the search box cancels the search: the keyword and filter clear and the cursor returns to the row it was on before `/`. `Esc` in the filtered list clears them and the cursor stays on its row. The `(pinned)` and `(filter)` labels are gone, and the bar shows the keyword with `›` only while typing.
+- `/` in the filtered list reopens the search box with the keyword, and `Enter` jumps to the first match again.
+- A search starting with `-` looks only at flag spellings, with their dashes: `--squash` finds the `--squash` flags and `-s` finds the short `-s` flags.
 
 ### Fixed
 
@@ -53,6 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.
 - [S-252] A USAGE form led by another program's name (`bpftrace [options] filename` under `tcpretrans.bt`) is now shown as printed instead of being prefixed with the tool's name, and the first form under a bare `Usage:` label lines up with the forms below it.
 - After a search scrolls the detail pane to a flag, `↑` and `↓` now move one line from that position instead of jumping back to the top of the page.
+- Search jumped to a command the list did not rank first: `/rebase` selected `git submodule` and `/re` selected `git bisect`. The jump now goes to the first match, ranked exact name, name prefix, then word prefix, commands first.
+- A search with no match showed every command and jumped to a fuzzy guess; it now shows `No matches for "<query>"`, counts 0, and leaves the cursor and page alone.
+- `Esc` after `Enter` did nothing; it now clears the search.
 
 ## [0.8.4] - 2026-10-12
 
