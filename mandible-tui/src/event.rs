@@ -48,7 +48,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Char('?') => app.toggle_help(),
         KeyCode::Char('/') => app.focus_search(),
         KeyCode::Char('n') => app.step_match(true),
-        KeyCode::Char('N') => app.step_match(false),
+        KeyCode::Char('p') => app.step_match(false),
         KeyCode::Tab => app.toggle_focus(),
         KeyCode::Char('t') => return app.toggle_raw_mode(),
         KeyCode::Char('r') => return Some(Effect::Refresh),
@@ -69,14 +69,13 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     None
 }
 
-/// A command letter means the same in either case: no binding uses a
-/// capital but `N`, so Caps Lock (or Shift) sending `Q` for `q` still quits.
+/// A command letter means the same in either case, with no exception, so
+/// Caps Lock (or Shift) sending `Q` for `q` still quits and `N` is `n`.
 /// Typed text never comes through here: search and review notes keep case.
 pub(crate) fn command_key(key: KeyEvent) -> KeyEvent {
     match key.code {
         KeyCode::Char(c)
             if c.is_ascii_uppercase()
-                && c != 'N'
                 && !key
                     .modifiers
                     .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
@@ -302,6 +301,15 @@ mod tests {
         assert!(matches!(quit, Some(Effect::Quit)));
         assert!(handle_key(&mut app, key(KeyCode::Char('W'))).is_none());
         assert_ne!(app.parsed_wrap, before);
+    }
+
+    #[test]
+    fn n_and_p_step_matches_in_either_case_and_do_nothing_without_a_search() {
+        let mut app = app();
+        for c in ['n', 'N', 'p', 'P'] {
+            assert!(handle_key(&mut app, key(KeyCode::Char(c))).is_none());
+            assert_eq!(app.selected_flag, None, "{c}: no search is active");
+        }
     }
 
     #[test]

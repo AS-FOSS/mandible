@@ -18,7 +18,8 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (Some("Tab"), "Switch between tree and detail"),
     (None, "SEARCH"),
     (Some("/"), "Search; again to widen names → everything"),
-    (Some("n N"), "Next or previous match on the page"),
+    (Some("n"), "Next match on the page"),
+    (Some("p"), "Previous match"),
     (
         Some("Esc"),
         "Back to column 0 if scrolled sideways; else clear the search. In the box: Enter keeps it, Esc cancels it",
@@ -343,6 +344,23 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    #[test]
+    fn no_two_keys_differ_only_by_case_and_n_and_p_are_listed() {
+        let rows = bindings(false);
+        let keys: Vec<&str> = rows
+            .iter()
+            .filter_map(|(k, _)| *k)
+            .flat_map(str::split_whitespace)
+            .collect();
+        for a in &keys {
+            for b in &keys {
+                assert!(a == b || a.to_lowercase() != b.to_lowercase(), "{a} {b}");
+            }
+        }
+        assert!(rows.contains(&(Some("n"), "Next match on the page")));
+        assert!(rows.contains(&(Some("p"), "Previous match")));
     }
 
     #[test]

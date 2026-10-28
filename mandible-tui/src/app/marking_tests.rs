@@ -1,5 +1,5 @@
 //! Marking what a search matched: the detail pane's rows, the commands
-//! list's rows and counts, `n`/`N`, and the no-match notice margin
+//! list's rows and counts, `n`/`p`, and the no-match notice margin
 //! (spec §10).
 
 use super::search_tests::{cmd, prov, selected_name, settle, type_query};
@@ -7,7 +7,7 @@ use super::*;
 use mandible_core::{Entity, Text};
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
-use ratatui::style::Modifier;
+use ratatui::style::{Color, Modifier};
 use ratatui::Terminal;
 
 fn flag(name: &str, description: &str) -> Entity {
@@ -96,32 +96,132 @@ fn gutter(buf: &Buffer) -> u16 {
         .unwrap()
 }
 
+/// The bar's background and foreground, as the style module names them.
+const BG: Color = Color::Indexed(crate::style::BAR_BG);
+const FG: Color = Color::Indexed(crate::style::BAR_FG);
+
+fn bg(buf: &Buffer, x: u16, y: u16) -> Color {
+    buf[(x, y)].style().bg.unwrap_or(Color::Reset)
+}
+
+fn fg(buf: &Buffer, x: u16, y: u16) -> Color {
+    buf[(x, y)].style().fg.unwrap_or(Color::Reset)
+}
+
+/// The column of the right border of the pane that holds column `x`.
+fn right_border(buf: &Buffer, x: u16, y: u16) -> u16 {
+    (x..buf.area.width)
+        .find(|&c| buf[(c, y)].symbol() == "│")
+        .unwrap()
+}
+
+/// Rows of the detail pane (right half) with the bar's background in them.
+fn bar_rows(buf: &Buffer) -> Vec<u16> {
+    let half = buf.area.width / 2;
+    (0..buf.area.height)
+        .filter(|&y| (half..buf.area.width).any(|x| bg(buf, x, y) == BG))
+        .collect()
+}
+
 #[test]
-fn matching_rows_get_a_bar_bold_and_underlined_letters() {
+fn matching_rows_get_a_bar_and_underlined_letters_and_no_bold() {
     let app = searched("re", "commit");
     let buf = draw(&app, 120, 30);
     let g = gutter(&buf);
     let (y, x) = find(&buf, "reedit-message").unwrap();
     assert_eq!(buf[(g, y)].symbol(), "▌", "{}", line(&buf, y));
-    let re_at = x;
-    assert!(has(&buf, re_at, y, Modifier::UNDERLINED));
-    assert!(has(&buf, re_at, y, Modifier::BOLD));
+    assert!(has(&buf, x, y, Modifier::UNDERLINED));
     assert!(
-        !has(&buf, re_at + 2, y, Modifier::UNDERLINED),
+        !has(&buf, x + 2, y, Modifier::UNDERLINED),
         "only the matched letters"
     );
     assert!(
-        has(&buf, re_at + 2, y, Modifier::BOLD),
-        "the whole spelling is bold"
+        !has(&buf, x, y, Modifier::BOLD),
+        "matching rows are not bold"
     );
     let (dy, dx) = find(&buf, "reuse and edit").unwrap();
-    assert!(
-        has(&buf, dx, dy, Modifier::BOLD),
-        "and so is the description"
+    assert!(!has(&buf, dx, dy, Modifier::BOLD));
+    assert!(bar_rows(&buf).is_empty(), "no current match yet");
+}
+
+#[test]
+fn the_current_match_sits_on_the_bar_across_the_row() {
+    let mut app = searched("re", "commit");
+    draw(&app, 120, 30);
+    app.step_match(true);
+    let buf = draw(&app, 120, 30);
+    let (y, x) = find(&buf, "reedit-message").unwrap();
+    assert_eq!(bar_rows(&buf), vec![y], "exactly one row");
+    let g = gutter(&buf);
+    assert_eq!(buf[(g, y)].symbol(), "▌");
+    assert_ne!(bg(&buf, g, y), BG, "the margin bar stays as it was");
+    assert_eq!(
+        fg(&buf, x, y),
+        crate::style::ACCENT,
+        "spelling stays accent"
     );
-    let (ay, ax) = find(&buf, "--amend").unwrap();
-    assert_eq!(buf[(g, ay)].symbol(), " ");
-    assert!(!has(&buf, ax, ay, Modifier::BOLD));
+    assert!(has(&buf, x, y, Modifier::UNDERLINED));
+    let (dy, dx) = find(&buf, "reuse and edit").unwrap();
+    assert_eq!(
+        (dy, fg(&buf, dx, dy)),
+        (y, FG),
+        "description in the bar foreground"
+    );
+    let edge = right_border(&buf, dx, y);
+    assert_eq!(bg(&buf, edge - 2, y), BG, "the bar runs to the padding");
+    assert_ne!(bg(&buf, edge - 1, y), BG, "and stops inside it");
+    assert_eq!(bg(&buf, g + 1, y), BG);
+    let (ry, rx) = find(&buf, "reset-author").unwrap();
+    assert_ne!(bg(&buf, rx, ry), BG, "the other match is not current");
+}
+
+#[test]
+fn only_one_row_is_current_after_n_and_p() {
+    let mut app = searched("re", "commit");
+    draw(&app, 120, 30);
+    for forward in [true, true, false] {
+        app.step_match(forward);
+        let buf = draw(&app, 120, 30);
+        assert_eq!(bar_rows(&buf).len(), 1);
+    }
+    let buf = draw(&app, 120, 30);
+    assert_eq!(
+        bar_rows(&buf),
+        vec![find(&buf, "reedit-message").unwrap().0]
+    );
+}
+
+#[test]
+fn the_current_match_wraps_its_lines_on_the_bar() {
+    let mut app = searched("re", "commit");
+    draw(&app, 120, 30);
+    app.step_match(true);
+    let buf = draw(&app, 120, 30);
+    let (y, _) = find(&buf, "reedit-message").unwrap();
+    let wrapped = bar_rows(&buf);
+    assert_eq!(wrapped, vec![y]);
+    let narrow = draw(&app, 100, 30);
+    let rows = bar_rows(&narrow);
+    let (ny, _) = find(&narrow, "reedit-message").unwrap();
+    assert!(rows.contains(&ny));
+}
+
+#[test]
+fn no_color_puts_the_current_match_in_reverse() {
+    let mut app = searched("re", "commit");
+    app.set_palette(crate::style::Palette::plain());
+    draw(&app, 120, 30);
+    app.step_match(true);
+    let buf = draw(&app, 120, 30);
+    let (y, x) = find(&buf, "reedit-message").unwrap();
+    let (dy, dx) = find(&buf, "reuse and edit").unwrap();
+    assert!(has(&buf, x, y, Modifier::REVERSED));
+    assert!(has(&buf, dx, dy, Modifier::REVERSED));
+    let edge = right_border(&buf, dx, dy);
+    assert!(has(&buf, edge - 2, dy, Modifier::REVERSED));
+    let (ry, rx) = find(&buf, "reset-author").unwrap();
+    assert!(!has(&buf, rx, ry, Modifier::REVERSED));
+    assert_eq!(bg(&buf, x, y), Color::Reset);
 }
 
 #[test]
@@ -136,7 +236,7 @@ fn every_matching_row_is_marked_not_only_the_jump_target() {
 }
 
 #[test]
-fn no_color_keeps_the_bar_the_underline_and_the_bold() {
+fn no_color_keeps_the_bar_and_the_underline() {
     let mut app = searched("re", "commit");
     app.set_palette(crate::style::Palette::plain());
     let buf = draw(&app, 120, 30);
@@ -144,13 +244,8 @@ fn no_color_keeps_the_bar_the_underline_and_the_bold() {
     let (y, x) = find(&buf, "reedit-message").unwrap();
     assert_eq!(buf[(g, y)].symbol(), "▌");
     assert!(has(&buf, x, y, Modifier::UNDERLINED));
-    let (dy, dx) = find(&buf, "reuse and edit").unwrap();
-    assert!(has(&buf, dx, dy, Modifier::BOLD));
     let (ay, ax) = find(&buf, "amend previous").unwrap();
-    assert!(
-        !has(&buf, ax, ay, Modifier::BOLD),
-        "unmarked rows stay plain"
-    );
+    assert!(!has(&buf, ax, ay, Modifier::BOLD));
 }
 
 #[test]
@@ -194,30 +289,70 @@ fn list_rows_that_match_are_bold_and_context_rows_stay_plain() {
 }
 
 #[test]
-fn the_selected_list_row_keeps_its_reversed_style() {
-    let app = searched("re", "restore");
+fn the_selected_list_row_is_one_bar_with_a_light_foreground() {
+    let app = searched("re", "commit");
     let buf = draw(&app, 120, 30);
-    let (y, x) = find_left(&buf, "restore").unwrap();
-    assert!(has(&buf, x, y, Modifier::REVERSED));
-    assert!(!has(&buf, x, y, Modifier::BOLD));
+    let (y, x) = find_left(&buf, "commit").unwrap();
+    assert_eq!((fg(&buf, x, y), bg(&buf, x, y)), (crate::style::ACCENT, BG));
+    assert!(has(&buf, x, y, Modifier::BOLD));
+    let (sy, sx) = find_left(&buf, "Record changes").unwrap();
+    assert_eq!(sy, y);
+    assert_eq!((fg(&buf, sx, y), bg(&buf, sx, y)), (FG, BG), "summary");
+    assert!(!has(&buf, sx, y, Modifier::DIM) && !has(&buf, sx, y, Modifier::BOLD));
+    let (cy, cx) = find_left(&buf, "  2 found").unwrap();
+    assert_eq!((cy, fg(&buf, cx + 4, y), bg(&buf, cx + 4, y)), (y, FG, BG));
+    let edge = right_border(&buf, cx, y);
+    assert_eq!(bg(&buf, edge - 1, y), BG, "the margin is on the bar too");
+    assert!((x..edge).all(|c| bg(&buf, c, y) == BG), "no gap in the bar");
+    let (oy, ox) = find_left(&buf, "restore").unwrap();
+    assert_ne!(bg(&buf, ox, oy), BG, "other rows are not on it");
+}
+
+#[test]
+fn without_256_colors_or_without_color_the_whole_row_is_reversed() {
+    for palette in [
+        crate::style::Palette::basic(),
+        crate::style::Palette::plain(),
+    ] {
+        let mut app = searched("re", "commit");
+        app.set_palette(palette);
+        let buf = draw(&app, 120, 30);
+        let (y, x) = find_left(&buf, "commit").unwrap();
+        let (_, sx) = find_left(&buf, "Record changes").unwrap();
+        let (_, cx) = find_left(&buf, "  2 found").unwrap();
+        for at in [x, sx, cx + 4, right_border(&buf, cx, y) - 1] {
+            assert!(has(&buf, at, y, Modifier::REVERSED), "{palette:?} at {at}");
+            assert!(!has(&buf, at, y, Modifier::DIM));
+        }
+        assert_eq!(bg(&buf, x, y), Color::Reset);
+    }
+}
+
+#[test]
+fn the_selected_row_is_a_bar_without_any_search() {
+    let mut app = App::new("tool".to_string(), tool());
+    app.set_palette(crate::style::Palette::extended());
+    app.select_index(1);
+    let buf = draw(&app, 120, 30);
+    let (y, x) = find_left(&buf, "clone").unwrap();
+    assert_eq!(bg(&buf, x, y), BG);
+    let edge = right_border(&buf, x, y);
+    assert_eq!(bg(&buf, edge - 1, y), BG);
 }
 
 #[test]
 fn counts_sit_in_a_fixed_width_right_aligned_column() {
     let app = searched("re", "commit");
     let buf = draw(&app, 120, 30);
-    let (cy, cx) = find_left(&buf, "  2 matches").unwrap();
-    let (py, px) = find_left(&buf, "  1 match  ").unwrap();
+    let (py, px) = find_left(&buf, "  1 found").unwrap();
+    let (cy, cx) = find_left(&buf, "  2 found").unwrap();
     assert_eq!(cx, px, "both end at the same column");
-    assert_eq!(
-        buf[(cx + 11, cy)].symbol(),
-        "│",
-        "the column ends at the pane edge"
-    );
-    assert_eq!(buf[(px + 11, py)].symbol(), "│");
+    assert_eq!(buf[(cx + 9, cy)].symbol(), " ", "one column of margin");
+    assert_eq!(buf[(cx + 10, cy)].symbol(), "│", "then the pane edge");
+    assert_eq!(buf[(px + 10, py)].symbol(), "│");
     assert_ne!(cy, py);
     assert!(
-        !line(&buf, find_left(&buf, "restore").unwrap().0).contains("match"),
+        !line(&buf, find_left(&buf, "restore").unwrap().0).contains("found"),
         "a name-only row has no count"
     );
 }
@@ -232,17 +367,17 @@ fn a_hundred_matches_read_99_plus() {
     app.focus_search();
     type_query(&mut app, "re");
     let buf = draw(&app, 120, 30);
-    assert!(find_left(&buf, "99+ matches").is_some());
+    assert!(find_left(&buf, "99+ found").is_some());
 }
 
 #[test]
 fn a_narrow_pane_drops_the_count_column_first() {
     let app = searched("re", "clone");
     let wide = draw(&app, 120, 30);
-    assert!(find(&wide, "matches").is_some());
+    assert!(find(&wide, "found").is_some());
     let narrow = draw(&app, 60, 20);
     assert!(
-        find(&narrow, "match").is_none(),
+        find(&narrow, "found").is_none(),
         "{}",
         (0..20)
             .map(|y| line(&narrow, y))
@@ -256,7 +391,7 @@ fn a_narrow_pane_drops_the_count_column_first() {
 }
 
 #[test]
-fn n_and_capital_n_walk_the_matching_entities_and_wrap() {
+fn n_and_p_walk_the_matching_entities_and_wrap() {
     let mut app = searched("re", "commit");
     draw(&app, 120, 30);
     app.step_match(true);
@@ -286,6 +421,66 @@ fn n_and_capital_n_walk_the_matching_entities_and_wrap() {
 }
 
 #[test]
+fn capital_n_and_p_act_like_the_small_keys() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let press = |app: &mut App, c: char| {
+        crate::event::handle_key(app, KeyEvent::new(KeyCode::Char(c), KeyModifiers::SHIFT));
+    };
+    let key = |name: &str| Some(mandible_core::FlagKey::Long(name.into()));
+    let mut app = searched("re", "commit");
+    draw(&app, 120, 30);
+    press(&mut app, 'N');
+    assert_eq!(app.selected_flag, key("reedit-message"));
+    draw(&app, 120, 30);
+    press(&mut app, 'n');
+    assert_eq!(app.selected_flag, key("reset-author"));
+    draw(&app, 120, 30);
+    press(&mut app, 'P');
+    assert_eq!(app.selected_flag, key("reedit-message"));
+    draw(&app, 120, 30);
+    press(&mut app, 'p');
+    assert_eq!(app.selected_flag, key("reset-author"), "wraps back");
+}
+
+#[test]
+fn p_steps_back_from_the_detail_pane_too() {
+    let mut app = searched("re", "commit");
+    app.toggle_focus();
+    draw(&app, 120, 30);
+    let press = |app: &mut App, c: char| {
+        crate::event::handle_key(
+            app,
+            crossterm::event::KeyEvent::from(crossterm::event::KeyCode::Char(c)),
+        );
+    };
+    press(&mut app, 'p');
+    assert_eq!(
+        app.selected_flag,
+        Some(mandible_core::FlagKey::Long("reset-author".into())),
+        "from nothing, p goes to the last match"
+    );
+}
+
+#[test]
+fn the_count_column_goes_when_a_summary_would_get_under_20_columns() {
+    let app = searched("re", "commit");
+    let shows = |cols: u16| {
+        let buf = draw(&app, cols, 30);
+        find_left(&buf, "found").is_some()
+    };
+    let narrowest = (60..=120u16).find(|&c| shows(c)).unwrap();
+    assert!(!shows(narrowest - 1));
+    // The tree pane's inner width at that size: its top border row ends in
+    // `╮`. The summary column is 13 wide; it keeps 20 columns beside the
+    // count's 9, its 2-column gap and its 1-column margin.
+    let buf = draw(&app, narrowest, 30);
+    let top = (0..narrowest)
+        .find(|&x| buf[(x, 3)].symbol() == "╮")
+        .unwrap();
+    assert_eq!(usize::from(top) - 1, 13 + 20 + 9 + 2 + 1);
+}
+
+#[test]
 fn n_does_nothing_without_a_search() {
     let mut app = App::new("tool".to_string(), tool());
     draw(&app, 120, 30);
@@ -308,12 +503,12 @@ fn n_does_nothing_without_a_search() {
 fn the_footer_names_n_only_while_searching() {
     let mut app = App::new("tool".to_string(), tool());
     let buf = draw(&app, 140, 30);
-    assert!(find(&buf, "n/N next match").is_none());
+    assert!(find(&buf, "n/p match").is_none());
     app.focus_search();
     type_query(&mut app, "re");
     app.accept_search();
     let buf = draw(&app, 140, 30);
-    assert!(find(&buf, "n/N next match").is_some());
+    assert!(find(&buf, "n/p match").is_some());
 }
 
 #[test]

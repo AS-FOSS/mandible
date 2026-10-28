@@ -1,6 +1,6 @@
 //! Marking the entity rows that match the active search (spec §10): the
-//! whole row bold, the matched letters of its spellings underlined, and a
-//! bar in the row's left margin.
+//! matched letters of its spellings underlined, a bar in the row's left
+//! margin, and the current match's whole row on the selection bar.
 
 use super::*;
 use crate::app::MatchRow;
@@ -13,6 +13,8 @@ pub(super) struct PageMarks<'a> {
     pub(super) keys: &'a [FlagKey],
     pub(super) query: &'a str,
     pub(super) wide: bool,
+    /// The entity the last jump or `n`/`p` landed on.
+    pub(super) current: Option<&'a FlagKey>,
 }
 
 impl<'a> PageMarks<'a> {
@@ -26,6 +28,7 @@ impl<'a> PageMarks<'a> {
             keys,
             query: &hits.query,
             wide: hits.wide,
+            current: app.selected_flag.as_ref(),
         })
     }
 }
@@ -57,12 +60,13 @@ pub(super) fn mark_section(
             key: key.clone(),
             first_line: base + row.first_line,
             lines: row.lines,
+            current: marks.current == Some(key),
         });
     }
     found
 }
 
-/// Bold the row and underline the matched letters of its spellings.
+/// Underline the matched letters of the row's spellings.
 fn emphasize(lines: &mut [Line<'static>], entity: &Entity, marks: &PageMarks<'_>) {
     let mut underline: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); lines.len()];
     let texts: Vec<Vec<char>> = lines
@@ -95,10 +99,29 @@ fn emphasize(lines: &mut [Line<'static>], entity: &Entity, marks: &PageMarks<'_>
 /// The dashes and name letters of `spelling` the search matched.
 fn matched_letters(spelling: &Spelling, marks: &PageMarks<'_>) -> Option<(usize, Vec<usize>)> {
     if marks.wide {
-        let idx = mandible_search::match_indices(&spelling.name, marks.query);
-        return (!idx.is_empty()).then(|| (0, idx.into_iter().map(|i| i as usize).collect()));
+        return wide_letters(spelling, marks.query);
     }
     crate::search_rank::marked_in_spelling(spelling, marks.query).map(|m| (m.dashes, m.name))
+}
+
+/// The dashes and name letters of `spelling` that the words of a wide
+/// query occupy, found in the spelling as typed so a word with dashes in
+/// front covers the spelling's own.
+fn wide_letters(spelling: &Spelling, query: &str) -> Option<(usize, Vec<usize>)> {
+    let lead = match spelling.dashes {
+        Dashes::None => 0,
+        Dashes::Single => 1,
+        Dashes::Double => 2,
+    };
+    let typed = format!("{}{}", "-".repeat(lead), spelling.name);
+    let idx = mandible_search::substring_indices(&typed, query);
+    let dashes = idx.iter().filter(|&&i| (i as usize) < lead).count();
+    let letters: Vec<usize> = idx
+        .into_iter()
+        .filter(|&i| i as usize >= lead)
+        .map(|i| i as usize - lead)
+        .collect();
+    (dashes > 0 || !letters.is_empty()).then_some((dashes, letters))
 }
 
 /// The first place `name` stands as a whole word in the row's lines:
@@ -124,12 +147,12 @@ fn find_spelling(texts: &[Vec<char>], name: &str) -> Option<(usize, usize)> {
     None
 }
 
-/// Bold every span of `line` and underline the chars at `underline`.
+/// Underline the chars of `line` at `underline`.
 fn restyle(line: &mut Line<'static>, underline: &BTreeSet<usize>) {
     let mut out: Vec<Span<'static>> = Vec::new();
     let mut at = 0usize;
     for span in std::mem::take(&mut line.spans) {
-        let base = span.style.add_modifier(Modifier::BOLD);
+        let base = span.style;
         let mut run = String::new();
         let mut run_marked = false;
         for c in span.content.chars() {
@@ -171,6 +194,7 @@ pub(super) fn draw_match_bars(
     }
     let x = inner.x - 1;
     let style = style::accent(app.color_enabled);
+    let right = inner.x + inner.width;
     let buf = frame.buffer_mut();
     for m in matches.iter() {
         for line in m.first_line..m.first_line + m.lines {
@@ -180,7 +204,15 @@ pub(super) fn draw_match_bars(
             if row >= inner.height as usize {
                 continue;
             }
-            let Some(cell) = buf.cell_mut((x, inner.y + row as u16)) else {
+            let y = inner.y + row as u16;
+            if m.current {
+                for col in inner.x..right {
+                    if let Some(cell) = buf.cell_mut((col, y)) {
+                        style::paint_bar(cell, app.palette);
+                    }
+                }
+            }
+            let Some(cell) = buf.cell_mut((x, y)) else {
                 continue;
             };
             if cell.symbol() == " " {

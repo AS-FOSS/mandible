@@ -142,12 +142,114 @@ fn a_leading_dash_searches_dashed_spellings_only() {
 }
 
 #[test]
-fn a_short_flag_is_found_with_its_dash_and_not_by_a_long_one() {
+fn a_short_flag_ranks_first_and_long_flags_with_that_initial_follow() {
     let app = searched("-s");
     let shown = names(&app);
-    assert!(shown.contains(&"status".to_string()), "{shown:?}");
-    assert!(!shown.contains(&"commit".to_string()), "{shown:?}");
-    assert!(!shown.contains(&"submodule".to_string()), "{shown:?}");
+    for name in ["status", "commit", "merge", "pull"] {
+        assert!(shown.contains(&name.to_string()), "{name} in {shown:?}");
+    }
+    assert!(!shown.contains(&"add".to_string()), "{shown:?}");
+    assert_eq!(selected_name(&app), "status", "the exact -s comes first");
+    assert_eq!(app.selected_flag, Some(mandible_core::FlagKey::Short('s')));
+}
+
+#[test]
+fn one_dash_finds_flags_written_with_two() {
+    for query in ["-squa", "--squa"] {
+        let app = searched(query);
+        let shown = names(&app);
+        for name in ["commit", "merge", "pull"] {
+            assert!(shown.contains(&name.to_string()), "{query}: {shown:?}");
+        }
+    }
+}
+
+#[test]
+fn two_dashes_do_not_find_a_single_dash_flag() {
+    let app = searched("--s");
+    let shown = names(&app);
+    assert!(shown.contains(&"commit".to_string()), "{shown:?}");
+    assert_ne!(
+        app.selected_flag,
+        Some(mandible_core::FlagKey::Short('s')),
+        "the short -s has one dash"
+    );
+}
+
+#[test]
+fn a_dash_led_query_finds_a_later_word_of_a_flag() {
+    let mut root = cmd("tool");
+    root.subcommands = vec![with_flag(cmd("clone"), "no-squash"), cmd("run")];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "-squ");
+    assert_eq!(selected_name(&app), "clone");
+    app.cancel_search();
+    app.focus_search();
+    type_query(&mut app, "--squ");
+    assert!(app.no_match(), "only one dash stands before squash");
+}
+
+#[test]
+fn a_plain_word_still_refuses_the_middle_of_a_flag_name() {
+    let mut root = cmd("docker");
+    root.subcommands = vec![with_flag(cmd("ps"), "no-trunc"), cmd("build")];
+    let mut app = App::new("docker".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "run");
+    assert!(app.no_match(), "{:?}", names(&app));
+    app.cancel_search();
+    app.focus_search();
+    type_query(&mut app, "trunc");
+    assert_eq!(selected_name(&app), "ps");
+}
+
+fn curl_like() -> CommandNode {
+    let mut root = cmd("curl");
+    root.entities.push(Entity::flag_long("ssl-reqd", prov()));
+    root.entities.push(Entity::flag_long("ssl", prov()));
+    let mut scattered = Entity::flag_long("use-ascii-lines", prov());
+    scattered.description = Some(Text::sanitize("Use the stream slowly"));
+    root.entities.push(scattered);
+    root
+}
+
+#[test]
+fn wide_mode_takes_connected_text_only() {
+    let mut app = App::new("curl".to_string(), curl_like());
+    app.focus_search();
+    app.cycle_search_mode();
+    type_query(&mut app, "-ssl");
+    assert!(!app.no_match());
+    assert_eq!(
+        app.selected_flag,
+        Some(mandible_core::FlagKey::Long("ssl".into()))
+    );
+    app.cancel_search();
+    app.focus_search();
+    type_query(&mut app, "s-s-l");
+    assert!(app.no_match(), "dashes and letters from three places");
+}
+
+#[test]
+fn wide_mode_shows_the_notice_for_letters_found_only_in_scattered_places() {
+    let mut app = App::new("git".to_string(), git());
+    app.focus_search();
+    app.cycle_search_mode();
+    type_query(&mut app, "-ssl");
+    assert!(app.no_match(), "{:?}", names(&app));
+    assert!(screen(&app).contains("No matches for \"-ssl\""));
+}
+
+#[test]
+fn wide_mode_wants_each_word_of_the_query() {
+    let mut app = App::new("git".to_string(), git());
+    app.focus_search();
+    app.cycle_search_mode();
+    type_query(&mut app, "short status");
+    assert!(!app.no_match());
+    type_query(&mut app, " zzz");
+    assert!(app.no_match());
 }
 
 #[test]

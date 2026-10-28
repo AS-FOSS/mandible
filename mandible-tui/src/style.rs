@@ -17,12 +17,14 @@
 //!   every style function here degrades to bold/reverse/underline only,
 //!   rather than emitting color codes a user explicitly asked not to see
 //!   or a terminal has said it cannot render. There is no truecolor tier
-//!   and no RGB anywhere; the one place depth is consulted at all is the
-//!   detail pane's pair of rule shades ([`section_rule`], [`group_rule`]),
-//!   which need two steps below the terminal's default foreground and
-//!   cannot get them from the sixteen named colors. Those two read the
-//!   xterm-256 gray ramp when [`Palette::extended`] says it is available
-//!   and fall back to `DarkGray` for both levels when it is not.
+//!   and no RGB anywhere; depth is consulted in two places only. The
+//!   detail pane's pair of rule shades ([`section_rule`], [`group_rule`])
+//!   need two steps below the terminal's default foreground and cannot get
+//!   them from the sixteen named colors, so they read the xterm-256 gray
+//!   ramp when [`Palette::extended`] says it is available and fall back to
+//!   `DarkGray` when it is not. The selection bar ([`bar_name`],
+//!   [`bar_text`]) is a gray background where that palette exists and a
+//!   reversed row where it does not.
 //! - **The accent is spent only on the payload the user came for**: flag
 //!   spellings, the selected row, the focused pane's border.
 
@@ -253,14 +255,55 @@ pub fn accent(color_enabled: bool) -> Style {
     }
 }
 
-/// The selected tree row: accent + reversed (spec §9.2). Degrades to
-/// reversed alone under `NO_COLOR` — still unambiguous without color.
-pub fn selected(color_enabled: bool) -> Style {
-    let base = Style::default().add_modifier(Modifier::REVERSED);
-    if color_enabled {
-        base.fg(ACCENT)
+/// The bar's background, an xterm-256 gray (`#3a3a3a`).
+pub const BAR_BG: u8 = 237;
+
+/// The bar's foreground for everything but the accented name, an xterm-256
+/// gray (`#d0d0d0`). Set explicitly so the row stays readable on a light
+/// terminal, where the default foreground is dark.
+pub const BAR_FG: u8 = 252;
+
+/// The name on the bar (spec §9.2): the selected row's name in the commands
+/// list, a current match's spelling in the detail pane. The accent, bold, on
+/// a muted gray background where the xterm-256 palette is available; the
+/// accent reversed, bold, where only the sixteen named colors are; reversed,
+/// bold, with no color at all.
+pub fn bar_name(palette: Palette) -> Style {
+    let bold = Modifier::BOLD;
+    match (palette.color, palette.extended) {
+        (true, true) => Style::default()
+            .fg(ACCENT)
+            .bg(Color::Indexed(BAR_BG))
+            .add_modifier(bold),
+        (true, false) => Style::default()
+            .fg(ACCENT)
+            .add_modifier(Modifier::REVERSED | bold),
+        (false, _) => Style::default().add_modifier(Modifier::REVERSED | bold),
+    }
+}
+
+/// Everything else on the bar: summary, count, description and the fill to
+/// the pane's edge. Never dim.
+pub fn bar_text(palette: Palette) -> Style {
+    match (palette.color, palette.extended) {
+        (true, true) => Style::default()
+            .fg(Color::Indexed(BAR_FG))
+            .bg(Color::Indexed(BAR_BG)),
+        (_, _) => Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD),
+    }
+}
+
+/// Put a cell of the detail pane's current match on the bar, keeping the
+/// styles it already has: the accented spelling stays accent and the
+/// underline stays. A cell with no foreground of its own takes the bar's.
+pub fn paint_bar(cell: &mut ratatui::buffer::Cell, palette: Palette) {
+    if palette.color && palette.extended {
+        cell.set_bg(Color::Indexed(BAR_BG));
+        if cell.fg == Color::Reset {
+            cell.set_fg(Color::Indexed(BAR_FG));
+        }
     } else {
-        base
+        cell.modifier.insert(Modifier::REVERSED);
     }
 }
 
@@ -510,11 +553,22 @@ mod tests {
     }
 
     #[test]
-    fn selected_keeps_reversed_either_way() {
-        assert!(selected(true).add_modifier.contains(Modifier::REVERSED));
-        assert!(selected(false).add_modifier.contains(Modifier::REVERSED));
-        assert!(selected(true).fg.is_some());
-        assert_eq!(selected(false).fg, None);
+    fn the_bar_is_gray_with_256_colors_and_reversed_without() {
+        let name = bar_name(Palette::extended());
+        assert_eq!(name.fg, Some(ACCENT));
+        assert_eq!(name.bg, Some(Color::Indexed(BAR_BG)));
+        let text = bar_text(Palette::extended());
+        assert_eq!(text.fg, Some(Color::Indexed(BAR_FG)));
+        assert_eq!(text.bg, Some(Color::Indexed(BAR_BG)));
+        assert!(!text.add_modifier.contains(Modifier::DIM));
+        for palette in [Palette::basic(), Palette::plain()] {
+            assert!(bar_name(palette).add_modifier.contains(Modifier::REVERSED));
+            assert!(bar_text(palette).add_modifier.contains(Modifier::REVERSED));
+            assert!(!bar_text(palette).add_modifier.contains(Modifier::DIM));
+            assert_eq!(bar_text(palette).bg, None);
+        }
+        assert_eq!(bar_name(Palette::basic()).fg, Some(ACCENT));
+        assert_eq!(bar_name(Palette::plain()).fg, None);
     }
 
     #[test]

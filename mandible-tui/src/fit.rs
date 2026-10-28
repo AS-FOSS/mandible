@@ -45,8 +45,11 @@ pub const SHARED_COLUMN_PERCENTILE: usize = 90;
 pub const SUMMARY_COLUMN_CAP_PERCENT: usize = 40;
 
 /// Columns of the tree's match-count column: a count of at most `99+`,
-/// a space, and `match` or `matches` padded to the longer.
-pub const MATCH_COUNT_WIDTH: usize = 11;
+/// a space and `found`.
+pub const MATCH_COUNT_WIDTH: usize = 9;
+
+/// Columns between the match-count column and the pane's border.
+pub const MATCH_COUNT_MARGIN: usize = 1;
 
 /// Columns between the tree's summary and its match-count column.
 pub const MATCH_COUNT_GAP: usize = 2;

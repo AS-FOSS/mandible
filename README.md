@@ -198,9 +198,9 @@ on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`
 to scroll wide lines sideways, `t` for the tool's own `--help`, `y` to copy the
 selected flag, `q` to quit.
 
-Search has two modes: `names` matches command names literally; `everything`
-searches flags and descriptions fuzzily, so `gco` finds `checkout`. `/` opens
-the first, pressing it again switches to the second.
+Search has two modes: `names` matches the start of a word in a name; `everything`
+searches flags and descriptions, and every word you type must appear as
+connected text. `/` opens the first, pressing it again switches to the second.
 
 ### Completions
 

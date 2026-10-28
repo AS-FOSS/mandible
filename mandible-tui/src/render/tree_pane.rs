@@ -148,8 +148,9 @@ fn visible_lines(
                 hide_summaries,
                 selected,
                 summary_column,
-                app.color_enabled,
+                app.palette,
                 name_query,
+                marks.wide,
                 app.glyphs,
             );
             if searching && !selected && marks.is_hit(&row.path) {
@@ -157,25 +158,38 @@ fn visible_lines(
             }
             if show_counts {
                 let count = marks.entity_count(&row.path);
-                append_count(&mut line, inner_width, count, selected, app.color_enabled);
+                append_count(&mut line, inner_width, count, (selected, app.palette));
+            }
+            if selected {
+                fill_bar(&mut line, inner_width, app.palette);
             }
             line
         })
         .collect()
 }
 
-/// Columns reserved for the counts: the column and the gap before it.
-const COUNT_RESERVE: usize = fit::MATCH_COUNT_WIDTH + fit::MATCH_COUNT_GAP;
+/// Columns reserved for the counts: the column, the gap before it and the
+/// margin after it.
+const COUNT_RESERVE: usize =
+    fit::MATCH_COUNT_WIDTH + fit::MATCH_COUNT_GAP + fit::MATCH_COUNT_MARGIN;
 
-/// `  1 match  `, ` 14 matches`, `99+ matches`: always `COUNT_WIDTH` wide.
+/// `  1 found`, ` 14 found`, `99+ found`: always `MATCH_COUNT_WIDTH` wide.
 fn count_text(count: usize) -> String {
     let number = if count >= 100 {
         "99+".to_string()
     } else {
         format!("{count:>3}")
     };
-    let word = if count == 1 { "match" } else { "matches" };
-    format!("{number} {word:<7}")
+    format!("{number} found")
+}
+
+/// Pad a selected row with the bar's own style out to the pane's edge.
+fn fill_bar(line: &mut Line<'static>, width: usize, palette: style::Palette) {
+    let pad = width.saturating_sub(line.width());
+    if pad > 0 {
+        line.spans
+            .push(Span::styled(" ".repeat(pad), style::bar_text(palette)));
+    }
 }
 
 /// Add bold to every span of `line`.
@@ -185,24 +199,25 @@ fn embolden(line: &mut Line<'_>) {
     }
 }
 
-/// Right-align the count of matching entities at the pane's edge. A row
-/// without one gets no text there.
+/// Right-align the count of matching entities, one column in from the
+/// pane's edge. A row without one gets no text there; a selected row's
+/// count sits on the bar.
 fn append_count(
     line: &mut Line<'static>,
     width: usize,
     count: usize,
-    selected: bool,
-    color_enabled: bool,
+    (selected, palette): (bool, style::Palette),
 ) {
     if count == 0 {
         return;
     }
     let style = if selected {
-        style::selected(color_enabled)
+        style::bar_text(palette)
     } else {
-        style::muted(color_enabled)
+        style::muted(palette.color)
     };
-    let pad = width.saturating_sub(fit::MATCH_COUNT_WIDTH + line.width());
+    let right = fit::MATCH_COUNT_WIDTH + fit::MATCH_COUNT_MARGIN;
+    let pad = width.saturating_sub(right + line.width());
     line.spans.push(Span::styled(
         " ".repeat(pad),
         if selected { style } else { Style::default() },
@@ -247,8 +262,9 @@ fn build_row_line(
     hide_summary: bool,
     selected: bool,
     summary_column: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     query: Option<&str>,
+    wide: bool,
     glyphs: Glyphs,
 ) -> Line<'static> {
     let indent = "  ".repeat(row.depth);
@@ -263,8 +279,19 @@ fn build_row_line(
     let prefix_w = display_width(&prefix);
     let name = defensive_single_line(row_display_name(row));
 
+    let color_enabled = palette.color;
     let base_style = if selected {
-        style::selected(color_enabled)
+        style::bar_name(palette)
+    } else {
+        Style::default()
+    };
+    let muted = if selected {
+        style::bar_text(palette)
+    } else {
+        style::muted(color_enabled)
+    };
+    let fill = if selected {
+        style::bar_text(palette)
     } else {
         Style::default()
     };
@@ -281,7 +308,13 @@ fn build_row_line(
     // are stable, but only ever rendered against the surviving
     // (truncated) prefix of it, which is what's actually on screen.
     let match_idx = query
-        .map(|q| mandible_search::match_indices(&name, q))
+        .map(|q| {
+            if wide {
+                mandible_search::substring_indices(&name, q)
+            } else {
+                mandible_search::match_indices(&name, q)
+            }
+        })
         .unwrap_or_default();
     let mut spans = vec![Span::styled(prefix, base_style)];
     spans.extend(styled_name_spans(&truncated_name, &match_idx, base_style));
@@ -300,11 +333,8 @@ fn build_row_line(
             let remaining = width.saturating_sub(pad_to);
             // The marker shows whole or not at all: a cut spinner says nothing.
             if remaining >= display_width(glyphs.loading) {
-                spans.push(Span::raw(padding));
-                spans.push(Span::styled(
-                    glyphs.loading.to_string(),
-                    style::muted(color_enabled),
-                ));
+                spans.push(Span::styled(padding, fill));
+                spans.push(Span::styled(glyphs.loading.to_string(), muted));
             }
         }
         return Line::from(spans);
@@ -343,7 +373,7 @@ fn build_row_line(
     };
     let summary = summary.filter(|_| fit::has_room(remaining.saturating_sub(badge_room)));
     if (row.unverified || summary.is_some()) && name_part_width < width && remaining > 0 {
-        spans.push(Span::raw(" ".repeat(pad_to - name_part_width)));
+        spans.push(Span::styled(" ".repeat(pad_to - name_part_width), fill));
         if row.unverified {
             let badge = truncate_to_width_marker(UNVERIFIED_BADGE, remaining, glyphs.ellipsis);
             remaining = remaining.saturating_sub(display_width(&badge));
@@ -360,8 +390,8 @@ fn build_row_line(
             if remaining > display_width(&separator) {
                 remaining = remaining.saturating_sub(display_width(&separator));
                 let truncated = truncate_to_width_marker(&summary, remaining, glyphs.ellipsis);
-                spans.push(Span::styled(separator, style::muted(color_enabled)));
-                spans.push(Span::styled(truncated, style::muted(color_enabled)));
+                spans.push(Span::styled(separator, muted));
+                spans.push(Span::styled(truncated, muted));
             }
         }
     }
@@ -433,7 +463,17 @@ mod tests {
     #[test]
     fn chevron_position_matches_two_times_depth() {
         let r = row(2, "onto", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         // indent "    " (4 chars = 2*depth) then chevron/space/name.
         assert_eq!(&text[0..4], "    ");
@@ -442,7 +482,17 @@ mod tests {
     #[test]
     fn adversarial_name_never_produces_embedded_newline() {
         let r = row(0, "evil\nname\x1b[31m", None, true);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(!text.contains('\n'));
     }
@@ -451,7 +501,17 @@ mod tests {
     fn long_summary_is_truncated_to_width() {
         let long_summary = "x".repeat(500);
         let r = row(0, "cmd", Some(&long_summary), false);
-        let line = build_row_line(&r, 40, false, false, 10, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            40,
+            false,
+            false,
+            10,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(display_width(&text) <= 40);
     }
@@ -462,7 +522,17 @@ mod tests {
     fn an_unverified_row_carries_the_badge() {
         let mut r = row(1, "clippy", None, false);
         r.unverified = true;
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         assert!(rendered(&line).contains("unverified"), "{line:?}");
         let badge = line
             .spans
@@ -475,7 +545,17 @@ mod tests {
     #[test]
     fn an_ordinary_row_carries_no_badge() {
         let r = row(1, "clean", Some("Remove the target directory"), false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         assert!(!rendered(&line).contains("unverified"), "{line:?}");
     }
 
@@ -486,7 +566,17 @@ mod tests {
     fn a_row_with_a_display_name_shows_the_source_spelling() {
         let mut r = row(1, "r", None, false);
         r.display_name = Some("r[ab][f][u]".to_string());
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         assert!(rendered(&line).contains("r[ab][f][u]"), "{line:?}");
     }
 
@@ -495,7 +585,17 @@ mod tests {
     #[test]
     fn a_row_with_no_display_name_shows_the_bare_name() {
         let r = row(1, "commit", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         assert!(rendered(&line).contains("commit"), "{line:?}");
     }
 
@@ -505,7 +605,17 @@ mod tests {
     fn a_badged_row_still_shows_its_summary_behind_a_separator() {
         let mut r = row(1, "clippy", Some("Checks a package"), false);
         r.unverified = true;
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(text.contains("unverified · Checks a package"), "{text:?}");
     }
@@ -516,7 +626,17 @@ mod tests {
     fn the_badge_survives_the_narrow_width_ladder() {
         let mut r = row(1, "clippy", Some("Checks a package"), false);
         r.unverified = true;
-        let line = build_row_line(&r, 40, true, false, 12, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            40,
+            true,
+            false,
+            12,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(text.contains("unverified"), "{text:?}");
         assert!(!text.contains("Checks a package"), "{text:?}");
@@ -541,8 +661,9 @@ mod tests {
                 false,
                 false,
                 10,
-                true,
+                style::Palette::basic(),
                 None,
+                false,
                 crate::glyphs::UNICODE,
             );
             assert!(
@@ -557,7 +678,17 @@ mod tests {
     fn pending_row_shows_spinner_not_summary() {
         let mut r = row(0, "get", Some("should not show while pending"), true);
         r.pending = true;
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(text.contains("loading"), "{text:?}");
         assert!(!text.contains("should not show while pending"), "{text:?}");
@@ -567,7 +698,17 @@ mod tests {
     fn pending_row_still_respects_width_budget() {
         let mut r = row(0, "get", None, true);
         r.pending = true;
-        let line = build_row_line(&r, 12, false, false, 5, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            12,
+            false,
+            false,
+            5,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(display_width(&text) <= 12);
     }
@@ -590,8 +731,9 @@ mod tests {
             false,
             false,
             name_width,
-            true,
+            style::Palette::basic(),
             None,
+            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -645,7 +787,17 @@ mod tests {
             Some("summary"),
             false,
         );
-        let line = build_row_line(&r, 15, false, false, 5, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            15,
+            false,
+            false,
+            5,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(display_width(&text) <= 15);
         assert!(text.contains('…'), "{text:?}");
@@ -661,7 +813,17 @@ mod tests {
             Some("Add file contents to the index right now please"),
             false,
         );
-        let line = build_row_line(&r, 30, false, false, 6, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            30,
+            false,
+            false,
+            6,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         let text = rendered(&line);
         assert!(text.contains('…'), "{text:?}");
         assert!(display_width(&text) <= 30);
@@ -670,7 +832,17 @@ mod tests {
     #[test]
     fn no_color_selected_row_still_readable_via_reverse() {
         let r = row(0, "add", None, false);
-        let line = build_row_line(&r, 40, false, true, 10, false, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            40,
+            false,
+            true,
+            10,
+            style::Palette::plain(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         // With color disabled the base style must still carry REVERSED so
         // the selection is visible without any color at all.
         assert!(line.spans[0]
@@ -691,8 +863,9 @@ mod tests {
             false,
             false,
             20,
-            true,
+            style::Palette::basic(),
             Some("rb"),
+            false,
             crate::glyphs::UNICODE,
         );
         let underlined: String = line
@@ -722,7 +895,17 @@ mod tests {
     #[test]
     fn no_query_means_no_underline() {
         let r = row(0, "rebase", None, false);
-        let line = build_row_line(&r, 80, false, false, 20, true, None, crate::glyphs::UNICODE);
+        let line = build_row_line(
+            &r,
+            80,
+            false,
+            false,
+            20,
+            style::Palette::basic(),
+            None,
+            false,
+            crate::glyphs::UNICODE,
+        );
         assert!(line.spans.iter().all(|s| !s
             .style
             .add_modifier

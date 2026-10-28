@@ -1,5 +1,5 @@
 //! What the active search matched, kept for marking the panes and for
-//! stepping through a page's matching entities with `n`/`N` (spec §10).
+//! stepping through a page's matching entities with `n`/`p` (spec §10).
 
 use super::*;
 use std::rc::Rc;
@@ -58,6 +58,8 @@ pub(crate) struct MatchRow {
     pub(crate) key: mandible_core::FlagKey,
     pub(crate) first_line: usize,
     pub(crate) lines: usize,
+    /// The row the last jump or `n`/`p` landed on: the only one on the bar.
+    pub(crate) current: bool,
 }
 
 impl App {
@@ -85,7 +87,7 @@ impl App {
         *self.page_matches.borrow_mut() = (path, rows);
     }
 
-    /// `n`/`N`: select the next or previous matching entity on the selected
+    /// `n`/`p`: select the next or previous matching entity on the selected
     /// command's page, wrapping at the ends. Nothing happens without a
     /// search or without a match.
     pub fn step_match(&mut self, forward: bool) {

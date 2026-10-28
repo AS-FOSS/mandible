@@ -50,7 +50,7 @@ fn hints(
         "/ search".to_string(),
     ]);
     if searching {
-        hints.push("n/N next match".to_string());
+        hints.push("n/p match".to_string());
     }
     hints.extend([
         "Tab pane".to_string(),

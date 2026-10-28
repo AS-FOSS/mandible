@@ -41,6 +41,10 @@ struct Entry {
 pub struct SearchIndex {
     nucleo: Nucleo<Entry>,
     current_query: String,
+    /// The text `nucleo` was last given, which in wide mode is the query
+    /// rewritten as substring atoms.
+    pattern_text: String,
+    wide: bool,
     populate_count: u64,
     settled: bool,
 }
@@ -80,6 +84,8 @@ impl SearchIndex {
         SearchIndex {
             nucleo,
             current_query: String::new(),
+            pattern_text: String::new(),
+            wide: false,
             populate_count: 0,
             settled: true,
         }
@@ -133,12 +139,38 @@ impl SearchIndex {
         if query == self.current_query {
             return;
         }
+        self.current_query = query.to_string();
+        self.reparse();
+    }
+
+    /// Choose how the query matches. Name mode (`false`) hands `nucleo` the
+    /// raw query, a fuzzy superset that the caller narrows to word starts.
+    /// Wide mode (`true`) requires every space-separated word of the query
+    /// to occur as connected text, and ranks the hits where every word
+    /// starts a word first (spec §10).
+    pub fn set_wide(&mut self, wide: bool) {
+        if wide == self.wide {
+            return;
+        }
+        self.wide = wide;
+        self.reparse();
+    }
+
+    fn reparse(&mut self) {
+        let text = if self.wide {
+            substring_atoms(&self.current_query)
+        } else {
+            self.current_query.clone()
+        };
+        if text == self.pattern_text {
+            return;
+        }
         self.settled = false;
-        let append = query.starts_with(&self.current_query);
+        let append = text.starts_with(&self.pattern_text);
         self.nucleo
             .pattern
-            .reparse(0, query, CaseMatching::Ignore, Normalization::Smart, append);
-        self.current_query = query.to_string();
+            .reparse(0, &text, CaseMatching::Ignore, Normalization::Smart, append);
+        self.pattern_text = text;
     }
 
     /// Drive the background matcher forward, waiting at most `timeout_ms`.
@@ -165,17 +197,21 @@ impl SearchIndex {
         self.settled
     }
 
-    /// The current query's matches, ranked: `nucleo`'s own fuzzy score,
-    /// with items whose name starts with the query (case-insensitive)
-    /// stably promoted ahead of items that only matched elsewhere (spec
-    /// §10 "Ranking": "Boost exact prefix matches on names above
-    /// description matches").
+    /// The current query's matches, ranked: items whose name starts with
+    /// the query (case-insensitive) first (spec §10 "Ranking": "Boost exact
+    /// prefix matches on names above description matches"), then, in wide
+    /// mode, items where every word of the query starts a word of the
+    /// haystack, and within each group `nucleo`'s own score order.
     pub fn results(&self) -> Vec<NodeRef> {
         let snapshot = self.nucleo.snapshot();
         let n = snapshot.matched_item_count();
         let query_lower = self.current_query.to_lowercase();
+        let words: Vec<Vec<char>> = query_lower
+            .split_whitespace()
+            .map(|w| w.chars().collect())
+            .collect();
 
-        let mut ranked: Vec<(bool, usize, NodeRef)> = snapshot
+        let mut ranked: Vec<(bool, bool, usize, NodeRef)> = snapshot
             .matched_items(0..n)
             .enumerate()
             .map(|(rank, item)| {
@@ -185,19 +221,87 @@ impl SearchIndex {
                         .primary_name
                         .to_lowercase()
                         .starts_with(&query_lower);
-                // `!is_prefix` so prefix matches (false) sort before
-                // everything else (true) in the ascending sort below.
-                (!is_prefix, rank, item.data.node_ref.clone())
+                let at_word_start = self.wide
+                    && item
+                        .matcher_columns
+                        .first()
+                        .is_some_and(|col| every_word_starts_a_word(col, &words));
+                // `!` so the better group (true) sorts first in the
+                // ascending sort below.
+                (!is_prefix, !at_word_start, rank, item.data.node_ref.clone())
             })
             .collect();
-        // Stable sort: within "is prefix" / "isn't", nucleo's own
-        // score-based order (captured by `rank`) is preserved.
-        ranked.sort_by_key(|(is_not_prefix, rank, _)| (*is_not_prefix, *rank));
+        ranked.sort_by_key(|(not_prefix, not_word, rank, _)| (*not_prefix, *not_word, *rank));
         ranked
             .into_iter()
-            .map(|(_, _, node_ref)| node_ref)
+            .map(|(_, _, _, node_ref)| node_ref)
             .collect()
     }
+}
+
+/// The query as `nucleo` pattern text with every word an exact substring
+/// atom: a leading `'` makes the atom a substring match, and a trailing
+/// `$` or backslash is made literal so it cannot turn the atom into
+/// another kind or glue two words together.
+fn substring_atoms(query: &str) -> String {
+    let words: Vec<String> = query
+        .split_whitespace()
+        .map(|w| w.trim_end_matches('\\'))
+        .filter(|w| !w.is_empty())
+        .map(|w| match w.strip_suffix('$') {
+            Some(rest) => format!("'{rest}\\$"),
+            None => format!("'{w}"),
+        })
+        .collect();
+    words.join(" ")
+}
+
+/// Whether each of `words` (lowercase) occurs in the haystack at the start
+/// of a word: the first character, or one after a character that is not a
+/// letter or digit.
+fn every_word_starts_a_word(haystack: &nucleo::Utf32String, words: &[Vec<char>]) -> bool {
+    let text: Vec<char> = haystack
+        .slice(..)
+        .chars()
+        .map(|c| c.to_lowercase().next().unwrap_or(c))
+        .collect();
+    words.iter().all(|word| {
+        !word.is_empty()
+            && (0..text.len()).any(|at| {
+                (at == 0 || !text[at - 1].is_alphanumeric()) && text[at..].starts_with(word)
+            })
+    })
+}
+
+/// The character indices within `name` the words of `query` occupy as
+/// connected text, for highlighting in wide mode (spec §10). Each word
+/// marks its first occurrence at the start of a word, else its first
+/// occurrence anywhere. Case-insensitive; a word that is not in `name`
+/// marks nothing.
+pub fn substring_indices(name: &str, query: &str) -> Vec<u32> {
+    let text: Vec<char> = name
+        .chars()
+        .map(|c| c.to_lowercase().next().unwrap_or(c))
+        .collect();
+    let mut out = std::collections::BTreeSet::new();
+    for word in query.to_lowercase().split_whitespace() {
+        let word: Vec<char> = word.chars().collect();
+        if word.is_empty() || word.len() > text.len() {
+            continue;
+        }
+        let at = |start: &usize| text[*start..].starts_with(&word);
+        let starts = 0..=text.len() - word.len();
+        let boundary = |s: &usize| *s == 0 || !text[*s - 1].is_alphanumeric();
+        let found = starts
+            .clone()
+            .filter(boundary)
+            .find(at)
+            .or_else(|| starts.clone().find(at));
+        if let Some(start) = found {
+            out.extend((start..start + word.len()).map(|i| i as u32));
+        }
+    }
+    out.into_iter().collect()
 }
 
 /// The character indices within `name` (not the full search haystack)
@@ -625,6 +729,115 @@ mod tests {
             !index.results().is_empty(),
             "results should still be findable after repopulating"
         );
+    }
+
+    fn wide_index(tree: &CommandNode, query: &str) -> Vec<NodeRef> {
+        let mut index = SearchIndex::new();
+        index.set_wide(true);
+        index.populate(tree);
+        index.set_query(query);
+        settle(&mut index);
+        index.results()
+    }
+
+    fn long_keys(results: &[NodeRef]) -> Vec<String> {
+        results
+            .iter()
+            .filter_map(|r| match r {
+                NodeRef::Flag {
+                    key: mandible_core::FlagKey::Long(name),
+                    ..
+                } => Some(name.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn wide_mode_refuses_letters_picked_from_scattered_places() {
+        // Fuzzy matching finds `autosquash` for `asq`; connected text does not.
+        let tree = sample_tree();
+        assert!(wide_index(&tree, "asq").is_empty());
+        assert_eq!(long_keys(&wide_index(&tree, "squash")), ["autosquash"]);
+    }
+
+    #[test]
+    fn wide_mode_wants_every_word_as_connected_text() {
+        let tree = sample_tree();
+        assert!(!wide_index(&tree, "squash commits").is_empty());
+        assert!(wide_index(&tree, "squash zzz").is_empty());
+        assert!(wide_index(&tree, "sqush commits").is_empty());
+    }
+
+    #[test]
+    fn wide_mode_matches_case_insensitively() {
+        assert_eq!(
+            long_keys(&wide_index(&sample_tree(), "AUTOSQUASH")),
+            ["autosquash"]
+        );
+    }
+
+    #[test]
+    fn wide_mode_finds_a_dashed_word_in_a_flag_spelling() {
+        let mut root = CommandNode::new("curl", Provenance::single(Source::HelpText));
+        root.entities
+            .push(flag(None, Some("ssl-reqd"), "Require SSL"));
+        root.entities
+            .push(flag(None, Some("verbose"), "Talk a lot"));
+        assert_eq!(long_keys(&wide_index(&root, "-ssl")), ["ssl-reqd"]);
+        assert_eq!(long_keys(&wide_index(&root, "--ssl")), ["ssl-reqd"]);
+    }
+
+    #[test]
+    fn wide_mode_keeps_special_characters_literal() {
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        root.entities.push(flag(None, Some("cost"), "price in $"));
+        root.entities
+            .push(flag(None, Some("other"), "price in dollars"));
+        assert_eq!(long_keys(&wide_index(&root, "in $")), ["cost"]);
+        assert_eq!(
+            long_keys(&wide_index(&root, "!price")),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            long_keys(&wide_index(&root, "^price")),
+            Vec::<String>::new()
+        );
+        assert_eq!(substring_atoms("a$ b\\ c"), "'a\\$ 'b 'c");
+    }
+
+    #[test]
+    fn wide_mode_ranks_word_starts_before_mid_word_hits() {
+        let mut root = CommandNode::new("tool", Provenance::single(Source::HelpText));
+        root.entities.push(flag(None, Some("aaa"), "x nossl x"));
+        root.entities.push(flag(None, Some("bbb"), "x ssl x"));
+        assert_eq!(long_keys(&wide_index(&root, "ssl")), ["bbb", "aaa"]);
+    }
+
+    #[test]
+    fn switching_modes_reparses_the_same_query() {
+        let mut index = SearchIndex::new();
+        index.populate(&sample_tree());
+        index.set_query("asq");
+        settle(&mut index);
+        assert!(!index.results().is_empty(), "fuzzy finds it");
+        index.set_wide(true);
+        assert!(!index.is_settled());
+        settle(&mut index);
+        assert!(index.results().is_empty());
+        index.set_wide(false);
+        settle(&mut index);
+        assert!(!index.results().is_empty());
+    }
+
+    #[test]
+    fn substring_indices_mark_connected_text_at_word_starts_first() {
+        assert_eq!(substring_indices("no-ssl", "ssl"), vec![3, 4, 5]);
+        assert_eq!(substring_indices("nossl-ssl", "ssl"), vec![6, 7, 8]);
+        assert_eq!(substring_indices("autosquash", "sq"), vec![4, 5]);
+        assert_eq!(substring_indices("autosquash", "asq"), Vec::<u32>::new());
+        assert_eq!(substring_indices("Rebase", "REB"), vec![0, 1, 2]);
+        assert_eq!(substring_indices("git commit", "it co"), vec![1, 2, 4, 5]);
     }
 
     #[test]

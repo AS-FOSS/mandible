@@ -1132,6 +1132,8 @@ impl App {
     /// user sees is the mode whose results explain themselves.
     pub fn cycle_search_mode(&mut self) {
         self.search_mode = self.search_mode.toggled();
+        self.search_index
+            .set_wide(self.search_mode == SearchMode::Wide);
         self.mark_dirty();
     }
 
@@ -1269,6 +1271,8 @@ impl App {
         self.raw_help.clear();
 
         self.search_index = SearchIndex::new();
+        self.search_index
+            .set_wide(self.search_mode == SearchMode::Wide);
         self.search_index.populate(&self.root);
         // Freshly built from this very tree: nothing pending, and the next
         // splice's rebuild must not be throttled against a rebuild that

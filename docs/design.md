@@ -207,7 +207,7 @@ structure, search is for flags.
 | `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
-| `n`/`N` | While a search is active: select the next or previous matching entity on the selected command's page and scroll it into view, wrapping at the ends. `N` is not folded into `n` by the Caps Lock rule |
+| `n`/`p` | While a search is active: select the next or previous matching entity on the selected command's page and scroll it into view, wrapping at the ends |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
 | `r` | Reload what you are looking at, in the background. On a command's page that command is read again at user urgency and then its subcommands at walk urgency; on the tool's root page the whole tool is extracted again, preserving expansion, selection, filter and view mode, abandoning the in-flight warming cascade and restarting it. A command whose last read timed out gets a 2-minute limit. A second `r` while it runs does nothing, and the page stays usable until the new result replaces it |
@@ -215,7 +215,8 @@ structure, search is for flags.
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
 
 Command letters work in either case, so Caps Lock never disables a key;
-text typed into the search box keeps its case.
+text typed into the search box keeps its case. A key is never bound so that
+its meaning depends on case, so no two bindings differ only by case.
 
 `t` shows the output of the probes the node's page was parsed from, both
 streams, kept in memory when the fill finished, and a failed fill keeps its
@@ -1979,7 +1980,7 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Element | Style |
 |---|---|
 | Node name | Default foreground |
-| Selected row | Accent + reversed |
+| Selected row (list) | The whole row on a muted gray bar (`BAR_BG`): the name in the accent, bold; summary and count in a light foreground (`BAR_FG`) set on the bar, never the terminal default and never dim. Without the xterm-256 palette, and under `NO_COLOR`, the whole row reversed and bold |
 | Tree summary | Muted |
 | Focused pane border | Accent; unfocused muted |
 | Breadcrumb | Ancestors muted, leaf bold |
@@ -1992,8 +1993,9 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Inherited flag group | Entire group muted |
 | Deprecated | Muted + a `(deprecated)` tag |
 | Search match characters | Underline, within the name only: the list's own name, and the spellings of a matching detail-pane row |
-| Row that matches the search | List: bold. Detail pane: bold row, accent `▌` in its left margin (`\|` in ASCII) |
-| Match count (list) | Muted, right-aligned in a fixed 11-column slot |
+| Row that matches the search | List: bold. Detail pane: accent `▌` in its left margin (`\|` in ASCII); the row itself is not bold |
+| Current match (detail pane) | The row the last jump or `n`/`p` landed on, the only one: its whole width inside the padding on the same bar as the selected list row, the spelling staying accent and underlined, the description in `BAR_FG`; reversed where the bar is |
+| Match count (list) | Muted, `  1 found`, right-aligned in a fixed 9-column slot with a 1-column margin before the border |
 | Provenance footer | Muted |
 | Low confidence, and an `unverified` node (§5.4) | Warning color, the one sanctioned exception to single-accent |
 
@@ -2002,11 +2004,12 @@ drawn given a terminal that cannot be trusted to support any of it.
 4. `NO_COLOR` and `TERM=dumb` are respected, degrading to bold/reverse/
    underline only. There is no truecolor tier and no RGB anywhere: named
    ANSI colors work at every depth that has color at all. Depth is
-   consulted in exactly one place, the detail pane's two rule shades
-   (§9.3), which need two steps below the terminal's default foreground:
-   those read the xterm-256 gray ramp where available and fall back to
-   `DarkGray` where not. Depth is read from `COLORTERM`/`TERM`, never
-   queried.
+   consulted in two places. The detail pane's two rule shades (§9.3) need
+   two steps below the terminal's default foreground: they read the
+   xterm-256 gray ramp where available and fall back to `DarkGray` where
+   not. The selection bar is a gray background where that palette is
+   available and a reversed row where it is not. Depth is read from
+   `COLORTERM`/`TERM`, never queried.
 5. Search matches are highlighted: `nucleo` returns match indices for
    free, and matched characters are underlined.
 
@@ -2225,7 +2228,8 @@ shrinks, and the only three questions allowed to decide it.
      figure §9.1a fits its column to), minus one. Decided per section. Room of 20 or more
      is the table layout of §9.1a, stacking included. Less is the man
      layout (rule 3). The tree's match-count column (§10 rule 14) is
-     shown only while a summary would still get this room beside it. A
+     shown only while a summary would still get this room beside the
+     column, its gap and its margin, 12 columns together. A
      tree summary column is shown while it leaves a
      summary 20 columns, else hidden; per row, a long name that leaves its
      own summary under 20 hides that row's summary only.
@@ -2343,20 +2347,26 @@ findable, and how a match is shown in context.
    pressing `/` again toggles wide mode, the combined haystack (name +
    summary + description + entity value), shown in the search bar's
    title.
-5. Name mode filters the index's own result set: a command matches by a
-   literal, case-insensitive substring of its own name; every entity
-   matches, with no per-kind branch, by a case-insensitive prefix of a
-   `-`/`_`-separated word of any of its spellings, the whole name counting
-   as its own first word. `NODE_D` matches `NODE_DEBUG` from the start and
-   `debug` matches it from after the `_`.
-   A query starting with `-` searches only entities with dashed
-   spellings, and matches the spelling with its dashes: `--squash` finds
-   the `--squash` flags of `commit`, `merge` and `pull`, and `-s` finds
-   the short `-s` flags and no `--squash`. The dashes in front of a name
-   are not word separators, so `--no-` is a prefix of `--no-trunc`.
-   Commands and dashless entities never match such a query.
-6. Wide mode's ranking stays the fuzzy index, where `gco` still finds
-   `checkout`. Its jump lands on the first row it shows.
+5. Name mode filters the index's own result set with one rule for every
+   name. A query matches when it lines up with the start of a word of the
+   name: the start of the spelling, or right after a `-`/`_` run. Dashes
+   typed at the front of the query must be among the dashes just before
+   that word, so `-ssl` and `--ssl` find `--ssl-reqd`, `--ssl` does not
+   find `--no-ssl`, and `-s` finds the short `-s` and also `--squash` and
+   `--no-squash`. A command name also matches by a literal substring
+   when the query has no dash in front, and a name with a dash in it,
+   such as `cherry-pick`, matches `-pick`. Matching is case-insensitive,
+   the whole name counting as its own first word. `NODE_D` matches
+   `NODE_DEBUG` from the start and `debug` matches it from after the
+   `_`; `run` never matches `--no-trunc`.
+6. Wide mode splits the query at spaces, and each word must appear as
+   connected text, compared without regard to case, in the entity's
+   spellings, value name or description, or in a command's name, aliases
+   or summary. Letters are never picked from scattered places. It uses
+   `nucleo`'s substring atoms, with the query's own `!`, `^`, `'` and
+   `$` kept literal. A hit where every word starts a word ranks above
+   one where a word begins mid-word, and a name starting with the query
+   ranks above both. Its jump lands on the first row it shows.
 7. Filtering preserves hierarchy: matching a node force-expands its
    ancestor chain and the tree renders normally with non-matching siblings
    hidden.
@@ -2398,25 +2408,33 @@ findable, and how a match is shown in context.
 13. Marking. A commands-list row that matched, by its own name or by one
     of its entities, is bold; the letters of its own name that matched are
     underlined, and a row shown only so its descendants keep their shape
-    stays plain. The selected row keeps its reversed accent style. On the
+    stays plain. The selected row is on the selection bar (§9.2). On the
     selected command's page every entity row that matched, in the current
     mode, has the accent bar `▌` in its left margin column (`|` in the
-    ASCII glyph set), its whole row bold, and the matched letters of its
-    spellings underlined. This holds under `NO_COLOR`: the bar is a glyph
-    and bold and underline are modifiers. The jump target scrolls into view
-    as before.
+    ASCII glyph set) and the matched letters of its spellings underlined;
+    the row is not bold. The current match, the entity the jump or `n`/`p`
+    last landed on, is the only row on the selection bar, across its whole
+    width inside the padding and over every line it wraps to. There is
+    none until a jump or `n`/`p` sets one, and a manual scroll ends it.
+    This holds under `NO_COLOR`: the bar is a glyph, underline is a
+    modifier and the current match is reversed. The jump target scrolls
+    into view as before.
 14. Counts. A list row with matching entities ends in a muted count
-    right-aligned in a slot of fixed width, `  1 match  ` or ` 14 matches`,
-    `99+ matches` from 100 up. The slot is reserved for every row while
-    any row has a count, so no row changes width, and a summary is cut
-    before it. It is reserved only while a summary would still have ROOM
-    beside it (§9.4); a narrower pane drops the counts first. A row that
-    matched only by its own name has no count. Wide mode counts the
-    entities its fuzzy match returned.
-15. `n` and `N` step through the selected command's matching entity rows
+    right-aligned in a slot of fixed width 9, `  1 found`, ` 14 found`,
+    `99+ found` from 100 up, followed by a margin of one column before
+    the pane border. The slot is reserved for every row while any row has
+    a count, so no row changes width, and a summary is cut before it.
+    The slot, its 2-column gap and the margin take 12 columns. They are
+    reserved only while a summary would still have ROOM beside them
+    (§9.4); a narrower pane drops the counts first. A row that matched
+    only by its own name has no count. Wide mode counts the entities its
+    match returned.
+15. `n` and `p` step through the selected command's matching entity rows
     in page order, from the commands list or the detail pane, wrapping at
-    the ends. They do nothing without an active search, and the footer
-    names them only while one is active.
+    the ends, and set the current match. `N` and `P` do the same, because
+    command letters work in either case (§2). They do nothing without an
+    active search, and the footer names them (`n/p match`) only while one
+    is active.
 
 **Why.** `nucleo` is faster than `fuzzy-matcher`/`skim`, correct on Unicode
 graphemes, and designed to match on a background thread pool so typing
@@ -2432,9 +2450,11 @@ on screen explains why that row is there. Name mode is the default because
 its results explain themselves. A looser subsequence test was tried first
 and made the mode feel broken: searching `run` in `docker` surfaced
 `--no-trunc`'s parent command, since `--no-trunc` contains r-u-n in order.
-The word-prefix rule refuses that case while still admitting `no`,
+The word-start rule refuses that case while still admitting `no`,
 `trunc`, a bare modifier letter, or either half of an underscored env var
-name. A flat result list rendered with `depth = path.len() - 1` produces
+name. Wide mode went the same way: a fuzzy `-ssl` listed commands in
+`git` that hold those letters in order across several words, so connected
+text is required there too. A flat result list rendered with `depth = path.len() - 1` produces
 indentation pointing at ancestors that aren't on screen, which is why
 matching force-expands the ancestor chain instead; with a flat list,
 expand/collapse keys would mutate state nothing reads. A 50 ms synchronous
