@@ -42,6 +42,7 @@ pub struct SearchIndex {
     nucleo: Nucleo<Entry>,
     current_query: String,
     populate_count: u64,
+    settled: bool,
 }
 
 /// Upper bound on `nucleo`'s background matcher threads.
@@ -80,6 +81,7 @@ impl SearchIndex {
             nucleo,
             current_query: String::new(),
             populate_count: 0,
+            settled: true,
         }
     }
 
@@ -105,6 +107,7 @@ impl SearchIndex {
     /// next [`SearchIndex::tick`].
     pub fn populate(&mut self, root: &CommandNode) {
         self.populate_count += 1;
+        self.settled = false;
         self.nucleo.restart(true);
         let injector = self.nucleo.injector();
         push_node(&injector, root, vec![root.name.clone()]);
@@ -130,6 +133,7 @@ impl SearchIndex {
         if query == self.current_query {
             return;
         }
+        self.settled = false;
         let append = query.starts_with(&self.current_query);
         self.nucleo
             .pattern
@@ -144,7 +148,21 @@ impl SearchIndex {
     /// poll timeout — never as a blocking spin inside a keystroke handler
     /// (spec §10 "Threading").
     pub fn tick(&mut self, timeout_ms: u64) -> bool {
-        self.nucleo.tick(timeout_ms).changed
+        let status = self.nucleo.tick(timeout_ms);
+        self.settled = !status.running;
+        status.changed
+    }
+
+    /// Whether the snapshot [`SearchIndex::results`] reads is the finished
+    /// match of the current items and query.
+    ///
+    /// `false` from the moment [`SearchIndex::populate`] or a changed
+    /// [`SearchIndex::set_query`] runs until a [`SearchIndex::tick`] reports
+    /// that `nucleo`'s matcher is no longer running (`Status::running` is
+    /// false). Until then the snapshot is empty or partial, so an empty
+    /// result list says nothing about whether anything matches.
+    pub fn is_settled(&self) -> bool {
+        self.settled
     }
 
     /// The current query's matches, ranked: `nucleo`'s own fuzzy score,

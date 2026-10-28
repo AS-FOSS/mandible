@@ -1,0 +1,335 @@
+//! One result list, dashed spellings, the no-match notice, and the two
+//! search states (spec §10).
+
+use super::*;
+use mandible_core::{Entity, Provenance, Source, Text};
+use ratatui::backend::TestBackend;
+use ratatui::Terminal;
+
+fn prov() -> Provenance {
+    Provenance::single(Source::HelpText)
+}
+
+fn cmd(name: &str) -> CommandNode {
+    let mut node = CommandNode::new(name, prov());
+    node.children_filled = true;
+    node
+}
+
+fn with_flag(mut node: CommandNode, long: &str) -> CommandNode {
+    node.entities.push(Entity::flag_long(long, prov()));
+    node
+}
+
+/// A git-shaped tree in which every command a query could jump to sits
+/// after a command that also matches it.
+fn git() -> CommandNode {
+    let mut root = cmd("git");
+    let mut bisect = cmd("bisect");
+    bisect.entities.push(Entity::positional("rev", prov()));
+    bisect.entities.push(Entity::positional("good", prov()));
+    let mut squash_only = cmd("squash");
+    squash_only.summary = Some(Text::sanitize("A command named like the flag"));
+    root.subcommands = vec![
+        cmd("add"),
+        bisect,
+        with_flag(cmd("commit"), "squash"),
+        with_flag(cmd("merge"), "squash"),
+        cmd("merge-file"),
+        with_flag(cmd("pull"), "squash"),
+        with_flag(cmd("submodule"), "rebase"),
+        cmd("rebase"),
+        cmd("reset"),
+        cmd("restore"),
+        squash_only,
+        with_flag(cmd("status"), "short"),
+    ];
+    let mut s = Entity::flag_short('s', prov());
+    s.description = Some(Text::sanitize("short status"));
+    root.subcommands[11].entities.push(s);
+    root
+}
+
+fn names(app: &App) -> Vec<String> {
+    app.rows().iter().map(|r| r.name.clone()).collect()
+}
+
+fn settle(app: &mut App) {
+    app.flush_search_index();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while !app.search_index.is_settled() && Instant::now() < deadline {
+        app.search_index.tick(20);
+    }
+    app.mark_dirty();
+    app.ensure_rows_fresh();
+}
+
+fn type_query(app: &mut App, query: &str) {
+    for c in query.chars() {
+        app.search_input_char(c);
+    }
+    settle(app);
+}
+
+fn searched(query: &str) -> App {
+    let mut app = App::new("git".to_string(), git());
+    app.focus_search();
+    type_query(&mut app, query);
+    app
+}
+
+fn selected_name(app: &App) -> String {
+    app.selected_row().unwrap().name.clone()
+}
+
+fn screen(app: &App) -> String {
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    terminal.draw(|f| crate::render::render(f, app)).unwrap();
+    let buf = terminal.backend().buffer().clone();
+    (0..buf.area.height)
+        .map(|y| {
+            (0..buf.area.width)
+                .map(|x| buf[(x, y)].symbol().to_string())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+fn a_command_named_like_the_query_beats_a_flag_that_contains_it() {
+    let app = searched("rebase");
+    assert_eq!(selected_name(&app), "rebase");
+    assert_eq!(app.selected_flag, None);
+}
+
+#[test]
+fn a_prefix_query_lands_on_a_command_with_that_prefix() {
+    let app = searched("re");
+    let name = selected_name(&app);
+    assert!(name.starts_with("re"), "{name}");
+    assert_eq!(app.selected_flag, None, "bisect's `rev` must not win");
+}
+
+#[test]
+fn a_command_comes_before_an_entity_of_the_same_tier() {
+    let app = searched("squash");
+    assert_eq!(selected_name(&app), "squash");
+}
+
+#[test]
+fn wide_mode_jumps_to_the_first_row_it_shows() {
+    let mut app = App::new("git".to_string(), git());
+    app.focus_search();
+    app.cycle_search_mode();
+    type_query(&mut app, "rebase");
+    let shown: Vec<String> = names(&app);
+    assert!(shown.contains(&selected_name(&app)));
+    assert!(shown.contains(&"rebase".to_string()));
+}
+
+#[test]
+fn a_leading_dash_searches_dashed_spellings_only() {
+    let app = searched("--squash");
+    let shown = names(&app);
+    for name in ["commit", "merge", "pull"] {
+        assert!(shown.contains(&name.to_string()), "{name} in {shown:?}");
+    }
+    assert!(!shown.contains(&"squash".to_string()), "{shown:?}");
+    assert!(!shown.contains(&"bisect".to_string()), "{shown:?}");
+    assert_eq!(selected_name(&app), "commit");
+    assert!(app.selected_flag.is_some());
+}
+
+#[test]
+fn a_short_flag_is_found_with_its_dash_and_not_by_a_long_one() {
+    let app = searched("-s");
+    let shown = names(&app);
+    assert!(shown.contains(&"status".to_string()), "{shown:?}");
+    assert!(!shown.contains(&"commit".to_string()), "{shown:?}");
+    assert!(!shown.contains(&"submodule".to_string()), "{shown:?}");
+}
+
+#[test]
+fn a_dashed_prefix_works_as_a_prefix_of_the_spelling() {
+    let mut root = cmd("git");
+    root.subcommands = vec![with_flag(cmd("clone"), "no-checkout"), cmd("run")];
+    let mut app = App::new("git".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "--no-");
+    assert_eq!(selected_name(&app), "clone");
+    app.cancel_search();
+    app.focus_search();
+    type_query(&mut app, "--run");
+    assert!(app.no_match());
+}
+
+#[test]
+fn no_match_shows_a_notice_and_leaves_cursor_and_page_alone() {
+    let mut app = searched("re");
+    app.move_up();
+    let row = app.selected;
+    assert!(row > 0 && row + 1 < app.rows().len(), "precondition");
+    let rows = names(&app);
+    app.search_input_char('x');
+    settle(&mut app);
+    assert!(app.no_match());
+    assert_eq!(app.selected, row);
+    assert_eq!(names(&app), rows, "rows are untouched");
+    let text = screen(&app);
+    assert!(text.contains("No matches for \"rex\""), "{text}");
+    assert!(text.contains("commands (0)"), "{text}");
+    app.move_down();
+    assert_eq!(app.selected, row, "the hidden cursor does not move");
+    app.search_backspace();
+    settle(&mut app);
+    assert!(!app.no_match());
+    assert!(selected_name(&app).starts_with("re"));
+}
+
+#[test]
+fn a_query_that_matches_nothing_from_the_start_keeps_the_tree_behind_the_notice() {
+    let mut app = App::new("git".to_string(), git());
+    let rows = names(&app);
+    app.focus_search();
+    type_query(&mut app, "zzqq");
+    assert!(app.no_match());
+    assert_eq!(names(&app), rows);
+    assert_eq!(app.selected, 0);
+    assert!(screen(&app).contains("No matches for \"zzqq\""));
+}
+
+#[test]
+fn an_unfinished_match_is_neither_no_match_nor_the_unfiltered_tree() {
+    let mut app = searched("rebase");
+    let rows = names(&app);
+    let selected = app.selected;
+    assert!(rows.len() < 12, "precondition: filtered");
+
+    // The index is rebuilt (a background fill landed): the snapshot is
+    // cleared until the matcher has run again.
+    app.rebuild_search_index(Instant::now());
+    app.ensure_rows_fresh();
+    assert!(!app.no_match());
+    assert_eq!(names(&app), rows, "the last complete rows stay");
+    assert_eq!(app.selected, selected);
+    assert!(!screen(&app).contains("No matches"));
+
+    // A query typed and rendered before the matcher ran at all.
+    let mut fresh = App::new("git".to_string(), git());
+    fresh.focus_search();
+    for c in "rebase".chars() {
+        fresh.search_input_char(c);
+    }
+    fresh.ensure_rows_fresh();
+    assert!(!fresh.no_match());
+    assert_eq!(fresh.rows().len(), 13, "still the plain tree");
+    settle(&mut fresh);
+    assert!(fresh.rows().len() < 13);
+}
+
+#[test]
+fn enter_jumps_to_the_first_match_and_focuses_the_list() {
+    let mut app = searched("re");
+    app.move_down();
+    let moved = selected_name(&app);
+    app.accept_search();
+    assert_eq!(app.focus, Focus::Tree);
+    assert_eq!(app.active_filter(), Some("re"));
+    assert_ne!(selected_name(&app), moved, "back on the first match");
+    assert!(selected_name(&app).starts_with("re"));
+}
+
+#[test]
+fn esc_while_typing_cancels_and_returns_the_cursor() {
+    let mut app = App::new("git".to_string(), git());
+    for _ in 0..5 {
+        app.move_down();
+    }
+    let before = app.selected_path();
+    app.focus_search();
+    type_query(&mut app, "rebase");
+    assert_ne!(app.selected_path(), before);
+    app.cancel_search();
+    assert_eq!(app.focus, Focus::Tree);
+    assert!(app.active_filter().is_none());
+    assert_eq!(app.search_query, "");
+    assert_eq!(app.selected_path(), before);
+    assert_eq!(app.rows().len(), 13);
+}
+
+#[test]
+fn esc_in_the_filtered_list_clears_and_keeps_the_row() {
+    let mut app = searched("rebase");
+    app.accept_search();
+    let here = app.selected_path();
+    assert_eq!(here.as_ref().map(|p| p.len()), Some(2));
+    app.clear_filter();
+    assert!(app.active_filter().is_none());
+    assert_eq!(app.selected_path(), here, "the cursor stays on its row");
+    assert_eq!(app.focus, Focus::Tree);
+}
+
+#[test]
+fn esc_in_the_filtered_list_opens_a_collapsed_parent_to_keep_the_row() {
+    let mut root = cmd("tool");
+    let mut group = cmd("group");
+    group.subcommands = vec![cmd("deep")];
+    root.subcommands = vec![group, cmd("other")];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "deep");
+    app.accept_search();
+    assert_eq!(selected_name(&app), "deep");
+    app.clear_filter();
+    assert_eq!(selected_name(&app), "deep");
+}
+
+#[test]
+fn slash_in_the_filtered_list_reopens_with_the_keyword() {
+    let mut app = searched("rebase");
+    app.accept_search();
+    app.focus_search();
+    assert_eq!(app.focus, Focus::Search);
+    assert_eq!(app.search_query, "rebase");
+    assert!(screen(&app).contains("rebase"));
+    app.search_backspace();
+    app.search_input_char('e');
+    settle(&mut app);
+    app.accept_search();
+    assert_eq!(selected_name(&app), "rebase");
+    assert_eq!(app.focus, Focus::Tree);
+}
+
+#[test]
+fn esc_in_a_reopened_box_cancels_to_the_row_it_was_on() {
+    let mut app = searched("re");
+    app.accept_search();
+    app.move_down();
+    let before = app.selected_path();
+    app.focus_search();
+    app.search_input_char('s');
+    settle(&mut app);
+    app.cancel_search();
+    assert!(app.active_filter().is_none());
+    assert_eq!(app.selected_path(), before);
+}
+
+#[test]
+fn the_bar_shows_the_keyword_in_both_states_and_the_marker_only_while_typing() {
+    let bar = |app: &App| screen(app).lines().nth(1).unwrap_or("").to_string();
+    let mut app = searched("rebase");
+    let typing = bar(&app);
+    assert!(
+        typing.contains("› rebase") || typing.contains("> rebase"),
+        "{typing}"
+    );
+    app.accept_search();
+    let filtered = bar(&app);
+    assert!(filtered.contains("rebase"), "{filtered}");
+    assert!(
+        !filtered.contains('›') && !filtered.contains('>'),
+        "{filtered}"
+    );
+    assert!(!filtered.contains("pinned") && !filtered.contains("(filter)"));
+}

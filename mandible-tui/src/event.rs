@@ -53,7 +53,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Char('w') => app.toggle_wrap(),
         KeyCode::Esc => {
             if !app.return_to_column_zero() {
-                app.escape_search();
+                app.clear_filter();
             }
         }
         _ => {
@@ -86,15 +86,12 @@ pub(crate) fn command_key(key: KeyEvent) -> KeyEvent {
 
 fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     match key.code {
-        KeyCode::Esc => app.escape_search(),
-        // Enter means what it means without `--print-selection` here: it
-        // commits the query and moves focus to the tree, keeping the filter
-        // (spec §2). Accepting from the box instead took the only key that
-        // closes search focus and left `Esc` — which also clears on a
-        // second press — as the only way out, so the mode changed how
-        // *searching* works rather than only what accepting does. The
-        // accept key is bound to browse focus, not to Enter globally.
-        KeyCode::Enter => app.focus = Focus::Tree,
+        // Esc cancels the search; Enter keeps it: jump to the first match
+        // and hand focus to the commands list, filter and keyword kept
+        // (spec §2). Accepting a selection under `--print-selection` is a
+        // key of the list, not of the box.
+        KeyCode::Esc => app.cancel_search(),
+        KeyCode::Enter => app.accept_search(),
         KeyCode::Backspace => app.search_backspace(),
         // Arrows move the (filtered) tree selection without leaving the
         // search box, so the result the user is about to land on is
@@ -206,7 +203,7 @@ fn handle_click(app: &mut App, col: u16, row: u16, regions: &Regions) -> Option<
             let inner_col = col.saturating_sub(tree_rect.x + 1);
             app.ensure_rows_fresh();
             let idx = app.tree_scroll + inner_row as usize;
-            if idx < app.rows().len() {
+            if idx < app.rows().len() && !app.no_match() {
                 let depth = app.rows()[idx].depth;
                 let chevron_col = 2 * depth;
                 if app.rows()[idx].has_children && inner_col as usize == chevron_col {
@@ -640,13 +637,13 @@ mod tests {
         assert!(!a.show_help, "the popup closes first");
         assert!(a.clamped_detail_hscroll() > 0, "and nothing else moved");
 
-        a.search_pinned = Some("x".to_string());
+        a.search_query = "x".to_string();
         handle_key(&mut a, key(KeyCode::Esc));
         assert_eq!(a.clamped_detail_hscroll(), 0, "then column 0");
-        assert!(a.search_pinned.is_some(), "and not yet back");
+        assert_eq!(a.active_filter(), Some("x"), "and the filter stays");
 
         handle_key(&mut a, key(KeyCode::Esc));
-        assert!(a.search_pinned.is_none(), "then back, as before");
+        assert!(a.active_filter().is_none(), "then the filter clears");
     }
 
     #[test]

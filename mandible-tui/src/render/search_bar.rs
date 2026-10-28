@@ -39,29 +39,15 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     }
 
-    let query = defensive_single_line(&app.search_query);
-
-    // Unfocused, the bar shows whatever filter is *actually* in effect —
-    // `app.active_filter()`, the same value the tree pane filters on —
-    // not just the pinned one. `Enter` moves focus to the tree without
-    // clearing `search_query`, so keying the display off `search_pinned`
-    // alone made the text vanish while the filter stayed active: the tree
-    // was still filtered by a query the user could no longer see, and it
-    // reappeared when they focused the box again. A filter that is in
-    // effect must always be visible.
-    let (lead, typed) = if focused {
-        (format!("{} ", app.glyphs.prompt), query)
-    } else if let Some(active) = app.active_filter() {
-        let label = if app.search_pinned.is_some() && app.search_query.is_empty() {
-            "pinned"
-        } else {
-            "filter"
-        };
-        (format!("({label}) "), defensive_single_line(active))
+    // The keyword shows in both search states; the typing marker only
+    // while typing. The idle bar has no keyword and keeps the prompt.
+    let prompt = format!("{} ", app.glyphs.prompt);
+    let typed = defensive_single_line(&app.search_query);
+    let lead = if focused || typed.is_empty() {
+        prompt
     } else {
-        (format!("{} ", app.glyphs.prompt), String::new())
+        " ".repeat(display_width(&prompt))
     };
-
     // A text field scrolls to keep the end of what is typed in view: the
     // lead stays, and the typed text shows its tail.
     let room = inner.width as usize;

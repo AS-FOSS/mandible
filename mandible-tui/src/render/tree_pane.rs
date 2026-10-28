@@ -47,14 +47,15 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     // already the root row one line below. The detected framework is a
     // tool-level fact, read from the root node, the only node always
     // present.
+    let count = if app.no_match() { 0 } else { app.rows().len() };
     let title = match &app.root.detected_framework {
         Some(framework) => format!(
             " commands ({}) {} {} ",
-            app.rows().len(),
+            count,
             app.glyphs.dot,
             defensive_single_line(framework)
         ),
-        None => format!(" commands ({}) ", app.rows().len()),
+        None => format!(" commands ({count}) "),
     };
     let title = truncate_to_width_marker(
         &title,
@@ -75,6 +76,14 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 
     let inner_width = inner.width as usize;
     let visible_height = inner.height as usize;
+    if app.no_match() {
+        let notice = mandible_core::notice::no_matches_notice(&defensive_single_line(
+            app.active_filter().unwrap_or(""),
+        ));
+        let notice = truncate_to_width_marker(&notice, inner_width, glyphs_cut(app));
+        frame.render_widget(Paragraph::new(Line::from(notice)), inner);
+        return;
+    }
     let rows = app.rows();
 
     let max_scroll = rows.len().saturating_sub(visible_height);
@@ -108,6 +117,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 
     let paragraph = Paragraph::new(lines);
     frame.render_widget(paragraph, inner);
+}
+
+fn glyphs_cut(app: &App) -> &'static str {
+    fit::marker(&app.glyphs, fit::Marker::Cut)
 }
 
 /// The display width of one row's fixed prefix: `depth`'s indent (2 cols

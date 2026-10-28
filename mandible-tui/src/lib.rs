@@ -34,6 +34,7 @@ pub mod layout;
 pub mod probes;
 pub mod render;
 pub mod sanitize;
+pub(crate) mod search_rank;
 pub mod style;
 pub mod terminal;
 pub mod tree;
