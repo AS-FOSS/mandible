@@ -31,11 +31,12 @@ impl<'a> PageMarks<'a> {
 }
 
 /// Mark every row of `body` whose entity matched, and return those rows
-/// with line numbers relative to the section.
+/// with line numbers on the page, the section starting at line `base`.
 pub(super) fn mark_section(
     visible: &[&Entity],
     body: &mut SectionBody,
     marks: &PageMarks<'_>,
+    base: usize,
 ) -> Vec<MatchRow> {
     let wanted: HashSet<&FlagKey> = marks.keys.iter().collect();
     let mut by_key: HashMap<FlagKey, &Entity> = HashMap::new();
@@ -54,7 +55,7 @@ pub(super) fn mark_section(
         emphasize(&mut body.lines[row.first_line..end], entity, marks);
         found.push(MatchRow {
             key: key.clone(),
-            first_line: row.first_line,
+            first_line: base + row.first_line,
             lines: row.lines,
         });
     }

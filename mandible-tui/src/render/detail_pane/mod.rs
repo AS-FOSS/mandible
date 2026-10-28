@@ -571,6 +571,21 @@ const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
     (EntityKind::EnvVar, "ENVIRONMENT", 0),
 ];
 
+/// The one notice a page carries: a probe stopped at the time limit says
+/// so, a page that read fine and holds nothing says it has nothing, and a
+/// first read still waiting says so.
+fn page_notice(node: &CommandNode, app: &App) -> Option<&'static str> {
+    if page_timed_out(app) {
+        Some(mandible_core::notice::TIMED_OUT_NOTICE)
+    } else if page_is_bare(node, app) {
+        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+    } else if page_is_reading(node, app) {
+        Some(mandible_core::notice::READING_NOTICE)
+    } else {
+        None
+    }
+}
+
 fn build_lines(
     node: &CommandNode,
     width: usize,
@@ -613,19 +628,7 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    // One notice per page: a probe stopped at the time limit says so, a
-    // page that read fine and holds nothing says it has nothing, and a
-    // first read still waiting says so.
-    let notice = if page_timed_out(app) {
-        Some(mandible_core::notice::TIMED_OUT_NOTICE)
-    } else if page_is_bare(node, app) {
-        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
-    } else if page_is_reading(node, app) {
-        Some(mandible_core::notice::READING_NOTICE)
-    } else {
-        None
-    };
-    if let Some(notice) = notice {
+    if let Some(notice) = page_notice(node, app) {
         let mut page = Page {
             lines: &mut lines,
             items: &mut items,
@@ -726,14 +729,7 @@ fn build_lines(
         let mut section =
             section_lines(&visible, width, indent, palette, target_flag, glyphs, wrap);
         if let Some(marks) = &page_marks {
-            matches.extend(
-                mark_section(&visible, &mut section, marks)
-                    .into_iter()
-                    .map(|m| crate::app::MatchRow {
-                        first_line: base + m.first_line,
-                        ..m
-                    }),
-            );
+            matches.extend(mark_section(&visible, &mut section, marks, base));
         }
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
