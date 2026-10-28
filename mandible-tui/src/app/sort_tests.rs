@@ -614,8 +614,13 @@ fn the_help_overlay_and_a_wide_footer_name_the_key() {
     let mut app = app_on(tool(), "page");
     app.show_help = true;
     let buf = draw(&app, 140, 50);
-    let any = (0..50).any(|y| text(&buf, y, 0).contains("Sort the focused pane"));
-    assert!(any);
+    let key_of_the_row = (0..50).find_map(|y| {
+        let row = text(&buf, y, 0);
+        let at = row.find("Sort the focused pane")?;
+        let before: Vec<char> = row[..at].chars().collect();
+        Some(before[before.len() - 15..].iter().collect::<String>())
+    });
+    assert_eq!(key_of_the_row.as_deref().map(str::trim), Some("s"));
     app.show_help = false;
     let wide = draw(&app, 200, 30);
     assert!((0..30).any(|y| text(&wide, y, 0).contains("s sort")));

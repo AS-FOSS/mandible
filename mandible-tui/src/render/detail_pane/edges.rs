@@ -52,7 +52,7 @@ pub(super) fn detail_title(app: &App, path: &[String], budget: usize) -> Line<'s
     let sep = format!(" {} ", app.glyphs.breadcrumb);
     let head = format!(" {}", path.join(&sep));
     let tail = format!(" {} {tag} ", app.glyphs.dot);
-    if crumb != format!("{head} ") || display_width(&head) + display_width(&tail) > budget {
+    if display_width(&head) + display_width(&tail) > budget {
         return Line::from(crumb);
     }
     Line::from(vec![Span::raw(head), Span::styled(tail, Style::reset())])
