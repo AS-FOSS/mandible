@@ -207,6 +207,7 @@ structure, search is for flags.
 | `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
+| `n`/`N` | While a search is active: select the next or previous matching entity on the selected command's page and scroll it into view, wrapping at the ends. `N` is not folded into `n` by the Caps Lock rule |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
 | `?` | Keybinding overlay |
 | `r` | Reload what you are looking at, in the background. On a command's page that command is read again at user urgency and then its subcommands at walk urgency; on the tool's root page the whole tool is extracted again, preserving expansion, selection, filter and view mode, abandoning the in-flight warming cascade and restarting it. A command whose last read timed out gets a 2-minute limit. A second `r` while it runs does nothing, and the page stays usable until the new result replaces it |
@@ -1990,7 +1991,9 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Flag description | Default foreground |
 | Inherited flag group | Entire group muted |
 | Deprecated | Muted + a `(deprecated)` tag |
-| Search match characters | Underline, within the name only |
+| Search match characters | Underline, within the name only: the list's own name, and the spellings of a matching detail-pane row |
+| Row that matches the search | List: bold. Detail pane: bold row, accent `▌` in its left margin (`\|` in ASCII) |
+| Match count (list) | Muted, right-aligned in a fixed 11-column slot |
 | Provenance footer | Muted |
 | Low confidence, and an `unverified` node (§5.4) | Warning color, the one sanctioned exception to single-accent |
 
@@ -2221,7 +2224,9 @@ shrinks, and the only three questions allowed to decide it.
      of every head in that section, outliers included (not the capped
      figure §9.1a fits its column to), minus one. Decided per section. Room of 20 or more
      is the table layout of §9.1a, stacking included. Less is the man
-     layout (rule 3). A tree summary column is shown while it leaves a
+     layout (rule 3). The tree's match-count column (§10 rule 14) is
+     shown only while a summary would still get this room beside it. A
+     tree summary column is shown while it leaves a
      summary 20 columns, else hidden; per row, a long name that leaves its
      own summary under 20 hides that row's summary only.
    - **USER CHOICE.** Wrapping, toggled with `w` in whichever view is
@@ -2390,6 +2395,28 @@ findable, and how a match is shown in context.
     its row, opening that row's ancestors if the filter alone was
     showing it. `/` in the filtered list reopens the box with the keyword,
     editable, and `Enter` jumps to the first match again.
+13. Marking. A commands-list row that matched, by its own name or by one
+    of its entities, is bold; the letters of its own name that matched are
+    underlined, and a row shown only so its descendants keep their shape
+    stays plain. The selected row keeps its reversed accent style. On the
+    selected command's page every entity row that matched, in the current
+    mode, has the accent bar `▌` in its left margin column (`|` in the
+    ASCII glyph set), its whole row bold, and the matched letters of its
+    spellings underlined. This holds under `NO_COLOR`: the bar is a glyph
+    and bold and underline are modifiers. The jump target scrolls into view
+    as before.
+14. Counts. A list row with matching entities ends in a muted count
+    right-aligned in a slot of fixed width, `  1 match  ` or ` 14 matches`,
+    `99+ matches` from 100 up. The slot is reserved for every row while
+    any row has a count, so no row changes width, and a summary is cut
+    before it. It is reserved only while a summary would still have ROOM
+    beside it (§9.4); a narrower pane drops the counts first. A row that
+    matched only by its own name has no count. Wide mode counts the
+    entities its fuzzy match returned.
+15. `n` and `N` step through the selected command's matching entity rows
+    in page order, from the commands list or the detail pane, wrapping at
+    the ends. They do nothing without an active search, and the footer
+    names them only while one is active.
 
 **Why.** `nucleo` is faster than `fuzzy-matcher`/`skim`, correct on Unicode
 graphemes, and designed to match on a background thread pool so typing

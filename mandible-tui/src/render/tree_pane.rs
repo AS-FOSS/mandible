@@ -150,12 +150,8 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(paragraph, inner);
 }
 
-/// Columns the count column takes: the count, `99+` at most, a space, and
-/// `match` or `matches` padded to the longer.
-const COUNT_WIDTH: usize = 11;
-
 /// Columns reserved for the counts: the column and the gap before it.
-const COUNT_RESERVE: usize = COUNT_WIDTH + 2;
+const COUNT_RESERVE: usize = fit::MATCH_COUNT_WIDTH + fit::MATCH_COUNT_GAP;
 
 /// `  1 match  `, ` 14 matches`, `99+ matches`: always `COUNT_WIDTH` wide.
 fn count_text(count: usize) -> String {
@@ -192,7 +188,7 @@ fn append_count(
     } else {
         style::muted(color_enabled)
     };
-    let pad = width.saturating_sub(COUNT_WIDTH + line.width());
+    let pad = width.saturating_sub(fit::MATCH_COUNT_WIDTH + line.width());
     line.spans.push(Span::styled(
         " ".repeat(pad),
         if selected { style } else { Style::default() },

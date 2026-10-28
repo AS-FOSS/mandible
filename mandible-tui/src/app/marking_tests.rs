@@ -209,6 +209,12 @@ fn counts_sit_in_a_fixed_width_right_aligned_column() {
     let (cy, cx) = find_left(&buf, "  2 matches").unwrap();
     let (py, px) = find_left(&buf, "  1 match  ").unwrap();
     assert_eq!(cx, px, "both end at the same column");
+    assert_eq!(
+        buf[(cx + 11, cy)].symbol(),
+        "│",
+        "the column ends at the pane edge"
+    );
+    assert_eq!(buf[(px + 11, py)].symbol(), "│");
     assert_ne!(cy, py);
     assert!(
         !line(&buf, find_left(&buf, "restore").unwrap().0).contains("match"),
@@ -285,6 +291,11 @@ fn n_does_nothing_without_a_search() {
     draw(&app, 120, 30);
     app.step_match(true);
     assert_eq!(app.selected_flag, None);
+    let mut cleared = searched("re", "commit");
+    draw(&cleared, 120, 30);
+    cleared.clear_filter();
+    cleared.step_match(true);
+    assert_eq!(cleared.selected_flag, None, "the search is gone");
     let mut keys = App::new("tool".to_string(), tool());
     crate::event::handle_key(
         &mut keys,

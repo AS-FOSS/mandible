@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A command whose page holds nothing past its summary, such as `pnpm start` or `git citool`, shows `No further help was read for this command. Press t to see what it printed.`
 - A command whose help took longer than 30 seconds shows `Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.`, and `r` then reads it under a 2-minute limit. The 30 seconds are the total for reading one command, `--help` and `-h` together, so the notice appears 30 seconds after the read starts.
 - `--doctor` and `--report` take `--no-timeout` to let every probe run as long as it needs; without it a probe is stopped after 30 seconds and reported as a failure.
+- `n` and `N` select the next or previous matching entity on the page while a search is active, from the commands list or the detail pane, wrapping at the ends; the footer and the `?` overlay list them.
+- A commands-list row with matching flags, positionals, modifiers or environment variables shows how many in a fixed-width column on the right (`  1 match  `, ` 14 matches`, `99+ matches`); a pane too narrow to keep summaries beside it drops the counts first.
 
 ### Changed
 
@@ -44,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `Esc` in the search box cancels the search: the keyword and filter clear and the cursor returns to the row it was on before `/`. `Esc` in the filtered list clears them and the cursor stays on its row. The `(pinned)` and `(filter)` labels are gone, and the bar shows the keyword with `›` only while typing.
 - `/` in the filtered list reopens the search box with the keyword, and `Enter` jumps to the first match again.
 - A search starting with `-` looks only at flag spellings, with their dashes: `--squash` finds the `--squash` flags and `-s` finds the short `-s` flags.
+- With a search active, matching rows are marked in both panes: the list's matching rows are bold, rows kept only for the tree's shape stay plain, and the detail pane's matching rows get a bar in the left margin, bold text and underlined matched letters, `NO_COLOR` included.
+- The `No matches for "…"` line in the commands list now has the one-column margin the detail pane's notices have.
 
 ### Fixed
 

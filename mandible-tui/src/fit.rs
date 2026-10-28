@@ -44,6 +44,13 @@ pub const SHARED_COLUMN_PERCENTILE: usize = 90;
 /// The tree's summary column is capped at this share of the pane.
 pub const SUMMARY_COLUMN_CAP_PERCENT: usize = 40;
 
+/// Columns of the tree's match-count column: a count of at most `99+`,
+/// a space, and `match` or `matches` padded to the longer.
+pub const MATCH_COUNT_WIDTH: usize = 11;
+
+/// Columns between the tree's summary and its match-count column.
+pub const MATCH_COUNT_GAP: usize = 2;
+
 /// What a terminal of a given size can show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
