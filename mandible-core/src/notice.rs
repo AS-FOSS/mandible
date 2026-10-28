@@ -24,6 +24,23 @@ pub const UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX: &str = "mandible could not verify
 pub const ROOT_HELP_FALLBACK_LABEL: &str =
     "Showing the tool's own root --help instead, labelled below:";
 
+/// The notice on a loaded command page that holds nothing past its
+/// summary: the command printed no help mandible could read, and `t`
+/// shows what it did print.
+pub const NO_FURTHER_HELP_NOTICE: &str =
+    "No further help was read for this command. Press t to see what it printed.";
+
+/// The notice on a command page whose help probe was stopped at the
+/// wall-clock cap, so the page has nothing to show. The seconds are
+/// `mandible_extract::exec::EXTRACT_LIMIT`; a test in `mandible-tui` holds
+/// the two together.
+pub const TIMED_OUT_NOTICE: &str =
+    "Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.";
+
+/// The line a command shows while its help is being read for the first
+/// time, in the parsed view and in the verbatim view.
+pub const READING_NOTICE: &str = "Reading this command's help…";
+
 /// The notice a same-as-ancestor node's detail pane shows in place of its
 /// usage/children/flags (spec [M-19], docs/design.md §16's ruling): this
 /// command's own `--help` fingerprinted as byte-identical to an ancestor's,

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 /// mandible: a universal, interactive TUI reference for CLI tools.
 #[derive(Parser, Debug)]
 #[command(name = "mandible", version, about, long_about = None)]
+#[command(group(clap::ArgGroup::new("diagnostic").args(["doctor", "report"]).multiple(true)))]
 pub struct Cli {
     /// The tool to open, e.g. "git". Required unless `--doctor`, `--report`,
     /// or `--review` is given.
@@ -90,6 +91,12 @@ pub struct Cli {
     #[arg(long, default_value = "audit")]
     pub audit_dir: PathBuf,
 
+    /// Let `--doctor` and `--report` probes run as long as they need.
+    /// Without it each probe is stopped after 30 seconds and the timeout is
+    /// reported as a failure.
+    #[arg(long, requires = "diagnostic")]
+    pub no_timeout: bool,
+
     /// Proceed when running as root (uid 0) instead of refusing. mandible
     /// never asks for or gains privileges itself; this only lifts the
     /// refusal on privilege the user already brought. See spec §6 rule 10.
@@ -108,6 +115,16 @@ impl Cli {
             .as_deref()
             .or(self.doctor.as_deref())
             .or(self.tool.as_deref())
+    }
+
+    /// The cap the diagnostics run their probes under: the standard one,
+    /// or none with `--no-timeout`.
+    pub fn diagnostic_limit(&self) -> Option<std::time::Duration> {
+        if self.no_timeout {
+            None
+        } else {
+            Some(mandible_extract::exec::EXTRACT_LIMIT)
+        }
     }
 
     /// The full node path this invocation asks to open — the tool name
@@ -218,6 +235,28 @@ mod tests {
         assert!(parse(&["--doctor", "cargo", "clippy"])
             .subcommand
             .is_empty());
+    }
+
+    #[test]
+    fn no_timeout_goes_with_a_diagnostic_and_nothing_else() {
+        assert!(parse(&["--doctor", "git", "--no-timeout"]).no_timeout);
+        assert!(parse(&["--report", "git", "--no-timeout"]).no_timeout);
+        assert!(!parse(&["--doctor", "git"]).no_timeout);
+        assert!(Cli::try_parse_from(["mandible", "git", "--no-timeout"]).is_err());
+    }
+
+    #[test]
+    fn no_timeout_lifts_the_cap_the_diagnostics_run_under() {
+        let standard = parse(&["--doctor", "git"]).diagnostic_limit();
+        assert_eq!(standard, Some(std::time::Duration::from_secs(30)));
+        assert_eq!(
+            parse(&["--doctor", "git", "--no-timeout"]).diagnostic_limit(),
+            None
+        );
+        assert_eq!(
+            parse(&["--report", "git", "--no-timeout"]).diagnostic_limit(),
+            None
+        );
     }
 
     #[test]

@@ -26,11 +26,15 @@
 //! (AGENTS.md §3.2). See the batch report for this called out explicitly.
 
 use crate::background::Warmer;
+use crate::probing::{self, Ctx};
+use crate::queue::{Limit, Urgency};
+use crate::raw_view;
+use crate::reload::Reloader;
 use anyhow::Context;
 use crossterm::event::{self, Event};
 use mandible_core::audit::{self, Entry};
 use mandible_extract::{default_tiers, resolve_tool, Runner};
-use mandible_tui::app::{App, RawHelp};
+use mandible_tui::app::App;
 use mandible_tui::app_review::{
     handle_review_key, ReviewKeyOutcome, ReviewOverlay, ReviewSubmission,
 };
@@ -39,8 +43,10 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// Upper bound on events dropped after a blocking re-extract.
-const MAX_DISCARDED_EVENTS: usize = 1024;
+/// State the loop keeps beside the tree: the re-extraction in flight.
+struct Session {
+    reload: Reloader,
+}
 
 /// Why [`run_loop`] returned.
 enum LoopExit {
@@ -288,39 +294,23 @@ fn run_loop(
     // discovers everything; its result then cascades into the children it
     // finds. Nothing is extracted on the main thread, which is what makes
     // launching instant regardless of how slow the tool is to probe.
-    submit_root_fill(app, &runner, &resolved, &warmer);
+    let ctx = Ctx {
+        runner: &runner,
+        resolved: &resolved,
+        warmer: &warmer,
+    };
+    submit_root_fill(app, &ctx, Limit::Standard);
+    let mut session = Session {
+        reload: Reloader::new(),
+    };
 
     loop {
         // Splice in any background fills that completed since the last
         // iteration before rendering, so the tree reflects them promptly.
-        for warmed in warmer.drain() {
-            let mut node = warmed.result.node;
-            // The root's children are the tool's own documented commands
-            // plus whatever the `<tool>-<sub>` convention finds on PATH
-            // (spec §5.4). Attached at the root only, because that is where
-            // the convention lives: cargo dispatches `cargo clippy` to
-            // `cargo-clippy`, and nothing dispatches `cargo clippy fix` to
-            // `cargo-clippy-fix`.
-            if warmed.path.len() == 1 {
-                crate::discovery::attach_path_siblings(&mut node, &siblings);
-            }
-            // Spliced before the cascade, not after: `warm_children` resolves
-            // each child's probe target against the tree, so the node it is
-            // about has to be in the tree first.
-            app.splice_filled_node(&warmed.path, node);
-            // Cascade unconditionally: every fill queues the children it
-            // just discovered, so the background walk reaches the whole
-            // tree instead of stopping one level past whatever the user
-            // expanded. Marking them pending is what makes them render as
-            // loading rows rather than as silently empty ones.
-            let queued = warmer.warm_children(&runner, &resolved, &app.root, &warmed.path);
-            for path in queued {
-                app.mark_pending(path);
-            }
-            // The node `mandible <tool> <sub>` asked for may have just
-            // arrived — or may now be known not to exist (spec §5.4).
-            app.settle_requested_path();
+        if let Some(loaded) = session.reload.poll(&app.tool) {
+            apply_reload(app, loaded.root, &ctx);
         }
+        probing::collect(app, &ctx, &siblings);
 
         // Let a transient status message ("copied: …") time out. This loop
         // already wakes every 100ms to poll for input, so expiry needs no
@@ -360,6 +350,7 @@ fn run_loop(
         term.draw(|frame| render::render(frame, app))?;
 
         if !event::poll(Duration::from_millis(100))? {
+            probing::at_rest(app, &ctx);
             continue;
         }
 
@@ -385,7 +376,7 @@ fn run_loop(
                 if !claimed {
                     if let Some(effect) = tui_event::handle_key(app, key) {
                         if let Control::Exit(exit) =
-                            apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                            apply_effect(app, effect, &ctx, &mut session, sink)
                         {
                             warmer.cancel();
                             return Ok(exit);
@@ -398,8 +389,7 @@ fn run_loop(
                 let area = ratatui::layout::Rect::new(0, 0, size.width, size.height);
                 let regions = layout::compute(area, app.focus);
                 if let Some(effect) = tui_event::handle_mouse(app, mouse, &regions) {
-                    if let Control::Exit(exit) =
-                        apply_effect(app, effect, &runner, &resolved, &warmer, sink)
+                    if let Control::Exit(exit) = apply_effect(app, effect, &ctx, &mut session, sink)
                     {
                         warmer.cancel();
                         return Ok(exit);
@@ -423,9 +413,7 @@ fn run_loop(
         // map lookup that returns `None` unless the mode is on and this
         // node is genuinely unfetched.
         if let Some(effect) = app.raw_fetch_needed() {
-            if let Control::Exit(exit) =
-                apply_effect(app, effect, &runner, &resolved, &warmer, sink)
-            {
+            if let Control::Exit(exit) = apply_effect(app, effect, &ctx, &mut session, sink) {
                 warmer.cancel();
                 return Ok(exit);
             }
@@ -438,9 +426,8 @@ fn run_loop(
 fn apply_effect(
     app: &mut App,
     effect: Effect,
-    runner: &Arc<Runner>,
-    resolved: &mandible_extract::ResolvedTool,
-    warmer: &Warmer,
+    ctx: &Ctx,
+    session: &mut Session,
     sink: terminal::Sink,
 ) -> Control {
     match effect {
@@ -459,91 +446,37 @@ fn apply_effect(
             };
             app.set_status(status);
         }
-        Effect::Refresh => {
-            // Abandon the previous whole-tree walk *first*. Its results
-            // describe the tree about to be replaced, and without this
-            // every `r` left another cascade running against a discarded
-            // tree while eating from a warming budget that never refilled.
-            warmer.reset();
-
-            let loaded = crate::pipeline::load(&app.tool);
-            match loaded.root {
-                Some(root) => {
-                    app.reload(root);
-                    // Re-queue the root fill. This is what restarts the
-                    // cascade that walks the tree; without it the pane sat
-                    // empty after a re-extract until the user pressed
-                    // Enter, because expand was the only remaining path
-                    // that still triggered extraction.
-                    submit_root_fill(app, runner, resolved, warmer);
-                    app.set_status("re-extracted");
-                }
-                None => {
-                    app.set_status("re-extraction failed: no tier produced a result");
-                }
-            }
-            discard_input_typed_during_the_block();
-        }
+        Effect::Refresh => refresh(app, ctx, session),
         Effect::Fill(path) => {
-            if let Some(existing) = mandible_core::resolve(&app.root, &path).cloned() {
-                // Same redirect the background cascade applies (spec §5.4):
-                // an expand on a convention-discovered node probes that
-                // node's own binary, never the parent with a guessed word.
-                let (tool, probe_path) = crate::discovery::probe_target(&app.root, resolved, &path);
-                app.mark_pending(path.clone());
-                warmer.submit(Arc::clone(runner), tool, probe_path, path, existing);
-            }
+            probing::request(app, ctx, path, Urgency::User, false, Limit::Standard);
         }
-        // Run on the UI thread rather than through the warm pool. This is
-        // one probe of a node the warmer has almost certainly already
-        // faulted in, so it costs tens of milliseconds; routing it through
-        // the background pool would need a second result channel to carry
-        // a different payload type, for a wait nobody would notice. The
-        // pathological case is a tool that hangs until EXTRACT_TIMEOUT,
-        // which the timeout itself bounds.
+        // Served from the output the fill kept; nothing is probed here.
+        // With nothing kept the pane says it is loading, and the fetch
+        // goes to the background pool once the cursor rests.
         Effect::FetchRaw(path) => {
-            app.mark_raw_pending(path.clone());
-            // Read attestation from the node this view is *about*, so the
-            // raw fetch reproduces the same probe the parse used. The `t`
-            // key's whole job is letting a reader check our reading against
-            // the author's own bytes; fetching a different document than
-            // the tree came from answers a question nobody asked. A node
-            // the tree doesn't have cannot be attested, so `false` is the
-            // right default rather than a fallback worth worrying about.
-            let hints = mandible_extract::NodeHints {
-                heading_attested: mandible_core::resolve(&app.root, &path)
-                    .is_some_and(|n| n.heading_attested),
-                abbrev_probe_attested: mandible_core::resolve(&app.root, &path)
-                    .is_some_and(|n| n.abbrev_probe_attested),
-                help_word_attested: mandible_core::resolve(&app.root, &path)
-                    .is_some_and(|n| n.help_word_attested),
-            };
-            // Through the same redirect the parse itself went through
-            // (spec §5.4), for exactly the reason above: under a
-            // convention-discovered node the tree was built from
-            // `cargo-clippy --help`, so that is the document `t` has to
-            // show — and the argv line it prints names the binary that was
-            // really run, not an invocation nobody made.
-            let (raw_tool, raw_path) = crate::discovery::probe_target(&app.root, resolved, &path);
-            let result = match mandible_extract::help_text::raw_help(&raw_tool, &raw_path, hints) {
-                // Render the argv exactly as a human would type it, so
-                // the pane can name its own source rather than assume one.
-                Ok((lines, flag)) => {
-                    let words: Vec<String> = raw_path.iter().skip(1).cloned().collect();
-                    RawHelp::Ready(
-                        lines,
-                        mandible_extract::help_text::render_argv(&raw_tool.name, &words, &flag),
-                    )
-                }
-                // Shown in the pane, not swallowed: "refused: kill is
-                // never probed" is a useful answer to `t`, and a blank
-                // pane is not.
-                Err(e) => RawHelp::Failed(format!("could not fetch raw --help: {e}")),
-            };
-            app.set_raw_help(path, result);
+            if !raw_view::serve(app, ctx.resolved, &path) {
+                app.mark_raw_pending(path);
+            }
         }
     }
     Control::Continue
+}
+
+/// `r`: reload what you are looking at. On a command's page that command is
+/// read again, then its subcommands; on the tool's root page the whole tool
+/// is extracted again, off this thread.
+fn refresh(app: &mut App, ctx: &Ctx, session: &mut Session) {
+    let Some(path) = app.selected_path() else {
+        return;
+    };
+    if path.len() > 1 {
+        probing::reread(app, ctx, path);
+    } else if session
+        .reload
+        .start(&app.tool, probing::retry_limit(app, &path).duration())
+    {
+        app.set_status("re-extracting");
+    }
 }
 
 /// Queue the root for a background fill, which is what starts the cascade
@@ -552,45 +485,26 @@ fn apply_effect(
 /// Shared by startup and by re-extract, deliberately: these are the two
 /// moments a tree exists with nothing filling it, and having only the
 /// startup path do it is precisely how `r` came to leave an empty pane.
-fn submit_root_fill(
-    app: &mut App,
-    runner: &Arc<Runner>,
-    resolved: &mandible_extract::ResolvedTool,
-    warmer: &Warmer,
-) {
+fn submit_root_fill(app: &mut App, ctx: &Ctx, limit: Limit) {
     let root_path = vec![app.root.name.clone()];
-    app.mark_pending(root_path.clone());
-    warmer.submit(
-        Arc::clone(runner),
-        resolved.clone(),
-        root_path.clone(),
-        root_path,
-        app.root.clone(),
-    );
+    probing::request(app, ctx, root_path, Urgency::Walk, true, limit);
 }
 
-/// Throw away input that arrived while a blocking re-extract held the loop.
-///
-/// `pipeline::load` runs a full extraction on this thread, so on a slow
-/// tool the UI is unresponsive for seconds. Key auto-repeat keeps filling
-/// crossterm's buffer throughout, and every one of those events was typed
-/// blind at a frozen screen. Replaying them meant holding `r` queued one
-/// more complete re-extraction per repeat, which is what made the key look
-/// like it spawned unbounded work.
-///
-/// Bounded rather than looping until empty, so a key that is genuinely
-/// stuck down cannot keep us here indefinitely.
-fn discard_input_typed_during_the_block() {
-    for _ in 0..MAX_DISCARDED_EVENTS {
-        match event::poll(Duration::from_millis(0)) {
-            Ok(true) => {
-                if event::read().is_err() {
-                    return;
-                }
-            }
-            _ => return,
-        }
-    }
+/// Swap a finished re-extraction in. The previous whole-tree walk is
+/// abandoned first, since its results describe the tree being replaced, and
+/// the root fill restarts the walk (without it the pane sat empty until the
+/// user pressed Enter). A root whose last read timed out is read with the
+/// longer limit again.
+fn apply_reload(app: &mut App, root: Option<mandible_core::CommandNode>, ctx: &Ctx) {
+    let Some(root) = root else {
+        app.set_status("re-extraction failed: no tier produced a result");
+        return;
+    };
+    let limit = probing::retry_limit(app, std::slice::from_ref(&app.root.name));
+    ctx.warmer.reset();
+    app.reload(root);
+    submit_root_fill(app, ctx, limit);
+    app.set_status("re-extracted");
 }
 
 #[cfg(test)]
@@ -653,5 +567,56 @@ mod tests {
         assert!(app.horizontal_scroll_enabled);
 
         std::env::remove_var(CONFIG_DIR_ENV);
+    }
+
+    fn rig() -> (std::sync::Arc<crate::doubles::Spy>, App) {
+        let spy = crate::doubles::Spy::new();
+        spy.children("t", &["a", "b"]);
+        let root = mandible_core::CommandNode::new("t", mandible_core::Provenance::default());
+        (spy, App::new("no-such-tool-xyz-123".to_string(), root))
+    }
+
+    fn walked(app: &mut App, ctx: &Ctx) {
+        submit_root_fill(app, ctx, Limit::Standard);
+        let end = std::time::Instant::now() + Duration::from_secs(10);
+        while !app.fill_finished(&["t".to_string(), "b".to_string()])
+            && std::time::Instant::now() < end
+        {
+            probing::collect(app, ctx, &[]);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        app.ensure_rows_fresh();
+    }
+
+    /// `r` reloads what you are looking at: on a command's page, that
+    /// command alone; on the tool's root page, the whole tool.
+    #[test]
+    fn r_on_a_command_reads_that_command_and_on_the_root_reloads_the_tool() {
+        let (spy, mut app) = rig();
+        let runner = spy.runner();
+        let resolved = crate::doubles::Spy::tool();
+        let warmer = Warmer::with_threads(3);
+        let ctx = Ctx {
+            runner: &runner,
+            resolved: &resolved,
+            warmer: &warmer,
+        };
+        let mut session = Session {
+            reload: Reloader::new(),
+        };
+        walked(&mut app, &ctx);
+        spy.forget();
+
+        app.select_index(2);
+        assert_eq!(app.selected_path().unwrap()[1], "b");
+        refresh(&mut app, &ctx, &mut session);
+        assert!(spy.wait_for(&["t".to_string(), "b".to_string()], 1));
+        assert!(!session.reload.is_running(), "a command is not the tool");
+
+        app.select_index(0);
+        refresh(&mut app, &ctx, &mut session);
+        assert!(session.reload.is_running(), "the root reloads the tool");
+        std::thread::sleep(Duration::from_millis(100));
+        assert_eq!(spy.calls().len(), 1, "the root's r read no command");
     }
 }

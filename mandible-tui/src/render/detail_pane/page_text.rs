@@ -19,13 +19,26 @@ fn screen_pane_height(app: &App) -> usize {
 /// 160x40 terminal, no window chrome. Built by the same function the TUI draws from.
 /// Trailing blanks are trimmed from every line.
 ///
+/// `is_root` says whether `node` is its tool's root: the page of any other
+/// node is drawn as the child it is.
+///
 /// Returns `None` for a node the pane does not draw as a parsed page (raw
 /// help, or the repeated-ancestor notice).
-pub fn page_text(node: &CommandNode, width: usize) -> Option<Vec<String>> {
+pub fn page_text(node: &CommandNode, width: usize, is_root: bool) -> Option<Vec<String>> {
     if !node.unparsed.is_empty() || node.same_as_ancestor {
         return None;
     }
-    let mut app = App::new(node.name.clone(), node.clone());
+    // A fixture's tree is static: only a node it probed counts as loaded.
+    let mut app = if is_root {
+        App::new(node.name.clone(), node.clone())
+    } else {
+        let mut parent = CommandNode::new("parent", mandible_core::Provenance::default());
+        parent.children_filled = true;
+        parent.subcommands.push(node.clone());
+        let mut app = App::new(parent.name.clone(), parent);
+        app.select_index(1);
+        app
+    };
     app.glyphs = crate::glyphs::UNICODE;
     app.set_palette(style::Palette::plain());
     app.set_pane_height(screen_pane_height(&app));

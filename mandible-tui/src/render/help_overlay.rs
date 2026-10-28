@@ -34,7 +34,7 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     ),
     (None, "ACTIONS"),
     (Some("y"), "Copy selected flag or command path"),
-    (Some("r"), "Re-extract this tool"),
+    (Some("r"), "Reload what you are viewing"),
     (Some("?"), "Toggle this help"),
     (Some("Ctrl-C"), "Quit from anywhere"),
     (Some("q"), "Quit (from the tree)"),

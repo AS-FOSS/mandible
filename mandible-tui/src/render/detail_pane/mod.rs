@@ -10,6 +10,7 @@
 //! hang-indent at the description column (spec §9.1a) and search must
 //! scroll to an exact line index (spec §10). `Wrap` stays on only as a
 //! defensive fallback against unclipped text (spec §9).
+mod bare;
 mod description_preview;
 mod edges;
 mod entity;
@@ -24,6 +25,8 @@ mod stack;
 mod usage_form;
 mod wrap;
 
+pub(crate) use bare::is_empty_page;
+use bare::{page_is_bare, page_is_reading, page_timed_out, push_notice};
 use description_preview::*;
 use edges::*;
 use entity::*;
@@ -282,7 +285,7 @@ fn render_raw_mode(frame: &mut Frame, inner: Rect, app: &App, raw: &crate::app::
                 inner,
                 app,
                 &heading,
-                std::iter::once("running the probe…".to_string()),
+                std::iter::once(mandible_core::notice::READING_NOTICE.to_string()),
             );
         }
         crate::app::RawHelp::Ready(lines, _) => {
@@ -598,6 +601,27 @@ fn build_lines(
     if !node.aliases.is_empty() {
         mark(&mut items, lines.len());
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
+    }
+
+    // One notice per page: a probe stopped at the time limit says so, a
+    // page that read fine and holds nothing says it has nothing, and a
+    // first read still waiting says so.
+    let notice = if page_timed_out(app) {
+        Some(mandible_core::notice::TIMED_OUT_NOTICE)
+    } else if page_is_bare(node, app) {
+        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+    } else if page_is_reading(node, app) {
+        Some(mandible_core::notice::READING_NOTICE)
+    } else {
+        None
+    };
+    if let Some(notice) = notice {
+        let mut page = Page {
+            lines: &mut lines,
+            items: &mut items,
+            rules: &mut rules,
+        };
+        push_notice(&mut page, notice, text_width);
     }
 
     // A description that fills most of the pane previews at the top and
@@ -3482,7 +3506,11 @@ mod tests {
         app.mark_raw_pending(path.clone());
         let pending = screen(&app);
         assert!(pending.contains("verbatim"), "{pending}");
-        assert!(pending.contains("running the probe"), "{pending}");
+        assert!(
+            pending.contains(mandible_core::notice::READING_NOTICE),
+            "{pending}"
+        );
+        assert!(!pending.contains("running the probe"), "{pending}");
 
         app.set_raw_help(
             path.clone(),
@@ -4517,3 +4545,6 @@ mod reflow_tests;
 
 #[cfg(test)]
 mod description_preview_tests;
+
+#[cfg(test)]
+mod bare_tests;

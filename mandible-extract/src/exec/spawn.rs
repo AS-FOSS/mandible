@@ -89,6 +89,10 @@ pub enum ExecError {
         /// The exact argument vector requested ([`InertArgv::args`]).
         argv: Vec<String>,
     },
+    /// A probe that failed when it was first run, replayed from its kept
+    /// record. Carries the original error's text.
+    #[error("{0}")]
+    Recorded(String),
 }
 
 /// The captured result of running a tool under the exec policy.

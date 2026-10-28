@@ -15,7 +15,7 @@ use std::path::Path;
 
 use mandible_core::{CommandNode, Provenance, Source, Text};
 
-use super::{pick_stream, sections, EXTRACT_TIMEOUT};
+use super::{pick_stream, sections};
 use crate::exec::{InertArgv, Probe};
 
 /// Most invocations one root text may name.
@@ -380,11 +380,8 @@ pub fn probe_and_merge(
     root_subcommands: &mut Vec<CommandNode>,
 ) {
     for option in listing_options(raw, tool) {
-        let Ok(out) = probe.run(
-            tool_path,
-            &InertArgv::HelpListing { option },
-            EXTRACT_TIMEOUT,
-        ) else {
+        let Ok(out) = crate::exec::run_probe(probe, tool_path, &InertArgv::HelpListing { option })
+        else {
             continue;
         };
         let text = pick_stream(&out.stdout, &out.stderr);

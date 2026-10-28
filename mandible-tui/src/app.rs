@@ -2,8 +2,10 @@
 //! focus, and scroll offsets. Pure state — no rendering and no terminal
 //! I/O, so it's fully testable without a tty.
 
+use crate::probes::{FillEnd, Outcome};
 use crate::tree::{flatten, TreeRow};
 use mandible_core::{resolve, resolve_flag, CommandNode, NodeRef, Text};
+use mandible_extract::KeptProbes;
 use mandible_search::SearchIndex;
 use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
@@ -61,11 +63,11 @@ pub enum Focus {
 pub enum Effect {
     /// Copy this text to the clipboard.
     Copy(String),
-    /// Re-extract the current tool from scratch (`r` key). There is no
-    /// cache to bypass (spec §11) — this discards the in-memory tree
-    /// (including anything lazily filled so far) and re-runs the pipeline,
-    /// useful when the tool itself changed mid-session (a plugin installed,
-    /// a new alias defined).
+    /// Reload what the selection is on (`r` key). There is no cache to
+    /// bypass (spec §11): on a command it is read again, then its
+    /// subcommands; on the tool's root page the whole tree is discarded and
+    /// the pipeline re-run, useful when the tool itself changed mid-session
+    /// (a plugin installed, a new alias defined).
     Refresh,
     /// Quit the application.
     Quit,
@@ -74,9 +76,10 @@ pub enum Effect {
     /// [`App::mark_pending`], run the extraction, then
     /// [`App::splice_filled_node`] with the result.
     Fill(Vec<String>),
-    /// Fetch this node's raw `--help` output for the verbatim view (`t`).
-    /// The caller should run the probe and hand the result back through
-    /// [`App::set_raw_help`].
+    /// Show this node's raw `--help` output in the verbatim view (`t`).
+    /// The caller serves it from the output kept with the node and hands
+    /// it back through [`App::set_raw_help`], or marks it pending and
+    /// fetches it in the background when nothing is kept.
     FetchRaw(Vec<String>),
     /// Print this composed command line on stdout and exit (spec §2's
     /// `--print-selection`). Only ever produced while
@@ -114,12 +117,11 @@ pub struct App {
     pub root: crate::tree_store::TreeStore,
     /// Paths the user has explicitly expanded.
     expanded: HashSet<Vec<String>>,
-    /// Paths currently being lazily filled (spec §5.2 step 3) — a node
-    /// whose `children_filled` was false when expanded, now being
-    /// re-probed. Drives the spinner/placeholder row (spec §9). Populated
-    /// and drained by the caller (the binary's event loop), which owns
-    /// the actual extraction I/O; `App` itself never spawns anything.
-    pending: HashSet<Vec<String>>,
+    /// Where each command's probe stands and what came of it (spec §5.2
+    /// step 3). Drives the spinner row (spec §9) and the page notices.
+    /// Written by the caller (the binary's event loop), which owns the
+    /// extraction I/O; `App` itself never spawns anything.
+    pub probes: crate::probes::Probes,
     /// The flattened, currently-visible row list. Rebuilt only when
     /// `dirty` (spec §9: "The flattened row list is cached").
     rows: Vec<TreeRow>,
@@ -450,7 +452,7 @@ impl App {
             tool,
             root: crate::tree_store::TreeStore::new(root),
             expanded,
-            pending: HashSet::new(),
+            probes: crate::probes::Probes::new(crate::probes::KEPT_BUDGET_BYTES),
             rows: Vec::new(),
             dirty: true,
             selected: 0,
@@ -528,7 +530,7 @@ impl App {
             &self.root,
             &self.expanded,
             matching_paths.as_ref(),
-            &self.pending,
+            &self.probes,
         );
         if self.selected >= self.rows.len() {
             self.selected = self.rows.len().saturating_sub(1);
@@ -872,7 +874,7 @@ impl App {
     pub fn expand_selected(&mut self) -> Option<Vec<String>> {
         self.ensure_rows_fresh();
         let row = self.rows.get(self.selected)?;
-        let needs_fill = !row.children_filled && !self.pending.contains(&row.path);
+        let needs_fill = !row.children_filled && !self.probes.in_flight(&row.path);
         let path = row.path.clone();
         // `needs_fill` is included deliberately: a node whose children
         // haven't been extracted yet reports `has_children == false`, but
@@ -891,16 +893,20 @@ impl App {
     /// Mark `path` as currently being lazily filled, so the tree pane
     /// shows a spinner row for it instead of a static chevron.
     pub fn mark_pending(&mut self, path: Vec<String>) {
-        self.pending.insert(path);
+        self.probes.queued(path);
         self.mark_dirty();
     }
 
-    /// Clear a path's pending marker (called whether the fill succeeded
-    /// or failed — either way, it's no longer in flight).
+    /// Stop showing `path` as loading because its queued probe was dropped
+    /// before it started.
     pub fn clear_pending(&mut self, path: &[String]) {
-        if self.pending.remove(path) {
-            self.mark_dirty();
-        }
+        self.probes.unqueued(path);
+        self.mark_dirty();
+    }
+
+    /// A worker started on `path`.
+    pub fn mark_running(&mut self, path: &[String]) {
+        self.probes.running(path);
     }
 
     #[cfg(test)]
@@ -908,9 +914,32 @@ impl App {
         self.detail_max_scroll.get()
     }
 
+    /// True once a fill for `path` has completed and none is in flight.
+    pub fn fill_finished(&self, path: &[String]) -> bool {
+        self.probes.finished(path)
+    }
+
+    /// How the last probe of `path` came out, also while a re-run is in
+    /// flight.
+    pub fn probe_outcome(&self, path: &[String]) -> Option<crate::probes::Outcome> {
+        self.probes.outcome(path)
+    }
+
+    /// True if `path` has been read, or came back already holding its
+    /// children: nothing more is owed for it.
+    pub fn is_loaded(&self, path: &[String]) -> bool {
+        self.probes.outcome(path).is_some()
+            || mandible_core::resolve(&self.root, path).is_some_and(|n| n.children_filled)
+    }
+
+    /// True if `path` is being read now and has no earlier result.
+    pub fn is_first_read(&self, path: &[String]) -> bool {
+        self.probes.first_read(path)
+    }
+
     /// True if `path` is currently being lazily filled.
     pub fn is_pending(&self, path: &[String]) -> bool {
-        self.pending.contains(path)
+        self.probes.in_flight(path)
     }
 
     /// Splice a freshly-filled node into the tree at `path`, replacing
@@ -919,7 +948,26 @@ impl App {
     /// expands it, so the result the user asked for is immediately
     /// visible rather than requiring a second expand press.
     pub fn splice_filled_node(&mut self, path: &[String], node: CommandNode) {
-        self.pending.remove(path);
+        self.finish_fill(path, node, FillEnd::Read, KeptProbes::default());
+    }
+
+    /// [`Self::splice_filled_node`] for a fill that reported how it ended
+    /// and what the tool printed. Returns the paths whose kept output was
+    /// dropped to stay within the budget.
+    pub fn finish_fill(
+        &mut self,
+        path: &[String],
+        node: CommandNode,
+        end: FillEnd,
+        kept: KeptProbes,
+    ) -> Vec<Vec<String>> {
+        let outcome = match end {
+            FillEnd::TimedOut => Outcome::TimedOut,
+            FillEnd::Failed => Outcome::Failed,
+            FillEnd::Read if crate::render::is_empty_page(&node) => Outcome::Empty,
+            FillEnd::Read => Outcome::Parsed,
+        };
+        let evicted = self.probes.finish(path.to_vec(), outcome, kept);
         if let Some(slot) = mandible_core::resolve_mut(self.root.edit(), path) {
             *slot = node;
         }
@@ -939,6 +987,7 @@ impl App {
         // collapses a whole arrival batch into one rebuild.
         self.search_index_stale = true;
         self.mark_dirty();
+        evicted
     }
 
     /// Try to land on [`Self::requested_path`] — the subcommand path the
@@ -988,7 +1037,7 @@ impl App {
         let parent_path = target[..depth].to_vec();
         let parent_complete =
             resolve(&self.root, &parent_path).is_some_and(|node| node.children_filled);
-        if parent_complete && !self.pending.contains(&parent_path) {
+        if parent_complete && !self.probes.in_flight(&parent_path) {
             let message = format!(
                 "{} has no subcommand {:?}",
                 parent_path.join(" "),
@@ -1039,7 +1088,7 @@ impl App {
             let filled = resolve(&self.root, path)
                 .map(|n| n.children_filled)
                 .unwrap_or(true);
-            if !filled && !self.pending.contains(path) {
+            if !filled && !self.probes.in_flight(path) {
                 needs_fill = Some(path.to_vec());
             }
         }
@@ -1137,10 +1186,9 @@ impl App {
         self.root.replace(root);
         // Fills queued against the old tree are abandoned by the caller,
         // so nothing is still pending for this one.
-        self.pending.clear();
-        // Re-probed on demand. The point of a re-extract is that the tool
-        // may have changed, which makes cached raw output exactly as stale
-        // as the tree it came from.
+        self.probes.reset();
+        // The point of a re-extract is that the tool may have changed,
+        // which makes shown raw output as stale as the tree it came from.
         self.raw_help.clear();
 
         self.search_index = SearchIndex::new();
@@ -1230,6 +1278,31 @@ impl App {
     /// Hand back the result of a [`Effect::FetchRaw`].
     pub fn set_raw_help(&mut self, path: Vec<String>, result: RawHelp) {
         self.raw_help.insert(path, result);
+    }
+
+    /// Whether the verbatim view holds anything for this node, text or a
+    /// failure.
+    pub fn has_raw_help(&self, path: &[String]) -> bool {
+        self.raw_help.contains_key(path)
+    }
+
+    /// Whether this node's verbatim text is still being waited for.
+    pub fn raw_is_pending(&self, path: &[String]) -> bool {
+        matches!(self.raw_help.get(path), Some(RawHelp::Pending))
+    }
+
+    /// Stop waiting on this node's verbatim text, so the next look at it
+    /// asks again. Leaves text already shown alone.
+    pub fn clear_raw_pending(&mut self, path: &[String]) {
+        if self.raw_is_pending(path) {
+            self.raw_help.remove(path);
+        }
+    }
+
+    /// Drop this node's shown verbatim text, so the next look at it asks
+    /// again. Called when the bytes it came from are no longer kept.
+    pub fn forget_raw_help(&mut self, path: &[String]) {
+        self.raw_help.remove(path);
     }
 
     /// The verbatim text for the current selection, if the mode is on.

@@ -8,6 +8,8 @@
 //! Background warming (step 4) lives above this crate, in the binary's
 //! event loop.
 
+use crate::errors::ExtractError;
+use crate::exec::KeptProbes;
 use crate::resolve::{resolve_tool, ResolvedTool};
 use crate::tier::{ExtractionTier, NodeHints};
 use mandible_core::{merge_nodes, CommandNode};
@@ -170,6 +172,10 @@ impl Runner {
     /// Same as [`Self::extract_full`] but for an already-resolved tool,
     /// useful when the caller already paid for `PATH` resolution.
     pub fn extract_full_for(&self, resolved: &ResolvedTool) -> ExtractionResult {
+        crate::exec::within_read(|| self.extract_root(resolved)).0
+    }
+
+    fn extract_root(&self, resolved: &ResolvedTool) -> ExtractionResult {
         let start = Instant::now();
         let root_path = vec![resolved.name.clone()];
         let mut statuses = Vec::with_capacity(self.tiers.len());
@@ -184,6 +190,14 @@ impl Runner {
         };
 
         for tier in &self.tiers {
+            if crate::exec::read_spent() {
+                statuses.push(TierStatus {
+                    tier: tier.name(),
+                    detected: false,
+                    error: Some(ExtractError::TimedOut.to_string()),
+                });
+                continue;
+            }
             let detected = tier.detect(resolved);
             let mut error = None;
             if detected {
@@ -235,6 +249,18 @@ impl Runner {
         path: &[String],
         existing: CommandNode,
     ) -> FillResult {
+        let (mut filled, cut) =
+            crate::exec::within_read(|| self.fill_within_read(resolved, path, existing));
+        filled.timed_out |= cut;
+        filled
+    }
+
+    fn fill_within_read(
+        &self,
+        resolved: &ResolvedTool,
+        path: &[String],
+        existing: CommandNode,
+    ) -> FillResult {
         let start = Instant::now();
         // `existing` already carries whatever the last merge decided about
         // this node's provenance (spec §4.4), so it's the correct source
@@ -247,17 +273,28 @@ impl Runner {
         };
         let mut candidates = vec![existing];
         let mut statuses = Vec::new();
+        let mut kept = Vec::new();
+        let mut timed_out = false;
 
         for tier in &self.tiers {
             if !tier.is_incremental() {
                 continue;
             }
+            if crate::exec::read_spent() {
+                timed_out = true;
+                break;
+            }
             let detected = tier.detect(resolved);
             let mut error = None;
             if detected {
-                match tier.extract_node(resolved, path, hints) {
+                let (result, probes) = tier.extract_node_kept(resolved, path, hints);
+                kept.push(probes);
+                match result {
                     Ok(node) => candidates.push(node),
-                    Err(e) => error = Some(e.to_string()),
+                    Err(e) => {
+                        timed_out |= matches!(e, ExtractError::TimedOut);
+                        error = Some(e.to_string());
+                    }
                 }
             }
             statuses.push(TierStatus {
@@ -276,6 +313,8 @@ impl Runner {
             node,
             tier_statuses: statuses,
             elapsed: start.elapsed(),
+            kept: KeptProbes::concat(&kept),
+            timed_out,
         }
     }
 }
@@ -290,6 +329,12 @@ pub struct FillResult {
     pub tier_statuses: Vec<TierStatus>,
     /// Wall-clock time spent filling.
     pub elapsed: Duration,
+    /// The probes the fill ran, kept for the verbatim view. Present on a
+    /// failed fill too.
+    pub kept: KeptProbes,
+    /// A tier's help probe was stopped at the wall-clock cap, so the node
+    /// holds only what was already known.
+    pub timed_out: bool,
 }
 
 #[cfg(test)]

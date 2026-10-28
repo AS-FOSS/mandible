@@ -31,6 +31,7 @@ pub mod event;
 pub(crate) mod fit;
 pub mod glyphs;
 pub mod layout;
+pub mod probes;
 pub mod render;
 pub mod sanitize;
 pub mod style;

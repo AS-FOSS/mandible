@@ -22,6 +22,9 @@ pub(crate) struct PageKey {
     palette: style::Palette,
     glyphs: Glyphs,
     target_flag: Option<FlagKey>,
+    loaded: bool,
+    timed_out: bool,
+    reading: bool,
 }
 
 impl PageKey {
@@ -39,6 +42,13 @@ impl PageKey {
             palette: app.palette,
             glyphs: app.glyphs,
             target_flag: app.selected_flag.clone(),
+            loaded: app
+                .selected_node()
+                .is_some_and(|n| super::bare::is_loaded(n, app)),
+            timed_out: super::bare::page_timed_out(app),
+            reading: app
+                .selected_row()
+                .is_some_and(|r| app.is_first_read(&r.path)),
         }
     }
 }

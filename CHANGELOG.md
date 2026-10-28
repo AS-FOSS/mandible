@@ -18,9 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The detail pane marks hidden rows with a bare `▲` on its top border and `▼` on its bottom border, one cell in from the right corner, in the border's own style.
 - `Esc` first returns a sideways-scrolled detail pane to column 0.
 - A command description that fills more than half the detail pane shows as a `DESCRIPTION · preview` of a third of the pane, six rows at least, at the top, with the full text as the last section.
+- A command whose page holds nothing past its summary, such as `pnpm start` or `git citool`, shows `No further help was read for this command. Press t to see what it printed.`
+- A command whose help took longer than 30 seconds shows `Reading this command's help took longer than 30 seconds, so it was stopped. Press r to try again with more time.`, and `r` then reads it under a 2-minute limit. The 30 seconds are the total for reading one command, `--help` and `-h` together, so the notice appears 30 seconds after the read starts.
+- `--doctor` and `--report` take `--no-timeout` to let every probe run as long as it needs; without it a probe is stopped after 30 seconds and reported as a failure.
 
 ### Changed
 
+- While a command's help is being read for the first time, its page in the parsed view and in the verbatim view says `Reading this command's help…`; the verbatim view used to say `running the probe…` and the parsed page was blank.
 - An optional value draws its brackets around what may be left out, joiner included: `--color[=WHEN]` for `grep`, `-O[N]` for `nvim`, `--explain [LINT]` for `cargo-clippy`. A required value still reads `--max-count NUM`. A row written `--log-file=[PATH]` is now the optional value `PATH` instead of a value named `[PATH]`.
 - [S-231] `krb5-config` lists the `Libraries:` values under its `LIBRARIES` operand instead of under `--libs`, and a positional's values show under it as a flag's do.
 - The search box title reads `search · names` instead of `search [names]`, and the `--review` bar reads `REVIEW tool · stratum`: square brackets in mandible's own text always mean may be left out.
@@ -34,9 +38,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The search box scrolls to keep what you are typing in view, and the detail pane title is cut from the left (`… › interpret-trailers`) so the current command stays visible.
 - The sideways-scroll markers are now `◀` and `▶` (`<` and `>` in ASCII), drawn beside each cut line and not on the border, and the raw view and the parsed page each keep their own wrapping setting, starting from `[ui] horizontal_scroll` for the raw view.
 - A flag row with more than one short and one long spelling now stacks at every width: the first short and long spelling and the value placeholder stay on the first line, and the other spellings continue below, led by a dim `or` and lined up with the long names, beside the wrapped description.
+- The command under the cursor is read first, ahead of the background walk, once the cursor rests on it.
+- `r` reloads what you are looking at: on a command's page that command and then its subcommands, on the tool's root page the whole tool. A second `r` on a command being read does nothing.
+- A help probe may run for 30 seconds instead of 10, and one thread of the pool is kept for the command under the cursor and for `r`.
 
 ### Fixed
 
+- A slow command's page differed between launches: `git filter-branch` showed the parsed `-h` page on one launch and the man page on the next, because its `-h` sleeps 10 s and the limit was 10 s. A page whose help does not finish in time is the same every launch.
+- `r` froze the whole screen while a slow tool was re-read; the page stays usable and the new tree swaps in when it is ready.
+- The verbatim view (`t`) lagged while you scrolled and froze the screen on a slow tool, such as `git filter-branch`; it now shows the output the page was read from.
+- A row opened past the background limit stayed `⋯ loading` for good; it now loads.
 - [S-181] A range row reads as one flag with two ends drawn `-0 ... -9`, not as nine flags or as `-0` with the value `to`: `mandible xz`, `mandible bzip2`, `mandible savelog`, `mandible streamzip` and `mandible pigz`. Search finds both ends.
 - A value name or group heading wider than a narrow detail pane is wrapped instead of running past the border.
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.

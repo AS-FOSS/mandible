@@ -49,8 +49,13 @@ use std::time::Duration;
 // token" is the drift class [`pick_stream`]'s doc comment warns about.
 // `fields_in_line` below is not imported — see its own doc comment.
 
+/// The cap on every probe of a sweep or an audit, which the app's longer
+/// cap does not reach: the sweep's recorded results were measured at 10 s,
+/// and a slower tool is scored as it always was.
+const SWEEP_PROBE_LIMIT: Duration = Duration::from_secs(10);
+
 /// A probe that behaves exactly like [`LiveProbe`] — every call is
-/// forwarded to it unmodified — but also remembers the bytes each call
+/// forwarded to it, capped at [`SWEEP_PROBE_LIMIT`] — but also remembers the bytes each call
 /// returned, keyed by the exact argv sent ([`InertArgv::args`]).
 ///
 /// The mechanism behind "no new probes": [`HelpTextTier`]
@@ -201,7 +206,9 @@ impl Probe for RecordingProbe {
         argv: &InertArgv,
         timeout: Duration,
     ) -> Result<ExecOutput, ExecError> {
-        let result = self.inner.run(tool_path, argv, timeout)?;
+        let result = self
+            .inner
+            .run(tool_path, argv, timeout.min(SWEEP_PROBE_LIMIT))?;
         if let Ok(mut recordings) = self.recordings.lock() {
             recordings.insert(argv.args(), result.clone());
         }
@@ -517,6 +524,24 @@ pub fn detect(raw: &str, root: &CommandNode) -> MisattributionReport {
 mod tests {
     use super::*;
     use mandible_core::{Provenance, Source, Text};
+
+    /// The app's cap is 30 s; a sweep or audit probe stays at 10 s.
+    #[test]
+    fn a_sweep_probe_is_stopped_at_ten_seconds_whatever_cap_it_was_given() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let shim = dir.path().join("slowtool");
+        std::fs::write(&shim, "#!/bin/sh\nsleep 14\necho Usage: slowtool\n").unwrap();
+        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
+
+        let started = std::time::Instant::now();
+        let out = RecordingProbe::new()
+            .run(&shim, &InertArgv::HelpLong, Duration::from_secs(30))
+            .unwrap();
+
+        assert!(out.timed_out, "the probe ran past 10 s");
+        assert!(started.elapsed() < Duration::from_secs(13));
+    }
 
     /// `lsof`'s real three-column options-table row, byte-exact from
     /// `corpus/lsof/4.95.0/help.stderr.txt`, is the true positive this

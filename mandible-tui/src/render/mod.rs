@@ -9,6 +9,7 @@
 //! display width (`unicode-width`), never byte or `char` count.
 
 mod detail_pane;
+pub(crate) use detail_pane::is_empty_page;
 mod help_overlay;
 mod review_overlay;
 mod search_bar;

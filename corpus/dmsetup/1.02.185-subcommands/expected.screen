@@ -204,6 +204,7 @@ POSITIONALS (1) ─────────────────────�
   device...
 
 === dmsetup udevcreatecookie ===
+No further help was read for this command. Press t to see what it printed.
 
 === dmsetup udevreleasecookie ===
 POSITIONALS (1) ────────────────────────────────────────────────────────────
@@ -222,14 +223,17 @@ POSITIONALS (1) ─────────────────────�
   age_in_minutes
 
 === dmsetup udevcookies ===
+No further help was read for this command. Press t to see what it printed.
 
 === dmsetup target-version ===
 POSITIONALS (1) ────────────────────────────────────────────────────────────
   target...
 
 === dmsetup targets ===
+No further help was read for this command. Press t to see what it printed.
 
 === dmsetup version ===
+No further help was read for this command. Press t to see what it printed.
 
 === dmsetup setgeometry ===
 POSITIONALS (5) ────────────────────────────────────────────────────────────

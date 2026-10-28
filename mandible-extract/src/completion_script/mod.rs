@@ -245,7 +245,8 @@ impl ExtractionTier for CompletionScriptTier {
 /// script with anything this tier recognizes.
 fn probe_and_extract_flags(probe: &dyn Probe, tool_path: &Path) -> Option<(String, Vec<Entity>)> {
     for shell in ["zsh", "bash"] {
-        let Ok(out) = probe.run(
+        let Ok(out) = crate::exec::run_probe_capped(
+            probe,
             tool_path,
             &InertArgv::CompletionScript {
                 shell: shell.to_string(),
