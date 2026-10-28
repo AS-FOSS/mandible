@@ -51,9 +51,9 @@ use crate::fit;
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
-use mandible_core::{
-    CommandNode, Dashes, Entity, EntityKind, FlagKey, OptionalJoin, Spelling, ValueKind,
-};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling};
+#[cfg(test)]
+use mandible_core::{OptionalJoin, ValueKind};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -4559,6 +4559,8 @@ pub(crate) fn render_reference(frame: &mut Frame, area: Rect, app: &App) {
 
 #[cfg(test)]
 mod identity_tests;
+#[cfg(test)]
+mod spelling_fence_tests;
 
 #[cfg(test)]
 mod small_terminal_tests;

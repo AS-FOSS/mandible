@@ -590,6 +590,100 @@ impl Entity {
         self.spellings.first().map_or("", |s| s.name.as_str())
     }
 
+    /// True for the spelling a range row starts at: the page draws it as
+    /// the whole range (`-0 ... -9`), which counts as a long name.
+    pub fn is_range_start(&self, s: &Spelling) -> bool {
+        self.range()
+            .is_some_and(|r| r.start.name == s.name && r.start.dashes == s.dashes)
+    }
+
+    /// True for a one-dash, one-character spelling that the page draws as a
+    /// short: not the start of a range.
+    pub fn is_drawn_short(&self, s: &Spelling) -> bool {
+        matches!(s.dashes, Dashes::Single) && s.name.chars().count() == 1 && !self.is_range_start(s)
+    }
+
+    /// The order the page draws the spellings in: shorts, then longs in
+    /// source order, then the range. Indices into `spellings`.
+    pub fn display_order(&self) -> Vec<usize> {
+        let mut order: Vec<usize> = (0..self.spellings.len()).collect();
+        order.sort_by_key(|&i| {
+            let s = &self.spellings[i];
+            if self.is_range_start(s) {
+                2
+            } else {
+                u8::from(!self.is_drawn_short(s))
+            }
+        });
+        order
+    }
+
+    /// The value placeholder as the page draws it: `FILE`, or `[FILE]`,
+    /// `[=WHEN]`, `[N]` when optional. The brackets of an optional value
+    /// enclose what may be left out, joiner included. `None` when the
+    /// entity takes no value.
+    pub fn value_text(&self) -> Option<String> {
+        let name = self.value_name.as_ref()?;
+        match self.value_kind {
+            ValueKind::Required => Some(name.clone()),
+            // A glued run of optional bracketed groups (docs/shapes.md
+            // S-097) keeps its source spelling, brackets included, so
+            // it is never wrapped a second time.
+            ValueKind::Optional => {
+                let run = name.starts_with('[') && name.ends_with(']');
+                Some(match (self.optional_join, run) {
+                    (Some(OptionalJoin::Equals), true) => format!("[={}", &name[1..]),
+                    (Some(OptionalJoin::Equals), false) => format!("[={name}]"),
+                    (_, true) => name.clone(),
+                    (_, false) => format!("[{name}]"),
+                })
+            }
+            ValueKind::None => None,
+        }
+    }
+
+    /// What sits between the spellings and the value placeholder on the
+    /// page: nothing when the value glues on (the argfile sigil, a literal
+    /// glue character, an optional value joined by `=` or glued), one
+    /// space otherwise.
+    pub fn value_gap(&self) -> &'static str {
+        let glued_optional = self.value_kind == ValueKind::Optional
+            && matches!(
+                self.optional_join,
+                Some(OptionalJoin::Equals | OptionalJoin::Glued)
+            );
+        if self.spelling_is_sigil() || self.value_glues_by_prefix() || glued_optional {
+            ""
+        } else {
+            " "
+        }
+    }
+
+    /// True for a single dashless spelling that is nothing but its own
+    /// leading sigil character (`@`, `+`), whose value glues on
+    /// (docs/shapes.md S-163 for the `+word` counter-case).
+    pub fn spelling_is_sigil(&self) -> bool {
+        self.spellings.len() == 1
+            && matches!(self.spellings[0].dashes, Dashes::None)
+            && self.spellings[0]
+                .name
+                .chars()
+                .next()
+                .is_some_and(|c| !c.is_alphanumeric())
+            && self.spellings[0].name.chars().count() == 1
+    }
+
+    /// True when a required value glues to its spelling by a literal
+    /// character other than whitespace (docs/shapes.md S-116,
+    /// `-Wa,<options>`).
+    pub fn value_glues_by_prefix(&self) -> bool {
+        self.value_kind == ValueKind::Required
+            && self
+                .value_name
+                .as_deref()
+                .is_some_and(|v| v.starts_with(','))
+    }
+
     /// True if `key` addresses this entity, checking every spelling
     /// regardless of which one is considered canonical.
     ///

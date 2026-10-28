@@ -60,7 +60,7 @@ fn sampled_nodes() -> &'static (Vec<(String, CommandNode)>, usize) {
     NODES.get_or_init(|| corpus_nodes(true))
 }
 
-fn corpus_nodes(sampled: bool) -> (Vec<(String, CommandNode)>, usize) {
+pub(super) fn corpus_nodes(sampled: bool) -> (Vec<(String, CommandNode)>, usize) {
     let mut nodes = Vec::new();
     let mut total = 0;
     let mut dirs: Vec<_> = std::fs::read_dir(corpus_root())

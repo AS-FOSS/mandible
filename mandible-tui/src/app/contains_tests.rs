@@ -189,7 +189,8 @@ fn mask(buf: &Buffer, y: u16, x: u16, len: u16) -> String {
 fn every_occurrence_of_every_word_is_underlined_in_a_command_name() {
     let mut root = cmd("tool");
     root.subcommands = vec![cmd("cherry-pick"), cmd("foo-foo")];
-    let app = search(root.clone(), false, "ch pic");
+    let mut app = search(root.clone(), false, "ch pic");
+    app.focus = Focus::Tree;
     let buf = draw(&app, 100, 30);
     let (y, x) = find_left(&buf, "cherry-pick").unwrap();
     assert_eq!(mask(&buf, y, x, 11), "uu.....uuu.");

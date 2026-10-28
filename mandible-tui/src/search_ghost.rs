@@ -1,5 +1,5 @@
-//! The dim suggestion in the search box (spec §10): the rest of the
-//! spelling the cursor jumps to, or the closest name when nothing matched.
+//! The dim suggestion in the search box (spec §10): where `Enter` will
+//! land, or the closest name when nothing matched.
 
 use crate::search_rank::{best_name, PagePositions};
 use mandible_core::{CommandNode, NodeRef};
@@ -21,8 +21,10 @@ pub(crate) struct Ghost {
 /// How a suggestion relates to the input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum GhostKind {
-    /// The jump target's spelling starts with the input.
+    /// The jump target's spelling continues the input.
     Completes,
+    /// The jump target's spelling does not continue the input.
+    Target,
     /// Nothing matched; this is the nearest name.
     Closest,
 }
@@ -37,7 +39,7 @@ impl Ghost {
                 .chars()
                 .skip(self.input.chars().count())
                 .collect(),
-            GhostKind::Closest => format!("   {arrow} {}", self.accept),
+            GhostKind::Target | GhostKind::Closest => format!("   {arrow} {}", self.accept),
         }
     }
 }
@@ -52,24 +54,40 @@ fn starts_with_ignoring_case(name: &str, input: &str) -> bool {
 }
 
 /// The suggestion for a search whose first jump target is `first`: the
-/// rest of its best spelling, when that spelling starts with the input
-/// and is longer than it.
+/// rest of its best spelling when that spelling continues the input, else
+/// the spelling itself. Nothing when the spelling is the input.
 pub(crate) fn completion(root: &CommandNode, first: &NodeRef, input: &str) -> Option<Ghost> {
     let name = best_name(root, first, input)?;
-    let longer = name.chars().count() > input.chars().count();
-    (longer && starts_with_ignoring_case(&name, input)).then(|| Ghost {
+    let kind = if starts_with_ignoring_case(&name, input) {
+        if name.chars().count() <= input.chars().count() {
+            return None;
+        }
+        GhostKind::Completes
+    } else {
+        GhostKind::Target
+    };
+    Some(Ghost {
         input: input.to_string(),
-        kind: GhostKind::Completes,
+        kind,
         accept: name,
     })
 }
 
+/// How many leading characters `a` and `b` share, ignoring case.
+fn shared_start(a: &str, b: &str) -> usize {
+    a.chars()
+        .zip(b.chars())
+        .take_while(|(x, y)| x.to_lowercase().eq(y.to_lowercase()))
+        .count()
+}
+
 /// The command name or spelling with the fewest edits from `input`, at
-/// most [`MAX_EDITS`]; ties go to the earlier row in the tree, then the
-/// earlier line on its page.
+/// most [`MAX_EDITS`]; ties go to the name sharing the longer beginning
+/// with the input, then the earlier row in the tree, then the earlier line
+/// on its page.
 pub(crate) fn closest(root: &CommandNode, input: &str) -> Option<Ghost> {
     let wanted = input.to_lowercase();
-    let mut best: Option<(usize, usize)> = None;
+    let mut best: Option<(usize, usize, usize)> = None;
     let mut found: Vec<(usize, usize, u8, NodeRef, String)> = Vec::new();
     let mut order = 0usize;
     collect(
@@ -79,16 +97,19 @@ pub(crate) fn closest(root: &CommandNode, input: &str) -> Option<Ghost> {
         &mut order,
         &mut found,
     );
-    for (dist, pos, ..) in &found {
-        if best.is_none_or(|b| (*dist, *pos) < b) {
-            best = Some((*dist, *pos));
+    for (dist, pos, _, _, name) in &found {
+        let key = (*dist, usize::MAX - shared_start(&wanted, name), *pos);
+        if best.is_none_or(|b| key < b) {
+            best = Some(key);
         }
     }
-    let (dist, pos) = best?;
+    let (dist, rev_shared, pos) = best?;
     let mut pages = PagePositions::default();
     found
         .into_iter()
-        .filter(|(d, p, ..)| (*d, *p) == (dist, pos))
+        .filter(|(d, p, _, _, name)| {
+            (*d, usize::MAX - shared_start(&wanted, name), *p) == (dist, rev_shared, pos)
+        })
         .map(|(_, _, kind, item, name)| ((kind, pages.of(root, &item)), name))
         .min_by_key(|(rank, _)| *rank)
         .map(|(_, accept)| Ghost {
@@ -115,7 +136,9 @@ fn collect(
             out.push((dist, pos, kind, item, name));
         }
     };
-    offer(0, NodeRef::Command(path.clone()), node.name.clone());
+    for name in mandible_search::command_forms(node) {
+        offer(0, NodeRef::Command(path.clone()), name);
+    }
     for entity in &node.entities {
         let Some(key) = entity.key() else { continue };
         for form in mandible_search::entity_forms(entity) {

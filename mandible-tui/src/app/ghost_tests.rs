@@ -72,16 +72,32 @@ fn the_no_form_of_a_negatable_flag_is_suggested() {
 }
 
 #[test]
-fn no_suggestion_when_the_target_does_not_start_with_the_input() {
+fn a_match_in_the_middle_suggests_the_target_after_an_arrow() {
     let app = typing(git(), "trunc");
     assert!(!app.no_match());
-    assert_eq!(app.ghost(), None);
+    let ghost = app.ghost().unwrap();
+    assert_eq!(ghost.kind, GhostKind::Target);
+    assert_eq!(ghost.accept, "--no-trunc");
+    assert_eq!(ghost.shown("→"), "   → --no-trunc");
+    assert_eq!(app.search_query, "trunc", "the input is not changed");
 }
 
 #[test]
-fn no_suggestion_when_the_input_is_the_whole_spelling_or_has_two_words() {
+fn a_multi_word_query_suggests_the_target_after_an_arrow() {
+    let mut root = cmd("git");
+    root.subcommands = vec![cmd("cherry-pick"), cmd("add")];
+    let app = typing(root, "cherry pick");
+    assert_eq!(shown(&app).as_deref(), Some("   → cherry-pick"));
+    assert_eq!(
+        typing(git(), "no trunc").ghost().unwrap().accept,
+        "--no-trunc"
+    );
+}
+
+#[test]
+fn no_suggestion_when_the_input_is_the_whole_spelling() {
     assert_eq!(typing(git(), "--squash").ghost(), None);
-    assert_eq!(typing(git(), "no trunc").ghost(), None);
+    assert_eq!(typing(git(), "--SQUASH").ghost(), None);
 }
 
 #[test]
@@ -111,6 +127,14 @@ fn the_closest_name_is_at_most_two_edits_away_for_any_length() {
         .is_some());
     assert_eq!(typing(root, "--a-flag-name-of-sme-lngt").ghost(), None);
     assert_eq!(typing(git(), "zzqq").ghost(), None);
+}
+
+#[test]
+fn equal_distances_go_to_the_name_sharing_the_longer_beginning_first() {
+    let mut root = cmd("git");
+    root.entities.push(Entity::flag_long("stat", prov()));
+    root.entities.push(Entity::flag_long("squash", prov()));
+    assert_eq!(typing(root, "--sqas").ghost().unwrap().accept, "--squash");
 }
 
 #[test]
@@ -152,8 +176,19 @@ fn tab_takes_the_closest_name_and_the_notice_goes() {
 }
 
 #[test]
-fn tab_without_a_suggestion_does_nothing() {
+fn tab_takes_a_target_spelling_and_the_jump_lands_on_it() {
     let mut app = typing(git(), "trunc");
+    app.accept_ghost();
+    settle(&mut app);
+    assert_eq!(app.search_query, "--no-trunc");
+    assert_eq!(selected_name(&app), "ps");
+    assert_eq!(app.selected_flag, Some(FlagKey::Long("no-trunc".into())));
+    assert_eq!(app.ghost(), None);
+}
+
+#[test]
+fn tab_without_a_suggestion_does_nothing() {
+    let mut app = typing(git(), "--squash");
     let before = (app.search_query.clone(), app.selected_path());
     app.accept_ghost();
     settle(&mut app);
@@ -262,12 +297,18 @@ fn a_narrow_box_cuts_the_suggestion_and_never_overflows() {
 }
 
 #[test]
-fn the_footer_names_tab_as_accept_while_a_suggestion_shows() {
-    let app = typing(git(), "--sq");
-    let buf = draw(&app, 140);
-    let screen: String = (0..20).map(|y| row(&buf, y)).collect();
-    assert!(screen.contains("Tab accept") && !screen.contains("Tab pane"));
-    let app = typing(git(), "trunc");
+fn the_footer_names_tab_as_accept_while_the_box_has_focus() {
+    for query in ["--sq", "trunc", "zzqq", "--squash"] {
+        let app = typing(git(), query);
+        let buf = draw(&app, 140);
+        let screen: String = (0..20).map(|y| row(&buf, y)).collect();
+        assert!(
+            screen.contains("Tab accept") && !screen.contains("Tab pane"),
+            "{query}"
+        );
+    }
+    let mut app = typing(git(), "--sq");
+    app.accept_search();
     let buf = draw(&app, 140);
     let screen: String = (0..20).map(|y| row(&buf, y)).collect();
     assert!(screen.contains("Tab pane") && !screen.contains("Tab accept"));

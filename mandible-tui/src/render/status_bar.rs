@@ -154,7 +154,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         app.horizontal_scroll_enabled,
         app.print_selection,
         app.active_filter().is_some() && !app.no_match(),
-        app.ghost().is_some(),
+        app.focus == crate::app::Focus::Search,
     );
 
     let mut spans = vec![
@@ -228,10 +228,10 @@ mod tests {
         }
     }
 
-    /// While the search box shows a suggestion, `Tab` takes it, so the
+    /// While the search box has focus, `Tab` is the box's key, so the
     /// footer says that instead of naming the pane switch.
     #[test]
-    fn a_suggestion_changes_what_tab_is_named() {
+    fn the_focused_box_changes_what_tab_is_named() {
         let on = hints_for_width(140, crate::glyphs::UNICODE, true, false, true, true);
         let off = hints_for_width(140, crate::glyphs::UNICODE, true, false, true, false);
         assert!(

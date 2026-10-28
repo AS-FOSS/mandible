@@ -4,7 +4,7 @@
 //! only choose which match the cursor jumps to first; they never hide or
 //! reorder the tree.
 
-use mandible_core::{resolve, resolve_flag, CommandNode, FlagKey, NodeRef};
+use mandible_core::{resolve, CommandNode, FlagKey, NodeRef};
 use std::collections::HashMap;
 
 /// How closely a name relates to the query. Smaller is better.
@@ -57,10 +57,18 @@ fn name_tier(name: &str, first: &str) -> Option<Tier> {
 /// of every spelling of an entity.
 fn names_of(root: &CommandNode, item: &NodeRef) -> Vec<String> {
     match item {
-        NodeRef::Command(path) => vec![path.last().cloned().unwrap_or_default()],
-        NodeRef::Flag { path, key } => resolve_flag(root, path, key)
-            .map(mandible_search::entity_forms)
-            .unwrap_or_default(),
+        NodeRef::Command(path) => resolve(root, path).map_or_else(
+            || vec![path.last().cloned().unwrap_or_default()],
+            mandible_search::command_forms,
+        ),
+        // Rows that share a key are one hit, so it is found by the
+        // spellings of all of them.
+        NodeRef::Flag { path, key } => resolve(root, path)
+            .into_iter()
+            .flat_map(|node| node.entities.iter())
+            .filter(|e| e.key().as_ref() == Some(key))
+            .flat_map(mandible_search::entity_forms)
+            .collect(),
     }
 }
 

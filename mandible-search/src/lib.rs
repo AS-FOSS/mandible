@@ -20,7 +20,7 @@
 #![warn(clippy::cognitive_complexity)]
 #![warn(missing_docs)]
 
-use mandible_core::{CommandNode, Entity, NodeRef, Spelling};
+use mandible_core::{CommandNode, Entity, EntityKind, NodeRef, Spelling};
 
 /// One indexed item: a command or an entity (flag, positional, modifier, or
 /// environment variable), addressable via its [`NodeRef`].
@@ -183,26 +183,68 @@ pub fn substring_indices(name: &str, query: &str) -> Vec<u32> {
     out.into_iter().collect()
 }
 
-/// Every form of `spelling` a user can type: the spelling with its dashes,
-/// and for a negatable one also its `no-` form (`--squash`, `--no-squash`).
+/// Every form of `spelling` as the page shows it or a user types it: the
+/// spelling with its dashes, for a negatable one also its `no-` form
+/// (`--squash`, `--no-squash`), and for one with an abbreviation bracket
+/// also the bracket as drawn (`-resolve`, `-r[esolve]`).
 pub fn spelling_forms(spelling: &Spelling) -> Vec<String> {
     let typed = spelling.typed();
     let mut forms = vec![typed.clone()];
     if spelling.negatable {
         let lead = &typed[..typed.len() - spelling.name.len()];
         forms.push(format!("{lead}no-{}", spelling.name));
+    } else if spelling.render() != typed {
+        forms.push(spelling.render());
     }
     forms
 }
 
 /// Every form of every spelling of `entity`, in document order, with the
-/// far end of a range last.
+/// far end of a range last. A range is indexed at the two ends the page
+/// draws and nowhere between. A value that sits against its spelling
+/// (`--color[=WHEN]`, `-O[N]`, `@<file>`) adds the joined form, and a
+/// repeatable positional adds its `...` form (`FILE...`).
 pub fn entity_forms(entity: &Entity) -> Vec<String> {
-    entity
-        .spellings
-        .iter()
-        .chain(entity.range().map(|r| &r.end))
-        .flat_map(spelling_forms)
+    // The page draws the value after the last spelling it draws, which is
+    // the far end of a range.
+    let last = entity.display_order().last().copied();
+    let glued = entity
+        .value_text()
+        .filter(|_| entity.value_gap().is_empty());
+    let mut out: Vec<String> = Vec::new();
+    for (i, spelling) in entity.spellings.iter().enumerate() {
+        let value_here = last == Some(i) && entity.range().is_none();
+        push_spelling(
+            &mut out,
+            entity,
+            spelling,
+            glued.as_deref().filter(|_| value_here),
+        );
+    }
+    if let Some(range) = entity.range() {
+        push_spelling(&mut out, entity, &range.end, glued.as_deref());
+    }
+    let mut seen = std::collections::HashSet::new();
+    out.retain(|f| seen.insert(f.clone()));
+    out
+}
+
+fn push_spelling(out: &mut Vec<String>, entity: &Entity, spelling: &Spelling, glued: Option<&str>) {
+    for form in spelling_forms(spelling) {
+        out.push(form.clone());
+        if let Some(value) = glued {
+            out.push(format!("{form}{value}"));
+        }
+        if entity.kind == EntityKind::Positional && entity.repeatable {
+            out.push(format!("{form}..."));
+        }
+    }
+}
+
+/// A command's name and its aliases, which its page lists.
+pub fn command_forms(node: &CommandNode) -> Vec<String> {
+    std::iter::once(node.name.clone())
+        .chain(node.aliases.iter().cloned())
         .collect()
 }
 
@@ -255,6 +297,10 @@ fn push_entity(entries: &mut Vec<Entry>, entity: &Entity, path: &[String]) {
     }
     if let Some(v) = &entity.value_name {
         haystack.push_str(v);
+        haystack.push(' ');
+    }
+    if let Some(v) = entity.value_text() {
+        haystack.push_str(&v);
         haystack.push(' ');
     }
     if let Some(d) = &entity.description {
@@ -666,6 +712,79 @@ mod tests {
         assert_eq!(long_keys(&name_index(&root, "no squash")), ["squash"]);
         assert_eq!(long_keys(&name_index(&root, "--squash")), ["squash"]);
         assert_eq!(entity_forms(&root.entities[0]), ["--squash", "--no-squash"]);
+    }
+
+    fn found(root: &CommandNode, query: &str) -> bool {
+        !name_index(root, query).is_empty()
+    }
+
+    #[test]
+    fn an_abbreviation_bracket_is_found_as_drawn_and_in_full() {
+        let mut root = CommandNode::new("curl", Provenance::single(Source::HelpText));
+        let mut e = Entity::flag_short('r', Provenance::single(Source::HelpText));
+        e.spellings = vec![{
+            let mut s = Spelling::single_dash("resolve");
+            s.abbrev = Some(1);
+            s
+        }];
+        root.entities.push(e);
+        for query in ["-r[esolve]", "r[esolve]", "-resolve", "-r", "resolve"] {
+            assert!(found(&root, query), "{query}");
+        }
+        assert!(!found(&root, "-r[esolv]"));
+    }
+
+    #[test]
+    fn a_value_that_sits_against_its_spelling_is_found_as_drawn() {
+        let mut root = CommandNode::new("gcc", Provenance::single(Source::HelpText));
+        let mut color = Entity::flag_long("color", Provenance::single(Source::HelpText));
+        color.value_name = Some("WHEN".to_string());
+        color.value_kind = mandible_core::ValueKind::Optional;
+        color.optional_join = Some(mandible_core::OptionalJoin::Equals);
+        root.entities.push(color);
+        for query in ["--color", "--color[=WHEN]", "color[="] {
+            assert!(found(&root, query), "{query}");
+        }
+        assert_eq!(
+            entity_forms(&root.entities[0]),
+            ["--color", "--color[=WHEN]"]
+        );
+    }
+
+    #[test]
+    fn a_repeatable_positional_is_found_with_its_ellipsis() {
+        let mut root = CommandNode::new("rm", Provenance::single(Source::HelpText));
+        let mut file = Entity::positional("FILE", Provenance::single(Source::HelpText));
+        file.repeatable = true;
+        root.entities.push(file);
+        assert!(found(&root, "FILE..."));
+        assert!(found(&root, "file"));
+    }
+
+    #[test]
+    fn a_range_is_found_at_the_two_ends_it_draws_and_nowhere_between() {
+        let mut root = CommandNode::new("xz", Provenance::single(Source::HelpText));
+        let mut preset = Entity::flag_short('0', Provenance::single(Source::HelpText));
+        preset
+            .set_range(mandible_core::SpellingRange {
+                start: Spelling::short('0'),
+                end: Spelling::short('9'),
+            })
+            .expect("the start is a spelling");
+        root.entities.push(preset);
+        assert!(found(&root, "-0"));
+        assert!(found(&root, "-9"));
+        assert!(!found(&root, "-5"));
+    }
+
+    #[test]
+    fn a_command_is_found_by_its_alias() {
+        let mut root = CommandNode::new("git", Provenance::single(Source::HelpText));
+        let mut co = CommandNode::new("checkout", Provenance::single(Source::HelpText));
+        co.aliases = vec!["co".to_string()];
+        root.subcommands.push(co);
+        assert_eq!(command_forms(&root.subcommands[0]), ["checkout", "co"]);
+        assert!(found(&root, "co"));
     }
 
     #[test]
