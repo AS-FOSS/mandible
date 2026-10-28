@@ -9,8 +9,6 @@ use std::rc::Rc;
 pub(crate) struct HitMarks {
     /// The keyword the hits were computed for.
     pub(crate) query: String,
-    /// True when they were found in wide mode.
-    pub(crate) wide: bool,
     /// Commands that matched by their own name.
     pub(crate) commands: HashSet<Vec<String>>,
     /// Matching entities, by the command that owns them.
@@ -18,10 +16,9 @@ pub(crate) struct HitMarks {
 }
 
 impl HitMarks {
-    pub(crate) fn from_hits(hits: &[NodeRef], query: &str, wide: bool) -> HitMarks {
+    pub(crate) fn from_hits(hits: &[NodeRef], query: &str) -> HitMarks {
         let mut marks = HitMarks {
             query: query.to_string(),
-            wide,
             ..HitMarks::default()
         };
         for hit in hits {

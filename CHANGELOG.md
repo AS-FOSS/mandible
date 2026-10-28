@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `--doctor` and `--report` take `--no-timeout` to let every probe run as long as it needs; without it a probe is stopped after 30 seconds and reported as a failure.
 - `n` and `p` select the next or previous matching entity on the page while a search is active, from the commands list or the detail pane, wrapping at the ends; the footer and the `?` overlay list them. The current match sits on the same gray bar as the selected list row, and `N` and `P` work like `n` and `p`.
 - A commands-list row with matching flags, positionals, modifiers or environment variables shows how many in a fixed-width column on the right (`  1 found`, ` 14 found`, `99+ found`), one column in from the border; a pane too narrow to keep summaries beside it drops the counts first.
+- While you type in the search box, a dim suggestion shows the rest of the spelling the cursor will land on (`--sq` shows `uash`), or `→ --squash` after a typo when nothing matches; `Tab` puts it in the box and searches again, and the footer and the `?` overlay list it.
 
 ### Changed
 
@@ -46,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - A help probe may run for 30 seconds instead of 10, and one thread of the pool is kept for the command under the cursor and for `r`.
 - `Esc` in the search box cancels the search: the keyword and filter clear and the cursor returns to the row it was on before `/`. `Esc` in the filtered list clears them and the cursor stays on its row. The `(pinned)` and `(filter)` labels are gone, and the bar shows the keyword with `›` only while typing.
 - `/` in the filtered list reopens the search box with the keyword, and `Enter` jumps to the first match again.
-- Dashes typed in front of a search line up with the dashes before a word of the name: `-ssl` and `--ssl` find `--ssl-reqd`, `-s` finds `-s`, `--squash` and `--no-squash`, and `run` still refuses `--no-trunc`. In `everything` search every word must appear as connected text, so `-ssl` no longer lists commands whose letters are scattered, and a match at the start of a word ranks first.
+- Search matches a row that contains every word you type, in any case, in both `names` and `everything`, and a dash is an ordinary character: `size` finds `--blocksize`, `no verify` finds `--no-verify`, `--no-squash` finds a `--[no-]squash` flag, and `-ssl` no longer lists commands whose letters are scattered. Every occurrence of each word is underlined, and the best match, not the tree, decides where the cursor jumps first.
 - With a search active, matching rows are marked in both panes: the list's matching rows are bold, rows kept only for the tree's shape stay plain, and the detail pane's matching rows get a bar in the left margin and underlined matched letters, `NO_COLOR` included. The row `n`, `p` or the jump landed on is the only one on the gray bar.
 - The `No matches for "…"` line in the commands list now has the one-column margin the detail pane's notices have.
 
@@ -61,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Quitting mandible, or killing it, while a tool is being probed no longer leaves that tool running: `pam-auth-update` was left spinning at full CPU on Linux.
 - [S-252] A USAGE form led by another program's name (`bpftrace [options] filename` under `tcpretrans.bt`) is now shown as printed instead of being prefixed with the tool's name, and the first form under a bare `Usage:` label lines up with the forms below it.
 - After a search scrolls the detail pane to a flag, `↑` and `↓` now move one line from that position instead of jumping back to the top of the page.
-- Search jumped to a command the list did not rank first: `/rebase` selected `git submodule` and `/re` selected `git bisect`. The jump now goes to the first match, ranked exact name, name prefix, then word prefix, commands first, then the shallower and earlier row.
+- Search jumped to a command the list did not rank first: `/rebase` selected `git submodule` and `/re` selected `git bisect`. The jump now goes to the first match, ranked exact name, name prefix, word prefix, then anywhere inside the name, commands first, then the shallower and earlier row.
 - A search with no match showed every command and jumped to a fuzzy guess; it now shows `No matches for "<query>"`, counts 0, and the cursor and page return to the row from before `/`.
 - `Esc` after `Enter` did nothing; it now clears the search.
 

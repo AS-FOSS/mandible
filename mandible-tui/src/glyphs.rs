@@ -33,6 +33,8 @@ pub struct Glyphs {
     pub arrow_down: &'static str,
     /// Prefix for the search input.
     pub prompt: &'static str,
+    /// Points from the typed text at the closest name.
+    pub suggest: &'static str,
     /// Separator between breadcrumb path segments.
     pub breadcrumb: &'static str,
     /// Separator between provenance footer fields.
@@ -70,6 +72,7 @@ pub const UNICODE: Glyphs = Glyphs {
     ellipsis: "…",
     arrow_down: "↓",
     prompt: "›",
+    suggest: "→",
     breadcrumb: "›",
     dot: "·",
     check: "✓",
@@ -94,6 +97,7 @@ pub const ASCII: Glyphs = Glyphs {
     ellipsis: "...",
     arrow_down: "v",
     prompt: ">",
+    suggest: "->",
     breadcrumb: ">",
     dot: "|",
     check: "ok",
@@ -154,6 +158,7 @@ mod tests {
             ASCII.ellipsis,
             ASCII.arrow_down,
             ASCII.prompt,
+            ASCII.suggest,
             ASCII.breadcrumb,
             ASCII.dot,
             ASCII.check,

@@ -9,10 +9,9 @@
 //! sandboxed environment has no tty to run the real thing against).
 //!
 //! **Search:** `App` owns a `mandible_search::SearchIndex` (spec §10):
-//! commands and flags are both indexed, ranked with `nucleo`'s fuzzy
-//! scoring plus an exact-name-prefix boost, and driven via
-//! `App::tick_search` from the caller's event-loop poll timeout rather
-//! than blocking a keystroke handler. `tree::flatten` itself does no text
+//! commands and flags are both indexed and matched as connected text, and
+//! `App::tick_search` rebuilds the index from the caller's event loop once
+//! per batch of spliced nodes. `tree::flatten` itself does no text
 //! matching — it takes a precomputed set of matching command paths (a
 //! flag match contributes its parent command's path, since flags aren't
 //! tree rows) and handles the hierarchy-preserving expand/hide logic.
@@ -34,6 +33,7 @@ pub mod layout;
 pub mod probes;
 pub mod render;
 pub mod sanitize;
+pub(crate) mod search_ghost;
 pub(crate) mod search_rank;
 pub mod style;
 pub mod terminal;

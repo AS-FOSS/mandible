@@ -317,10 +317,9 @@ fn run_loop(
         // timer of its own.
         app.expire_status(std::time::Instant::now());
 
-        // Drive the search index's background matcher forward from this
-        // same poll timeout (spec §10 "Threading") — never as a blocking
-        // spin inside the keystroke handler itself.
-        app.tick_search(10);
+        // Rebuild the search index once for a batch of spliced nodes
+        // (spec §10), never once per node.
+        app.tick_search();
 
         app.ensure_rows_fresh();
 

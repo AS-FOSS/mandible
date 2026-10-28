@@ -52,6 +52,17 @@ pub fn muted(color_enabled: bool) -> Style {
     }
 }
 
+/// The suggestion after the text typed in the search box. Muted, so it
+/// reads as less certain than the input. With color off muted text is
+/// plain, which would pass for typed text, so it is italic and dim there.
+pub fn ghost(color_enabled: bool) -> Style {
+    if color_enabled {
+        muted(true)
+    } else {
+        Style::default().add_modifier(Modifier::ITALIC | Modifier::DIM)
+    }
+}
+
 /// Muted + bold: section headings (`DESCRIPTION`, `FLAGS`, `INHERITED`,
 /// flag group headings).
 pub fn muted_bold(color_enabled: bool) -> Style {

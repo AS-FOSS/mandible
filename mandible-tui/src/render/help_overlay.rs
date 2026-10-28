@@ -18,6 +18,7 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (Some("Tab"), "Switch between tree and detail"),
     (None, "SEARCH"),
     (Some("/"), "Search; again to widen names → everything"),
+    (Some("Tab"), "In the box: take the dim suggestion"),
     (Some("n"), "Next match on the page"),
     (Some("p"), "Previous match"),
     (

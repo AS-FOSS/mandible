@@ -5,7 +5,7 @@ use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::text::Line;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
@@ -57,8 +57,16 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     } else {
         format!("{lead}{}", typed_tail(&typed, typed_room))
     };
-    let paragraph = Paragraph::new(Line::from(text));
-    frame.render_widget(paragraph, inner);
+    let mut spans = vec![Span::raw(text.clone())];
+    if focused {
+        let left = room.saturating_sub(display_width(&text));
+        if let Some(ghost) = app.ghost().filter(|_| left > 0) {
+            let shown = defensive_single_line(&ghost.shown(app.glyphs.suggest));
+            let shown = crate::sanitize::truncate_to_width(&shown, left);
+            spans.push(Span::styled(shown, style::ghost(app.color_enabled)));
+        }
+    }
+    frame.render_widget(Paragraph::new(Line::from(spans)), inner);
 }
 
 /// The last characters of `text` that fit in `room` columns.

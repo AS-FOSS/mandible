@@ -198,9 +198,14 @@ on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`
 to scroll wide lines sideways, `t` for the tool's own `--help`, `y` to copy the
 selected flag, `q` to quit.
 
-Search has two modes: `names` matches the start of a word in a name; `everything`
-searches flags and descriptions, and every word you type must appear as
-connected text. `/` opens the first, pressing it again switches to the second.
+Search has two modes. `names` matches a command name or any spelling of a flag,
+positional, modifier or environment variable; `everything` also searches
+descriptions. In both, a row matches when it contains every word you type, in any
+case, and a dash counts like any other character: `size` finds `--blocksize`,
+`no verify` finds `--no-verify`. The best match is where the cursor jumps; every
+other match stays in the tree. While you type, a dim suggestion shows the rest of
+that match's spelling, or the closest name when nothing matches, and `Tab` takes
+it. `/` opens the first mode, pressing it again switches to the second.
 
 ### Completions
 

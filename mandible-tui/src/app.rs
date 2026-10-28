@@ -3,6 +3,7 @@
 //! I/O, so it's fully testable without a tty.
 
 use crate::probes::{FillEnd, Outcome};
+use crate::search_ghost::Ghost;
 use crate::search_rank::{hit_path, page_order_within_groups, rank_by_name};
 use crate::tree::{flatten, TreeRow};
 use mandible_core::{resolve, CommandNode, NodeRef, Text};
@@ -47,13 +48,11 @@ impl SearchMode {
     }
 }
 
-/// What the active filter's match came to, as far as it has got.
+/// What the active filter's match came to.
 enum SearchHits {
     /// No filter is active.
     Off,
-    /// The matcher is still running; the result so far says nothing.
-    Pending,
-    /// The matcher finished and nothing matched.
+    /// Nothing matched.
     NoMatch,
     /// The ranked result list; the first entry is the jump target.
     Found(Vec<NodeRef>),
@@ -150,6 +149,8 @@ pub struct App {
     /// True while the active filter has a finished match with no result:
     /// the tree pane shows a notice and `rows` is left as it was.
     no_match: bool,
+    /// The dim suggestion for the input the box holds.
+    ghost: Option<Ghost>,
     /// Which pane has input focus.
     pub focus: Focus,
     /// Whether the detail pane is showing the tool's own `--help` bytes
@@ -290,9 +291,9 @@ pub struct App {
     /// When [`Self::status_message`] should disappear. `None` whenever
     /// there is no message.
     status_expires_at: Option<Instant>,
-    /// The `nucleo`-backed fuzzy index over this tree's commands and flags
-    /// (spec §10). Populated from `root` at construction and whenever the
-    /// tree's structure changes; queried (not text-matched directly) by
+    /// The search index over this tree's commands and flags (spec §10).
+    /// Populated from `root` at construction and whenever the tree's
+    /// structure changes; queried (not text-matched directly) by
     /// [`Self::ensure_rows_fresh`] to compute which tree paths are
     /// currently showing as matches.
     search_index: SearchIndex,
@@ -434,6 +435,7 @@ impl App {
             search_query: String::new(),
             pre_search_path: None,
             no_match: false,
+            ghost: None,
             focus: Focus::Tree,
             raw_mode: false,
             raw_help: HashMap::new(),
@@ -508,10 +510,8 @@ impl App {
         // computed against a fully current index.
         self.sync_search_index(Instant::now());
         let hits = match self.search_hits() {
-            // The matcher has not finished: keep the last complete rows
-            // and stay dirty until it has.
-            SearchHits::Pending => return,
             SearchHits::NoMatch => {
+                self.set_closest();
                 self.set_hit_marks(HitMarks::default());
                 self.show_no_match();
                 return;
@@ -519,11 +519,11 @@ impl App {
             SearchHits::Off => None,
             SearchHits::Found(list) => Some(list),
         };
-        let wide = self.search_mode == SearchMode::Wide;
         let marks = match (&hits, self.active_filter()) {
-            (Some(list), Some(query)) => HitMarks::from_hits(list, query, wide),
+            (Some(list), Some(query)) => HitMarks::from_hits(list, query),
             _ => HitMarks::default(),
         };
+        self.set_completion(hits.as_deref().and_then(<[NodeRef]>::first));
         self.set_hit_marks(marks);
         self.no_match = false;
         let matching_paths = hits
@@ -606,20 +606,15 @@ impl App {
 
     /// The active filter's result list, ranked, or why there is none.
     ///
-    /// Name mode keeps the hits whose names relate to the keyword and
-    /// ranks them by tier ([`rank_by_name`]); wide mode keeps the fuzzy
-    /// index's own order. `NoMatch` is only ever answered from a settled
-    /// index ([`SearchIndex::is_settled`]): an unfinished match is
-    /// `Pending`.
+    /// Name mode keeps the hits whose names contain every word of the
+    /// keyword and ranks them by tier ([`rank_by_name`]); wide mode keeps
+    /// the index's own order.
     fn search_hits(&self) -> SearchHits {
         let Some(filter) = self.active_filter() else {
             return SearchHits::Off;
         };
         if filter.trim().is_empty() {
             return SearchHits::Off;
-        }
-        if !self.search_index.is_settled() {
-            return SearchHits::Pending;
         }
         let list = match self.search_mode {
             SearchMode::Name => rank_by_name(&self.root, self.search_index.results(), filter),
@@ -636,18 +631,11 @@ impl App {
         }
     }
 
-    /// Drive the search index's background matcher forward (spec §10
-    /// "Threading": must be called from the event loop's own poll timeout,
-    /// never a blocking spin inside a keystroke handler). Marks the row
-    /// list dirty if the result set changed, so the next
-    /// [`Self::ensure_rows_fresh`] picks up fresh matches.
-    pub fn tick_search(&mut self, timeout_ms: u64) {
+    /// Rebuild the search index if the tree changed (spec §10), once per
+    /// event-loop iteration. Marks the row list dirty when it does, so the
+    /// next [`Self::ensure_rows_fresh`] picks up fresh matches.
+    pub fn tick_search(&mut self) {
         self.sync_search_index(Instant::now());
-        let was_settled = self.search_index.is_settled();
-        let changed = self.search_index.tick(timeout_ms);
-        if changed || (!was_settled && self.search_index.is_settled()) {
-            self.mark_dirty();
-        }
     }
 
     /// Rebuild the search index if the tree changed since the last rebuild,
@@ -1717,9 +1705,14 @@ impl App {
     }
 }
 
+mod ghost;
 mod hit_marks;
 pub(crate) use hit_marks::{HitMarks, MatchRow};
 
+#[cfg(test)]
+mod contains_tests;
+#[cfg(test)]
+mod ghost_tests;
 #[cfg(test)]
 mod marking_tests;
 #[cfg(test)]
@@ -2051,26 +2044,10 @@ mod tests {
         assert_eq!(app.clamped_detail_hscroll(), 0);
     }
 
-    /// Drive the (real, async, `nucleo`-backed) search index until its
-    /// results stop changing for a few consecutive polls, bounded overall
-    /// so a bug can't hang the test suite. Mirrors how the real event loop
-    /// calls `tick_search` from its own poll timeout (spec §10
-    /// "Threading") rather than assuming a single call finishes matching.
+    /// Bring the search index up to date with the tree, as the event
+    /// loop's `tick_search` does before every render.
     fn settle_search(app: &mut App) {
-        // The event loop's own `tick_search` does this first; a test that
-        // spliced nodes in would otherwise settle a match against the index
-        // as it was before the splice.
         app.flush_search_index();
-        let deadline = Instant::now() + Duration::from_secs(2);
-        let mut quiet_polls = 0;
-        while Instant::now() < deadline && quiet_polls < 3 {
-            let changed = app.search_index.tick(20);
-            if changed {
-                quiet_polls = 0;
-            } else {
-                quiet_polls += 1;
-            }
-        }
     }
 
     fn sample_tree() -> CommandNode {
@@ -2289,26 +2266,16 @@ mod tests {
         );
     }
 
-    /// Spec §10, name mode: an entity match (any kind) is admitted only
-    /// when the query is a word-prefix of one of its spellings — the same
-    /// guard `word_prefix_matches` is unit-tested against, now proven
-    /// through the real filtering path. `--no-trunc`-shaped flag: `run`
-    /// (a docker-guard-style non-prefix query) must not surface its parent
-    /// command in name mode, even though `run` is a fuzzy subsequence
-    /// match the wide-mode index would happily return.
+    /// Spec §10, name mode: a name that contains the query anywhere
+    /// matches, so `run` surfaces the command that owns `--no-trunc` as
+    /// well as the command named `prune`, and the command comes first.
     #[test]
-    fn name_mode_refuses_a_non_word_prefix_flag_match() {
+    fn name_mode_admits_the_middle_of_a_flag_name() {
         let mut root = sample_tree();
         let mut no_trunc =
             mandible_core::Entity::flag_long("no-trunc", Provenance::single(Source::HelpText));
         no_trunc.description = Some(mandible_core::Text::sanitize("don't truncate output"));
         root.subcommands[1].entities.push(no_trunc); // rebase, standing in for the node
-
-        // A sibling whose *name* legitimately contains "run" as a
-        // substring, so the matching set is non-empty and the tree
-        // renders the real filter rather than falling back to the
-        // unfiltered tree on an empty result set — which would make
-        // "rebase" appear regardless of whether the flag guard works.
         root.subcommands.push(CommandNode::new(
             "prune",
             Provenance::single(Source::HelpText),
@@ -2316,7 +2283,6 @@ mod tests {
 
         let mut app = App::new("git".to_string(), root);
         app.focus_search();
-        // Name mode is the default; no toggle needed.
         for c in "run".chars() {
             app.search_input_char(c);
         }
@@ -2324,14 +2290,9 @@ mod tests {
         app.ensure_rows_fresh();
 
         let names: Vec<&str> = app.rows().iter().map(|r| r.name.as_str()).collect();
-        assert!(
-            names.contains(&"prune"),
-            "precondition: 'prune' should match 'run' by substring: {names:?}"
-        );
-        assert!(
-            !names.contains(&"rebase"),
-            "'run' must not admit '--no-trunc' in name mode: {names:?}"
-        );
+        assert!(names.contains(&"prune"), "{names:?}");
+        assert!(names.contains(&"rebase"), "{names:?}");
+        assert_eq!(app.selected_row().unwrap().name, "prune");
     }
 
     /// The word-prefix half of the same case: `trunc` (a real word of
@@ -2843,7 +2804,7 @@ mod tests {
             "splicing must not rebuild the index at all; the event loop does that"
         );
 
-        app.tick_search(0);
+        app.tick_search();
         assert_eq!(
             app.search_populate_count(),
             after_construction + 1,

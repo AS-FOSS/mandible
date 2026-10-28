@@ -12,7 +12,6 @@ use std::rc::Rc;
 pub(super) struct PageMarks<'a> {
     pub(super) keys: &'a [FlagKey],
     pub(super) query: &'a str,
-    pub(super) wide: bool,
     /// The entity the last jump or `n`/`p` landed on.
     pub(super) current: Option<&'a FlagKey>,
 }
@@ -27,7 +26,6 @@ impl<'a> PageMarks<'a> {
         (!hits.query.is_empty()).then_some(PageMarks {
             keys,
             query: &hits.query,
-            wide: hits.wide,
             current: app.selected_flag.as_ref(),
         })
     }
@@ -66,7 +64,9 @@ pub(super) fn mark_section(
     found
 }
 
-/// Underline the matched letters of the row's spellings.
+/// Underline every occurrence of every word of the query in the row's
+/// spellings, including the `no-` form a `[no-]` spelling shows in
+/// brackets.
 fn emphasize(lines: &mut [Line<'static>], entity: &Entity, marks: &PageMarks<'_>) {
     let mut underline: Vec<BTreeSet<usize>> = vec![BTreeSet::new(); lines.len()];
     let texts: Vec<Vec<char>> = lines
@@ -78,17 +78,22 @@ fn emphasize(lines: &mut [Line<'static>], entity: &Entity, marks: &PageMarks<'_>
         .iter()
         .chain(entity.range().map(|r| &r.end));
     for spelling in all {
-        let Some((dashes, letters)) = matched_letters(spelling, marks) else {
-            continue;
-        };
         let Some((line, at)) = find_spelling(&texts, &spelling.name) else {
             continue;
         };
-        let set = &mut underline[line];
-        set.extend(letters.iter().map(|i| at + i));
-        let before = &texts[line][..at];
-        if dashes > 0 && before.len() >= dashes && before[at - dashes..].iter().all(|&c| c == '-') {
-            set.extend(at - dashes..at);
+        let lead = spelling.typed().chars().count() - spelling.name.chars().count();
+        for (n, form) in mandible_search::spelling_forms(spelling).iter().enumerate() {
+            let chars: Vec<char> = form.chars().collect();
+            for i in mandible_search::substring_indices(form, marks.query) {
+                let i = i as usize;
+                let Some(pos) = displayed_at(at, lead, spelling.negatable, n == 1, i) else {
+                    continue;
+                };
+                let same = |a: char, b: char| a.to_lowercase().eq(b.to_lowercase());
+                if texts[line].get(pos).is_some_and(|&c| same(c, chars[i])) {
+                    underline[line].insert(pos);
+                }
+            }
         }
     }
     for (line, set) in lines.iter_mut().zip(&underline) {
@@ -96,32 +101,19 @@ fn emphasize(lines: &mut [Line<'static>], entity: &Entity, marks: &PageMarks<'_>
     }
 }
 
-/// The dashes and name letters of `spelling` the search matched.
-fn matched_letters(spelling: &Spelling, marks: &PageMarks<'_>) -> Option<(usize, Vec<usize>)> {
-    if marks.wide {
-        return wide_letters(spelling, marks.query);
+/// Where char `i` of a spelling's form stands on the row, given that its
+/// name starts at char `at`, its dashes are `lead` long, and a negatable
+/// spelling is drawn `--[no-]name`. `negated` is the `--no-name` form.
+fn displayed_at(at: usize, lead: usize, negatable: bool, negated: bool, i: usize) -> Option<usize> {
+    let name_start = if negated { lead + 3 } else { lead };
+    if i >= name_start {
+        return Some(at + i - name_start);
     }
-    crate::search_rank::marked_in_spelling(spelling, marks.query).map(|m| (m.dashes, m.name))
-}
-
-/// The dashes and name letters of `spelling` that the words of a wide
-/// query occupy, found in the spelling as typed so a word with dashes in
-/// front covers the spelling's own.
-fn wide_letters(spelling: &Spelling, query: &str) -> Option<(usize, Vec<usize>)> {
-    let lead = match spelling.dashes {
-        Dashes::None => 0,
-        Dashes::Single => 1,
-        Dashes::Double => 2,
-    };
-    let typed = format!("{}{}", "-".repeat(lead), spelling.name);
-    let idx = mandible_search::substring_indices(&typed, query);
-    let dashes = idx.iter().filter(|&&i| (i as usize) < lead).count();
-    let letters: Vec<usize> = idx
-        .into_iter()
-        .filter(|&i| i as usize >= lead)
-        .map(|i| i as usize - lead)
-        .collect();
-    (dashes > 0 || !letters.is_empty()).then_some((dashes, letters))
+    if negated && i >= lead {
+        return (at + i).checked_sub(lead + 4);
+    }
+    let bracket = if negatable { 5 } else { 0 };
+    (at + i).checked_sub(lead + bracket)
 }
 
 /// The first place `name` stands as a whole word in the row's lines:

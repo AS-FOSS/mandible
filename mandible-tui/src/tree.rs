@@ -59,7 +59,7 @@ pub struct TreeRow {
 /// in the set, plus their ancestor chain, which is force-shown-open
 /// regardless of `expanded` (spec §10: "matching a node force-expands its
 /// ancestor chain"). This function itself does no text matching — the
-/// caller (`App`, backed by `mandible-search`'s `nucleo` index) decides what
+/// caller (`App`, backed by `mandible-search`'s index) decides what
 /// matches and hands over the resulting set of command paths; a
 /// [`mandible_core::NodeRef::Flag`] match is represented here by its *parent
 /// command's* path, since flags aren't tree rows (spec §2: "Flags are not

@@ -95,6 +95,8 @@ fn handle_search_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         KeyCode::Esc => app.cancel_search(),
         KeyCode::Enter => app.accept_search(),
         KeyCode::Backspace => app.search_backspace(),
+        // Tab takes the dim suggestion; without one it does nothing.
+        KeyCode::Tab => app.accept_ghost(),
         // Arrows move the (filtered) tree selection without leaving the
         // search box, so the result the user is about to land on is
         // visible while still typing — Esc/Enter to actually move focus

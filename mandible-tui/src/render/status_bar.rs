@@ -30,6 +30,7 @@ fn hints(
     horizontal_scroll_enabled: bool,
     print_selection: bool,
     searching: bool,
+    accepting: bool,
 ) -> Vec<String> {
     let horizontal_hint = if horizontal_scroll_enabled {
         format!("{} expand/scroll", glyphs.arrows_horizontal)
@@ -53,7 +54,7 @@ fn hints(
         hints.push("n/p match".to_string());
     }
     hints.extend([
-        "Tab pane".to_string(),
+        if accepting { "Tab accept" } else { "Tab pane" }.to_string(),
         "t raw".to_string(),
         "Esc back".to_string(),
         "y copy".to_string(),
@@ -85,12 +86,14 @@ fn hints_for_width(
     horizontal_scroll_enabled: bool,
     print_selection: bool,
     searching: bool,
+    accepting: bool,
 ) -> String {
     let all = hints(
         glyphs,
         horizontal_scroll_enabled,
         print_selection,
         searching,
+        accepting,
     );
     let split = all.len().saturating_sub(PINNED_HINTS);
     let (rest, pinned) = all.split_at(split);
@@ -151,6 +154,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         app.horizontal_scroll_enabled,
         app.print_selection,
         app.active_filter().is_some() && !app.no_match(),
+        app.ghost().is_some(),
     );
 
     let mut spans = vec![
@@ -206,8 +210,8 @@ mod tests {
 
     #[test]
     fn wide_terminal_shows_every_hint() {
-        let rendered = hints_for_width(120, crate::glyphs::UNICODE, true, false, false);
-        for h in hints(crate::glyphs::UNICODE, true, false, false) {
+        let rendered = hints_for_width(120, crate::glyphs::UNICODE, true, false, false, false);
+        for h in hints(crate::glyphs::UNICODE, true, false, false, false) {
             assert!(rendered.contains(&h), "{h} missing from {rendered:?}");
         }
     }
@@ -216,7 +220,7 @@ mod tests {
     /// opening `?` first.
     #[test]
     fn every_action_key_is_named_at_full_width() {
-        let rendered = hints_for_width(140, crate::glyphs::UNICODE, true, false, false);
+        let rendered = hints_for_width(140, crate::glyphs::UNICODE, true, false, false, false);
         for key in [
             "/ search", "Tab pane", "t raw", "y copy", "r reload", "? help",
         ] {
@@ -224,11 +228,27 @@ mod tests {
         }
     }
 
+    /// While the search box shows a suggestion, `Tab` takes it, so the
+    /// footer says that instead of naming the pane switch.
+    #[test]
+    fn a_suggestion_changes_what_tab_is_named() {
+        let on = hints_for_width(140, crate::glyphs::UNICODE, true, false, true, true);
+        let off = hints_for_width(140, crate::glyphs::UNICODE, true, false, true, false);
+        assert!(
+            on.contains("Tab accept") && !on.contains("Tab pane"),
+            "{on:?}"
+        );
+        assert!(
+            off.contains("Tab pane") && !off.contains("Tab accept"),
+            "{off:?}"
+        );
+    }
+
     /// Every hint stays readable without Unicode — the footer is the last
     /// thing that should turn into boxes for someone who cannot get out.
     #[test]
     fn ascii_fallback_hints_are_pure_ascii() {
-        let rendered = hints_for_width(120, crate::glyphs::ASCII, true, false, false);
+        let rendered = hints_for_width(120, crate::glyphs::ASCII, true, false, false, false);
         assert!(rendered.is_ascii(), "{rendered:?}");
         assert!(rendered.contains("^C quit"));
     }
@@ -238,7 +258,7 @@ mod tests {
     #[test]
     fn quit_hint_survives_a_narrow_terminal() {
         for width in [20, 30, 40, 60, 88] {
-            let hints = hints_for_width(width, crate::glyphs::UNICODE, true, false, false);
+            let hints = hints_for_width(width, crate::glyphs::UNICODE, true, false, false, false);
             assert!(hints.contains("^C quit"), "width {width}: {hints:?}");
             // A narrow row hides most of the footer, which is exactly
             // where the reader needs to know the full list exists.
@@ -256,8 +276,8 @@ mod tests {
     #[test]
     fn horizontal_hint_matches_the_config_toggle() {
         for width in [40, 60, 80, 100, 120, 140] {
-            let on = hints_for_width(width, crate::glyphs::UNICODE, true, false, false);
-            let off = hints_for_width(width, crate::glyphs::UNICODE, false, false, false);
+            let on = hints_for_width(width, crate::glyphs::UNICODE, true, false, false, false);
+            let off = hints_for_width(width, crate::glyphs::UNICODE, false, false, false, false);
 
             assert!(
                 !off.contains("expand/scroll"),
@@ -278,15 +298,22 @@ mod tests {
 
         // At a comfortable width, off still names collapse/expand — it
         // only drops the "/scroll" half, not the whole hint.
-        let off_wide = hints_for_width(120, crate::glyphs::UNICODE, false, false, false);
+        let off_wide = hints_for_width(120, crate::glyphs::UNICODE, false, false, false, false);
         assert!(off_wide.contains("expand"), "{off_wide:?}");
 
         // `render()` subtracts the right-hand provenance text's width
         // from the terminal width before budgeting hints (`hints_budget`
         // in `render`); reproduced here at the raw-width crossover.
         let crossover = 68;
-        let on = hints_for_width(crossover, crate::glyphs::UNICODE, true, false, false);
-        let off = hints_for_width(crossover, crate::glyphs::UNICODE, false, false, false);
+        let on = hints_for_width(crossover, crate::glyphs::UNICODE, true, false, false, false);
+        let off = hints_for_width(
+            crossover,
+            crate::glyphs::UNICODE,
+            false,
+            false,
+            false,
+            false,
+        );
         assert!(
             !on.contains("Tab pane"),
             "expected width {crossover} to be the known trade-off point: {on:?}"
@@ -303,8 +330,8 @@ mod tests {
     /// hint for hint.
     #[test]
     fn the_select_hint_appears_only_in_print_selection_mode() {
-        let on = hints(crate::glyphs::UNICODE, true, true, false);
-        let off = hints(crate::glyphs::UNICODE, true, false, false);
+        let on = hints(crate::glyphs::UNICODE, true, true, false, false);
+        let off = hints(crate::glyphs::UNICODE, true, false, false, false);
         assert_eq!(on.first().map(String::as_str), Some("Enter select"));
         assert_eq!(&on[1..], &off[..], "the mode adds one hint and moves none");
         assert!(
@@ -321,7 +348,7 @@ mod tests {
     #[test]
     fn the_select_hint_is_the_last_one_dropped() {
         for width in [40, 60, 88, 120] {
-            let rendered = hints_for_width(width, crate::glyphs::UNICODE, true, true, false);
+            let rendered = hints_for_width(width, crate::glyphs::UNICODE, true, true, false, false);
             assert!(
                 rendered.contains("Enter select"),
                 "width {width}: {rendered:?}"
@@ -341,8 +368,8 @@ mod tests {
     /// budgeted for it — otherwise the two overlap at narrow widths.
     #[test]
     fn hints_shrink_to_leave_room_for_the_right_hand_text() {
-        let full = hints_for_width(120, crate::glyphs::UNICODE, true, false, false);
-        let squeezed = hints_for_width(40, crate::glyphs::UNICODE, true, false, false);
+        let full = hints_for_width(120, crate::glyphs::UNICODE, true, false, false, false);
+        let squeezed = hints_for_width(40, crate::glyphs::UNICODE, true, false, false, false);
         assert!(
             squeezed.chars().count() < full.chars().count(),
             "hints should give way: {squeezed:?} vs {full:?}"

@@ -203,7 +203,7 @@ structure, search is for flags.
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
 | `/` | Open the search box, with the keyword already in effect if there is one. `Enter` in the box jumps to the first match and focuses the commands list, keeping the keyword and filter |
 | `Esc` | In layers: close the `?` popup; else, if the detail pane is scrolled sideways, return to column 0; else clear the search keyword and filter, the cursor staying on its row. In the search box, `Esc` cancels the search and the cursor returns to the row it was on before `/` |
-| `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`) |
+| `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`). In the search box, take the dim suggestion (§10) |
 | `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
@@ -1749,7 +1749,7 @@ mandible/                          (workspace root)
 │   ├── native/                  # Tier E: cobra `__complete` probes
 │   ├── overrides/               # Tier F
 │   └── exec/                    # §6 policy: the ONLY place std::process is used
-├── mandible-search/               # nucleo index over commands AND flags
+├── mandible-search/               # search index over commands AND flags
 ├── mandible-tui/                  # ratatui UI: tree, detail, search, overlay
 ├── mandible/                      # the `mandible` binary
 └── xtask/                       # the measuring instruments (docs/instruments.md)
@@ -2010,8 +2010,8 @@ drawn given a terminal that cannot be trusted to support any of it.
    not. The selection bar is a gray background where that palette is
    available and a reversed row where it is not. Depth is read from
    `COLORTERM`/`TERM`, never queried.
-5. Search matches are highlighted: `nucleo` returns match indices for
-   free, and matched characters are underlined.
+5. Search matches are highlighted: every occurrence of every word is
+   underlined.
 
 #### What may be drawn, and what may not
 
@@ -2330,15 +2330,21 @@ findable, and how a match is shown in context.
 
 **Rules.**
 
-1. `nucleo`, the matcher behind Helix, backs the index.
+1. One matching rule serves both modes. A row matches when its text
+   contains every space-separated word of the query, compared without regard
+   to case. A dash is an ordinary character, so nothing looks at how the
+   query starts. Letters are never picked from scattered places. The
+   matching is plain code over each entry's lowercase haystack.
 2. Index entries are `NodeRef`s, and every entity gets its own entry:
    addressed by `NodeRef::Flag`, whose `key: FlagKey` covers both shapes an
    entity's name can take, `Long`/`Short` for a flag's dashed spelling and
    `Name` for a dashless entity's bare `primary_name()` (a positional's
    placeholder, a modifier's letter, an environment variable's name, §4.5's
    three dashless `EntityKind`s). Each entry's haystack is every documented
-   spelling's bare name, `value_name`, and description, the same shape for
-   every kind, dashless spellings indexed with no dash prefix.
+   spelling as typed, `value_name`, and description, the same shape for
+   every kind, dashless spellings indexed with no dash prefix. A `--[no-]x`
+   spelling is indexed as both `--x` and `--no-x`, never as the `[no-]`
+   notation.
 3. Selecting a result selects the parent command and scrolls the detail
    pane to that entity's own row, in whichever of
    FLAGS/POSITIONALS/MODIFIERS/ENVIRONMENT section documents it (§9.3),
@@ -2347,42 +2353,37 @@ findable, and how a match is shown in context.
    pressing `/` again toggles wide mode, the combined haystack (name +
    summary + description + entity value), shown in the search bar's
    title.
-5. Name mode filters the index's own result set with one rule for every
-   name. A query matches when it lines up with the start of a word of the
-   name: the start of the spelling, or right after a `-`/`_` run. Dashes
-   typed at the front of the query must be among the dashes just before
-   that word, so `-ssl` and `--ssl` find `--ssl-reqd`, `--ssl` does not
-   find `--no-ssl`, and `-s` finds the short `-s` and also `--squash` and
-   `--no-squash`. A command name also matches by a literal substring
-   when the query has no dash in front, and a name with a dash in it,
-   such as `cherry-pick`, matches `-pick`. Matching is case-insensitive,
-   the whole name counting as its own first word. `NODE_D` matches
-   `NODE_DEBUG` from the start and `debug` matches it from after the
-   `_`; `run` never matches `--no-trunc`.
-6. Wide mode splits the query at spaces, and each word must appear as
-   connected text, compared without regard to case, in the entity's
-   spellings, value name or description, or in a command's name, aliases
-   or summary. Letters are never picked from scattered places. It uses
-   `nucleo`'s substring atoms, with the query's own `!`, `^`, `'` and
-   `$` kept literal. A hit where every word starts a word ranks above
-   one where a word begins mid-word, and a name starting with the query
-   ranks above both. Entities of one command in the same rank group
-   stand in page order, so the jump lands on the topmost.
+5. Name mode matches the words against a command's name, or against every
+   spelling of an entity as typed (both `--squash` and `--no-squash` for a
+   negatable flag, and a range's far end). The words may fall in different
+   spellings, so `no verify` finds `--no-verify` and `cherry pick` finds
+   `cherry-pick`. `size` finds `--blocksize` and `root` finds `--sysroot`.
+   `run` finds `--no-trunc`: the rows it adds are visible noise, and the
+   rule never loses a row that contains the query.
+6. Wide mode applies the same rule to the larger text: an entity's
+   spellings, value name and description, or a command's name, aliases and
+   summary. A hit where every word starts a word ranks above one where a
+   word begins mid-word, and a name starting with the query ranks above
+   both. Entities of one command in the same rank group stand in page
+   order, so the jump lands on the topmost.
 7. Filtering preserves hierarchy: matching a node force-expands its
    ancestor chain and the tree renders normally with non-matching siblings
    hidden.
-8. `Nucleo::tick` is driven from the event loop's poll timeout, never from
-   a blocking spin inside the keystroke handler.
-9. Name mode ranks its matches in tiers: an exact name (letter for
-   letter before apart from case: `-s` before `-S`), then a name
-   that starts with the query, then a name with a `-`/`_` word that
-   starts with it, then a command name that only contains it. Within a
-   tier commands come before entities, then the shallower path comes
-   first, then the tree's display order, then an entity's place on its
-   command's page, top to bottom, and any remaining tie keeps the
-   index's order.
-   `/rebase` ranks `git rebase` above `git submodule`, whose `--rebase`
-   flag only reaches the word tier.
+8. Matching finishes inside the keystroke that changed the query, so a
+   result is final when it is read. The index is rebuilt at most once per
+   event-loop iteration after the tree changes.
+9. Ranking only chooses the first jump target. It never hides a row and
+   never reorders the tree. Name mode ranks its matches in tiers: an exact
+   name (letter for letter before apart from case: `-s` before `-S`), then
+   a name that starts with the query, then a name where a word starts with
+   it (the start of the name, or right after a `-` or `_`), then a name
+   that only contains it. A multi-word query is ranked by its first word.
+   Within a tier commands come before entities, then the shallower path
+   comes first, then the tree's display order, then an entity's place on
+   its command's page, top to bottom, and any remaining tie keeps the
+   index's order. `/rebase` ranks `git rebase` above `git submodule`,
+   whose `--rebase` flag only reaches the word tier. `n` and `p` keep
+   walking the page top to bottom.
 10. The result list is one list. The tree rows, the title count and the
     jump all come from it, so the jump never lands on an item the tree
     does not show. The cursor goes to the row of the first-ranked match: a
@@ -2394,11 +2395,8 @@ findable, and how a match is shown in context.
     commands pane in place of the rows, and the title counts 0. The
     cursor and the detail page are the row's from before `/` while typing
     (a later keystroke that matches jumps again), and `↑`/`↓` do not move
-    the hidden cursor. No match is only ever decided from a finished
-    match: `nucleo` clears its snapshot when the index is rebuilt or the
-    query changes, and until `Nucleo::tick` reports the matcher no longer
-    running, the pane keeps the last complete result and never shows the
-    notice or the unfiltered tree.
+    the hidden cursor. A keystroke never shows the unfiltered tree or the
+    notice for a query that has matches.
 12. Search has two states. While typing, the bar shows `›` and the
     keyword. `Enter` jumps to the first match and focuses the commands
     list, keeping keyword and filter; the bar then shows the keyword
@@ -2410,12 +2408,13 @@ findable, and how a match is shown in context.
     editable, and `Enter` jumps to the first match again.
 13. Marking. A commands-list row that matched, by its own name or by one
     of its entities, is bold; the letters of its own name that matched are
-    underlined, and a row shown only so its descendants keep their shape
-    stays plain. The selected row is on the selection bar (§9.2). On the
+    underlined, every occurrence of every word, and a row shown only so its
+    descendants keep their shape stays plain. The selected row is on the selection bar (§9.2). On the
     selected command's page every entity row that matched, in the current
     mode, has the accent bar `▌` in its left margin column (`|` in the
-    ASCII glyph set) and the matched letters of its spellings underlined;
-    the row is not bold. The current match, the entity the jump or `n`/`p`
+    ASCII glyph set) and every occurrence of every word in its spellings
+    underlined, including the `no-` of a `[no-]` spelling when the `--no-`
+    form matched; the row is not bold. The current match, the entity the jump or `n`/`p`
     last landed on, is the only row on the selection bar, across its whole
     width inside the padding and over every line it wraps to. There is
     none until a jump or `n`/`p` sets one, and a manual scroll ends it.
@@ -2438,10 +2437,24 @@ findable, and how a match is shown in context.
     command letters work in either case (§2). They do nothing without an
     active search, and the footer names them (`n/p match`) only while one
     is active.
+16. Suggestion. While the box is being typed in, a dim suggestion follows
+    the typed text and never changes the input. When the first jump
+    target's best spelling (or a command's name) starts with the input,
+    ignoring case, the rest of that spelling is shown: `--sq` shows
+    `uash`. When matches exist but the target does not start with the
+    input, there is no suggestion. When nothing matches, the suggestion
+    is `   → <name>` (`   -> ` in the ASCII glyph set), where the name is
+    the command name or entity spelling with the fewest edits from the
+    whole input, at most 2 whatever the length of the input, ties going to
+    the earlier row of the tree and then the earlier line of its page.
+    Under `NO_COLOR` the suggestion is italic and dim, so it stays
+    distinct from the typed text. `Tab` in the box replaces the input with
+    the suggested spelling and searches again, so the jump lands on it;
+    without a suggestion `Tab` does nothing. `Enter` is unchanged. The
+    footer names `Tab accept` in place of `Tab pane` while a suggestion
+    shows.
 
-**Why.** `nucleo` is faster than `fuzzy-matcher`/`skim`, correct on Unicode
-graphemes, and designed to match on a background thread pool so typing
-never blocks. Revision 1 folded flag names into the parent command's
+**Why.** Revision 1 folded flag names into the parent command's
 haystack, so searching `--squash` selected `git rebase` rather than the
 flag; since finding what a tool documents is the product's core job (§1),
 and a tool documents more than flags (`ar`'s modifier letters,
@@ -2450,19 +2463,20 @@ now gets its own entry. Matching one combined haystack by default is
 correct and looks arbitrary: searching `branch` in `git` returns `switch`
 via "Switch branches", and since only name matches are underlined, nothing
 on screen explains why that row is there. Name mode is the default because
-its results explain themselves. A looser subsequence test was tried first
-and made the mode feel broken: searching `run` in `docker` surfaced
-`--no-trunc`'s parent command, since `--no-trunc` contains r-u-n in order.
-The word-start rule refuses that case while still admitting `no`,
-`trunc`, a bare modifier letter, or either half of an underscored env var
-name. Wide mode went the same way: a fuzzy `-ssl` listed commands in
-`git` that hold those letters in order across several words, so connected
-text is required there too. A flat result list rendered with `depth = path.len() - 1` produces
+its results explain themselves. A fuzzy subsequence test made the mode feel
+broken: searching `run` in `docker` surfaced `--no-trunc`'s parent command,
+since `--no-trunc` contains r-u-n in order, so letters from scattered
+places never match. A word-start test came next and lost rows a reader
+expects: `--blocksize` for `size`, `--sysroot` for `root`. It also needed
+rules about how the query starts, which no one could see. One contains
+rule has no hidden cases, and the tiers keep the best match first. The
+suggestion covers the cost of typing a spelling out: it shows where the
+jump will land, and offers the nearest name after a typo. A flat result list rendered with `depth = path.len() - 1` produces
 indentation pointing at ancestors that aren't on screen, which is why
 matching force-expands the ancestor chain instead; with a flat list,
-expand/collapse keys would mutate state nothing reads. A 50 ms synchronous
-deadline per keystroke on the UI thread defeats the reason nucleo was
-chosen, hence driving `tick` from the poll timeout.
+expand/collapse keys would mutate state nothing reads. Matching is plain
+code because `nucleo` 0.5's substring atoms missed `--squash` typed in
+full against a row containing it.
 
 **Implemented in.** `mandible-search/src/lib.rs` and
 `mandible-tui/src/search_rank.rs`.
@@ -2518,7 +2532,7 @@ criteria.
 | **0 — foundation** | Workspace; `mandible-core` (IR, `Text::sanitize`, `Provenance`, `Authority`, merge, `NodeRef`); `mandible-extract/exec` (§6); cache crate; packaging skeleton (LICENSE, NOTICE, README, CI) | `cargo test` green; the exec-policy test passes; the "no `Command::new` outside `exec/`" test passes |
 | **1 — Tier A + TUI** | carapace snapshot + indexed loader; full tree/detail/status TUI; caching | `mandible git`, `mandible docker`, `mandible gh` render full trees with real descriptions in **< 200 ms** from cache and **< 1 s** cold |
 | **2 — Tier B** | `winnow` help-text grammar, recursive per-node, stdout+stderr, groups, confidence | `mandible curl`, `mandible tar`, `mandible openssl`, `mandible ip` all produce useful trees; coverage harness reports its first scoreboard |
-| **3 — lazy + search** | Node-at-a-time runner, background warm, `nucleo` index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
+| **3 — lazy + search** | Node-at-a-time runner, background warm, search index over commands **and** flags, hierarchy-preserving filter | `mandible kubectl` interactive in < 1 s; typing `--squash` selects the flag, not the command |
 | **4 — Tier E + C** | cobra two-probe protocol with depth cap/visited set/alias detection; clap `CompleteEnv`; zsh `_arguments` then bash | A cobra tool absent from the catalog renders correctly; a `completion`-only tool renders correctly |
 | **5 — Tier D + F** | Pure-Rust roff subset parser (feature-gated, **off by default**), generator survey first, multi-page discovery; user overrides | A generator survey with go/no-go per generator; `ssh` and `bash` gain prose where they have none today ([M-14]). Not `git`, its pages carry zero `.TP` and its flags come from `-h` instead ([M-16]) |
 | **6 — distribution** | crates.io release, `cargo-deb`/`cargo-generate-rpm`, man page for mandible itself, shell completions | `cargo install mandible` works; `.deb` and `.rpm` install cleanly |
@@ -3078,7 +3092,7 @@ choice.
 |---|---|---|---|
 | TUI framework | `ratatui` | MIT | `crossterm` backend; mouse support |
 | Display width | `unicode-width` | MIT/Apache-2.0 | Required for correct truncation (§9) |
-| Fuzzy matching | `nucleo` | MIT/Apache-2.0 | Powers Helix |
+| Edit distance | `strsim` | MIT | Closest name for the search suggestion (§10) |
 | mandible's own CLI | `clap` + `clap_complete` | MIT/Apache-2.0 | `--completions <shell>` emits a real completion script, which Tier C then parses — mandible parsing itself |
 | Help-text grammar | `winnow` | MIT | Preferred over `pest` for error recovery |
 | Completion script AST | `brush-parser` | MIT | **Replaces `conch-parser`**, which is unmaintained and emits a future-incompat rejection warning today [M-9]. Avoid `yash-syntax` (GPLv3). |

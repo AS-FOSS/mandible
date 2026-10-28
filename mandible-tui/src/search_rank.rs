@@ -1,10 +1,10 @@
 //! Name-mode filtering and ranking of the search index's results (spec §10).
 //!
-//! The index hands back every fuzzy hit; name mode keeps the ones whose own
-//! names relate to the query and orders them in tiers, so the first entry is
-//! the row the cursor jumps to and the tree shows.
+//! A row matches when its names contain every word of the query. The tiers
+//! only choose which match the cursor jumps to first; they never hide or
+//! reorder the tree.
 
-use mandible_core::{resolve, resolve_flag, CommandNode, Dashes, FlagKey, NodeRef, Spelling};
+use mandible_core::{resolve, resolve_flag, CommandNode, FlagKey, NodeRef};
 use std::collections::HashMap;
 
 /// How closely a name relates to the query. Smaller is better.
@@ -16,184 +16,86 @@ pub(crate) enum Tier {
     Exact,
     /// The name starts with the query.
     Prefix,
-    /// A `-`/`_` word of the name starts with the query.
+    /// A word of the name starts with the query: the name's start, or the
+    /// character after a `-` or `_`.
     Word,
-    /// A command name that only contains the query.
-    Substring,
+    /// The query is somewhere inside the name.
+    Inside,
 }
 
-/// Case-insensitive **substring** match of `query` against a command's own
-/// `name`.
-///
-/// Deliberately literal, not a subsequence: subsequence matching is what
-/// made the narrow mode feel broken (`run` in `docker` surfaced `ps` and
-/// `build` through `--no-trunc`'s r…u…n).
-pub(crate) fn name_matches(name: &str, query: &str) -> bool {
-    name.to_lowercase().contains(&query.to_lowercase())
+/// The words of a query: split on spaces, lowercase.
+pub(crate) fn words(query: &str) -> Vec<String> {
+    query.split_whitespace().map(str::to_lowercase).collect()
 }
 
-/// A name-mode query split into the dashes typed at its front and the rest.
-struct Needle {
-    /// Leading `-` characters of the query.
-    dashes: usize,
-    /// The query without them, lowercase.
-    rest: String,
-    /// The whole query, lowercase.
-    whole: String,
-}
-
-impl Needle {
-    fn new(query: &str) -> Needle {
-        let whole = query.to_lowercase();
-        let rest = whole.trim_start_matches('-');
-        Needle {
-            dashes: whole.len() - rest.len(),
-            rest: rest.to_string(),
-            whole: whole.clone(),
-        }
-    }
-}
-
-/// Where the query lines up with the start of a word of `text`, as a byte
-/// offset: the first word (offset `lead`, just past the spelling's own
-/// leading dashes) or one right after a `-`/`_` found at or past `lead`.
-/// Dashes at the front of the query must be among the dashes just before
-/// that word. `text` is lowercase.
-fn word_start(text: &str, lead: usize, needle: &Needle) -> Option<usize> {
-    let from = lead.min(text.len());
-    let after_separators = text[from..]
-        .match_indices(['-', '_'])
-        .map(|(i, _)| from + i + 1);
-    std::iter::once(from)
-        .chain(after_separators)
-        .find(|&start| {
-            let before = text[..start]
-                .chars()
-                .rev()
-                .take_while(|&c| c == '-')
-                .count();
-            needle.dashes <= before
-                && (needle.dashes == 0 || !text[start..].starts_with(['-', '_']))
-                && text[start..].starts_with(&needle.rest)
-        })
-}
-
-/// The tier of `needle` within `text`, or `None`. `lead` is the length of
-/// the spelling's own leading dashes in `text`, which are not separators.
-fn tier_in(text: &str, lead: usize, needle: &Needle) -> Option<Tier> {
-    let text = text.to_lowercase();
-    if text == needle.whole {
-        return Some(Tier::Exact);
-    }
-    let start = word_start(&text, lead, needle)?;
-    Some(if start == lead.min(text.len()) {
-        Tier::Prefix
-    } else {
-        Tier::Word
-    })
-}
-
-/// The letters of one spelling a name-mode `query` matched.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Marked {
-    /// Leading dashes covered by a dash-led query.
-    pub(crate) dashes: usize,
-    /// Char positions within the spelling's bare name.
-    pub(crate) name: Vec<usize>,
-}
-
-/// The spelling's text as the query is matched against it, and the length
-/// of its leading dashes: with its dashes for a dash-led query, else the
-/// bare name.
-fn spelled(spelling: &Spelling, dash_led: bool) -> Option<(String, usize)> {
-    let name = spelling.name.to_lowercase();
-    if !dash_led {
-        return Some((name, 0));
-    }
-    let lead = match spelling.dashes {
-        Dashes::None => 0,
-        Dashes::Single => 1,
-        Dashes::Double => 2,
-    };
-    Some((format!("{}{name}", "-".repeat(lead)), lead))
-}
-
-/// The letters of `spelling` that `query` matched in name mode, or `None`
-/// when the spelling does not match.
-pub(crate) fn marked_in_spelling(spelling: &Spelling, query: &str) -> Option<Marked> {
-    let needle = Needle::new(query);
-    let (text, lead) = spelled(spelling, needle.dashes > 0)?;
-    let start = word_start(&text, lead, &needle)?;
-    let rest = needle.rest.chars().count();
-    let at = text[..start].chars().count();
-    if start == lead.min(text.len()) {
-        // The first word: the typed dashes are the last ones of the
-        // spelling's own, drawn outside its name.
-        return Some(Marked {
-            dashes: needle.dashes,
-            name: (0..rest).collect(),
+/// The tier of the query's first word within one name, or `None` when the
+/// word is not in the name. `first` is the word as typed.
+fn name_tier(name: &str, first: &str) -> Option<Tier> {
+    let lower = name.to_lowercase();
+    let word = first.to_lowercase();
+    if lower == word {
+        return Some(if name == first {
+            Tier::ExactCase
+        } else {
+            Tier::Exact
         });
     }
-    // A later word: the dashes before it are part of the name.
-    let first = at.saturating_sub(lead + needle.dashes);
-    Some(Marked {
-        dashes: 0,
-        name: (first..first + needle.dashes + rest).collect(),
-    })
-}
-
-/// The tier of one spelling.
-fn spelling_tier(spelling: &Spelling, query: &str) -> Option<Tier> {
-    let needle = Needle::new(query);
-    let (text, lead) = spelled(spelling, needle.dashes > 0)?;
-    let tier = tier_in(&text, lead, &needle)?;
-    let typed = format!("{}{}", &"--"[..lead], spelling.name);
-    let same_case = if needle.dashes > 0 {
-        typed
-    } else {
-        spelling.name.clone()
-    };
-    Some(if tier == Tier::Exact && same_case == query {
-        Tier::ExactCase
-    } else {
-        tier
-    })
-}
-
-/// The tier of a command name: a word start as for any spelling, else a
-/// literal substring of it when the query has no dashes in front.
-fn command_tier(name: &str, query: &str) -> Option<Tier> {
-    let needle = Needle::new(query);
-    tier_in(name, 0, &needle)
-        .map(|t| exact_case(t, name == query))
-        .or_else(|| (needle.dashes == 0 && name_matches(name, query)).then_some(Tier::Substring))
-}
-
-fn exact_case(tier: Tier, same_case: bool) -> Tier {
-    if tier == Tier::Exact && same_case {
-        Tier::ExactCase
-    } else {
-        tier
+    if lower.starts_with(&word) {
+        return Some(Tier::Prefix);
     }
+    let mut inside = false;
+    for (at, _) in lower.match_indices(&word) {
+        inside = true;
+        if lower[..at].ends_with(['-', '_']) {
+            return Some(Tier::Word);
+        }
+    }
+    inside.then_some(Tier::Inside)
+}
+
+/// Every name a hit can be found by: a command's own name, or every form
+/// of every spelling of an entity.
+fn names_of(root: &CommandNode, item: &NodeRef) -> Vec<String> {
+    match item {
+        NodeRef::Command(path) => vec![path.last().cloned().unwrap_or_default()],
+        NodeRef::Flag { path, key } => resolve_flag(root, path, key)
+            .map(mandible_search::entity_forms)
+            .unwrap_or_default(),
+    }
+}
+
+/// The names of a hit that carry the query's first word, best tier first
+/// (document order breaks ties), when every word of the query is in the
+/// names. `None` when the hit does not match.
+fn matched_names(root: &CommandNode, item: &NodeRef, query: &str) -> Option<Vec<(Tier, String)>> {
+    let all = words(query);
+    let first = query.split_whitespace().next()?;
+    let names = names_of(root, item);
+    let text = names.join(" ").to_lowercase();
+    if !all.iter().all(|w| text.contains(w.as_str())) {
+        return None;
+    }
+    let mut tiered: Vec<(Tier, String)> = names
+        .into_iter()
+        .filter_map(|n| name_tier(&n, first).map(|t| (t, n)))
+        .collect();
+    tiered.sort_by_key(|(t, _)| *t);
+    Some(tiered)
+}
+
+/// The spelling (or command name) the query matched best on a hit: the one
+/// a suggestion completes.
+pub(crate) fn best_name(root: &CommandNode, item: &NodeRef, query: &str) -> Option<String> {
+    matched_names(root, item, query)?
+        .into_iter()
+        .next()
+        .map(|(_, name)| name)
 }
 
 fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u8)> {
-    match item {
-        NodeRef::Command(path) => {
-            let name = path.last().map_or("", String::as_str);
-            command_tier(name, query).map(|tier| (tier, 0))
-        }
-        NodeRef::Flag { path, key } => {
-            let entity = resolve_flag(root, path, key)?;
-            entity
-                .spellings
-                .iter()
-                .chain(entity.range().map(|r| &r.end))
-                .filter_map(|s| spelling_tier(s, query))
-                .min()
-                .map(|tier| (tier, 1))
-        }
-    }
+    let tier = matched_names(root, item, query)?.first()?.0;
+    let kind = u8::from(matches!(item, NodeRef::Flag { .. }));
+    Some((tier, kind))
 }
 
 /// Tier, kind (command first), path depth, display position, line on the
@@ -305,152 +207,104 @@ pub(crate) fn tests_node(app: &crate::app::App) -> CommandNode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mandible_core::{Entity, Provenance, Source};
 
-    fn tier(text: &str, query: &str) -> Option<Tier> {
-        tier_in(text, 0, &Needle::new(query))
+    fn prov() -> Provenance {
+        Provenance::single(Source::HelpText)
     }
 
-    /// `query` is a case-insensitive prefix of `name` at the start or after
-    /// a `-`/`_`: `run` never matches `--no-trunc`, while `no`, `trunc`, a
-    /// bare modifier letter and either half of `NODE_DEBUG` do.
-    fn word_prefix_matches(name: &str, query: &str) -> bool {
-        tier(name, query).is_some()
-    }
-
-    fn long_tier(name: &str, query: &str) -> Option<Tier> {
-        spelling_tier(&Spelling::long(name), query)
+    fn tier(name: &str, query: &str) -> Option<Tier> {
+        name_tier(name, query.split_whitespace().next().unwrap())
     }
 
     #[test]
-    fn tiers_order_exact_prefix_word_substring() {
-        assert_eq!(tier("rebase", "rebase"), Some(Tier::Exact));
+    fn tiers_order_exact_prefix_word_inside() {
+        assert_eq!(tier("rebase", "rebase"), Some(Tier::ExactCase));
+        assert_eq!(tier("rebase", "REBASE"), Some(Tier::Exact));
         assert_eq!(tier("rebase", "reb"), Some(Tier::Prefix));
         assert_eq!(tier("cherry-pick", "pick"), Some(Tier::Word));
-        assert_eq!(command_tier("grep", "re"), Some(Tier::Substring));
-        assert!(Tier::Exact < Tier::Prefix && Tier::Prefix < Tier::Word);
-        assert!(Tier::Word < Tier::Substring);
+        assert_eq!(tier("NODE_DEBUG", "debug"), Some(Tier::Word));
+        assert_eq!(tier("grep", "re"), Some(Tier::Inside));
+        assert_eq!(tier("--blocksize", "size"), Some(Tier::Inside));
+        assert_eq!(tier("--sysroot", "root"), Some(Tier::Inside));
+        assert_eq!(tier("rebase", "xyz"), None);
+        assert!(Tier::ExactCase < Tier::Exact && Tier::Exact < Tier::Prefix);
+        assert!(Tier::Prefix < Tier::Word && Tier::Word < Tier::Inside);
     }
 
     #[test]
-    fn marked_letters_are_the_matched_prefix_of_a_word() {
-        let s = Spelling::long("no-verify");
-        assert_eq!(marked_in_spelling(&s, "ver").unwrap().name, vec![3, 4, 5]);
-        assert_eq!(marked_in_spelling(&s, "no").unwrap().name, vec![0, 1]);
-        let long = Spelling::long("squash");
-        let m = marked_in_spelling(&long, "--sq").unwrap();
-        assert_eq!((m.dashes, m.name), (2, vec![0, 1]));
-        let m = marked_in_spelling(&long, "-s").unwrap();
-        assert_eq!((m.dashes, m.name), (1, vec![0]));
+    fn a_dash_is_an_ordinary_character() {
+        assert_eq!(tier("--squash", "--squash"), Some(Tier::ExactCase));
+        assert_eq!(tier("--squash", "--sq"), Some(Tier::Prefix));
+        assert_eq!(tier("-s", "-s"), Some(Tier::ExactCase));
+        assert_eq!(tier("-S", "-s"), Some(Tier::Exact));
+        assert_eq!(tier("--squash", "-s"), Some(Tier::Word));
+        assert_eq!(tier("--no-squash", "-s"), Some(Tier::Inside));
+        assert_eq!(tier("--ssl-reqd", "-ssl"), Some(Tier::Word));
+        assert_eq!(tier("--proxy-ssl", "--ssl"), None);
+        assert_eq!(tier("--proxy-ssl", "-ssl"), Some(Tier::Inside));
+        assert_eq!(tier("--no-trunc", "run"), Some(Tier::Inside));
+        assert_eq!(tier("--no-alpn", "--no"), Some(Tier::Prefix));
+        assert_eq!(tier("squash", "-s"), None);
+    }
+
+    fn node_with(flag: Entity) -> CommandNode {
+        let mut node = CommandNode::new("c", prov());
+        node.entities.push(flag);
+        node
+    }
+
+    fn hit(root: &CommandNode, i: usize) -> NodeRef {
+        NodeRef::Flag {
+            path: vec![root.name.clone()],
+            key: root.entities[i].key().unwrap(),
+        }
     }
 
     #[test]
-    fn dashes_typed_in_front_mark_the_dashes_before_a_later_word() {
-        let s = Spelling::long("no-squash");
-        let m = marked_in_spelling(&s, "-sq").unwrap();
-        assert_eq!((m.dashes, m.name), (0, vec![2, 3, 4]));
-        assert_eq!(marked_in_spelling(&s, "--sq"), None);
+    fn every_word_must_be_in_the_names_of_the_hit() {
+        let root = node_with(Entity::flag_long("no-verify", prov()));
+        let h = hit(&root, 0);
+        assert!(matched_names(&root, &h, "no verify").is_some());
+        assert!(matched_names(&root, &h, "NO  Verify").is_some());
+        assert!(matched_names(&root, &h, "no verifx").is_none());
+        assert!(matched_names(&root, &h, "-no-").is_some());
+        assert!(matched_names(&root, &h, "").is_none());
     }
 
     #[test]
-    fn a_leading_dash_lines_up_with_the_dashes_before_a_word() {
-        let long = Spelling::long("squash");
-        let short = Spelling::short('s');
-        assert_eq!(spelling_tier(&long, "--squash"), Some(Tier::ExactCase));
-        assert_eq!(spelling_tier(&long, "--SQUASH"), Some(Tier::Exact));
-        assert_eq!(spelling_tier(&long, "--sq"), Some(Tier::Prefix));
-        assert_eq!(spelling_tier(&short, "-s"), Some(Tier::ExactCase));
-        assert_eq!(spelling_tier(&long, "-s"), Some(Tier::Prefix));
-        assert_eq!(spelling_tier(&short, "--s"), None);
-    }
-
-    #[test]
-    fn one_or_two_dashes_find_a_double_dash_flag() {
-        assert_eq!(long_tier("ssl-reqd", "-ssl"), Some(Tier::Prefix));
-        assert_eq!(long_tier("ssl-reqd", "--ssl"), Some(Tier::Prefix));
-        assert_eq!(long_tier("no-squash", "-s"), Some(Tier::Word));
-        assert_eq!(long_tier("no-squash", "--s"), None);
-        assert_eq!(long_tier("proxy-ssl", "--ssl"), None);
+    fn the_no_form_of_a_negatable_flag_is_a_name() {
+        let e = Entity::flag_spelled(None, Some("squash".into()), false, true, prov());
+        let root = node_with(e);
+        let h = hit(&root, 0);
+        assert_eq!(
+            best_name(&root, &h, "--squash").as_deref(),
+            Some("--squash")
+        );
+        assert_eq!(
+            best_name(&root, &h, "--no-squash").as_deref(),
+            Some("--no-squash")
+        );
+        assert!(matched_names(&root, &h, "no squash").is_some());
     }
 
     #[test]
     fn a_short_flag_ranks_before_the_long_ones_for_the_same_letter() {
-        let short = spelling_tier(&Spelling::short('s'), "-s");
-        let long = long_tier("squash", "-s");
-        let later = long_tier("no-squash", "-s");
-        assert!(short < long && long < later);
-    }
-
-    #[test]
-    fn a_dash_prefix_works_inside_a_dashed_spelling() {
-        let no_trunc = Spelling::long("no-trunc");
-        assert_eq!(spelling_tier(&no_trunc, "--no-"), Some(Tier::Prefix));
-        assert_eq!(spelling_tier(&no_trunc, "--run"), None);
-        assert_eq!(spelling_tier(&no_trunc, "run"), None);
-        assert_eq!(spelling_tier(&no_trunc, "-run"), None);
-    }
-
-    #[test]
-    fn a_word_starts_with_a_letter_not_a_separator() {
-        assert_eq!(long_tier("a-_x", "-_x"), None);
-    }
-
-    #[test]
-    fn a_dashless_spelling_never_matches_a_dash_led_query() {
-        let letter = Spelling::bare("s");
-        assert_eq!(spelling_tier(&letter, "-s"), None);
-        assert_eq!(command_tier("squash", "-s"), None);
-    }
-
-    #[test]
-    fn a_command_with_a_dash_in_its_name_matches_a_dash_led_query() {
-        assert_eq!(command_tier("cherry-pick", "-pick"), Some(Tier::Word));
-        assert_eq!(command_tier("cherry-pick", "--pick"), None);
-        assert_eq!(command_tier("cherry-pick", "-ick"), None);
-    }
-
-    /// The exact docker guard `word_prefix_matches` exists to preserve:
-    /// `run` must never match `--no-trunc`, because `run` is a prefix of
-    /// neither of its `-`-separated words (`no`, `trunc`) nor of the whole
-    /// name.
-    #[test]
-    fn word_prefix_matches_refuses_the_docker_run_no_trunc_case() {
-        assert!(!word_prefix_matches("no-trunc", "run"));
-    }
-
-    /// The two `-`-separated words of `--no-trunc` each match their own
-    /// prefix.
-    #[test]
-    fn word_prefix_matches_finds_either_word_of_a_dashed_name() {
-        assert!(word_prefix_matches("no-trunc", "trunc"));
-        assert!(word_prefix_matches("no-trunc", "no"));
-    }
-
-    /// A one-letter dashless name (a modifier letter) matches itself.
-    #[test]
-    fn word_prefix_matches_finds_a_bare_modifier_letter() {
-        assert!(word_prefix_matches("d", "d"));
-    }
-
-    /// An underscore-separated env var name matches both from the start of
-    /// the whole name and from after the separator.
-    #[test]
-    fn word_prefix_matches_finds_either_half_of_an_underscored_name() {
-        assert!(word_prefix_matches("NODE_DEBUG", "NODE_D"));
-        assert!(word_prefix_matches("NODE_DEBUG", "debug"));
-    }
-
-    /// Case-insensitive, both sides.
-    #[test]
-    fn word_prefix_matches_is_case_insensitive() {
-        assert!(word_prefix_matches("NODE_DEBUG", "node_d"));
-        assert!(word_prefix_matches("node_debug", "DEBUG"));
-    }
-
-    /// A query longer than the word it's being compared against is not a
-    /// prefix of it — `word_prefix_matches` must not panic on a slice
-    /// that runs past the word's own end.
-    #[test]
-    fn word_prefix_matches_refuses_a_query_longer_than_the_word() {
-        assert!(!word_prefix_matches("no-trunc", "truncated"));
+        let mut root = CommandNode::new("c", prov());
+        root.entities.push(Entity::flag_long("no-squash", prov()));
+        root.entities.push(Entity::flag_long("squash", prov()));
+        root.entities.push(Entity::flag_short('S', prov()));
+        root.entities.push(Entity::flag_short('s', prov()));
+        let hits: Vec<NodeRef> = (0..4).map(|i| hit(&root, i)).collect();
+        let ranked = rank_by_name(&root, hits.clone(), "-s");
+        assert_eq!(
+            ranked,
+            vec![
+                hits[3].clone(),
+                hits[2].clone(),
+                hits[1].clone(),
+                hits[0].clone()
+            ]
+        );
     }
 }

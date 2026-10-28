@@ -11,9 +11,10 @@
 //! summary is dropped entirely rather than squeezed to nothing.
 //!
 //! Matched search characters are underlined, only within the name, never
-//! the summary (spec §9.2, §10). [`mandible_search::match_indices`]
-//! re-runs a match scoped to just the row's own name, so the returned
-//! positions need no offset bookkeeping against the full search haystack.
+//! the summary (spec §9.2, §10). [`mandible_search::substring_indices`]
+//! finds every occurrence of every query word in just the row's own name,
+//! so the returned positions need no offset bookkeeping against the full
+//! search haystack.
 
 use crate::app::{App, Focus};
 use crate::fit;
@@ -150,7 +151,6 @@ fn visible_lines(
                 summary_column,
                 app.palette,
                 name_query,
-                marks.wide,
                 app.glyphs,
             );
             if searching && !selected && marks.is_hit(&row.path) {
@@ -264,7 +264,6 @@ fn build_row_line(
     summary_column: usize,
     palette: style::Palette,
     query: Option<&str>,
-    wide: bool,
     glyphs: Glyphs,
 ) -> Line<'static> {
     let indent = "  ".repeat(row.depth);
@@ -308,13 +307,7 @@ fn build_row_line(
     // are stable, but only ever rendered against the surviving
     // (truncated) prefix of it, which is what's actually on screen.
     let match_idx = query
-        .map(|q| {
-            if wide {
-                mandible_search::substring_indices(&name, q)
-            } else {
-                mandible_search::match_indices(&name, q)
-            }
-        })
+        .map(|q| mandible_search::substring_indices(&name, q))
         .unwrap_or_default();
     let mut spans = vec![Span::styled(prefix, base_style)];
     spans.extend(styled_name_spans(&truncated_name, &match_idx, base_style));
@@ -471,7 +464,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -490,7 +482,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -509,7 +500,6 @@ mod tests {
             10,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -530,7 +520,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         assert!(rendered(&line).contains("unverified"), "{line:?}");
@@ -553,7 +542,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         assert!(!rendered(&line).contains("unverified"), "{line:?}");
@@ -574,7 +562,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         assert!(rendered(&line).contains("r[ab][f][u]"), "{line:?}");
@@ -593,7 +580,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         assert!(rendered(&line).contains("commit"), "{line:?}");
@@ -613,7 +599,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -634,7 +619,6 @@ mod tests {
             12,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -663,7 +647,6 @@ mod tests {
                 10,
                 style::Palette::basic(),
                 None,
-                false,
                 crate::glyphs::UNICODE,
             );
             assert!(
@@ -686,7 +669,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -706,7 +688,6 @@ mod tests {
             5,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -733,7 +714,6 @@ mod tests {
             name_width,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -795,7 +775,6 @@ mod tests {
             5,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -821,7 +800,6 @@ mod tests {
             6,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         let text = rendered(&line);
@@ -840,7 +818,6 @@ mod tests {
             10,
             style::Palette::plain(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         // With color disabled the base style must still carry REVERSED so
@@ -864,8 +841,7 @@ mod tests {
             false,
             20,
             style::Palette::basic(),
-            Some("rb"),
-            false,
+            Some("reb"),
             crate::glyphs::UNICODE,
         );
         let underlined: String = line
@@ -878,7 +854,10 @@ mod tests {
             })
             .map(|s| s.content.as_ref())
             .collect();
-        assert_eq!(underlined, "rb", "expected just 'r' and 'b' underlined");
+        assert_eq!(
+            underlined, "reb",
+            "expected just 'r', 'e' and 'b' underlined"
+        );
         // The summary must never be underlined, even though it also
         // contains matchable characters.
         let summary_span = line
@@ -903,7 +882,6 @@ mod tests {
             20,
             style::Palette::basic(),
             None,
-            false,
             crate::glyphs::UNICODE,
         );
         assert!(line.spans.iter().all(|s| !s

@@ -56,10 +56,6 @@ fn names(app: &App) -> Vec<String> {
 
 pub(super) fn settle(app: &mut App) {
     app.flush_search_index();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while !app.search_index.is_settled() && Instant::now() < deadline {
-        app.search_index.tick(20);
-    }
     app.mark_dirty();
     app.ensure_rows_fresh();
 }
@@ -129,7 +125,7 @@ fn wide_mode_jumps_to_the_first_row_it_shows() {
 }
 
 #[test]
-fn a_leading_dash_searches_dashed_spellings_only() {
+fn a_dash_is_an_ordinary_character_of_the_query() {
     let app = searched("--squash");
     let shown = names(&app);
     for name in ["commit", "merge", "pull"] {
@@ -154,7 +150,7 @@ fn a_short_flag_ranks_first_and_long_flags_with_that_initial_follow() {
 }
 
 #[test]
-fn one_dash_finds_flags_written_with_two() {
+fn a_dash_led_query_finds_flags_by_containing_it() {
     for query in ["-squa", "--squa"] {
         let app = searched(query);
         let shown = names(&app);
@@ -165,7 +161,7 @@ fn one_dash_finds_flags_written_with_two() {
 }
 
 #[test]
-fn two_dashes_do_not_find_a_single_dash_flag() {
+fn two_dashes_are_not_found_in_a_single_dash_flag() {
     let app = searched("--s");
     let shown = names(&app);
     assert!(shown.contains(&"commit".to_string()), "{shown:?}");
@@ -177,7 +173,7 @@ fn two_dashes_do_not_find_a_single_dash_flag() {
 }
 
 #[test]
-fn a_dash_led_query_finds_a_later_word_of_a_flag() {
+fn a_dash_led_query_finds_a_later_word_only_with_the_dashes_it_has() {
     let mut root = cmd("tool");
     root.subcommands = vec![with_flag(cmd("clone"), "no-squash"), cmd("run")];
     let mut app = App::new("tool".to_string(), root);
@@ -187,16 +183,20 @@ fn a_dash_led_query_finds_a_later_word_of_a_flag() {
     app.cancel_search();
     app.focus_search();
     type_query(&mut app, "--squ");
-    assert!(app.no_match(), "only one dash stands before squash");
+    assert!(
+        app.no_match(),
+        "only one dash stands before squash in --no-squash"
+    );
 }
 
-/// Flags in page order whose index order (shorter spelling first) runs the
-/// other way for the query `--no`.
+/// Flags whose index order runs the other way from their page order for the
+/// query `--no`: the first one is in a group, which the page draws last.
 fn no_flags() -> CommandNode {
     let mut curl = cmd("curl");
     for name in ["no-alpn", "no-buffer", "no-keepalive", "no-npn"] {
         curl.entities.push(Entity::flag_long(name, prov()));
     }
+    curl.entities[0].group = Some("Extras".to_string());
     let mut root = cmd("tool");
     root.subcommands = vec![curl];
     root
@@ -221,10 +221,10 @@ fn the_jump_lands_on_the_top_matching_flag_of_the_page_in_name_mode() {
     let index_first = first_flag(&app.search_index.results());
     assert_eq!(
         index_first,
-        long("no-npn"),
+        long("no-alpn"),
         "precondition: index order disagrees"
     );
-    assert_eq!(app.selected_flag, long("no-alpn"));
+    assert_eq!(app.selected_flag, long("no-buffer"));
 }
 
 #[test]
@@ -236,10 +236,10 @@ fn the_jump_lands_on_the_top_matching_flag_of_the_page_in_wide_mode() {
     let index_first = first_flag(&app.search_index.results());
     assert_eq!(
         index_first,
-        long("no-npn"),
+        long("no-alpn"),
         "precondition: index order disagrees"
     );
-    assert_eq!(app.selected_flag, long("no-alpn"));
+    assert_eq!(app.selected_flag, long("no-buffer"));
 }
 
 #[test]
@@ -269,17 +269,16 @@ fn an_exact_case_name_beats_the_same_letter_in_the_other_case() {
 }
 
 #[test]
-fn a_plain_word_still_refuses_the_middle_of_a_flag_name() {
+fn a_plain_word_finds_the_middle_of_a_flag_name() {
     let mut root = cmd("docker");
     root.subcommands = vec![with_flag(cmd("ps"), "no-trunc"), cmd("build")];
     let mut app = App::new("docker".to_string(), root);
     app.focus_search();
     type_query(&mut app, "run");
-    assert!(app.no_match(), "{:?}", names(&app));
-    app.cancel_search();
-    app.focus_search();
-    type_query(&mut app, "trunc");
+    assert!(!app.no_match());
     assert_eq!(selected_name(&app), "ps");
+    assert_eq!(app.selected_flag, long("no-trunc"));
+    assert!(!names(&app).contains(&"build".to_string()));
 }
 
 fn curl_like() -> CommandNode {
@@ -377,32 +376,29 @@ fn a_query_that_matches_nothing_from_the_start_keeps_the_tree_behind_the_notice(
 }
 
 #[test]
-fn an_unfinished_match_is_neither_no_match_nor_the_unfiltered_tree() {
+fn typing_never_flashes_the_unfiltered_tree_or_the_notice() {
+    let mut app = App::new("git".to_string(), git());
+    app.focus_search();
+    for c in "rebase".chars() {
+        app.search_input_char(c);
+        app.ensure_rows_fresh();
+        assert!(!app.no_match());
+        assert!(app.rows().len() < 13, "{:?}", names(&app));
+        assert!(!screen(&app).contains("No matches"));
+    }
+    assert_eq!(selected_name(&app), "rebase");
+}
+
+#[test]
+fn a_rebuilt_index_keeps_the_filtered_rows() {
     let mut app = searched("rebase");
     let rows = names(&app);
     let selected = app.selected;
-    assert!(rows.len() < 12, "precondition: filtered");
-
-    // The index is rebuilt (a background fill landed): the snapshot is
-    // cleared until the matcher has run again.
     app.rebuild_search_index(Instant::now());
     app.ensure_rows_fresh();
     assert!(!app.no_match());
-    assert_eq!(names(&app), rows, "the last complete rows stay");
+    assert_eq!(names(&app), rows, "the same rows");
     assert_eq!(app.selected, selected);
-    assert!(!screen(&app).contains("No matches"));
-
-    // A query typed and rendered before the matcher ran at all.
-    let mut fresh = App::new("git".to_string(), git());
-    fresh.focus_search();
-    for c in "rebase".chars() {
-        fresh.search_input_char(c);
-    }
-    fresh.ensure_rows_fresh();
-    assert!(!fresh.no_match());
-    assert_eq!(fresh.rows().len(), 13, "still the plain tree");
-    settle(&mut fresh);
-    assert!(fresh.rows().len() < 13);
 }
 
 #[test]
@@ -549,22 +545,13 @@ fn no_match_while_typing_returns_to_the_row_from_before_the_slash() {
     assert!(selected_name(&app).starts_with("re"), "the jump resumes");
 }
 
-/// Two matches of one tier whose index order is the reverse of the order
-/// the tree shows them in: the tree's order wins.
+/// Two matches of one tier: the one the tree shows first wins.
 #[test]
-fn the_display_order_breaks_a_tie_the_index_order_would_break_the_other_way() {
+fn the_display_order_breaks_a_tie() {
     let mut root = cmd("tool");
     root.subcommands = vec![cmd("gre"), cmd("xRe")];
     let mut app = App::new("tool".to_string(), root);
     app.focus_search();
     type_query(&mut app, "re");
-    let index_first = match app.search_index.results().into_iter().next() {
-        Some(NodeRef::Command(path)) => path.last().cloned().unwrap_or_default(),
-        other => panic!("{other:?}"),
-    };
-    assert_eq!(
-        index_first, "xRe",
-        "precondition: the index ranks xRe first"
-    );
     assert_eq!(selected_name(&app), "gre");
 }
