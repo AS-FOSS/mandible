@@ -55,7 +55,7 @@ pub(super) fn detail_title(app: &App, path: &[String], budget: usize) -> Line<'s
     if crumb != format!("{head} ") || display_width(&head) + display_width(&tail) > budget {
         return Line::from(crumb);
     }
-    Line::from(vec![Span::raw(head), Span::raw(tail)])
+    Line::from(vec![Span::raw(head), Span::styled(tail, Style::reset())])
 }
 
 /// The style of the detail pane's border, and of every marker on it.

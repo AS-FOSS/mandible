@@ -59,12 +59,20 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         None => format!(" commands ({count}) "),
     };
     let budget = usize::from(area.width.saturating_sub(2));
-    let tagged = crate::sort::tree_indicator(app.sorts.tree, app.glyphs)
-        .map(|tag| format!("{} {} {tag} ", title.trim_end(), app.glyphs.dot))
-        .filter(|full| display_width(full) <= budget);
-    let title = tagged.unwrap_or_else(|| {
-        truncate_to_width_marker(&title, budget, fit::marker(&app.glyphs, fit::Marker::Cut))
-    });
+    let tail = crate::sort::tree_indicator(app.sorts.tree, app.glyphs)
+        .map(|tag| format!(" {} {tag} ", app.glyphs.dot))
+        .filter(|tail| display_width(title.trim_end()) + display_width(tail) <= budget);
+    let title = match tail {
+        Some(tail) => Line::from(vec![
+            Span::raw(title.trim_end().to_string()),
+            Span::styled(tail, Style::reset()),
+        ]),
+        None => Line::from(truncate_to_width_marker(
+            &title,
+            budget,
+            fit::marker(&app.glyphs, fit::Marker::Cut),
+        )),
+    };
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)

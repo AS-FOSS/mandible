@@ -603,3 +603,35 @@ fn the_help_overlay_and_a_wide_footer_name_the_key() {
     let wide = draw(&app, 200, 30);
     assert!((0..30).any(|y| text(&wide, y, 0).contains("s sort")));
 }
+
+#[test]
+fn a_row_scrolled_into_stays_scrolled_into_by_the_same_lines() {
+    let mut node = cmd("page");
+    node.entities = (0..30)
+        .rev()
+        .map(|i| {
+            let mut e = long(&format!("f{i:02}"));
+            e.description = Some(Text::sanitize(&format!(
+                "a description long enough that it wraps onto several lines of the pane ends-{i:02}"
+            )));
+            e
+        })
+        .collect();
+    let mut root = cmd("tool");
+    root.subcommands = vec![node];
+    let mut app = app_on(root, "page");
+    app.focus = Focus::Detail;
+    draw(&app, 100, 20);
+    app.detail_page_down();
+    let token = |app: &App| -> String {
+        let lines = detail(app, 100, 20);
+        let top = lines.iter().find(|l| l.contains("ends-")).unwrap();
+        top.rsplit("ends-").next().unwrap().to_string()
+    };
+    let was = token(&app);
+    for _ in 0..3 {
+        app.sort_focused();
+        assert_eq!(token(&app), was, "state {:?}", app.sorts.detail);
+        draw(&app, 100, 20);
+    }
+}
