@@ -256,6 +256,19 @@ fn a_better_tier_still_beats_the_top_of_the_page() {
 }
 
 #[test]
+fn an_exact_case_name_beats_the_same_letter_in_the_other_case() {
+    let mut curl = cmd("curl");
+    curl.entities.push(Entity::flag_short('S', prov()));
+    curl.entities.push(Entity::flag_short('s', prov()));
+    let mut root = cmd("tool");
+    root.subcommands = vec![curl];
+    let mut app = App::new("tool".to_string(), root);
+    app.focus_search();
+    type_query(&mut app, "-s");
+    assert_eq!(app.selected_flag, Some(mandible_core::FlagKey::Short('s')));
+}
+
+#[test]
 fn a_plain_word_still_refuses_the_middle_of_a_flag_name() {
     let mut root = cmd("docker");
     root.subcommands = vec![with_flag(cmd("ps"), "no-trunc"), cmd("build")];

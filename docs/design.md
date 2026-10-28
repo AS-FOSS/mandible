@@ -2373,7 +2373,8 @@ findable, and how a match is shown in context.
    hidden.
 8. `Nucleo::tick` is driven from the event loop's poll timeout, never from
    a blocking spin inside the keystroke handler.
-9. Name mode ranks its matches in tiers: an exact name, then a name
+9. Name mode ranks its matches in tiers: an exact name (letter for
+   letter before apart from case: `-s` before `-S`), then a name
    that starts with the query, then a name with a `-`/`_` word that
    starts with it, then a command name that only contains it. Within a
    tier commands come before entities, then the shallower path comes

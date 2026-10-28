@@ -10,7 +10,9 @@ use std::collections::HashMap;
 /// How closely a name relates to the query. Smaller is better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Tier {
-    /// The name is the query.
+    /// The name is the query, letter for letter, case included.
+    ExactCase,
+    /// The name is the query apart from case.
     Exact,
     /// The name starts with the query.
     Prefix,
@@ -144,7 +146,18 @@ pub(crate) fn marked_in_spelling(spelling: &Spelling, query: &str) -> Option<Mar
 fn spelling_tier(spelling: &Spelling, query: &str) -> Option<Tier> {
     let needle = Needle::new(query);
     let (text, lead) = spelled(spelling, needle.dashes > 0)?;
-    tier_in(&text, lead, &needle)
+    let tier = tier_in(&text, lead, &needle)?;
+    let typed = format!("{}{}", &"--"[..lead], spelling.name);
+    let same_case = if needle.dashes > 0 {
+        typed
+    } else {
+        spelling.name.clone()
+    };
+    Some(if tier == Tier::Exact && same_case == query {
+        Tier::ExactCase
+    } else {
+        tier
+    })
 }
 
 /// The tier of a command name: a word start as for any spelling, else a
@@ -152,7 +165,16 @@ fn spelling_tier(spelling: &Spelling, query: &str) -> Option<Tier> {
 fn command_tier(name: &str, query: &str) -> Option<Tier> {
     let needle = Needle::new(query);
     tier_in(name, 0, &needle)
+        .map(|t| exact_case(t, name == query))
         .or_else(|| (needle.dashes == 0 && name_matches(name, query)).then_some(Tier::Substring))
+}
+
+fn exact_case(tier: Tier, same_case: bool) -> Tier {
+    if tier == Tier::Exact && same_case {
+        Tier::ExactCase
+    } else {
+        tier
+    }
 }
 
 fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u8)> {
