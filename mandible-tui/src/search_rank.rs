@@ -90,6 +90,9 @@ fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u
     }
 }
 
+/// Tier, kind (command first), path depth, display position.
+type RankKey = (Tier, u8, usize, usize);
+
 /// Each command path's position in the tree's top-to-bottom order.
 fn display_order(root: &CommandNode) -> std::collections::HashMap<Vec<String>, usize> {
     fn walk(
@@ -114,7 +117,7 @@ fn display_order(root: &CommandNode) -> std::collections::HashMap<Vec<String>, u
 /// the tree's display order, then the index's own order.
 pub(crate) fn rank_by_name(root: &CommandNode, hits: Vec<NodeRef>, query: &str) -> Vec<NodeRef> {
     let order = display_order(root);
-    let mut keyed: Vec<((Tier, u8, usize, usize), usize, NodeRef)> = hits
+    let mut keyed: Vec<(RankKey, usize, NodeRef)> = hits
         .into_iter()
         .enumerate()
         .filter_map(|(i, item)| {
