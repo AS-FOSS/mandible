@@ -77,15 +77,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let inner_width = inner.width as usize;
     let visible_height = inner.height as usize;
     if app.no_match() {
-        let notice = mandible_core::notice::no_matches_notice(&defensive_single_line(
-            app.active_filter().unwrap_or(""),
-        ));
-        // The same one-column padding the detail pane's block gives its notices.
-        let padded = Block::default()
-            .padding(Padding::horizontal(1))
-            .inner(inner);
-        let notice = truncate_to_width_marker(&notice, usize::from(padded.width), glyphs_cut(app));
-        frame.render_widget(Paragraph::new(Line::from(notice)), padded);
+        render_no_match(frame, inner, app);
         return;
     }
     let rows = app.rows();
@@ -93,6 +85,32 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let max_scroll = rows.len().saturating_sub(visible_height);
     let scroll = app.tree_scroll.min(max_scroll);
 
+    let lines = visible_lines(app, rows, (scroll, visible_height), inner_width);
+
+    let paragraph = Paragraph::new(lines);
+    frame.render_widget(paragraph, inner);
+}
+
+/// The no-match line, with the one-column padding the detail pane's block
+/// gives its notices.
+fn render_no_match(frame: &mut Frame, inner: Rect, app: &App) {
+    let notice = mandible_core::notice::no_matches_notice(&defensive_single_line(
+        app.active_filter().unwrap_or(""),
+    ));
+    let padded = Block::default()
+        .padding(Padding::horizontal(1))
+        .inner(inner);
+    let notice = truncate_to_width_marker(&notice, usize::from(padded.width), glyphs_cut(app));
+    frame.render_widget(Paragraph::new(Line::from(notice)), padded);
+}
+
+/// The lines of the rows in view: `window` is `(first row, row count)`.
+fn visible_lines(
+    app: &App,
+    rows: &[TreeRow],
+    window: (usize, usize),
+    inner_width: usize,
+) -> Vec<Line<'static>> {
     let marks = app.hit_marks();
     let searching = app.active_filter().is_some();
     // The count column is reserved while any row has a count, and only
@@ -115,11 +133,10 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 
     let query = app.active_filter();
 
-    let lines: Vec<Line> = rows
-        .iter()
+    rows.iter()
         .enumerate()
-        .skip(scroll)
-        .take(visible_height)
+        .skip(window.0)
+        .take(window.1)
         .map(|(i, row)| {
             let selected = i == app.selected;
             // Only a row that matched by its own name underlines letters;
@@ -144,10 +161,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
             }
             line
         })
-        .collect();
-
-    let paragraph = Paragraph::new(lines);
-    frame.render_widget(paragraph, inner);
+        .collect()
 }
 
 /// Columns reserved for the counts: the column and the gap before it.
