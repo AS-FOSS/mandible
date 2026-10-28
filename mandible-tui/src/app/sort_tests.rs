@@ -221,6 +221,23 @@ fn group_headings_stay_in_sections_and_go_overall() {
     let lines = detail(&app, 120, 40);
     let count = lines.iter().find(|l| l.starts_with("FLAGS")).unwrap();
     assert!(count.starts_with("FLAGS (9)"), "{count}");
+    let list: Vec<&String> = lines
+        .iter()
+        .skip_while(|l| !l.starts_with("FLAGS"))
+        .skip(1)
+        .take_while(|l| !l.starts_with("Inherited"))
+        .collect();
+    assert!(
+        list[..list.len() - 1]
+            .iter()
+            .all(|l| l.starts_with('-') && !l.is_empty()),
+        "one sorted list with nothing between the rows: {list:?}"
+    );
+    assert_eq!(
+        list.len(),
+        8,
+        "seven rows and the blank row before Inherited"
+    );
 }
 
 #[test]
