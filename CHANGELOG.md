@@ -60,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Search matches a row that contains every word you type, in any case, in both `names` and `everything`, and a dash is an ordinary character: `size` finds `--blocksize`, `no verify` finds `--no-verify`, `--no-squash` finds a `--[no-]squash` flag, and `-ssl` no longer lists commands whose letters are scattered. Every occurrence of each word is underlined, and the best match, not the tree, decides where the cursor jumps first.
 - With a search active, matching rows are marked in both panes: the list's matching rows are bold, rows kept only for the tree's shape stay plain, and the detail pane's matching rows get a bar in the left margin and underlined matched letters, `NO_COLOR` included. The row `n`, `p` or the jump landed on is the only one on the gray bar.
 - The `No matches for "…"` line in the commands list now has the one-column margin the detail pane's notices have.
+- The verbatim view of a name mandible does not run, such as `git stash drop`, says `"stash drop" was not run: mandible only runs names that git's help lists under a heading.`, its header reads `verbatim — output of `git --help``, and the notice lines are drawn in the warning colour, as are the timed-out and the empty-page notices.
+- A command whose DESCRIPTION repeats its summary line word for word, such as `docker attach`, no longer shows the same text twice.
 
 ### Fixed
 

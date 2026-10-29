@@ -57,11 +57,12 @@ pub(super) fn page_is_reading(node: &CommandNode, app: &App) -> bool {
         .is_some_and(|row| app.is_first_read(&row.path) && is_empty_page(node))
 }
 
-/// Push the notice below the summary, wrapped like the repeated-ancestor one.
-pub(super) fn push_notice(page: &mut Page<'_>, notice: &str, text_width: usize) {
+/// Push the notice below the summary in `style`, wrapped like the
+/// repeated-ancestor one.
+pub(super) fn push_notice(page: &mut Page<'_>, notice: &str, style: Style, text_width: usize) {
     open_block(page.lines, SECTION_BLANKS);
     mark(page.items, page.lines.len());
     for chunk in wrap_words(notice, text_width) {
-        page.lines.push(Line::from(chunk));
+        page.lines.push(Line::from(Span::styled(chunk, style)));
     }
 }

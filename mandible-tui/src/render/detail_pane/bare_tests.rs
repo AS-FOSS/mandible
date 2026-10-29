@@ -6,6 +6,7 @@ use mandible_core::notice::{NO_FURTHER_HELP_NOTICE, READING_NOTICE, TIMED_OUT_NO
 use mandible_core::{Provenance, Source, Text};
 use mandible_extract::KeptProbes;
 use ratatui::backend::TestBackend;
+use ratatui::style::Color;
 use ratatui::Terminal;
 
 fn child(summary: Option<&str>) -> CommandNode {
@@ -344,4 +345,74 @@ fn the_loading_line_wraps_like_the_other_notices() {
     let joined = rows.join("\n");
     assert!(joined.contains("help"), "{joined}");
     assert!(!joined.contains(READING_NOTICE), "{joined}");
+}
+
+/// The style of the first cell of the row of `app`'s page that holds `needle`.
+fn style_of(app: &App, needle: &str) -> Style {
+    let mut terminal = Terminal::new(TestBackend::new(120, 24)).unwrap();
+    terminal
+        .draw(|frame| {
+            let area = frame.area();
+            render(frame, area, app);
+        })
+        .unwrap();
+    let buffer = terminal.backend().buffer().clone();
+    for y in 0..buffer.area.height {
+        let row: String = (0..buffer.area.width)
+            .map(|x| buffer[(x, y)].symbol())
+            .collect();
+        if let Some(at) = row.find(needle) {
+            let x = row[..at].chars().count() as u16;
+            return buffer[(x, y)].style();
+        }
+    }
+    panic!("no row holds {needle:?}");
+}
+
+#[test]
+fn the_problem_notices_are_drawn_in_the_warning_style() {
+    for palette in [style::Palette::basic(), style::Palette::plain()] {
+        let warning = style::warning(palette);
+        let mut timed_out = app_over(child(Some("Runs a script")));
+        timed_out.palette = palette;
+        finish(
+            &mut timed_out,
+            child(Some("Runs a script")),
+            FillEnd::TimedOut,
+        );
+        let got = style_of(&timed_out, "Reading this command's help took");
+        assert_eq!(
+            (got.fg, got.add_modifier),
+            (warning.fg.or(Some(Color::Reset)), warning.add_modifier)
+        );
+
+        let mut bare = app_over(filled(child(Some("Runs a script"))));
+        bare.palette = palette;
+        let got = style_of(&bare, "No further help was read");
+        assert_eq!(
+            (got.fg, got.add_modifier),
+            (warning.fg.or(Some(Color::Reset)), warning.add_modifier)
+        );
+    }
+    let bold = style::Palette::plain();
+    let mut app = app_over(filled(child(Some("Runs a script"))));
+    app.palette = bold;
+    let got = style_of(&app, "No further help was read");
+    assert!(got.add_modifier.contains(ratatui::style::Modifier::BOLD));
+}
+
+#[test]
+fn the_status_notices_keep_the_plain_style() {
+    let mut reading = app_over(child(Some("Runs a script")));
+    reading.mark_pending(start());
+    let got = style_of(&reading, "Reading this command");
+    assert_eq!(got.fg, Some(Color::Reset));
+    assert!(got.add_modifier.is_empty());
+
+    let mut node = child(Some("Runs a script"));
+    node.same_as_ancestor = true;
+    let same = app_over(node);
+    let got = style_of(&same, "prints the same help as its parent");
+    assert_eq!(got.fg, Some(Color::Reset));
+    assert!(got.add_modifier.is_empty());
 }

@@ -2009,7 +2009,7 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Role | Colors |
 |---|---|
 | `accent` | Flag spellings, the focused pane border, the selected name, key names in the `?` pop-up, the tab on show |
-| `warning` | Low confidence, `unverified` and notices in the footer |
+| `warning` | Low confidence, `unverified`, notices in the footer, and the problem notices of a page and of the verbatim view (§16) |
 | `muted` | Muted text, including value placeholders and the pop-up's disabled rows |
 | `section` | Section headings, label and rule, and the first fade row of a description preview |
 | `group` | Group dividers, label and rule, and the second fade row of a preview |
@@ -2226,6 +2226,10 @@ sections.
     `DESCRIPTION` heading as the last section, after EXAMPLES. Flag and
     positional descriptions are never previewed. Every layout decides
     again: a resize or the wrap toggle can turn the preview on or off.
+    A description equal to the page's summary line, once every run of
+    whitespace is one space and the ends are trimmed, is not drawn: no
+    heading, no preview and no blank rows. The model and search keep both
+    texts. Any other difference draws it as above (`docker attach`).
 20. Sorting. `s` sorts the pane that has focus. Each pane keeps its own
     state for the session, so moving to another command keeps it.
     - The detail pane has three states: the tool's order, A to Z within
@@ -3513,7 +3517,7 @@ with the commands pane reading `display_name` in
 
 A command that is not the tool's root, is not a repeat of an ancestor's help,
 has finished loading and holds no description, usage, entity, example or
-subcommand gets one neutral notice line under its summary (`No further help
+subcommand gets one notice line under its summary, in the warning style (`No further help
 was read for this command. Press t to see what it printed.`). Finished means
 its fill completed, failed or not, or it came back filled; a node still
 loading, or never queued past the warming cap, gets no notice. Corpus screens
@@ -3521,12 +3525,23 @@ count only nodes the fixture probed. Implemented in
 `mandible-tui/src/render/detail_pane/bare.rs`.
 
 A page whose help probe was stopped at the time limit (§6 rule 4) gets, in
-the same place, the same style and the same wrapping, `Reading this
+the same place and with the same wrapping, also in the warning style, `Reading this
 command's help took longer than 30 seconds, so it was stopped. Press r to try
 again with more time.` (`mandible_core::notice::TIMED_OUT_NOTICE`). A page
 carries one notice: the repeated-parent notice first, then the timed-out one,
 then the empty one, then the reading one. A node being read again shows none
-until the result lands.
+until the result lands. Problem notices (the timed-out and the empty one)
+are drawn in the warning style, bold under `NO_COLOR` or theme `none`.
+Status notices (the repeated-parent and the reading one) keep the plain style.
+
+The verbatim view of a name that §6 rule 0 refuses does not run it. Its
+header reads `verbatim — output of `<tool> --help``, and the body opens
+with two lines in the warning style: `"<name>" was not run: mandible only
+runs names that <tool>'s help lists under a heading.`, then, when the
+tool's own root help was read, a blank row and `Showing <tool> --help
+instead:`, a blank row and that help in the tool's own style. `<name>` is
+the refused words joined by spaces. The text is built and recognised by
+`mandible_core::notice`.
 
 A page whose command is queued or running with no earlier result, and that
 holds nothing past its summary, gets `Reading this command's help…`

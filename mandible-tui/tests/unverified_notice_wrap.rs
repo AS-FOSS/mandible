@@ -14,7 +14,7 @@ use ratatui::layout::Rect;
 use ratatui::Terminal;
 use unicode_width::UnicodeWidthStr;
 
-const NOTICE: &str = "mandible could not verify \"release\" as a real subcommand name: it came from a source the probe-safety gate does not accept as evidence a word is safe to run (a native/cobra artifact scan, or a headingless invocation table's layout evidence — neither is a recognized --help heading), so it was never sent as an argument. This is a known limitation of the gate, not something already worked around.";
+const NOTICE: &str = "\"release\" was not run: mandible only runs names that apt-ftparchive's help lists under a heading.";
 const CONTROL_USAGE: &str = "Usage: apt [options]";
 const END_MARKER: &str = "END-OF-ROOT-HELP";
 
@@ -42,15 +42,12 @@ fn notice_app(notice: &str) -> App {
             vec![
                 Text::sanitize_preserving_layout(notice),
                 Text::sanitize_preserving_layout(""),
-                Text::sanitize_preserving_layout(
-                    "Showing the tool's own root --help instead, labelled below:",
-                ),
+                Text::sanitize_preserving_layout("Showing apt-ftparchive --help instead:"),
                 Text::sanitize_preserving_layout(""),
                 Text::sanitize_preserving_layout(CONTROL_USAGE),
                 Text::sanitize_preserving_layout(END_MARKER),
             ],
-            "apt-ftparchive (name not heading-attested — showing root --help as a fallback)"
-                .to_string(),
+            "apt-ftparchive --help".to_string(),
         ),
     );
     app
@@ -141,7 +138,7 @@ fn unverified_subcommand_notice_wraps_and_survives_resizing() {
 #[test]
 fn wrapped_notice_contributes_to_scroll_extent() {
     let mut app = notice_app(NOTICE);
-    let (mut buffer, mut detail) = render(60, 24, &app);
+    let (mut buffer, mut detail) = render(60, 12, &app);
     let mut saw_end = detail_lines(&buffer, detail)
         .iter()
         .any(|line| line == END_MARKER);
@@ -152,7 +149,7 @@ fn wrapped_notice_contributes_to_scroll_extent() {
         if app.detail_scroll == before {
             break;
         }
-        (buffer, detail) = render(60, 24, &app);
+        (buffer, detail) = render(60, 12, &app);
         saw_end |= detail_lines(&buffer, detail)
             .iter()
             .any(|line| line == END_MARKER);
@@ -185,4 +182,34 @@ fn overlong_unicode_notice_token_is_split_by_display_width() {
         compact.contains(&token),
         "the double-width token did not survive wrapping: {compact:?}"
     );
+}
+
+fn style_at_row_start(buffer: &Buffer, detail: Rect, needle: &str) -> ratatui::style::Style {
+    let lines = detail_lines(buffer, detail);
+    let row = lines
+        .iter()
+        .position(|line| line.starts_with(needle) || line.trim_start().starts_with(needle))
+        .unwrap_or_else(|| panic!("no row starts with {needle:?}: {lines:?}"));
+    let y = detail.y + 1 + row as u16;
+    let x = detail.x + 2 + (lines[row].len() - lines[row].trim_start().len()) as u16;
+    buffer[(x, y)].style()
+}
+
+#[test]
+fn both_notice_lines_are_warnings_and_the_tools_bytes_are_not() {
+    use mandible_tui::style::{warning, Palette};
+    for palette in [Palette::basic(), Palette::plain()] {
+        let mut app = notice_app(NOTICE);
+        app.palette = palette;
+        let (buffer, detail) = render(100, 30, &app);
+        let want = warning(palette);
+        for needle in ["\"release\" was not run", "Showing apt-ftparchive"] {
+            let got = style_at_row_start(&buffer, detail, needle);
+            assert_eq!(got.fg, want.fg.or(Some(ratatui::style::Color::Reset)));
+            assert_eq!(got.add_modifier, want.add_modifier, "{needle}");
+        }
+        let tool = style_at_row_start(&buffer, detail, CONTROL_USAGE);
+        assert_eq!(tool.fg, Some(ratatui::style::Color::Reset));
+        assert!(tool.add_modifier.is_empty());
+    }
 }

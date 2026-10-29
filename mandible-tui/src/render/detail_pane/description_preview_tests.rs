@@ -438,3 +438,54 @@ fn a_cached_page_follows_the_pane_height_across_the_line() {
     assert_eq!(draw(&app, 60, true), draw(&app, 60, false));
     assert_eq!(draw(&app, 24, true), draw(&app, 24, false));
 }
+
+fn with_summary(summary: &str, description: &str) -> CommandNode {
+    let mut node = node(0);
+    node.summary = Some(Text::sanitize(summary));
+    node.description = Some(Text::sanitize_preserving_layout_lines(description.lines()));
+    node
+}
+
+#[test]
+fn a_description_equal_to_the_summary_after_whitespace_collapse_is_not_drawn() {
+    let node = with_summary(
+        "Attach local standard input, output, and error streams",
+        "Attach local standard input,\n  output, and   error streams ",
+    );
+    let lines = page(&app_for(&node, 40), 80);
+    assert!(position(&lines, "DESCRIPTION").is_none(), "{lines:?}");
+    assert_eq!(
+        lines
+            .iter()
+            .filter(|l| l.contains("Attach local standard input"))
+            .count(),
+        1,
+        "{lines:?}"
+    );
+    assert!(
+        position(&lines, "FLAGS").is_some_and(|at| at <= 4),
+        "blank rows left behind: {lines:?}"
+    );
+}
+
+#[test]
+fn a_description_that_differs_in_any_way_is_drawn() {
+    let node = with_summary("Attach streams", "Attach streams.");
+    assert!(position(&page(&app_for(&node, 40), 80), "DESCRIPTION").is_some());
+    let node = with_summary("Attach streams", "Attach streams\n\nand more");
+    assert!(position(&page(&app_for(&node, 40), 80), "DESCRIPTION").is_some());
+}
+
+#[test]
+fn a_long_description_that_repeats_the_summary_does_not_preview() {
+    let long = (1..=30)
+        .map(|i| format!("word{i}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let one_line = long.replace('\n', " ");
+    let node = with_summary(&one_line, &long);
+    let lines = page(&app_for(&node, 18), 40);
+    assert!(position(&lines, "DESCRIPTION").is_none(), "{lines:?}");
+    let node = with_summary("other", &long);
+    assert!(is_preview(&page(&app_for(&node, 18), 40)));
+}

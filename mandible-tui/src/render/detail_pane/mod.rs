@@ -358,7 +358,7 @@ fn render_verbatim(
     for (index, text) in body.into_iter().enumerate() {
         mark(&mut items, lines.len());
         if index < wrapped_prefix_lines {
-            push_wrapped_notice(&mut lines, &text, width);
+            push_wrapped_notice(&mut lines, &text, width, style::warning(app.palette));
         } else if app.horizontal_scroll_enabled {
             let (line, left, right) = hscroll_line(&text, hoffset, width);
             if left || right {
@@ -479,11 +479,11 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
 /// tool-authored bytes. Keeping this recognition here avoids changing the raw
 /// help API or tree model solely to carry presentation metadata.
 fn unverified_notice_prefix_len(body: &[String]) -> usize {
-    use mandible_core::notice::{ROOT_HELP_FALLBACK_LABEL, UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX};
+    use mandible_core::notice::{is_root_help_fallback_label, is_unverified_subcommand_notice};
 
     if !body
         .first()
-        .is_some_and(|line| line.starts_with(UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX))
+        .is_some_and(|line| is_unverified_subcommand_notice(line))
     {
         return 0;
     }
@@ -491,7 +491,7 @@ fn unverified_notice_prefix_len(body: &[String]) -> usize {
     if body.get(1).is_some_and(String::is_empty)
         && body
             .get(2)
-            .is_some_and(|line| line == ROOT_HELP_FALLBACK_LABEL)
+            .is_some_and(|line| is_root_help_fallback_label(line))
         && body.get(3).is_some_and(String::is_empty)
     {
         4
@@ -506,7 +506,7 @@ fn unverified_notice_prefix_len(body: &[String]) -> usize {
 /// prose created by mandible takes this path. [`wrap_words`] supplies the
 /// display-width-aware long-token splitting used by the structured detail
 /// pane, so CJK and emoji cannot turn a character count into a border overrun.
-fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize) {
+fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize, style: Style) {
     if text.is_empty() {
         lines.push(Line::default());
         return;
@@ -520,7 +520,7 @@ fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize)
     };
     let available = width.saturating_sub(display_width(indent)).max(1);
     for chunk in wrap_words(text, available) {
-        lines.push(Line::from(format!("{indent}{chunk}")));
+        lines.push(Line::from(Span::styled(format!("{indent}{chunk}"), style)));
     }
 }
 
@@ -575,13 +575,14 @@ const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
 /// The one notice a page carries: a probe stopped at the time limit says
 /// so, a page that read fine and holds nothing says it has nothing, and a
 /// first read still waiting says so.
-fn page_notice(node: &CommandNode, app: &App) -> Option<&'static str> {
+fn page_notice(node: &CommandNode, app: &App) -> Option<(&'static str, Style)> {
+    let problem = style::warning(app.palette);
     if page_timed_out(app) {
-        Some(mandible_core::notice::TIMED_OUT_NOTICE)
+        Some((mandible_core::notice::TIMED_OUT_NOTICE, problem))
     } else if page_is_bare(node, app) {
-        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+        Some((mandible_core::notice::NO_FURTHER_HELP_NOTICE, problem))
     } else if page_is_reading(node, app) {
-        Some(mandible_core::notice::READING_NOTICE)
+        Some((mandible_core::notice::READING_NOTICE, Style::default()))
     } else {
         None
     }
@@ -630,13 +631,13 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    if let Some(notice) = page_notice(node, app) {
+    if let Some((notice, notice_style)) = page_notice(node, app) {
         let mut page = Page {
             lines: &mut lines,
             items: &mut items,
             rules: &mut rules,
         };
-        push_notice(&mut page, notice, text_width);
+        push_notice(&mut page, notice, notice_style, text_width);
     }
 
     // A description that fills most of the pane previews at the top and
@@ -644,6 +645,7 @@ fn build_lines(
     let description = node
         .description
         .as_ref()
+        .filter(|d| !repeats_summary(d.as_str(), node.summary.as_ref().map(|s| s.as_str())))
         .map(|d| description_body(d.as_str(), text_width));
     let pane_height = app.pane_height();
     let preview = description.as_ref().is_some_and(|d| {
