@@ -65,6 +65,12 @@ pub struct Glyphs {
     pub match_bar: &'static str,
     /// The A to Z range the sort indicator names.
     pub a_to_z: &'static str,
+    /// Opens the value of the highlighted setting.
+    pub value_open: &'static str,
+    /// Closes the value of the highlighted setting.
+    pub value_close: &'static str,
+    /// The apostrophe in a possessive.
+    pub apostrophe: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -90,6 +96,9 @@ pub const UNICODE: Glyphs = Glyphs {
     more_down: "▼",
     match_bar: "▌",
     a_to_z: "A–Z",
+    value_open: "‹",
+    value_close: "›",
+    apostrophe: "\u{2019}",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -116,6 +125,9 @@ pub const ASCII: Glyphs = Glyphs {
     more_down: "v",
     match_bar: "|",
     a_to_z: "A-Z",
+    value_open: "<",
+    value_close: ">",
+    apostrophe: "'",
 };
 
 /// Pick a glyph set from the environment.
@@ -173,6 +185,9 @@ mod tests {
             ASCII.rule,
             ASCII.match_bar,
             ASCII.a_to_z,
+            ASCII.value_open,
+            ASCII.value_close,
+            ASCII.apostrophe,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

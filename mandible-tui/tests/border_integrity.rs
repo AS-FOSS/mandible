@@ -544,7 +544,7 @@ fn detail_pane_hscroll_affordance_marks_overflow_without_corrupting_the_border()
     let mut app = App::new("wide".to_string(), root);
     app.glyphs = mandible_tui::glyphs::UNICODE;
     app.focus = mandible_tui::Focus::Detail;
-    assert!(app.horizontal_scroll_enabled, "default is on");
+    app.horizontal_scroll_enabled = true;
 
     let width = 60u16;
     let height = 20u16;
@@ -592,7 +592,7 @@ fn hscroll_clip_markers_mark_only_the_clipped_lines() {
     ];
     let mut app = App::new("wide".to_string(), root);
     app.focus = mandible_tui::Focus::Detail;
-    assert!(app.horizontal_scroll_enabled, "default is on");
+    app.horizontal_scroll_enabled = true;
 
     let width = 60u16;
     let height = 20u16;
@@ -664,7 +664,7 @@ fn detail_pane_hscroll_affordance_shows_even_with_the_tree_focused() {
     let mut app = App::new("wide".to_string(), root);
     app.glyphs = mandible_tui::glyphs::UNICODE;
     app.focus = mandible_tui::Focus::Tree;
-    assert!(app.horizontal_scroll_enabled, "default is on");
+    app.horizontal_scroll_enabled = true;
 
     let width = 60u16;
     let height = 20u16;
@@ -701,6 +701,7 @@ fn detail_pane_hscroll_affordance_uses_the_ascii_glyphs() {
 
     let mut app = App::new("wide".to_string(), root);
     app.focus = mandible_tui::Focus::Detail;
+    app.horizontal_scroll_enabled = true;
     app.glyphs = mandible_tui::glyphs::ASCII;
 
     let width = 60u16;
@@ -805,6 +806,7 @@ fn markers_are_drawn_in_their_borders_style() {
                 .map(|i| Text::sanitize(&format!("tall line {i}")))
                 .collect();
             let mut app = App::new("tall".to_string(), root);
+            app.horizontal_scroll_enabled = true;
             app.glyphs = mandible_tui::glyphs::UNICODE;
             app.color_enabled = color;
             app.focus = focus;
@@ -838,6 +840,7 @@ fn gutter_markers_match_the_border() {
     for color in [true, false] {
         for focus in [mandible_tui::Focus::Detail, mandible_tui::Focus::Tree] {
             let mut app = App::new("wide".to_string(), root.clone());
+            app.horizontal_scroll_enabled = true;
             app.glyphs = mandible_tui::glyphs::UNICODE;
             app.color_enabled = color;
             app.focus = focus;

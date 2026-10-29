@@ -251,31 +251,27 @@ pub struct App {
     /// Whether the raw `--help` view and the `unparsed` fallback scroll
     /// sideways (do not wrap). It is the starting value of that view's wrap
     /// state and what `w` flips while that view is showing; the parsed view
-    /// has its own ([`Self::parsed_wrap`]).
+    /// has its own ([`Self::parsed_wrap`]). `[ui] horizontal_scroll` sets
+    /// both, and both start folded to the pane.
     ///
-    /// Defaults to `true` here — [`App::new`] is a pure constructor with no
-    /// filesystem I/O, so it never itself reads
-    /// `~/.config/mandible/config.toml`. Reading that file is the
-    /// composition root's job: `mandible/src/app_runner.rs`'s `new_app`
-    /// calls `mandible_core::config::load` once and overwrites this field
-    /// on the freshly-built `App`, the same way every other startup concern
-    /// already lives there rather than in `App::new`. A constructor that
-    /// touches the real filesystem made every test (and every other
-    /// embedder of this crate) hostage to whichever `config.toml` happened
-    /// to exist on the machine running them — a `horizontal_scroll = false`
-    /// left over from someone's own use of mandible silently flipped this
-    /// field's default in the test suite and made "off reproduces today's
-    /// behavior" pass for the wrong reason.
+    /// [`App::new`] does no filesystem I/O, so every embedder and test gets
+    /// the same defaults whatever `config.toml` exists on the machine. The
+    /// composition root (`mandible/src/app_runner.rs`'s `new_app`) reads the
+    /// file and applies it with [`App::apply_config`].
     ///
     /// A plain `pub` field, like [`Self::color_enabled`] and
-    /// [`Self::glyphs`], so tests can set it directly without any global
-    /// state to isolate.
+    /// [`Self::glyphs`], so tests can set it directly.
     pub horizontal_scroll_enabled: bool,
     /// Whether the parsed view wraps (default) or scrolls sideways; `w`
     /// flips it while the parsed view is showing.
     pub parsed_wrap: bool,
-    /// Whether the `?` keybinding overlay is showing.
+    /// Whether the `?` pop-up is showing.
     pub show_help: bool,
+    /// The settings tab's state and the values it changes.
+    pub settings: crate::settings::Settings,
+    /// A line that replaces the footer hints until the next key press: the
+    /// problems found in `config.toml` at startup, or a failed save.
+    pub notice: Option<String>,
     /// Lines the `?` overlay is scrolled by; only nonzero when its content
     /// is taller than the screen.
     help_scroll: usize,
@@ -432,6 +428,7 @@ impl App {
         // One read of the environment for both, so `color_enabled` and
         // `palette.color` cannot disagree about whether color is on.
         let palette = crate::style::Palette::from_env();
+        let glyphs = crate::glyphs::from_env();
         let mut app = App {
             tool,
             root: crate::tree_store::TreeStore::new(root),
@@ -464,9 +461,11 @@ impl App {
             detail_hscroll: 0,
             detail_max_hscroll: std::cell::Cell::new(0),
             saved_detail_offsets: [DetailOffsets::default(); 2],
-            horizontal_scroll_enabled: true,
+            horizontal_scroll_enabled: false,
             parsed_wrap: true,
             show_help: false,
+            settings: crate::settings::Settings::new(palette, glyphs),
+            notice: None,
             help_scroll: 0,
             help_extent: std::cell::Cell::new((0, 0)),
             status_message: None,
@@ -476,7 +475,7 @@ impl App {
             search_index_rebuilt_at: None,
             color_enabled: palette.color,
             palette,
-            glyphs: crate::glyphs::from_env(),
+            glyphs,
             selected_flag: None,
             flag_target_source: None,
             print_selection: false,
@@ -780,6 +779,7 @@ impl App {
     pub fn set_palette(&mut self, palette: crate::style::Palette) {
         self.color_enabled = palette.color;
         self.palette = palette;
+        self.settings.palette_base = palette;
     }
 
     fn mark_dirty(&mut self) {
@@ -1411,6 +1411,7 @@ impl App {
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
         self.help_scroll = 0;
+        self.settings.tab = crate::settings::HelpTab::Keys;
     }
 
     /// The overlay's scroll offset, for the renderer.
@@ -1726,6 +1727,7 @@ impl App {
 
 mod ghost;
 mod hit_marks;
+mod settings_keys;
 mod sort_keys;
 pub(crate) use hit_marks::{HitMarks, MatchRow};
 
@@ -1781,7 +1783,7 @@ mod tests {
     #[test]
     fn each_view_keeps_its_own_horizontal_place() {
         let mut app = App::new("git".to_string(), sample_tree());
-        assert!(app.horizontal_scroll_enabled, "default is on");
+        app.horizontal_scroll_enabled = true;
         app.set_detail_hextent(140, 40); // parsed: max 100
         app.detail_hscroll = 50;
 
@@ -2972,7 +2974,7 @@ mod tests {
         app.toggle_wrap();
         assert!(!app.parsed_wraps() && app.sideways());
         assert!(
-            app.horizontal_scroll_enabled,
+            !app.horizontal_scroll_enabled,
             "the raw view keeps its own state"
         );
         app.set_detail_hextent(50, 20);

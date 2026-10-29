@@ -15,9 +15,29 @@ impl App {
     }
 
     fn sort_tree(&mut self) {
+        self.set_tree_sort(!self.sorts.tree);
+    }
+
+    /// Put the commands pane in the given state, re-sorting its rows.
+    pub(crate) fn set_tree_sort(&mut self, sorted: bool) {
+        if self.sorts.tree == sorted {
+            return;
+        }
         self.ensure_rows_fresh();
         let was = self.selected_path();
-        self.sorts.tree = !self.sorts.tree;
+        self.sorts.tree = sorted;
+        self.rebuild_in_place(was);
+    }
+
+    /// Put the detail pane in the given state, keeping its top row.
+    pub(crate) fn set_detail_sort(&mut self, sort: crate::sort::DetailSort) {
+        if self.sorts.detail == sort {
+            return;
+        }
+        self.ensure_rows_fresh();
+        let was = self.selected_path();
+        self.sort_hold.hold();
+        self.sorts.detail = sort;
         self.rebuild_in_place(was);
     }
 
@@ -26,11 +46,7 @@ impl App {
             self.set_status("Nothing to sort in this view");
             return;
         }
-        self.ensure_rows_fresh();
-        let was = self.selected_path();
-        self.sort_hold.hold();
-        self.sorts.detail = self.sorts.detail.next();
-        self.rebuild_in_place(was);
+        self.set_detail_sort(self.sorts.detail.next());
     }
 
     /// Rebuild the rows and the ranking after a sort changed, leaving the

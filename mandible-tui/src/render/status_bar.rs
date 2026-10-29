@@ -4,7 +4,9 @@
 //! [`hints`]).
 
 use crate::app::App;
-use crate::sanitize::{defensive_single_line, display_width, truncate_to_width};
+use crate::sanitize::{
+    defensive_single_line, display_width, truncate_to_width, truncate_to_width_marker,
+};
 use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -127,6 +129,21 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         return;
     }
     let width = area.width as usize;
+
+    // A notice (config problems at startup, a failed save) owns the row
+    // until the next key press, in the warning style, with the margins of
+    // the hints on both sides.
+    if let Some(notice) = &app.notice {
+        let room = width.saturating_sub(display_width(LEFT_MARGIN) * 2);
+        let text =
+            truncate_to_width_marker(&defensive_single_line(notice), room, app.glyphs.ellipsis);
+        let line = Line::from(vec![
+            Span::raw(LEFT_MARGIN),
+            Span::styled(text, style::warning(app.color_enabled)),
+        ]);
+        frame.render_widget(Paragraph::new(line), area);
+        return;
+    }
 
     // A transient message (`copied: …`) owns the whole row while it lasts.
     if let Some(msg) = &app.status_message {

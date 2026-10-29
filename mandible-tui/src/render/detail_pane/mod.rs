@@ -646,9 +646,9 @@ fn build_lines(
         .as_ref()
         .map(|d| description_body(d.as_str(), text_width));
     let pane_height = app.pane_height();
-    let preview = description
-        .as_ref()
-        .is_some_and(|d| wants_preview(d.lines.len(), pane_height));
+    let preview = description.as_ref().is_some_and(|d| {
+        app.settings.description_preview && wants_preview(d.lines.len(), pane_height)
+    });
     // Blank rows above the next section: none right after a preview's
     // pointer, two everywhere else.
     let mut gap = SECTION_BLANKS;

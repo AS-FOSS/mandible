@@ -1,6 +1,10 @@
-//! The `?` keybinding overlay (spec §2 "Interaction model" table).
+//! The `?` pop-up: the keys tab (spec §2 "Interaction model" table) and the
+//! frame both tabs share. The settings tab is in `help_settings`.
 
+use super::help_settings;
+use crate::app::App;
 use crate::sanitize::display_width;
+use crate::settings::HelpTab;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -42,7 +46,7 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (None, "ACTIONS"),
     (Some("y"), "Copy selected flag or command path"),
     (Some("r"), "Reload what you are viewing"),
-    (Some("?"), "Toggle this help"),
+    (Some("?"), "Toggle this help and settings"),
     (Some("Ctrl-C"), "Quit from anywhere"),
     (Some("q"), "Quit (from the tree)"),
 ];
@@ -231,24 +235,52 @@ pub fn popup_rect(area: Rect, print_selection: bool) -> Rect {
     plan(&bindings(print_selection), area).popup
 }
 
-/// Render the overlay centered over `full_area`, scrolled by `scroll`
-/// lines. Returns `(max_scroll, visible)` so the caller can bound its
+/// The border's title: `help · keys  settings`, the tab on show in the
+/// accent and the other muted.
+fn title(app: &App) -> Line<'static> {
+    let color = app.color_enabled;
+    let on_show = |tab| {
+        if app.settings.tab == tab {
+            crate::style::accent(color)
+        } else {
+            crate::style::muted(color)
+        }
+    };
+    let help = if color {
+        Style::default().add_modifier(ratatui::style::Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+    Line::from(vec![
+        Span::raw(" "),
+        Span::styled("help", help),
+        Span::raw(format!(" {} ", app.glyphs.dot)),
+        Span::styled("keys", on_show(HelpTab::Keys)),
+        Span::raw("  "),
+        Span::styled("settings", on_show(HelpTab::Settings)),
+        Span::raw(" "),
+    ])
+}
+
+/// Render the pop-up centered over `full_area`, on the tab `app` shows.
+/// Returns `(max_scroll, visible)` so the caller can bound the keys tab's
 /// scrolling.
-pub fn render(
-    frame: &mut Frame,
-    full_area: Rect,
-    glyphs: crate::glyphs::Glyphs,
-    color_enabled: bool,
-    print_selection: bool,
-    scroll: usize,
-) -> (usize, usize) {
-    let plan = plan(&bindings(print_selection), full_area);
-    let scroll = scroll.min(plan.max_scroll);
+pub fn render(frame: &mut Frame, full_area: Rect, app: &App) -> (usize, usize) {
+    let glyphs = app.glyphs;
+    let plan = plan(&bindings(app.print_selection), full_area);
+    let on_keys = app.settings.tab == HelpTab::Keys;
+    let settings_lines = help_settings::lines().len();
+    let (max_scroll, scroll) = if on_keys {
+        (plan.max_scroll, app.help_scroll().min(plan.max_scroll))
+    } else {
+        let scroll = help_settings::scroll_to_selection(app, plan.visible);
+        (settings_lines.saturating_sub(plan.visible), scroll)
+    };
     frame.render_widget(Clear, plan.popup);
 
     let border = Style::default();
     let block = Block::default()
-        .title(" keybindings ")
+        .title(title(app))
         .borders(Borders::ALL)
         .border_set(crate::style::border_set(glyphs))
         .border_style(border)
@@ -257,19 +289,24 @@ pub fn render(
         .padding(Padding::new(2, 2, 1, 1));
     let inner = block.inner(plan.popup);
     frame.render_widget(block, plan.popup);
+    help_settings::draw_bottom_label(frame, plan.popup, app);
     let set = crate::style::border_set(glyphs);
     let buf = frame.buffer_mut();
     if scroll > 0 {
         let up = crate::fit::Marker::Up;
         crate::fit::draw_vertical_marker(buf, plan.popup, &glyphs, up, border, set.horizontal_top);
     }
-    if scroll < plan.max_scroll {
+    if scroll < max_scroll {
         let down = crate::fit::Marker::Down;
         let rule = set.horizontal_bottom;
         crate::fit::draw_vertical_marker(buf, plan.popup, &glyphs, down, border, rule);
     }
-    let result = (plan.max_scroll, plan.visible);
+    let result = (max_scroll, plan.visible);
     if inner.width == 0 || inner.height == 0 {
+        return result;
+    }
+    if !on_keys {
+        help_settings::draw(frame, plan.popup, inner, app, scroll);
         return result;
     }
 
@@ -282,7 +319,7 @@ pub fn render(
             .iter()
             .skip(scroll)
             .take(plan.visible)
-            .map(|line| styled(line, color_enabled))
+            .map(|line| styled(line, app.color_enabled))
             .collect();
         frame.render_widget(Paragraph::new(lines), rect);
     }

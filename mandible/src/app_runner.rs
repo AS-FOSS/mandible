@@ -78,34 +78,26 @@ enum Control {
     Exit(LoopExit),
 }
 
-/// Build an `App` for `tool`, with settings resolved from the user's
-/// `config.toml` applied on top of `App::new`'s pure defaults.
+/// Build an `App` for `tool`, with the user's `config.toml` applied on top
+/// of `App::new`'s defaults and the environment applied on top of that
+/// (docs/design.md §9.5).
 ///
-/// `App::new` itself does no filesystem I/O — it is a plain constructor, so
-/// every embedder (including this crate's own tests, and `mandible-tui`'s)
-/// gets deterministic defaults regardless of what happens to exist on the
-/// machine running them. Reading `~/.config/mandible/config.toml` is a
-/// startup concern, so it belongs here at the composition root beside
-/// everything else `main.rs`/`app_runner.rs` already resolves before the
-/// first frame — never inside `App::new`, which broke exactly this: a
-/// `horizontal_scroll = false` left over from someone's own use of
-/// mandible on the machine running the test suite silently changed what
-/// "off reproduces today's behavior" was testing against.
+/// `App::new` does no filesystem I/O, so every embedder and test gets the
+/// same defaults whatever file exists on the machine. Reading the file is
+/// the composition root's job, here, so both a plain session and each tool
+/// of `--review` get it.
 ///
-/// The one real call site for a fresh tool session, whether that's `mandible
-/// <tool>` ([`main`][crate::main] via the caller of this function) or one
-/// tool inside `mandible --review` ([`run_review_loop`]) — both go through
-/// this instead of `App::new` directly, so the config is never forgotten on
-/// either path.
-///
-/// `sink` is the stream the UI will be drawn on, which is also what
-/// decides whether there is a terminal at the other end to color for — see
-/// [`mandible_tui::style::Palette::for_sink`]. It is the composition
-/// root's to know for the same reason `config.toml` is.
+/// `sink` is the stream the UI is drawn on, which decides whether there is
+/// a terminal to colour for (see [`mandible_tui::style::Palette::for_sink`]).
+/// Problems found in the file become the footer line until the first key.
 pub fn new_app(tool: String, stub: mandible_core::CommandNode, sink: terminal::Sink) -> App {
+    let loaded = mandible_core::config::load();
     let mut app = App::new(tool, stub);
-    app.horizontal_scroll_enabled = mandible_core::config::load().ui.horizontal_scroll;
     app.set_palette(mandible_tui::style::Palette::for_sink(sink));
+    app.settings.locks = mandible_tui::settings::EnvLocks::from_env();
+    app.settings.config_path = mandible_core::config::config_path();
+    app.apply_config(&loaded.config);
+    app.notice = loaded.notice();
     app
 }
 
@@ -521,49 +513,76 @@ mod tests {
         mandible_core::CommandNode::new("git", mandible_core::Provenance::default())
     }
 
-    /// The regression this whole fix exists for: `new_app` — not `App::new`
-    /// — is where a real `config.toml` takes effect. Reproduces the report
-    /// exactly: a `config.toml` with `horizontal_scroll = false` on disk
-    /// must actually turn the feature off on an `App` built through the
-    /// real composition root, and `App::new` itself must stay pure (always
-    /// `true`, regardless of what's on disk) so nothing but this one
-    /// function ever reads the file.
+    /// `new_app`, not `App::new`, is where a real `config.toml` takes
+    /// effect: the file on disk reaches every setting, and `App::new`
+    /// stays at its defaults whatever is on disk.
     #[test]
-    fn new_app_honors_config_toml_while_app_new_stays_pure() {
+    fn new_app_applies_config_toml_while_app_new_stays_pure() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("config.toml"),
-            "[ui]\nhorizontal_scroll = false\n",
+            "[ui]\nhorizontal_scroll = true\nraw_view = true\ndescription_preview = false\n\
+             [sort]\nflags = \"az\"\ncommands = \"az\"\n[colors]\ntheme = \"none\"\n",
         )
         .unwrap();
         std::env::set_var(CONFIG_DIR_ENV, dir.path());
 
         let pure = App::new("git".to_string(), stub());
-        assert!(
-            pure.horizontal_scroll_enabled,
-            "App::new must never read config.toml itself"
-        );
+        assert!(!pure.horizontal_scroll_enabled && pure.parsed_wrap && !pure.raw_mode);
+        assert!(pure.settings.description_preview);
 
         let wired = new_app("git".to_string(), stub(), terminal::Sink::Stdout);
-        assert!(
-            !wired.horizontal_scroll_enabled,
-            "new_app must apply the real config.toml"
+        assert!(wired.horizontal_scroll_enabled && !wired.parsed_wrap);
+        assert!(wired.raw_mode);
+        assert!(!wired.settings.description_preview);
+        assert_eq!(wired.sorts.detail, mandible_tui::sort::DetailSort::Overall);
+        assert!(wired.sorts.tree);
+        assert!(!wired.palette.color && !wired.color_enabled);
+        assert_eq!(
+            wired.settings.config_path.as_deref(),
+            Some(dir.path().join("config.toml").as_path())
         );
+        assert_eq!(wired.notice, None);
 
         std::env::remove_var(CONFIG_DIR_ENV);
     }
 
-    /// The default: no `config.toml` on disk still leaves the feature on
-    /// through the real composition root, not just through `App::new`.
+    /// With no file every setting is its default, and nothing is created.
     #[test]
-    fn new_app_defaults_to_horizontal_scroll_on_with_no_config_file() {
+    fn new_app_with_no_config_file_uses_the_defaults_and_writes_nothing() {
         let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
         let dir = tempfile::tempdir().unwrap();
         std::env::set_var(CONFIG_DIR_ENV, dir.path());
 
         let app = new_app("git".to_string(), stub(), terminal::Sink::Stdout);
-        assert!(app.horizontal_scroll_enabled);
+        assert!(!app.horizontal_scroll_enabled && app.parsed_wrap && !app.raw_mode);
+        assert!(app.settings.description_preview);
+        assert_eq!(app.notice, None);
+        assert!(!dir.path().join("config.toml").exists());
+
+        std::env::remove_var(CONFIG_DIR_ENV);
+    }
+
+    /// A bad key and a bad value cost only themselves, and the footer line
+    /// names the first of the two.
+    #[test]
+    fn new_app_reports_problems_in_one_footer_line() {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.toml"),
+            "[sort]\nsrot = 1\nflags = \"sideways\"\ncommands = \"az\"\n",
+        )
+        .unwrap();
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
+
+        let app = new_app("git".to_string(), stub(), terminal::Sink::Stdout);
+        assert!(app.sorts.tree, "the good key still applies");
+        assert_eq!(
+            app.notice.as_deref(),
+            Some("2 problems in config.toml: line 2: unknown key \"srot\", ignored")
+        );
 
         std::env::remove_var(CONFIG_DIR_ENV);
     }

@@ -892,7 +892,7 @@ fn section_prose_wraps_and_never_scrolls_horizontally() {
          therefore wrap onto the next one rather than run off the edge",
     ));
     let mut app = app_for(node);
-    assert!(app.horizontal_scroll_enabled, "default is on");
+    app.horizontal_scroll_enabled = true;
     let before = detail_rows(&app, 90, 30);
     let body: Vec<&String> = before
         .iter()

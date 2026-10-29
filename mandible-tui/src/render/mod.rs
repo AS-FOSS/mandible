@@ -11,6 +11,7 @@
 mod detail_pane;
 pub(crate) use detail_pane::is_empty_page;
 mod help_overlay;
+mod help_settings;
 mod review_overlay;
 mod search_bar;
 mod status_bar;
@@ -52,14 +53,7 @@ pub fn render(frame: &mut Frame, app: &App) {
     status_bar::render(frame, regions.status, app);
 
     if app.show_help {
-        let (max_scroll, visible) = help_overlay::render(
-            frame,
-            area,
-            app.glyphs,
-            app.color_enabled,
-            app.print_selection,
-            app.help_scroll(),
-        );
+        let (max_scroll, visible) = help_overlay::render(frame, area, app);
         app.set_help_extent(max_scroll, visible);
     }
 
