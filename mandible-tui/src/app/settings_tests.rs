@@ -154,6 +154,9 @@ fn opening_the_popup_shows_the_keys_tab_and_up_down_stop_at_the_ends() {
         a.settings_move(1);
     }
     assert_eq!(a.settings.selected(), Row::Theme);
+    assert_eq!(a.settings.row, Row::ALL.len() - 1, "no hidden overshoot");
+    a.settings_move(-1);
+    assert_eq!(a.settings.selected(), Row::Commands);
 }
 
 #[test]
