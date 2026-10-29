@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-30
+
 ### Added
 
 - `~/.config/mandible/config.toml` takes `[ui]` (`raw_view`, `horizontal_scroll`, `description_preview`, `ascii`), `[sort]` (`flags`, `commands`) and `[colors]` (`theme`, and seven colours for `custom`); `NO_COLOR` and `MANDIBLE_ASCII` still win over the file.
