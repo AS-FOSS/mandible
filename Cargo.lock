@@ -986,6 +986,7 @@ dependencies = [
  "proptest",
  "ratatui",
  "strsim",
+ "tempfile",
  "thiserror 1.0.69",
  "tracing",
  "unicode-width 0.2.0",

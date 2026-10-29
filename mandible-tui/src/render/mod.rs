@@ -94,3 +94,6 @@ fn draw_too_small(frame: &mut Frame, area: ratatui::layout::Rect) {
     let rect = ratatui::layout::Rect::new(area.x, area.y + top, area.width, area.height - top);
     frame.render_widget(ratatui::widgets::Paragraph::new(lines), rect);
 }
+
+#[cfg(test)]
+mod help_settings_tests;

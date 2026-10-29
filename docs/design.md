@@ -203,14 +203,14 @@ structure, search is for flags.
 | `←`/`h` | Collapse, or jump to parent if already collapsed |
 | `/` | Open the search box, with the keyword already in effect if there is one. `Enter` in the box jumps to the first match and focuses the commands list, keeping the keyword and filter |
 | `Esc` | In layers: close the `?` popup; else, if the detail pane is scrolled sideways, return to column 0; else clear the search keyword and filter, the cursor staying on its row. In the search box, `Esc` cancels the search and the cursor returns to the row it was on before `/` |
-| `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`). In the search box, take the dim suggestion (§10) |
+| `Tab` | Move focus between tree and detail pane (detail pane scrolls with `↑↓`). In the search box, take the dim suggestion (§10). In the `?` pop-up, switch between its keys and settings tabs (§9.5) |
 | `t` | Verbatim view: show the tool's own `--help` output, the bytes this node was parsed from, instead of the parse |
 | `w` | Wrap or scroll sideways in the view on screen (§9.4). Each view keeps its own state |
 | `s` | Sort the focused pane A to Z (§9.3 rule 20). The detail pane cycles the tool's order, A to Z within each section, A to Z over each section; the commands pane switches between the tool's order and A to Z |
 | `h`/`l`/`←`/`→` (detail pane focused) | Scroll sideways, 8 columns a press, while the view is not wrapping |
 | `n`/`p` | While a search is active: select the next or previous matching entity on the selected command's page and scroll it into view, wrapping at the ends |
 | `y` | Copy: the selected flag's spelling, or the node's full command path |
-| `?` | Keybinding overlay |
+| `?` | Open the pop-up on its keys tab; `?` or `Esc` closes it. Its settings tab changes the settings of §9.5, with `↑`/`↓` to choose a row and `←`/`→` to change it |
 | `r` | Reload what you are looking at, in the background. On a command's page that command is read again at user urgency and then its subcommands at walk urgency; on the tool's root page the whole tool is extracted again, preserving expansion, selection, filter and view mode, abandoning the in-flight warming cascade and restarting it. A command whose last read timed out gets a 2-minute limit. A second `r` while it runs does nothing, and the page stays usable until the new result replaces it |
 | `q`, `Ctrl-C` | Quit |
 | Mouse | Click row selects; click chevron toggles; wheel scrolls the pane under the cursor |
@@ -1808,16 +1808,16 @@ pane.
    of the page is re-flowed to the pane; wrapping off, nothing wraps, each
    line is one row, and `h`/`l`/`←`/`→` scroll 8 columns a press, clamped
    to the widest line, with a `◀`/`▶` marker, per line, in the gutter beside
-   exactly the lines cut at that edge. The parsed view starts wrapped. The raw `--help` view
-   (`t`) and the `unparsed` fallback are the tool author's own layout and
-   share one state that starts from `[ui] horizontal_scroll` in
-   `~/.config/mandible/config.toml`, default `true`, meaning not wrapping.
+   exactly the lines cut at that edge. Both views start from
+   `[ui] horizontal_scroll` (§9.5), default `false`, meaning wrapped. The raw
+   `--help` view (`t`) and the `unparsed` fallback are the tool author's own
+   layout and share one wrap state; the parsed view has its own.
    Toggling returns the view to column 0. A wrapped USAGE synopsis
    hangs its later rows four columns right of its first row; the parser
    already joins a usage that wrapped over several physical lines into one
    logical line, so it is mandible's own reconstruction (§16).
-10. A raw or `unparsed` view that is wrapping (`horizontal_scroll = false`
-    at start, or `w` pressed) never clips. A preformatted line wider than
+10. A raw or `unparsed` view that is wrapping (`horizontal_scroll = false`,
+    the default, or `w` pressed) never clips. A preformatted line wider than
     the pane continues onto the next row instead of ending at the border,
     without being reflowed: a fitting line arrives byte for byte, a row
     keeps its internal spacing, the cut prefers a whitespace boundary and
@@ -1832,7 +1832,8 @@ pane.
     the built lines for the selected node and is in memory for one run only;
     nothing is written to disk. It is reused while the page key is equal:
     the selected path, the tree version, the pane width, whether the view
-    wraps, the pane height, the palette, the glyph set, and the search-selected flag. The tree version moves on every
+    wraps, the pane height, the palette, the glyph set, whether the description
+    previews, and the search-selected flag. The tree version moves on every
     write to the tree, because the tree can only be written through
     `TreeStore`, whose write access takes a new version from a process-wide
     counter, so no two trees or writes share one. Debug builds also rebuild
@@ -2325,10 +2326,10 @@ shrinks, and the only three questions allowed to decide it.
 | Sort indicator (§9.3 rule 20) | cut | Dropped whole before its title is cut |
 | Search box text | scroll | Shows the end of what is typed |
 | DESCRIPTION, USAGE, EXAMPLES, summary | USER CHOICE | Wrapped with `USAGE_HANG`; hard-break of an over-wide token; wrapping off: one row per line |
-| Raw view, `unparsed` fallback | USER CHOICE | Its own state, starting from `[ui] horizontal_scroll` (default: scrolls); preformatted lines never re-flow |
+| Raw view, `unparsed` fallback | USER CHOICE | Its own state, starting from `[ui] horizontal_scroll` (default: wraps); preformatted lines never re-flow |
 | Detail pane rows hidden | scroll | Bare `▲` `▼` on the top and bottom border, one rule cell in from the corner |
 | Detail pane columns hidden | scroll | `◀` `▶` in the gutter beside each cut line |
-| `?` popup | SCREEN | Unchanged: sized to its content, clamped to the screen, scrolls with its own `▲`/`▼` |
+| `?` popup | SCREEN | Sized to the keys tab's content and clamped to the screen, the same size on both tabs; scrolls with its own `▲`/`▼`; its border label loses its path, then its other parts, before the corners are touched |
 | Status bar | SCREEN | Unchanged: hints are dropped whole, the last two stay |
 
 **Why.** The sizes at which a terminal's layout changes were scattered
@@ -2349,6 +2350,107 @@ it, and under it a pane shows a head and nothing to read.
 **Implemented in.** `mandible-tui/src/fit.rs`, `layout.rs`,
 `render/tree_pane.rs`, `render/detail_pane/` (`layout.rs`, `man.rs`),
 `render/search_bar.rs`.
+
+### 9.5 Settings and config.toml
+
+**Decides.** The settings mandible has, where they are stored, which source
+wins, what a bad file costs, and how the `?` pop-up changes them.
+
+**Rules.**
+
+1. Settings live in `config.toml` in the config directory:
+   `$MANDIBLE_CONFIG_DIR` when set, else the per-OS default
+   (`~/.config/mandible/` on Linux). mandible never creates the file at
+   startup. It reads the file, and the settings tab writes it. The per-tool
+   override files (§7 Tier F) are a separate mechanism in the same directory.
+2. The keys, one level of sections:
+
+| Key | Values | Default | Meaning |
+|---|---|---|---|
+| `[ui] raw_view` | `true`, `false` | `false` | Start in the tool's own `--help` view, as if `t` had been pressed |
+| `[ui] horizontal_scroll` | `true`, `false` | `false` | `false` folds lines to the pane. `true` keeps each line on one row and scrolls sideways. One key for the parsed view and the raw view (§9 rule 9) |
+| `[ui] description_preview` | `true`, `false` | `true` | `false` draws a long DESCRIPTION in full, in place, with no preview (§9.3) |
+| `[ui] ascii` | `true`, `false` | `false` | Force the ASCII glyph set |
+| `[sort] flags` | `"tool"`, `"az-sections"`, `"az"` | `"tool"` | The detail pane's starting state for `s` |
+| `[sort] commands` | `"tool"`, `"az"` | `"tool"` | The commands pane's starting state for `s` |
+| `[colors] theme` | `"default"`, `"none"` | `"default"` | `none` draws no colour, exactly what `NO_COLOR` gives |
+
+   A theme is a value that yields the palette, so a new theme is a new
+   value. There is no search-mode setting and no key-binding setting.
+3. Precedence is environment variable, then file, then default. `NO_COLOR`
+   and `TERM=dumb`, like output that is not a terminal, act as
+   `theme = "none"`. `MANDIBLE_ASCII` beats `ascii`.
+4. A key that is unknown or has a bad value costs only that key, which
+   keeps its default, and every other key still applies. A file that does
+   not parse gives the defaults for every key. Either way the footer shows
+   one line in the warning style from startup until the first key press:
+   `config.toml line 7: unknown key "srot", ignored`, or
+   `config.toml line 7: bad value for flags, ignored`. With several
+   problems it reads `2 problems in config.toml: line 7: ...` and names the
+   first. The line has the footer's margin on both sides and is cut with
+   `…` when the row is short. The settings tab does not show it. Each
+   problem is also logged at warn level.
+5. The `?` pop-up has two tabs, `keys` and `settings`, switched with `Tab`.
+   The title reads `help · keys  settings`, the tab on show in the accent
+   and the other muted (bold and plain under `NO_COLOR`). `?` opens it on the
+   keys tab. `Esc` or `?` closes it, and no other key does.
+6. The keys tab is the key bindings as plain text with nothing selected.
+   `↑`/`↓` scroll a line at a time when the content overflows. Its border
+   label is `↑↓ scroll · Tab settings · Esc close`.
+7. The settings tab lists these rows under the muted bold headings VIEW,
+   SORT and COLOURS, a label column then a value column, with no file key
+   names:
+
+| Heading | Row | Values |
+|---|---|---|
+| VIEW | Open in the tool's own --help | off, on |
+| VIEW | Scroll long lines sideways | off, on |
+| VIEW | Description preview | on, off |
+| VIEW | ASCII glyphs | off, on |
+| SORT | Flags | tool order, A–Z in sections, A–Z |
+| SORT | Commands | tool order, A–Z |
+| COLOURS | Theme | default, none |
+
+   `↑`/`↓` move the highlight from row to row, skipping headings and blank
+   lines, and the tab scrolls to keep it in view. `←`/`→` step the value and
+   wrap around. The highlighted row is the grey bar of the commands pane
+   (§9.2), reversed where that bar is, and its value is drawn `‹ value ›`.
+   The border label is `↑↓ choose · ←→ change · Tab keys · Esc close · saved
+   to <path>`, with `~` for the home directory. When the border is short the
+   path goes first, then the leading parts, and the corners and one rule
+   cell beside each stay.
+8. A row an environment variable decides (`MANDIBLE_ASCII` for ASCII glyphs,
+   `NO_COLOR` or `TERM=dumb` for Theme) is muted, shows its value as
+   `on (MANDIBLE_ASCII)` or `none (NO_COLOR)`, has no `‹ ›`, and ignores
+   `←`/`→`. While it is highlighted the border says `set by MANDIBLE_ASCII:
+   unset it to change this here · Tab keys · Esc close`.
+9. Every change applies at once: the theme recolours, the glyph set swaps,
+   a sort re-sorts the panes as `s` would and sets that pane's state,
+   Scroll sets both views' wrap state, Description preview redraws the page,
+   and the first row switches the view. The Scroll row shows the view on
+   screen. Each change is saved at once to its own key only, with the
+   comments, the order and the unknown keys of the file left as they are.
+   The file and its directory are created if missing. A file that does not
+   parse is left alone. A failed write puts `could not save config.toml:
+   <reason>` in the footer in the warning style until the next key press,
+   and the setting stays applied for the session.
+10. The page cache key includes the palette, the glyph set and the
+    description preview setting (§9 rule 12).
+
+**Why.** The settings a person reaches for are the ones the screen already
+shows, so they change where they are seen and the choice survives the
+session. One line in the footer reports a bad file where a person sees it
+first, and costing only the bad key keeps one typo from resetting the rest.
+A variable outranks the file because it is the stronger statement of intent
+and is often set by the terminal, so its row says who set it instead of
+silently ignoring the arrow keys. Editing the file in place with a
+comment-preserving writer keeps a hand-edited file hand-editable.
+
+**Implemented in.** `mandible-core/src/config/`,
+`mandible-tui/src/settings.rs`, `mandible-tui/src/app/settings_keys.rs`,
+`mandible-tui/src/render/help_overlay.rs`,
+`mandible-tui/src/render/help_settings.rs`,
+`mandible/src/app_runner.rs`.
 
 ---
 ---
@@ -3239,7 +3341,7 @@ way completions are.
 **Implemented in.** `packaging/mandible.1`; `.github/workflows/ci.yml`;
 `.github/workflows/release.yml`; `mandible/shell/mandible.bash`;
 `mandible/shell/mandible.zsh`; `mandible/Cargo.toml`; `mandible/src/cli.rs`;
-`mandible/src/shell_init.rs`; `mandible-core/src/config.rs`.
+`mandible/src/shell_init.rs`; `mandible-core/src/config/`.
 
 ---
 
@@ -3288,9 +3390,16 @@ ROOM (does a description get 20 columns) or USER CHOICE (`w`), recorded
 with its numbers in §9.4: stacking below 50 columns, the too-small screen
 under 30×10, the 20-column room, the 4-column man-layout description indent.
 The 28-column floor that squeezed a description column is gone: below 20
-columns of room a section becomes a man page. `[ui] horizontal_scroll` stays,
-as the starting wrap state of the raw view and the `unparsed` fallback; the
-parsed view always starts wrapped. A flag description is never cut with `…`.
+columns of room a section becomes a man page. `[ui] horizontal_scroll` stays;
+§9.5 makes it the starting wrap state of both views. A flag description is
+never cut with `…`.
+
+**Settings live in the pop-up and in one config file (2026-10-29).** The
+maintainer ruled that `config.toml` has the keys of §9.5, that the `?` pop-up
+gets a settings tab that writes them, and that `horizontal_scroll` is one key
+for both views. The raw view therefore starts folded to the pane instead of
+scrolling. A theme is a value that yields the palette, and `none` is the only
+one so far. There is no search-mode setting and no key-binding setting.
 
 **USAGE soft-wraps at the pane width instead of scrolling horizontally
 (2026-09-03).** Shown `mandible sg_luns`, the maintainer asked "should we

@@ -1740,6 +1740,8 @@ mod marking_tests;
 #[cfg(test)]
 mod search_tests;
 #[cfg(test)]
+mod settings_tests;
+#[cfg(test)]
 mod sort_tests;
 
 #[cfg(test)]
