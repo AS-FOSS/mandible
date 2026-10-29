@@ -290,10 +290,7 @@ mod tests {
         assert_eq!(locks.variable(Row::Ascii), Some("MANDIBLE_ASCII"));
         assert_eq!(locks.variable(Row::Theme), None);
         assert_eq!(locks.variable(Row::Flags), None);
-        assert_eq!(
-            EnvLocks::of(None, Some("xterm"), Some(OsStr::new(""))).ascii,
-            false
-        );
+        assert!(!EnvLocks::of(None, Some("xterm"), Some(OsStr::new(""))).ascii);
     }
 
     #[test]

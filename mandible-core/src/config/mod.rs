@@ -1,25 +1,17 @@
 //! The user's general settings file, `~/.config/mandible/config.toml`.
 //!
-//! mandible never creates this file on its own. It reads it at startup and
-//! the settings tab of the `?` pop-up writes single keys back to it
-//! ([`save`]). `mandible-extract/src/overrides/mod.rs` reads a different
-//! set of files, one per tool under `overrides/<tool>.toml`.
-//!
-//! The directory is [`CONFIG_DIR_ENV`] when set, else the per-OS default
-//! from `directories::ProjectDirs`.
-//!
-//! Precedence is environment variable, then this file, then the default.
-//! The environment half (`NO_COLOR`, `MANDIBLE_ASCII`) is applied by the
-//! terminal UI; this module only reports what the file says.
+//! mandible reads it at startup and never creates it. The settings tab of
+//! the `?` pop-up writes single keys back with [`save`]. The directory is
+//! [`CONFIG_DIR_ENV`] when set, else the per-OS default. Precedence is
+//! environment variable, then file, then default; the terminal UI applies
+//! the environment half.
 //!
 //! A key that is unknown or has a bad value costs only that key. A file
-//! that does not parse gives the defaults for every key. Each problem is
-//! returned in [`Loaded::problems`] and logged with `tracing::warn!`.
-//! Nothing here panics: it runs before the user has typed anything.
+//! that does not parse gives the defaults. Each problem is returned in
+//! [`Loaded::problems`] and logged with `tracing::warn!`. Nothing here
+//! panics, because it runs before the user has typed anything.
 
 mod save;
-#[cfg(test)]
-mod tests;
 
 pub use save::{save, SaveError};
 
@@ -384,3 +376,6 @@ pub enum Value {
     /// One of the words a word setting is written as.
     Word(&'static str),
 }
+
+#[cfg(test)]
+mod tests;

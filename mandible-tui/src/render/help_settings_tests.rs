@@ -302,7 +302,7 @@ fn the_settings_border_says_where_it_saves_with_the_home_directory_as_a_tilde() 
     assert!(bottom(&app, &buf, 160, 30).contains(
         "↑↓ choose · ←→ change · Tab keys · Esc close · saved to /somewhere/else/mandible/config.toml"
     ));
-    let home = std::path::Path::new("/home/someone");
+    let home = std::path::Path::new("/srv/someone");
     let shown = super::help_settings::tilde(&home.join(".config/mandible/config.toml"), Some(home));
     assert_eq!(shown, "~/.config/mandible/config.toml");
     let elsewhere = super::help_settings::tilde(std::path::Path::new("/etc/x.toml"), Some(home));
@@ -316,7 +316,7 @@ fn a_short_border_drops_the_path_then_the_rest_and_keeps_its_corners() {
     let mut seen_close_only = false;
     for w in 30..=140u16 {
         let mut app = settings_open(w, 24);
-        app.settings.config_path = Some("/home/u/.config/mandible/config.toml".into());
+        app.settings.config_path = Some("/srv/u/.config/mandible/config.toml".into());
         let buf = draw(&app, w, 24);
         let label = bottom(&app, &buf, w, 24);
         assert!(
@@ -352,7 +352,7 @@ fn every_screen_size_draws_whole_borders_on_both_tabs() {
             let mut app = app();
             app.toggle_help();
             app.settings.tab = tab;
-            app.settings.config_path = Some("/home/u/.config/mandible/config.toml".into());
+            app.settings.config_path = Some("/srv/u/.config/mandible/config.toml".into());
             let buf = draw(&app, w, h);
             let p = popup(&app, w, h);
             assert_eq!(buf[(p.x, p.y)].symbol(), "╭", "{w}x{h} {tab:?}");
@@ -422,7 +422,7 @@ fn the_settings_tab_is_ascii_with_the_ascii_glyphs_and_so_are_its_borders() {
     app.glyphs = glyphs::ASCII;
     app.toggle_help();
     app.settings.tab = HelpTab::Settings;
-    app.settings.config_path = Some("/home/u/.config/mandible/config.toml".into());
+    app.settings.config_path = Some("/srv/u/.config/mandible/config.toml".into());
     select(&mut app, Row::Flags);
     let buf = draw(&app, 120, 30);
     let p = popup(&app, 120, 30);

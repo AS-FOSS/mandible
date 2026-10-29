@@ -152,7 +152,7 @@ pub(super) fn label_candidates(app: &App) -> Vec<String> {
     let mut out = Vec::new();
     match app.settings.tab {
         HelpTab::Keys => {
-            let parts = vec![
+            let parts = [
                 format!("{} scroll", g.arrows_vertical),
                 "Tab settings".to_string(),
                 "Esc close".to_string(),
