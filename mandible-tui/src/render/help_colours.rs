@@ -107,6 +107,15 @@ pub(super) fn value_spans(app: &App, row: Row, selected: bool, room: usize) -> V
         .max()
         .unwrap_or(0);
     let with_sample = FIELD + 1 + display_width(block) + 1 + widest + tail;
+    let hint_gap = "   ";
+    let with_hint = FIELD
+        + 1
+        + display_width(block)
+        + 1
+        + display_width(&sample_text)
+        + hint_gap.len()
+        + display_width(g.type_hint)
+        + tail;
     let with_block = FIELD + 1 + display_width(block) + tail;
     let mut spans = Vec::new();
     if drawn && with_block <= room {
@@ -116,6 +125,10 @@ pub(super) fn value_spans(app: &App, row: Row, selected: bool, room: usize) -> V
         if with_sample <= room {
             spans.push(Span::raw(" "));
             spans.push(Span::styled(sample_text, sample_style));
+            if typing && with_hint <= room {
+                spans.push(Span::raw(hint_gap));
+                spans.push(Span::styled(g.type_hint, style::muted(app.palette)));
+            }
         }
     } else {
         let text = truncate_to_width_marker(&text, room.saturating_sub(tail), g.ellipsis);

@@ -75,6 +75,8 @@ pub struct Glyphs {
     pub swatch: &'static str,
     /// The text cursor in a field being typed into.
     pub cursor: &'static str,
+    /// What a colour field being typed into accepts.
+    pub type_hint: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -105,6 +107,7 @@ pub const UNICODE: Glyphs = Glyphs {
     apostrophe: "\u{2019}",
     swatch: "██",
     cursor: "▏",
+    type_hint: "type 0–255 or a name",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -136,6 +139,7 @@ pub const ASCII: Glyphs = Glyphs {
     apostrophe: "'",
     swatch: "##",
     cursor: "_",
+    type_hint: "type 0-255 or a name",
 };
 
 /// Pick a glyph set from the environment.
@@ -198,6 +202,7 @@ mod tests {
             ASCII.apostrophe,
             ASCII.swatch,
             ASCII.cursor,
+            ASCII.type_hint,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

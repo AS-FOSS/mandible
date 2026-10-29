@@ -425,3 +425,72 @@ fn moving_the_highlight_never_adds_or_drops_a_block_or_sample() {
         assert_eq!(shape(&a), away, "width {w}");
     }
 }
+
+fn typing_row(a: &mut App, w: u16) -> String {
+    select(a, Row::Color(Role::Muted));
+    a.settings.typing = Some("17".to_string());
+    let buf = draw(a, w, 34);
+    let (y, _) = row_of(&buf, "Muted text");
+    let p = crate::render::help_overlay_rect(Rect::new(0, 0, w, 34), false);
+    line(&buf, y)
+        .chars()
+        .skip(usize::from(p.x) + 1)
+        .take(usize::from(p.width) - 2)
+        .collect()
+}
+
+#[test]
+fn typing_ends_with_the_hint_three_spaces_after_the_sample_in_muted() {
+    let mut a = custom();
+    let buf = {
+        select(&mut a, Row::Color(Role::Accent));
+        a.settings.typing = Some("17".to_string());
+        draw(&a, 130, 34)
+    };
+    let (y, _) = row_of(&buf, "Accent");
+    let text = line(&buf, y);
+    assert!(text.contains("--squash   type 0–255 or a name"), "{text}");
+    let at = u16::try_from(text[..text.find("type 0").unwrap()].chars().count()).unwrap();
+    assert_eq!(buf[(at, y)].fg, Color::DarkGray);
+    let mut b = custom();
+    select(&mut b, Row::Color(Role::Accent));
+    let plain = line(&draw(&b, 130, 34), y);
+    assert!(
+        !plain.contains("type 0"),
+        "no hint when not typing: {plain}"
+    );
+}
+
+#[test]
+fn the_hint_is_cut_before_the_sample_and_the_sample_before_the_block() {
+    let mut a = custom();
+    let (mut hint_only_cut, mut sample_only_cut) = (false, false);
+    for w in (40..=130).rev() {
+        let t = typing_row(&mut a, w);
+        let (h, s, b) = (
+            t.contains("type 0"),
+            t.contains("Record changes to the repository"),
+            t.contains("██"),
+        );
+        assert!(!h || s, "hint without sample at {w}: {t}");
+        assert!(!s || b, "sample without block at {w}: {t}");
+        if h {
+            assert!(t.contains("a name"), "half a hint at {w}: {t}");
+        }
+        hint_only_cut |= s && !h;
+        sample_only_cut |= b && !s;
+    }
+    assert!(hint_only_cut && sample_only_cut);
+}
+
+#[test]
+fn the_ascii_hint_uses_a_hyphen() {
+    let mut a = custom();
+    a.glyphs = glyphs::ASCII;
+    let t = typing_row(&mut a, 130);
+    assert!(
+        t.contains("Record changes to the repository   type 0-255 or a name"),
+        "{t}"
+    );
+    assert!(t.is_ascii());
+}
