@@ -2450,7 +2450,10 @@ wins, what a bad file costs, and how the `?` pop-up changes them.
    wrap around. The highlighted row is the grey bar of the commands pane
    (§9.2), reversed where that bar is, and its value is drawn `‹ value ›`.
    The border label is `↑↓ choose · ←→ change · Tab keys · Esc close · saved
-   to <path>`, with `~` for the home directory. When the border is short the
+   to <path>`, with `~` for the home directory. The path takes at most 30
+   columns: a longer one is cut from the left at a separator to `…/` (`.../`
+   in the ASCII glyph set) and the longest tail of whole components that
+   fits, at least the file name. When the border is short the
    path goes first, then the leading parts, and the corners and one rule
    cell beside each stay.
 8. A row an environment variable decides (`MANDIBLE_ASCII` for ASCII glyphs,

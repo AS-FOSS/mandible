@@ -154,6 +154,29 @@ pub(super) fn tilde(path: &Path, home: Option<&Path>) -> String {
     }
 }
 
+/// Most columns the path after `saved to` takes.
+pub(super) const PATH_COLUMNS: usize = 30;
+
+/// `path` as it fits in [`PATH_COLUMNS`]: unchanged when it fits, else cut
+/// from the left at a separator to `lead/` and the longest tail of whole
+/// components that fits. `lead/` and the last component are kept whatever
+/// their width.
+pub(super) fn clip_path(path: &str, lead: &str) -> String {
+    if display_width(path) <= PATH_COLUMNS {
+        return path.to_string();
+    }
+    let parts: Vec<&str> = path.split('/').collect();
+    let mut keep = 1;
+    while keep < parts.len() {
+        let tail = parts[parts.len() - keep - 1..].join("/");
+        if display_width(lead) + 1 + display_width(&tail) > PATH_COLUMNS {
+            break;
+        }
+        keep += 1;
+    }
+    format!("{lead}/{}", parts[parts.len() - keep..].join("/"))
+}
+
 /// The bottom border's label candidates for the tab on show, longest
 /// first. The caller uses the first that fits.
 pub(super) fn label_candidates(app: &App) -> Vec<String> {
@@ -196,7 +219,7 @@ pub(super) fn label_candidates(app: &App) -> Vec<String> {
             parts.push("Esc close".to_string());
             if let Some(path) = &app.settings.config_path {
                 let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
-                let shown = tilde(path, home.as_deref());
+                let shown = clip_path(&tilde(path, home.as_deref()), g.ellipsis);
                 out.push(join(
                     &[parts.clone(), vec![format!("saved to {shown}")]].concat(),
                 ));

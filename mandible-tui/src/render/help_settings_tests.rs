@@ -300,7 +300,7 @@ fn the_settings_border_says_where_it_saves_with_the_home_directory_as_a_tilde() 
     app.settings.config_path = Some("/somewhere/else/mandible/config.toml".into());
     let buf = draw(&app, 160, 30);
     assert!(bottom(&app, &buf, 160, 30).contains(
-        "↑↓ choose · ←→ change · Tab keys · Esc close · saved to /somewhere/else/mandible/config.toml"
+        "↑↓ choose · ←→ change · Tab keys · Esc close · saved to …/else/mandible/config.toml"
     ));
     let home = std::path::Path::new("/srv/someone");
     let shown = super::help_settings::tilde(&home.join(".config/mandible/config.toml"), Some(home));
@@ -601,4 +601,93 @@ fn the_theme_and_the_glyph_set_redraw_the_page() {
         "{}",
         lines(&ascii).join("\n")
     );
+}
+
+#[test]
+fn a_path_of_thirty_columns_is_shown_whole() {
+    use super::help_settings::clip_path;
+    let exact = "~/.config/mandible/config.toml";
+    assert_eq!(exact.chars().count(), 30);
+    assert_eq!(clip_path(exact, "…"), exact);
+    let mut app = settings_open(160, 30);
+    app.settings.config_path = Some(format!("{}/.config/mandible/config.toml", env_home()).into());
+    let buf = draw(&app, 160, 30);
+    assert!(
+        bottom(&app, &buf, 160, 30).contains(&format!("saved to {exact} "))
+            || env_home().is_empty()
+    );
+}
+
+fn env_home() -> String {
+    std::env::var("HOME").unwrap_or_default()
+}
+
+#[test]
+fn a_long_path_is_cut_from_the_left_at_a_separator() {
+    use super::help_settings::clip_path;
+    assert_eq!(
+        clip_path("/srv/a/long/scratch/try/fresh/config.toml", "…"),
+        "…/try/fresh/config.toml"
+    );
+    assert_eq!(
+        clip_path("/somewhere/else/mandible/config.toml", "…"),
+        "…/else/mandible/config.toml"
+    );
+    for p in [
+        "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/config.toml",
+        "/x/y/z/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/config.toml",
+    ] {
+        let cut = clip_path(p, "…");
+        assert!(
+            cut.starts_with("…/") && cut.ends_with("config.toml"),
+            "{cut}"
+        );
+    }
+    assert_eq!(
+        clip_path("/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/config.toml", "…"),
+        "…/config.toml"
+    );
+    let long = "/srv/a/long/scratch/try/fresh/config.toml";
+    let mut app = settings_open(160, 30);
+    app.settings.config_path = Some(long.into());
+    let buf = draw(&app, 160, 30);
+    assert!(bottom(&app, &buf, 160, 30).contains("saved to …/try/fresh/config.toml "));
+}
+
+#[test]
+fn the_ascii_cut_uses_three_dots() {
+    use super::help_settings::clip_path;
+    assert_eq!(
+        clip_path(
+            "/srv/a/long/scratch/try/fresh/config.toml",
+            glyphs::ASCII.ellipsis
+        ),
+        ".../try/fresh/config.toml"
+    );
+    let mut app = settings_open(160, 30);
+    app.glyphs = glyphs::ASCII;
+    app.settings.config_path = Some("/srv/a/long/scratch/try/fresh/config.toml".into());
+    let buf = draw(&app, 160, 30);
+    assert!(bottom(&app, &buf, 160, 30).contains("saved to .../try/fresh/config.toml "));
+}
+
+#[test]
+fn a_narrow_border_still_drops_a_cut_path_first() {
+    let long = "/srv/a/long/scratch/try/fresh/config.toml";
+    let mut seen = (false, false);
+    for w in 30..=160u16 {
+        let mut app = settings_open(w, 24);
+        app.settings.config_path = Some(long.into());
+        let buf = draw(&app, w, 24);
+        let label = bottom(&app, &buf, w, 24);
+        let has = label.contains("saved to");
+        if has {
+            assert!(
+                label.contains("…/try/fresh/config.toml") && label.contains("choose"),
+                "w={w}: {label}"
+            );
+        }
+        seen = (seen.0 | has, seen.1 | (!has && label.contains("choose")));
+    }
+    assert!(seen.0 && seen.1);
 }
