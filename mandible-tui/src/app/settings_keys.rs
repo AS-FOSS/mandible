@@ -85,7 +85,7 @@ impl App {
             let mut at = self.settings.row;
             let found = loop {
                 match at.checked_add_signed(step).filter(|n| *n < Row::ALL.len()) {
-                    Some(n) if self.settings.enabled(Row::ALL[n]) => break Some(n),
+                    Some(n) if self.settings.selectable(Row::ALL[n]) => break Some(n),
                     Some(n) => at = n,
                     None => break None,
                 }

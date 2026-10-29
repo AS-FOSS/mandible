@@ -393,3 +393,25 @@ fn a_session_without_256_colours_keeps_the_theme_and_falls_back_when_drawing() {
     );
     assert!(a.palette.color && !a.palette.extended);
 }
+
+#[test]
+fn a_row_an_environment_variable_decides_is_still_reached_by_the_arrows() {
+    let mut a = app();
+    a.settings.locks = EnvLocks {
+        ascii: true,
+        color: Some("NO_COLOR"),
+    };
+    go(&mut a, Row::Preview);
+    a.settings_move(1);
+    assert_eq!(a.settings.selected(), Row::Ascii);
+    a.settings_move(1);
+    a.settings_move(1);
+    a.settings_move(1);
+    assert_eq!(a.settings.selected(), Row::Theme);
+    a.settings_move(1);
+    assert_eq!(
+        a.settings.selected(),
+        Row::Theme,
+        "the colour rows are skipped"
+    );
+}

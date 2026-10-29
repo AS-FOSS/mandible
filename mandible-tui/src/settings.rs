@@ -249,6 +249,13 @@ impl Settings {
         }
     }
 
+    /// Whether `↑`/`↓` stop on `row`. A row an environment variable decides
+    /// is reached, so its border label can say which variable; a disabled
+    /// colour row is skipped.
+    pub fn selectable(&self, row: Row) -> bool {
+        row.role().is_none() || self.enabled(row)
+    }
+
     /// The seven values the colour rows show: the theme's own, or the custom
     /// ones under `custom` and `none`.
     pub fn shown_roles(&self) -> Roles {
