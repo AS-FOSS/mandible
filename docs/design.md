@@ -2476,9 +2476,9 @@ wins, what a bad file costs, and how the `?` pop-up changes them.
    it: `--squash` (accent), `config.toml line 7` (warning), `Record changes
    to the repository` (muted), `FLAGS (41) ───` (section), `Commit message
    options ───` (group), ` commit ` on the bar in the accent (selection),
-   ` Record changes ` on the bar (selection text). The sample is cut first
-   when the row is narrow, then the block, and the row keeps the pop-up's
-   margin on both sides. Where `NO_COLOR` or `theme = "none"` draws no
+   ` Record changes ` on the bar (selection text). When the pop-up is narrow
+   the samples are cut first, on all seven rows together, then the blocks,
+   and a row keeps the pop-up's margin on both sides. Where `NO_COLOR` or `theme = "none"` draws no
    color, the rows are muted and show the value alone.
 9. Every change applies at once: the theme or a color recolours, the glyph set swaps,
    a sort re-sorts the panes as `s` would and sets that pane's state,
