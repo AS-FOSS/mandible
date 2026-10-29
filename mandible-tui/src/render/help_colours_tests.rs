@@ -408,3 +408,20 @@ fn the_pop_up_is_tall_enough_for_every_row_of_the_tab() {
         "no scroll marker"
     );
 }
+
+#[test]
+fn moving_the_highlight_never_adds_or_drops_a_block_or_sample() {
+    let mut a = custom();
+    for w in (40..=130).step_by(3) {
+        let shape = |a: &App| {
+            let buf = draw(a, w, 34);
+            let (y, _) = row_of(&buf, "Warning");
+            let text = line(&buf, y);
+            (text.contains("██"), text.contains("config.toml line 7"))
+        };
+        select(&mut a, Row::Color(Role::Muted));
+        let away = shape(&a);
+        select(&mut a, Row::Color(Role::Warning));
+        assert_eq!(shape(&a), away, "width {w}");
+    }
+}

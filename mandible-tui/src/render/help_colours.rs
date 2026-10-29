@@ -98,7 +98,9 @@ pub(super) fn value_spans(app: &App, row: Row, selected: bool, room: usize) -> V
     let (sample_text, sample_style) = sample(role, app.palette.with_roles(roles), g.rule);
     let block = g.swatch;
     let drawn = app.palette.color;
-    let tail = display_width(&close);
+    // Room for the closing arrow is kept on every row, so moving the
+    // highlight never makes a block or sample appear or vanish.
+    let tail = display_width(g.value_close) + 1;
     let widest = Role::ALL
         .iter()
         .map(|r| display_width(&sample(*r, Palette::plain(), g.rule).0))
