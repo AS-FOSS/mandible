@@ -182,7 +182,7 @@ fn split_balanced(parts: &[Vec<HelpLine>]) -> Vec<Vec<HelpLine>> {
 
 /// Decide the overlay's shape from its content and the screen.
 ///
-/// The popup is as large as its content, one cell short of the screen edge
+/// The popup is as large as the taller tab's content, one cell short of the screen edge
 /// on every side. Two columns are used once each can hold a typical
 /// description on one line. Content taller than the popup scrolls.
 fn plan(rows: &Rows, area: Rect) -> Plan {
@@ -212,7 +212,7 @@ fn plan(rows: &Rows, area: Rect) -> Plan {
     let content = columns.iter().map(Vec::len).max().unwrap_or(0);
     let wide = columns.len() * col_w + (columns.len() - 1) * COLUMN_GAP + CHROME_W;
     let max_h = usize::from(area.height).saturating_sub(2).max(CHROME_H + 1);
-    let tall = (content + CHROME_H).min(max_h);
+    let tall = (content.max(help_settings::lines().len()) + CHROME_H).min(max_h);
     let popup_w = u16::try_from(wide).unwrap_or(u16::MAX).min(area.width);
     let popup_h = u16::try_from(tall).unwrap_or(u16::MAX).min(area.height);
     let popup = Rect::new(
@@ -238,7 +238,7 @@ pub fn popup_rect(area: Rect, print_selection: bool) -> Rect {
 /// The border's title: `help · keys  settings`, the tab on show in the
 /// accent and the other muted.
 fn title(app: &App) -> Line<'static> {
-    let color = app.color_enabled;
+    let color = app.palette;
     let on_show = |tab| {
         if app.settings.tab == tab {
             crate::style::accent(color)
@@ -246,7 +246,7 @@ fn title(app: &App) -> Line<'static> {
             crate::style::muted(color)
         }
     };
-    let help = if color {
+    let help = if color.color {
         Style::default().add_modifier(ratatui::style::Modifier::BOLD)
     } else {
         Style::default()
@@ -319,21 +319,21 @@ pub fn render(frame: &mut Frame, full_area: Rect, app: &App) -> (usize, usize) {
             .iter()
             .skip(scroll)
             .take(plan.visible)
-            .map(|line| styled(line, app.color_enabled))
+            .map(|line| styled(line, app.palette))
             .collect();
         frame.render_widget(Paragraph::new(lines), rect);
     }
     result
 }
 
-fn styled(line: &HelpLine, color_enabled: bool) -> Line<'static> {
+fn styled(line: &HelpLine, palette: crate::style::Palette) -> Line<'static> {
     match line {
         HelpLine::Blank => Line::default(),
-        HelpLine::Heading(h) => Line::styled(h.clone(), crate::style::muted_bold(color_enabled)),
+        HelpLine::Heading(h) => Line::styled(h.clone(), crate::style::muted_bold(palette)),
         HelpLine::Row { key, desc } => {
             let pad = KEY_COLUMN.saturating_sub(display_width(key)).max(1);
             Line::from(vec![
-                Span::styled(key.clone(), crate::style::accent(color_enabled)),
+                Span::styled(key.clone(), crate::style::accent(palette)),
                 Span::raw(" ".repeat(pad)),
                 Span::raw(desc.clone()),
             ])

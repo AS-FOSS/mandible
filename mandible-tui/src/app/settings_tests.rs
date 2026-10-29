@@ -153,8 +153,12 @@ fn opening_the_popup_shows_the_keys_tab_and_up_down_stop_at_the_ends() {
     for _ in 0..20 {
         a.settings_move(1);
     }
-    assert_eq!(a.settings.selected(), Row::Theme);
-    assert_eq!(a.settings.row, Row::ALL.len() - 1, "no hidden overshoot");
+    assert_eq!(
+        a.settings.selected(),
+        Row::Theme,
+        "the disabled rows are skipped"
+    );
+    assert_eq!(a.settings.row, 6, "no hidden overshoot");
     a.settings_move(-1);
     assert_eq!(a.settings.selected(), Row::Commands);
 }
@@ -189,8 +193,8 @@ fn left_and_right_wrap_around_the_values() {
     assert!(a.sorts.tree);
     change(&mut a, Row::Commands, 1);
     assert!(!a.sorts.tree);
-    change(&mut a, Row::Theme, 1);
-    assert_eq!(a.settings.theme, Theme::None);
+    change(&mut a, Row::Theme, -1);
+    assert_eq!(a.settings.theme, Theme::None, "left from the first wraps");
     change(&mut a, Row::Theme, 1);
     assert_eq!(a.settings.theme, Theme::Default);
 }
@@ -249,7 +253,7 @@ fn flags_sort_resorts_the_page_and_the_commands_sort_resorts_the_tree() {
 #[test]
 fn the_theme_recolours_at_once_and_back() {
     let mut a = app();
-    change(&mut a, Row::Theme, 1);
+    change(&mut a, Row::Theme, -1);
     assert_eq!(a.palette, Palette::plain());
     assert!(!a.color_enabled);
     change(&mut a, Row::Theme, 1);
@@ -286,7 +290,7 @@ fn every_row_saves_the_key_it_names() {
     change(&mut a, Row::Ascii, 1);
     change(&mut a, Row::Flags, -1);
     change(&mut a, Row::Commands, 1);
-    change(&mut a, Row::Theme, 1);
+    change(&mut a, Row::Theme, -1);
     let saved = mandible_core::config::parse(&std::fs::read_to_string(&path).unwrap());
     assert!(saved.problems.is_empty(), "{:?}", saved.problems);
     let c = saved.config;
@@ -314,7 +318,7 @@ fn a_failed_save_leaves_one_footer_line_and_the_setting_applied() {
     std::fs::write(&blocker, "x").unwrap();
     let mut a = app();
     a.settings.config_path = Some(blocker.join("config.toml"));
-    change(&mut a, Row::Theme, 1);
+    change(&mut a, Row::Theme, -1);
     assert_eq!(a.settings.theme, Theme::None, "the setting still applies");
     assert!(!a.color_enabled);
     let line = a.notice.clone().expect("a footer line");

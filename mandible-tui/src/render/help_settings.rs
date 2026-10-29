@@ -69,7 +69,7 @@ pub(super) fn scroll_to_selection(app: &App, visible: usize) -> usize {
 /// Draw the tab's lines into `inner`, the highlighted row on the bar
 /// across the whole width of `popup`.
 pub(super) fn draw(frame: &mut Frame, popup: Rect, inner: Rect, app: &App, scroll: usize) {
-    let color = app.color_enabled;
+    let color = app.palette;
     let content = usize::from(inner.width);
     let label_w = content
         .saturating_sub(VALUE_COLUMN)
@@ -100,7 +100,15 @@ pub(super) fn draw(frame: &mut Frame, popup: Rect, inner: Rect, app: &App, scrol
         let bar = style::bar_text(app.palette);
         let buf = frame.buffer_mut();
         for x in popup.x + 1..popup.right().saturating_sub(1) {
-            buf[(x, y)].set_style(bar);
+            let cell = &mut buf[(x, y)];
+            if cell.bg != ratatui::style::Color::Reset {
+                continue;
+            }
+            if cell.fg == ratatui::style::Color::Reset {
+                cell.set_style(bar);
+            } else {
+                style::paint_bar(cell, app.palette);
+            }
         }
     }
 }
@@ -112,6 +120,9 @@ fn row_line(
     selected: bool,
     (label_w, content): (usize, usize),
 ) -> Line<'static> {
+    if row.role().is_some() {
+        return super::help_colours::row_line(app, row, selected, (label_w, content));
+    }
     let glyphs = app.glyphs;
     let locked = app.settings.locks.variable(row);
     let value = settings::value_text(app, row);
@@ -129,7 +140,7 @@ fn row_line(
     let value = truncate_to_width_marker(&value, content.saturating_sub(label_w), glyphs.ellipsis);
     let text = format!("{label}{}{value}", " ".repeat(pad));
     if locked.is_some() && !selected {
-        Line::from(Span::styled(text, style::muted(app.color_enabled)))
+        Line::from(Span::styled(text, style::muted(app.palette)))
     } else {
         Line::from(text)
     }
@@ -171,12 +182,18 @@ pub(super) fn label_candidates(app: &App) -> Vec<String> {
                 out.push(format!("set by {var}"));
                 return out;
             }
-            let parts = vec![
+            if app.settings.typing.is_some() {
+                return vec![join(&["Enter set".to_string(), "Esc cancel".to_string()])];
+            }
+            let mut parts = vec![
                 format!("{} choose", g.arrows_vertical),
                 format!("{} change", g.arrows_horizontal),
-                "Tab keys".to_string(),
-                "Esc close".to_string(),
             ];
+            if app.settings.selected().role().is_some() {
+                parts.push("Enter type".to_string());
+            }
+            parts.push("Tab keys".to_string());
+            parts.push("Esc close".to_string());
             if let Some(path) = &app.settings.config_path {
                 let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
                 let shown = tilde(path, home.as_deref());
@@ -217,7 +234,7 @@ pub(super) fn draw_bottom_label(frame: &mut Frame, popup: Rect, app: &App) {
         let x = u16::try_from(start).unwrap_or(0);
         let buf = frame.buffer_mut();
         buf.set_string(x, y, " ", ratatui::style::Style::default());
-        buf.set_string(x + 1, y, &text, style::muted(app.color_enabled));
+        buf.set_string(x + 1, y, &text, style::muted(app.palette));
         let after = x + 1 + u16::try_from(display_width(&text)).unwrap_or(0);
         buf.set_string(after, y, " ", ratatui::style::Style::default());
         return;

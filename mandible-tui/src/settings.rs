@@ -5,7 +5,7 @@ use crate::app::App;
 use crate::glyphs::Glyphs;
 use crate::sort::DetailSort;
 use crate::style::Palette;
-use mandible_core::config::{CommandSort, FlagSort, Key, Theme, Value};
+use mandible_core::config::{ColorIndex, CommandSort, FlagSort, Key, Role, Roles, Theme, Value};
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
@@ -58,11 +58,13 @@ pub enum Row {
     Commands,
     /// The colour theme.
     Theme,
+    /// One of the seven colours, editable under the custom theme.
+    Color(Role),
 }
 
 impl Row {
     /// Every row, top to bottom.
-    pub const ALL: [Row; 7] = [
+    pub const ALL: [Row; 14] = [
         Row::RawView,
         Row::Scroll,
         Row::Preview,
@@ -70,6 +72,13 @@ impl Row {
         Row::Flags,
         Row::Commands,
         Row::Theme,
+        Row::Color(Role::Accent),
+        Row::Color(Role::Warning),
+        Row::Color(Role::Muted),
+        Row::Color(Role::Section),
+        Row::Color(Role::Group),
+        Row::Color(Role::Selection),
+        Row::Color(Role::SelectionText),
     ];
 
     /// The heading the row sits under.
@@ -77,7 +86,7 @@ impl Row {
         match self {
             Row::RawView | Row::Scroll | Row::Preview | Row::Ascii => Group::View,
             Row::Flags | Row::Commands => Group::Sort,
-            Row::Theme => Group::Colours,
+            Row::Theme | Row::Color(_) => Group::Colours,
         }
     }
 
@@ -91,6 +100,26 @@ impl Row {
             Row::Flags => "Flags".to_string(),
             Row::Commands => "Commands".to_string(),
             Row::Theme => "Theme".to_string(),
+            Row::Color(role) => format!(
+                "  {}",
+                match role {
+                    Role::Accent => "Accent",
+                    Role::Warning => "Warning",
+                    Role::Muted => "Muted text",
+                    Role::Section => "Section heading",
+                    Role::Group => "Group heading",
+                    Role::Selection => "Selection",
+                    Role::SelectionText => "Selection text",
+                }
+            ),
+        }
+    }
+
+    /// The colour role the row sets, if it is one of the seven.
+    pub fn role(self) -> Option<Role> {
+        match self {
+            Row::Color(role) => Some(role),
+            _ => None,
         }
     }
 
@@ -104,6 +133,7 @@ impl Row {
             Row::Flags => Key::SortFlags,
             Row::Commands => Key::SortCommands,
             Row::Theme => Key::Theme,
+            Row::Color(role) => Key::Color(role),
         }
     }
 }
@@ -165,6 +195,10 @@ pub struct Settings {
     pub ascii: bool,
     /// The colour theme.
     pub theme: Theme,
+    /// The seven values the custom theme uses, kept whatever theme shows.
+    pub custom: Roles,
+    /// The text typed into a colour row, while one is being typed.
+    pub typing: Option<String>,
     /// What the environment locks.
     pub locks: EnvLocks,
     /// Where changes are saved; `None` saves nowhere.
@@ -188,6 +222,8 @@ impl Settings {
             description_preview: true,
             ascii: false,
             theme: Theme::Default,
+            custom: Roles::DEFAULT,
+            typing: None,
             locks: EnvLocks::default(),
             config_path: None,
             tab: HelpTab::Keys,
@@ -201,6 +237,27 @@ impl Settings {
     /// The highlighted row.
     pub fn selected(&self) -> Row {
         Row::ALL[self.row.min(Row::ALL.len() - 1)]
+    }
+
+    /// Whether the arrow keys and Enter can change `row`. The seven colour
+    /// rows are editable under the custom theme only, and never when the
+    /// environment turns colour off.
+    pub fn enabled(&self, row: Row) -> bool {
+        match row {
+            Row::Color(_) => self.theme == Theme::Custom && self.locks.color.is_none(),
+            _ => self.locks.variable(row).is_none(),
+        }
+    }
+
+    /// The seven values the colour rows show: the theme's own, or the custom
+    /// ones under `custom` and `none`.
+    pub fn shown_roles(&self) -> Roles {
+        self.theme.roles().unwrap_or(self.custom)
+    }
+
+    /// The colour the typed text names, once it names one.
+    pub fn typed_color(&self) -> Option<ColorIndex> {
+        self.typing.as_deref().and_then(ColorIndex::parse)
     }
 }
 
@@ -244,6 +301,7 @@ pub fn value_text(app: &App, row: Row) -> String {
         Row::Commands if app.sorts.tree => app.glyphs.a_to_z.to_string(),
         Row::Commands => "tool order".to_string(),
         Row::Theme => app.settings.theme.word().to_string(),
+        Row::Color(role) => app.settings.shown_roles().get(role).shown(),
     }
 }
 
@@ -261,6 +319,7 @@ pub fn current_value(app: &App, row: Row) -> Value {
             CommandSort::Tool.word()
         }),
         Row::Theme => Value::Word(app.settings.theme.word()),
+        Row::Color(role) => Value::color(app.settings.custom.get(role)),
     }
 }
 

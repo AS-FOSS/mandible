@@ -11,8 +11,10 @@
 //! [`Loaded::problems`] and logged with `tracing::warn!`. Nothing here
 //! panics, because it runs before the user has typed anything.
 
+mod colors;
 mod save;
 
+pub use colors::{ColorIndex, Role, Roles, NAMES as COLOR_NAMES};
 pub use save::{save, SaveError};
 
 use std::path::PathBuf;
@@ -80,11 +82,42 @@ word_setting! {
 word_setting! {
     /// The colour theme. A theme is a value that yields the palette.
     Theme {
-        /// The accent and muted colours.
+        /// Cyan accent on the terminal's own colours.
         #[default]
         Default = "default",
+        /// For a light terminal.
+        Light = "light",
+        /// Brighter text and a stronger bar.
+        HighContrast = "high-contrast",
+        /// Warm greens and yellows.
+        GruvboxStyle = "gruvbox-style",
+        /// Cool blues.
+        NordStyle = "nord-style",
+        /// Purple accent.
+        DraculaStyle = "dracula-style",
+        /// Pastel accent.
+        CatppuccinStyle = "catppuccin-style",
+        /// The seven values `[colors]` gives.
+        Custom = "custom",
         /// No colour at all, exactly what `NO_COLOR` gives.
         None = "none",
+    }
+}
+
+impl Theme {
+    /// The seven values of a built-in theme. `custom` has the user's own
+    /// and `none` has no colours, so both give `None`.
+    pub fn roles(self) -> Option<Roles> {
+        match self {
+            Theme::Default => Some(Roles::DEFAULT),
+            Theme::Light => Some(Roles::LIGHT),
+            Theme::HighContrast => Some(Roles::HIGH_CONTRAST),
+            Theme::GruvboxStyle => Some(Roles::GRUVBOX),
+            Theme::NordStyle => Some(Roles::NORD),
+            Theme::DraculaStyle => Some(Roles::DRACULA),
+            Theme::CatppuccinStyle => Some(Roles::CATPPUCCIN),
+            Theme::Custom | Theme::None => None,
+        }
     }
 }
 
@@ -127,6 +160,9 @@ pub struct SortConfig {
 pub struct ColorsConfig {
     /// The colour theme.
     pub theme: Theme,
+    /// The seven values `custom` uses; a key the file lacks keeps the
+    /// `default` theme's value.
+    pub custom: Roles,
 }
 
 /// mandible's general settings, as `config.toml` states them.
@@ -292,7 +328,7 @@ fn known_key(section: &str, key: &str) -> bool {
             "raw_view" | "horizontal_scroll" | "description_preview" | "ascii"
         ) | ("sort", "flags" | "commands")
             | ("colors", "theme")
-    )
+    ) || (section == "colors" && Role::ALL.iter().any(|r| r.key() == key))
 }
 
 /// Set one key from its TOML value. False when the key is unknown or the
@@ -311,7 +347,25 @@ fn apply(config: &mut Config, section: &str, key: &str, item: &toml_edit::Item) 
             word.and_then(CommandSort::from_word),
         ),
         ("colors", "theme") => set(&mut config.colors.theme, word.and_then(Theme::from_word)),
+        ("colors", role) => match Role::ALL.iter().find(|r| r.key() == role) {
+            Some(r) => match color_of(item) {
+                Some(color) => {
+                    config.colors.custom.set(*r, color);
+                    true
+                }
+                None => false,
+            },
+            None => false,
+        },
         _ => false,
+    }
+}
+
+/// A colour as the file writes it: a name for 0 to 15, or a number 0 to 255.
+fn color_of(item: &toml_edit::Item) -> Option<ColorIndex> {
+    match item.as_integer() {
+        Some(n) => u8::try_from(n).ok().map(ColorIndex),
+        None => item.as_str().and_then(ColorIndex::from_name),
     }
 }
 
@@ -342,6 +396,8 @@ pub enum Key {
     SortCommands,
     /// `[colors] theme`.
     Theme,
+    /// One of the seven `[colors]` values.
+    Color(Role),
 }
 
 impl Key {
@@ -350,7 +406,7 @@ impl Key {
         match self {
             Key::RawView | Key::HorizontalScroll | Key::DescriptionPreview | Key::Ascii => "ui",
             Key::SortFlags | Key::SortCommands => "sort",
-            Key::Theme => "colors",
+            Key::Theme | Key::Color(_) => "colors",
         }
     }
 
@@ -364,6 +420,7 @@ impl Key {
             Key::SortFlags => "flags",
             Key::SortCommands => "commands",
             Key::Theme => "theme",
+            Key::Color(role) => role.key(),
         }
     }
 }
@@ -375,6 +432,18 @@ pub enum Value {
     Bool(bool),
     /// One of the words a word setting is written as.
     Word(&'static str),
+    /// A colour 16 to 255, written as a number.
+    Number(u8),
+}
+
+impl Value {
+    /// How `color` is written: its name for 0 to 15, else its number.
+    pub fn color(color: ColorIndex) -> Value {
+        match color.name() {
+            Some(name) => Value::Word(name),
+            None => Value::Number(color.0),
+        }
+    }
 }
 
 #[cfg(test)]

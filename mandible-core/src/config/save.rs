@@ -38,6 +38,7 @@ pub fn save(path: &Path, key: Key, value: Value) -> Result<(), SaveError> {
     let mut new = match value {
         Value::Bool(b) => toml_edit::Value::from(b),
         Value::Word(w) => toml_edit::Value::from(w),
+        Value::Number(n) => toml_edit::Value::from(i64::from(n)),
     };
     if let Some(old) = table.get(key.name()).and_then(toml_edit::Item::as_value) {
         *new.decor_mut() = old.decor().clone();

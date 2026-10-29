@@ -582,7 +582,7 @@ fn the_theme_and_the_glyph_set_redraw_the_page() {
     app.settings.glyphs_base = glyphs::UNICODE;
     let coloured = draw(&app, 100, 24);
     app.settings.row = Row::ALL.iter().position(|r| *r == Row::Theme).unwrap();
-    app.settings_change(1);
+    app.settings_change(-1);
     let plain = draw(&app, 100, 24);
     assert_ne!(coloured, plain, "the colours changed at once");
     for y in 0..24 {

@@ -71,6 +71,10 @@ pub struct Glyphs {
     pub value_close: &'static str,
     /// The apostrophe in a possessive.
     pub apostrophe: &'static str,
+    /// A block of one colour, two columns wide.
+    pub swatch: &'static str,
+    /// The text cursor in a field being typed into.
+    pub cursor: &'static str,
 }
 
 /// The full set, for terminals in a UTF-8 locale.
@@ -99,6 +103,8 @@ pub const UNICODE: Glyphs = Glyphs {
     value_open: "‹",
     value_close: "›",
     apostrophe: "\u{2019}",
+    swatch: "██",
+    cursor: "▏",
 };
 
 /// The fallback. Every entry is one column wide or plainly readable, so
@@ -128,6 +134,8 @@ pub const ASCII: Glyphs = Glyphs {
     value_open: "<",
     value_close: ">",
     apostrophe: "'",
+    swatch: "##",
+    cursor: "_",
 };
 
 /// Pick a glyph set from the environment.
@@ -188,6 +196,8 @@ mod tests {
             ASCII.value_open,
             ASCII.value_close,
             ASCII.apostrophe,
+            ASCII.swatch,
+            ASCII.cursor,
         ] {
             assert!(s.is_ascii(), "{s:?} is not ASCII");
         }

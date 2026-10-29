@@ -331,7 +331,7 @@ fn render_verbatim(
     for chunk in wrap_words(heading, width) {
         lines.push(Line::from(Span::styled(
             chunk,
-            style::muted_bold(app.color_enabled),
+            style::muted_bold(app.palette),
         )));
     }
     lines.push(Line::default());
@@ -903,7 +903,7 @@ fn section_planned(
     let layout = section_layout(entities, width, indent, wrap);
     let row = RowCtx {
         width,
-        color_enabled: palette.color,
+        palette,
         layout,
     };
     let mut body = SectionBody::default();
@@ -940,7 +940,7 @@ fn section_planned(
 #[derive(Clone, Copy)]
 struct RowCtx {
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     layout: SectionLayout,
 }
 
@@ -961,7 +961,7 @@ fn push_entity(
     if body.target.is_none() && target_flag.is_some_and(|k| entity.matches_key(k)) {
         body.target = Some(first_line);
     }
-    let rendered = entity_line(entity, dim, row.width, row.color_enabled, row.layout);
+    let rendered = entity_line(entity, dim, row.width, row.palette, row.layout);
     mark(&mut body.items, first_line);
     body.rows.push(EntryRow {
         first_line,
@@ -1629,7 +1629,7 @@ mod tests {
             &flag,
             false,
             40,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: column,
                 indent: 0,
@@ -1687,7 +1687,7 @@ mod tests {
             &flag,
             false,
             80,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: 20,
                 indent: 0,
@@ -1727,7 +1727,7 @@ mod tests {
             &flag,
             false,
             80,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: 20,
                 indent: 0,
@@ -1759,7 +1759,7 @@ mod tests {
             &flag,
             false,
             80,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: 20,
                 indent: 0,
@@ -1785,7 +1785,7 @@ mod tests {
             &ordinary,
             false,
             80,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: 20,
                 indent: 0,
@@ -1820,7 +1820,7 @@ mod tests {
             &flag,
             false,
             80,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: 20,
                 indent: 0,
@@ -1848,7 +1848,7 @@ mod tests {
             &flag,
             false,
             80,
-            true,
+            style::Palette::extended(),
             SectionLayout {
                 description: 20,
                 indent: 0,
@@ -1881,7 +1881,7 @@ mod tests {
             man: false,
             wrap: true,
         };
-        let lines = entity_line(&flag, false, 80, true, layout);
+        let lines = entity_line(&flag, false, 80, style::Palette::extended(), layout);
 
         let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
         assert!(
@@ -1910,7 +1910,7 @@ mod tests {
         );
         assert_eq!(
             values_line.spans[0].style,
-            style::muted(true),
+            style::muted(style::Palette::extended()),
             "the values line must use the pane's derived-metadata style"
         );
     }
@@ -1929,7 +1929,7 @@ mod tests {
             man: false,
             wrap: true,
         };
-        let lines = entity_line(&flag, false, 80, true, layout);
+        let lines = entity_line(&flag, false, 80, style::Palette::extended(), layout);
 
         assert_eq!(
             lines.len(),
@@ -1979,7 +1979,7 @@ mod tests {
         // word-wrap, which `a_narrow_pane_clamps_the_column_rather_than_shredding_prose`
         // and friends already cover for the description column this
         // section reuses.
-        let lines = entity_line(&flag, false, 200, true, layout);
+        let lines = entity_line(&flag, false, 200, style::Palette::extended(), layout);
         let joined: String = lines.iter().map(text_of).collect::<Vec<_>>().join("\n");
 
         assert!(
@@ -2006,7 +2006,7 @@ mod tests {
         );
         assert_eq!(
             header.spans[0].style,
-            style::muted(true),
+            style::muted(style::Palette::extended()),
             "the header must use the pane's derived-metadata style"
         );
 
@@ -2070,7 +2070,7 @@ mod tests {
         // Narrow enough that "unaligned"'s longer description wraps, wide
         // enough that "gray"'s shorter one fits on a single line — the
         // exact split the real ffplay pane showed the defect on.
-        let lines = entity_line(&flag, false, 82, true, layout);
+        let lines = entity_line(&flag, false, 82, style::Palette::extended(), layout);
         let texts: Vec<String> = lines.iter().map(text_of).collect();
 
         assert!(
@@ -2114,7 +2114,7 @@ mod tests {
             man: false,
             wrap: true,
         };
-        let lines = entity_line(&flag, false, 80, true, layout);
+        let lines = entity_line(&flag, false, 80, style::Palette::extended(), layout);
 
         let head = text_of(&lines[0]);
         assert!(
@@ -2460,7 +2460,7 @@ mod tests {
                 "width {width}: column {} is not clear of the long column",
                 layout.description
             );
-            let lines = entity_line(&flag, false, width, true, layout);
+            let lines = entity_line(&flag, false, width, style::Palette::extended(), layout);
             let head_column = spelling_column(&flag, 0);
             // Only the description's own lines — a head wide enough to
             // wrap contributes lines of its own, and those belong in the
@@ -4003,9 +4003,10 @@ mod tests {
         let plain = style::Palette {
             color: false,
             extended: false,
+            roles: mandible_core::config::Roles::DEFAULT,
         };
         for palette in [style::Palette::extended(), plain] {
-            let accent = style::accent(palette.color);
+            let accent = style::accent(palette);
             let built = build_lines(&node, 30, palette, None, crate::glyphs::UNICODE, &app);
             let rows: Vec<&Line> = built
                 .lines

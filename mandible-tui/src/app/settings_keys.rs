@@ -2,7 +2,10 @@
 
 use super::*;
 use crate::settings::{self, HelpTab, Row};
-use mandible_core::config::{self, CommandSort, FlagSort, Theme};
+use mandible_core::config::{self, ColorIndex, CommandSort, FlagSort, Role, Theme};
+
+/// Longest text a colour row takes; `bright-magenta` is 14.
+const TYPED_MAX: usize = 14;
 
 /// The value `dir` steps from `current` in `all`, wrapping at both ends.
 fn step<T: Copy + PartialEq>(all: &[T], current: T, dir: isize) -> T {
@@ -22,6 +25,7 @@ impl App {
         self.set_wrap_everywhere(cfg.ui.horizontal_scroll);
         self.settings.description_preview = cfg.ui.description_preview;
         self.set_ascii(cfg.ui.ascii);
+        self.settings.custom = cfg.colors.custom;
         self.set_theme(cfg.colors.theme);
         self.set_detail_sort(settings::detail_sort(cfg.sort.flags));
         self.set_tree_sort(cfg.sort.commands == CommandSort::Az);
@@ -49,12 +53,18 @@ impl App {
     }
 
     /// Switch to `theme`: the palette it yields replaces the current one.
-    fn set_theme(&mut self, theme: Theme) {
+    pub(crate) fn set_theme(&mut self, theme: Theme) {
         self.settings.theme = theme;
-        let palette = match theme {
-            Theme::Default => self.settings.palette_base,
-            Theme::None => crate::style::Palette::plain(),
-        };
+        self.apply_theme();
+    }
+
+    /// Rebuild the palette from the depth the terminal has and the values
+    /// the theme in force gives.
+    pub(crate) fn apply_theme(&mut self) {
+        let palette = self
+            .settings
+            .palette_base
+            .themed(self.settings.theme, self.settings.custom);
         self.color_enabled = palette.color;
         self.palette = palette;
     }
@@ -67,11 +77,24 @@ impl App {
         };
     }
 
-    /// `↑`/`↓` on the settings tab: highlight the row `delta` away, stopping
-    /// at the first and last.
+    /// `↑`/`↓` on the settings tab: highlight the enabled row `delta` away,
+    /// stopping at the first and last.
     pub fn settings_move(&mut self, delta: isize) {
-        let last = Row::ALL.len() - 1;
-        self.settings.row = self.settings.row.saturating_add_signed(delta).min(last);
+        let step = delta.signum();
+        for _ in 0..delta.unsigned_abs() {
+            let mut at = self.settings.row;
+            let found = loop {
+                match at.checked_add_signed(step).filter(|n| *n < Row::ALL.len()) {
+                    Some(n) if self.settings.enabled(Row::ALL[n]) => break Some(n),
+                    Some(n) => at = n,
+                    None => break None,
+                }
+            };
+            match found {
+                Some(n) => self.settings.row = n,
+                None => break,
+            }
+        }
     }
 
     /// `←`/`→` on the settings tab: step the highlighted row's value, apply
@@ -79,7 +102,7 @@ impl App {
     /// nothing.
     pub fn settings_change(&mut self, dir: isize) -> Option<Effect> {
         let row = self.settings.selected();
-        if self.settings.locks.variable(row).is_some() {
+        if !self.settings.enabled(row) {
             return None;
         }
         let mut effect = None;
@@ -102,9 +125,49 @@ impl App {
                 self.set_tree_sort(next == CommandSort::Az);
             }
             Row::Theme => self.set_theme(step(Theme::ALL, self.settings.theme, dir)),
+            Row::Color(role) => self.set_color(role, self.settings.custom.get(role).step(dir)),
         }
         self.save_row(row);
         effect
+    }
+
+    /// Give the custom theme's `role` the value `color`; it shows at once.
+    fn set_color(&mut self, role: Role, color: ColorIndex) {
+        self.settings.custom.set(role, color);
+        self.apply_theme();
+    }
+
+    /// `Enter` on an enabled colour row: start typing its value.
+    pub fn settings_begin_typing(&mut self) {
+        let row = self.settings.selected();
+        if row.role().is_some() && self.settings.enabled(row) {
+            self.settings.typing = Some(String::new());
+        }
+    }
+
+    /// A key typed into a colour row: `Enter` sets the value when the text
+    /// names a colour and otherwise changes nothing, `Esc` gives it up.
+    pub fn settings_typing_key(&mut self, code: crossterm::event::KeyCode) {
+        use crossterm::event::KeyCode;
+        let Some(text) = self.settings.typing.as_mut() else {
+            return;
+        };
+        match code {
+            KeyCode::Esc => self.settings.typing = None,
+            KeyCode::Backspace => {
+                text.pop();
+            }
+            KeyCode::Char(c) if text.chars().count() < TYPED_MAX => text.push(c),
+            KeyCode::Enter => {
+                let row = self.settings.selected();
+                if let (Some(role), Some(color)) = (row.role(), self.settings.typed_color()) {
+                    self.settings.typing = None;
+                    self.set_color(role, color);
+                    self.save_row(row);
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Write `row`'s state to `config.toml`; a failure becomes the footer

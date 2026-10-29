@@ -777,9 +777,8 @@ impl App {
     /// root, which is the only place that knows which stream is being drawn
     /// on.
     pub fn set_palette(&mut self, palette: crate::style::Palette) {
-        self.color_enabled = palette.color;
-        self.palette = palette;
         self.settings.palette_base = palette;
+        self.apply_theme();
     }
 
     fn mark_dirty(&mut self) {

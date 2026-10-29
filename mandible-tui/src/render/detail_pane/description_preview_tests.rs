@@ -204,6 +204,7 @@ fn item_marks_follow_the_headings_and_the_note() {
 const COLOR: style::Palette = style::Palette {
     color: true,
     extended: true,
+    roles: mandible_core::config::Roles::DEFAULT,
 };
 
 /// The built page's lines, with their styles.
@@ -245,6 +246,7 @@ fn without_color_the_preview_has_no_style_at_all() {
     app.palette = style::Palette {
         color: false,
         extended: false,
+        roles: mandible_core::config::Roles::DEFAULT,
     };
     let lines = styled_page(&app, 60);
     let at = preview_start(&lines);
@@ -262,6 +264,7 @@ fn sixteen_colours_draw_the_note_in_dark_gray() {
     app.palette = style::Palette {
         color: true,
         extended: false,
+        roles: mandible_core::config::Roles::DEFAULT,
     };
     let lines = styled_page(&app, 60);
     let at = preview_start(&lines);

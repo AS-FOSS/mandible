@@ -57,11 +57,16 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
 fn handle_help_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
     use crate::settings::HelpTab;
     let settings_tab = app.settings.tab == HelpTab::Settings;
+    if app.settings.typing.is_some() {
+        app.settings_typing_key(key.code);
+        return None;
+    }
     match key.code {
         KeyCode::Esc | KeyCode::Char('?') => app.show_help = false,
         KeyCode::Tab => app.help_switch_tab(),
         KeyCode::Up if settings_tab => app.settings_move(-1),
         KeyCode::Down if settings_tab => app.settings_move(1),
+        KeyCode::Enter if settings_tab => app.settings_begin_typing(),
         KeyCode::Left if settings_tab => return app.settings_change(-1),
         KeyCode::Right if settings_tab => return app.settings_change(1),
         KeyCode::Up if app.help_scrollable() => app.help_scroll_by(-1, false),
