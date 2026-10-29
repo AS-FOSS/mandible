@@ -56,7 +56,9 @@ fn swatch_style(role: Role, sample: Style) -> Style {
 }
 
 /// The value column of a colour row, cut to `room` columns: the full
-/// indicator, else the value and its block, else the value alone.
+/// indicator, else the value and its block, else the value alone. Every row
+/// keeps or drops its sample by the width of the longest, so the column
+/// reads the same on all seven.
 pub(super) fn value_spans(app: &App, row: Row, selected: bool, room: usize) -> Vec<Span<'static>> {
     let Some(role) = row.role() else {
         return Vec::new();
@@ -97,7 +99,12 @@ pub(super) fn value_spans(app: &App, row: Row, selected: bool, room: usize) -> V
     let block = g.swatch;
     let drawn = app.palette.color;
     let tail = display_width(&close);
-    let with_sample = FIELD + 1 + display_width(block) + 1 + display_width(&sample_text) + tail;
+    let widest = Role::ALL
+        .iter()
+        .map(|r| display_width(&sample(*r, Palette::plain(), g.rule).0))
+        .max()
+        .unwrap_or(0);
+    let with_sample = FIELD + 1 + display_width(block) + 1 + widest + tail;
     let with_block = FIELD + 1 + display_width(block) + tail;
     let mut spans = Vec::new();
     if drawn && with_block <= room {
