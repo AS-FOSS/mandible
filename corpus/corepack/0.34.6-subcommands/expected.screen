@@ -23,10 +23,6 @@ USAGE ────────────────────────�
 Remove the Corepack shims from the install directory
 
 
-DESCRIPTION ────────────────────────────────────────────────────────────────
-Remove the Corepack shims from the install directory
-
-
 USAGE ──────────────────────────────────────────────────────────────────────
   corepack disable [--install-directory #0] ...
 
@@ -35,10 +31,6 @@ FLAGS (1) ───────────────────────�
     --install-directory #0  Where the shims are located
 
 === corepack enable ===
-Add the Corepack shims to the install directory
-
-
-DESCRIPTION ────────────────────────────────────────────────────────────────
 Add the Corepack shims to the install directory
 
 
