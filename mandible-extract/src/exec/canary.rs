@@ -187,24 +187,22 @@ impl ProcessCanary {
     /// aimed at some other process entirely.
     pub const COMMON_NAMES: &'static [&'static str] = &["test", "data", "worker"];
 
-    /// Spawn one canary process named `name`, sleeping far longer than any
-    /// sweep should ever take. `name` should come from
-    /// [`Self::COMMON_NAMES`].
+    /// Spawn one canary process named `name`, blocked until teardown.
+    /// `name` should come from [`Self::COMMON_NAMES`].
+    ///
+    /// The process is `/bin/sh` waiting on a `read` from a pipe this
+    /// struct holds open. Not `sleep`: a multicall coreutils (uutils, as
+    /// on Ubuntu 26.04) picks its tool from the name it was started
+    /// under, so a `sleep` symlink named `test` runs `test` and exits.
     pub fn spawn(name: &str) -> std::io::Result<Self> {
-        let sleep_bin = find_on_path("sleep").ok_or_else(|| {
-            std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "no `sleep` binary on PATH to back a process canary",
-            )
-        })?;
         let symlink_dir = tempfile::Builder::new().prefix("mnd-canary-").tempdir()?;
         let link_path = symlink_dir.path().join(name);
         #[cfg(unix)]
-        std::os::unix::fs::symlink(&sleep_bin, &link_path)?;
+        std::os::unix::fs::symlink("/bin/sh", &link_path)?;
 
         let child = Command::new(&link_path)
-            .arg("86400") // effectively "until teardown"; never meant to exit on its own
-            .stdin(Stdio::null())
+            .args(["-c", "read _"])
+            .stdin(Stdio::piped())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()?;
@@ -339,21 +337,6 @@ impl CanarySet {
         // function), and the watch directory is left for the caller to
         // remove if it cares (it is typically process-scoped scratch).
     }
-}
-
-/// Find `name` on `PATH`, first match wins (matches normal `PATH`
-/// resolution order) — a small local helper rather than a dependency,
-/// mirroring `xtask::coverage::unique_executables_on_path`'s own walk but
-/// stopping at the first hit instead of enumerating everything.
-fn find_on_path(name: &str) -> Option<PathBuf> {
-    let path_var = std::env::var_os("PATH")?;
-    for dir in std::env::split_paths(&path_var) {
-        let candidate = dir.join(name);
-        if candidate.is_file() {
-            return Some(candidate);
-        }
-    }
-    None
 }
 
 #[cfg(test)]
