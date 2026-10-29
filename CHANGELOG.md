@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- `~/.config/mandible/config.toml` takes `[ui]` (`raw_view`, `horizontal_scroll`, `description_preview`, `ascii`), `[sort]` (`flags`, `commands`) and `[colors]` (`theme`); `NO_COLOR` and `MANDIBLE_ASCII` still win over the file.
+- `~/.config/mandible/config.toml` takes `[ui]` (`raw_view`, `horizontal_scroll`, `description_preview`, `ascii`), `[sort]` (`flags`, `commands`) and `[colors]` (`theme`, and seven colours for `custom`); `NO_COLOR` and `MANDIBLE_ASCII` still win over the file.
+- Colour themes `default`, `light`, `high-contrast`, `gruvbox-style`, `nord-style`, `dracula-style` and `catppuccin-style`, plus `custom`, whose seven colours (`accent`, `warning`, `muted`, `section`, `group`, `selection`, `selection_text`) are a name or a number 16 to 255 that the settings tab steps with `←`/`→` or takes typed after `Enter`; every colour applies at once, and the `mandible mandible` screen follows the theme.
 - A key in `config.toml` that is unknown or has a bad value is ignored on its own, and the footer names the first problem line until you press a key.
 - The `?` pop-up has a settings tab, reached with `Tab`: `↑`/`↓` pick a setting, `←`/`→` change it, it applies at once and is saved to `config.toml` without touching your comments or other keys; a setting `NO_COLOR` or `MANDIBLE_ASCII` decides is shown dimmed with the variable's name.
 - `s` sorts the focused pane by name, ignoring case: the detail pane cycles the tool's order, A–Z within each section and A–Z over each section, the commands list switches between the tool's order and A–Z, and the pane title names the state.

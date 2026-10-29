@@ -1984,7 +1984,7 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Element | Style |
 |---|---|
 | Node name | Default foreground |
-| Selected row (list) | The whole row on a muted gray bar (`BAR_BG`): the name in the accent, bold; summary and count in a light foreground (`BAR_FG`) set on the bar, never the terminal default and never dim. Without the xterm-256 palette, and under `NO_COLOR`, the whole row reversed and bold |
+| Selected row (list) | The whole row on the selection bar: the name in the accent, bold; summary and count in the selection text color, never the terminal default and never dim. Where the bar's colors cannot be drawn (rule 4), and under `NO_COLOR`, the whole row reversed and bold |
 | Tree summary | Muted |
 | Focused pane border | Accent; unfocused muted |
 | Breadcrumb | Ancestors muted, leaf bold |
@@ -1998,22 +1998,53 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Deprecated | Muted + a `(deprecated)` tag |
 | Search match characters | Underline, within the name only: the list's own name, and the spellings of a matching detail-pane row |
 | Row that matches the search | List: bold. Detail pane: accent `▌` in its left margin (`\|` in ASCII); the row itself is not bold |
-| Current match (detail pane) | The row the last jump or `n`/`p` landed on, the only one: its whole width inside the padding on the same bar as the selected list row, the spelling staying accent and underlined, the description in `BAR_FG`; reversed where the bar is |
+| Current match (detail pane) | The row the last jump or `n`/`p` landed on, the only one: its whole width inside the padding on the same bar as the selected list row, the spelling staying accent and underlined, the description in the selection text color; reversed where the bar is |
 | Match count (list) | Muted, `  1 found`, right-aligned in a fixed 9-column slot with a 1-column margin before the border |
 | Provenance footer | Muted |
 | Low confidence, and an `unverified` node (§5.4) | Warning color, the one sanctioned exception to single-accent |
 
-2. ANSI indexed colors, not RGB. The accent stays configurable.
+2. Seven roles carry every color mandible draws, and a theme gives a value
+   to each:
+
+| Role | Colors |
+|---|---|
+| `accent` | Flag spellings, the focused pane border, the selected name, key names in the `?` pop-up, the tab on show |
+| `warning` | Low confidence, `unverified` and notices in the footer |
+| `muted` | Muted text, including value placeholders and the pop-up's disabled rows |
+| `section` | Section headings, label and rule, and the first fade row of a description preview |
+| `group` | Group dividers, label and rule, and the second fade row of a preview |
+| `selection` | The selection bar's background |
+| `selection_text` | Text on the selection bar |
+
+   A value is a name for colors 0 to 15 (`black red green yellow blue
+   magenta cyan white`, then `bright-black` to `bright-white`) or a number
+   from 16 to 255. A number below 16 in `config.toml` is read as that name.
+   There is no hex and no RGB.
+
+| Theme | accent | warning | muted | section | group | selection | selection_text |
+|---|---|---|---|---|---|---|---|
+| `default` | cyan | yellow | bright-black | 246 | 240 | 237 | 252 |
+| `light` | 25 | 130 | 237 | 234 | 240 | 252 | 232 |
+| `high-contrast` | bright-cyan | bright-yellow | 248 | 253 | 248 | 238 | 231 |
+| `gruvbox-style` | 108 | 214 | 245 | 223 | 243 | 237 | 223 |
+| `nord-style` | 110 | 222 | 102 | 109 | 60 | 238 | 255 |
+| `dracula-style` | 141 | 228 | 103 | 117 | 60 | 238 | 231 |
+| `catppuccin-style` | 183 | 223 | 103 | 146 | 60 | 236 | 189 |
+
+   `custom` takes its seven values from `[colors]` and keeps them while
+   another theme is chosen. A key the file lacks has the `default` theme's
+   value. `none` draws no color. A theme changes colors and never bold,
+   underline or reverse. The `default` theme draws what mandible drew
+   before themes existed.
 3. `DarkGray` is used for muted text, never `Modifier::DIM`.
 4. `NO_COLOR` and `TERM=dumb` are respected, degrading to bold/reverse/
-   underline only. There is no truecolor tier and no RGB anywhere: named
-   ANSI colors work at every depth that has color at all. Depth is
-   consulted in two places. The detail pane's two rule shades (§9.3) need
-   two steps below the terminal's default foreground: they read the
-   xterm-256 gray ramp where available and fall back to `DarkGray` where
-   not. The selection bar is a gray background where that palette is
-   available and a reversed row where it is not. Depth is read from
-   `COLORTERM`/`TERM`, never queried.
+   underline only. There is no truecolor tier: named ANSI colors work at
+   every depth that has color at all, and the numbers 16 to 255 need the
+   xterm-256 palette. Depth is read from `COLORTERM`/`TERM`, never queried.
+   Without that palette a role whose value is a number takes the named
+   color the `default` theme gives it: accent cyan, warning yellow, and
+   muted, section and group `DarkGray`. The selection bar keeps its colors
+   only when both of its values are named, and is otherwise a reversed row.
 5. Search matches are highlighted: every occurrence of every word is
    underlined.
 
@@ -2060,7 +2091,8 @@ better end state for markup keeps parsed spans in the IR so inline code
 and link labels can be styled rather than stripped, once the plain-text
 path is stable.
 
-**Implemented in.** `mandible-tui/src/style.rs`, `mandible-tui/src/glyphs.rs`.
+**Implemented in.** `mandible-tui/src/style.rs`, `mandible-tui/src/glyphs.rs`,
+`mandible-core/src/config/colors.rs`.
 
 ### 9.3 The detail pane is sections, not tabs
 
@@ -2373,7 +2405,8 @@ wins, what a bad file costs, and how the `?` pop-up changes them.
 | `[ui] ascii` | `true`, `false` | `false` | Force the ASCII glyph set |
 | `[sort] flags` | `"tool"`, `"az-sections"`, `"az"` | `"tool"` | The detail pane's starting state for `s` |
 | `[sort] commands` | `"tool"`, `"az"` | `"tool"` | The commands pane's starting state for `s` |
-| `[colors] theme` | `"default"`, `"none"` | `"default"` | `none` draws no colour, exactly what `NO_COLOR` gives |
+| `[colors] theme` | `"default"`, `"light"`, `"high-contrast"`, `"gruvbox-style"`, `"nord-style"`, `"dracula-style"`, `"catppuccin-style"`, `"custom"`, `"none"` | `"default"` | The colors (§9.2). `none` draws no colour, exactly what `NO_COLOR` gives |
+| `[colors] accent`, `warning`, `muted`, `section`, `group`, `selection`, `selection_text` | A name, or a number 16 to 255 (§9.2) | The `default` theme's value | Read when `theme = "custom"`, and kept whatever theme is chosen |
 
    A theme is a value that yields the palette, so a new theme is a new
    value. There is no search-mode setting and no key-binding setting.
@@ -2409,7 +2442,8 @@ wins, what a bad file costs, and how the `?` pop-up changes them.
 | VIEW | ASCII glyphs | off, on |
 | SORT | Flags | tool order, A–Z in sections, A–Z |
 | SORT | Commands | tool order, A–Z |
-| COLOURS | Theme | default, none |
+| COLOURS | Theme | default, light, high-contrast, gruvbox-style, nord-style, dracula-style, catppuccin-style, custom, none |
+| COLOURS | Accent, Warning, Muted text, Section heading, Group heading, Selection, Selection text | A name or a number 16 to 255 |
 
    `↑`/`↓` move the highlight from row to row, skipping headings and blank
    lines, and the tab scrolls to keep it in view. `←`/`→` step the value and
@@ -2422,9 +2456,31 @@ wins, what a bad file costs, and how the `?` pop-up changes them.
 8. A row an environment variable decides (`MANDIBLE_ASCII` for ASCII glyphs,
    `NO_COLOR` or `TERM=dumb` for Theme) is muted, shows its value as
    `on (MANDIBLE_ASCII)` or `none (NO_COLOR)`, has no `‹ ›`, and ignores
-   `←`/`→`. While it is highlighted the border says `set by MANDIBLE_ASCII:
+   `←`/`→`. `NO_COLOR` and `TERM=dumb` also disable the colour rows. While it is highlighted the border says `set by MANDIBLE_ASCII:
    unset it to change this here · Tab keys · Esc close`.
-9. Every change applies at once: the theme recolours, the glyph set swaps,
+8a. The seven colour rows sit under Theme, indented, and are always shown.
+   Under any theme but `custom` they are muted and disabled, show that
+   theme's values, and `↑`/`↓` skip them. Under `custom` they are enabled.
+   `←`/`→` step the value through one sequence, 0 to 15 by name and then 16
+   to 255, wrapping at both ends: `... bright-cyan`, `bright-white`, `16`,
+   `17` ... `255`. `Enter` opens typing for the row, drawn `› 17▏`, which
+   takes a name or a number; the row's block and sample follow once the
+   text is a valid color, `Enter` sets it, `Esc` gives it up, and invalid
+   text with `Enter` changes nothing and stays in typing. Typing takes every
+   key, so `Esc` ends the typing and does not close the pop-up. The border
+   label reads `Enter set · Esc cancel` while typing, and on an enabled
+   colour row `↑↓ choose · ←→ change · Enter type · Tab keys · Esc close`.
+8b. Every colour row, enabled or not, shows its value as plain text, then a
+   block `██` in that color (`##` in the ASCII glyph set; for Selection the
+   block is the background color), then a sample drawn as mandible draws
+   it: `--squash` (accent), `config.toml line 7` (warning), `Record changes
+   to the repository` (muted), `FLAGS (41) ───` (section), `Commit message
+   options ───` (group), ` commit ` on the bar in the accent (selection),
+   ` Record changes ` on the bar (selection text). The sample is cut first
+   when the row is narrow, then the block, and the row keeps the pop-up's
+   margin on both sides. Where `NO_COLOR` or `theme = "none"` draws no
+   color, the rows are muted and show the value alone.
+9. Every change applies at once: the theme or a color recolours, the glyph set swaps,
    a sort re-sorts the panes as `s` would and sets that pane's state,
    Scroll sets both views' wrap state, Description preview redraws the page,
    and the first row switches the view. The Scroll row shows the view on
@@ -2450,7 +2506,8 @@ comment-preserving writer keeps a hand-edited file hand-editable.
 `mandible-tui/src/settings.rs`, `mandible-tui/src/app/settings_keys.rs`,
 `mandible-tui/src/render/help_overlay.rs`,
 `mandible-tui/src/render/help_settings.rs`,
-`mandible/src/app_runner.rs`.
+`mandible-tui/src/render/help_colours.rs`, `mandible/src/app_runner.rs`,
+`mandible/src/about.rs`.
 
 ---
 ---

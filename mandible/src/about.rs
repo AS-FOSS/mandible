@@ -195,27 +195,34 @@ fn banner_possible() -> bool {
 
 /// Print the about screen to stdout.
 pub fn print() {
-    use mandible_core::config::Role;
     let colors = mandible_core::config::load().config.colors;
     let palette = mandible_tui::style::Palette::from_env().themed(colors.theme, colors.custom);
-    let color = palette.color;
+    println!();
+    if banner_possible() {
+        animate(palette.sgr(mandible_core::config::Role::Accent).as_deref());
+        println!();
+    }
+    print!("{}", text(palette));
+}
 
-    let accent = palette.sgr(Role::Accent);
+/// The about screen below the wordmark: headings in bold, secondary text
+/// in `palette`'s muted color, and no escape codes where it has no color.
+fn text(palette: mandible_tui::style::Palette) -> String {
+    use mandible_core::config::Role;
+    use std::fmt::Write;
+    let color = palette.color;
     let muted = palette.sgr(Role::Muted);
     let dim = muted.as_deref().unwrap_or_default();
     let bold = "1";
-
-    println!();
-    if banner_possible() {
-        animate(accent.as_deref());
-        println!();
-    }
-    println!(
+    let mut out = String::new();
+    let _ = writeln!(
+        out,
         "  {}  {}",
         paint(env!("CARGO_PKG_NAME"), bold, color),
         paint(&format!("v{}", env!("CARGO_PKG_VERSION")), dim, color),
     );
-    println!(
+    let _ = writeln!(
+        out,
         "  {}",
         paint(
             "A TUI manual for every command-line tool you have.",
@@ -223,35 +230,54 @@ pub fn print() {
             color
         )
     );
-    println!();
+    out.push('\n');
 
     // The one idea the whole architecture exists to serve. Worth stating
     // plainly on the one screen someone reads out of curiosity.
-    println!("  {}", paint("The rule:", bold, color));
-    println!("    No per-tool logic, ever. Help text isn't written by hand, it's");
-    println!("    generated — so mandible learns the generators (clap, cobra, argparse,");
-    println!("    click, GNU argp, and the rest), not the tools. Fixing the argparse");
-    println!("    grammar improves every Python CLI ever written.");
-    println!();
+    let _ = writeln!(out, "  {}", paint("The rule:", bold, color));
+    let _ = writeln!(
+        out,
+        "    No per-tool logic, ever. Help text isn't written by hand, it's"
+    );
+    let _ = writeln!(
+        out,
+        "    generated — so mandible learns the generators (clap, cobra, argparse,"
+    );
+    let _ = writeln!(
+        out,
+        "    click, GNU argp, and the rest), not the tools. Fixing the argparse"
+    );
+    let _ = writeln!(out, "    grammar improves every Python CLI ever written.");
+    out.push('\n');
 
-    println!("  {}", paint("When it can't parse something:", bold, color));
-    println!("    It shows you the author's own text, untouched, and says so.");
-    println!("    It never invents structure it didn't find.");
-    println!();
+    let _ = writeln!(
+        out,
+        "  {}",
+        paint("When it can't parse something:", bold, color)
+    );
+    let _ = writeln!(
+        out,
+        "    It shows you the author's own text, untouched, and says so."
+    );
+    let _ = writeln!(out, "    It never invents structure it didn't find.");
+    out.push('\n');
 
-    println!(
+    let _ = writeln!(
+        out,
         "  {}   {}",
         paint("repository", dim, color),
         env!("CARGO_PKG_REPOSITORY")
     );
-    println!(
+    let _ = writeln!(
+        out,
         "  {}      {}",
         paint("license", dim, color),
         env!("CARGO_PKG_LICENSE")
     );
-    println!();
+    out.push('\n');
 
-    println!(
+    let _ = writeln!(
+        out,
         "  {}",
         paint(
             "try:  mandible git    mandible docker    mandible --doctor <tool>",
@@ -259,7 +285,8 @@ pub fn print() {
             color
         )
     );
-    println!();
+    out.push('\n');
+    out
 }
 
 #[cfg(test)]
@@ -344,5 +371,56 @@ mod tests {
         let painted = paint("hi", "1", true);
         assert!(painted.starts_with("\x1b[1m"));
         assert!(painted.ends_with("\x1b[0m"));
+    }
+
+    /// The secondary text takes the theme's muted color and the headings
+    /// stay bold, in every theme.
+    #[test]
+    fn the_text_follows_the_theme_and_headings_stay_bold() {
+        use mandible_core::config::{ColorIndex, Role, Roles, Theme};
+        use mandible_tui::style::Palette;
+        let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+        let mut mine = Roles::DEFAULT;
+        mine.set(Role::Muted, ColorIndex(200));
+        for (theme, custom, code) in [
+            (Theme::Default, Roles::DEFAULT, "90"),
+            (Theme::Light, Roles::DEFAULT, "38;5;237"),
+            (Theme::NordStyle, Roles::DEFAULT, "38;5;102"),
+            (Theme::HighContrast, Roles::DEFAULT, "38;5;248"),
+            (Theme::Custom, mine, "38;5;200"),
+        ] {
+            let out = text(Palette::extended().themed(theme, custom));
+            assert!(
+                out.contains(&format!("\x1b[{code}m{version}\x1b[0m")),
+                "{theme:?}: {out:?}"
+            );
+            assert!(out.contains("\x1b[1mThe rule:\x1b[0m"), "{theme:?}");
+            assert!(!out.contains("\x1b[2m"), "no SGR 2 dim is left");
+        }
+    }
+
+    /// `none` and `NO_COLOR` print the text with no escape code at all.
+    #[test]
+    fn no_theme_and_no_color_print_plain_text() {
+        use mandible_core::config::{Roles, Theme};
+        use mandible_tui::style::Palette;
+        for palette in [
+            Palette::extended().themed(Theme::None, Roles::DEFAULT),
+            Palette::plain().themed(Theme::Light, Roles::DEFAULT),
+        ] {
+            let out = text(palette);
+            assert!(!out.contains('\x1b'), "{out:?}");
+            assert!(out.contains("The rule:"));
+        }
+    }
+
+    /// Where only sixteen colors exist a numbered muted color is the
+    /// default theme's `bright-black`.
+    #[test]
+    fn a_numbered_color_falls_back_at_sixteen_colors() {
+        use mandible_core::config::{Roles, Theme};
+        use mandible_tui::style::Palette;
+        let out = text(Palette::basic().themed(Theme::NordStyle, Roles::DEFAULT));
+        assert!(out.contains("\x1b[90mv"), "{out:?}");
     }
 }

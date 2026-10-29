@@ -275,3 +275,199 @@ fn every_key_round_trips_through_save_and_parse() {
     assert_eq!(c.sort.commands, CommandSort::Az);
     assert_eq!(c.colors.theme, Theme::None);
 }
+
+fn idx(values: [u8; 7]) -> Roles {
+    let [accent, warning, muted, section, group, selection, selection_text] =
+        values.map(ColorIndex);
+    Roles {
+        accent,
+        warning,
+        muted,
+        section,
+        group,
+        selection,
+        selection_text,
+    }
+}
+
+#[test]
+fn the_themes_come_in_the_documented_order_ending_in_custom_and_none() {
+    let words: Vec<_> = Theme::ALL.iter().map(|t| t.word()).collect();
+    assert_eq!(
+        words,
+        [
+            "default",
+            "light",
+            "high-contrast",
+            "gruvbox-style",
+            "nord-style",
+            "dracula-style",
+            "catppuccin-style",
+            "custom",
+            "none"
+        ]
+    );
+}
+
+#[test]
+fn each_built_in_theme_has_the_documented_seven_values() {
+    let table: [(Theme, [u8; 7]); 7] = [
+        (Theme::Default, [6, 3, 8, 246, 240, 237, 252]),
+        (Theme::Light, [25, 130, 237, 234, 240, 252, 232]),
+        (Theme::HighContrast, [14, 11, 248, 253, 248, 238, 231]),
+        (Theme::GruvboxStyle, [108, 214, 245, 223, 243, 237, 223]),
+        (Theme::NordStyle, [110, 222, 102, 109, 60, 238, 255]),
+        (Theme::DraculaStyle, [141, 228, 103, 117, 60, 238, 231]),
+        (Theme::CatppuccinStyle, [183, 223, 103, 146, 60, 236, 189]),
+    ];
+    for (theme, values) in table {
+        assert_eq!(theme.roles(), Some(idx(values)), "{}", theme.word());
+    }
+    assert_eq!(Theme::Custom.roles(), None);
+    assert_eq!(Theme::None.roles(), None);
+    assert_eq!(ColorIndex(6).shown(), "cyan");
+    assert_eq!(ColorIndex(8).shown(), "bright-black");
+    assert_eq!(ColorIndex(14).shown(), "bright-cyan");
+}
+
+#[test]
+fn colours_parse_as_names_and_numbers_and_refuse_everything_else() {
+    for (text, want) in [
+        ("black", 0),
+        ("cyan", 6),
+        ("white", 7),
+        ("bright-black", 8),
+        ("bright-white", 15),
+        ("0", 0),
+        ("15", 15),
+        ("16", 16),
+        ("220", 220),
+        ("255", 255),
+        (" 17 ", 17),
+    ] {
+        assert_eq!(ColorIndex::parse(text), Some(ColorIndex(want)), "{text:?}");
+    }
+    for bad in [
+        "",
+        "256",
+        "999",
+        "-1",
+        "+5",
+        "1.5",
+        "#ff0000",
+        "#f00",
+        "ff0000",
+        "rgb(1,2,3)",
+        "Cyan",
+        "bright",
+        "grey",
+        "0x10",
+    ] {
+        assert_eq!(ColorIndex::parse(bad), None, "{bad:?}");
+    }
+}
+
+#[test]
+fn the_values_step_through_zero_to_255_and_wrap() {
+    assert_eq!(ColorIndex(14).step(1), ColorIndex(15));
+    assert_eq!(ColorIndex(15).step(1), ColorIndex(16));
+    assert_eq!(ColorIndex(16).step(-1), ColorIndex(15));
+    assert_eq!(ColorIndex(255).step(1), ColorIndex(0));
+    assert_eq!(ColorIndex(0).step(-1), ColorIndex(255));
+    assert_eq!(ColorIndex(15).shown(), "bright-white");
+    assert_eq!(ColorIndex(16).shown(), "16");
+}
+
+#[test]
+fn custom_colours_read_names_and_numbers_and_a_number_below_16_is_that_name() {
+    let loaded = parse(
+        "[colors]\ntheme = \"custom\"\naccent = \"bright-cyan\"\nwarning = 3\nmuted = 244\n\
+         section = \"white\"\ngroup = 0\nselection = 17\nselection_text = 255\n",
+    );
+    assert!(loaded.problems.is_empty(), "{:?}", loaded.problems);
+    assert_eq!(loaded.config.colors.theme, Theme::Custom);
+    assert_eq!(
+        loaded.config.colors.custom,
+        idx([14, 3, 244, 7, 0, 17, 255])
+    );
+}
+
+#[test]
+fn a_missing_custom_key_takes_the_default_themes_value() {
+    let loaded = parse("[colors]\ntheme = \"custom\"\nwarning = 200\n");
+    let want = Roles {
+        warning: ColorIndex(200),
+        ..Roles::DEFAULT
+    };
+    assert_eq!(loaded.config.colors.custom, want);
+    assert_eq!(parse("").config.colors.custom, Roles::DEFAULT);
+}
+
+#[test]
+fn custom_values_are_kept_whatever_theme_the_file_names() {
+    let loaded = parse("[colors]\ntheme = \"nord-style\"\naccent = 99\n");
+    assert_eq!(loaded.config.colors.theme, Theme::NordStyle);
+    assert_eq!(loaded.config.colors.custom.accent, ColorIndex(99));
+}
+
+#[test]
+fn a_bad_colour_costs_only_its_key_and_is_reported() {
+    let raw =
+        "[colors]\ntheme = \"custom\"\naccent = \"#00ffff\"\nwarning = 300\nmuted = \"grey\"\n\
+               section = 1.5\ngroup = true\nselection = 17\n";
+    let loaded = parse(raw);
+    let want = Roles {
+        selection: ColorIndex(17),
+        ..Roles::DEFAULT
+    };
+    assert_eq!(loaded.config.colors.custom, want);
+    assert_eq!(
+        texts(&loaded),
+        [
+            "line 3: bad value for accent, ignored",
+            "line 4: bad value for warning, ignored",
+            "line 5: bad value for muted, ignored",
+            "line 6: bad value for section, ignored",
+            "line 7: bad value for group, ignored",
+        ]
+    );
+    assert_eq!(
+        parse("[colors]\nthem = 1\n").problems[0].text,
+        "unknown key \"them\", ignored"
+    );
+    let bad_theme = parse("[colors]\ntheme = \"solarized\"\n");
+    assert_eq!(bad_theme.config.colors.theme, Theme::Default);
+    assert_eq!(bad_theme.problems[0].text, "bad value for theme, ignored");
+}
+
+#[test]
+fn a_colour_is_saved_as_a_name_below_16_and_a_number_from_16() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.toml");
+    std::fs::write(
+        &path,
+        "[colors]\ntheme = \"custom\" # mine\naccent = 3 # keep\n",
+    )
+    .unwrap();
+    save(
+        &path,
+        Key::Color(Role::Accent),
+        Value::color(ColorIndex(14)),
+    )
+    .unwrap();
+    save(
+        &path,
+        Key::Color(Role::Group),
+        Value::color(ColorIndex(240)),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&path).unwrap(),
+        "[colors]\ntheme = \"custom\" # mine\naccent = \"bright-cyan\" # keep\ngroup = 240\n"
+    );
+    let back = parse(&std::fs::read_to_string(&path).unwrap())
+        .config
+        .colors
+        .custom;
+    assert_eq!((back.accent, back.group), (ColorIndex(14), ColorIndex(240)));
+}

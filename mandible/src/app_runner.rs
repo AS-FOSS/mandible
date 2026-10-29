@@ -587,6 +587,36 @@ mod tests {
         std::env::remove_var(CONFIG_DIR_ENV);
     }
 
+    /// A custom theme reaches the first frame's palette, and a bad colour
+    /// costs only its own key and shows in the footer line.
+    #[test]
+    fn new_app_applies_the_custom_colours_of_the_file() {
+        use mandible_core::config::{ColorIndex, Roles};
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("config.toml"),
+            "[colors]\ntheme = \"custom\"\naccent = \"bright-red\"\nwarning = \"#ff0000\"\nmuted = 244\n",
+        )
+        .unwrap();
+        std::env::set_var(CONFIG_DIR_ENV, dir.path());
+
+        let app = new_app("git".to_string(), stub(), terminal::Sink::Stdout);
+        let want = Roles {
+            accent: ColorIndex(9),
+            muted: ColorIndex(244),
+            ..Roles::DEFAULT
+        };
+        assert_eq!(app.settings.custom, want);
+        assert_eq!(
+            app.notice.as_deref(),
+            Some("config.toml line 4: bad value for warning, ignored")
+        );
+        assert_eq!(app.settings.theme, mandible_core::config::Theme::Custom);
+
+        std::env::remove_var(CONFIG_DIR_ENV);
+    }
+
     fn rig() -> (std::sync::Arc<crate::doubles::Spy>, App) {
         let spy = crate::doubles::Spy::new();
         spy.children("t", &["a", "b"]);

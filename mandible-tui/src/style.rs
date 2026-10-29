@@ -635,3 +635,6 @@ mod tests {
         assert_eq!(warning(Palette::basic()).fg, Some(Color::Yellow));
     }
 }
+
+#[cfg(test)]
+mod theme_tests;

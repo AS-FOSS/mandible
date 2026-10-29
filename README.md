@@ -181,6 +181,23 @@ commands = "tool"
 theme = "default"
 ```
 
+`theme` is `default`, `light`, `high-contrast`, `gruvbox-style`, `nord-style`,
+`dracula-style`, `catppuccin-style`, `custom` or `none`. With `custom`, seven
+more keys give the colours, each a name (`black` to `bright-white`) or a number
+from 16 to 255:
+
+```toml
+[colors]
+theme = "custom"
+accent = "bright-cyan"   # flag spellings, focused border
+warning = 220            # low confidence, notices
+muted = "bright-black"   # secondary text
+section = 246            # section headings
+group = 240              # group headings
+selection = 237          # the selection bar
+selection_text = 252     # text on the bar
+```
+
 | Key | Values | What it does |
 |---|---|---|
 | `raw_view` | `true`, `false` | Start in the tool's own `--help` view, as if `t` were pressed |
@@ -189,7 +206,7 @@ theme = "default"
 | `ascii` | `true`, `false` | Force the ASCII glyph set |
 | `flags` | `"tool"`, `"az-sections"`, `"az"` | Where `s` starts in the detail pane |
 | `commands` | `"tool"`, `"az"` | Where `s` starts in the commands list |
-| `theme` | `"default"`, `"none"` | `none` draws no colour |
+| `theme` | a theme name, `"custom"` or `"none"` | `none` draws no colour. `custom` uses the seven colour keys; a missing one keeps the `default` theme's value |
 
 An environment variable beats the file, and the file beats the default.
 

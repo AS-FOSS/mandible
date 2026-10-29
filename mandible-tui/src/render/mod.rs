@@ -97,4 +97,6 @@ fn draw_too_small(frame: &mut Frame, area: ratatui::layout::Rect) {
 }
 
 #[cfg(test)]
+mod help_colours_tests;
+#[cfg(test)]
 mod help_settings_tests;

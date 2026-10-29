@@ -1731,6 +1731,8 @@ mod sort_keys;
 pub(crate) use hit_marks::{HitMarks, MatchRow};
 
 #[cfg(test)]
+mod colour_tests;
+#[cfg(test)]
 mod contains_tests;
 #[cfg(test)]
 mod ghost_tests;
