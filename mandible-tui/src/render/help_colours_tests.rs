@@ -236,23 +236,32 @@ fn the_ascii_glyph_set_uses_hash_signs_for_the_block() {
 }
 
 #[test]
-fn a_narrow_pop_up_cuts_the_sample_first_then_the_block() {
+fn a_narrow_pop_up_cuts_the_sample_first_then_the_block_and_never_half_of_either() {
     let a = custom();
     let mut seen_cut_sample = false;
     let mut seen_cut_block = false;
     for w in (40..=130).rev() {
         let buf = draw(&a, w, 34);
         let (y, _) = row_of(&buf, "  Accent");
-        let text = line(&buf, y);
-        let (block, sample) = (text.contains("██"), text.contains("--squash"));
+        let p = crate::render::help_overlay_rect(Rect::new(0, 0, w, 34), false);
+        let inside: String = line(&buf, y)
+            .chars()
+            .skip(usize::from(p.x) + 1)
+            .take(usize::from(p.width) - 2)
+            .collect();
+        let blocks = inside.matches('█').count();
+        assert!(blocks == 0 || blocks == 2, "half a block at {w}: {inside}");
+        let after = inside.split("██").nth(1).unwrap_or_default().trim();
         assert!(
-            block || !sample,
-            "the sample never outlives its block at {w}: {text}"
+            after.is_empty() || after == "--squash",
+            "half a sample at {w}: {inside}"
         );
-        seen_cut_sample |= block && !sample;
-        seen_cut_block |= !block;
-        let right = text.trim_end_matches(' ');
-        assert!(right.ends_with('│'), "{w}: {text}");
+        seen_cut_sample |= blocks == 2 && after.is_empty();
+        seen_cut_block |= blocks == 0;
+        assert!(
+            blocks == 2 || !inside.contains("--"),
+            "sample without block at {w}"
+        );
     }
     assert!(seen_cut_sample && seen_cut_block);
 }
