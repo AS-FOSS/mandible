@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `~/.config/mandible/config.toml` takes `[ui]` (`raw_view`, `horizontal_scroll`, `description_preview`, `ascii`), `[sort]` (`flags`, `commands`) and `[colors]` (`theme`, and seven colours for `custom`); `NO_COLOR` and `MANDIBLE_ASCII` still win over the file.
+- Colour themes `default`, `light`, `high-contrast`, `gruvbox-style`, `nord-style`, `dracula-style` and `catppuccin-style`, plus `custom`, whose seven colours (`accent`, `warning`, `muted`, `section`, `group`, `selection`, `selection_text`) are a name or a number 16 to 255 that the settings tab steps with `←`/`→` or takes typed after `Enter`; every colour applies at once, and the `mandible mandible` screen follows the theme.
+- A key in `config.toml` that is unknown or has a bad value is ignored on its own, and the footer names the first problem line until you press a key.
+- The `?` pop-up has a settings tab, reached with `Tab`: `↑`/`↓` pick a setting, `←`/`→` change it, it applies at once and is saved to `config.toml` without touching your comments or other keys; a setting `NO_COLOR` or `MANDIBLE_ASCII` decides is shown dimmed with the variable's name.
 - `s` sorts the focused pane by name, ignoring case: the detail pane cycles the tool's order, A–Z within each section and A–Z over each section, the commands list switches between the tool's order and A–Z, and the pane title names the state.
 - [S-071] The detail pane ends with an `EXAMPLES` section that prints the tool's own example lines as written, such as `tar`, `argdist-bpfcc`, `bpftrace`, `jq` and `gh pr list`; an `Example: ...` row that sat in `grep`'s description moves there too.
 - `PgUp`, `PgDn`, `Home` and `End` move the command list by 10 rows or to its ends and scroll the detail pane by a screenful or to its ends, in the parsed and raw views.
@@ -29,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The raw `--help` view starts folded to the pane instead of scrolling sideways; `horizontal_scroll = true` in `config.toml` restores it and now also starts the parsed view scrolling, since one setting covers both views.
+- The `?` pop-up closes with `Esc` or `?` only, and its title reads `help · keys  settings`.
 - While a command's help is being read for the first time, its page in the parsed view and in the verbatim view says `Reading this command's help…`; the verbatim view used to say `running the probe…` and the parsed page was blank.
 - An optional value draws its brackets around what may be left out, joiner included: `--color[=WHEN]` for `grep`, `-O[N]` for `nvim`, `--explain [LINT]` for `cargo-clippy`. A required value still reads `--max-count NUM`. A row written `--log-file=[PATH]` is now the optional value `PATH` instead of a value named `[PATH]`.
 - [S-231] `krb5-config` lists the `Libraries:` values under its `LIBRARIES` operand instead of under `--libs`, and a positional's values show under it as a flag's do.

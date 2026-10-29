@@ -1,6 +1,10 @@
-//! The `?` keybinding overlay (spec §2 "Interaction model" table).
+//! The `?` pop-up: the keys tab (spec §2 "Interaction model" table) and the
+//! frame both tabs share. The settings tab is in `help_settings`.
 
+use super::help_settings;
+use crate::app::App;
 use crate::sanitize::display_width;
+use crate::settings::HelpTab;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
@@ -42,7 +46,7 @@ const BINDINGS: &[(Option<&str>, &str)] = &[
     (None, "ACTIONS"),
     (Some("y"), "Copy selected flag or command path"),
     (Some("r"), "Reload what you are viewing"),
-    (Some("?"), "Toggle this help"),
+    (Some("?"), "Toggle this help and settings"),
     (Some("Ctrl-C"), "Quit from anywhere"),
     (Some("q"), "Quit (from the tree)"),
 ];
@@ -178,7 +182,7 @@ fn split_balanced(parts: &[Vec<HelpLine>]) -> Vec<Vec<HelpLine>> {
 
 /// Decide the overlay's shape from its content and the screen.
 ///
-/// The popup is as large as its content, one cell short of the screen edge
+/// The popup is as large as the taller tab's content, one cell short of the screen edge
 /// on every side. Two columns are used once each can hold a typical
 /// description on one line. Content taller than the popup scrolls.
 fn plan(rows: &Rows, area: Rect) -> Plan {
@@ -208,7 +212,7 @@ fn plan(rows: &Rows, area: Rect) -> Plan {
     let content = columns.iter().map(Vec::len).max().unwrap_or(0);
     let wide = columns.len() * col_w + (columns.len() - 1) * COLUMN_GAP + CHROME_W;
     let max_h = usize::from(area.height).saturating_sub(2).max(CHROME_H + 1);
-    let tall = (content + CHROME_H).min(max_h);
+    let tall = (content.max(help_settings::lines().len()) + CHROME_H).min(max_h);
     let popup_w = u16::try_from(wide).unwrap_or(u16::MAX).min(area.width);
     let popup_h = u16::try_from(tall).unwrap_or(u16::MAX).min(area.height);
     let popup = Rect::new(
@@ -231,24 +235,52 @@ pub fn popup_rect(area: Rect, print_selection: bool) -> Rect {
     plan(&bindings(print_selection), area).popup
 }
 
-/// Render the overlay centered over `full_area`, scrolled by `scroll`
-/// lines. Returns `(max_scroll, visible)` so the caller can bound its
+/// The border's title: `help · keys  settings`, the tab on show in the
+/// accent and the other muted.
+fn title(app: &App) -> Line<'static> {
+    let color = app.palette;
+    let on_show = |tab| {
+        if app.settings.tab == tab {
+            crate::style::accent(color)
+        } else {
+            crate::style::muted(color)
+        }
+    };
+    let help = if color.color {
+        Style::default().add_modifier(ratatui::style::Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+    Line::from(vec![
+        Span::raw(" "),
+        Span::styled("help", help),
+        Span::raw(format!(" {} ", app.glyphs.dot)),
+        Span::styled("keys", on_show(HelpTab::Keys)),
+        Span::raw("  "),
+        Span::styled("settings", on_show(HelpTab::Settings)),
+        Span::raw(" "),
+    ])
+}
+
+/// Render the pop-up centered over `full_area`, on the tab `app` shows.
+/// Returns `(max_scroll, visible)` so the caller can bound the keys tab's
 /// scrolling.
-pub fn render(
-    frame: &mut Frame,
-    full_area: Rect,
-    glyphs: crate::glyphs::Glyphs,
-    color_enabled: bool,
-    print_selection: bool,
-    scroll: usize,
-) -> (usize, usize) {
-    let plan = plan(&bindings(print_selection), full_area);
-    let scroll = scroll.min(plan.max_scroll);
+pub fn render(frame: &mut Frame, full_area: Rect, app: &App) -> (usize, usize) {
+    let glyphs = app.glyphs;
+    let plan = plan(&bindings(app.print_selection), full_area);
+    let on_keys = app.settings.tab == HelpTab::Keys;
+    let settings_lines = help_settings::lines().len();
+    let (max_scroll, scroll) = if on_keys {
+        (plan.max_scroll, app.help_scroll().min(plan.max_scroll))
+    } else {
+        let scroll = help_settings::scroll_to_selection(app, plan.visible);
+        (settings_lines.saturating_sub(plan.visible), scroll)
+    };
     frame.render_widget(Clear, plan.popup);
 
     let border = Style::default();
     let block = Block::default()
-        .title(" keybindings ")
+        .title(title(app))
         .borders(Borders::ALL)
         .border_set(crate::style::border_set(glyphs))
         .border_style(border)
@@ -257,19 +289,24 @@ pub fn render(
         .padding(Padding::new(2, 2, 1, 1));
     let inner = block.inner(plan.popup);
     frame.render_widget(block, plan.popup);
+    help_settings::draw_bottom_label(frame, plan.popup, app);
     let set = crate::style::border_set(glyphs);
     let buf = frame.buffer_mut();
     if scroll > 0 {
         let up = crate::fit::Marker::Up;
         crate::fit::draw_vertical_marker(buf, plan.popup, &glyphs, up, border, set.horizontal_top);
     }
-    if scroll < plan.max_scroll {
+    if scroll < max_scroll {
         let down = crate::fit::Marker::Down;
         let rule = set.horizontal_bottom;
         crate::fit::draw_vertical_marker(buf, plan.popup, &glyphs, down, border, rule);
     }
-    let result = (plan.max_scroll, plan.visible);
+    let result = (max_scroll, plan.visible);
     if inner.width == 0 || inner.height == 0 {
+        return result;
+    }
+    if !on_keys {
+        help_settings::draw(frame, plan.popup, inner, app, scroll);
         return result;
     }
 
@@ -282,21 +319,21 @@ pub fn render(
             .iter()
             .skip(scroll)
             .take(plan.visible)
-            .map(|line| styled(line, color_enabled))
+            .map(|line| styled(line, app.palette))
             .collect();
         frame.render_widget(Paragraph::new(lines), rect);
     }
     result
 }
 
-fn styled(line: &HelpLine, color_enabled: bool) -> Line<'static> {
+fn styled(line: &HelpLine, palette: crate::style::Palette) -> Line<'static> {
     match line {
         HelpLine::Blank => Line::default(),
-        HelpLine::Heading(h) => Line::styled(h.clone(), crate::style::muted_bold(color_enabled)),
+        HelpLine::Heading(h) => Line::styled(h.clone(), crate::style::muted_bold(palette)),
         HelpLine::Row { key, desc } => {
             let pad = KEY_COLUMN.saturating_sub(display_width(key)).max(1);
             Line::from(vec![
-                Span::styled(key.clone(), crate::style::accent(color_enabled)),
+                Span::styled(key.clone(), crate::style::accent(palette)),
                 Span::raw(" ".repeat(pad)),
                 Span::raw(desc.clone()),
             ])

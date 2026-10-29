@@ -2,7 +2,6 @@
 # here is exceeded. Shrinking a count is the only edit this file
 # should ever receive. Regenerate with `shape_guard.sh --print-baseline`.
 block	13	mandible-core/src/audit.rs
-block	1	mandible-core/src/config.rs
 block	6	mandible-core/src/entity.rs
 block	6	mandible-core/src/merge.rs
 block	3	mandible-core/src/node.rs
@@ -44,7 +43,7 @@ block	1	mandible-tui/src/glyphs.rs
 block	1	mandible-tui/src/lib.rs
 block	1	mandible-tui/src/render/status_bar.rs
 block	1	mandible-tui/src/render/tree_pane.rs
-block	4	mandible-tui/src/style.rs
+block	3	mandible-tui/src/style.rs
 block	2	mandible-tui/src/terminal.rs
 block	2	mandible-tui/tests/border_integrity.rs
 block	1	mandible-tui/tests/confidence_footer.rs
@@ -52,8 +51,7 @@ block	1	mandible-tui/tests/detail_scroll_memory.rs
 block	4	mandible-tui/tests/detail_sections.rs
 block	1	mandible-tui/tests/drawing_goes_through_the_sink.rs
 block	1	mandible-tui/tests/wrap_when_horizontal_scroll_is_off.rs
-block	1	mandible/src/about.rs
-block	2	mandible/src/app_runner.rs
+block	1	mandible/src/app_runner.rs
 block	2	mandible/src/background.rs
 block	1	mandible/src/cli.rs
 block	3	mandible/src/discovery.rs
@@ -118,7 +116,6 @@ narrative	1	xtask/src/main.rs
 narrative	1	xtask/src/misattribution.rs
 narrative	1	xtask/src/queue.rs
 ratio	1	mandible-core/src/audit.rs
-ratio	1	mandible-core/src/config.rs
 ratio	1	mandible-core/src/entity.rs
 ratio	1	mandible-core/src/node.rs
 ratio	1	mandible-core/src/noderef.rs

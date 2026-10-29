@@ -4,7 +4,9 @@
 //! [`hints`]).
 
 use crate::app::App;
-use crate::sanitize::{defensive_single_line, display_width, truncate_to_width};
+use crate::sanitize::{
+    defensive_single_line, display_width, truncate_to_width, truncate_to_width_marker,
+};
 use crate::style;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -128,6 +130,21 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     }
     let width = area.width as usize;
 
+    // A notice (config problems at startup, a failed save) owns the row
+    // until the next key press, in the warning style, with the margins of
+    // the hints on both sides.
+    if let Some(notice) = &app.notice {
+        let room = width.saturating_sub(display_width(LEFT_MARGIN) * 2);
+        let text =
+            truncate_to_width_marker(&defensive_single_line(notice), room, app.glyphs.ellipsis);
+        let line = Line::from(vec![
+            Span::raw(LEFT_MARGIN),
+            Span::styled(text, style::warning(app.palette)),
+        ]);
+        frame.render_widget(Paragraph::new(line), area);
+        return;
+    }
+
     // A transient message (`copied: …`) owns the whole row while it lasts.
     if let Some(msg) = &app.status_message {
         let text = truncate_to_width(&defensive_single_line(msg), width);
@@ -190,19 +207,16 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
 fn right_text(app: &App) -> Option<(String, Style)> {
     let node = app.selected_node()?;
     if node.same_as_ancestor {
-        return Some((
-            "same as parent".to_string(),
-            style::muted(app.color_enabled),
-        ));
+        return Some(("same as parent".to_string(), style::muted(app.palette)));
     }
     if let Some(caveat) = crate::render::detail_pane::provenance_caveat(node, app.glyphs) {
-        return Some((caveat, style::warning(app.color_enabled)));
+        return Some((caveat, style::warning(app.palette)));
     }
     let summary = crate::render::detail_pane::provenance_summary(node);
     if summary.is_empty() {
         return None;
     }
-    Some((summary, style::muted(app.color_enabled)))
+    Some((summary, style::muted(app.palette)))
 }
 
 #[cfg(test)]

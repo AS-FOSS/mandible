@@ -61,7 +61,7 @@ pub(super) fn detail_title(app: &App, path: &[String], budget: usize) -> Line<'s
 /// The style of the detail pane's border, and of every marker on it.
 pub(super) fn border_style(app: &App) -> Style {
     if app.focus == Focus::Detail {
-        style::accent(app.color_enabled)
+        style::accent(app.palette)
     } else {
         Style::default()
     }

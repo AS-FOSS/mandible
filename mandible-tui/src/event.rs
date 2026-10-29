@@ -14,28 +14,10 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
         return Some(Effect::Quit);
     }
 
+    app.notice = None;
+
     if app.show_help {
-        // Any key closes the overlay except `?` itself, which is handled
-        // uniformly below (toggling closes it too). An overlay taller than
-        // the screen keeps the arrow and page keys for scrolling.
-        match key.code {
-            KeyCode::Char('?') => {}
-            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown
-                if app.help_scrollable() =>
-            {
-                match key.code {
-                    KeyCode::Up => app.help_scroll_by(-1, false),
-                    KeyCode::Down => app.help_scroll_by(1, false),
-                    KeyCode::PageUp => app.help_scroll_by(-1, true),
-                    _ => app.help_scroll_by(1, true),
-                }
-                return None;
-            }
-            _ => {
-                app.show_help = false;
-                return None;
-            }
-        }
+        return handle_help_key(app, key);
     }
 
     if app.focus == Focus::Search {
@@ -66,6 +48,32 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
                 Focus::Search => unreachable!("handled above"),
             }
         }
+    }
+    None
+}
+
+/// A key while the `?` pop-up is open: `Tab` switches tabs, `Esc` and `?`
+/// close it, and every other key does nothing.
+fn handle_help_key(app: &mut App, key: KeyEvent) -> Option<Effect> {
+    use crate::settings::HelpTab;
+    let settings_tab = app.settings.tab == HelpTab::Settings;
+    if app.settings.typing.is_some() {
+        app.settings_typing_key(key.code);
+        return None;
+    }
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('?') => app.show_help = false,
+        KeyCode::Tab => app.help_switch_tab(),
+        KeyCode::Up if settings_tab => app.settings_move(-1),
+        KeyCode::Down if settings_tab => app.settings_move(1),
+        KeyCode::Enter if settings_tab => app.settings_begin_typing(),
+        KeyCode::Left if settings_tab => return app.settings_change(-1),
+        KeyCode::Right if settings_tab => return app.settings_change(1),
+        KeyCode::Up if app.help_scrollable() => app.help_scroll_by(-1, false),
+        KeyCode::Down if app.help_scrollable() => app.help_scroll_by(1, false),
+        KeyCode::PageUp if !settings_tab && app.help_scrollable() => app.help_scroll_by(-1, true),
+        KeyCode::PageDown if !settings_tab && app.help_scrollable() => app.help_scroll_by(1, true),
+        _ => {}
     }
     None
 }
@@ -519,16 +527,24 @@ mod tests {
     }
 
     #[test]
-    fn help_overlay_closes_on_any_key() {
+    fn the_popup_closes_on_escape_and_on_question_mark_only() {
+        for closer in [KeyCode::Esc, KeyCode::Char('?')] {
+            let mut a = app();
+            a.toggle_help();
+            assert!(a.show_help);
+            handle_key(&mut a, key(closer));
+            assert!(!a.show_help, "{closer:?}");
+        }
         let mut a = app();
         a.toggle_help();
-        assert!(a.show_help);
-        handle_key(&mut a, key(KeyCode::Char('x')));
-        assert!(!a.show_help);
+        for other in [KeyCode::Char('x'), KeyCode::Enter, KeyCode::Char('q')] {
+            handle_key(&mut a, key(other));
+            assert!(a.show_help, "{other:?} must not close the pop-up");
+        }
     }
 
     #[test]
-    fn a_scrollable_help_overlay_scrolls_on_arrows_and_closes_on_others() {
+    fn a_scrollable_keys_tab_scrolls_on_arrows() {
         let mut a = app();
         a.toggle_help();
         a.set_help_extent(5, 10);
@@ -540,8 +556,73 @@ mod tests {
         assert_eq!(a.help_scroll(), 5, "clamped to the extent");
         handle_key(&mut a, key(KeyCode::Up));
         assert_eq!(a.help_scroll(), 4);
-        handle_key(&mut a, key(KeyCode::Char('x')));
-        assert!(!a.show_help);
+    }
+
+    #[test]
+    fn a_keys_tab_that_fits_does_not_scroll() {
+        let mut a = app();
+        a.toggle_help();
+        a.set_help_extent(0, 20);
+        handle_key(&mut a, key(KeyCode::Down));
+        assert_eq!(a.help_scroll(), 0);
+    }
+
+    #[test]
+    fn tab_switches_between_the_tabs_and_question_mark_opens_on_keys() {
+        use crate::settings::HelpTab;
+        let mut a = app();
+        handle_key(&mut a, key(KeyCode::Char('?')));
+        assert_eq!(a.settings.tab, HelpTab::Keys);
+        handle_key(&mut a, key(KeyCode::Tab));
+        assert_eq!(a.settings.tab, HelpTab::Settings);
+        handle_key(&mut a, key(KeyCode::Tab));
+        assert_eq!(a.settings.tab, HelpTab::Keys);
+        handle_key(&mut a, key(KeyCode::Tab));
+        handle_key(&mut a, key(KeyCode::Esc));
+        handle_key(&mut a, key(KeyCode::Char('?')));
+        assert_eq!(a.settings.tab, HelpTab::Keys, "reopened on the keys tab");
+        assert_eq!(
+            a.focus,
+            Focus::Tree,
+            "Tab in the pop-up does not move focus"
+        );
+    }
+
+    #[test]
+    fn the_settings_tab_takes_the_arrow_keys_and_the_tree_does_not() {
+        use crate::settings::{HelpTab, Row};
+        let mut a = app();
+        a.expand_selected();
+        a.ensure_rows_fresh();
+        let selected = a.selected;
+        a.toggle_help();
+        handle_key(&mut a, key(KeyCode::Tab));
+        assert_eq!(a.settings.tab, HelpTab::Settings);
+        handle_key(&mut a, key(KeyCode::Down));
+        handle_key(&mut a, key(KeyCode::Down));
+        assert_eq!(a.settings.selected(), Row::Preview);
+        handle_key(&mut a, key(KeyCode::Right));
+        assert!(!a.settings.description_preview);
+        handle_key(&mut a, key(KeyCode::Left));
+        assert!(a.settings.description_preview);
+        handle_key(&mut a, key(KeyCode::Up));
+        assert_eq!(a.settings.selected(), Row::Scroll);
+        assert_eq!(a.selected, selected, "the tree did not move");
+        assert!(a.show_help);
+    }
+
+    #[test]
+    fn left_and_right_do_nothing_on_the_keys_tab() {
+        let mut a = app();
+        a.toggle_help();
+        let before = (a.settings.description_preview, a.raw_mode, a.sorts);
+        handle_key(&mut a, key(KeyCode::Right));
+        handle_key(&mut a, key(KeyCode::Left));
+        assert_eq!(
+            before,
+            (a.settings.description_preview, a.raw_mode, a.sorts)
+        );
+        assert!(a.show_help);
     }
 
     #[test]

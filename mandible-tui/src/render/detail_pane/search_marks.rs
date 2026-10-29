@@ -185,7 +185,7 @@ pub(super) fn draw_match_bars(
         return;
     }
     let x = inner.x - 1;
-    let style = style::accent(app.color_enabled);
+    let style = style::accent(app.palette);
     let right = inner.x + inner.width;
     let buf = frame.buffer_mut();
     for m in matches.iter() {

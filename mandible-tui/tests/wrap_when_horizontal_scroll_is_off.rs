@@ -181,13 +181,27 @@ fn a_wrapped_raw_line_keeps_the_authors_columns_and_its_own_indent() {
     );
 }
 
-/// The default state is untouched: `horizontal_scroll = true` still draws
-/// one row per tool line, clipped at the pane edge, with `l`/`→` revealing
-/// the rest.
+/// The default folds the raw view to the pane: nothing is clipped and
+/// nothing needs scrolling to.
 #[test]
-fn the_default_still_scrolls_sideways_rather_than_wrapping() {
+fn the_default_wraps_the_raw_view() {
     let app = app_with_raw_help();
-    assert!(app.horizontal_scroll_enabled, "default is on");
+    assert!(!app.horizontal_scroll_enabled, "default is off");
+
+    let rows = detail_rows(&app);
+    assert_rows_fit(&app, &rows);
+    assert!(
+        squash(&rows.join("")).contains(&squash(LONG_TOKEN)),
+        "the default view lost the tail of a long line: {rows:?}"
+    );
+}
+
+/// `horizontal_scroll = true` draws one row per tool line, clipped at the
+/// pane edge, with `l`/`→` revealing the rest.
+#[test]
+fn horizontal_scroll_on_scrolls_sideways_rather_than_wrapping() {
+    let mut app = app_with_raw_help();
+    app.horizontal_scroll_enabled = true;
 
     let rows = detail_rows(&app);
     assert!(
@@ -202,7 +216,6 @@ fn the_default_still_scrolls_sideways_rather_than_wrapping() {
 
     // The tail is reachable by scrolling, which is what makes the clip
     // legitimate in this mode and not in the other.
-    let mut app = app;
     let tail = "0123456789abcdef";
     let mut reached = false;
     for _ in 0..40 {

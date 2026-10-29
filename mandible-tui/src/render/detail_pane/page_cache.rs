@@ -9,8 +9,8 @@ use mandible_core::FlagKey;
 
 /// Everything [`super::build_lines`] reads. A built page is reused only while all
 /// of it is equal, so a new input to `build_lines` must be added here.
-/// `tree_version` moves on every write to `app.root`; `height` decides
-/// whether the description previews. Scroll and focus are applied after the build and the sideways offset is
+/// `tree_version` moves on every write to `app.root`; `height` and
+/// `preview` decide whether the description previews. Scroll and focus are applied after the build and the sideways offset is
 /// re-applied every frame, so none of those are inputs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PageKey {
@@ -27,6 +27,7 @@ pub(crate) struct PageKey {
     reading: bool,
     marks_version: u64,
     sort: crate::sort::DetailSort,
+    preview: bool,
 }
 
 impl PageKey {
@@ -53,6 +54,7 @@ impl PageKey {
                 .is_some_and(|r| app.is_first_read(&r.path)),
             marks_version: app.hit_marks_version(),
             sort: app.sorts.detail,
+            preview: app.settings.description_preview,
         }
     }
 }

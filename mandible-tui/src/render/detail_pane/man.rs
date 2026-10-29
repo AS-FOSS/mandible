@@ -12,19 +12,19 @@ pub(super) fn man_entity_lines(
     flag: &Entity,
     dim: bool,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     layout: SectionLayout,
 ) -> Vec<Line<'static>> {
     let head_column = layout.indent;
     let leading = " ".repeat(head_column);
     let spelling_style = if dim {
-        style::muted(color_enabled)
+        style::muted(palette)
     } else {
-        style::accent(color_enabled)
+        style::accent(palette)
     };
-    let value_style = style::muted(color_enabled);
+    let value_style = style::muted(palette);
     let desc_style = if dim {
-        style::muted(color_enabled)
+        style::muted(palette)
     } else {
         Style::default()
     };
@@ -74,6 +74,6 @@ pub(super) fn man_entity_lines(
             )));
         }
     }
-    lines.extend(subordinate_lines(flag, column, width, color_enabled, true));
+    lines.extend(subordinate_lines(flag, column, width, palette, true));
     lines
 }

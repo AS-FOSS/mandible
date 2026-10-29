@@ -124,13 +124,13 @@ pub(super) fn entity_line(
     flag: &Entity,
     dim: bool,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     // Where the value and description columns begin, shared across the
     // whole section — see `section_layout`.
     layout: SectionLayout,
 ) -> Vec<Line<'static>> {
     if layout.man {
-        return super::man::man_entity_lines(flag, dim, width, color_enabled, layout);
+        return super::man::man_entity_lines(flag, dim, width, palette, layout);
     }
     let text_width = layout.text_width(width);
     let stack = plan(flag, layout, width);
@@ -151,14 +151,14 @@ pub(super) fn entity_line(
     let leading = " ".repeat(head_column);
     let leading = leading.as_str();
     let spelling_style = if dim {
-        style::muted(color_enabled)
+        style::muted(palette)
     } else {
-        style::accent(color_enabled)
+        style::accent(palette)
     };
     // Muted, not italic: many terminals silently ignore italic (spec §9.2).
-    let value_style = style::muted(color_enabled);
+    let value_style = style::muted(palette);
     let desc_style = if dim {
-        style::muted(color_enabled)
+        style::muted(palette)
     } else {
         Style::default()
     };
@@ -216,7 +216,7 @@ pub(super) fn entity_line(
         }
         let mut lines = vec![Line::from(first_line_spans)];
         if let Some(stack) = &stack {
-            let or_style = style::muted(color_enabled);
+            let or_style = style::muted(palette);
             lines.extend(stack.rows(layout, &[], (or_style, spelling_style, desc_style)));
         }
         return lines;
@@ -271,7 +271,7 @@ pub(super) fn entity_line(
         wrap_description(&remainder, rest_width)
     };
     if let Some(stack) = &stack {
-        let or_style = style::muted(color_enabled);
+        let or_style = style::muted(palette);
         lines.extend(stack.rows(layout, &chunks, (or_style, spelling_style, desc_style)));
     } else {
         for chunk in chunks {
@@ -283,11 +283,7 @@ pub(super) fn entity_line(
     }
 
     lines.extend(subordinate_lines(
-        flag,
-        column,
-        text_width,
-        color_enabled,
-        layout.man,
+        flag, column, text_width, palette, layout.man,
     ));
 
     lines
@@ -299,7 +295,7 @@ pub(super) fn subordinate_lines(
     flag: &Entity,
     column: usize,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     man: bool,
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
@@ -333,7 +329,7 @@ pub(super) fn subordinate_lines(
         let values_column = column + 2;
         let values_width = width.saturating_sub(values_column).max(1);
         let values_indent = " ".repeat(values_column);
-        let values_style = style::muted(color_enabled);
+        let values_style = style::muted(palette);
         for chunk in wrap_words(&values_line, values_width) {
             lines.push(Line::from(Span::styled(
                 format!("{values_indent}{chunk}"),
@@ -341,14 +337,14 @@ pub(super) fn subordinate_lines(
             )));
         }
     } else if has_choice_descriptions {
-        lines.extend(choice_detail_lines(flag, column, width, color_enabled, man));
+        lines.extend(choice_detail_lines(flag, column, width, palette, man));
     }
 
     if let Some(env_line) = env_line {
         let env_column = column + 2;
         let env_width = width.saturating_sub(env_column).max(1);
         let env_indent = " ".repeat(env_column);
-        let env_style = style::muted(color_enabled);
+        let env_style = style::muted(palette);
         for chunk in wrap_words(&env_line, env_width) {
             lines.push(Line::from(Span::styled(
                 format!("{env_indent}{chunk}"),
@@ -373,12 +369,12 @@ pub(super) fn choice_detail_lines(
     flag: &Entity,
     column: usize,
     width: usize,
-    color_enabled: bool,
+    palette: style::Palette,
     man: bool,
 ) -> Vec<Line<'static>> {
     let values_column = column + 2;
     let values_indent = " ".repeat(values_column);
-    let values_style = style::muted(color_enabled);
+    let values_style = style::muted(palette);
 
     let choice_column = values_column + 2;
     let choice_indent = " ".repeat(choice_column);

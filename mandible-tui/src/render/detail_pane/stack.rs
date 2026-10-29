@@ -217,7 +217,13 @@ mod tests {
 
     #[test]
     fn overflowing_spellings_stack_beside_the_description() {
-        let lines = entity_line(&codec_flag(), false, 49, true, layout());
+        let lines = entity_line(
+            &codec_flag(),
+            false,
+            49,
+            style::Palette::extended(),
+            layout(),
+        );
         assert_eq!(
             text(&lines),
             vec![
@@ -231,18 +237,33 @@ mod tests {
 
     #[test]
     fn only_the_or_is_dim_and_the_names_keep_their_style() {
-        let lines = entity_line(&codec_flag(), false, 49, true, layout());
-        assert_eq!(lines[0].spans[0].style, style::accent(true));
+        let lines = entity_line(
+            &codec_flag(),
+            false,
+            49,
+            style::Palette::extended(),
+            layout(),
+        );
+        assert_eq!(
+            lines[0].spans[0].style,
+            style::accent(style::Palette::extended())
+        );
         for line in &lines[1..] {
             assert_eq!(line.spans[1].content, "or ");
-            assert_eq!(line.spans[1].style, style::muted(true));
-            assert_eq!(line.spans[2].style, style::accent(true));
+            assert_eq!(
+                line.spans[1].style,
+                style::muted(style::Palette::extended())
+            );
+            assert_eq!(
+                line.spans[2].style,
+                style::accent(style::Palette::extended())
+            );
         }
     }
 
     #[test]
     fn no_color_keeps_the_or() {
-        let lines = entity_line(&codec_flag(), false, 49, false, layout());
+        let lines = entity_line(&codec_flag(), false, 49, style::Palette::plain(), layout());
         let t = text(&lines);
         assert!(t[1].starts_with(" or -acodec"), "{t:?}");
         assert!(t[3].starts_with(" or -c:a"), "{t:?}");
@@ -258,7 +279,7 @@ mod tests {
         ));
         let mut l = layout();
         l.description = 18;
-        let t = text(&entity_line(&f, false, 50, true, l));
+        let t = text(&entity_line(&f, false, 50, style::Palette::extended(), l));
         assert!(t[0].starts_with("    --old-dirs    works"), "{t:?}");
         assert!(t[1].starts_with(" or --old-d       "), "{t:?}");
     }
@@ -279,7 +300,13 @@ mod tests {
         })
         .expect("the start is one of the spellings");
         f.description = Some(Text::sanitize("compression level"));
-        let t = text(&entity_line(&f, false, 49, true, layout()));
+        let t = text(&entity_line(
+            &f,
+            false,
+            49,
+            style::Palette::extended(),
+            layout(),
+        ));
         assert!(t[0].starts_with("    --fast, -0 ... -9"), "{t:?}");
         assert!(t[1].starts_with(" or --best, --quickest"), "{t:?}");
     }
@@ -295,7 +322,7 @@ mod tests {
         f.description = Some(Text::sanitize("suppress all normal output"));
         let mut l = layout();
         l.description = 40;
-        let t = text(&entity_line(&f, false, 120, true, l));
+        let t = text(&entity_line(&f, false, 120, style::Palette::extended(), l));
         assert!(t[0].starts_with("-q, --quiet "), "{t:?}");
         assert!(t[1].starts_with(" or --silent"), "{t:?}");
     }
@@ -304,7 +331,7 @@ mod tests {
     fn a_short_and_a_long_alone_are_not_stacked() {
         let mut f = codec_flag();
         f.spellings.truncate(2);
-        let lines = entity_line(&f, false, 60, true, layout());
+        let lines = entity_line(&f, false, 60, style::Palette::extended(), layout());
         assert!(text(&lines)[0].starts_with("-c, -codec CODEC         force the codec"));
         assert!(!text(&lines).iter().any(|l| l.contains(" or ")));
     }
@@ -319,7 +346,7 @@ mod tests {
             Spelling::single_dash("vc"),
         ];
         f.value_name = Some("CODEC_NAME_OF_VIDEO".to_string());
-        let lines = entity_line(&f, false, 60, true, layout());
+        let lines = entity_line(&f, false, 60, style::Palette::extended(), layout());
         let t = text(&lines);
         assert!(
             t[0].starts_with("    --video-codec CODEC_NAME_OF_VIDEO"),
@@ -333,7 +360,7 @@ mod tests {
         let mut f = codec_flag();
         f.spellings
             .push(Spelling::single_dash("an-extraordinarily-long-spelling"));
-        let lines = entity_line(&f, false, 80, true, layout());
+        let lines = entity_line(&f, false, 80, style::Palette::extended(), layout());
         let t = text(&lines);
         assert!(!t.iter().any(|l| l.contains(" or -")), "{t:?}");
         assert!(t
@@ -355,7 +382,7 @@ mod tests {
             false,
             RowCtx {
                 width: 60,
-                color_enabled: true,
+                palette: style::Palette::extended(),
                 layout: layout(),
             },
             Some(&key),

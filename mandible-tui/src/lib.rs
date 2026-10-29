@@ -35,6 +35,7 @@ pub mod render;
 pub mod sanitize;
 pub(crate) mod search_ghost;
 pub(crate) mod search_rank;
+pub mod settings;
 pub mod sort;
 pub mod style;
 pub mod terminal;

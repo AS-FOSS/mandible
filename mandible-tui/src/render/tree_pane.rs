@@ -40,7 +40,7 @@ const UNVERIFIED_BADGE: &str = "unverified";
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let focused = app.focus == Focus::Tree;
     let border_style = if focused {
-        style::accent(app.color_enabled)
+        style::accent(app.palette)
     } else {
         Style::default()
     };
@@ -224,7 +224,7 @@ fn append_count(
     let style = if selected {
         style::bar_text(palette)
     } else {
-        style::muted(palette.color)
+        style::muted(palette)
     };
     let right = fit::MATCH_COUNT_WIDTH + fit::MATCH_COUNT_MARGIN;
     let pad = width.saturating_sub(right + line.width());
@@ -288,7 +288,7 @@ fn build_row_line(
     let prefix_w = display_width(&prefix);
     let name = defensive_single_line(row_display_name(row));
 
-    let color_enabled = palette.color;
+    let color_enabled = palette;
     let base_style = if selected {
         style::bar_name(palette)
     } else {
@@ -538,7 +538,7 @@ mod tests {
             .iter()
             .find(|s| s.content.contains("unverified"))
             .expect("badge span");
-        assert_eq!(badge.style, style::warning(true));
+        assert_eq!(badge.style, style::warning(style::Palette::extended()));
     }
 
     #[test]

@@ -159,23 +159,56 @@ surprising against the tool's own `--help`.
 <details>
 <summary><h2>Configuration</h2></summary>
 
-Settings live in `~/.config/mandible/config.toml`. The file doesn't need to
-exist; everything has a default.
-
-### Settings
-
-`w` turns wrapping off or on in the view on screen. With it off, lines scroll
-sideways with `←`/`→` (or `h`/`l`) and a dim `◀`/`▶` marker sits beside each
-line that continues past the pane edge. The parsed page starts wrapped; the
-raw `--help` view starts as `horizontal_scroll` says, `true` (scrolling) by
-default. Set it to `false` to start the raw view wrapped.
+Settings live in `~/.config/mandible/config.toml`. mandible never creates the
+file; the settings tab of the `?` pop-up writes it, one key at a time, and
+leaves your comments and other keys alone. A key that is unknown or has a bad
+value is ignored and the footer says which line until you press a key.
 
 ```toml
 # ~/.config/mandible/config.toml
 
 [ui]
-horizontal_scroll = true  # the default
+raw_view = false
+horizontal_scroll = false
+description_preview = true
+ascii = false
+
+[sort]
+flags = "tool"
+commands = "tool"
+
+[colors]
+theme = "default"
 ```
+
+`theme` is `default`, `light`, `high-contrast`, `gruvbox-style`, `nord-style`,
+`dracula-style`, `catppuccin-style`, `custom` or `none`. With `custom`, seven
+more keys give the colours, each a name (`black` to `bright-white`) or a number
+from 16 to 255:
+
+```toml
+[colors]
+theme = "custom"
+accent = "bright-cyan"   # flag spellings, focused border
+warning = 220            # low confidence, notices
+muted = "bright-black"   # secondary text
+section = 246            # section headings
+group = 240              # group headings
+selection = 237          # the selection bar
+selection_text = 252     # text on the bar
+```
+
+| Key | Values | What it does |
+|---|---|---|
+| `raw_view` | `true`, `false` | Start in the tool's own `--help` view, as if `t` were pressed |
+| `horizontal_scroll` | `true`, `false` | `false` folds long lines to the pane. `true` keeps one row per line and scrolls sideways, in the parsed and the raw view. `w` flips it for the view on screen |
+| `description_preview` | `true`, `false` | `false` draws a long description in full, in place |
+| `ascii` | `true`, `false` | Force the ASCII glyph set |
+| `flags` | `"tool"`, `"az-sections"`, `"az"` | Where `s` starts in the detail pane |
+| `commands` | `"tool"`, `"az"` | Where `s` starts in the commands list |
+| `theme` | a theme name, `"custom"` or `"none"` | `none` draws no colour. `custom` uses the seven colour keys; a missing one keeps the `default` theme's value |
+
+An environment variable beats the file, and the file beats the default.
 
 Getting a tool's *documentation* right is mandible's job, not yours. If
 something parses wrong, `mandible --report <tool>` plus an issue fixes it for
@@ -186,15 +219,15 @@ everyone. (Local per-tool corrections do exist for the impatient:
 
 | Variable | Effect |
 |---|---|
-| `NO_COLOR` | Disable colour. `TERM=dumb` and piped output do the same |
-| `MANDIBLE_ASCII=1` | Force the ASCII glyph set, for terminals that mangle Unicode |
+| `NO_COLOR` | Same as `theme = "none"`, and beats the file. `TERM=dumb` and piped output do the same |
+| `MANDIBLE_ASCII=1` | Force the ASCII glyph set, for terminals that mangle Unicode. Beats `ascii` |
 | `MANDIBLE_CONFIG_DIR` | Read config and overrides from a different directory |
 | `MANDIBLE_LOG` | Tracing filter, written to stderr |
 
 ### Keys
 
-`?` inside mandible lists every binding, and the footer keeps the important ones
-on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`→`
+`?` inside mandible lists every binding, and its second tab, reached with `Tab`,
+changes the settings above. The footer keeps the important keys on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`→`
 to scroll wide lines sideways, `t` for the tool's own `--help`, `s` to sort the
 focused pane A–Z, `y` to copy the selected flag, `q` to quit.
 

@@ -97,6 +97,7 @@ fn raw_help(count: usize) -> RawHelp {
 fn app_with_raw(raw_lines: usize) -> App {
     let mut app = App::new(TOOL.to_string(), parsed_node());
     app.focus = mandible_tui::Focus::Detail;
+    app.horizontal_scroll_enabled = true;
     app.set_raw_help(vec![TOOL.to_string()], raw_help(raw_lines));
     app
 }
@@ -336,6 +337,7 @@ fn a_node_change_clears_both_views_positions() {
 
     let mut app = App::new(TOOL.to_string(), root);
     app.focus = mandible_tui::Focus::Detail;
+    app.horizontal_scroll_enabled = true;
     app.set_raw_help(vec![TOOL.to_string()], raw_help(60));
     app.set_raw_help(vec![TOOL.to_string(), "child".to_string()], raw_help(60));
 

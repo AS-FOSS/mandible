@@ -27,7 +27,7 @@ pub(super) fn push_usage(
     // `USAGE_HANG` columns right of the form's first row, so a form
     // that has to wrap still reads as one form, and the form's
     // command path is the accented part of its first row.
-    let accent = style::accent(palette.color);
+    let accent = style::accent(palette);
     for (pad, text, path_len) in &forms {
         mark(page.items, page.lines.len());
         let lead = format!("{indent}{}", " ".repeat(*pad));

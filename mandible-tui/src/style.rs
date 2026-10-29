@@ -1,42 +1,38 @@
 //! The styling contract (spec §9.2): one accent, spent only on
 //! information; everything else neutral.
 //!
-//! Four rules that matter more than the palette:
+//! Seven roles carry every colour mandible draws: accent, warning, muted,
+//! section, group, selection and selection text. A theme gives a value to
+//! each ([`Roles`]) and the [`Palette`] holds the values in force, so a
+//! theme change is a new palette. Rules that matter more than the values:
 //!
-//! - **ANSI indexed colors, not RGB.** [`ACCENT`] and [`WARNING`] are
-//!   `ratatui::style::Color` named variants (`Cyan`, `Yellow`, `Gray`,
-//!   `DarkGray`),
-//!   which resolve through the user's own terminal theme — no
-//!   `Color::Rgb(..)` appears anywhere in this crate. Native-looking output
-//!   in Solarized, Gruvbox, or a light terminal costs nothing extra this
-//!   way; hardcoded RGB looks wrong in half of them.
+//! - **No RGB.** A value is a palette index. 0 to 15 are the named ANSI
+//!   colors, which resolve through the user's own terminal theme; 16 to
+//!   255 are the xterm-256 entries. No `Color::Rgb(..)` appears anywhere
+//!   in this crate.
 //! - **`DarkGray` over `Modifier::DIM`** for muted text. Several terminals
-//!   ignore `DIM` outright and others render it nearly invisible — a
-//!   portability trap that only manifests on someone else's machine.
+//!   ignore `DIM` outright and others render it nearly invisible.
 //! - **Respect `NO_COLOR`** (<https://no-color.org>) **and `TERM=dumb`**:
-//!   every style function here degrades to bold/reverse/underline only,
-//!   rather than emitting color codes a user explicitly asked not to see
-//!   or a terminal has said it cannot render. There is no truecolor tier
-//!   and no RGB anywhere; depth is consulted in two places only. The
-//!   detail pane's pair of rule shades ([`section_rule`], [`group_rule`])
-//!   need two steps below the terminal's default foreground and cannot get
-//!   them from the sixteen named colors, so they read the xterm-256 gray
-//!   ramp when [`Palette::extended`] says it is available and fall back to
-//!   `DarkGray` when it is not. The selection bar ([`bar_name`],
-//!   [`bar_text`]) is a gray background where that palette exists and a
-//!   reversed row where it does not.
+//!   every style function degrades to bold/reverse/underline only. A theme
+//!   changes colors and never a modifier.
+//! - **Depth is consulted for numbers 16 and up.** Without the xterm-256
+//!   palette ([`Palette::extended`]) such a role takes the named color the
+//!   default theme gives it: accent cyan, warning yellow, muted and both
+//!   rule shades `DarkGray`, and the selection bar a reversed row.
 //! - **The accent is spent only on the payload the user came for**: flag
 //!   spellings, the selected row, the focused pane's border.
 
+use mandible_core::config::{ColorIndex, Role, Roles, Theme};
 use ratatui::style::{Color, Modifier, Style};
 
-/// The one accent color (spec §9.2). Spent only on: the selected row, the
-/// focused pane's border, and flag spellings in the detail pane.
-pub const ACCENT: Color = Color::Cyan;
-
-/// The one sanctioned exception to single-accent (spec §9.2): low-
-/// confidence / warning callouts.
-pub const WARNING: Color = Color::Yellow;
+/// The default theme's values as terminal colors, for the tests that check
+/// the default theme draws what it always has.
+#[cfg(test)]
+pub(crate) const ACCENT: Color = Color::Cyan;
+#[cfg(test)]
+pub(crate) const BAR_BG: u8 = 237;
+#[cfg(test)]
+pub(crate) const BAR_FG: u8 = 252;
 
 /// Muted text (spec §9.2: tree summaries, breadcrumb ancestors, group
 /// dividers — label and rule alike, provenance footer, inherited-group
@@ -44,9 +40,9 @@ pub const WARNING: Color = Color::Yellow;
 /// `DarkGray`, not `Modifier::DIM`. Degrades to no styling under
 /// `NO_COLOR` — muted text carries no meaning beyond "less important than
 /// its neighbors," which has nothing to communicate once color is off.
-pub fn muted(color_enabled: bool) -> Style {
-    if color_enabled {
-        Style::default().fg(Color::DarkGray)
+pub fn muted(palette: Palette) -> Style {
+    if palette.color {
+        Style::default().fg(palette.pick(palette.roles.muted, Color::DarkGray))
     } else {
         Style::default()
     }
@@ -55,9 +51,9 @@ pub fn muted(color_enabled: bool) -> Style {
 /// The suggestion after the text typed in the search box. Muted, so it
 /// reads as less certain than the input. With color off muted text is
 /// plain, which would pass for typed text, so it is italic and dim there.
-pub fn ghost(color_enabled: bool) -> Style {
-    if color_enabled {
-        muted(true)
+pub fn ghost(palette: Palette) -> Style {
+    if palette.color {
+        muted(palette)
     } else {
         Style::default().add_modifier(Modifier::ITALIC | Modifier::DIM)
     }
@@ -65,30 +61,14 @@ pub fn ghost(color_enabled: bool) -> Style {
 
 /// Muted + bold: section headings (`DESCRIPTION`, `FLAGS`, `INHERITED`,
 /// flag group headings).
-pub fn muted_bold(color_enabled: bool) -> Style {
-    muted(color_enabled).add_modifier(Modifier::BOLD)
+pub fn muted_bold(palette: Palette) -> Style {
+    muted(palette).add_modifier(Modifier::BOLD)
 }
 
-/// The first index of the xterm-256 gray ramp (`#080808`). Indices
-/// [`GRAY_RAMP_FIRST`]`..=`[`GRAY_RAMP_LAST`] step evenly from near-black
-/// to near-white, ten points of gray apart, which is what makes two
-/// *visibly separated* neutral shades expressible at all — the sixteen
-/// named colors offer exactly one step below a default foreground
-/// (`DarkGray`), and the pane needs two.
+/// The first index of the xterm-256 gray ramp (`#080808`).
 pub const GRAY_RAMP_FIRST: u8 = 232;
 /// The last index of the xterm-256 gray ramp (`#eeeeee`).
 pub const GRAY_RAMP_LAST: u8 = 255;
-
-/// The section-header level's gray (`#949494`): the brighter of the
-/// detail pane's two rule shades, and a clear step below the pane borders
-/// above it.
-pub const SECTION_GRAY: u8 = 246;
-
-/// The group-divider level's gray (`#585858`): the dimmer of the two, a
-/// clear step below [`SECTION_GRAY`] and near enough to `DarkGray` that
-/// the sixteen-color fallback lands on the same level rather than beside
-/// it.
-pub const GROUP_GRAY: u8 = 240;
 
 /// What the terminal can be asked to draw: whether color is wanted at all,
 /// and whether the xterm-256 palette is available.
@@ -104,6 +84,8 @@ pub struct Palette {
     pub color: bool,
     /// Whether the xterm-256 palette is available — [`extended_from_env`].
     pub extended: bool,
+    /// The value of each color role, from the theme in force.
+    pub roles: Roles,
 }
 
 impl Palette {
@@ -125,6 +107,7 @@ impl Palette {
         Palette {
             color,
             extended: color && extended_from_env(),
+            roles: Roles::DEFAULT,
         }
     }
 
@@ -133,6 +116,7 @@ impl Palette {
         Palette {
             color: false,
             extended: false,
+            roles: Roles::DEFAULT,
         }
     }
 
@@ -141,6 +125,7 @@ impl Palette {
         Palette {
             color: true,
             extended: false,
+            roles: Roles::DEFAULT,
         }
     }
 
@@ -149,59 +134,111 @@ impl Palette {
         Palette {
             color: true,
             extended: true,
+            roles: Roles::DEFAULT,
+        }
+    }
+
+    /// The same depth with `roles` in force.
+    pub fn with_roles(self, roles: Roles) -> Palette {
+        Palette { roles, ..self }
+    }
+
+    /// The palette `theme` yields at this depth. `custom` is the user's own
+    /// seven values, used by the `custom` theme; `none` draws no color.
+    pub fn themed(self, theme: Theme, custom: Roles) -> Palette {
+        match theme {
+            Theme::None => Palette::plain(),
+            Theme::Custom => self.with_roles(custom),
+            theme => self.with_roles(theme.roles().unwrap_or_default()),
+        }
+    }
+
+    /// The SGR parameters that set the foreground to `role`'s color, for
+    /// output written as escape codes outside ratatui. `None` without color.
+    pub fn sgr(self, role: Role) -> Option<String> {
+        if !self.color {
+            return None;
+        }
+        let (index, fallback) = match role {
+            Role::Accent => (self.roles.accent, Color::Cyan),
+            Role::Warning => (self.roles.warning, Color::Yellow),
+            Role::Muted => (self.roles.muted, Color::DarkGray),
+            Role::Section => (self.roles.section, Color::DarkGray),
+            Role::Group => (self.roles.group, Color::DarkGray),
+            Role::Selection => (self.roles.selection, Color::DarkGray),
+            Role::SelectionText => (self.roles.selection_text, Color::Gray),
+        };
+        Some(match self.pick(index, fallback) {
+            Color::Indexed(n) => format!("38;5;{n}"),
+            Color::DarkGray => "90".to_string(),
+            Color::Gray => "37".to_string(),
+            Color::Black => "30".to_string(),
+            Color::Red => "31".to_string(),
+            Color::Green => "32".to_string(),
+            Color::Yellow => "33".to_string(),
+            Color::Blue => "34".to_string(),
+            Color::Magenta => "35".to_string(),
+            Color::Cyan => "36".to_string(),
+            Color::LightRed => "91".to_string(),
+            Color::LightGreen => "92".to_string(),
+            Color::LightYellow => "93".to_string(),
+            Color::LightBlue => "94".to_string(),
+            Color::LightMagenta => "95".to_string(),
+            Color::LightCyan => "96".to_string(),
+            _ => "97".to_string(),
+        })
+    }
+
+    /// `index` as a terminal color: the named color for 0 to 15, else the
+    /// xterm-256 entry. Without the extended palette a number from 16 up
+    /// cannot be drawn, so `fallback` stands in for it.
+    fn pick(self, index: ColorIndex, fallback: Color) -> Color {
+        match index.0 {
+            0 => Color::Black,
+            1 => Color::Red,
+            2 => Color::Green,
+            3 => Color::Yellow,
+            4 => Color::Blue,
+            5 => Color::Magenta,
+            6 => Color::Cyan,
+            7 => Color::Gray,
+            8 => Color::DarkGray,
+            9 => Color::LightRed,
+            10 => Color::LightGreen,
+            11 => Color::LightYellow,
+            12 => Color::LightBlue,
+            13 => Color::LightMagenta,
+            14 => Color::LightCyan,
+            15 => Color::White,
+            n if self.extended => Color::Indexed(n),
+            _ => fallback,
         }
     }
 }
 
-/// The pane's **three-step** neutral hierarchy, brightest first: the pane
-/// borders (the terminal's own default foreground, untouched), then the
-/// section header's rule and label, then the group divider's
-/// ([`group_rule`]). Each step is clearly dimmer than the one above it, so
-/// a section boundary reads as subordinate to the pane it lives in and a
-/// group divider as subordinate to the section.
-///
-/// The sixteen named colors cannot express this. `Gray` is ANSI 7, which
-/// *is* the default foreground in most themes — a rule drawn in it reads
-/// at exactly the border's brightness rather than under it — and below it
-/// there is only `DarkGray`, one step for two levels. So the two rule
-/// shades are the one place in this crate that consults color depth: with
-/// the xterm-256 gray ramp available they take [`SECTION_GRAY`] and
-/// [`GROUP_GRAY`], two evenly separated neutrals that sit under any
-/// ordinary foreground.
-///
-/// **Fallback**: without the extended palette both levels collapse to
-/// `DarkGray`. That keeps the step below the borders, which is the
-/// ordering that matters most, and gives up only the distinction between
-/// the two inner levels — which spec §9.2's shape rule carries anyway,
-/// since a section header is CAPS with a count and a group divider mixed
-/// case without one. A wrong guess about depth therefore costs a
-/// distinction, never legibility.
-///
-/// Indexed, never RGB (spec §9.2): a gray ramp index is still a palette
-/// entry the user's terminal resolves, not a color chosen for one theme.
-/// And nothing here is dimmed — an earlier version separated the levels
-/// with `Modifier::DIM`, which several terminals ignore outright, and on
-/// those the "dimmer" rule came out brighter than the one it was meant to
-/// sit under.
+/// The section header's rule and label (spec §9.3), in the section role's
+/// color. The default theme makes it the brighter of two grays under the
+/// pane borders, which the sixteen named colors cannot express, so
+/// without the extended palette it falls back to `DarkGray`. Nothing here
+/// is dimmed.
 pub fn section_rule(palette: Palette) -> Style {
-    rule_shade(palette, SECTION_GRAY)
+    rule_shade(palette, palette.roles.section)
 }
 
 /// The group-divider level of the hierarchy [`section_rule`] documents:
-/// the dimmest of the three steps, drawn on both the divider's rule and
-/// its label.
+/// drawn in the group role's color on both the divider's rule and its
+/// label.
 pub fn group_rule(palette: Palette) -> Style {
-    rule_shade(palette, GROUP_GRAY)
+    rule_shade(palette, palette.roles.group)
 }
 
-/// One level of the neutral hierarchy: its gray ramp index where the
-/// extended palette is available, `DarkGray` where only the sixteen named
-/// colors are, and no color at all where color is off.
-fn rule_shade(palette: Palette, gray: u8) -> Style {
-    match (palette.color, palette.extended) {
-        (true, true) => Style::default().fg(Color::Indexed(gray)),
-        (true, false) => Style::default().fg(Color::DarkGray),
-        (false, _) => Style::default(),
+/// One rule shade: `role`'s color, `DarkGray` where only the sixteen named
+/// colors exist and the role is a number, and no color where color is off.
+fn rule_shade(palette: Palette, role: ColorIndex) -> Style {
+    if palette.color {
+        Style::default().fg(palette.pick(role, Color::DarkGray))
+    } else {
+        Style::default()
     }
 }
 
@@ -251,56 +288,63 @@ fn announces_256_colors(colorterm: Option<&str>, term: Option<&str>) -> bool {
 }
 
 /// Muted + italic: a flag's value placeholder (`<FILE>`).
-pub fn muted_italic(color_enabled: bool) -> Style {
-    muted(color_enabled).add_modifier(Modifier::ITALIC)
+pub fn muted_italic(palette: Palette) -> Style {
+    muted(palette).add_modifier(Modifier::ITALIC)
 }
 
 /// The accent, spent on the payload (flag spellings). Degrades to bold
 /// under `NO_COLOR`, so the payload still stands out from its
 /// surroundings even with color off.
-pub fn accent(color_enabled: bool) -> Style {
-    if color_enabled {
-        Style::default().fg(ACCENT)
+pub fn accent(palette: Palette) -> Style {
+    if palette.color {
+        Style::default().fg(palette.pick(palette.roles.accent, Color::Cyan))
     } else {
         Style::default().add_modifier(Modifier::BOLD)
     }
 }
 
-/// The bar's background, an xterm-256 gray (`#3a3a3a`).
-pub const BAR_BG: u8 = 237;
+/// Whether the bar can be drawn in color: both its values are named
+/// colors, or the extended palette is available.
+fn bar_in_color(palette: Palette) -> bool {
+    palette.color
+        && (palette.extended
+            || (palette.roles.selection.0 < 16 && palette.roles.selection_text.0 < 16))
+}
 
-/// The bar's foreground for everything but the accented name, an xterm-256
-/// gray (`#d0d0d0`). Set explicitly so the row stays readable on a light
-/// terminal, where the default foreground is dark.
-pub const BAR_FG: u8 = 252;
+/// The bar's background color.
+fn bar_bg(palette: Palette) -> Color {
+    palette.pick(palette.roles.selection, Color::Reset)
+}
 
 /// The name on the bar (spec §9.2): the selected row's name in the commands
 /// list, a current match's spelling in the detail pane. The accent, bold, on
-/// a muted gray background where the xterm-256 palette is available; the
-/// accent reversed, bold, where only the sixteen named colors are; reversed,
-/// bold, with no color at all.
+/// the selection color where it can be drawn; the accent reversed, bold,
+/// where it cannot; reversed, bold, with no color at all.
 pub fn bar_name(palette: Palette) -> Style {
     let bold = Modifier::BOLD;
-    match (palette.color, palette.extended) {
-        (true, true) => Style::default()
-            .fg(ACCENT)
-            .bg(Color::Indexed(BAR_BG))
-            .add_modifier(bold),
-        (true, false) => Style::default()
-            .fg(ACCENT)
-            .add_modifier(Modifier::REVERSED | bold),
-        (false, _) => Style::default().add_modifier(Modifier::REVERSED | bold),
+    if bar_in_color(palette) {
+        Style::default()
+            .fg(palette.pick(palette.roles.accent, Color::Cyan))
+            .bg(bar_bg(palette))
+            .add_modifier(bold)
+    } else if palette.color {
+        Style::default()
+            .fg(palette.pick(palette.roles.accent, Color::Cyan))
+            .add_modifier(Modifier::REVERSED | bold)
+    } else {
+        Style::default().add_modifier(Modifier::REVERSED | bold)
     }
 }
 
 /// Everything else on the bar: summary, count, description and the fill to
 /// the pane's edge. Never dim.
 pub fn bar_text(palette: Palette) -> Style {
-    match (palette.color, palette.extended) {
-        (true, true) => Style::default()
-            .fg(Color::Indexed(BAR_FG))
-            .bg(Color::Indexed(BAR_BG)),
-        (_, _) => Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD),
+    if bar_in_color(palette) {
+        Style::default()
+            .fg(palette.pick(palette.roles.selection_text, Color::Reset))
+            .bg(bar_bg(palette))
+    } else {
+        Style::default().add_modifier(Modifier::REVERSED | Modifier::BOLD)
     }
 }
 
@@ -308,10 +352,10 @@ pub fn bar_text(palette: Palette) -> Style {
 /// styles it already has: the accented spelling stays accent and the
 /// underline stays. A cell with no foreground of its own takes the bar's.
 pub fn paint_bar(cell: &mut ratatui::buffer::Cell, palette: Palette) {
-    if palette.color && palette.extended {
-        cell.set_bg(Color::Indexed(BAR_BG));
+    if bar_in_color(palette) {
+        cell.set_bg(bar_bg(palette));
         if cell.fg == Color::Reset {
-            cell.set_fg(Color::Indexed(BAR_FG));
+            cell.set_fg(palette.pick(palette.roles.selection_text, Color::Reset));
         }
     } else {
         cell.modifier.insert(Modifier::REVERSED);
@@ -320,9 +364,9 @@ pub fn paint_bar(cell: &mut ratatui::buffer::Cell, palette: Palette) {
 
 /// The warning color (spec §9.2's one sanctioned non-accent exception):
 /// low-confidence callouts. Degrades to bold under `NO_COLOR`.
-pub fn warning(color_enabled: bool) -> Style {
-    if color_enabled {
-        Style::default().fg(WARNING)
+pub fn warning(palette: Palette) -> Style {
+    if palette.color {
+        Style::default().fg(palette.pick(palette.roles.warning, Color::Yellow))
     } else {
         Style::default().add_modifier(Modifier::BOLD)
     }
@@ -422,8 +466,8 @@ mod tests {
 
     #[test]
     fn muted_has_no_color_when_disabled() {
-        assert_eq!(muted(false).fg, None);
-        assert!(muted(true).fg.is_some());
+        assert_eq!(muted(Palette::plain()).fg, None);
+        assert!(muted(Palette::extended()).fg.is_some());
     }
 
     /// The gray ramp index a rule shade resolves to, or `None` if it is
@@ -505,7 +549,7 @@ mod tests {
             for (name, style) in [
                 ("section_rule", section_rule(palette)),
                 ("group_rule", group_rule(palette)),
-                ("muted", muted(palette.color)),
+                ("muted", muted(palette)),
             ] {
                 assert!(
                     !style.add_modifier.contains(Modifier::DIM),
@@ -558,7 +602,7 @@ mod tests {
 
     #[test]
     fn accent_degrades_to_bold_without_color() {
-        let s = accent(false);
+        let s = accent(Palette::plain());
         assert_eq!(s.fg, None);
         assert!(s.add_modifier.contains(Modifier::BOLD));
     }
@@ -566,11 +610,11 @@ mod tests {
     #[test]
     fn the_bar_is_gray_with_256_colors_and_reversed_without() {
         let name = bar_name(Palette::extended());
-        assert_eq!(name.fg, Some(ACCENT));
-        assert_eq!(name.bg, Some(Color::Indexed(BAR_BG)));
+        assert_eq!(name.fg, Some(Color::Cyan));
+        assert_eq!(name.bg, Some(Color::Indexed(237)));
         let text = bar_text(Palette::extended());
-        assert_eq!(text.fg, Some(Color::Indexed(BAR_FG)));
-        assert_eq!(text.bg, Some(Color::Indexed(BAR_BG)));
+        assert_eq!(text.fg, Some(Color::Indexed(252)));
+        assert_eq!(text.bg, Some(Color::Indexed(237)));
         assert!(!text.add_modifier.contains(Modifier::DIM));
         for palette in [Palette::basic(), Palette::plain()] {
             assert!(bar_name(palette).add_modifier.contains(Modifier::REVERSED));
@@ -578,14 +622,19 @@ mod tests {
             assert!(!bar_text(palette).add_modifier.contains(Modifier::DIM));
             assert_eq!(bar_text(palette).bg, None);
         }
-        assert_eq!(bar_name(Palette::basic()).fg, Some(ACCENT));
+        assert_eq!(bar_name(Palette::basic()).fg, Some(Color::Cyan));
         assert_eq!(bar_name(Palette::plain()).fg, None);
     }
 
     #[test]
     fn warning_degrades_to_bold_without_color() {
-        assert_eq!(warning(false).fg, None);
-        assert!(warning(false).add_modifier.contains(Modifier::BOLD));
-        assert_eq!(warning(true).fg, Some(WARNING));
+        assert_eq!(warning(Palette::plain()).fg, None);
+        assert!(warning(Palette::plain())
+            .add_modifier
+            .contains(Modifier::BOLD));
+        assert_eq!(warning(Palette::basic()).fg, Some(Color::Yellow));
     }
 }
+
+#[cfg(test)]
+mod theme_tests;

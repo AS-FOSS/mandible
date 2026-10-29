@@ -13,7 +13,7 @@ use ratatui::Frame;
 pub fn render(frame: &mut Frame, area: Rect, app: &App) {
     let focused = app.focus == Focus::Search;
     let border_style = if focused {
-        style::accent(app.color_enabled)
+        style::accent(app.palette)
     } else {
         Style::default()
     };
@@ -63,7 +63,7 @@ pub fn render(frame: &mut Frame, area: Rect, app: &App) {
         if let Some(ghost) = app.ghost().filter(|_| left > 0) {
             let shown = defensive_single_line(&ghost.shown(app.glyphs.suggest));
             let shown = crate::sanitize::truncate_to_width(&shown, left);
-            spans.push(Span::styled(shown, style::ghost(app.color_enabled)));
+            spans.push(Span::styled(shown, style::ghost(app.palette)));
         }
     }
     frame.render_widget(Paragraph::new(Line::from(spans)), inner);
