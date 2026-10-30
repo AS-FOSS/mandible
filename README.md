@@ -99,14 +99,15 @@ to every [release](https://github.com/AS-FOSS/mandible/releases/latest).
 
 ## How it works
 
-There is no per-tool logic anywhere in this project. No `if tool == "docker"`, no
-vendored catalogue of hand-written definitions. That approach is convenient for a
-week and unmaintainable ever after. It is always slightly out of date, and it is
-wrong in ways you cannot see from the outside.
+mandible asks the tool itself. It reads the tool's `--help`, its shell completion
+script when one is installed, and its own completion protocol where it has one
+(cobra's `__complete`, for example).
 
-The insight it runs on instead: help text isn't written by hand, it's generated, and
-only a small closed set of generators exists. mandible works out which *framework*
-produced a tool's output, then applies that framework's grammar. For example:
+There is no per-tool code: no list of known tools, no hand-written definitions that
+fall out of date. Most help text is printed by one of a small set of argument-parsing
+libraries, so mandible works out which one produced it and reads it with that
+library's grammar:
+
 <div align="center">
      <table>
        <tr><td><b>Rust</b></td><td>clap (v2, v3/v4)</td></tr>
@@ -118,6 +119,9 @@ produced a tool's output, then applies that framework's grammar. For example:
      </table>
 </div>
 
+Help written by hand is read with general rules for the common layouts. When mandible
+cannot make sense of a page, `t` still shows it as the tool printed it.
+
 > [!TIP]
 > Open straight at a subcommand: `mandible cargo clippy`. Subcommands that live
 > as separate `<tool>-<sub>` binaries (`cargo-clippy`, `git-lfs`) show up too,
@@ -125,30 +129,23 @@ produced a tool's output, then applies that framework's grammar. For example:
 
 ## Is it actually universal?
 
-That claim is measured, not asserted. `cargo xtask coverage` runs the pipeline against
-every executable on your `PATH` and scores each one: sources used, framework detected,
-nodes, flags, percentage described.
+It opens any tool, but it does not read every tool correctly yet.
 
-It also carries a structure-sanity column, which exists because a coverage number
-alone can be gamed by the very failure it should catch. `%described` once reported a
-tool as fine at 100% while 39 of its 40 subcommands had been fabricated out of wrapped
-prose. A metric that improves when the tool gets worse is worse than no metric.
+CI checks every change against the help pages of a fixed set of real tools, and a
+separate sweep runs mandible over every tool on a machine's `PATH` and checks that
+the trees make sense, not only that something came out.
 
-CI gates every change against a fixed tool list, and sweeps the whole `PATH`
-separately for the broad picture.
+Accuracy is checked by hand. A person draws a random sample of tools, commits the
+sample before judging any of them so it cannot be redrawn, and compares each tool in
+mandible with its own `--help`. In the last audit, on mandible 0.7.0 in September
+2026, **14 of 36 tools were fully correct (39%)**. With a sample this small, the true
+rate could be anywhere from about 25% to 55%. A tool only counts as correct when every
+one of its flags and subcommands is read right, so a tool with one misread flag counts
+as wrong. 16 of the 22 failures came down to a single row or line. Almost every failure is
+now a test in this repo, and the parser has had many fixes since.
 
-Coverage is not accuracy, though, and the honest number is lower than a green badge
-suggests. Accuracy comes from a human-reviewed audit, where a person checks a randomly
-drawn sample of real tools against each tool's own `--help` text. The sample is
-committed to the repo before any verdict is recorded, so it cannot be quietly redrawn
-once the results look bad. In the most recent audit, **25 of 43 tools parsed fully
-correctly, about 58%**. A sample that small leaves real statistical slack, so the true
-rate across all tools could sit anywhere between about 43% and 72%. Tools that
-mandible itself marks `ok` do better, at 80% correct with a plausible range of 61%
-to 91%.
-
-mandible is useful today and wrong often enough that you should check anything
-surprising against the tool's own `--help`.
+So check anything surprising against the tool's own `--help`. To help raise the
+number, see [Contributing](#contributing).
 
 <details>
 <summary><h2>Keys</h2></summary>
