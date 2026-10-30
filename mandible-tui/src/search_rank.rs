@@ -54,9 +54,29 @@ fn name_tier(name: &str, first: &str) -> Option<Tier> {
     inside.then_some(Tier::Inside)
 }
 
+/// The entities of each command by key, read once per command.
+#[derive(Default)]
+struct KeyIndex(HashMap<Vec<String>, HashMap<FlagKey, Vec<usize>>>);
+
+impl KeyIndex {
+    /// The places in `node.entities` of the rows `key` addresses, in order.
+    fn rows(&mut self, node: &CommandNode, path: &[String], key: &FlagKey) -> &[usize] {
+        let by_key = self.0.entry(path.to_vec()).or_insert_with(|| {
+            let mut by_key: HashMap<FlagKey, Vec<usize>> = HashMap::new();
+            for (i, e) in node.entities.iter().enumerate() {
+                if let Some(k) = e.key() {
+                    by_key.entry(k).or_default().push(i);
+                }
+            }
+            by_key
+        });
+        by_key.get(key).map_or(&[], Vec::as_slice)
+    }
+}
+
 /// Every name a hit can be found by: a command's own name, or every form
 /// of every spelling of an entity.
-fn names_of(root: &CommandNode, item: &NodeRef) -> Vec<String> {
+fn names_of(root: &CommandNode, item: &NodeRef, index: &mut KeyIndex) -> Vec<String> {
     match item {
         NodeRef::Command(path) => resolve(root, path).map_or_else(
             || vec![path.last().cloned().unwrap_or_default()],
@@ -64,22 +84,30 @@ fn names_of(root: &CommandNode, item: &NodeRef) -> Vec<String> {
         ),
         // Rows that share a key are one hit, so it is found by the
         // spellings of all of them.
-        NodeRef::Flag { path, key } => resolve(root, path)
-            .into_iter()
-            .flat_map(|node| node.entities.iter())
-            .filter(|e| e.key().as_ref() == Some(key))
-            .flat_map(mandible_search::entity_forms)
-            .collect(),
+        NodeRef::Flag { path, key } => {
+            let Some(node) = resolve(root, path) else {
+                return Vec::new();
+            };
+            let rows = index.rows(node, path, key);
+            rows.iter()
+                .flat_map(|&i| mandible_search::entity_forms(&node.entities[i]))
+                .collect()
+        }
     }
 }
 
 /// The names of a hit that carry the query's first word, best tier first
 /// (document order breaks ties), when every word of the query is in the
 /// names. `None` when the hit does not match.
-fn matched_names(root: &CommandNode, item: &NodeRef, query: &str) -> Option<Vec<(Tier, String)>> {
+fn matched_names_in(
+    root: &CommandNode,
+    item: &NodeRef,
+    query: &str,
+    index: &mut KeyIndex,
+) -> Option<Vec<(Tier, String)>> {
     let all = words(query);
     let first = query.split_whitespace().next()?;
-    let names = names_of(root, item);
+    let names = names_of(root, item, index);
     let text = names.join(" ").to_lowercase();
     if !all.iter().all(|w| text.contains(w.as_str())) {
         return None;
@@ -90,6 +118,10 @@ fn matched_names(root: &CommandNode, item: &NodeRef, query: &str) -> Option<Vec<
         .collect();
     tiered.sort_by_key(|(t, _)| *t);
     Some(tiered)
+}
+
+fn matched_names(root: &CommandNode, item: &NodeRef, query: &str) -> Option<Vec<(Tier, String)>> {
+    matched_names_in(root, item, query, &mut KeyIndex::default())
 }
 
 /// Whether the names of a hit carry every word of the query: the filter
@@ -108,8 +140,13 @@ pub(crate) fn best_name(root: &CommandNode, item: &NodeRef, query: &str) -> Opti
         .map(|(_, name)| name)
 }
 
-fn item_rank(root: &CommandNode, item: &NodeRef, query: &str) -> Option<(Tier, u8)> {
-    let tier = matched_names(root, item, query)?.first()?.0;
+fn item_rank(
+    root: &CommandNode,
+    item: &NodeRef,
+    query: &str,
+    index: &mut KeyIndex,
+) -> Option<(Tier, u8)> {
+    let tier = matched_names_in(root, item, query, index)?.first()?.0;
     let kind = u8::from(matches!(item, NodeRef::Flag { .. }));
     Some((tier, kind))
 }
@@ -153,11 +190,12 @@ pub(crate) fn rank_by_name(
 ) -> Vec<NodeRef> {
     let order = display_order(root, sorts.tree);
     let mut pages = PagePositions::new(sorts.detail);
+    let mut index = KeyIndex::default();
     let mut keyed: Vec<(RankKey, usize, NodeRef)> = hits
         .into_iter()
         .enumerate()
         .filter_map(|(i, item)| {
-            let (tier, kind) = item_rank(root, &item, query)?;
+            let (tier, kind) = item_rank(root, &item, query, &mut index)?;
             let path = hit_path(&item);
             let pos = order.get(path).copied().unwrap_or(usize::MAX);
             let line = pages.of(root, &item);
