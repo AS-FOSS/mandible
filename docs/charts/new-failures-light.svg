@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif">
+<title id="t">Failures per judged batch</title>
+<desc id="d">Failures per judged batch, split into new, known and untagged. Seed 8 (judged 0.9.0): 11 new, 6 known, 0 untagged. </desc>
+<!-- light -->
+<rect x="52.0" y="8" width="10" height="10" rx="2" fill="#2a78d6"/>
+<text x="68.0" y="17.0" text-anchor="start" font-size="12" fill="#52514e">new</text>
+<rect x="97.0" y="8" width="10" height="10" rx="2" fill="#2a78d6" fill-opacity="0.35"/>
+<text x="113.0" y="17.0" text-anchor="start" font-size="12" fill="#52514e">known</text>
+<line x1="52.0" y1="262.0" x2="640.0" y2="262.0" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="266.0" text-anchor="end" font-size="12" fill="#52514e">0</text>
+<line x1="52.0" y1="206.5" x2="640.0" y2="206.5" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="210.5" text-anchor="end" font-size="12" fill="#52514e">5</text>
+<line x1="52.0" y1="151.0" x2="640.0" y2="151.0" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="155.0" text-anchor="end" font-size="12" fill="#52514e">10</text>
+<line x1="52.0" y1="95.5" x2="640.0" y2="95.5" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="99.5" text-anchor="end" font-size="12" fill="#52514e">15</text>
+<line x1="52.0" y1="40.0" x2="640.0" y2="40.0" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="44.0" text-anchor="end" font-size="12" fill="#52514e">20</text>
+<path d="M308.0 262.0V139.9Q308.0 139.9 308.0 139.9H344.0Q344.0 139.9 344.0 139.9V262.0Z" fill="#2a78d6"/>
+<path d="M308.0 137.9V77.3Q308.0 73.3 312.0 73.3H340.0Q344.0 73.3 344.0 77.3V137.9Z" fill="#2a78d6" fill-opacity="0.35"/>
+<text x="326.0" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.9.0</text>
+<text x="326.0" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">seed 8</text>
+<text x="352.0" y="109.6" text-anchor="start" font-size="12" fill="#0b0b0b">known 6</text>
+<text x="352.0" y="204.9" text-anchor="start" font-size="12" fill="#0b0b0b">new 11</text>
+</svg>
