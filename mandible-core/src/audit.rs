@@ -187,9 +187,42 @@ pub struct Entry {
     /// gets one of these appended.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub amendments: Vec<Amendment>,
+    /// Triage of a failure: `known` when its help layout already has a
+    /// docs/shapes.md entry, `new` when it has none. Only on an entry whose
+    /// effective verdict is `incomplete` or `wrong`; absent means untagged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
+    /// The docs/shapes.md heading a `known` failure belongs to, free text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<String>,
 }
 
+/// The two values of [`Entry::failure_kind`].
+pub const FAILURE_KINDS: [&str; 2] = ["known", "new"];
+
 impl Entry {
+    /// Reject a [`Self::failure_kind`] outside [`FAILURE_KINDS`], and a kind
+    /// or [`Self::shape`] on an entry that is not a judged defect.
+    pub fn validate_failure_tag(&self) -> anyhow::Result<()> {
+        if let Some(kind) = &self.failure_kind {
+            if !FAILURE_KINDS.contains(&kind.as_str()) {
+                anyhow::bail!(
+                    "{:?}: failure_kind {kind:?} is not one of: {}",
+                    self.tool,
+                    FAILURE_KINDS.join(", ")
+                );
+            }
+        }
+        if (self.failure_kind.is_some() || self.shape.is_some()) && !self.is_judged_defect() {
+            anyhow::bail!(
+                "{:?} is {:?}: failure_kind and shape belong only on incomplete or wrong entries",
+                self.tool,
+                self.effective_verdict().unwrap_or("pending"),
+            );
+        }
+        Ok(())
+    }
+
     /// The verdict every aggregate computation (accuracy tallies, the
     /// wrong/incomplete listing, fixture generation) should read: the
     /// `new_verdict` of the most recent [`Amendment`] if this entry has any,
@@ -953,6 +986,10 @@ pub struct AuditMeta {
     /// #102 item 3, same reasoning as `platform`.
     #[serde(default)]
     pub containment: String,
+    /// The mandible version the batch is judged with. Empty in a manifest
+    /// written before the field existed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub mandible_version: String,
 }
 
 /// The `os-arch` string identifying the machine a probe ran on, e.g.
@@ -1143,6 +1180,8 @@ mod tests {
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
+            failure_kind: None,
+            shape: None,
         }
     }
 
@@ -1237,6 +1276,8 @@ mod tests {
                             .to_string(),
                         reason: "re-read after a related tool surfaced the same shape".to_string(),
                     }],
+                    failure_kind: None,
+                    shape: None,
                 },
                 Entry {
                     tool: "zoxide".to_string(),
@@ -1251,6 +1292,8 @@ mod tests {
                     families: Vec::new(),
                     families_derived: None,
                     amendments: Vec::new(),
+                    failure_kind: None,
+                    shape: None,
                 },
             ],
         };
@@ -1287,6 +1330,34 @@ mod tests {
         );
         assert!(loaded.entries[0].spot_audit_event.is_none());
         assert_eq!(loaded.pending().collect::<Vec<_>>(), vec![1]);
+    }
+
+    #[test]
+    fn failure_tag_is_accepted_on_a_defect_and_rejected_elsewhere() {
+        let mut wrong = entry("t", Some("wrong"), "note");
+        wrong.failure_kind = Some("new".to_string());
+        wrong.shape = Some("S-117".to_string());
+        wrong.validate_failure_tag().unwrap();
+        for verdict in [Some("correct"), Some("skip"), None] {
+            let mut e = entry("t", verdict, "");
+            e.failure_kind = Some("known".to_string());
+            assert!(e.validate_failure_tag().is_err(), "{verdict:?}");
+            let mut e = entry("t", verdict, "");
+            e.shape = Some("x".to_string());
+            assert!(e.validate_failure_tag().is_err(), "{verdict:?}");
+        }
+        wrong.failure_kind = Some("maybe".to_string());
+        assert!(wrong.validate_failure_tag().is_err());
+    }
+
+    #[test]
+    fn a_manifest_without_the_new_keys_still_loads() {
+        let file: AuditFile = toml::from_str(
+            "[meta]\nseed = 1\nsample_size = 1\n[[entry]]\ntool = \"a\"\nstratum = \"ok\"\n",
+        )
+        .unwrap();
+        assert!(file.meta.mandible_version.is_empty());
+        assert!(file.entries[0].failure_kind.is_none() && file.entries[0].shape.is_none());
     }
 
     #[test]

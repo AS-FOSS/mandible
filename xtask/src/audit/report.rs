@@ -252,6 +252,14 @@ pub(crate) fn render_report(dir: &Path, seed: u64) -> anyhow::Result<String> {
             },
         ));
     }
+    if !file.meta.mandible_version.is_empty() {
+        lines.push(format!("mandible_version={}", file.meta.mandible_version));
+    }
+    let (_, tags) = super::history::verdicts_and_tags(&file)?;
+    lines.push(format!(
+        "failures: {} known, {} new, {} untagged",
+        tags.known, tags.new, tags.untagged
+    ));
     lines.push(String::new());
     lines.extend(stratum_table_lines(&file, &by_stratum));
     lines.extend(k_sensitivity_lines(&file));

@@ -60,6 +60,7 @@ pub fn cmd_spot_audit(
                 // attempt — the same bounded-list posture `--tools` and
                 // this command's own promoted list already have.
                 containment: "uncontained".to_string(),
+                mandible_version: env!("CARGO_PKG_VERSION").to_string(),
             },
             entries: Vec::new(),
         }
