@@ -135,17 +135,12 @@ It opens any tool, but it does not read every tool correctly yet.
   <img alt="Share of tools read fully correctly per release, from 19% in 0.1.7 to 61% in 0.9.0, with a goal line at 90%" src="docs/charts/accuracy-light.svg" width="720">
 </p>
 
-Accuracy is checked by hand. A person draws a random sample of tools mandible was never
-tuned for, commits the sample before judging any of them, and compares each tool in
-mandible with its own `--help`. In the latest audit, on 0.9.0, **27 of 44 tools were fully
+Accuracy is checked by hand: a person compares a random sample of tools mandible was
+never tuned for against each tool's own `--help`. In the latest audit, on 0.9.0, **27 of 44 tools were fully
 correct (61%)**; the true rate is likely between 47% and 74%. A tool only counts as correct
 when every one of its flags and subcommands is read right. Every older release is scored
 on the same tools, which gives the line above, and the dashed line is the goal: 90%.
 [How the numbers are made](docs/accuracy.md).
-
-CI checks every change against the help pages of a fixed set of real tools, and a
-separate sweep runs mandible over every tool on a machine's `PATH` and checks that
-the trees make sense, not only that something came out.
 
 So check anything surprising against the tool's own `--help`. To help raise the
 number, see [Contributing](#contributing).

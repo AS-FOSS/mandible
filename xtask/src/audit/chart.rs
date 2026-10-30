@@ -233,30 +233,12 @@ fn accuracy_svg(history: &History, pal: &Palette) -> anyhow::Result<String> {
             "middle",
             11,
             pal.muted,
-            &format!("n={}", r.judged),
+            &format!("{} tools", r.judged),
         ));
     }
     if let (Some(last), Some((x, y))) = (releases.last(), points.last()) {
         let value = pct(last.correct as f64 / last.judged as f64);
         svg.push_str(&label_text(pal, x + 12.0, y + 4.0, 13, &value));
-    }
-    // A tool an older release read differently is listed once per release; count it once.
-    let eye = history
-        .releases
-        .iter()
-        .flat_map(|r| r.needs_eye.iter().map(|e| (e.seed, e.tool.as_str())))
-        .collect::<std::collections::BTreeSet<_>>()
-        .len();
-    if eye > 0 {
-        let noun = if eye == 1 { "tool" } else { "tools" };
-        svg.push_str(&text(
-            LEFT,
-            bottom + 58.0,
-            "start",
-            11,
-            pal.muted,
-            &format!("{eye} {noun} awaiting review"),
-        ));
     }
     svg.push_str("</svg>\n");
     Ok(svg)
@@ -536,25 +518,24 @@ mod tests {
     }
 
     #[test]
-    fn accuracy_chart_leaves_out_empty_releases_and_footnotes_needs_eye() {
+    fn accuracy_chart_leaves_out_empty_releases_and_review_state() {
         let svg = accuracy_svg(&history(), &LIGHT).unwrap();
         assert!(svg.contains(">0.8.4<") && svg.contains(">0.10.0<"));
         assert!(
             !svg.contains(">0.9.0<"),
             "a release with nothing judged has no column"
         );
-        assert!(svg.contains("2 tools awaiting review"));
+        assert!(svg.contains(">36 tools<"));
+        assert!(
+            !svg.contains("awaiting review"),
+            "tools awaiting review stay in history.json, off the chart"
+        );
         assert!(svg.contains("goal 90%") && svg.contains(">67%<"));
         assert!(
             svg.contains("<title")
                 && svg.contains("<desc")
                 && svg.contains("viewBox=\"0 0 720 340\"")
         );
-        let mut quiet = history();
-        quiet.releases[1].needs_eye.clear();
-        assert!(!accuracy_svg(&quiet, &LIGHT)
-            .unwrap()
-            .contains("awaiting review"));
     }
 
     #[test]

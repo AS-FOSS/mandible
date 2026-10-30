@@ -55,7 +55,7 @@ subcommands, positionals and values) and compares it with what the judged releas
 
 A **truth file** (`audit/<seed>/truth/<tool>.json`) records what a tool really contains. It is
 written once a fix for that tool lands and a person has confirmed the fixed reading by eye.
-Tools awaiting review are left out of the figure and listed under the chart.
+Tools awaiting review are left out of the figure; `cargo xtask audit history` lists them.
 
 So every new batch adds a point for the newest release and more data for every older one. Older
 releases have more batches behind them and narrower ranges.
