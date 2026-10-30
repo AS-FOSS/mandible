@@ -24,6 +24,7 @@ mod family_row;
 mod misattribution;
 mod or_joined_alias;
 mod parenthetical_qualifier_as_value;
+mod pass_over;
 mod plus_prefixed_option;
 mod queue;
 mod ragged_command_table;
@@ -348,6 +349,10 @@ enum AuditAction {
         /// to chance.
         #[arg(long)]
         force_include_file: Option<PathBuf>,
+        /// The corpus directory: a tool with a `<corpus-dir>/<tool>/`
+        /// fixture is passed over.
+        #[arg(long, default_value = "corpus")]
+        corpus_dir: PathBuf,
     },
     /// Recompute every queued tool's stratum against the *current* parser
     /// from the bytes `freeze` already captured — no `PATH` sweep, no
@@ -579,12 +584,13 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             sample,
             dir,
             force_include_file,
+            corpus_dir,
         } => {
             let force_include = match force_include_file {
                 Some(path) => audit::load_force_include(&path)?,
                 None => Vec::new(),
             };
-            queue::cmd_sample(seed, sample, &dir, &force_include).map(|_drawn| ())
+            queue::cmd_sample(seed, sample, &dir, &corpus_dir, &force_include).map(|_drawn| ())
         }
         AuditAction::Reclassify { dir, update } => queue::cmd_reclassify(&dir, update),
         AuditAction::Review { seed, dir } => {

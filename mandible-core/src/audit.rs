@@ -961,6 +961,19 @@ pub struct AuditFile {
     /// Every sampled tool, reviewed or not, in file order.
     #[serde(default, rename = "entry")]
     pub entries: Vec<Entry>,
+    /// Queue tools the draw walked past instead of sampling. Absent in a
+    /// manifest written before the field existed.
+    #[serde(default, rename = "passed_over", skip_serializing_if = "Vec::is_empty")]
+    pub passed_over: Vec<PassedOver>,
+}
+
+/// A queue tool a draw did not sample, and why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PassedOver {
+    /// The tool's name.
+    pub tool: String,
+    /// `verdict`, `fixture` or `not-on-path`.
+    pub reason: String,
 }
 
 /// [`AuditFile`]'s own metadata: the seed and requested sample size that
@@ -1224,6 +1237,7 @@ mod tests {
                 sample_size: 4,
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: vec![
                 entry("noted", Some("wrong"), "real finding"),
                 entry("bare", Some("wrong"), ""),
@@ -1256,6 +1270,7 @@ mod tests {
                 sample_size: 2,
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: vec![
                 Entry {
                     tool: "openssl".to_string(),
@@ -1595,6 +1610,7 @@ k1 = true
                 sample_size: 1,
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: vec![e],
         };
         save(&path, &file).unwrap();
@@ -1780,6 +1796,7 @@ k1 = true
                 sample_size: 4,
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: vec![
                 labelled("tcpdump", "wrong", &["bundled-short-flag"]),
                 entry("pptpsetup", Some("incomplete"), "bad parse"),

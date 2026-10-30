@@ -62,6 +62,7 @@ pub fn cmd_spot_audit(
                 containment: "uncontained".to_string(),
                 mandible_version: env!("CARGO_PKG_VERSION").to_string(),
             },
+            passed_over: Vec::new(),
             entries: Vec::new(),
         }
     };

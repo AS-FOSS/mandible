@@ -280,6 +280,7 @@ mod tests {
                 sample_size: tools.len(),
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: tools
                 .iter()
                 .map(|(tool, stratum)| Entry {
@@ -845,6 +846,7 @@ mod tests {
                 sample_size: 3,
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: vec![
                 entry("zzz-editres", Some("skip"), None, None),
                 entry("kept", Some("correct"), None, None),

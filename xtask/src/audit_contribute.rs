@@ -2,7 +2,7 @@
 //! in `CONTRIBUTING.md` §2 ("Audit mandible against your own tools").
 //!
 //! The draw reads tool NAMES off `PATH` first and probes nothing: [`draw`]
-//! excludes already-audited names ([`audited_tools`]), then seeded-shuffles
+//! excludes already-audited names (the shared [`Gate`]), then seeded-shuffles
 //! the rest and takes `--sample` of them, with zero subprocess spawned.
 //! Only the drawn names are then classified, one fresh extraction pass
 //! each, the same probe [`crate::audit::classify_one`] performs for `xtask
@@ -42,6 +42,7 @@
 
 use crate::audit::{classify_one, entry_from_classified, render_report};
 use crate::coverage::unique_executables_on_path;
+use crate::pass_over::{verdict_file_seed, Gate};
 use mandible_core::audit::{current_platform, load, save, verdict_path, AuditFile, AuditMeta};
 use std::collections::{BTreeMap, HashSet};
 use std::io::{BufRead, Write};
@@ -120,75 +121,16 @@ fn seed_from_clock() -> u64 {
     crate::rng::fnv1a64(&nanos.to_le_bytes()) & 0x7fff_ffff_ffff_ffff
 }
 
-/// A verdict file's name is always `<digits>.toml` — `queue.toml` and
-/// anything else in a submission folder is not one. Shared by the
-/// population filter (reading every submission's verdicts) and by
-/// [`find_unfinished_seed`] (finding this login's own unfinished draw).
-fn verdict_file_seed(path: &Path) -> Option<u64> {
-    let name = path.file_name()?.to_str()?;
-    let stem = name.strip_suffix(".toml")?;
-    if stem.is_empty() || !stem.chars().all(|c| c.is_ascii_digit()) {
-        return None;
-    }
-    stem.parse::<u64>().ok()
-}
-
-/// Every tool with a recorded verdict in any `<submissions_root>/*/*.toml`
-/// verdict file, plus every tool with a `<corpus_root>/<tool>/` fixture
-/// directory — the population this flow's draw excludes before shuffling
-/// (`--include-audited` restores it), never by skipping a tool mid-walk.
-pub(crate) fn audited_tools(
-    submissions_root: &Path,
-    corpus_root: &Path,
-) -> anyhow::Result<HashSet<String>> {
-    let mut audited = HashSet::new();
-    if submissions_root.is_dir() {
-        for login_entry in std::fs::read_dir(submissions_root)
-            .map_err(|e| anyhow::anyhow!("reading {}: {e}", submissions_root.display()))?
-        {
-            let login_entry = login_entry?;
-            if !login_entry.file_type()?.is_dir() {
-                continue;
-            }
-            let login_dir = login_entry.path();
-            for file_entry in std::fs::read_dir(&login_dir)
-                .map_err(|e| anyhow::anyhow!("reading {}: {e}", login_dir.display()))?
-            {
-                let file_entry = file_entry?;
-                let path = file_entry.path();
-                if verdict_file_seed(&path).is_none() {
-                    continue;
-                }
-                // A verdict file that fails to parse is skipped rather than
-                // failing the whole freeze — this filter is best-effort
-                // hygiene, not a validator for someone else's submission.
-                let Ok(text) = std::fs::read_to_string(&path) else {
-                    continue;
-                };
-                let Ok(file) = toml::from_str::<AuditFile>(&text) else {
-                    continue;
-                };
-                for entry in &file.entries {
-                    if entry.verdict.is_some() {
-                        audited.insert(entry.tool.clone());
-                    }
-                }
-            }
-        }
-    }
-    if corpus_root.is_dir() {
-        for entry in std::fs::read_dir(corpus_root)
-            .map_err(|e| anyhow::anyhow!("reading {}: {e}", corpus_root.display()))?
-        {
-            let entry = entry?;
-            if entry.file_type()?.is_dir() {
-                if let Some(name) = entry.file_name().to_str() {
-                    audited.insert(name.to_string());
-                }
-            }
-        }
-    }
-    Ok(audited)
+/// The tools of `population` that may be drawn: those the shared
+/// [`Gate`] does not pass over. Returns them with how many were excluded.
+fn eligible(population: Vec<String>, gate: &Gate) -> (Vec<String>, usize) {
+    let total = population.len();
+    let kept: Vec<String> = population
+        .into_iter()
+        .filter(|t| gate.reason(t).is_none())
+        .collect();
+    let excluded = total - kept.len();
+    (kept, excluded)
 }
 
 /// Step 2 of CONTRIBUTING.md §2, redesigned: draw `sample` tool NAMES off
@@ -214,20 +156,16 @@ fn draw(
     output: &mut impl Write,
 ) -> anyhow::Result<usize> {
     let full_population = unique_executables_on_path();
-    let audited = if include_audited {
-        HashSet::new()
+    let (mut population, excluded) = if include_audited {
+        (full_population, 0)
     } else {
-        audited_tools(submissions_root, corpus_root)?
+        let audit_dir = submissions_root.parent().unwrap_or(Path::new(""));
+        eligible(full_population, &Gate::load(audit_dir, corpus_root)?)
     };
-    let mut population: Vec<String> = full_population
-        .into_iter()
-        .filter(|t| !audited.contains(t))
-        .collect();
     if population.is_empty() {
         anyhow::bail!(
-            "no tools left to draw from after excluding {} already-audited tool(s) on PATH — \
-             pass --include-audited to draw from them anyway",
-            audited.len()
+            "no tools left to draw from after excluding {excluded} already-audited tool(s) on PATH — \
+             pass --include-audited to draw from them anyway"
         );
     }
 
@@ -241,7 +179,7 @@ fn draw(
         output,
         "drew {} tool(s) from PATH for {login} ({} already-audited tool(s) excluded)",
         drawn.len(),
-        audited.len(),
+        excluded,
     )?;
     if drawn.len() < sample {
         writeln!(
@@ -273,6 +211,7 @@ fn draw(
                 containment: "uncontained".to_string(),
                 mandible_version: env!("CARGO_PKG_VERSION").to_string(),
             },
+            passed_over: Vec::new(),
             entries: Vec::new(),
         }
     };
@@ -487,12 +426,10 @@ mod tests {
         std::fs::write(dir.join(format!("{seed}.toml")), text).unwrap();
     }
 
-    /// §3.4 guard test: a tool with a recorded verdict in a submission file
-    /// must be excluded from the population. Broken by dropping the
-    /// `entry.verdict.is_some()` check (see the sibling test below, which
-    /// exercises the break).
+    /// A tool with a recorded verdict in a submission file is excluded
+    /// from the population; a pending entry is not.
     #[test]
-    fn audited_tools_includes_a_tool_with_a_recorded_verdict() {
+    fn eligible_excludes_a_tool_with_a_recorded_verdict() {
         let tmp = tempfile::tempdir().unwrap();
         let submissions = tmp.path().join("submissions");
         write_verdict_file(
@@ -500,47 +437,52 @@ mod tests {
             5,
             &[("zoxide", Some("correct")), ("curl", None)],
         );
-        let corpus = tmp.path().join("corpus");
-        std::fs::create_dir_all(&corpus).unwrap();
-
-        let audited = audited_tools(&submissions, &corpus).unwrap();
-        assert!(
-            audited.contains("zoxide"),
-            "a tool with a recorded verdict must be excluded"
-        );
-        assert!(
-            !audited.contains("curl"),
-            "a pending (unverdicted) entry must not exclude its tool"
-        );
+        let gate = Gate::load(tmp.path(), &tmp.path().join("corpus")).unwrap();
+        let pop = vec!["zoxide".to_string(), "curl".to_string()];
+        assert_eq!(eligible(pop, &gate), (vec!["curl".to_string()], 1));
     }
 
     #[test]
-    fn audited_tools_includes_a_tool_with_a_corpus_fixture_directory() {
+    fn eligible_excludes_a_tool_with_a_corpus_fixture_directory() {
         let tmp = tempfile::tempdir().unwrap();
-        let submissions = tmp.path().join("submissions");
-        std::fs::create_dir_all(&submissions).unwrap();
         let corpus = tmp.path().join("corpus");
         std::fs::create_dir_all(corpus.join("tmux")).unwrap();
-
-        let audited = audited_tools(&submissions, &corpus).unwrap();
-        assert!(audited.contains("tmux"));
+        let gate = Gate::load(tmp.path(), &corpus).unwrap();
+        let pop = vec!["tmux".to_string(), "sh".to_string()];
+        assert_eq!(eligible(pop, &gate), (vec!["sh".to_string()], 1));
     }
 
     #[test]
-    fn audited_tools_ignores_queue_toml_which_is_not_a_verdict_file() {
+    fn eligible_ignores_queue_toml_which_is_not_a_verdict_file() {
         let tmp = tempfile::tempdir().unwrap();
-        let submissions = tmp.path().join("submissions");
-        let login_dir = submissions.join("bob");
+        let login_dir = tmp.path().join("submissions/bob");
         std::fs::create_dir_all(&login_dir).unwrap();
-        // `queue.toml` is a `Queue`, not an `AuditFile` — parsing it as one
-        // must not blow up the whole scan, and it must not contribute any
-        // tool to the audited set.
         std::fs::write(login_dir.join("queue.toml"), "not valid audit toml").unwrap();
-        let corpus = tmp.path().join("corpus");
-        std::fs::create_dir_all(&corpus).unwrap();
+        let gate = Gate::load(tmp.path(), &tmp.path().join("corpus")).unwrap();
+        assert_eq!(eligible(vec!["a".to_string()], &gate).1, 0);
+    }
 
-        let audited = audited_tools(&submissions, &corpus).unwrap();
-        assert!(audited.is_empty());
+    /// Both draws take their verdict and fixture check from one [`Gate`]:
+    /// for the same directories they exclude exactly the same tools.
+    #[test]
+    fn contribute_and_the_queue_draw_share_one_gate() {
+        let tmp = tempfile::tempdir().unwrap();
+        write_verdict_file(tmp.path(), 7, &[("v", Some("correct"))]);
+        std::fs::create_dir_all(tmp.path().join("corpus/f")).unwrap();
+        let gate = Gate::load(tmp.path(), &tmp.path().join("corpus")).unwrap();
+        let names = ["v", "f", "ok"];
+        let (kept, _) = eligible(names.iter().map(|s| (*s).to_string()).collect(), &gate);
+        let queue: Vec<_> = names
+            .iter()
+            .map(|t| crate::queue::QueueEntry {
+                tool: (*t).to_string(),
+                stratum: "ok".to_string(),
+            })
+            .collect();
+        let walked = crate::pass_over::draw(&queue, 0, 10, &gate);
+        let drawn: Vec<_> = walked.tools.iter().map(|e| e.tool.clone()).collect();
+        assert_eq!(kept, drawn);
+        assert_eq!(walked.passed_over.len(), 2);
     }
 
     #[test]

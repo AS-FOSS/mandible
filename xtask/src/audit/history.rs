@@ -854,7 +854,15 @@ mod tests {
             mandible_version: version.to_string(),
             ..Default::default()
         };
-        save(&verdict_path(dir, seed), &AuditFile { meta, entries }).unwrap();
+        save(
+            &verdict_path(dir, seed),
+            &AuditFile {
+                meta,
+                entries,
+                passed_over: Vec::new(),
+            },
+        )
+        .unwrap();
     }
 
     fn write(path: PathBuf, body: &str) {
