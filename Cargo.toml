@@ -8,6 +8,15 @@ members = [
     "mandible",
     "xtask",
 ]
+# Plain `cargo build` (and the release build) leaves out `xtask`, so the
+# developer-only `dev-host` feature it enables never reaches the binary.
+default-members = [
+    "mandible-core",
+    "mandible-extract",
+    "mandible-search",
+    "mandible-tui",
+    "mandible",
+]
 
 # Strip symbols from release binaries. Measured on 0.3.1 (aarch64): the
 # installed binary drops 5.6 MB -> 4.0 MB, and `cargo install`'s transient
