@@ -2,6 +2,7 @@
 <title id="t">Failures per judged batch</title>
 <desc id="d">Failures per judged batch, split into new, known and untagged. Seed 8 (judged 0.9.0): 11 new, 6 known, 0 untagged. </desc>
 <!-- light -->
+<rect width="720" height="340" rx="8" fill="#ffffff"/>
 <rect x="52.0" y="8" width="10" height="10" rx="2" fill="#2a78d6"/>
 <text x="68.0" y="17.0" text-anchor="start" font-size="12" fill="#52514e">new</text>
 <rect x="97.0" y="8" width="10" height="10" rx="2" fill="#2a78d6" fill-opacity="0.35"/>

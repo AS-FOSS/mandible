@@ -1,9 +1,9 @@
 //! `xtask audit chart`: hand-written SVG charts of `history.json`, each in a
 //! light and a dark variant. The accuracy chart draws one Wilson interval
 //! and one point estimate per release; the failures chart draws one stacked
-//! bar per judged batch, split into new, known and untagged failures. The
-//! page colour is transparent except for the ring around each dot, which
-//! takes the page's colour so the dot reads cleanly over its own line.
+//! bar per judged batch, split into new, known and untagged failures. Each
+//! chart paints its own page colour, so the light one also reads on a dark
+//! page; the ring around each dot takes that colour too.
 
 use super::history::{History, Release, SeedRow};
 use std::fmt::Write as _;
@@ -84,10 +84,12 @@ fn open(pal: &Palette, title: &str, desc: &str) -> String {
     format!(
         "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 720 340\" width=\"720\" \
          height=\"340\" role=\"img\" aria-labelledby=\"t d\" font-family=\"{FONT}\">\n\
-         <title id=\"t\">{}</title>\n<desc id=\"d\">{}</desc>\n<!-- {} -->\n",
+         <title id=\"t\">{}</title>\n<desc id=\"d\">{}</desc>\n<!-- {} -->\n\
+         <rect width=\"720\" height=\"340\" rx=\"8\" fill=\"{}\"/>\n",
         esc(title),
         esc(desc),
-        pal.name
+        pal.name,
+        pal.page
     )
 }
 

@@ -2,6 +2,7 @@
 <title id="t">Audited accuracy per release</title>
 <desc id="d">Share of tools parsed fully correctly, per release, with the 95% interval. 0.1.7: 19% (9% to 35%, 6 of 32 tools). 0.2.2: 19% (9% to 35%, 6 of 32 tools). 0.3.2: 29% (16% to 45%, 10 of 35 tools). 0.4.5: 36% (22% to 52%, 13 of 36 tools). 0.5.0: 36% (22% to 52%, 13 of 36 tools). 0.6.1: 37% (24% to 52%, 15 of 41 tools). 0.7.0: 44% (30% to 59%, 18 of 41 tools). 0.8.4: 61% (47% to 74%, 27 of 44 tools). 0.9.0: 61% (47% to 74%, 27 of 44 tools). Goal: 90%.</desc>
 <!-- dark -->
+<rect width="720" height="340" rx="8" fill="#0d1117"/>
 <line x1="52.0" y1="262.0" x2="640.0" y2="262.0" stroke="#33332f" stroke-width="1"/>
 <text x="44.0" y="266.0" text-anchor="end" font-size="12" fill="#c3c2b7">0%</text>
 <line x1="52.0" y1="202.5" x2="640.0" y2="202.5" stroke="#33332f" stroke-width="1"/>
