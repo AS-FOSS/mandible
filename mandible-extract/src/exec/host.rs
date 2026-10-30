@@ -2,7 +2,8 @@
 //! freshly built replay harness) from `xtask`. Never a tool under audit:
 //! nothing here takes a name from `PATH` sweeps, and probing a tool still
 //! goes through [`super::run_inert`] only. It lives in this module because
-//! this is the one place `std::process` may appear.
+//! this is the one place `std::process` may appear. Compiled only with the
+//! `dev-host` feature, which only `xtask` enables.
 
 use std::ffi::OsStr;
 use std::io;
