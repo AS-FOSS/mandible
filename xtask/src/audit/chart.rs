@@ -238,7 +238,13 @@ fn accuracy_svg(history: &History, pal: &Palette) -> anyhow::Result<String> {
         let value = pct(last.correct as f64 / last.judged as f64);
         svg.push_str(&label_text(pal, x + 12.0, y + 4.0, 13, &value));
     }
-    let eye: usize = history.releases.iter().map(|r| r.needs_eye.len()).sum();
+    // A tool an older release read differently is listed once per release; count it once.
+    let eye = history
+        .releases
+        .iter()
+        .flat_map(|r| r.needs_eye.iter().map(|e| (e.seed, e.tool.as_str())))
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
     if eye > 0 {
         let noun = if eye == 1 { "tool" } else { "tools" };
         svg.push_str(&text(

@@ -23,10 +23,12 @@ Only `correct` counts towards accuracy. `incomplete` and `wrong` both count agai
 
 ## How a batch is drawn and judged
 
-1. **The draw is fixed in advance.** Every tool on the reference machine's `PATH` was shuffled
-   once and the order committed to the repo (`audit/queue.toml`). A batch takes the next tools in
-   that order, so nobody can redraw a sample that looks bad. Tools that already have a verdict or
-   a test fixture are passed over: the figure is about tools mandible was not tuned for.
+1. **The draw is fixed in advance.** The 2,299 tools on the reference machine's `PATH` in August
+   2026 were shuffled once and the order committed to the repo (`audit/queue.toml`). A batch
+   takes the next tools in that order, so nobody can redraw a sample that looks bad. A tool that
+   already has a verdict or a test fixture, or is no longer installed, is passed over, and the
+   batch file records each one with its reason: the figure is about tools mandible was not tuned
+   for. Freezing a new queue starts a new population.
 2. **A person judges each tool by eye,** in the interface itself, with `mandible --review
    <seed>`. The tool opens exactly as `mandible <tool>` would, `t` shows the tool's own help
    text, and the verdict is saved straight away. No scripts and no AI form verdicts.
@@ -109,6 +111,13 @@ $ cargo xtask audit chart                                    # redraw the charts
 
 Run the replay soon after judging, before the tools on the machine are upgraded: the history
 step refuses a batch whose tools changed between runs.
+
+## Audits from other machines
+
+`cargo xtask audit contribute` lets anyone audit the tools on their own machine, with the same
+verdicts and the same pass-over rule. Those batches come from a different set of tools, so they
+stay out of the main chart, where they would move the line for reasons that have nothing to do
+with the parser. Their reports sit under `audit/submissions/`.
 
 ## Earlier audits
 
