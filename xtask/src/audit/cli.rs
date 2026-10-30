@@ -40,7 +40,7 @@ pub struct HistoryArgs {
 pub struct ChartArgs {
     #[arg(long, default_value = "audit/history.json")]
     pub history: PathBuf,
-    #[arg(long, default_value = "docs/accuracy")]
+    #[arg(long, default_value = "docs/charts")]
     pub out_dir: PathBuf,
 }
 
