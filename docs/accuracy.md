@@ -70,6 +70,26 @@ $$
 \frac{\hat p + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat p(1-\hat p)}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}}
 $$
 
+**What it answers.** A batch of 36 tools with 14 correct measures 39 %. A different draw of 36
+tools would measure something a little different. The formula says how far the true rate across
+all tools could be from the measured one: for 14 out of 36, between 25 % and 55 %, with 95 %
+confidence. That range is the bar through each point.
+
+**The parts.**
+
+- $\hat p = k/n$ is the share measured: 14/36, or 39 %.
+- $\sqrt{\hat p(1-\hat p)/n}$ is how much a sample of this size typically varies. It shrinks as
+  $n$ grows, which is why 100 tools give a narrower bar than 30.
+- $z = 1.96$ sets the confidence at 95 %.
+- The $z^2/n$ terms are what make it the Wilson interval rather than the plain
+  "share ± margin" interval.
+
+**Why Wilson.** The plain interval breaks in the cases an audit meets: small samples and shares
+near 0 % or 100 %. Five tools, all correct, give "100 %, ± 0" with the plain interval, as if
+five tools proved certainty; Wilson gives 57 % to 100 %. Near 0 % the plain interval can even
+reach below zero, and Wilson always stays between 0 % and 100 %. `xtask audit report` and
+`xtask audit history` both use it (`wilson_interval` in `xtask/src/audit/report.rs`).
+
 How wide that range is, for a tool rate around 60 %:
 
 | Tools judged | Range |
