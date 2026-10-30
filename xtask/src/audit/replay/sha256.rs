@@ -79,10 +79,10 @@ const INIT: [u32; 8] = [
     0x5be0_cd19,
 ];
 
-fn compress(state: &mut [u32; 8], block: &[u8]) {
+fn compress(state: &mut [u32; 8], block: &[u8; 64]) {
     let mut w = [0u32; 64];
-    for (i, chunk) in block.chunks_exact(4).enumerate() {
-        w[i] = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+    for (i, word) in block.as_chunks::<4>().0.iter().enumerate() {
+        w[i] = u32::from_be_bytes(*word);
     }
     for i in 16..64 {
         let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
@@ -121,18 +121,17 @@ fn compress(state: &mut [u32; 8], block: &[u8]) {
 /// Lowercase hex SHA-256 of `data`.
 pub fn sha256_hex(data: &[u8]) -> String {
     let mut state = INIT;
-    let mut blocks = data.chunks_exact(64);
-    for block in &mut blocks {
+    let (blocks, rest) = data.as_chunks::<64>();
+    for block in blocks {
         compress(&mut state, block);
     }
-    let rest = blocks.remainder();
     let mut tail = rest.to_vec();
     tail.push(0x80);
     while tail.len() % 64 != 56 {
         tail.push(0);
     }
     tail.extend_from_slice(&((data.len() as u64) * 8).to_be_bytes());
-    for block in tail.chunks_exact(64) {
+    for block in tail.as_chunks::<64>().0 {
         compress(&mut state, block);
     }
     state.iter().map(|w| format!("{w:08x}")).collect()
