@@ -12,7 +12,7 @@
 [![CI](https://github.com/AS-FOSS/mandible/actions/workflows/ci.yml/badge.svg)](https://github.com/AS-FOSS/mandible/actions/workflows/ci.yml)
 [![framework support](https://github.com/AS-FOSS/mandible/actions/workflows/frameworks.yml/badge.svg)](https://github.com/AS-FOSS/mandible/actions/workflows/frameworks.yml)
 [![crates.io](https://img.shields.io/crates/v/mandible.svg?style=flat-square)](https://crates.io/crates/mandible)
-[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat-square)](#)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg?style=flat-square)](#license)
 ![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macOS-lightgrey.svg?style=flat-square)
 
 [Install](#install) • [How it works](#how-it-works) • [Coverage](#is-it-actually-universal) • [Keys](#keys)
@@ -150,158 +150,157 @@ to 91%.
 mandible is useful today and wrong often enough that you should check anything
 surprising against the tool's own `--help`.
 
+<details>
+<summary><h2>Keys</h2></summary>
 
-> [!TIP]
-> Something parses wrong? Run `mandible --report <tool>` and paste the output
-> into [an issue](../../issues/new?template=parsing-issue.yml). That takes two
-> minutes and is a complete contribution on its own.
+`?` lists every key. The ones you will use most:
+
+| Key | Does |
+|---|---|
+| `↑` `↓` or `k` `j` | Move |
+| `→` `Enter` or `l` | Expand |
+| `←` or `h` | Collapse, or go to the parent |
+| `Tab` | Switch between the list and the page |
+| `/` | Search names; press again to search descriptions too |
+| `n` `p` | Next or previous match on the page |
+| `s` | Sort the focused pane |
+| `w` | Wrap long lines, or scroll them sideways |
+| `t` | Show the tool's own `--help` |
+| `y` | Copy the selected flag or command |
+| `r` | Reload |
+| `q` | Quit |
+
+A search matches rows that contain every word you type, in any order: `no verify`
+finds `--no-verify`. `Tab` in the search box takes the dim suggestion.
+
+</details>
 
 <details>
 <summary><h2>Configuration</h2></summary>
 
-Settings live in `~/.config/mandible/config.toml`. mandible never creates the
-file; the settings tab of the `?` pop-up writes it, one key at a time, and
-leaves your comments and other keys alone. A key that is unknown or has a bad
-value is ignored and the footer says which line until you press a key.
+Press `?`, then `Tab`, to change settings inside mandible. A change shows at once and
+is saved to `~/.config/mandible/config.toml` (on macOS,
+`~/Library/Application Support/mandible/config.toml`). You can also edit the file by
+hand. A line mandible cannot read is skipped, and the footer says which one.
+
+Every setting, with its default:
 
 ```toml
-# ~/.config/mandible/config.toml
-
 [ui]
-raw_view = false
-horizontal_scroll = false
-description_preview = true
-ascii = false
+raw_view = false             # start in the tool's own --help view
+horizontal_scroll = false    # scroll long lines sideways instead of wrapping them
+description_preview = true   # false shows long descriptions in full, in place
+ascii = false                # ASCII glyphs instead of Unicode
 
-[sort]
-flags = "tool"
-commands = "tool"
+[sort]                       # where `s` starts
+flags = "tool"               # "tool", "az-sections" or "az"
+commands = "tool"            # "tool" or "az"
 
 [colors]
 theme = "default"
 ```
 
-`theme` is `default`, `light`, `high-contrast`, `gruvbox-style`, `nord-style`,
-`dracula-style`, `catppuccin-style`, `custom` or `none`. With `custom`, seven
-more keys give the colours, each a name (`black` to `bright-white`) or a number
-from 16 to 255:
+Themes: `default`, `light`, `high-contrast`, `gruvbox-style`, `nord-style`,
+`dracula-style`, `catppuccin-style`, `none` (no colour) and `custom`. With `custom`,
+set any of these to a colour name (`black` to `bright-white`) or a number from 16 to
+255. One you leave out keeps the `default` theme's colour.
 
 ```toml
 [colors]
 theme = "custom"
-accent = "bright-cyan"   # flag spellings, focused border
-warning = 220            # low confidence, notices
+accent = "bright-cyan"   # flag names, focused border
+warning = 220            # notices, low confidence
 muted = "bright-black"   # secondary text
 section = 246            # section headings
 group = 240              # group headings
-selection = 237          # the selection bar
-selection_text = 252     # text on the bar
+selection = 237          # selection bar
+selection_text = 252     # text on the selection bar
 ```
 
-| Key | Values | What it does |
-|---|---|---|
-| `raw_view` | `true`, `false` | Start in the tool's own `--help` view, as if `t` were pressed |
-| `horizontal_scroll` | `true`, `false` | `false` folds long lines to the pane. `true` keeps one row per line and scrolls sideways, in the parsed and the raw view. `w` flips it for the view on screen |
-| `description_preview` | `true`, `false` | `false` draws a long description in full, in place |
-| `ascii` | `true`, `false` | Force the ASCII glyph set |
-| `flags` | `"tool"`, `"az-sections"`, `"az"` | Where `s` starts in the detail pane |
-| `commands` | `"tool"`, `"az"` | Where `s` starts in the commands list |
-| `theme` | a theme name, `"custom"` or `"none"` | `none` draws no colour. `custom` uses the seven colour keys; a missing one keeps the `default` theme's value |
-
-An environment variable beats the file, and the file beats the default.
-
-Getting a tool's *documentation* right is mandible's job, not yours. If
-something parses wrong, `mandible --report <tool>` plus an issue fixes it for
-everyone. (Local per-tool corrections do exist for the impatient:
-`~/.config/mandible/overrides/<tool>.toml`.)
-
-### Environment variables
+Environment variables win over the file:
 
 | Variable | Effect |
 |---|---|
-| `NO_COLOR` | Same as `theme = "none"`, and beats the file. `TERM=dumb` and piped output do the same |
-| `MANDIBLE_ASCII=1` | Force the ASCII glyph set, for terminals that mangle Unicode. Beats `ascii` |
-| `MANDIBLE_CONFIG_DIR` | Read config and overrides from a different directory |
-| `MANDIBLE_LOG` | Tracing filter, written to stderr |
+| `NO_COLOR` | No colour, like `theme = "none"` |
+| `MANDIBLE_ASCII=1` | ASCII glyphs, like `ascii = true` |
+| `MANDIBLE_CONFIG_DIR` | Read the config from this directory instead |
+| `MANDIBLE_LOG` | Debug log filter, written to stderr, e.g. `MANDIBLE_LOG=debug` |
 
-### Keys
+</details>
 
-`?` inside mandible lists every binding, and its second tab, reached with `Tab`,
-changes the settings above. The footer keeps the important keys on screen: arrows or `hjkl` to move, `/` to search, `Tab` between panes, `←`/`→`
-to scroll wide lines sideways, `t` for the tool's own `--help`, `s` to sort the
-focused pane A–Z, `y` to copy the selected flag, `q` to quit.
+<details>
+<summary><h2>Shell integration</h2></summary>
 
-Search has two modes. `names` matches a command name or any spelling of a flag,
-positional, modifier or environment variable; `everything` also searches
-descriptions. In both, a row matches when it contains every word you type, in any
-case, and a dash counts like any other character: `size` finds `--blocksize`,
-`no verify` finds `--no-verify`. The best match is where the cursor jumps; every
-other match stays in the tree. While you type, a dim suggestion shows where
-`Enter` will land, or the closest name when nothing matches, and `Tab` takes it. `/` opens the first mode, pressing it again switches to the second.
-
-### Completions
-
-The packages install shell completions for you. For a hand-built binary,
-`mandible --completions <shell>` prints the script (bash, zsh, fish, and
-more); drop it wherever your shell looks for completions. For zsh:
+**Completions.** The packages install them. For a hand-built binary,
+`mandible --completions <shell>` prints the script for bash, zsh, fish, elvish or
+PowerShell. For zsh:
 
 ```console
 $ mkdir -p ~/.zfunc && mandible --completions zsh > ~/.zfunc/_mandible
 ```
 
-then add `fpath=(~/.zfunc $fpath)` to `~/.zshrc`, above its `compinit` line.
-zsh silently skips completion directories it considers insecure (anything
-under `/tmp`), so keep the file under your home.
+Then add `fpath=(~/.zfunc $fpath)` to `~/.zshrc`, above `compinit`.
 
-The tool argument completes too, to the command names on your `PATH`:
-`mandible gi<TAB>` suggests `git` rather than whatever files sit in the
-current directory. zsh and fish do this today; bash's script format can't
-express it yet.
+**Onto the prompt.** Add this to `~/.bashrc` or `~/.zshrc`:
 
-### Onto the prompt
-
-`y` gets a spelling as far as the clipboard. To land it on the command line
-instead, add the shell integration:
-
-```console
-$ eval "$(mandible --shell-init bash)"   # or: zsh — in your ~/.bashrc, ~/.zshrc
+```sh
+eval "$(mandible --shell-init bash)"   # or zsh
 ```
 
-Now type a tool name, press `Ctrl-X m`, browse, and press `Enter`: the command
-you selected (`git commit --amend`, say) replaces the line, ready to edit.
-Quit with `q` and the line stays exactly as it was.
-
-The binding is a few lines of shell around `mandible --print-selection <tool>`,
-which browses as usual but makes `Enter` print the selection instead of
-expanding the row (the UI draws on stderr, so stdout carries just that one
-line). Bind it to a different key, or wrap it in your own widget, by reading
-what `--shell-init` prints.
-
-### Diagnostics
-
-```console
-$ mandible --doctor gh
-framework: cobra (from artifact)
-nodes: 29
-flags: 2 (100.0% described)
-```
-
-`--doctor` reports which framework mandible identified, which sources
-contributed, and how much of the tool it understood. It turns "mandible is
-wrong about tool X" into "the cobra grammar mishandles Y", which is a bug
-someone can actually fix.
-
-A probe is stopped after 30 seconds and reported as a failure. `--no-timeout`
-with `--doctor` or `--report` lets every probe run as long as it needs.
-
-### Running as root
-
-mandible refuses to start as root, printing the flag that lifts the refusal.
-A probe like `fail2ban-client start --help` reaches a daemon socket, and
-under root that is an action, not a question. Pass `--allow-root` to proceed
-anyway; mandible never asks for or gains privileges on its own.
+Type a tool name, press `Ctrl-X m`, browse, and press `Enter`. The command you
+selected, say `git commit --amend`, replaces your command line, ready to edit. `q`
+leaves the line as it was.
 
 </details>
+
+<details>
+<summary><h2>Troubleshooting</h2></summary>
+
+**Correct a tool for yourself.** Put corrections in
+`~/.config/mandible/overrides/<tool>.toml`.
+
+**What did mandible understand?** `mandible --doctor <tool>` shows the framework it
+detected, the sources it used and how much of the tool it understood. A probe stops
+after 30 seconds; add `--no-timeout` to wait longer.
+
+**Running as root.** mandible refuses, because under root a `--help` probe that
+reaches a daemon is an action, not a question. `--allow-root` proceeds anyway;
+mandible never gains privileges itself.
+
+</details>
+
+## Contributing
+
+**Report a tool that looks wrong.** Run `mandible --report <tool>` and paste the output
+into [an issue](../../issues/new?template=parsing-issue.yml). The report records your
+tool's version and its exact help text, which nobody can get back once you upgrade, so
+it is a complete contribution on its own.
+
+**Audit mandible against your own tools.** Every accuracy figure here comes from one
+Ubuntu machine on ARM, so the tools on your `PATH` are probably ones this project has
+never seen.
+
+```console
+$ git clone https://github.com/AS-FOSS/mandible && cd mandible
+$ cargo xtask audit contribute
+```
+
+It draws twenty tools from your `PATH` and opens each one in mandible. Press `t` to
+compare with the real help text, then `c`, `i`, `w` or `s` for correct, incomplete,
+wrong or skip. It saves after every verdict, and at the end prints the commands to
+open the pull request. Merged audits are credited in the release notes.
+
+> [!NOTE]
+> Judge by eye, in the interface. No AI, no scripts, no verdicts from a text dump:
+> spotting what is missing or wrong is the whole point of an audit.
+
+**Change the code.** Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+[`AGENTS.md`](./AGENTS.md) has the rules every change must keep.
+
+## License
+
+MIT or Apache-2.0, at your option: [LICENSE-MIT](./LICENSE-MIT),
+[LICENSE-APACHE](./LICENSE-APACHE).
 
 ## Documentation
 
@@ -309,43 +308,3 @@ anyway; mandible never asks for or gains privileges on its own.
 |---|---|
 | [`docs/design.md`](./docs/design.md) | Design authority: the source model, the safety policy, and the measurement behind every non-obvious decision |
 | [`AGENTS.md`](./AGENTS.md) | The invariants table. Every entry names the failure it prevents |
-
-
-## Contributing
-
-If a tool renders wrong, an issue is the fastest way to tell us. Run
-`mandible --report <tool>` and paste the output into the issue form; it asks
-for the rest (your OS, what you expected, a screenshot if you have one). Your
-tool's version and its exact help text vanish when you upgrade, and nobody
-else can recover them, so the report is a complete contribution on its own.
-
-If you want to go further, audit mandible against the tools on your own
-machine. Every accuracy figure here comes from one Ubuntu machine on ARM, so
-whatever you have installed is probably software this project has never seen.
-
-```console
-$ git clone https://github.com/AS-FOSS/mandible && cd mandible
-$ cargo xtask audit contribute
-```
-
-The command asks for your GitHub login, scans your `PATH`, draws twenty tools
-and opens each one in the normal interface next to its real help text. Press
-`t` to see the raw text, then `c`, `i`, `w` or `s` for correct, incomplete,
-wrong or skip. It saves after every verdict, so you can `Ctrl-C` and come back
-later. When you finish, it writes your verdicts under
-`audit/submissions/<your-login>/` and prints the commands to commit them and
-open the pull request. Merged audits sit under your name in the tree and are
-credited in the release notes.
-
-> [!NOTE]
-> When auditing, verify by hand and by eye only, in the interface itself:
-> `cargo xtask audit contribute` opens it for you, and `mandible --review
-> <seed>` reopens an unfinished draw. mandible does have automated checks
-> (pty renders of the TUI, and `cargo xtask audit emit` and `review`, which
-> print a tool's raw help text beside the tree as plain text for machines
-> with no terminal), however none of them can tell you what was missed or
-> which flags are wrong. That judgement is the whole point of an audit. So:
-> no AI, no CI, nothing non-manual, and no verdicts formed from the text dump.
-
-[`CONTRIBUTING.md`](./CONTRIBUTING.md) has the details, plus writing tests and
-changing the parser.
