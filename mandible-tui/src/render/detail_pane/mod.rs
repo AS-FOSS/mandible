@@ -22,6 +22,7 @@ mod page_cache;
 mod page_order;
 mod page_text;
 mod reflow;
+mod row_target;
 mod search_marks;
 mod section_plan;
 mod sort_hold;
@@ -44,6 +45,7 @@ pub(crate) use page_order::page_positions;
 pub use page_text::page_text;
 pub(crate) use reflow::ReflowAnchor;
 use reflow::*;
+pub(crate) use row_target::{entity_at, first_row_with_key};
 use search_marks::*;
 use section_plan::*;
 use sort_hold::*;
@@ -604,6 +606,7 @@ fn build_lines(
     let mut rules: Vec<usize> = Vec::new();
     let mut matches: Vec<crate::app::MatchRow> = Vec::new();
     let page_marks = PageMarks::of(app);
+    let target_row = app.selected_flag_row;
     // Wrapping on: nothing here is wider than the pane. Wrapping off: every
     // line is built at its natural width and the renderer windows it.
     let wrap = app.parsed_wraps();
@@ -702,17 +705,20 @@ fn build_lines(
         note_rule(&mut rules, &lines, glyphs);
         let base = lines.len();
         let plan = plan_section(&visible, kind, app.sorts.detail);
+        let only = target_row.map(|(section, i)| (section == at).then_some(i));
         let mut section = section_planned(
             &plan,
             &visible,
             (width, indent),
             palette,
-            target_flag,
+            target_flag
+                .filter(|_| only != Some(None))
+                .map(|k| (k, only.flatten())),
             glyphs,
             wrap,
         );
         if let Some(marks) = &page_marks {
-            matches.extend(mark_section(&visible, &mut section, marks, base));
+            matches.extend(mark_section(&visible, &mut section, marks, (at, base)));
         }
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
@@ -887,7 +893,8 @@ fn section_lines(
     let sort = crate::sort::DetailSort::Printed;
     let plan = plan_section(entities, EntityKind::Flag, sort);
     let dims = (width, indent);
-    section_planned(&plan, entities, dims, palette, target_flag, glyphs, wrap)
+    let target = target_flag.map(|k| (k, None));
+    section_planned(&plan, entities, dims, palette, target, glyphs, wrap)
 }
 
 /// Render one section's rows as `plan` orders them. Groups keep the order
@@ -898,7 +905,7 @@ fn section_planned(
     entities: &[&Entity],
     (width, indent): (usize, usize),
     palette: style::Palette,
-    target_flag: Option<&FlagKey>,
+    target_flag: Option<(&FlagKey, Option<usize>)>,
     glyphs: Glyphs,
     wrap: bool,
 ) -> SectionBody {
@@ -931,7 +938,8 @@ fn section_planned(
             note_rule(&mut body.rules, &body.lines, glyphs);
         }
         for &(id, e) in &group.rows {
-            push_entity(&mut body, e, group.inherited, row, target_flag);
+            let target = target_flag.filter(|&(_, only)| only.is_none_or(|o| o == id));
+            push_entity(&mut body, e, group.inherited, row, target);
             body.ids.push(id);
         }
     }
@@ -957,10 +965,10 @@ fn push_entity(
     entity: &Entity,
     dim: bool,
     row: RowCtx,
-    target_flag: Option<&FlagKey>,
+    target_flag: Option<(&FlagKey, Option<usize>)>,
 ) {
     let first_line = body.lines.len();
-    if body.target.is_none() && target_flag.is_some_and(|k| entity.matches_key(k)) {
+    if body.target.is_none() && target_flag.is_some_and(|(k, _)| entity.matches_key(k)) {
         body.target = Some(first_line);
     }
     let rendered = entity_line(entity, dim, row.width, row.palette, row.layout);

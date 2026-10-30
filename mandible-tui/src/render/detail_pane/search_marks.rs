@@ -14,6 +14,8 @@ pub(super) struct PageMarks<'a> {
     pub(super) query: &'a str,
     /// The entity the last jump or `n`/`p` landed on.
     pub(super) current: Option<&'a FlagKey>,
+    /// Where that entity stands, when a jump or `n`/`p` named the row.
+    pub(super) current_row: Option<crate::sort::RowId>,
 }
 
 impl<'a> PageMarks<'a> {
@@ -27,6 +29,7 @@ impl<'a> PageMarks<'a> {
             keys,
             query: &hits.query,
             current: app.selected_flag.as_ref(),
+            current_row: app.selected_flag_row,
         })
     }
 }
@@ -37,7 +40,7 @@ pub(super) fn mark_section(
     visible: &[&Entity],
     body: &mut SectionBody,
     marks: &PageMarks<'_>,
-    base: usize,
+    (at, base): (usize, usize),
 ) -> Vec<MatchRow> {
     let wanted: HashSet<&FlagKey> = marks.keys.iter().collect();
     let mut by_key: HashMap<FlagKey, &Entity> = HashMap::new();
@@ -47,7 +50,7 @@ pub(super) fn mark_section(
         }
     }
     let mut found = Vec::new();
-    for (row, key) in body.rows.iter().zip(&body.keys) {
+    for ((row, key), &id) in body.rows.iter().zip(&body.keys).zip(&body.ids) {
         let Some(key) = key else { continue };
         let Some(entity) = by_key.get(key) else {
             continue;
@@ -58,7 +61,8 @@ pub(super) fn mark_section(
             key: key.clone(),
             first_line: base + row.first_line,
             lines: row.lines,
-            current: marks.current == Some(key),
+            id: (at, id),
+            current: marks.current == Some(key) && marks.current_row.is_none_or(|r| r == (at, id)),
         });
     }
     found
