@@ -36,18 +36,31 @@
 //! or name, only `(tool, stratum)` pairs and a seeded shuffle.
 
 mod batch;
+mod chart;
+mod cli;
 mod fixtures;
+mod history;
 mod interactive;
+mod replay;
 mod report;
 mod signatures;
+mod tag;
 
 pub(crate) use batch::sanitize_filename;
 pub use batch::{cmd_amend, cmd_emit, cmd_ingest};
+pub use chart::cmd_chart;
+pub use cli::{
+    AmendArgs, ChartArgs, FixturesArgs, HistoryArgs, IngestArgs, ReplayArgs, SpotAuditArgs,
+    TagArgs, TruthArgs,
+};
 pub use fixtures::cmd_fixtures;
+pub use history::cmd_history;
 pub use interactive::{cmd_review, cmd_spot_audit};
+pub use replay::{cmd_replay, cmd_truth};
 pub use report::cmd_report;
 pub(crate) use report::render_report;
 use signatures::{k1_signature, k2_signature, k3_signature};
+pub use tag::cmd_tag;
 
 use crate::existence;
 use crate::misattribution::RecordingProbe;
@@ -181,6 +194,8 @@ pub(crate) fn entry_from_classified(
         families: Vec::new(),
         families_derived: None,
         amendments: Vec::new(),
+        failure_kind: None,
+        shape: None,
     }
 }
 
@@ -265,6 +280,7 @@ mod tests {
                 sample_size: tools.len(),
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: tools
                 .iter()
                 .map(|(tool, stratum)| Entry {
@@ -280,6 +296,8 @@ mod tests {
                     families: Vec::new(),
                     families_derived: None,
                     amendments: Vec::new(),
+                    failure_kind: None,
+                    shape: None,
                 })
                 .collect(),
         };
@@ -754,6 +772,8 @@ mod tests {
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
+            failure_kind: None,
+            shape: None,
         };
         assert_eq!(effective_stratum(&e), "ok");
         e.include_reason = Some("unaudited promotion".to_string());
@@ -779,6 +799,8 @@ mod tests {
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
+            failure_kind: None,
+            shape: None,
         };
         assert_eq!(
             effective_stratum(&e),
@@ -803,6 +825,8 @@ mod tests {
             families: Vec::new(),
             families_derived: None,
             amendments: Vec::new(),
+            failure_kind: None,
+            shape: None,
         }
     }
 
@@ -822,6 +846,7 @@ mod tests {
                 sample_size: 3,
                 ..Default::default()
             },
+            passed_over: Vec::new(),
             entries: vec![
                 entry("zzz-editres", Some("skip"), None, None),
                 entry("kept", Some("correct"), None, None),

@@ -1,0 +1,335 @@
+[meta]
+seed = 8
+sample_size = 50
+platform = "linux-aarch64"
+containment = "uncontained"
+mandible_version = "0.9.0"
+
+[[entry]]
+tool = "aarch64-linux-gnu-addr2line"
+stratum = "ok"
+verdict = "wrong"
+note = "did we ever add a description part for the usage, or it's somehow leaked into it. see usage of this"
+failure_kind = "new"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld"
+stratum = "ok"
+verdict = "wrong"
+note = """raw '-EB' parsed into '-E B'. Then the raw "-fini SYMBOL Call SYMBOL at unload-time" got parsed into "-fini Call SYMBOL at unload-time" with no placeholder. The raw "-Map FILE/DIR" parsed into just "-M ap". Additionally, see this flag '--compress-debug-sections', there is nothing wrong with it but, should we consider replacing similar patterns with our own placeholder name and put those options into values within description or nah?"""
+k1 = true
+failure_kind = "new"
+
+[[entry]]
+tool = "aarch64-linux-gnu-pkgconf"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "aarch64-linux-gnu-strip"
+stratum = "ok"
+verdict = "wrong"
+note = "see positional named 'option(s)', i feel like it's the same as options and should not be there"
+k1 = true
+failure_kind = "new"
+
+[[entry]]
+tool = "addgnupghome"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "apt"
+stratum = "ok"
+verdict = "wrong"
+note = 'i think we already have this pattern in xfail, but see this raw vs parsed of "-S SOURCESLIST [SOURCESLIST ...]" missing 2nd part of placeholder.'
+k3 = true
+failure_kind = "known"
+shape = "add-apt-repository -S SOURCESLIST [SOURCESLIST ...] (corpus xfail)"
+
+[[entry]]
+tool = "bc"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "btrfstune"
+stratum = "ok"
+verdict = "correct"
+note = "this parse is correct, but commment about the '-S', one of the previous audited tools had this similar pattern that i asked about but with brackets instead. so we already do consider this pattern, but not for that i guess."
+k1 = true
+
+[[entry]]
+tool = "byobu-launcher-uninstall"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "bzfgrep"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "cgdisk"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "col2"
+stratum = "ok"
+verdict = "skip"
+
+[[entry]]
+tool = "debconf"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "envsubst"
+stratum = "ok"
+verdict = "incomplete"
+note = "i feel like we can do a better job of displaying the description here. But showing all would duplicate the flag/usage part, but cutting poorly would look bad. so whatt do we do about it? leave as is and compromise some of the dedsecrtipion parts or test and see if possible to reliably cut annd merge?"
+failure_kind = "new"
+
+[[entry]]
+tool = "era_invalidate"
+stratum = "low-confidence"
+verdict = "wrong"
+note = """missing flag -o. missing "values" for 'written-since' flag"""
+failure_kind = "new"
+
+[[entry]]
+tool = "fsck.fat"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "grub-install"
+stratum = "ok"
+verdict = "correct"
+note = "acutally correct parse, but contains that values-in-placeholder pattern, noting here for later"
+
+[[entry]]
+tool = "h2xs"
+stratum = "ok"
+verdict = "incomplete"
+note = "see if extra_libraries is a positional, because it has a description at the bottom of the help text. Also, see if -lm accidentally captured the 'extension' value from that description."
+failure_kind = "known"
+shape = "S-041"
+
+[[entry]]
+tool = "info"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "ip6tables-translate"
+stratum = "ok"
+verdict = "wrong"
+note = """i believe raw "--append -A chain" should have been parsed into two alias flags with 'chain' as placeholder, but it got parsed wrongly. maybe because long flag comes... also for some reason the lines that start with [!] are ignored and flags from there do not get parsed at all"""
+k1 = true
+failure_kind = "new"
+
+[[entry]]
+tool = "jstack"
+stratum = "ok"
+verdict = "wrong"
+note = 'this line parsed wrongly "-? -h --help -help to print this help message"'
+failure_kind = "new"
+
+[[entry]]
+tool = "keep-one-running"
+stratum = "no-tier"
+verdict = "wrong"
+note = "not sure about the interaction with this tool, needs testing"
+
+[[entry.amendments]]
+previous_verdict = "wrong"
+new_verdict = "skip"
+reason = "No help page to judge: keep-one-running is a run-one wrapper that runs its arguments as a command, so --help loops until the probe times out."
+
+[[entry]]
+tool = "lastlog"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "link"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "llvm-nm-18"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "llvm-windres-18"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "loadkeys"
+stratum = "ok"
+verdict = "incomplete"
+note = "see if positional mapfile... is missing"
+failure_kind = "known"
+shape = "S-041"
+
+[[entry]]
+tool = "mariadb-show"
+stratum = "ok"
+verdict = "correct"
+note = "not sure if we should parse '--skil-ssl' from the description of '--ssl' or leave it there, as is. since nothing is missing, it's correct as is"
+
+[[entry]]
+tool = "mkfontscale"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "mount.fuse"
+stratum = "ok"
+verdict = "incomplete"
+note = 'im unsure about what these are and how we should parse those and display "type#[source]" and "destination"'
+k1 = true
+failure_kind = "new"
+
+[[entry]]
+tool = "mysqlaccess"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "mysqldump"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "nl"
+stratum = "ok"
+verdict = "incomplete"
+note = "see why 'pBRE' is missing from values of STYLE."
+failure_kind = "known"
+shape = "S-014"
+
+[[entry]]
+tool = "pkttyagent"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "pro"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "qemu-ppc64el-static"
+stratum = "ok"
+verdict = "incomplete"
+note = "note is in console"
+k1 = true
+failure_kind = "new"
+
+[[entry]]
+tool = "rpcgen"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "run-parts"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sg_inq"
+stratum = "ok"
+verdict = "correct"
+k1 = true
+
+[[entry]]
+tool = "sg_safte"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sg_write_buffer"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "stdbuf"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "sudo_sendlog"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "swift-drive-audit"
+stratum = "verbatim"
+verdict = "skip"
+
+[[entry]]
+tool = "swift-ring-composer"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "systemd-escape"
+stratum = "ok"
+verdict = "correct"
+
+[[entry]]
+tool = "tc"
+stratum = "verbatim"
+verdict = "wrong"
+note = "it takes '-help' instead of '--help', i thought we already handled this probing thing"
+failure_kind = "new"
+
+[[entry]]
+tool = "update-ca-certificates"
+stratum = "verbatim"
+verdict = "wrong"
+note = "why unparsed? we shoulda had usage section and at least 3 flags: verbose, fresh, help"
+failure_kind = "new"
+
+[[entry]]
+tool = "xargs"
+stratum = "ok"
+verdict = "incomplete"
+note = "are we missing '[INITIAL-ARGS]... as a positional?"
+k1 = true
+failure_kind = "known"
+shape = "S-041"
+
+[[entry]]
+tool = "xfs_fsr"
+stratum = "ok"
+verdict = "incomplete"
+note = "see if this 'xfsdev | dir | file ...' or 'xfsdev | dir | file' belong to flag '-g' or they are just positionals?"
+k1 = true
+failure_kind = "known"
+shape = "S-153"
+
+[[passed_over]]
+tool = "ntfsfallocate"
+reason = "verdict"
+
+[[passed_over]]
+tool = "less"
+reason = "fixture"
+
+[[passed_over]]
+tool = "vdpa"
+reason = "fixture"
+
+[[passed_over]]
+tool = "ffmpeg"
+reason = "fixture"
