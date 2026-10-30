@@ -27,7 +27,7 @@ $ mandible docker
 
 <p align="center">
      
-<img width="2560" height="1440" alt="output" src="https://github.com/user-attachments/assets/8fa831a6-c0e6-472f-834e-b844d7c49792" />
+<img width="1360" height="828" alt="mandible-0 9 0-demo" src="https://github.com/user-attachments/assets/bf9e3d32-f8f2-4e33-a82b-a537cea87f55" />
 
   <br>
   <em>A tree of every command, subcommand and flag on the left. The selected one's documentation on the right.</em>
