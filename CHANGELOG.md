@@ -77,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Search jumped to a command the list did not rank first: `/rebase` selected `git submodule` and `/re` selected `git bisect`. The jump now goes to the first match, ranked exact name, name prefix, word prefix, then anywhere inside the name, commands first, then the shallower and earlier row.
 - A search with no match showed every command and jumped to a fuzzy guess; it now shows `No matches for "<query>"`, counts 0, and the cursor and page return to the row from before `/`.
 - `Esc` after `Enter` did nothing; it now clears the search.
+- Typing a search that matches thousands of rows took about a second per key on a page like `mandible ffplay`; it now takes under 100 ms.
 
 ## [0.8.4] - 2026-10-12
 
