@@ -563,13 +563,14 @@ pub fn cmd_sample(
     file.entries.sort_by(|a, b| a.tool.cmp(&b.tool));
     save(&vpath, &file)?;
 
+    let start_cursor = queue.meta.cursor;
     queue.meta.cursor = next_cursor;
     save_queue(&qpath, &queue)?;
 
     println!(
         "drew {} tool(s) from queue cursor {} -> {} (queue population {})",
         drawn.len(),
-        next_cursor - drawn.len(),
+        start_cursor,
         next_cursor,
         queue.entries.len(),
     );
