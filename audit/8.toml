@@ -1,0 +1,236 @@
+[meta]
+seed = 8
+sample_size = 50
+platform = "linux-aarch64"
+containment = "uncontained"
+mandible_version = "0.9.0"
+
+[[entry]]
+tool = "aarch64-linux-gnu-addr2line"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-ld"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "aarch64-linux-gnu-pkgconf"
+stratum = "ok"
+
+[[entry]]
+tool = "aarch64-linux-gnu-strip"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "addgnupghome"
+stratum = "verbatim"
+
+[[entry]]
+tool = "apt"
+stratum = "ok"
+k3 = true
+
+[[entry]]
+tool = "bc"
+stratum = "ok"
+
+[[entry]]
+tool = "btrfstune"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "byobu-launcher-uninstall"
+stratum = "ok"
+
+[[entry]]
+tool = "bzfgrep"
+stratum = "ok"
+
+[[entry]]
+tool = "cgdisk"
+stratum = "verbatim"
+
+[[entry]]
+tool = "col2"
+stratum = "ok"
+
+[[entry]]
+tool = "debconf"
+stratum = "ok"
+
+[[entry]]
+tool = "envsubst"
+stratum = "ok"
+
+[[entry]]
+tool = "era_invalidate"
+stratum = "low-confidence"
+
+[[entry]]
+tool = "fsck.fat"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "grub-install"
+stratum = "ok"
+
+[[entry]]
+tool = "h2xs"
+stratum = "ok"
+
+[[entry]]
+tool = "info"
+stratum = "ok"
+
+[[entry]]
+tool = "ip6tables-translate"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "jstack"
+stratum = "ok"
+
+[[entry]]
+tool = "keep-one-running"
+stratum = "no-tier"
+
+[[entry]]
+tool = "lastlog"
+stratum = "ok"
+
+[[entry]]
+tool = "link"
+stratum = "ok"
+
+[[entry]]
+tool = "llvm-nm-18"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "llvm-windres-18"
+stratum = "ok"
+
+[[entry]]
+tool = "loadkeys"
+stratum = "ok"
+
+[[entry]]
+tool = "mariadb-show"
+stratum = "ok"
+
+[[entry]]
+tool = "mkfontscale"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "mount.fuse"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "mysqlaccess"
+stratum = "ok"
+
+[[entry]]
+tool = "mysqldump"
+stratum = "ok"
+
+[[entry]]
+tool = "nl"
+stratum = "ok"
+
+[[entry]]
+tool = "pkttyagent"
+stratum = "ok"
+
+[[entry]]
+tool = "pro"
+stratum = "ok"
+
+[[entry]]
+tool = "qemu-ppc64el-static"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "rpcgen"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "run-parts"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_inq"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "sg_safte"
+stratum = "ok"
+
+[[entry]]
+tool = "sg_write_buffer"
+stratum = "ok"
+
+[[entry]]
+tool = "stdbuf"
+stratum = "ok"
+
+[[entry]]
+tool = "sudo_sendlog"
+stratum = "ok"
+
+[[entry]]
+tool = "swift-drive-audit"
+stratum = "verbatim"
+
+[[entry]]
+tool = "swift-ring-composer"
+stratum = "ok"
+
+[[entry]]
+tool = "systemd-escape"
+stratum = "ok"
+
+[[entry]]
+tool = "tc"
+stratum = "verbatim"
+
+[[entry]]
+tool = "update-ca-certificates"
+stratum = "verbatim"
+
+[[entry]]
+tool = "xargs"
+stratum = "ok"
+k1 = true
+
+[[entry]]
+tool = "xfs_fsr"
+stratum = "ok"
+k1 = true
+
+[[passed_over]]
+tool = "ntfsfallocate"
+reason = "verdict"
+
+[[passed_over]]
+tool = "less"
+reason = "fixture"
+
+[[passed_over]]
+tool = "vdpa"
+reason = "fixture"
+
+[[passed_over]]
+tool = "ffmpeg"
+reason = "fixture"
