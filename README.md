@@ -140,10 +140,8 @@ never tuned for against each tool's own `--help`. In the latest audit, on 0.9.0,
 correct (61%)**; the true rate is likely between 47% and 74%. A tool only counts as correct
 when every one of its flags and subcommands is read right. Every older release is scored
 on the same tools, which gives the line above, and the dashed line is the goal: 90%.
-[How the numbers are made](docs/accuracy.md).
-
-So check anything surprising against the tool's own `--help`. To help raise the
-number, see [Contributing](#contributing).
+In other words: pick a tool mandible has never been tested against, and about 6 times
+in 10 every flag and subcommand comes out right. [How the numbers are made](docs/accuracy.md).
 
 <details>
 <summary><h2>Keys</h2></summary>
