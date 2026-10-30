@@ -417,6 +417,17 @@ enum AuditAction {
         #[arg(long, default_value = "audit")]
         dir: PathBuf,
     },
+    /// Mark one failed entry `known` (its help layout already has a
+    /// docs/shapes.md entry) or `new` (it has none), editing only that
+    /// entry of the manifest.
+    Tag(audit::TagArgs),
+    /// Audited accuracy per release: the human verdicts of each judged
+    /// batch plus the replay of older releases over the same tools, with a
+    /// Wilson interval per release. Writes `history.json`.
+    History(audit::HistoryArgs),
+    /// Draw the accuracy and new-failures charts (light and dark SVG) from
+    /// `history.json`.
+    Chart(audit::ChartArgs),
     /// Turn every reviewed tool into a `corpus/README.md`-shaped fixture:
     /// capture files, a pre-filled `meta.toml`, `expected.snap` for a
     /// `correct` verdict, `[xfail]` with the reviewer's note as `reason`
@@ -666,6 +677,9 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             overwrite,
         } => audit::cmd_ingest(&dir, seed, &verdicts, overwrite),
         AuditAction::Report { seed, dir } => audit::cmd_report(&dir, seed),
+        AuditAction::Tag(args) => audit::cmd_tag(&args),
+        AuditAction::History(args) => audit::cmd_history(&args),
+        AuditAction::Chart(args) => audit::cmd_chart(&args),
         AuditAction::Fixtures {
             seed,
             dir,

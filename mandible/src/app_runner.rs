@@ -136,6 +136,9 @@ pub fn run(mut app: App, sink: terminal::Sink) -> anyhow::Result<()> {
 pub fn run_review(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let path = audit::verdict_path(dir, seed);
     let manifest = audit::load(&path)?;
+    if let Some(warning) = version_mismatch(&manifest.meta.mandible_version) {
+        println!("{warning}");
+    }
     if manifest.needing_attention().next().is_none() {
         // Nothing to do: report it plainly and skip the raw-mode dance
         // entirely, same as `xtask audit review`'s own "nothing pending"
@@ -151,6 +154,18 @@ pub fn run_review(dir: &Path, seed: u64) -> anyhow::Result<()> {
     let restore_result =
         terminal::restore(terminal::Sink::Stdout).context("failed to restore the terminal");
     result.and(restore_result)
+}
+
+/// The notice `--review` prints when this build is not the one the batch is
+/// judged with, so a verdict is never recorded against the wrong parser.
+fn version_mismatch(manifest_version: &str) -> Option<String> {
+    let own = env!("CARGO_PKG_VERSION");
+    if manifest_version.is_empty() || manifest_version == own {
+        return None;
+    }
+    Some(format!(
+        "this batch is judged with mandible {manifest_version}, but this is mandible {own}"
+    ))
 }
 
 fn run_review_loop(term: &mut terminal::Term, dir: &Path, seed: u64) -> anyhow::Result<()> {
@@ -508,6 +523,15 @@ mod tests {
     /// one binary on multiple threads, so two tests setting it concurrently
     /// would race.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn version_mismatch_warns_only_for_a_different_recorded_version() {
+        let own = env!("CARGO_PKG_VERSION");
+        assert!(version_mismatch("").is_none());
+        assert!(version_mismatch(own).is_none());
+        let warning = version_mismatch("0.0.1").unwrap();
+        assert!(warning.contains("0.0.1") && warning.contains(own));
+    }
 
     fn stub() -> mandible_core::CommandNode {
         mandible_core::CommandNode::new("git", mandible_core::Provenance::default())

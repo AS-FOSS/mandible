@@ -545,6 +545,7 @@ pub fn cmd_sample(
                 // it here re-probes each drawn tool with `classify_one`
                 // directly, with no containment attempt of its own.
                 containment: "uncontained".to_string(),
+                mandible_version: env!("CARGO_PKG_VERSION").to_string(),
             },
             entries: Vec::new(),
         }

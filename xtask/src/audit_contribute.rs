@@ -271,6 +271,7 @@ fn draw(
                 sample_size: sample,
                 platform: current_platform(),
                 containment: "uncontained".to_string(),
+                mandible_version: env!("CARGO_PKG_VERSION").to_string(),
             },
             entries: Vec::new(),
         }
