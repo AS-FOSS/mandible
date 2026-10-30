@@ -1,0 +1,259 @@
+{
+  "seed": 8,
+  "ref": "v0.3.2",
+  "version": "0.3.2",
+  "commit": "a6bf970d474955bd5bc54129700a6c98b30f9abd",
+  "generated": "2026-10-30",
+  "tools": {
+    "aarch64-linux-gnu-addr2line": {
+      "status": "ok",
+      "help_sha256": "c46cc669c0d69b84d4bdaa347bc891031d2cfd75105d65d84bd55205346465ac",
+      "tree_sha256": "4bb6df60c1effea0c5fa5137c454afa1e10d94014286a363b1317b92c15f3a48"
+    },
+    "aarch64-linux-gnu-ld": {
+      "status": "ok",
+      "help_sha256": "457ce635f281ce0ebe4a414eb49fb849e21edf7986467ec4580957f2aaeae84b",
+      "tree_sha256": "9c1d704737e5d0b5c7e200f9889cc5a4b3b48c8a6bb2e41355424c9aaa674230"
+    },
+    "aarch64-linux-gnu-pkgconf": {
+      "status": "ok",
+      "help_sha256": "9d6c96e5f84ee1cf0e30782c2b463f3d53f6da5886ae90740377644e14135ace",
+      "tree_sha256": "b06a028d155eebf352a62cb2fc6fb905692e663df7e5c0d2c738f254d899266b"
+    },
+    "aarch64-linux-gnu-strip": {
+      "status": "ok",
+      "help_sha256": "3093564fb396474c1c0c3b4ccd773198941630e0c9a013ffaf834a8f88aed001",
+      "tree_sha256": "6430abcd5e5b509f6c1159612f61f754784861dc618c7b132272c32cba6e4664"
+    },
+    "addgnupghome": {
+      "status": "ok",
+      "help_sha256": "117609d7acae20b313b6e4bcffe6bf1ce88270b6fb8a71fd48f484036018c9f7",
+      "tree_sha256": "acfe297905b5c84aeb4e7868efe7ef31640ee483b1949fd8f497082ec1e6ecfd"
+    },
+    "apt": {
+      "status": "ok",
+      "help_sha256": "7726386e650daaf180fe2c7f6ba9cf704b99b7dbf1ec0a48fecee3e992ce2adb",
+      "tree_sha256": "1f0d7613f6325dd2957208d653ae2dc08704349c4157259a74495bd0d0bf0939"
+    },
+    "bc": {
+      "status": "ok",
+      "help_sha256": "d84926095d0eb4080bb57d17e41a24a4337304a38cc93713b2a1477efd0b6885",
+      "tree_sha256": "ca6b6abe649027d241c420d6f76f4d4f4983d7db81801b18816eef5d2a5d71a6"
+    },
+    "btrfstune": {
+      "status": "ok",
+      "help_sha256": "f2eff80862f81e8082c7efcfc9db614651c620cec439bc7500fa225afa0f9666",
+      "tree_sha256": "269cd81949ef6e169448d227d51bac565a320835a51aea940783f2177c70f626"
+    },
+    "byobu-launcher-uninstall": {
+      "status": "ok",
+      "help_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tree_sha256": "e15a0e2cc419fc9c40822a349efd54c9a8d1f5ffdcd98a70bfb924745e6db53d"
+    },
+    "bzfgrep": {
+      "status": "ok",
+      "help_sha256": "b415534e2be2556308ca698baabeaa05019f1f26c51c9c8c91cab2a4c9988187",
+      "tree_sha256": "053feaf6160e7064eec444cbacfcb7510a408741c4c57c4aa3806db1a44f11c5"
+    },
+    "cgdisk": {
+      "status": "ok",
+      "help_sha256": "f26c03a2cfda2a623d703d0e41e165203bf46389daa2d30e8a8dce7f7bc7ed47",
+      "tree_sha256": "4e24b4a3b87b998a90236977e811166ac712f4f6de5097272dfb99cabfd00f35"
+    },
+    "col2": {
+      "status": "ok",
+      "help_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tree_sha256": "9898f8fa709f8e8758d0ee6244d61fb3188ff24f9707aa8574963eeebe70fa78"
+    },
+    "debconf": {
+      "status": "ok",
+      "help_sha256": "36a43057c72e264bb3358e694755200cf4c816b13b87f7539586613e10986e9e",
+      "tree_sha256": "48994bc908c4e01a799df3982c293ba95ce2b947c0a4e8aaca16da7375bbbb8d"
+    },
+    "envsubst": {
+      "status": "ok",
+      "help_sha256": "b1a61943c11c4e2d1b0a602d3664fb688afc505bb6f75062a31c3c7d4e703e0c",
+      "tree_sha256": "f3ea22b9257784d10042c0274ebef1cf5bbc79fe5e72907104f6811a5a4aec33"
+    },
+    "era_invalidate": {
+      "status": "ok",
+      "help_sha256": "4473ed6194b975fad591e75080e4d238d5ee3dc223acaf494f448f26d2634ac8",
+      "tree_sha256": "407452e1e7538d597b31ca02f0ac9bafff106a80772f2b0835e0b237b761ab11"
+    },
+    "fsck.fat": {
+      "status": "ok",
+      "help_sha256": "5fcf818a4aae060df71548d2e57c15015717bf89e519a6484ccfb37682400cb4",
+      "tree_sha256": "e698adef32d4410a182bd6a291fc346153d32834b12ad8a1a76c80fef8062dad"
+    },
+    "grub-install": {
+      "status": "ok",
+      "help_sha256": "24eee68ffe6a2d148e7fa849bb4d2154a2b1a7b8405bba49ec9ea14a4aef1c0e",
+      "tree_sha256": "68f6bfa5f5f88dccb8e2f7602770fb37fe0e29b93ab2fc486ba5cf1d8781bea7"
+    },
+    "h2xs": {
+      "status": "ok",
+      "help_sha256": "e2c183f327cf12f4762e38ed56af99e54e73b7a8707f4feeacc9f38e4596b03e",
+      "tree_sha256": "aff84ad4c7425abe752c980fdcb796d1e63c04e480e64478374c7d3b5bad6ea1"
+    },
+    "info": {
+      "status": "ok",
+      "help_sha256": "b33d0cdd4f4dd1c8361081ae61d267efc73da053688f847c9e3f53092b959c86",
+      "tree_sha256": "6f22507c76f431753d42a1dab4f2c062e7f2d56860737f97223a2173535f5db5"
+    },
+    "ip6tables-translate": {
+      "status": "ok",
+      "help_sha256": "873d3e76d4466e424216ee6c234315472f4a3721cc2e3db411fffa878470b19b",
+      "tree_sha256": "3b276b76df00e2dc0516a97966c2ce8bf0f42c471775dabfa360ca17dc64169f"
+    },
+    "jstack": {
+      "status": "ok",
+      "help_sha256": "35e6629d60484b1518ac66431beb59d535f4a4f76f1b4e77a23182069ec04cc7",
+      "tree_sha256": "aa7fbee9808688995b147c7161dcd8fb284d04d347fe18b84dc567574dd5459f"
+    },
+    "keep-one-running": {
+      "status": "ok",
+      "help_sha256": "68e3508f5c6699d068112fa955779fbb5a23179da9a004e20fc184bf344d28c2",
+      "tree_sha256": "bad6b3a17cc2829f55914625e90ac8c7e64a04acabac1853313c7f39ae9f9981"
+    },
+    "lastlog": {
+      "status": "ok",
+      "help_sha256": "47eab6967a35ac4731f1b4d5a07a16a51b27c752e6fac0e642627f88a46a9847",
+      "tree_sha256": "a2d51623c380e57356efc2911e890d9606707c123089bfd87d0bb2a3be879046"
+    },
+    "link": {
+      "status": "ok",
+      "help_sha256": "222ce29fcb520589631516718df971d60c922d1f28bfb8c477aeb638edaf9dc1",
+      "tree_sha256": "c26d8500e3989325c8673000ebd4d704692d5436621a7267fc55e42b83d4d763"
+    },
+    "llvm-nm-18": {
+      "status": "ok",
+      "help_sha256": "8321a92b3de0924ea09ded334e671985255bd659bf8974fb164389f3ce140336",
+      "tree_sha256": "742462ba1cfb731539beef8bb4aaa3834dc18ee56d662f4754ad5a3b411e0d99"
+    },
+    "llvm-windres-18": {
+      "status": "ok",
+      "help_sha256": "27fbd83462103e3d8b9af8e7edb30905b02d94bc40171b616bcbf2902da23d5a",
+      "tree_sha256": "c69cc143b18733f71575f1f878a7412e194d30fa67844a772270c4215e6de99a"
+    },
+    "loadkeys": {
+      "status": "ok",
+      "help_sha256": "bcb4702d0d884f74aac999d57726aabe406fbdce03fb29028d1fa3e6881d6d49",
+      "tree_sha256": "13ff456f8a574bf668997e82f5e43b70ff81796e175d3ef475e001d7735c7ad9"
+    },
+    "mariadb-show": {
+      "status": "ok",
+      "help_sha256": "a0bb7558398d548c99d6b382aa618e446dfb93da72a944f6680a7c6baa07649b",
+      "tree_sha256": "3c165931eb089086bd444d37c5dfc264dbcc381c8fed2699d464c7fc43306853"
+    },
+    "mkfontscale": {
+      "status": "ok",
+      "help_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tree_sha256": "9fe1e6518af2228e17071c3da72aef8fc3036756a7a9b5fc4d2ab143b2ec1c19"
+    },
+    "mount.fuse": {
+      "status": "ok",
+      "help_sha256": "6a75506cf89b8f67f80a57047bd4285f38076db6acabd573cc96a1a7abd5212b",
+      "tree_sha256": "09ffd8fd8e6592871baf1df2a175747d008a7ba2e7f08ccd64b2d494639c897b"
+    },
+    "mysqlaccess": {
+      "status": "ok",
+      "help_sha256": "50cb0935293d0d5313d50cbea18cec048b7a31540468ea44d76a824c7467a66c",
+      "tree_sha256": "451acd20c97bf7d1de07f66497924ccf495acdaf526be11619ebff0841f8b5df"
+    },
+    "mysqldump": {
+      "status": "ok",
+      "help_sha256": "32a594364a77600a68a20f72d4ffe542bb034bb10f0ca614b891bb760e7a7cb6",
+      "tree_sha256": "640de1beae9262363d6dc21104e120bf49f74fa750c7bb780b2e28493b072e4d"
+    },
+    "nl": {
+      "status": "ok",
+      "help_sha256": "0f3d515e15297413b92c9d5573beb5d0cab1e1e68c60ba3a390f48c2de939436",
+      "tree_sha256": "0bdb906607654d7c279f5562ac2e4a4d9965e36691951d2a9ea2092a0cdd80c6"
+    },
+    "pkttyagent": {
+      "status": "ok",
+      "help_sha256": "9f9ec350a305681e1003375d7ed5554b1d17e05208848329092034e9b50b4222",
+      "tree_sha256": "ddd95003bd354d33c7ae41ef031502922d8458bf67fcd5d44614b64e3d1e7b29"
+    },
+    "pro": {
+      "status": "ok",
+      "help_sha256": "c517bf8fb3a45de493a4dff8d2bb2bf33fba97ab68744f44693c3e6a88bf29a2",
+      "tree_sha256": "63e851dbebfa3f2f9b737b978de72925e90aafb9f4e2cee0c576d47f9fd4acdd"
+    },
+    "qemu-ppc64el-static": {
+      "status": "ok",
+      "help_sha256": "d5e64ac2c0eb4c976d4391fb33b093cbfdddf4bfbdca1c1a80541f09cbc695c7",
+      "tree_sha256": "53f8311906838a085e5c9870077cebdd01ba54291b4a68e45cf9e780e45d61f7"
+    },
+    "rpcgen": {
+      "status": "ok",
+      "help_sha256": "99b2316dd0ce85f62155b005d54c7c9e847faf6f8fed560762bfd34c6bcb8578",
+      "tree_sha256": "95750011fce61c341c91eb676bc49dd93dcd86cd28717be815029ab3510639a6"
+    },
+    "run-parts": {
+      "status": "ok",
+      "help_sha256": "b402e2a91a348aaad5afbeec724bd02b4eb84fec87918ecf731850c4213479b7",
+      "tree_sha256": "50d1cb9ebde44bb58760ba20a95efe10a30c770953bc86b497a50457eec169e0"
+    },
+    "sg_inq": {
+      "status": "ok",
+      "help_sha256": "0bcd3ab392a177c2798ec71b4ef93522467651bcebfaaf5a4e8df97a7ff5ae34",
+      "tree_sha256": "1fdba0c5c8fa00de7071b1cb32f3dba3b7ee0d3539f1a7e2820de463850d9171"
+    },
+    "sg_safte": {
+      "status": "ok",
+      "help_sha256": "f96ee15109fd3263f74b42ebf508ef587304342faa8b5bbdae400d6e077ef9f3",
+      "tree_sha256": "35009109290cd4f1dadb9908c0e67dd6be62239c2ce38ccfe07640942f127855"
+    },
+    "sg_write_buffer": {
+      "status": "ok",
+      "help_sha256": "830e6d89cf9ab460f4ec08dfc781b9879d1de3061607b4907ef2779a09e69ff3",
+      "tree_sha256": "34a95b600b238dfe4091206461d3d467cb2ec524239f61ee39f8fde2a52f3135"
+    },
+    "stdbuf": {
+      "status": "ok",
+      "help_sha256": "905dad0ad882a4459358c7578efb0e4a81549557c481f99a1a5b05fcae557e57",
+      "tree_sha256": "5f5b545b38461772fc4a0905d7fcf7fb78d1427b7dc04f74d2e8817f29e8b1ba"
+    },
+    "sudo_sendlog": {
+      "status": "ok",
+      "help_sha256": "1a2add66753a1866a710f166400396a8972bff875405bfc61ccacdffdd9562f3",
+      "tree_sha256": "b577765e414ca536a7595fc6f0fd6bf02a20881425810b61f1f7434434171a57"
+    },
+    "swift-drive-audit": {
+      "status": "ok",
+      "help_sha256": "f5fbc1bf530af97431c558e2c6b15c7734cb4615a9f45164a7ef58947541b7e3",
+      "tree_sha256": "cc7c5b69d52adad538b3fc4a1d22de3aa801cb3253757c20b278d73480992ebf"
+    },
+    "swift-ring-composer": {
+      "status": "ok",
+      "help_sha256": "8f99ca83fbf501ac160a116b692b5f66ac3535439bad587962aeef17b6dd5069",
+      "tree_sha256": "80e541f458a6c78a3d8591431c00974ed5c74eff1ac3bb97ad95de448998c947"
+    },
+    "systemd-escape": {
+      "status": "ok",
+      "help_sha256": "e140738406ca1a30063a88ffa024ceff9570c7aacacea9320f36925e81762bed",
+      "tree_sha256": "3510aa0c2ba1207fbd568fd8c4c156107be034cf0d1f688de1fd646ba36020db"
+    },
+    "tc": {
+      "status": "ok",
+      "help_sha256": "75ff917ca7bb76f17bd78012521d0692d22403153f33260de4d40a43b18df96f",
+      "tree_sha256": "516bf071229c25c3c5f5a88661f6b2f99711f4c5b842ab2e49224fc33253b80e"
+    },
+    "update-ca-certificates": {
+      "status": "ok",
+      "help_sha256": "a77dbfb5fab42ab6c4f9f48181f5f1a79af9fa001a34f5851d1e288cc8a293a4",
+      "tree_sha256": "733f647f680a6d0fc4f0d4e0ca7fb371217465a40663e77c87bdb73bc79a6187"
+    },
+    "xargs": {
+      "status": "ok",
+      "help_sha256": "4fbab746724575e6204b2f89685bb5c8fe4ad6952724bd9fee73e60e583d88c4",
+      "tree_sha256": "5839898d81947120961eec9ce5089bc9df931a0a84320e43b483b2709d4e225a"
+    },
+    "xfs_fsr": {
+      "status": "ok",
+      "help_sha256": "694186e79aea212bb8d3634ae320d4fc47722c7a44e8a1f4b0b828586ee16687",
+      "tree_sha256": "494f7d99492356f1c246b9c59664bb5ece2886fc87784753e31c234fc3062c9a"
+    }
+  }
+}
