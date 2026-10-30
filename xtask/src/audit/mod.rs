@@ -38,6 +38,7 @@
 mod batch;
 mod fixtures;
 mod interactive;
+mod replay;
 mod report;
 mod signatures;
 
@@ -45,6 +46,7 @@ pub(crate) use batch::sanitize_filename;
 pub use batch::{cmd_amend, cmd_emit, cmd_ingest};
 pub use fixtures::cmd_fixtures;
 pub use interactive::{cmd_review, cmd_spot_audit};
+pub use replay::{cmd_replay, cmd_truth, ReplayArgs};
 pub use report::cmd_report;
 pub(crate) use report::render_report;
 use signatures::{k1_signature, k2_signature, k3_signature};

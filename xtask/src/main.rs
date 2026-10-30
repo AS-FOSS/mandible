@@ -511,6 +511,24 @@ enum AuditAction {
         #[arg(long)]
         draw_seed: u64,
     },
+    /// Run every scored release of mandible over the tools of an audit
+    /// batch and record a hash of the tree each one read (`audit::replay`'s
+    /// module doc). Namespace-contained like a full-`PATH` sweep.
+    Replay(audit::ReplayArgs),
+    /// Write the current build's tree for one tool of a batch whose verdict
+    /// is incomplete or wrong to `<dir>/<seed>/truth/<tool>.json`, as the
+    /// eye-confirmed tree the replay scoring compares older releases to.
+    Truth {
+        /// The batch the tool belongs to.
+        #[arg(long)]
+        seed: u64,
+        /// The tool.
+        #[arg(long)]
+        tool: String,
+        /// Directory holding the batch.
+        #[arg(long, default_value = "audit")]
+        dir: PathBuf,
+    },
     /// The one-command audit submission flow (CONTRIBUTING.md §2 / README's
     /// "Contributing" section): prompts for a GitHub login, draws tool
     /// NAMES off `PATH` excluding already-audited tools, probes only the
@@ -693,6 +711,8 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             sample,
             draw_seed,
         } => audit::cmd_spot_audit(&dir, seed, &event, &promoted, sample, draw_seed),
+        AuditAction::Replay(args) => audit::cmd_replay(&args),
+        AuditAction::Truth { seed, tool, dir } => audit::cmd_truth(seed, &tool, &dir),
         AuditAction::Contribute {
             seed,
             sample,
