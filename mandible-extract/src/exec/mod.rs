@@ -19,6 +19,8 @@
 
 pub mod canary;
 pub mod containment;
+#[cfg(unix)]
+pub mod host;
 mod kept;
 mod limit;
 mod policy;
