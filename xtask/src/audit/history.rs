@@ -1,25 +1,14 @@
 //! `xtask audit history`: the audited accuracy of each release, from the
 //! human verdicts of every judged batch and the replay of older releases
-//! over the same tools.
+//! over the same tools. What counts as correct and how older releases are
+//! scored is in docs/accuracy.md.
 //!
-//! A release R is scored on a batch only when R is not newer than the
-//! batch's judged version. The judged version takes the human verdicts
-//! directly. For an older R, per tool, R's tree hash is compared with the
-//! judged build's:
-//!
-//! - equal: the human verdict carries over;
-//! - different and judged `correct`: wrong;
-//! - different and judged `incomplete`/`wrong`: R is compared with the
-//!   tool's truth file (equal: correct, else wrong); with no truth file the
-//!   tool is `needs-eye`, left out of the counts and listed;
-//! - R failed to run the tool (`error`/`timeout`): wrong.
-//!
-//! Files read, under the audit dir: `<seed>.toml`, `<seed>/replay/*.json`
-//! and `<seed>/truth/*.json`. Output: `history.json` plus a plain table.
+//! Reads `<seed>.toml`, `<seed>/replay/*.json` and `<seed>/truth/*.json`
+//! under the audit dir; writes `history.json` plus a plain table.
 
 use super::batch::sanitize_filename;
+use super::replay::sha256::sha256_hex;
 use super::report::wilson_interval;
-use super::sha256::sha256_hex;
 use mandible_core::audit::{load, verdict_path, AuditFile};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};

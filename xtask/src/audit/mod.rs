@@ -43,18 +43,20 @@ mod history;
 mod interactive;
 mod replay;
 mod report;
-mod sha256;
 mod signatures;
 mod tag;
 
 pub(crate) use batch::sanitize_filename;
 pub use batch::{cmd_amend, cmd_emit, cmd_ingest};
 pub use chart::cmd_chart;
-pub use cli::{ChartArgs, HistoryArgs, TagArgs};
+pub use cli::{
+    AmendArgs, ChartArgs, FixturesArgs, HistoryArgs, IngestArgs, ReplayArgs, SpotAuditArgs,
+    TagArgs, TruthArgs,
+};
 pub use fixtures::cmd_fixtures;
 pub use history::cmd_history;
 pub use interactive::{cmd_review, cmd_spot_audit};
-pub use replay::{cmd_replay, cmd_truth, ReplayArgs};
+pub use replay::{cmd_replay, cmd_truth};
 pub use report::cmd_report;
 pub(crate) use report::render_report;
 use signatures::{k1_signature, k2_signature, k3_signature};

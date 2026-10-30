@@ -1,38 +1,17 @@
-//! `xtask audit replay` and `xtask audit truth`: what each release of
-//! mandible read of the tools in an audit batch, in one comparable form.
+//! `xtask audit replay` and `audit truth`: what each release of mandible
+//! read of the tools in an audit batch, as one comparable tree hash. Scoring
+//! is in docs/accuracy.md.
 //!
-//! # Replay
-//!
-//! For every ref (a release tag, or the commit the batch was judged with)
-//! the checkout is built with a small harness (`harness/`) that runs that
-//! version's own pipeline over a tool, walking the root and every
-//! subcommand the way the corpus runner does, and dumps the tree as serde
-//! JSON. The harness uses only `Runner`, `default_tiers`, `resolve_tool` and
-//! `fill_node`, which every release since 0.1.0 exposes unchanged, so one
-//! source serves all of them. The dump is reduced by [`tree`] to the
-//! canonical normalized tree and hashed.
-//!
-//! The run is namespace-contained exactly as a full-`PATH` sweep is
-//! (`crate::sweep_guard`): every old pipeline probes real tools, and a
-//! release older than the gating rules is the reason to contain them.
-//!
-//! Output, relative to the audit directory:
-//!
-//! - `<seed>/replay/<ref>.json`: per tool `status` (`ok`, `error`,
-//!   `timeout`), `error` text when not ok, `help_sha256` (the root
-//!   `--help` stdout then stderr as the current build captures it in this
-//!   run, the same for every ref), and `tree_sha256`. A tool no tier
-//!   produced a root for is `ok` with the empty tree.
-//! - `target/replay/<seed>/<ref>/<tool>.json`: the canonical tree itself.
-//!
-//! # Truth
-//!
-//! `audit truth` dumps the current workspace build's tree for a tool that
-//! was judged incomplete or wrong, to `<seed>/truth/<tool>.json`, in
-//! canonical bytes so the file's own sha256 is the tree hash.
+//! Replay builds each ref with a small harness (`harness/`) that runs that
+//! version's pipeline (`Runner`, `default_tiers`, `resolve_tool`, `fill_node`,
+//! stable since 0.1.0) and dumps the tree; [`tree`] reduces it to the
+//! canonical form that is hashed. Runs are namespace-contained like a
+//! full-`PATH` sweep. Output: `<seed>/replay/<ref>.json` and
+//! `target/replay/<seed>/<ref>/<tool>.json`. Truth writes the current
+//! build's canonical tree to `<seed>/truth/<tool>.json`.
 
 mod run;
-mod sha256;
+pub(crate) mod sha256;
 mod source;
 mod tree;
 
@@ -44,9 +23,10 @@ use mandible_extract::exec::{InertArgv, LiveProbe, Probe};
 use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
+use super::ReplayArgs;
 use run::{run_harness, Outcome};
 use sha256::sha256_hex;
 
@@ -56,30 +36,6 @@ const PARALLEL_TOOLS: usize = 4;
 const NOT_FOUND: &str = "not found on PATH";
 /// Cap on the one root `--help` capture per tool.
 const HELP_CAP: Duration = Duration::from_secs(10);
-
-/// Run every scored release over the tools of an audit batch and record a
-/// hash of the tree each one read. Namespace-contained like a full-`PATH` sweep.
-#[derive(clap::Args, Debug)]
-pub struct ReplayArgs {
-    /// The batch to replay (`<dir>/<seed>.toml`).
-    #[arg(long)]
-    pub seed: u64,
-    /// Directory holding the batch; replay files go under `<dir>/<seed>/replay/`.
-    #[arg(long, default_value = "audit")]
-    pub dir: PathBuf,
-    /// Refs to replay, comma-separated (tags or commits).
-    #[arg(long, value_delimiter = ',')]
-    pub refs: Vec<String>,
-    /// Add the last patch tag of every minor earlier than the judged one.
-    #[arg(long)]
-    pub per_minor: bool,
-    /// The build the batch was judged with; defaults to `v<mandible_version>`.
-    #[arg(long)]
-    pub judged_ref: Option<String>,
-    /// Same escape hatch as `coverage --allow-uncontained`.
-    #[arg(long)]
-    pub allow_uncontained: bool,
-}
 
 /// One tool's line in a replay file.
 #[derive(Debug, Serialize, PartialEq, Eq)]

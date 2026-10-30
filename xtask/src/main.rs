@@ -394,20 +394,7 @@ enum AuditAction {
     /// line, `#` comments and blank lines ignored) to a sample — the
     /// counterpart to `emit`, and how a review gets recorded on a machine
     /// with no tty at all.
-    Ingest {
-        #[arg(long)]
-        seed: u64,
-        #[arg(long, default_value = "audit")]
-        dir: PathBuf,
-        /// The verdicts file to read.
-        #[arg(long)]
-        verdicts: PathBuf,
-        /// Replace an already-recorded verdict instead of leaving it
-        /// alone. Without this, re-running `ingest` on a file that
-        /// includes already-applied lines is a safe no-op for those lines.
-        #[arg(long)]
-        overwrite: bool,
-    },
+    Ingest(audit::IngestArgs),
     /// Per-stratum and overall accuracy, each stated as a count and a
     /// confidence interval — never a bare percentage — plus the list of
     /// tools judged `wrong` or `incomplete`.
@@ -434,25 +421,7 @@ enum AuditAction {
     /// for `wrong`/`incomplete`. Stages into `<dir>/<seed>/fixtures` by
     /// default rather than the gated `corpus/` tree — see `cmd_fixtures`'s
     /// doc comment for why.
-    Fixtures {
-        #[arg(long)]
-        seed: u64,
-        #[arg(long, default_value = "audit")]
-        dir: PathBuf,
-        /// Where to write fixture directories. Defaults to a staging area
-        /// under `--dir`; pass `corpus` explicitly to write straight into
-        /// the gated corpus (only once every `[xfail]` fixture has a real
-        /// falsifying `[contract]` field — see `cmd_fixtures`).
-        #[arg(long)]
-        corpus_dir: Option<PathBuf>,
-        /// Only emit fixtures for these tools (comma-separated) instead of
-        /// every reviewed entry.
-        #[arg(long, value_delimiter = ',')]
-        only: Option<Vec<String>>,
-        /// Overwrite an already-existing fixture directory.
-        #[arg(long)]
-        force: bool,
-    },
+    Fixtures(audit::FixturesArgs),
     /// Correct one already-recorded verdict without destroying it: the
     /// original verdict and note stay exactly as reviewed, and a new
     /// `[[amendments]]` entry records what it became and why. Aggregate
@@ -462,30 +431,7 @@ enum AuditAction {
     /// verdict, obligatory only when the new verdict is `wrong`/
     /// `incomplete` — same rule an ordinary verdict follows). See
     /// `mandible_core::audit::amend`'s doc comment for the full mechanism.
-    Amend {
-        #[arg(long)]
-        seed: u64,
-        #[arg(long, default_value = "audit")]
-        dir: PathBuf,
-        /// The tool whose verdict is being corrected.
-        #[arg(long)]
-        tool: String,
-        /// The corrected verdict (`c`/`correct`, `i`/`incomplete`,
-        /// `w`/`wrong`, `s`/`skip`).
-        #[arg(long)]
-        verdict: String,
-        /// The note attached to the corrected verdict. Required when
-        /// `--verdict` is `wrong`/`incomplete`, same obligation an ordinary
-        /// verdict carries.
-        #[arg(long)]
-        note: Option<String>,
-        /// Why the original verdict was wrong and is being corrected.
-        /// Always required — an amendment with nothing recorded about why
-        /// is exactly the unauditable change this command exists to
-        /// prevent.
-        #[arg(long)]
-        reason: String,
-    },
+    Amend(audit::AmendArgs),
     /// Spot-audit one mass-`ok` promotion event (spec §13.1b's sixth rule:
     /// "any change that promotes more than a handful of tools to `ok` must
     /// include a spot-audit of 5-10 randomly drawn promoted tools, recorded
@@ -495,33 +441,7 @@ enum AuditAction {
     /// extraction pass, and records them in `<dir>/<seed>.toml` as their
     /// own `spot-audit:<event>` stratum, reported by `report` alongside the
     /// ordinary parse-status strata and `forced-inclusion`.
-    SpotAudit {
-        /// Names the verdict file (`<dir>/<seed>.toml`) this draw is merged
-        /// into — same meaning as `sample`'s `--seed`.
-        #[arg(long)]
-        seed: u64,
-        #[arg(long, default_value = "audit")]
-        dir: PathBuf,
-        /// Names this promotion event; becomes the reported stratum label
-        /// `spot-audit:<event>`.
-        #[arg(long)]
-        event: String,
-        /// The tools this event actually promoted — the population this
-        /// spot-check draws from, never the whole fleet.
-        #[arg(long, value_delimiter = ',')]
-        promoted: Vec<String>,
-        /// How many to draw. Spec §13.1b's sixth rule asks for 5-10. If
-        /// `--promoted` names fewer tools than this, every one of them is
-        /// audited and the shortfall is reported explicitly — never a
-        /// silently smaller sample, never a padded count.
-        #[arg(long, default_value_t = 8)]
-        sample: usize,
-        /// Seed for the reproducible random draw over `--promoted`, mixed
-        /// with `--event` (via `crate::rng::stratum_seed`) so two
-        /// promotion events never share a correlated draw pattern.
-        #[arg(long)]
-        draw_seed: u64,
-    },
+    SpotAudit(audit::SpotAuditArgs),
     /// Run every scored release of mandible over the tools of an audit
     /// batch and record a hash of the tree each one read (`audit::replay`'s
     /// module doc). Namespace-contained like a full-`PATH` sweep.
@@ -529,17 +449,7 @@ enum AuditAction {
     /// Write the current build's tree for one tool of a batch whose verdict
     /// is incomplete or wrong to `<dir>/<seed>/truth/<tool>.json`, as the
     /// eye-confirmed tree the replay scoring compares older releases to.
-    Truth {
-        /// The batch the tool belongs to.
-        #[arg(long)]
-        seed: u64,
-        /// The tool.
-        #[arg(long)]
-        tool: String,
-        /// Directory holding the batch.
-        #[arg(long, default_value = "audit")]
-        dir: PathBuf,
-    },
+    Truth(audit::TruthArgs),
     /// The one-command audit submission flow (CONTRIBUTING.md §2 / README's
     /// "Contributing" section): prompts for a GitHub login, draws tool
     /// NAMES off `PATH` excluding already-audited tools, probes only the
@@ -688,45 +598,25 @@ fn run_audit(action: AuditAction) -> anyhow::Result<()> {
             dir,
             emit_dir,
         } => audit::cmd_emit(&dir, seed, &emit_dir),
-        AuditAction::Ingest {
-            seed,
-            dir,
-            verdicts,
-            overwrite,
-        } => audit::cmd_ingest(&dir, seed, &verdicts, overwrite),
+        AuditAction::Ingest(a) => audit::cmd_ingest(&a.dir, a.seed, &a.verdicts, a.overwrite),
         AuditAction::Report { seed, dir } => audit::cmd_report(&dir, seed),
         AuditAction::Tag(args) => audit::cmd_tag(&args),
         AuditAction::History(args) => audit::cmd_history(&args),
         AuditAction::Chart(args) => audit::cmd_chart(&args),
-        AuditAction::Fixtures {
-            seed,
-            dir,
-            corpus_dir,
-            only,
-            force,
-        } => {
-            let corpus_dir =
-                corpus_dir.unwrap_or_else(|| dir.join(seed.to_string()).join("fixtures"));
-            audit::cmd_fixtures(&dir, seed, &corpus_dir, only, force)
+        AuditAction::Fixtures(a) => {
+            let corpus_dir = a
+                .corpus_dir
+                .unwrap_or_else(|| a.dir.join(a.seed.to_string()).join("fixtures"));
+            audit::cmd_fixtures(&a.dir, a.seed, &corpus_dir, a.only, a.force)
         }
-        AuditAction::Amend {
-            seed,
-            dir,
-            tool,
-            verdict,
-            note,
-            reason,
-        } => audit::cmd_amend(&dir, seed, &tool, &verdict, note, reason),
-        AuditAction::SpotAudit {
-            seed,
-            dir,
-            event,
-            promoted,
-            sample,
-            draw_seed,
-        } => audit::cmd_spot_audit(&dir, seed, &event, &promoted, sample, draw_seed),
+        AuditAction::Amend(a) => {
+            audit::cmd_amend(&a.dir, a.seed, &a.tool, &a.verdict, a.note, a.reason)
+        }
+        AuditAction::SpotAudit(a) => {
+            audit::cmd_spot_audit(&a.dir, a.seed, &a.event, &a.promoted, a.sample, a.draw_seed)
+        }
         AuditAction::Replay(args) => audit::cmd_replay(&args),
-        AuditAction::Truth { seed, tool, dir } => audit::cmd_truth(seed, &tool, &dir),
+        AuditAction::Truth(args) => audit::cmd_truth(args.seed, &args.tool, &args.dir),
         AuditAction::Contribute {
             seed,
             sample,

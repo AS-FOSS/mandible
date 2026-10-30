@@ -1,45 +1,15 @@
 //! The canonical normalized tree: what a version of mandible read of a tool,
-//! reduced to the parts an audit judges, in one representation that does not
-//! depend on the version's internal types.
+//! reduced to what an audit judges (docs/accuracy.md), independent of the
+//! version's types.
 //!
-//! # What is kept
-//!
-//! Per node: `path` (tool name, then subcommand names), `flags`,
-//! `positionals`, `subcommands`. Nothing else: no descriptions, aliases,
-//! confidence, provenance, hidden bits, modifiers, environment variables or
-//! layout fields.
-//!
-//! A flag is `spellings` (typed forms such as `-v` and `--verbose`, sorted;
-//! the `[no-]` and abbreviation markers are display forms and are dropped),
-//! `value` (the placeholder name with `[`, `]`, `<`, `>` and `=` removed,
-//! case kept; absent when the flag takes no value), `optional` (the value
-//! may be omitted) and `choices` (sorted names). A positional is its name
-//! with the same stripping. Flags, positionals and subcommands are sorted,
-//! so row order never matters.
-//!
-//! Two representations of one reading are folded together:
-//!
-//! - A value written as an alternation (`y|n`, `(a|b)`, `{a,b}`) is the same
-//!   information as a choice list. Releases keep it as the value name, as
-//!   choices, or both, so the members are merged into `choices` and the
-//!   value, which then names nothing, is left empty.
-//! - A range row (`-0 ... -9`) is one entity with a range in the entity
-//!   schema and one flag per member before it. The range is expanded to one
-//!   flag per member, for integer and single-letter ranges.
-//!
-//! # Reading both schemas
-//!
-//! The input is the raw serde form of a `CommandNode`. Releases before the
-//! entity schema carry `flags` (`short`, `long`, `single_dash`) and
-//! `positionals`; later ones carry one `entities` list of kind-tagged items
-//! with `spellings`. Both are read here, by the keys present, so one harness
-//! serves every release.
-//!
-//! # Canonical bytes
-//!
-//! Struct fields are declared in alphabetical order, so the compact
-//! `serde_json` output has sorted keys and no whitespace. The sha256 of
-//! those bytes is the tree hash.
+//! Kept per node: `path`, `flags`, `positionals`, `subcommands`; per flag:
+//! sorted `spellings`, `value` (no brackets or `=`), `optional`, `choices`.
+//! All sorted. Two representations are folded: an alternation
+//! value (`y|n`, `{a,b}`) becomes `choices`, since releases keep it as the
+//! value, the choices, or both; a range row (`-0 ... -9`) is expanded to one
+//! flag per member, as older releases carry it. Both the `flags` schema and
+//! the later `entities` schema are read, by the keys present. Fields are
+//! declared alphabetically, so the compact JSON's sha256 is the tree hash.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
