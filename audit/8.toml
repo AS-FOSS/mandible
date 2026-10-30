@@ -198,74 +198,96 @@ note = "see why 'pBRE' is missing from values of STYLE."
 [[entry]]
 tool = "pkttyagent"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "pro"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "qemu-ppc64el-static"
 stratum = "ok"
+verdict = "incomplete"
+note = "note is in console"
 k1 = true
 
 [[entry]]
 tool = "rpcgen"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "run-parts"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "sg_inq"
 stratum = "ok"
+verdict = "correct"
 k1 = true
 
 [[entry]]
 tool = "sg_safte"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "sg_write_buffer"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "stdbuf"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "sudo_sendlog"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "swift-drive-audit"
 stratum = "verbatim"
+verdict = "skip"
 
 [[entry]]
 tool = "swift-ring-composer"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "systemd-escape"
 stratum = "ok"
+verdict = "correct"
 
 [[entry]]
 tool = "tc"
 stratum = "verbatim"
+verdict = "wrong"
+note = "it takes '-help' instead of '--help', i thought we already handled this probing thing"
 
 [[entry]]
 tool = "update-ca-certificates"
 stratum = "verbatim"
+verdict = "wrong"
+note = "why unparsed? we shoulda had usage section and at least 3 flags: verbose, fresh, help"
 
 [[entry]]
 tool = "xargs"
 stratum = "ok"
+verdict = "incomplete"
+note = "are we missing '[INITIAL-ARGS]... as a positional?"
 k1 = true
 
 [[entry]]
 tool = "xfs_fsr"
 stratum = "ok"
+verdict = "incomplete"
+note = "see if this 'xfsdev | dir | file ...' or 'xfsdev | dir | file' belong to flag '-g' or they are just positionals?"
 k1 = true
 
 [[passed_over]]
