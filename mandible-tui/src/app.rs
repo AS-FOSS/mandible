@@ -333,6 +333,9 @@ pub struct App {
     /// detail pane to that flag"). Cleared on any navigation that isn't a
     /// search-result selection.
     pub selected_flag: Option<mandible_core::FlagKey>,
+    /// The row `selected_flag` stands for when the page has several of one
+    /// spelling; `None` leaves it to the first.
+    pub(crate) selected_flag_row: Option<crate::sort::RowId>,
     /// The query and top search result `selected_flag` was last derived
     /// from. A rows refresh that finds the same pair leaves the target and
     /// the user's scroll alone.
@@ -477,6 +480,7 @@ impl App {
             palette,
             glyphs,
             selected_flag: None,
+            selected_flag_row: None,
             flag_target_source: None,
             print_selection: false,
             review: None,
@@ -575,6 +579,7 @@ impl App {
             return;
         }
         self.selected_flag = None;
+        self.selected_flag_row = None;
         self.flag_target_source = top.clone();
         let Some((_, hit)) = top else {
             return;
@@ -583,8 +588,10 @@ impl App {
             self.selected = idx;
         }
         match hit {
-            NodeRef::Flag { key, .. } => {
+            NodeRef::Flag { path, key } => {
                 self.detail_hscroll = 0;
+                self.selected_flag_row = resolve(&self.root, &path)
+                    .and_then(|node| crate::render::first_row_with_key(node, &key));
                 self.selected_flag = Some(key);
             }
             NodeRef::Command(_) => self.reset_detail_scroll(),
@@ -761,7 +768,14 @@ impl App {
         let path = &self.selected_row()?.path;
         let mut line = path.join(" ");
         if let Some(spelling) = self.selected_flag.as_ref().and_then(|key| {
-            mandible_core::resolve_flag(&self.root, path, key).and_then(|e| e.shell_spelling())
+            let node = resolve(&self.root, path)?;
+            let at = self
+                .selected_flag_row
+                .and_then(|id| crate::render::entity_at(node, id));
+            let entity = at
+                .filter(|e| e.matches_key(key))
+                .or_else(|| mandible_core::resolve_flag(&self.root, path, key))?;
+            entity.shell_spelling()
         }) {
             line.push(' ');
             line.push_str(&spelling);
@@ -1738,6 +1752,8 @@ mod contains_tests;
 mod ghost_tests;
 #[cfg(test)]
 mod marking_tests;
+#[cfg(test)]
+mod repeat_tests;
 #[cfg(test)]
 mod search_tests;
 #[cfg(test)]

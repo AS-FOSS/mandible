@@ -53,6 +53,9 @@ impl HitMarks {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct MatchRow {
     pub(crate) key: mandible_core::FlagKey,
+    /// Where the row stands on the page, which two rows of one spelling
+    /// do not share.
+    pub(crate) id: crate::sort::RowId,
     pub(crate) first_line: usize,
     pub(crate) lines: usize,
     /// The row the last jump or `n`/`p` landed on: the only one on the bar.
@@ -96,10 +99,13 @@ impl App {
             return;
         }
         let len = rows.len();
-        let current = self
-            .selected_flag
-            .as_ref()
-            .and_then(|key| rows.iter().position(|m| &m.key == key));
+        let current = self.selected_flag.as_ref().and_then(|key| {
+            let at = |m: &MatchRow| match self.selected_flag_row {
+                Some(id) => m.id == id,
+                None => &m.key == key,
+            };
+            rows.iter().position(at)
+        });
         let target = match current {
             Some(i) if forward => (i + 1) % len,
             Some(i) => (i + len - 1) % len,
@@ -115,6 +121,7 @@ impl App {
             }
         };
         self.selected_flag = Some(rows[target].key.clone());
+        self.selected_flag_row = Some(rows[target].id);
         self.detail_hscroll = 0;
     }
 }

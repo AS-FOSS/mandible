@@ -26,6 +26,14 @@ pub(super) fn wants_preview(body_rows: usize, pane_height: usize) -> bool {
         && body_rows >= preview_rows(pane_height) + MIN_HIDDEN_ROWS
 }
 
+/// Whether `description` says nothing the page's `summary` line has not
+/// already said: equal once every run of whitespace is one space and the
+/// ends are trimmed.
+pub(super) fn repeats_summary(description: &str, summary: Option<&str>) -> bool {
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    summary.is_some_and(|summary| words(description) == words(summary))
+}
+
 /// The page under construction: its lines, and the item and rule starts
 /// recorded for them.
 pub(super) struct Page<'a> {

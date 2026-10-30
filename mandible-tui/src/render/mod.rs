@@ -10,6 +10,7 @@
 
 mod detail_pane;
 pub(crate) use detail_pane::is_empty_page;
+pub(crate) use detail_pane::{entity_at, first_row_with_key};
 mod help_colours;
 mod help_overlay;
 mod help_settings;

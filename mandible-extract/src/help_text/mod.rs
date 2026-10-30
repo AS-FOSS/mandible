@@ -112,10 +112,18 @@ use std::sync::{Arc, Mutex};
 /// docs/shapes.md S-189). [`render_argv`] turns it into the typed argv.
 pub const HELP_WORD_PROBE: &str = "help <word>";
 
+/// Starts the probe label returned when a refused name shows the tool's
+/// root help instead; the rest is the flag the root answered under.
+/// [`render_argv`] turns it into the root's own argv.
+const ROOT_FALLBACK_PREFIX: &str = "root ";
+
 /// The argv a human would type for a probe of `words` that answered under
-/// `flag`: `<tool> help <words>` for [`HELP_WORD_PROBE`], else
-/// `<tool> <words> <flag>`.
+/// `flag`: `<tool> help <words>` for [`HELP_WORD_PROBE`], `<tool> <flag>`
+/// for a root fallback, else `<tool> <words> <flag>`.
 pub fn render_argv(tool: &str, words: &[String], flag: &str) -> String {
+    if let Some(root_flag) = flag.strip_prefix(ROOT_FALLBACK_PREFIX) {
+        return format!("{tool} {root_flag}");
+    }
     let mut parts = vec![tool.to_string()];
     if flag == HELP_WORD_PROBE {
         parts.push("help".to_string());
@@ -736,7 +744,7 @@ pub fn raw_help_with_probe(
 
     match raw_probe_streams_confession_aware(probe, tool_path, &words, hints)? {
         RawProbeOutcome::Streams(streams, flag) => Ok((format_streams(&streams), flag)),
-        RawProbeOutcome::NotAttested => Ok(not_attested_fallback(probe, tool_path, &words)),
+        RawProbeOutcome::NotAttested => Ok(not_attested_fallback(probe, tool, tool_path, &words)),
     }
 }
 
@@ -981,23 +989,20 @@ fn format_streams(streams: &RawStreams) -> Vec<Text> {
 /// tool's own root `--help`, exempt from this gate by construction.
 fn not_attested_fallback(
     probe: &dyn Probe,
+    tool: &ResolvedTool,
     tool_path: &Path,
     words: &[String],
 ) -> (Vec<Text>, String) {
-    let attempted = words.join(" ");
-    let mut lines = vec![Text::sanitize_preserving_layout(&format!(
-        "{prefix}{attempted}\" as a real subcommand name: it came from a \
-         source the probe-safety gate does not accept as evidence a word is safe to run (a \
-         native/cobra artifact scan, or a headingless invocation table's layout evidence — \
-         neither is a recognized --help heading), so it was never sent as an argument. This is \
-         a known limitation of the gate, not something already worked around.",
-        prefix = mandible_core::notice::UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX
-    ))];
+    use mandible_core::notice;
+    let mut lines = vec![Text::sanitize_preserving_layout(
+        &notice::unverified_subcommand_notice(&words.join(" "), &tool.name),
+    )];
+    let mut root_flag = "--help".to_string();
 
     // `words` is empty here, so `heading_attested`'s value doesn't matter
     // to the gate; `true` reads honestly since the root is attested by
     // construction.
-    if let Ok(RawProbeOutcome::Streams(root_streams, _)) = raw_probe_streams_confession_aware(
+    if let Ok(RawProbeOutcome::Streams(root_streams, flag)) = raw_probe_streams_confession_aware(
         probe,
         tool_path,
         &[],
@@ -1008,20 +1013,19 @@ fn not_attested_fallback(
         },
     ) {
         if !root_streams.is_empty() {
+            let argv = render_argv(&tool.name, &[], &flag);
             lines.push(Text::sanitize_preserving_layout(""));
             lines.push(Text::sanitize_preserving_layout(
-                mandible_core::notice::ROOT_HELP_FALLBACK_LABEL,
+                &notice::root_help_fallback_label(&argv),
             ));
             lines.push(Text::sanitize_preserving_layout(""));
             lines.extend(format_streams(&root_streams));
+            root_flag = flag;
         }
     }
 
     lines.truncate(MAX_UNPARSED_LINES);
-    (
-        lines,
-        "(name not heading-attested — showing root --help as a fallback)".to_string(),
-    )
+    (lines, format!("{ROOT_FALLBACK_PREFIX}{root_flag}"))
 }
 
 /// Build a [`CommandNode`] from one probe's raw `--help` text, staging
@@ -1307,14 +1311,20 @@ mod tests {
             .map(|t| t.as_str())
             .collect::<Vec<_>>()
             .join("\n");
-        assert!(joined.contains("ghost"), "{joined}");
-        assert!(
-            joined.to_lowercase().contains("known limitation"),
-            "{joined}"
-        );
         // The root --help must actually appear, not just be described.
         assert!(joined.contains("Usage: shimtool [COMMAND]"), "{joined}");
-        assert!(flag.contains("not heading-attested"), "{flag:?}");
+        assert_eq!(render_argv("shimtool", &[], &flag), "shimtool --help");
+        assert_eq!(
+            joined.lines().next(),
+            Some(
+                "\"ghost\" was not run: mandible only runs names that shimtool's help lists \
+                 under a heading."
+            )
+        );
+        assert!(
+            joined.contains("\n\nShowing shimtool --help instead:\n\n"),
+            "{joined}"
+        );
     }
 
     #[test]

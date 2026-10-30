@@ -22,6 +22,7 @@ pub(crate) struct PageKey {
     palette: style::Palette,
     glyphs: Glyphs,
     target_flag: Option<FlagKey>,
+    target_row: Option<crate::sort::RowId>,
     loaded: bool,
     timed_out: bool,
     reading: bool,
@@ -45,6 +46,7 @@ impl PageKey {
             palette: app.palette,
             glyphs: app.glyphs,
             target_flag: app.selected_flag.clone(),
+            target_row: app.selected_flag_row,
             loaded: app
                 .selected_node()
                 .is_some_and(|n| super::bare::is_loaded(n, app)),

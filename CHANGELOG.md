@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-30
+
 ### Added
 
 - `~/.config/mandible/config.toml` takes `[ui]` (`raw_view`, `horizontal_scroll`, `description_preview`, `ascii`), `[sort]` (`flags`, `commands`) and `[colors]` (`theme`, and seven colours for `custom`); `NO_COLOR` and `MANDIBLE_ASCII` still win over the file.
@@ -58,6 +60,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Search matches a row that contains every word you type, in any case, in both `names` and `everything`, and a dash is an ordinary character: `size` finds `--blocksize`, `no verify` finds `--no-verify`, `--no-squash` finds a `--[no-]squash` flag, and `-ssl` no longer lists commands whose letters are scattered. Every occurrence of each word is underlined, and the best match, not the tree, decides where the cursor jumps first.
 - With a search active, matching rows are marked in both panes: the list's matching rows are bold, rows kept only for the tree's shape stay plain, and the detail pane's matching rows get a bar in the left margin and underlined matched letters, `NO_COLOR` included. The row `n`, `p` or the jump landed on is the only one on the gray bar.
 - The `No matches for "…"` line in the commands list now has the one-column margin the detail pane's notices have.
+- The verbatim view of a name mandible does not run, such as `git stash drop`, says `"stash drop" was not run: mandible only runs names that git's help lists under a heading.`, its header reads `verbatim — output of `git --help``, and the notice lines are drawn in the warning colour, as are the timed-out and the empty-page notices.
+- A command whose DESCRIPTION repeats its summary line word for word, such as `docker attach`, no longer shows the same text twice.
 
 ### Fixed
 
@@ -73,6 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Search jumped to a command the list did not rank first: `/rebase` selected `git submodule` and `/re` selected `git bisect`. The jump now goes to the first match, ranked exact name, name prefix, word prefix, then anywhere inside the name, commands first, then the shallower and earlier row.
 - A search with no match showed every command and jumped to a fuzzy guess; it now shows `No matches for "<query>"`, counts 0, and the cursor and page return to the row from before `/`.
 - `Esc` after `Enter` did nothing; it now clears the search.
+- Typing a search that matches thousands of rows took about a second per key on a page like `mandible ffplay`; it now takes under 100 ms.
 
 ## [0.8.4] - 2026-10-12
 

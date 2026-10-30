@@ -22,6 +22,7 @@ mod page_cache;
 mod page_order;
 mod page_text;
 mod reflow;
+mod row_target;
 mod search_marks;
 mod section_plan;
 mod sort_hold;
@@ -44,6 +45,7 @@ pub(crate) use page_order::page_positions;
 pub use page_text::page_text;
 pub(crate) use reflow::ReflowAnchor;
 use reflow::*;
+pub(crate) use row_target::{entity_at, first_row_with_key};
 use search_marks::*;
 use section_plan::*;
 use sort_hold::*;
@@ -358,7 +360,7 @@ fn render_verbatim(
     for (index, text) in body.into_iter().enumerate() {
         mark(&mut items, lines.len());
         if index < wrapped_prefix_lines {
-            push_wrapped_notice(&mut lines, &text, width);
+            push_wrapped_notice(&mut lines, &text, width, style::warning(app.palette));
         } else if app.horizontal_scroll_enabled {
             let (line, left, right) = hscroll_line(&text, hoffset, width);
             if left || right {
@@ -479,11 +481,11 @@ fn render_same_as_ancestor(frame: &mut Frame, inner: Rect, app: &App, node: &Com
 /// tool-authored bytes. Keeping this recognition here avoids changing the raw
 /// help API or tree model solely to carry presentation metadata.
 fn unverified_notice_prefix_len(body: &[String]) -> usize {
-    use mandible_core::notice::{ROOT_HELP_FALLBACK_LABEL, UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX};
+    use mandible_core::notice::{is_root_help_fallback_label, is_unverified_subcommand_notice};
 
     if !body
         .first()
-        .is_some_and(|line| line.starts_with(UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX))
+        .is_some_and(|line| is_unverified_subcommand_notice(line))
     {
         return 0;
     }
@@ -491,7 +493,7 @@ fn unverified_notice_prefix_len(body: &[String]) -> usize {
     if body.get(1).is_some_and(String::is_empty)
         && body
             .get(2)
-            .is_some_and(|line| line == ROOT_HELP_FALLBACK_LABEL)
+            .is_some_and(|line| is_root_help_fallback_label(line))
         && body.get(3).is_some_and(String::is_empty)
     {
         4
@@ -506,7 +508,7 @@ fn unverified_notice_prefix_len(body: &[String]) -> usize {
 /// prose created by mandible takes this path. [`wrap_words`] supplies the
 /// display-width-aware long-token splitting used by the structured detail
 /// pane, so CJK and emoji cannot turn a character count into a border overrun.
-fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize) {
+fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize, style: Style) {
     if text.is_empty() {
         lines.push(Line::default());
         return;
@@ -520,7 +522,7 @@ fn push_wrapped_notice(lines: &mut Vec<Line<'static>>, text: &str, width: usize)
     };
     let available = width.saturating_sub(display_width(indent)).max(1);
     for chunk in wrap_words(text, available) {
-        lines.push(Line::from(format!("{indent}{chunk}")));
+        lines.push(Line::from(Span::styled(format!("{indent}{chunk}"), style)));
     }
 }
 
@@ -575,13 +577,14 @@ const LIST_SECTIONS: [(EntityKind, &str, usize); 4] = [
 /// The one notice a page carries: a probe stopped at the time limit says
 /// so, a page that read fine and holds nothing says it has nothing, and a
 /// first read still waiting says so.
-fn page_notice(node: &CommandNode, app: &App) -> Option<&'static str> {
+fn page_notice(node: &CommandNode, app: &App) -> Option<(&'static str, Style)> {
+    let problem = style::warning(app.palette);
     if page_timed_out(app) {
-        Some(mandible_core::notice::TIMED_OUT_NOTICE)
+        Some((mandible_core::notice::TIMED_OUT_NOTICE, problem))
     } else if page_is_bare(node, app) {
-        Some(mandible_core::notice::NO_FURTHER_HELP_NOTICE)
+        Some((mandible_core::notice::NO_FURTHER_HELP_NOTICE, problem))
     } else if page_is_reading(node, app) {
-        Some(mandible_core::notice::READING_NOTICE)
+        Some((mandible_core::notice::READING_NOTICE, Style::default()))
     } else {
         None
     }
@@ -603,6 +606,7 @@ fn build_lines(
     let mut rules: Vec<usize> = Vec::new();
     let mut matches: Vec<crate::app::MatchRow> = Vec::new();
     let page_marks = PageMarks::of(app);
+    let target_row = app.selected_flag_row;
     // Wrapping on: nothing here is wider than the pane. Wrapping off: every
     // line is built at its natural width and the renderer windows it.
     let wrap = app.parsed_wraps();
@@ -630,13 +634,13 @@ fn build_lines(
         lines.push(Line::from(format!("alias: {}", node.aliases.join(", "))));
     }
 
-    if let Some(notice) = page_notice(node, app) {
+    if let Some((notice, notice_style)) = page_notice(node, app) {
         let mut page = Page {
             lines: &mut lines,
             items: &mut items,
             rules: &mut rules,
         };
-        push_notice(&mut page, notice, text_width);
+        push_notice(&mut page, notice, notice_style, text_width);
     }
 
     // A description that fills most of the pane previews at the top and
@@ -644,6 +648,7 @@ fn build_lines(
     let description = node
         .description
         .as_ref()
+        .filter(|d| !repeats_summary(d.as_str(), node.summary.as_ref().map(|s| s.as_str())))
         .map(|d| description_body(d.as_str(), text_width));
     let pane_height = app.pane_height();
     let preview = description.as_ref().is_some_and(|d| {
@@ -700,17 +705,20 @@ fn build_lines(
         note_rule(&mut rules, &lines, glyphs);
         let base = lines.len();
         let plan = plan_section(&visible, kind, app.sorts.detail);
+        let only = target_row.map(|(section, i)| (section == at).then_some(i));
         let mut section = section_planned(
             &plan,
             &visible,
             (width, indent),
             palette,
-            target_flag,
+            target_flag
+                .filter(|_| only != Some(None))
+                .map(|k| (k, only.flatten())),
             glyphs,
             wrap,
         );
         if let Some(marks) = &page_marks {
-            matches.extend(mark_section(&visible, &mut section, marks, base));
+            matches.extend(mark_section(&visible, &mut section, marks, (at, base)));
         }
         if target_flag_line.is_none() {
             target_flag_line = section.target.map(|t| base + t);
@@ -885,7 +893,8 @@ fn section_lines(
     let sort = crate::sort::DetailSort::Printed;
     let plan = plan_section(entities, EntityKind::Flag, sort);
     let dims = (width, indent);
-    section_planned(&plan, entities, dims, palette, target_flag, glyphs, wrap)
+    let target = target_flag.map(|k| (k, None));
+    section_planned(&plan, entities, dims, palette, target, glyphs, wrap)
 }
 
 /// Render one section's rows as `plan` orders them. Groups keep the order
@@ -896,7 +905,7 @@ fn section_planned(
     entities: &[&Entity],
     (width, indent): (usize, usize),
     palette: style::Palette,
-    target_flag: Option<&FlagKey>,
+    target_flag: Option<(&FlagKey, Option<usize>)>,
     glyphs: Glyphs,
     wrap: bool,
 ) -> SectionBody {
@@ -929,7 +938,8 @@ fn section_planned(
             note_rule(&mut body.rules, &body.lines, glyphs);
         }
         for &(id, e) in &group.rows {
-            push_entity(&mut body, e, group.inherited, row, target_flag);
+            let target = target_flag.filter(|&(_, only)| only.is_none_or(|o| o == id));
+            push_entity(&mut body, e, group.inherited, row, target);
             body.ids.push(id);
         }
     }
@@ -955,10 +965,10 @@ fn push_entity(
     entity: &Entity,
     dim: bool,
     row: RowCtx,
-    target_flag: Option<&FlagKey>,
+    target_flag: Option<(&FlagKey, Option<usize>)>,
 ) {
     let first_line = body.lines.len();
-    if body.target.is_none() && target_flag.is_some_and(|k| entity.matches_key(k)) {
+    if body.target.is_none() && target_flag.is_some_and(|(k, _)| entity.matches_key(k)) {
         body.target = Some(first_line);
     }
     let rendered = entity_line(entity, dim, row.width, row.palette, row.layout);

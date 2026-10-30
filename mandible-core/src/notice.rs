@@ -9,20 +9,41 @@
 //! silently turn wrapping back into clipping (PR #38's bug), with no
 //! compile error and no failing test on the side that changed.
 //!
-//! These constants are that single spelling. Producers format around
-//! them; recognizers match against them.
+//! These constants and functions are that single spelling. Producers build
+//! the text with them; recognizers match with them.
 
-/// Everything before the quoted subcommand name in the unverified-
-/// subcommand refusal: `mandible could not verify "<name>" as a real
-/// subcommand name: …`. A raw-help body whose first line starts with this
-/// is mandible-authored prose, not tool output.
-pub const UNVERIFIED_SUBCOMMAND_NOTICE_PREFIX: &str = "mandible could not verify \"";
+/// Between the quoted name and the tool's name in the unverified-subcommand
+/// refusal: `"<name>" was not run: mandible only runs names that <tool>'s
+/// help lists under a heading.`
+const UNVERIFIED_MIDDLE: &str = "\" was not run: mandible only runs names that ";
 
-/// The label between the refusal notice and the tool's own root `--help`
-/// bytes when the safe fallback probe succeeded. Always emitted framed by
-/// blank lines; also mandible-authored prose.
-pub const ROOT_HELP_FALLBACK_LABEL: &str =
-    "Showing the tool's own root --help instead, labelled below:";
+/// What follows the tool's name in the unverified-subcommand refusal.
+const UNVERIFIED_END: &str = "'s help lists under a heading.";
+
+/// The refusal for a name mandible will not run: `name` is the attempted
+/// words joined by spaces, `tool` the tool's name.
+pub fn unverified_subcommand_notice(name: &str, tool: &str) -> String {
+    format!("\"{name}{UNVERIFIED_MIDDLE}{tool}{UNVERIFIED_END}")
+}
+
+/// Whether `line` is the refusal [`unverified_subcommand_notice`] builds.
+/// A raw-help body whose first line is one is mandible-authored prose, not
+/// tool output.
+pub fn is_unverified_subcommand_notice(line: &str) -> bool {
+    line.starts_with('"') && line.contains(UNVERIFIED_MIDDLE) && line.ends_with(UNVERIFIED_END)
+}
+
+/// The line between the refusal and the tool's own root help bytes when
+/// the safe fallback probe succeeded: `Showing <argv> instead:`. Always
+/// emitted framed by blank lines; also mandible-authored prose.
+pub fn root_help_fallback_label(argv: &str) -> String {
+    format!("Showing {argv} instead:")
+}
+
+/// Whether `line` is the label [`root_help_fallback_label`] builds.
+pub fn is_root_help_fallback_label(line: &str) -> bool {
+    line.starts_with("Showing ") && line.ends_with(" instead:")
+}
 
 /// The notice on a loaded command page that holds nothing past its
 /// summary: the command printed no help mandible could read, and `t`
@@ -58,4 +79,24 @@ pub const NO_MATCHES_NOTICE_PREFIX: &str = "No matches for \"";
 /// The whole no-match line for `query`: `No matches for "<query>"`.
 pub fn no_matches_notice(query: &str) -> String {
     format!("{NO_MATCHES_NOTICE_PREFIX}{query}\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_refusal_and_its_label_are_recognised_by_the_functions_that_build_them() {
+        let notice = unverified_subcommand_notice("stash drop", "git");
+        assert_eq!(
+            notice,
+            "\"stash drop\" was not run: mandible only runs names that git's help lists under a heading."
+        );
+        assert!(is_unverified_subcommand_notice(&notice));
+        assert!(!is_unverified_subcommand_notice("usage: git [options]"));
+        let label = root_help_fallback_label("git --help");
+        assert_eq!(label, "Showing git --help instead:");
+        assert!(is_root_help_fallback_label(&label));
+        assert!(!is_root_help_fallback_label("Showing the options"));
+    }
 }

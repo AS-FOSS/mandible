@@ -150,10 +150,6 @@ FLAGS (2) ───────────────────────�
 Display general information about a recording file (.jfr)
 
 
-DESCRIPTION ────────────────────────────────────────────────────────────────
-Display general information about a recording file (.jfr)
-
-
 USAGE ──────────────────────────────────────────────────────────────────────
   jfr summary <file>
 
@@ -162,10 +158,6 @@ POSITIONALS (1) ─────────────────────�
   file
 
 === jfr assemble ===
-Assemble leftover chunks from a disk repository into a recording file
-
-
-DESCRIPTION ────────────────────────────────────────────────────────────────
 Assemble leftover chunks from a disk repository into a recording file
 
 
@@ -178,10 +170,6 @@ POSITIONALS (2) ─────────────────────�
   file
 
 === jfr disassemble ===
-Disassemble a recording file into smaller files/chunks
-
-
-DESCRIPTION ────────────────────────────────────────────────────────────────
 Disassemble a recording file into smaller files/chunks
 
 

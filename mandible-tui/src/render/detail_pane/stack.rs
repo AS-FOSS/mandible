@@ -385,7 +385,7 @@ mod tests {
                 palette: style::Palette::extended(),
                 layout: layout(),
             },
-            Some(&key),
+            Some((&key, None)),
         );
         assert_eq!(body.target, Some(1));
         assert_eq!(body.rows[0].lines, 4);

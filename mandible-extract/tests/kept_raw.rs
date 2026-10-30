@@ -219,3 +219,38 @@ fn fetching_for_the_view_keeps_the_probes_it_ran() {
     assert!(text(&shown.0).contains("Usage: widget add"));
     assert_eq!(probe.calls(), ran);
 }
+
+#[test]
+fn the_refusal_names_the_attempt_and_the_tool_and_the_header_names_the_root_argv() {
+    let notice = "\"ghost town\" was not run: mandible only runs names that widget's help lists under a heading.";
+    let probe = Counting::new(&[(&["--help"], ROOT, "")]);
+    let (lines, flag) = raw_help_with_probe(
+        probe.as_ref(),
+        &tool(),
+        &path(&["ghost", "town"]),
+        UNATTESTED,
+    )
+    .expect("a refusal is an answer");
+    let shown = text(&lines);
+    assert!(
+        shown.starts_with(&format!(
+            "{notice}\n\nShowing widget --help instead:\n\nUsage: widget [COMMAND]"
+        )),
+        "{shown}"
+    );
+    assert_eq!(
+        mandible_extract::help_text::render_argv("widget", &["ghost".into(), "town".into()], &flag),
+        "widget --help"
+    );
+}
+
+#[test]
+fn without_the_root_help_the_refusal_stands_alone() {
+    let probe = Counting::new(&[]);
+    let (lines, _) = raw_help_with_probe(probe.as_ref(), &tool(), &path(&["ghost"]), UNATTESTED)
+        .expect("a refusal is an answer");
+    assert_eq!(
+        text(&lines),
+        "\"ghost\" was not run: mandible only runs names that widget's help lists under a heading."
+    );
+}
