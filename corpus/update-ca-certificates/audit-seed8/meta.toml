@@ -1,0 +1,20 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "update-ca-certificates"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["update-ca-certificates", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--verbose", "--fresh"]
+
+[xfail]
+broken = true
+reason = "[S-260] The whole help is `<program path>: [--verbose] [--fresh]`. The tree is empty at confidence 0. A fix reads a program path, a colon and only bracketed flags as a usage form, and refuses an error line such as `x: invalid option -- q`."

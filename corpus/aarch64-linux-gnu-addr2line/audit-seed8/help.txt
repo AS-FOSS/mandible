@@ -1,0 +1,21 @@
+Usage: /usr/bin/aarch64-linux-gnu-addr2line [option(s)] [addr(s)]
+ Convert addresses into line number/file name pairs.
+ If no addresses are specified on the command line, they will be read from stdin
+ The options are:
+  @<file>                Read options from <file>
+  -a --addresses         Show addresses
+  -b --target=<bfdname>  Set the binary file format
+  -e --exe=<executable>  Set the input file name (default is a.out)
+  -i --inlines           Unwind inlined functions
+  -j --section=<name>    Read section-relative offsets instead of addresses
+  -p --pretty-print      Make the output easier to read for humans
+  -s --basenames         Strip directory names
+  -f --functions         Show function names
+  -C --demangle[=style]  Demangle function names
+  -R --recurse-limit     Enable a limit on recursion whilst demangling.  [Default]
+  -r --no-recurse-limit  Disable a limit on recursion whilst demangling
+  -h --help              Display this information
+  -v --version           Display the program's version
+
+/usr/bin/aarch64-linux-gnu-addr2line: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin
+Report bugs to <https://sourceware.org/bugzilla/>

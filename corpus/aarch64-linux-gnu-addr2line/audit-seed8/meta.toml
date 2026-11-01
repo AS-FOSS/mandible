@@ -1,0 +1,23 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "aarch64-linux-gnu-addr2line"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["aarch64-linux-gnu-addr2line", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["addr(s)"]
+must_not_contain_usage_text = ["Convert addresses", "If no addresses"]
+must_describe_root = ["Convert addresses into line number/file name pairs."]
+must_not_describe_root = ["supported targets", "Report bugs"]
+
+[xfail]
+broken = true
+reason = "[S-195] The two indented sentences under the usage line are the description. Today the second sentence joins the usage line, the first is lost, and the `supported targets` and `Report bugs` footer becomes the description. A fix moves both sentences to the description and keeps the footer out of it."

@@ -1,0 +1,21 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "loadkeys"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["loadkeys", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["mapfile..."]
+must_not_contain_positionals = ["option..."]
+
+[xfail]
+broken = true
+reason = "[S-041] The usage line ends in the optional operand `[mapfile...]`. The tree has no positional for it. A fix reads a bracketed operand at the usage tail as an optional repeatable positional, and keeps `[option...]` as the options placeholder."

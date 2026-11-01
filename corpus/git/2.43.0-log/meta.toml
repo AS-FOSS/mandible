@@ -1,0 +1,48 @@
+# `git log -h` prints the usage it shares with `git show`, as a second `or:` form. Each
+# command's operands come from the form that opens with its own command path.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "git"
+version = "2.43.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.8.3"
+
+[[capture]]
+argv = ["git", "--help"]
+stdout = "help.txt"
+
+[[capture]]
+argv = ["git", "log", "--help"]
+stdout = "log-help.txt"
+
+[[capture]]
+argv = ["git", "log", "-h"]
+stdout = "log-h.txt"
+exit_code = 129
+
+[[capture]]
+argv = ["git", "show", "--help"]
+stdout = "show-help.txt"
+
+[[capture]]
+argv = ["git", "show", "-h"]
+stdout = "show-h.txt"
+exit_code = 129
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+
+[contract.must_contain_positionals_by_path]
+log = ["revision-range", "path..."]
+show = ["object..."]
+
+[contract.must_not_contain_positionals_by_path]
+log = ["object..."]
+
+[xfail]
+broken = true
+reason = "[S-215] `git log -h` lists `git show [<options>] <object>...` as its second usage form, and the tree gives `git log` the positional `object...` from it. A fix takes a node's operands only from the usage forms that open with its own command path, and keeps every form in the usage text."

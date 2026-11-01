@@ -294,6 +294,20 @@ inside `-w`'s own value spec, and the existence oracle is correctly silent
 on this defect for the same reason it is on the mariadb ruler. A fixture
 that produces no root at all satisfies this vacuously and is not reported,
 the same asymmetry `must_not_contain_flags` has.
+### Stating that a subcommand has no such positional: `must_not_contain_positionals_by_path`
+
+The by-path form of `must_not_contain_positionals`, keyed by the same space-separated
+subcommand path as `must_contain_positionals_by_path`. `git log`'s usage block lists
+`git show [<options>] <object>...` as a second form, and `object...` is not an operand of
+`git log`.
+
+```toml
+[contract.must_not_contain_positionals_by_path]
+log = ["object..."]
+```
+
+A path that resolves to no node satisfies the claim vacuously.
+
 ### Stating that usage text carries text it must not: `must_not_contain_usage_text`
 
 `must_not_contain_flags` says a spelling was invented. It says nothing
