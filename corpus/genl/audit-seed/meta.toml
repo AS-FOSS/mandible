@@ -1,0 +1,22 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "genl"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["genl", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+
+[xfail]
+broken = true
+reason = "[S-253] `--help` is refused with one error line that names the invocation that prints help: `genl -help`. The tree is empty. A fix follows that quoted invocation when the first answer gave nothing (design.md section 6 rule 2e) and parses the page it prints. The contract needs that page's flags once it is captured."
