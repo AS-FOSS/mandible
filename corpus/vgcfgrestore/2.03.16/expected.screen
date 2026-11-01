@@ -25,8 +25,7 @@ Common options for lvm ───────────────────
 -t, --test
     --commandprofile String
     --config String
-    --driverloaded
-                           values: y, n
+    --driverloaded {…}   values: y, n
     --nolocking
     --lockopt String
     --longhelp

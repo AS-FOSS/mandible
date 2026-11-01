@@ -12,13 +12,15 @@ The following options are specific to just the language C ───────�
 The following options are specific to just the language C++ ────────────────
 -W, --param lazy-modules=      [available in C++]
 -W placement-new
-    -fcontract-assumption-mode [on|off]
-    -fcontract-build-level [off|default|audit]
-    -fcontract-continuation-mode [on|off]
-    -fcontract-mode [on|off]   [available in C++]
+    -fcontract-assumption-mode {…} values: on, off
+    -fcontract-build-level {…} values: off, default, audit
+    -fcontract-continuation-mode {…} values: on, off
+    -fcontract-mode {…}        [available in C++]
+                                 values: on, off
     -fcontract-role <name>:<semantics>
     -fcontract-semantic <level>:<semantic>
-    -fcontract-strict-declarations [on|off] [available in C++]
+    -fcontract-strict-declarations {…} [available in C++]
+                                 values: on, off
     -flang-info-include-translate [available in C++]
     -flang-info-include-translate-not [available in C++]
 -f lang-info-include-translate=
@@ -36,7 +38,8 @@ The following options are specific to just the language D ───────�
     -fall-instantiations       [disabled]
     -fassert                   [available in D]
     -fbounds-check             [available in D]
-    -fbounds-check [on|safeonly|off] [available in D]
+    -fbounds-check {…}         [available in D]
+                                 values: on, safeonly, off
     -fcheckaction [throw,halt,context] [available in D]
     -fdebug                    [disabled]
     -fdebug <ident>
@@ -717,8 +720,8 @@ The following options are language-related ────────────�
     -fimplicit-inline-templates [available in C++, ObjC++]
     -fimplicit-templates       [available in C++, ObjC++]
     -finput-charset <cset>
-    -fvisibility [private|protected|public|package] [available in ObjC,
-                               ObjC++]
+    -fvisibility {…}           [available in ObjC, ObjC++]
+                                 values: private, protected, public, package
     -flax-vector-conversions   [available in C, C++, ObjC, ObjC++]
     -flocal-ivars              [available in ObjC, ObjC++]
     -fmacro-prefix-map <old>=<new>
@@ -767,7 +770,8 @@ The following options are language-related ────────────�
     -fsigned-char              [available in Ada, AdaSCIL, AdaWhy, C, C++,
                                LTO, ObjC, ObjC++]
     -fsized-deallocation       [available in C++, ObjC++]
-    -fsso-struct [big-endian|little-endian|native] [available in C, ObjC]
+    -fsso-struct {…}           [available in C, ObjC]
+                                 values: big-endian, little-endian, native
     -fstats                    [available in C++, ObjC++]
     -fstrict-enums             [available in C++, ObjC++]
     -fstrict-flex-arrays <0,3> [available in C, C++]
@@ -1293,13 +1297,15 @@ The following options control optimizations ────────────
     -fdevirtualize-speculatively [disabled]
     -fdse                      [disabled]
     -fearly-inlining           [enabled]
-    -fexcess-precision [fast|standard|16] [default]
+    -fexcess-precision {…}     [default]
+                                 values: fast, standard, 16
     -fexpensive-optimizations  [disabled]
     -ffinite-loops             [disabled]
     -ffinite-math-only         [disabled]
     -ffloat-store              [disabled]
     -fforward-propagate        [disabled]
-    -ffp-contract [off|on|fast] fast
+    -ffp-contract {…}          fast
+                                 values: off, on, fast
     -ffp-int-builtin-inexact   [enabled]
     -ffunction-cse             [enabled]
     -fgcse                     [disabled]
@@ -1341,7 +1347,8 @@ The following options control optimizations ────────────
     -fira-algorithm [CB|priority] CB
     -fira-hoist-pressure       [enabled]
     -fira-loop-pressure        [disabled]
-    -fira-region [one|all|mixed] one
+    -fira-region {…}           one
+                                 values: one, all, mixed
     -fira-share-save-slots     [enabled]
     -fira-share-spill-slots    [enabled]
     -fisolate-erroneous-paths-attribute [disabled]
@@ -1349,7 +1356,8 @@ The following options control optimizations ────────────
     -fivopts                   [enabled]
     -fjump-tables              [enabled]
     -flifetime-dse             [enabled]
-    -flive-patching [inline-only-static|inline-clone] [default]
+    -flive-patching {…}        [default]
+                                 values: inline-only-static, inline-clone
     -flive-range-shrinkage     [disabled]
     -floop-interchange         [disabled]
     -floop-nest-optimize       [disabled]
@@ -1383,7 +1391,8 @@ The following options control optimizations ────────────
     -freg-struct-return        [enabled]
     -frename-registers         [disabled]
     -freorder-blocks           [disabled]
-    -freorder-blocks-algorithm [simple|stc] simple
+    -freorder-blocks-algorithm {…} simple
+                                 values: simple, stc
     -freorder-blocks-and-partition [disabled]
     -freorder-functions        [disabled]
     -frerun-cse-after-loop     [disabled]
@@ -1420,7 +1429,9 @@ The following options control optimizations ────────────
     -fshrink-wrap-separate     [enabled]
     -fsignaling-nans           [disabled]
     -fsigned-zeros             [enabled]
-    -fsimd-cost-model [unlimited|dynamic|cheap|very-cheap] unlimited
+    -fsimd-cost-model {…}      unlimited
+                                 values: unlimited, dynamic, cheap,
+                                 very-cheap
     -fsingle-precision-constant [disabled]
     -fsplit-ivs-in-unroller    [enabled]
     -fsplit-loops              [disabled]
@@ -1429,13 +1440,14 @@ The following options control optimizations ────────────
     -fsplit-wide-types-early   [disabled]
     -fssa-backprop             [enabled]
     -fssa-phiopt               [disabled]
-    -fstack-check [no|generic|specific]
+    -fstack-check {…}          values: no, generic, specific
     -fstack-clash-protection   [disabled]
     -fstack-protector          [disabled]
     -fstack-protector-all      [disabled]
     -fstack-protector-explicit [disabled]
     -fstack-protector-strong   [disabled]
-    -fstack-reuse [all|named_vars|none] all
+    -fstack-reuse {…}          all
+                                 values: all, named_vars, none
     -fstdarg-opt               [enabled]
     -fstore-merging            [disabled]
     -fstrict-aliasing          [disabled]
@@ -1481,7 +1493,8 @@ The following options control optimizations ────────────
     -ftree-ter                 [disabled]
     -ftree-vectorize           [disabled]
     -ftree-vrp                 [disabled]
-    -ftrivial-auto-var-init [uninitialized|pattern|zero] uninitialized
+    -ftrivial-auto-var-init {…} uninitialized
+                                 values: uninitialized, pattern, zero
     -funconstrained-commons    [disabled]
     -funreachable-traps        [disabled]
     -funroll-all-loops         [disabled]
@@ -1494,7 +1507,9 @@ The following options control optimizations ────────────
     -fvar-tracking-assignments-toggle [disabled]
     -fvar-tracking-uninit      [disabled]
     -fvariable-expansion-in-unroller [disabled]
-    -fvect-cost-model [unlimited|dynamic|cheap|very-cheap] [default]
+    -fvect-cost-model {…}      [default]
+                                 values: unlimited, dynamic, cheap,
+                                 very-cheap
     -fversion-loops-for-strides [disabled]
     -fvpt                      [disabled]
     -fweb                      [disabled]
@@ -1576,7 +1591,8 @@ The following options are language-independent ───────────
     -fcallgraph-info           [disabled]
 -f callgraph-info=
     -fcanon-prefix-map
-    -fcf-protection [full|branch|return|none|check] none
+    -fcf-protection {…}        none
+                                 values: full, branch, return, none, check
     -fcheck-data-deps          [ignored]
     -fcheck-new                [disabled]
     -fchecking                 [disabled]
@@ -1592,12 +1608,13 @@ The following options are language-independent ───────────
     -fdebug-prefix-map <old>=<new>
     -fdebug-types-section      [disabled]
     -fdevirtualize-at-ltrans   [disabled]
-    -fdiagnostics-color [never|always|auto] never
+    -fdiagnostics-color {…}    never
+                                 values: never, always, auto
     -fdiagnostics-column-origin <number>
-    -fdiagnostics-column-unit [display|byte]
-    -fdiagnostics-escape-format [unicode|bytes]
-    -fdiagnostics-format
-    [text|sarif-stderr|sarif-file|json|json-stderr|json-file]
+    -fdiagnostics-column-unit {…} values: display, byte
+    -fdiagnostics-escape-format {…} values: unicode, bytes
+    -fdiagnostics-format {…}   values: text, sarif-stderr, sarif-file, json,
+                               json-stderr, json-file
     -fdiagnostics-generate-patch [disabled]
     -fdiagnostics-parseable-fixits [disabled]
 -f diagnostics-path-format=    inline-events
@@ -1606,11 +1623,12 @@ The following options are language-independent ───────────
     -fdiagnostics-show-cwe     [enabled]
     -fdiagnostics-show-labels  [enabled]
     -fdiagnostics-show-line-numbers [enabled]
-    -fdiagnostics-show-location [once|every-line]
+    -fdiagnostics-show-location {…} values: once, every-line
     -fdiagnostics-show-option  [enabled]
     -fdiagnostics-show-path-depths [disabled]
     -fdiagnostics-show-rules   [enabled]
-    -fdiagnostics-urls [never|always|auto] auto
+    -fdiagnostics-urls {…}     auto
+                                 values: never, always, auto
 -f disable-[tree|rtl|ipa]-<pass>=range1+range2
 -f dump-<type>
     -fdump-analyzer            [disabled]
@@ -1681,12 +1699,13 @@ The following options are language-independent ───────────
     -fmerge-debug-strings      [enabled]
     -fmessage-length <number>
     -fmultiflags
-    -foffload-abi [lp64|ilp32]
+    -foffload-abi {…}          values: lp64, ilp32
     -foffload-options <targets>=<options>
 -f opt-info[-<type>=filename]
     -foptimize-register-move   [ignored]
     -fpcc-struct-return        [disabled]
-    -fpermitted-flt-eval-methods [c11|ts-18661] [default]
+    -fpermitted-flt-eval-methods {…} [default]
+                                 values: c11, ts-18661
     -fpic                      [disabled]
     -fpie                      [disabled]
 -f plugin-arg-<name>-<key>[=<value>]
@@ -1708,8 +1727,11 @@ The following options are language-independent ───────────
     -fprofile-prefix-map <old>=<new>
 -f profile-prefix-path=
     -fprofile-report           [disabled]
-    -fprofile-reproducible [serial|parallel-runs|multithreaded] serial
-    -fprofile-update [single|atomic|prefer-atomic] single
+    -fprofile-reproducible {…} serial
+                                 values: serial, parallel-runs,
+                                 multithreaded
+    -fprofile-update {…}       single
+                                 values: single, atomic, prefer-atomic
     -fprofile-use              [disabled]
 -f profile-use=
     -fprofile-values           [disabled]
@@ -1742,8 +1764,9 @@ The following options are language-independent ───────────
     -ftest-coverage            [disabled]
     -ftime-report              [disabled]
     -ftime-report-details      [disabled]
-    -ftls-model [global-dynamic|local-dynamic|initial-exec|local-exec]
-                               global- dynamic
+    -ftls-model {…}            global- dynamic
+                                 values: global-dynamic, local-dynamic,
+                                 initial-exec, local-exec
     -ftrampolines              [disabled]
     -ftree-coalesce-inlined-vars [ignored]
     -ftree-copyrename          [ignored]
@@ -1762,7 +1785,9 @@ The following options are language-independent ───────────
     -fuse-ld mold
     -fvect-cost-model
     -fverbose-asm              [disabled]
-    -fvisibility [default|internal|hidden|protected] default
+    -fvisibility {…}           default
+                                 values: default, internal, hidden,
+                                 protected
 -f vtable-verify=              none
     -fvtv-counts               [disabled]
     -fvtv-debug                [disabled]

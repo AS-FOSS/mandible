@@ -48,8 +48,7 @@ FLAGS (42) ───────────────────────
 -m format
 -N new_passphrase
 -O option
--t
-                     values: dsa, ecdsa, ecdsa-sk, ed25519, ed25519-sk, rsa
+-t {…}             values: dsa, ecdsa, ecdsa-sk, ed25519, ed25519-sk, rsa
 -w provider
 -Z cipher
 -p
@@ -69,8 +68,7 @@ FLAGS (42) ───────────────────────
 -R hostname
 -r hostname
 -g
--M
-                     values: generate, screen
+-M {…}             values: generate, screen
 -I certificate_identity
 -s ca_key
 -h
@@ -83,6 +81,5 @@ FLAGS (42) ───────────────────────
 -k
 -u
 -Q
--Y
-                     values: find-principals, match-principals,
-                     check-novalidate, sign, verify
+-Y {…}             values: find-principals, match-principals,
+                   check-novalidate, sign, verify

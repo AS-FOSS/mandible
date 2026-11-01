@@ -19,7 +19,7 @@ FLAGS (27) ───────────────────────
 -v, --verbose
 -f, --force
     --checks
-    --manglename {none|hex|auto}
+    --manglename {…}      values: none, hex, auto
 -r, --readonly
     --noopencount
     --noflush
@@ -102,7 +102,7 @@ FLAGS (5) ───────────────────────�
 === dmsetup load ===
 POSITIONALS (2) ────────────────────────────────────────────────────────────
   device
-  table|table_file
+  {…}     values: table, table_file
 
 === dmsetup clear ===
 POSITIONALS (1) ────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ POSITIONALS (1) ─────────────────────�
 === dmsetup reload ===
 POSITIONALS (2) ────────────────────────────────────────────────────────────
   device
-  table|table_file
+  {…}     values: table, table_file
 
 === dmsetup wipe_table ===
 POSITIONALS (1) ────────────────────────────────────────────────────────────

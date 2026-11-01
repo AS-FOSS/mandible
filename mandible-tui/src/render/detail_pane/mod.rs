@@ -59,7 +59,7 @@ use crate::fit;
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
-use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling};
+use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling, CHOICES_MARK};
 #[cfg(test)]
 use mandible_core::{OptionalJoin, ValueKind};
 use ratatui::layout::Rect;
@@ -1925,12 +1925,10 @@ mod tests {
         );
     }
 
-    /// A flag can carry `choices` with no description at all (an
-    /// undocumented enum flag). The values line must still render, right
-    /// under the head, rather than being dropped because there was no
-    /// description to attach it to.
+    /// A flag with `choices` and no description carries its values summary
+    /// in the description column of its own row, muted (spec §9.3 rule 7).
     #[test]
-    fn choices_render_even_when_the_flag_has_no_description() {
+    fn choices_render_in_the_description_slot_when_the_flag_has_no_description() {
         let mut flag = Entity::flag_long("format", Provenance::single(Source::HelpText));
         flag.choices = vec![Choice::bare("posix"), Choice::bare("windows")];
         let layout = SectionLayout {
@@ -1941,20 +1939,14 @@ mod tests {
         };
         let lines = entity_line(&flag, false, 80, style::Palette::extended(), layout);
 
-        assert_eq!(
-            lines.len(),
-            2,
-            "one head line and one values line: {lines:?}"
-        );
-        assert!(
-            !text_of(&lines[0]).contains("values:"),
-            "the head line must not carry the values line: {:?}",
-            text_of(&lines[0])
-        );
-        let text = text_of(&lines[1]);
+        assert_eq!(lines.len(), 1, "head and values share one line: {lines:?}");
+        let text = text_of(&lines[0]);
         assert!(text.contains("values: posix, windows"), "{text:?}");
-        let indent_len = text.len() - text.trim_start().len();
-        assert_eq!(indent_len, layout.description + 2, "{text:?}");
+        assert_eq!(text.find("values:"), Some(layout.description), "{text:?}");
+        assert_eq!(
+            lines[0].spans.last().expect("a span").style,
+            style::muted(style::Palette::extended())
+        );
     }
 
     /// A flag whose choices carry their own text — ffplay/ffmpeg's AVOption
@@ -4524,3 +4516,6 @@ mod description_preview_tests;
 
 #[cfg(test)]
 mod bare_tests;
+
+#[cfg(test)]
+mod values_mark_tests;

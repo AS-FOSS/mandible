@@ -26,7 +26,3 @@ must_contain_positionals = ["DEVICE"]
 [contract.must_not_value_name]
 "--block" = "0|1"
 "-B" = "0|1"
-
-[xfail]
-broken = true
-reason = "`--block=0|1` and `-B 0|1` keep the whole alternation as the value name, so the page prints `0|1` in the row and carries no choices. The two values need to be the flag's choices, drawn once on the `values:` line, with `{…}` in place of the name."

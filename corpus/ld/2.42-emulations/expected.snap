@@ -33,8 +33,13 @@ flags:
     - help-text
 - spellings:
   - --compress-debug-sections
-  value_name: '[none|zlib|zlib-gnu|zlib-gabi|zstd]'
   value_kind: Required
+  choices:
+  - none
+  - zlib
+  - zlib-gnu
+  - zlib-gabi
+  - zstd
   group: 'ELF emulations:'
   description: 'Compress DWARF debug sections Default: none'
   provenance:
@@ -585,9 +590,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64linux:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -657,9 +665,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64elf:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -729,9 +740,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64elf32:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:

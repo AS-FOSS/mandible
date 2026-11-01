@@ -47,8 +47,11 @@ flags:
     - help-text-synopsis
 - spellings:
   - --manglename
-  value_name: '{none|hex|auto}'
   value_kind: Required
+  choices:
+  - none
+  - hex
+  - auto
   provenance:
     sources:
     - help-text-synopsis
@@ -401,6 +404,9 @@ subcommands:
       sources:
       - help-text
   - name: table|table_file
+    choices:
+    - table
+    - table_file
     provenance:
       sources:
       - help-text
@@ -429,6 +435,9 @@ subcommands:
       sources:
       - help-text
   - name: table|table_file
+    choices:
+    - table
+    - table_file
     provenance:
       sources:
       - help-text

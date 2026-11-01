@@ -14,22 +14,17 @@ POSITIONALS (3) ─────────────────────�
 
 
 FLAGS (30) ─────────────────────────────────────────────────────────────────
--A, --autobackup
-                               values: y, n
+-A, --autobackup {…}         values: y, n
 -f, --force
--Z, --zero
-                               values: y, n
+-Z, --zero {…}               values: y, n
 -M, --metadatatype lvm2
     --labelsector Number
     --metadatasize Size[m|UNIT]
-    --pvmetadatacopies
-                               values: 0, 1, 2
-    --metadataignore
-                               values: y, n
+    --pvmetadatacopies {…}   values: 0, 1, 2
+    --metadataignore {…}     values: y, n
     --dataalignment Size[k|UNIT]
     --dataalignmentoffset Size[k|UNIT]
-    --reportformat
-                               values: basic, json
+    --reportformat {…}       values: basic, json
     --restoremissing
 
 Common options for lvm ─────────────────────────────────────────────────────
@@ -41,8 +36,7 @@ Common options for lvm ───────────────────
 -t, --test
     --commandprofile String
     --config String
-    --driverloaded
-                               values: y, n
+    --driverloaded {…}       values: y, n
     --nolocking
     --lockopt String
     --longhelp

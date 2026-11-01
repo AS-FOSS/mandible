@@ -23,7 +23,8 @@ FLAGS (77) ───────────────────────
                          ready to connect
     -dpi int             screen resolution in dots per inch
     -dpms                disables VESA DPMS monitor control
-    -deferglyphs [none|all|16] defer loading of [no|all|16-bit] glyphs
+    -deferglyphs [{…}]   defer loading of [no|all|16-bit] glyphs
+                           values: none, all, 16
 -f #                     bell base (0-100)
     -fakescreenfps       fake screen default fps (1-600)
     -fp string           default font path
@@ -45,7 +46,8 @@ FLAGS (77) ───────────────────────
     -pn                  accept failure to listen on all ports
     -nopn                reject failure to listen on all ports
 -r                       turns off auto-repeat
-    -render [default|mono|gray|color] set render color alloc policy
+    -render [{…}]        set render color alloc policy
+                           values: default, mono, gray, color
     -retro               start with classic stipple and cursor
 -s #                     screen-saver timeout (minutes)
     -seat string         seat to run on
