@@ -1,0 +1,32 @@
+# docs/shapes.md S-155 family: `--block=0|1` and `-B 0|1` write their two
+# values as an alternation after the flag. The values belong in `choices`,
+# shown once on the `values:` line, with `{…}` where the value name would be.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "sg_inq"
+version = "audit-seed8"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["sg_inq", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--block", "-B", "--cmddt", "--page", "--vpd"]
+must_contain_positionals = ["DEVICE"]
+
+[contract.must_attach_choices]
+"--block" = ["0", "1"]
+"-B" = ["0", "1"]
+
+[contract.must_not_value_name]
+"--block" = "0|1"
+"-B" = "0|1"
+
+[xfail]
+broken = true
+reason = "`--block=0|1` and `-B 0|1` keep the whole alternation as the value name, so the page prints `0|1` in the row and carries no choices. The two values need to be the flag's choices, drawn once on the `values:` line, with `{…}` in place of the name."
