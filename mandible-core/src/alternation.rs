@@ -30,13 +30,22 @@ pub fn alternation_members(spec: &str) -> Option<Vec<&str>> {
     (members.len() >= 2 && members.iter().all(|m| is_alternative(m))).then_some(members)
 }
 
+/// The alternatives of a positional's name. Only the braced form counts:
+/// a bare `device|mountpoint` or `<a>|<b>` operand names kinds of
+/// argument, not literal values.
+fn operand_members(name: &str) -> Option<Vec<&str>> {
+    (name.starts_with('{') && name.ends_with('}'))
+        .then(|| alternation_members(name))
+        .flatten()
+}
+
 impl Entity {
-    /// True for a positional whose own name is an alternation that its
-    /// `choices` already list; the page draws `{…}` in its place.
+    /// True for a positional whose own name is a braced alternation that
+    /// its `choices` already list; the page draws `{…}` in its place.
     pub fn name_is_choices(&self) -> bool {
         self.kind == EntityKind::Positional
             && !self.choices.is_empty()
-            && alternation_members(self.primary_name()).is_some()
+            && operand_members(self.primary_name()).is_some()
     }
 
     /// True when the page draws [`CHOICES_MARK`] as this flag's value: it
@@ -54,7 +63,7 @@ pub(crate) fn fold_alternation_values(entities: &mut [Entity]) {
     for e in entities {
         let members = match e.kind {
             EntityKind::Flag => e.value_name.as_deref().and_then(alternation_members),
-            EntityKind::Positional => alternation_members(e.primary_name()),
+            EntityKind::Positional => operand_members(e.primary_name()),
             _ => None,
         };
         let Some(members) = members else { continue };
@@ -104,6 +113,14 @@ mod tests {
             "a|b,c",
         ] {
             assert!(alternation_members(spec).is_none(), "{spec}");
+        }
+    }
+
+    #[test]
+    fn an_operand_counts_only_when_braced() {
+        assert!(operand_members("{auto|manual}").is_some());
+        for name in ["device|mountpoint", "[a|b]", "table|table_file"] {
+            assert!(operand_members(name).is_none(), "{name}");
         }
     }
 

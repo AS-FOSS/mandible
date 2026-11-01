@@ -404,9 +404,6 @@ subcommands:
       sources:
       - help-text
   - name: table|table_file
-    choices:
-    - table
-    - table_file
     provenance:
       sources:
       - help-text
@@ -435,9 +432,6 @@ subcommands:
       sources:
       - help-text
   - name: table|table_file
-    choices:
-    - table
-    - table_file
     provenance:
       sources:
       - help-text

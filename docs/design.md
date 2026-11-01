@@ -2134,9 +2134,10 @@ sections.
    `choices`, and the placeholder is the muted mark `{…}`, which takes the
    optional brackets like a name (`--color[={…}]`). A capitalised word
    (`VG|Tag`) is a placeholder and stays as written. A name the tool wrote
-   (`--color=WHEN`) is kept. A positional named by such an alternation
-   draws `{…}` too, with `...` when repeatable, and keeps the tool's text as
-   its name for search and copy.
+   (`--color=WHEN`) is kept. A positional named by a braced alternation
+   (`{auto|manual}`) draws `{…}` too, with `...` when repeatable, and keeps
+   the tool's text as its name for search and copy. A bare `device|file`
+   operand names kinds of argument, so it stays as written.
 7. A flag's or positional's `choices` render as their own `values:` line under the
    description, indented two columns past the shared description column
    (in the man layout, past the description's own indent),
@@ -2550,8 +2551,8 @@ findable, and how a match is shown in context.
    `Name` for a dashless entity's bare `primary_name()` (a positional's
    placeholder, a modifier's letter, an environment variable's name, §4.5's
    three dashless `EntityKind`s). Each entry's haystack is every spelling
-   as the page draws it, `value_name`, the drawn value, and description, the
-   same shape for every kind, dashless spellings indexed with no dash
+   as the page draws it, `value_name`, the drawn value, the names of its
+   `choices`, and description, the same shape for every kind, dashless spellings indexed with no dash
    prefix. Search text is built from the same model pieces the detail pane
    draws from (`Spelling::render`, `Entity::value_text`), so what is on
    screen can be typed. A `--[no-]x` spelling is indexed as both `--x` and
@@ -3466,8 +3467,9 @@ ruled that a value written only as alternatives (`y|n`, `[none|zlib]`,
 `{auto|manual}`) is the entity's `choices`, that the row shows a muted `{…}`
 where a name would be, and that the values appear once, on the `values:`
 line, which moves up into the description column when the row has no
-description. Positionals follow the same rules as flags. A capitalised word
-makes the spec a placeholder, and no member count is required. Docs/shapes.md
+description. Positionals follow the same rules as flags, but only a braced
+name counts. A capitalised word makes the spec a placeholder, and no member
+count is required. Docs/shapes.md
 S-253.
 
 **Small terminals answer three questions and nothing else (2026-10-22).**
