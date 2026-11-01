@@ -25,8 +25,8 @@ mod snapshot;
 mod text;
 
 pub use entity::{
-    is_literal_choice_value, Choice, Dashes, Entity, EntityKind, OptionalJoin,
-    RangeStartNotASpelling, Spelling, SpellingRange,
+    is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Negation, OptionalJoin,
+    RangeStartNotASpelling, Spelling, SpellingRange, BANG_LEAD,
 };
 pub use merge::{
     merge_entity_lists, merge_nodes, merge_subcommand_lists, pair_aliases, MergeError,

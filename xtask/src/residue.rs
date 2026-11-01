@@ -990,7 +990,7 @@ mod tests {
         for (s, l) in [('s', "source"), ('q', "quiet")] {
             let mut f = flag(Some(s), Some(l));
             for spelling in &mut f.spellings {
-                spelling.negatable = true;
+                spelling.negation = Some(mandible_core::Negation::NoPrefix);
             }
             root.entities.push(f);
         }

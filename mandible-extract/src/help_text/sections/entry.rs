@@ -207,6 +207,58 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     find_pipe_alias_single_space_gap(line)
 }
 
+/// The description gap of a row that writes its long spelling first and
+/// its short one after a gap (`--append  -A chain<tab>Append to chain`):
+/// the gap before the short flag is an alias separator, so the description
+/// gap is the first one after it, or none. Only for a block that writes
+/// most of its rows this way ([`block_is_long_first`]). See docs/shapes.md
+/// S-254 and corpus/ip6tables-translate/1.8.10.
+pub(super) fn find_long_first_gap(line: &str) -> Option<Option<usize>> {
+    let tail = long_first_alias_tail(line)?;
+    Some(find_multi_space_gap(&format!("x{}", &line[tail..])).map(|c| tail + c - 1))
+}
+
+/// True when at least three rows of the block, and half of its dash-led
+/// rows, are long-first rows: one row doing so in prose (`--null -T reads
+/// ...`) is a description naming another flag.
+pub(super) fn block_is_long_first(entry_lines: &[&str]) -> bool {
+    let dashed = entry_lines
+        .iter()
+        .filter(|l| {
+            let t = l.trim_start();
+            t.starts_with('-') || crate::help_text::grammar::strip_bang_lead(t).is_some()
+        })
+        .count();
+    let long_first = entry_lines
+        .iter()
+        .filter(|l| long_first_alias_tail(l).is_some())
+        .count();
+    long_first >= 3 && long_first * 2 >= dashed
+}
+
+/// Byte offset just past the short flag of a long-first row; `None` for
+/// any other row.
+fn long_first_alias_tail(line: &str) -> Option<usize> {
+    let head = line.trim_start();
+    let head = crate::help_text::grammar::strip_bang_lead(head).unwrap_or(head);
+    let long_end = head.find([' ', '\t'])?;
+    let long = &head[..long_end];
+    if !long.starts_with("--") || long.len() < 3 || long.contains(['=', ',', '|']) {
+        return None;
+    }
+    let after = head[long_end..].trim_start_matches([' ', '\t']);
+    let short_len = after.find([' ', '\t', ',']).unwrap_or(after.len());
+    let short = &after[..short_len];
+    let mut chars = short.chars();
+    let is_short = chars.next() == Some('-')
+        && chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.next().is_none();
+    if !is_short {
+        return None;
+    }
+    Some(line.len() - after.len() + short_len)
+}
+
 /// Last-resort gap for a pipe-joined alias group whose description sits one
 /// space after the last spelling: `-? | -h | --help | -help to print this
 /// help message`. Cuts right after the last spelling when the row is two

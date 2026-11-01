@@ -18,6 +18,7 @@ mod examples_section;
 mod heading;
 mod layout;
 mod man;
+mod notation;
 mod page_cache;
 mod page_order;
 mod page_text;
@@ -59,7 +60,9 @@ use crate::fit;
 use crate::glyphs::Glyphs;
 use crate::sanitize::{defensive_single_line, display_width};
 use crate::style;
-use mandible_core::{CommandNode, Dashes, Entity, EntityKind, FlagKey, Spelling};
+use mandible_core::{
+    CommandNode, Dashes, Entity, EntityKind, FlagKey, Negation, Spelling, BANG_LEAD,
+};
 #[cfg(test)]
 use mandible_core::{OptionalJoin, ValueKind};
 use ratatui::layout::Rect;

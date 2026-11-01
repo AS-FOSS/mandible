@@ -190,7 +190,7 @@ pub fn substring_indices(name: &str, query: &str) -> Vec<u32> {
 pub fn spelling_forms(spelling: &Spelling) -> Vec<String> {
     let typed = spelling.typed();
     let mut forms = vec![typed.clone()];
-    if spelling.negatable {
+    if spelling.negation == Some(mandible_core::Negation::NoPrefix) {
         let lead = &typed[..typed.len() - spelling.name.len()];
         forms.push(format!("{lead}no-{}", spelling.name));
     } else if spelling.render() != typed {
@@ -712,6 +712,21 @@ mod tests {
         assert_eq!(long_keys(&name_index(&root, "no squash")), ["squash"]);
         assert_eq!(long_keys(&name_index(&root, "--squash")), ["squash"]);
         assert_eq!(entity_forms(&root.entities[0]), ["--squash", "--no-squash"]);
+    }
+
+    #[test]
+    fn a_bang_spelling_adds_no_search_form() {
+        let mut e = Entity::flag_spelled(
+            Some('p'),
+            Some("protocol".to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        );
+        for s in &mut e.spellings {
+            s.negation = Some(mandible_core::Negation::Bang);
+        }
+        assert_eq!(entity_forms(&e), ["-p", "--protocol"]);
     }
 
     fn found(root: &CommandNode, query: &str) -> bool {

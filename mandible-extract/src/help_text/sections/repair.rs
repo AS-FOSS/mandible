@@ -2215,7 +2215,7 @@ mod tests {
                         == [Spelling {
                             name: name.to_string(),
                             dashes,
-                            negatable: false,
+                            negation: None,
                             abbrev: None,
                         }]
                 })

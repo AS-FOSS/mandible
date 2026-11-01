@@ -11,7 +11,7 @@
 //! `help_text::sections` uses to compute this tier's confidence score.
 
 use super::spec_parts::{optional_join_of, parse_range_head};
-use mandible_core::{Dashes, OptionalJoin, Spelling, SpellingRange, ValueKind};
+use mandible_core::{Dashes, Negation, OptionalJoin, Spelling, SpellingRange, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
 use winnow::error::ContextError;
@@ -96,14 +96,27 @@ impl FlagSpec {
     /// no need to ask the whole spec first.
     #[cfg(test)]
     pub fn negatable(&self) -> bool {
-        self.spellings.iter().any(|s| s.negatable)
+        self.spellings
+            .iter()
+            .any(|s| s.negation == Some(Negation::NoPrefix))
     }
 }
 
 /// Parse a flag-spec fragment (the part of a `--help` entry line before
 /// the description column — already isolated by the layout parser).
 pub fn parse_flag_spec(input: &str) -> FlagSpec {
-    let normalized = unwrap_brace_alternation(input.trim());
+    // A leading `[!]` says every spelling of the row can be inverted by a
+    // `!` written before it. docs/shapes.md S-253.
+    if let Some(rest) = strip_bang_lead(input) {
+        let mut spec = parse_flag_spec(rest);
+        for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
+            s.negation = Some(Negation::Bang);
+        }
+        return spec;
+    }
+    // A tab between spellings separates them like a space does.
+    let detabbed = input.replace('\t', " ");
+    let normalized = unwrap_brace_alternation(detabbed.trim());
     let mut rest = normalized.as_ref().trim();
     if let Some(spec) = parse_range_head(rest) {
         return spec;
@@ -591,7 +604,7 @@ fn try_alias_position_single_dash_long(input: &str) -> Option<(Spelling, &str)> 
         Spelling {
             name: run.to_string(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: None,
         },
         after_run,
@@ -651,7 +664,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
                 Spelling {
                     name: format!("{run}{content}"),
                     dashes: Dashes::Single,
-                    negatable: false,
+                    negation: None,
                     abbrev: Some(prefix_len),
                 },
                 rest,
@@ -674,7 +687,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             Spelling {
                 name: run.to_string(),
                 dashes: Dashes::Single,
-                negatable: false,
+                negation: None,
                 abbrev: None,
             },
             after_run,
@@ -700,7 +713,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             Spelling {
                 name: run.to_string(),
                 dashes: Dashes::Single,
-                negatable: false,
+                negation: None,
                 abbrev: None,
             },
             after_run,
@@ -796,7 +809,7 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
                 Spelling {
                     name: format!("{name}{content}"),
                     dashes: Dashes::Double,
-                    negatable: false,
+                    negation: None,
                     abbrev: Some(name.chars().count()),
                 },
                 rest,
@@ -807,7 +820,7 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
         Spelling {
             name: name.to_string(),
             dashes: Dashes::Double,
-            negatable,
+            negation: negatable.then_some(Negation::NoPrefix),
             abbrev: None,
         },
         s,
@@ -838,6 +851,13 @@ fn try_bare_sigil(input: &str) -> Option<(Spelling, &str)> {
 /// caller.
 fn is_bare_end_of_options_marker(spec: &FlagSpec) -> bool {
     matches!(spec.spellings.as_slice(), [s] if s.dashes == Dashes::None && s.name == "--")
+}
+
+/// The text after a leading `[!]` marker, when the row starts with one and
+/// a dash-led spelling follows. See docs/shapes.md S-253.
+pub fn strip_bang_lead(input: &str) -> Option<&str> {
+    let rest = input.trim_start().strip_prefix("[!]")?.trim_start();
+    rest.starts_with('-').then_some(rest)
 }
 
 /// Strips a leading `[no-]`/`[no]` prefix, if present. Recognized
@@ -1355,6 +1375,9 @@ fn take_glued_second_metavar_word(name: &str, tail: &str) -> Option<(String, usi
 /// See docs/shapes.md S-084.
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
+    if let Some(rest) = strip_bang_lead(trimmed) {
+        return looks_like_flag_start(rest);
+    }
     if trimmed.starts_with('-') {
         return !is_dash_underline_token(first_token(trimmed));
     }

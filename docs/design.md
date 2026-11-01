@@ -440,7 +440,7 @@ pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
 pub struct Choice { pub name: String, pub description: Option<Text> }
 ```
 
-`short()`, `long()`, `negatable()`, and `single_dash()` are derived from
+`short()`, `long()`, `negation()`, `negatable()`, and `single_dash()` are derived from
 `spellings` by shape, never stored: two dashes is long, one dash is long
 when the name is longer than a single character (`-help`, `-vv`, `-CC`) and
 short otherwise. A one-character single-dash spelling is a short flag,
@@ -469,7 +469,7 @@ flag accepted repeatedly, and a positional written with an ellipsis
 pub struct Spelling {
     pub name: String,
     pub dashes: Dashes,   // None | Single | Double
-    pub negatable: bool,
+    pub negation: Option<Negation>,   // None | NoPrefix | Bang
     /// `Some(n)` when the tool documents an abbreviation bracket — the
     /// minimum accepted prefix length: `-r[esolve]` is `name: "resolve"`,
     /// `abbrev: Some(1)`; `-rc[vbuf]` is `name: "rcvbuf"`, `abbrev:
@@ -477,6 +477,16 @@ pub struct Spelling {
     pub abbrev: Option<usize>,
 }
 ```
+
+`negation` is how the tool writes a flag's inverse, one field with two kinds.
+`NoPrefix` is the `no-` prefix, drawn `--[no-]name`: `--name` and `--no-name`
+are both spelled. `Bang` is a `!` typed before the flag (iptables:
+`iptables -A INPUT ! -p tcp` inverts the test), drawn `[!]` once before the
+row's spellings, as the tool wrote it: `[!] -p, --protocol proto`. A `[!]` row
+sets `Bang` on every spelling it names. `Bang` adds no spelling and no
+search form (there is no `--no-protocol`). `expected.snap` stores each
+spelling as the tool wrote it, `[!] -p`; a cached tree that still carries the
+boolean `negatable` reads as `NoPrefix`. See `docs/shapes.md` S-253.
 
 One constraint carries over from `Flag::negatable` and `Flag::single_dash`:
 the searched/copied name never smuggles punctuation. `-h`, `-?`, `-help`,
@@ -1993,6 +2003,7 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Description preview pointer (§9.3 rule 19) | The section heading's grey; the rows above it are drawn as in the full text |
 | **Flag spelling** | **Accent**, the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
+| Negation notation (`[no-]` in `--[no-]name`, a leading `[!]`) | Muted; the names around it keep the spelling's accent |
 | Flag description | Default foreground |
 | Inherited flag group | Entire group muted |
 | Deprecated | Muted + a `(deprecated)` tag |

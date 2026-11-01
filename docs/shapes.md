@@ -5806,3 +5806,37 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: tcpretrans.bt and the other `*.bt` wrapper scripts, unified-monitoring-agent-gem, egrep, vi, view, ex, update-grub, pnpx, bzless, slogin, domainname
 - handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
 - fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.
+
+### S-253: a leading `[!]` marks a flag row that can be inverted
+
+- id: S-253
+- looks like: |
+      [!] --protocol	-p proto	protocol: by number or name, eg. `tcp'
+      [!] --version	-V		print package version.
+- tools: ip6tables-translate
+- handling: Fixed. A flag row led by `[!]` is read as an ordinary row, and every
+  spelling it names gets the `!` negation form (`Spelling::negation`): the tool
+  takes a `!` typed before the flag to invert the test. The page draws `[!]`
+  once before the spellings, in the muted colour, as the tool wrote it. The
+  marker adds no spelling and no search form. Fixture:
+  `corpus/ip6tables-translate/1.8.10`.
+- fleet: not measured
+
+### S-254: a flag head written long first, then its short alias
+
+- id: S-254
+- looks like: |
+      --append  -A chain		Append to chain
+      --delete-chain
+                -X [chain]		Delete a user-defined chain
+- tools: ip6tables-translate
+- handling: Fixed. In a block where at least three rows, and half of the dash-led
+  rows, open with a lone `--long` and a one-letter `-X` after a gap, that gap is
+  an alias separator and the description gap is the next one, or none. Such a
+  row is one flag with both spellings and one value. A lone `--long` row
+  followed by a deeper row that starts with `-X` is the same head wrapped onto
+  two lines and is joined. A value's continuation words after its first
+  (`chain [rulenum]`, `PKTS BYTES`, `input name[+]`) stay with the value, as
+  S-225 keeps `name value`. A tab between spellings separates them like a space.
+  Fixture: `corpus/ip6tables-translate/1.8.10`.
+- fleet: not measured
