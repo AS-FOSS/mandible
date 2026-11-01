@@ -39,14 +39,14 @@ FLAGS (395) ──────────────────────�
                               directive
     --enable-linker-version   Enable the LINKER_VERSION linker script
                               directive
--E B                          Link big-endian objects
--E L                          Link little-endian objects
+    -EB                       Link big-endian objects
+    -EL                       Link little-endian objects
 -f, --auxiliary SHLIB         Auxiliary filter for shared object symbol
                               table
 -F, --filter SHLIB            Filter for shared object symbol table
 -g                            Ignored
 -G, --gpsize SIZE             Small data size (if no size, same as --shared)
--h FILENAME,                  Set internal name of shared library
+-h, -soname FILENAME          Set internal name of shared library
 -I, --dynamic-linker PROGRAM  Set PROGRAM as the dynamic linker to use
     --no-dynamic-linker       Produce an executable with no program
                               interpreter header
@@ -62,8 +62,8 @@ FLAGS (395) ──────────────────────�
 -o, --output FILE             Set output file name
 -O                            Optimize output file
     --out-implib FILE         Generate import library
-    -plugin                   Load named plugin
-    -plugin-opt               Send arg to last-loaded plugin
+    -plugin PLUGIN            Load named plugin
+    -plugin-opt ARG           Send arg to last-loaded plugin
     -flto                     Ignored for GCC LTO option compatibility
 -f lto-partition=             Ignored for GCC LTO option compatibility
 -f use-ld=                    Ignored for GCC linker option compatibility
@@ -83,7 +83,8 @@ FLAGS (395) ──────────────────────�
     --no-strip-discarded      Do not strip symbols in discarded sections
 -t, --trace                   Trace file opens
 -T, --script FILE             Read linker script
-    --default-script FILE,    Read default linker script
+    --default-script FILE     Read default linker script
+ or -dT
 -u, --undefined SYMBOL        Start with undefined reference to SYMBOL
     --require-defined SYMBOL  Require SYMBOL be defined in the final output
     --unique[=SECTION]        Don't merge input [SECTION | orphan] sections
@@ -105,7 +106,7 @@ FLAGS (395) ──────────────────────�
                               if used
     --no-as-needed            Always set DT_NEEDED for dynamic libraries
                               mentioned on the command line
-    -assert                   Ignored for SunOS compatibility
+    -assert KEYWORD           Ignored for SunOS compatibility
     -Bdynamic                 Link against shared libraries
  or -dy, -call_shared
     -Bstatic                  Do not link against shared libraries
@@ -128,7 +129,7 @@ FLAGS (395) ──────────────────────�
     --embedded-relocs         Generate embedded relocs
     --fatal-warnings          Treat warnings as errors
     --no-fatal-warnings       Do not treat warnings as errors (default)
-    -fini                     Call SYMBOL at unload-time
+    -fini SYMBOL              Call SYMBOL at unload-time
     --force-exe-suffix        Force generation of file with .exe suffix
     --gc-sections             Remove unused sections (on some targets)
     --no-gc-sections          Don't remove unused sections (default)
@@ -138,8 +139,8 @@ FLAGS (395) ──────────────────────�
                               sections
     --hash-size <NUMBER>      Set default hash table size close to <NUMBER>
     --help                    Print option help
-    -init                     Call SYMBOL at load-time
--M ap                         Write a linker map to FILE or
+    -init SYMBOL              Call SYMBOL at load-time
+    -Map FILE/DIR             Write a linker map to FILE or
                               DIR/<outputname>.map
     --no-define-common        Do not define Common storage
     --no-demangle             Do not demangle symbol names
@@ -177,8 +178,8 @@ FLAGS (395) ──────────────────────�
     --no-relax                Do not use relaxation techniques to reduce
                               code size
     --retain-symbols-file FILE Keep only symbols listed in FILE
-    -rpath                    Set runtime shared library search path
-    -rpath-link               Set link time shared library search path
+    -rpath PATH               Set runtime shared library search path
+    -rpath-link PATH          Set link time shared library search path
     -shared                   Create a shared library
  or -Bshareable
 -p, --pic-executable ie       Create a position independent executable

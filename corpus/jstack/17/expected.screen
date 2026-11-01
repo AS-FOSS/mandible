@@ -1,0 +1,15 @@
+=== jstack ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  jstack [-l][-e] <pid> (to connect to running process)
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  pid
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-l          long listing. Prints additional information about locks
+-e          extended listing. Prints additional information about threads
+-?, --help  to print this help message
+ or -h
+ or -help

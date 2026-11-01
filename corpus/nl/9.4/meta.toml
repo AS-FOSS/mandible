@@ -18,7 +18,3 @@ must_contain_flags = ["-b", "--body-numbering", "-f", "-h", "-n"]
 
 [contract.must_attach_choices]
 "-b" = ["a", "t", "n", "pBRE"]
-
-[xfail]
-broken = true
-reason = "[S-014] The `STYLE is one of:` block lists `a`, `t`, `n` and `pBRE`. `pBRE` is refused as a choice because it carries capitals, so `-b` shows three of the four. A fix admits a row whose token is a letter run inside a choices block that is already recognised."

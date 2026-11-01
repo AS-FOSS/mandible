@@ -1,0 +1,107 @@
+name: ld
+usage:
+- 'Usage: /usr/bin/ld [options] file...'
+flags:
+- spellings:
+  - -E
+  - --export-dynamic
+  description: Export all dynamic symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -EB
+  description: Link big-endian objects
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -EL
+  description: Link little-endian objects
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - -soname
+  value_name: FILENAME
+  value_kind: Required
+  description: Set internal name of shared library
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  value_name: EMULATION
+  value_kind: Required
+  description: Set emulation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  - --print-map
+  description: Print map file on standard output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -fini
+  value_name: SYMBOL
+  value_kind: Required
+  description: Call SYMBOL at unload-time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -init
+  value_name: SYMBOL
+  value_kind: Required
+  description: Call SYMBOL at load-time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Map
+  value_name: FILE/DIR
+  value_kind: Required
+  description: Write a linker map to FILE or DIR/<outputname>.map
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --compress-debug-sections
+  value_name: '[none|zlib|zlib-gnu|zlib-gabi|zstd]'
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: common-page-size=SIZE
+  value_kind: Required
+  description: Set common page size to SIZE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: max-page-size=SIZE
+  value_kind: Required
+  description: Set maximum page size to SIZE
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: defs
+  value_kind: Required
+  description: Report unresolved symbols in object files
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

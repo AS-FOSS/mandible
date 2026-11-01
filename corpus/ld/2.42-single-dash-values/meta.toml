@@ -32,7 +32,3 @@ must_contain_flags = ["-E", "--export-dynamic", "-EB", "-EL", "-Map", "-fini", "
 
 [contract.must_not_value_name]
 "-h" = ","
-
-[xfail]
-broken = true
-reason = "[S-212] Five rows of one table parse as a short letter plus a glued value: `-EB` and `-EL` read as `-E` with value `B`/`L` although `-E, --export-dynamic` takes none, `-Map FILE/DIR` as `-M` with value `ap` although `-M, --print-map` takes none, and `-fini SYMBOL` and `-init SYMBOL` lose their spaced value. `-h FILENAME, -soname FILENAME` keeps the comma on `-h`'s value and loses `-soname`. A fix reads the word as the spelling when the document documents the bare letter without a value, and a spaced ALL-CAPS value after the word stays on the option. A comma after an alias run's value must not hide the next single-dash spelling."

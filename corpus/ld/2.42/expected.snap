@@ -110,17 +110,13 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -E
-  value_name: B
-  value_kind: Required
+  - -EB
   description: Link big-endian objects
   provenance:
     sources:
     - help-text
 - spellings:
-  - -E
-  value_name: L
-  value_kind: Required
+  - -EL
   description: Link little-endian objects
   provenance:
     sources:
@@ -160,7 +156,8 @@ flags:
     - help-text
 - spellings:
   - -h
-  value_name: FILENAME,
+  - -soname
+  value_name: FILENAME
   value_kind: Required
   description: Set internal name of shared library
   provenance:
@@ -267,12 +264,16 @@ flags:
     - help-text
 - spellings:
   - -plugin
+  value_name: PLUGIN
+  value_kind: Required
   description: Load named plugin
   provenance:
     sources:
     - help-text
 - spellings:
   - -plugin-opt
+  value_name: ARG
+  value_kind: Required
   description: Send arg to last-loaded plugin
   provenance:
     sources:
@@ -403,7 +404,8 @@ flags:
     - help-text
 - spellings:
   - --default-script
-  value_name: FILE,
+  - -dT
+  value_name: FILE
   value_kind: Required
   description: Read default linker script
   provenance:
@@ -533,6 +535,8 @@ flags:
     - help-text
 - spellings:
   - -assert
+  value_name: KEYWORD
+  value_kind: Required
   description: Ignored for SunOS compatibility
   provenance:
     sources:
@@ -645,6 +649,8 @@ flags:
     - help-text
 - spellings:
   - -fini
+  value_name: SYMBOL
+  value_kind: Required
   description: Call SYMBOL at unload-time
   provenance:
     sources:
@@ -701,13 +707,15 @@ flags:
     - help-text
 - spellings:
   - -init
+  value_name: SYMBOL
+  value_kind: Required
   description: Call SYMBOL at load-time
   provenance:
     sources:
     - help-text
 - spellings:
-  - -M
-  value_name: ap
+  - -Map
+  value_name: FILE/DIR
   value_kind: Required
   description: Write a linker map to FILE or DIR/<outputname>.map
   provenance:
@@ -886,12 +894,16 @@ flags:
     - help-text
 - spellings:
   - -rpath
+  value_name: PATH
+  value_kind: Required
   description: Set runtime shared library search path
   provenance:
     sources:
     - help-text
 - spellings:
   - -rpath-link
+  value_name: PATH
+  value_kind: Required
   description: Set link time shared library search path
   provenance:
     sources:

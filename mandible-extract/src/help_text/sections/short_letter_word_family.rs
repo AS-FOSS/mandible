@@ -27,14 +27,20 @@ fn glued_word(flag: &Entity) -> Option<(char, &str)> {
 /// The value the row spaces after `token`: a bracketed placeholder, or one
 /// ALL-CAPS word before the description's column gap (`-Tbss ADDRESS`).
 fn spaced_value(raw: &str, token: &str) -> Option<(String, ValueKind)> {
-    if let Some(found) = spaced_value_placeholder(raw, token) {
-        return Some(found);
-    }
+    spaced_value_placeholder(raw, token).or_else(|| spaced_caps_value(raw, token))
+}
+
+/// One ALL-CAPS word (`SYMBOL`, `FILE/DIR`) one space after `token` and
+/// closed by the description's column gap.
+pub(super) fn spaced_caps_value(raw: &str, token: &str) -> Option<(String, ValueKind)> {
     raw.lines().find_map(|line| {
         let rest = line.trim_start().strip_prefix(token)?.strip_prefix(' ')?;
         let word = rest.split_once("  ").map_or(rest, |(w, _)| w);
-        let plain = word.chars().all(|c| c.is_ascii_uppercase() || c == '_');
-        (plain && !word.is_empty()).then(|| (word.to_string(), ValueKind::Required))
+        let plain = word
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || matches!(c, '_' | '/'));
+        let caps = word.chars().any(|c| c.is_ascii_uppercase());
+        (plain && caps).then(|| (word.to_string(), ValueKind::Required))
     })
 }
 
@@ -92,6 +98,55 @@ pub(super) fn split_short_letter_word_family(flags: &mut [Entity], raw: &str) {
             .then_some(mandible_core::OptionalJoin::Separate);
         flags[i].value_name = value.map(|v| v.0);
     }
+}
+
+/// A table row `-<letter><word>` that reads as the letter plus a glued
+/// value, where the same document documents the bare `-<letter>` as a
+/// flag without a value, is one single-dash option: `-EB` and `-Map` beside
+/// `-E, --export-dynamic` and `-M, --print-map`. The row's own spaced
+/// value (`-Map FILE/DIR`, `-MF <file>`) stays on the option. S-212 and
+/// corpus/ld/2.42-single-dash-values.
+pub(super) fn split_word_on_value_free_short(flags: &mut [Entity], raw: &str) {
+    let value_free: Vec<char> = flags
+        .iter()
+        .filter(|f| f.value_kind == ValueKind::None)
+        .filter_map(Entity::short)
+        .collect();
+    for flag in flags.iter_mut() {
+        let Some((letter, word)) = valued_short(flag).map(|(c, w)| (c, w.to_string())) else {
+            continue;
+        };
+        let token = format!("-{letter}{word}");
+        if !value_free.contains(&letter)
+            || row_indent(raw, &token).is_none()
+            || !token_occurs_glued(raw, &token)
+        {
+            continue;
+        }
+        let value = spaced_value(raw, &token);
+        flag.spellings = vec![Spelling::single_dash(format!("{letter}{word}"))];
+        flag.value_kind = value.as_ref().map_or(ValueKind::None, |v| v.1);
+        flag.value_name = value.map(|v| v.0);
+    }
+}
+
+/// The letter and glued tail of a table row with a description and no long
+/// spelling whose value reads as an option-name tail of any length.
+fn valued_short(flag: &Entity) -> Option<(char, &str)> {
+    if !flag.provenance.sources.contains(&Source::HelpText)
+        || flag.provenance.sources.contains(&Source::HelpTextSynopsis)
+        || flag.long().is_some()
+        || flag.value_kind != ValueKind::Required
+        || flag.description.is_none()
+    {
+        return None;
+    }
+    let word = flag.value_name.as_deref()?;
+    // A case-mixed run of three or more is a cluster of bundled shorts.
+    let mixed = word.chars().any(|c| c.is_ascii_uppercase())
+        && word.chars().any(|c| c.is_ascii_lowercase());
+    (is_option_name_tail(word) && !(mixed && word.chars().count() >= 3)).then_some(())?;
+    Some((flag.short()?, word))
 }
 
 /// Fold deeper-indented `-Fword` rows under a `-Farg` row into that flag's

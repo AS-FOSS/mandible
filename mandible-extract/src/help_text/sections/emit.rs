@@ -927,7 +927,11 @@ pub(super) fn emit_choices(
     let before = candidates.len();
     let quoted_kept = candidates
         .iter()
-        .filter(|(n, _)| owner.is_some() && super::plural_owner::is_quoted_word(n))
+        .filter(|(n, _)| {
+            owner.is_some()
+                && (super::plural_owner::is_quoted_word(n)
+                    || super::plural_owner::is_mixed_case_word(n))
+        })
         .count();
     candidates = super::plural_owner::keep_owned_placeholders(candidates, owner, out);
     clean += candidates

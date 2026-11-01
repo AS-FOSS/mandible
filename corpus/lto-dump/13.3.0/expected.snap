@@ -2442,9 +2442,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -M
-  value_name: D
-  value_kind: Required
+  - -MD
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
@@ -2459,9 +2457,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -M
-  value_name: G
-  value_kind: Required
+  - -MG
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
@@ -2475,18 +2471,14 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -M
-  value_name: MD
-  value_kind: Required
+  - -MMD
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
     sources:
     - help-text
 - spellings:
-  - -M
-  value_name: P
-  value_kind: Required
+  - -MP
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
@@ -2509,9 +2501,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -M
-  value_name: modules
-  value_kind: Required
+  - -Mmodules
   group: 'The following options are language-related:'
   description: '[disabled]'
   provenance:
