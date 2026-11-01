@@ -1,0 +1,38 @@
+# Excerpt of the 2.42 capture: single-dash rows in a table that also lists
+# short-letter rows and `-X` rows. `-EB`, `-EL`, `-Map`, `-fini` and `-init`
+# are whole spellings; `-h FILENAME, -soname FILENAME` is one alias pair.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ld"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ld", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags"]
+must_contain_flags = ["-E", "--export-dynamic", "-EB", "-EL", "-Map", "-fini", "-init", "-h", "-soname", "-M", "--print-map", "-m"]
+
+[contract.must_value_name]
+"-Map" = "FILE/DIR"
+"-fini" = "SYMBOL"
+"-init" = "SYMBOL"
+"-h" = "FILENAME"
+"-soname" = "FILENAME"
+"-m" = "EMULATION"
+
+[contract.must_not_value_name]
+"-h" = ","
+
+[xfail]
+broken = true
+reason = "[S-212] Five rows of one table parse as a short letter plus a glued value: `-EB` and `-EL` read as `-E` with value `B`/`L` although `-E, --export-dynamic` takes none, `-Map FILE/DIR` as `-M` with value `ap` although `-M, --print-map` takes none, and `-fini SYMBOL` and `-init SYMBOL` lose their spaced value. `-h FILENAME, -soname FILENAME` keeps the comma on `-h`'s value and loses `-soname`. A fix reads the word as the spelling when the document documents the bare letter without a value, and a spaced ALL-CAPS value after the word stays on the option. A comma after an alias run's value must not hide the next single-dash spelling."

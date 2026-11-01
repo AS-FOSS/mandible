@@ -1,0 +1,23 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "aarch64-linux-gnu-strip"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["aarch64-linux-gnu-strip", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+min_status = "ok"
+must_contain_flags = ["-M", "--merge-notes", "--no-merge-notes", "-o"]
+must_describe = { "-M" = "Remove redundant entries in note sections" }
+must_not_describe = { "-M" = "--merge-notes" }
+
+[xfail]
+broken = true
+reason = "[S-082] The row `-M  --merge-notes   Remove redundant entries ...` puts two spaces between the short and the long spelling, where its siblings use one. The long spelling stays in the description and `--merge-notes` is not an alias of `-M`. A fix joins a short and a long spelling split by a two-space gap when the long spelling is followed by the description column."

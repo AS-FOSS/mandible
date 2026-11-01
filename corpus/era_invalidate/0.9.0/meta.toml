@@ -1,0 +1,24 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "era_invalidate"
+version = "0.9.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["era_invalidate", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+min_status = "ok"
+must_contain_flags = ["-h", "--help", "-o", "--metadata-snapshot", "-V", "--version"]
+
+[contract.must_value_name]
+"-o" = "xml file"
+
+[xfail]
+broken = true
+reason = "[S-084] Every `Options:` row is wrapped in braces: `{-h|--help}`, `{-o <xml file>}`, `{--metadata-snapshot}`, `{-V|--version}`. The `-o` row, which takes a value, is dropped. A fix unwraps a brace-wrapped row whose only content is a spelling with an optional value."

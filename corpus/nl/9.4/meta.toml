@@ -1,0 +1,24 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "nl"
+version = "9.4"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["nl", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+min_status = "ok"
+must_contain_flags = ["-b", "--body-numbering", "-f", "-h", "-n"]
+
+[contract.must_attach_choices]
+"-b" = ["a", "t", "n", "pBRE"]
+
+[xfail]
+broken = true
+reason = "[S-014] The `STYLE is one of:` block lists `a`, `t`, `n` and `pBRE`. `pBRE` is refused as a choice because it carries capitals, so `-b` shows three of the four. A fix admits a row whose token is a letter run inside a choices block that is already recognised."
