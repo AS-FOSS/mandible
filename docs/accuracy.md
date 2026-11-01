@@ -70,9 +70,9 @@ $$
 \frac{\hat p + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat p(1-\hat p)}{n} + \frac{z^2}{4n^2}}}{1 + \frac{z^2}{n}}
 $$
 
-**What it answers.** A batch of 36 tools with 14 correct measures 39 %. A different draw of 36
+**What it answers.** A sample of 36 tools with 14 correct measures 39 %. A different draw of 36
 tools would measure something a little different. The formula says how far the true rate across
-all tools could be from the measured one: for 14 out of 36, between 25 % and 55 %, with 95 %
+all tools could be from the measured share: for 14 out of 36, between 25 % and 55 %, with 95 %
 confidence. That range is the bar through each point.
 
 **The parts.**

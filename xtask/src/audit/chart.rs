@@ -563,4 +563,32 @@ mod tests {
         assert_eq!(nice_axis(12), (5, 15));
         assert_eq!(nice_axis(40), (10, 40));
     }
+
+    /// The committed `audit/history.json` and `docs/charts/` are exactly what the
+    /// committed batches produce, so a verdict changed without rerunning
+    /// `audit history` and `audit chart`, or a figure edited by hand, fails here.
+    #[test]
+    fn committed_history_and_charts_match_the_batches() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+        let seeds = super::super::history::load_seeds(&root.join("audit"), None, None).unwrap();
+        if seeds.is_empty() {
+            return;
+        }
+        let history = super::super::history::build_history(&seeds).unwrap();
+        let mut json = serde_json::to_string_pretty(&history).unwrap();
+        json.push('\n');
+        let stale = "rerun `cargo xtask audit history` and `cargo xtask audit chart`";
+        let committed = std::fs::read_to_string(root.join("audit/history.json")).unwrap();
+        assert!(committed == json, "audit/history.json is stale: {stale}");
+        for pal in [&LIGHT, &DARK] {
+            for (stem, svg) in [
+                ("accuracy", accuracy_svg(&history, pal).unwrap()),
+                ("new-failures", failures_svg(&history, pal).unwrap()),
+            ] {
+                let path = root.join(format!("docs/charts/{stem}-{}.svg", pal.name));
+                let committed = std::fs::read_to_string(&path).unwrap();
+                assert!(committed == svg, "{} is stale: {stale}", path.display());
+            }
+        }
+    }
 }

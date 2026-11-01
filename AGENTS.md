@@ -321,7 +321,7 @@ request. This is a lookup, not a judgment call at the end of the work.
 | `mandible/` | check the CLI surface against spec §2 and regenerate completions |
 | `xtask/` | update `docs/instruments.md` if an instrument's question changed |
 | `corpus/` | confirm no `[xfail]` fixture gained an `expected.snap` (§3.4) |
-| `audit/` | keep the submission path shape that `check_submissions.sh` enforces |
+| `audit/` | keep the submission path shape that `check_submissions.sh` enforces; after any verdict, tag or replay change, rerun `xtask audit history` and `xtask audit chart` |
 | `scripts/` | watch the guard fail before committing it (§3.7) |
 | `.github/` | remember a workflow edit pushed to main runs nothing; verify on a pull request |
 | `docs/` | keep `docs/shapes.md` to one entry per shape and five fields (§3.3) |
@@ -345,6 +345,21 @@ per tool. Run `xtask coverage --tools <affected>` as the cheap pre-check, then
 the full sweep when the change warrants it. Ship with the exact
 `mandible <tool>` commands and pty screenshots, because the maintainer verifies
 parser fixes visually rather than by fixture green.
+
+**Measuring accuracy.** The method is `docs/accuracy.md`; the README chart is
+`docs/charts/accuracy-light.svg`, generated, never edited. A batch is drawn
+with `xtask audit sample`, committed before anyone judges it, and judged by the
+maintainer by eye in `mandible --review`: no script or agent forms a verdict.
+Judge the tool's own pages only, not the `<tool>-<sub>` pages found on `PATH`,
+which the replay never sees. Run `xtask audit replay --per-minor` soon after
+judging, before the machine's tools are upgraded. Correct a verdict with
+`xtask audit amend`, never by editing it. Tag each failure with
+`xtask audit tag`: `known` when `docs/shapes.md` or a corpus xfail already
+covers its layout, `new` otherwise. A truth file (`xtask audit truth`) is
+written only after the maintainer has confirmed a fixed reading by eye. Never
+run a drawn tool by hand to inspect it, since some act on any argument; read
+its capture instead. The committed history and charts must match the batches,
+and a test fails when they drift.
 
 **Cutting a release.** Open the release pull request, then the tag, then watch
 the workflow run whose tag matches the tag you just pushed. Decide nothing.
