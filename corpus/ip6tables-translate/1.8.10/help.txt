@@ -1,0 +1,67 @@
+ip6tables-translate v1.8.10 (nf_tables)
+
+Usage: ip6tables-translate -[ACD] chain rule-specification [options]
+       ip6tables-translate -I chain [rulenum] rule-specification [options]
+       ip6tables-translate -R chain rulenum rule-specification [options]
+       ip6tables-translate -D chain rulenum [options]
+       ip6tables-translate -[LS] [chain [rulenum]] [options]
+       ip6tables-translate -[FZ] [chain] [options]
+       ip6tables-translate -[NX] chain
+       ip6tables-translate -E old-chain-name new-chain-name
+       ip6tables-translate -P chain target [options]
+       ip6tables-translate -h (print this help information)
+
+Commands:
+Either long or short options are allowed.
+  --append  -A chain		Append to chain
+  --check   -C chain		Check for the existence of a rule
+  --delete  -D chain		Delete matching rule from chain
+  --delete  -D chain rulenum
+				Delete rule rulenum (1 = first) from chain
+  --insert  -I chain [rulenum]
+				Insert in chain as rulenum (default 1=first)
+  --replace -R chain rulenum
+				Replace rule rulenum (1 = first) in chain
+  --list    -L [chain [rulenum]]
+				List the rules in a chain or all chains
+  --list-rules -S [chain [rulenum]]
+				Print the rules in a chain or all chains
+  --flush   -F [chain]		Delete all rules in  chain or all chains
+  --zero    -Z [chain [rulenum]]
+				Zero counters in chain or all chains
+  --new     -N chain		Create a new user-defined chain
+  --delete-chain
+            -X [chain]		Delete a user-defined chain
+  --policy  -P chain target
+				Change policy on chain to target
+  --rename-chain
+            -E old-chain new-chain
+				Change chain name, (moving any references)
+
+Options:
+    --ipv4	-4		Error (line is ignored by ip6tables-restore)
+    --ipv6	-6		Nothing (line is ignored by iptables-restore)
+[!] --protocol	-p proto	protocol: by number or name, eg. `tcp'
+[!] --source	-s address[/mask][...]
+				source specification
+[!] --destination -d address[/mask][...]
+				destination specification
+[!] --in-interface -i input name[+]
+				network interface name ([+] for wildcard)
+ --jump	-j target
+				target for rule (may load target extension)
+  --goto      -g chain
+			       jump to chain with no return
+  --match	-m match
+				extended match (may load extension)
+  --numeric	-n		numeric output of addresses and ports
+[!] --out-interface -o output name[+]
+				network interface name ([+] for wildcard)
+  --table	-t table	table to manipulate (default: `filter')
+  --verbose	-v		verbose mode
+  --wait	-w [seconds]	maximum wait to acquire xtables lock before give up
+  --line-numbers		print line numbers when listing
+  --exact	-x		expand numbers (display exact values)
+  --modprobe=<command>		try to insert modules using this command
+  --set-counters -c PKTS BYTES	set the counter during insert/append
+[!] --version	-V		print package version.

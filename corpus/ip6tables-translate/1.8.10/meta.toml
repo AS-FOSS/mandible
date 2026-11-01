@@ -1,0 +1,26 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip6tables-translate"
+version = "1.8.10"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["ip6tables-translate", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--append", "-A", "--protocol", "-p", "--source", "-s", "--version", "-V", "--delete-chain", "-X", "--list-rules", "-S"]
+
+[contract.must_value_name]
+"-A" = "chain"
+"--append" = "chain"
+"-p" = "proto"
+
+[xfail]
+broken = true
+reason = "[S-083] Rows led by `[!]` (`[!] --protocol -p proto`) are missing: the marker means the flag can be inverted by writing `!` before it, and no row is read. Long-first rows (`--append  -A chain<tab>Append to chain`) become a lone `--append` with `-A chain Append to chain` as its description, and some long/short pairs split into two flags (`--delete-chain` then `-X`). A fix needs a negation form on the spelling (`!` kind) and a row reader that takes a leading `[!]` and a `--long -S value` head as one flag with two spellings and one value."
