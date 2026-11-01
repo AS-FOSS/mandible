@@ -18,14 +18,16 @@ path = "src/main.rs"
 
 [dependencies]
 mandible-core.workspace = true
-mandible-extract.workspace = true
+mandible-extract = { workspace = true, features = ["dev-host"] }
 mandible-tui.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 rayon.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 serde_yaml.workspace = true
 toml.workspace = true
+toml_edit.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

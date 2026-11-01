@@ -19,6 +19,8 @@
 
 pub mod canary;
 pub mod containment;
+#[cfg(all(unix, feature = "dev-host"))]
+pub mod host;
 mod kept;
 mod limit;
 mod policy;

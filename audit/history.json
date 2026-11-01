@@ -1,0 +1,394 @@
+{
+  "releases": [
+    {
+      "version": "0.1.7",
+      "correct": 6,
+      "judged": 32,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-addr2line",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- aarch64-linux-gnu-addr2line"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-strip",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- aarch64-linux-gnu-strip"
+        },
+        {
+          "seed": 8,
+          "tool": "envsubst",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- envsubst"
+        },
+        {
+          "seed": 8,
+          "tool": "era_invalidate",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- era_invalidate"
+        },
+        {
+          "seed": 8,
+          "tool": "h2xs",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- h2xs"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "jstack",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- jstack"
+        },
+        {
+          "seed": 8,
+          "tool": "mount.fuse",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- mount.fuse"
+        },
+        {
+          "seed": 8,
+          "tool": "nl",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- nl"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        },
+        {
+          "seed": 8,
+          "tool": "xargs",
+          "command": "git worktree add target/review/v0.1.7 v0.1.7 && cargo run --release --manifest-path target/review/v0.1.7/Cargo.toml -p mandible -- xargs"
+        }
+      ],
+      "wilson_low": 0.08889423936162782,
+      "wilson_high": 0.3530949575492244,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.2.2",
+      "correct": 6,
+      "judged": 32,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-addr2line",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- aarch64-linux-gnu-addr2line"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-strip",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- aarch64-linux-gnu-strip"
+        },
+        {
+          "seed": 8,
+          "tool": "envsubst",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- envsubst"
+        },
+        {
+          "seed": 8,
+          "tool": "era_invalidate",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- era_invalidate"
+        },
+        {
+          "seed": 8,
+          "tool": "h2xs",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- h2xs"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "jstack",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- jstack"
+        },
+        {
+          "seed": 8,
+          "tool": "mount.fuse",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- mount.fuse"
+        },
+        {
+          "seed": 8,
+          "tool": "nl",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- nl"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        },
+        {
+          "seed": 8,
+          "tool": "xargs",
+          "command": "git worktree add target/review/v0.2.2 v0.2.2 && cargo run --release --manifest-path target/review/v0.2.2/Cargo.toml -p mandible -- xargs"
+        }
+      ],
+      "wilson_low": 0.08889423936162782,
+      "wilson_high": 0.3530949575492244,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.3.2",
+      "correct": 10,
+      "judged": 35,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-addr2line",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- aarch64-linux-gnu-addr2line"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-strip",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- aarch64-linux-gnu-strip"
+        },
+        {
+          "seed": 8,
+          "tool": "era_invalidate",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- era_invalidate"
+        },
+        {
+          "seed": 8,
+          "tool": "h2xs",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- h2xs"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "jstack",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- jstack"
+        },
+        {
+          "seed": 8,
+          "tool": "nl",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- nl"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.3.2 v0.3.2 && cargo run --release --manifest-path target/review/v0.3.2/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        }
+      ],
+      "wilson_low": 0.16326363398295565,
+      "wilson_high": 0.4505524806982108,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.4.5",
+      "correct": 13,
+      "judged": 36,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-addr2line",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- aarch64-linux-gnu-addr2line"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-strip",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- aarch64-linux-gnu-strip"
+        },
+        {
+          "seed": 8,
+          "tool": "h2xs",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- h2xs"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "jstack",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- jstack"
+        },
+        {
+          "seed": 8,
+          "tool": "nl",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- nl"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.4.5 v0.4.5 && cargo run --release --manifest-path target/review/v0.4.5/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        }
+      ],
+      "wilson_low": 0.2247538679218132,
+      "wilson_high": 0.5242521960916802,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.5.0",
+      "correct": 13,
+      "judged": 36,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-addr2line",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- aarch64-linux-gnu-addr2line"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-strip",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- aarch64-linux-gnu-strip"
+        },
+        {
+          "seed": 8,
+          "tool": "h2xs",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- h2xs"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "jstack",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- jstack"
+        },
+        {
+          "seed": 8,
+          "tool": "nl",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- nl"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.5.0 v0.5.0 && cargo run --release --manifest-path target/review/v0.5.0/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        }
+      ],
+      "wilson_low": 0.2247538679218132,
+      "wilson_high": 0.5242521960916802,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.6.1",
+      "correct": 15,
+      "judged": 41,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.6.1 v0.6.1 && cargo run --release --manifest-path target/review/v0.6.1/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.6.1 v0.6.1 && cargo run --release --manifest-path target/review/v0.6.1/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.6.1 v0.6.1 && cargo run --release --manifest-path target/review/v0.6.1/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        }
+      ],
+      "wilson_low": 0.23589630416936813,
+      "wilson_high": 0.5187957674783876,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.7.0",
+      "correct": 18,
+      "judged": 41,
+      "needs_eye": [
+        {
+          "seed": 8,
+          "tool": "aarch64-linux-gnu-ld",
+          "command": "git worktree add target/review/v0.7.0 v0.7.0 && cargo run --release --manifest-path target/review/v0.7.0/Cargo.toml -p mandible -- aarch64-linux-gnu-ld"
+        },
+        {
+          "seed": 8,
+          "tool": "ip6tables-translate",
+          "command": "git worktree add target/review/v0.7.0 v0.7.0 && cargo run --release --manifest-path target/review/v0.7.0/Cargo.toml -p mandible -- ip6tables-translate"
+        },
+        {
+          "seed": 8,
+          "tool": "qemu-ppc64el-static",
+          "command": "git worktree add target/review/v0.7.0 v0.7.0 && cargo run --release --manifest-path target/review/v0.7.0/Cargo.toml -p mandible -- qemu-ppc64el-static"
+        }
+      ],
+      "wilson_low": 0.2988990477210983,
+      "wilson_high": 0.5895973484824271,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.8.4",
+      "correct": 27,
+      "judged": 44,
+      "needs_eye": [],
+      "wilson_low": 0.46623309846201666,
+      "wilson_high": 0.7427900111329802,
+      "seeds": [
+        8
+      ]
+    },
+    {
+      "version": "0.9.0",
+      "correct": 27,
+      "judged": 44,
+      "needs_eye": [],
+      "wilson_low": 0.46623309846201666,
+      "wilson_high": 0.7427900111329802,
+      "seeds": [
+        8
+      ]
+    }
+  ],
+  "seeds": [
+    {
+      "seed": 8,
+      "version": "0.9.0",
+      "known": 6,
+      "new": 11,
+      "untagged": 0
+    }
+  ]
+}

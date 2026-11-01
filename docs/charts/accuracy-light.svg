@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 340" width="720" height="340" role="img" aria-labelledby="t d" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif">
+<title id="t">Audited accuracy per release</title>
+<desc id="d">Share of tools parsed fully correctly, per release, with the 95% interval. 0.1.7: 19% (9% to 35%, 6 of 32 tools). 0.2.2: 19% (9% to 35%, 6 of 32 tools). 0.3.2: 29% (16% to 45%, 10 of 35 tools). 0.4.5: 36% (22% to 52%, 13 of 36 tools). 0.5.0: 36% (22% to 52%, 13 of 36 tools). 0.6.1: 37% (24% to 52%, 15 of 41 tools). 0.7.0: 44% (30% to 59%, 18 of 41 tools). 0.8.4: 61% (47% to 74%, 27 of 44 tools). 0.9.0: 61% (47% to 74%, 27 of 44 tools). Goal: 90%.</desc>
+<!-- light -->
+<rect width="720" height="340" rx="8" fill="#ffffff"/>
+<line x1="52.0" y1="262.0" x2="640.0" y2="262.0" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="266.0" text-anchor="end" font-size="12" fill="#52514e">0%</text>
+<line x1="52.0" y1="202.5" x2="640.0" y2="202.5" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="206.5" text-anchor="end" font-size="12" fill="#52514e">25%</text>
+<line x1="52.0" y1="143.0" x2="640.0" y2="143.0" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="147.0" text-anchor="end" font-size="12" fill="#52514e">50%</text>
+<line x1="52.0" y1="83.5" x2="640.0" y2="83.5" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="87.5" text-anchor="end" font-size="12" fill="#52514e">75%</text>
+<line x1="52.0" y1="24.0" x2="640.0" y2="24.0" stroke="#e4e3df" stroke-width="1"/>
+<text x="44.0" y="28.0" text-anchor="end" font-size="12" fill="#52514e">100%</text>
+<line x1="52.0" y1="47.8" x2="640.0" y2="47.8" stroke="#52514e" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="646.0" y="51.8" text-anchor="start" font-size="12" fill="#52514e">goal 90%</text>
+<polyline points="82.4,217.4 143.3,217.4 204.2,194.0 265.1,176.1 326.0,176.1 386.9,174.9 447.8,157.5 508.7,116.0 569.6,116.0" fill="none" stroke="#2a78d6" stroke-width="2" stroke-opacity="0.4" stroke-linejoin="round"/>
+<line x1="82.4" y1="178.0" x2="82.4" y2="240.8" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="82.4" cy="217.4" r="6.5" fill="#ffffff"/>
+<circle cx="82.4" cy="217.4" r="4.5" fill="#2a78d6"/>
+<text x="82.4" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.1.7</text>
+<text x="82.4" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">32 tools</text>
+<line x1="143.3" y1="178.0" x2="143.3" y2="240.8" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="143.3" cy="217.4" r="6.5" fill="#ffffff"/>
+<circle cx="143.3" cy="217.4" r="4.5" fill="#2a78d6"/>
+<text x="143.3" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.2.2</text>
+<text x="143.3" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">32 tools</text>
+<line x1="204.2" y1="154.8" x2="204.2" y2="223.1" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="204.2" cy="194.0" r="6.5" fill="#ffffff"/>
+<circle cx="204.2" cy="194.0" r="4.5" fill="#2a78d6"/>
+<text x="204.2" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.3.2</text>
+<text x="204.2" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">35 tools</text>
+<line x1="265.1" y1="137.2" x2="265.1" y2="208.5" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="265.1" cy="176.1" r="6.5" fill="#ffffff"/>
+<circle cx="265.1" cy="176.1" r="4.5" fill="#2a78d6"/>
+<text x="265.1" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.4.5</text>
+<text x="265.1" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">36 tools</text>
+<line x1="326.0" y1="137.2" x2="326.0" y2="208.5" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="326.0" cy="176.1" r="6.5" fill="#ffffff"/>
+<circle cx="326.0" cy="176.1" r="4.5" fill="#2a78d6"/>
+<text x="326.0" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.5.0</text>
+<text x="326.0" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">36 tools</text>
+<line x1="386.9" y1="138.5" x2="386.9" y2="205.9" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="386.9" cy="174.9" r="6.5" fill="#ffffff"/>
+<circle cx="386.9" cy="174.9" r="4.5" fill="#2a78d6"/>
+<text x="386.9" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.6.1</text>
+<text x="386.9" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">41 tools</text>
+<line x1="447.8" y1="121.7" x2="447.8" y2="190.9" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="447.8" cy="157.5" r="6.5" fill="#ffffff"/>
+<circle cx="447.8" cy="157.5" r="4.5" fill="#2a78d6"/>
+<text x="447.8" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.7.0</text>
+<text x="447.8" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">41 tools</text>
+<line x1="508.7" y1="85.2" x2="508.7" y2="151.0" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="508.7" cy="116.0" r="6.5" fill="#ffffff"/>
+<circle cx="508.7" cy="116.0" r="4.5" fill="#2a78d6"/>
+<text x="508.7" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.8.4</text>
+<text x="508.7" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">44 tools</text>
+<line x1="569.6" y1="85.2" x2="569.6" y2="151.0" stroke="#2a78d6" stroke-width="2" stroke-linecap="round"/>
+<circle cx="569.6" cy="116.0" r="6.5" fill="#ffffff"/>
+<circle cx="569.6" cy="116.0" r="4.5" fill="#2a78d6"/>
+<text x="569.6" y="282.0" text-anchor="middle" font-size="12" fill="#52514e">0.9.0</text>
+<text x="569.6" y="297.0" text-anchor="middle" font-size="11" fill="#8a8984">44 tools</text>
+<text stroke="#ffffff" stroke-width="4" stroke-linejoin="round" paint-order="stroke" x="581.6" y="120.0" text-anchor="start" font-size="13" fill="#0b0b0b">61%</text>
+</svg>

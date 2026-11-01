@@ -196,7 +196,7 @@ jobs:
       - name: PATH sweep (shard ${{ matrix.shard }}/16)
         timeout-minutes: 15
         run: |
-          cargo build --release --locked --bin xtask
+          cargo build --release --locked -p xtask --bin xtask
           # Probes run inside $HOME/.cache/mandible (spec §6 rule 8). The
           # container's /github/home belongs to the runner user, which the
           # probes' root cannot write to, so the sweep runs with root's own home.
