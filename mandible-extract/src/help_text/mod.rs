@@ -18,6 +18,7 @@ mod error_only;
 mod fold_repeats;
 mod grammar;
 mod help_word;
+mod hint;
 mod listing_probe;
 mod not_a_command;
 mod profile;
@@ -389,7 +390,7 @@ impl HelpTextTier {
         let words: Vec<String> = path.iter().skip(1).cloned().collect();
         let generation = self.begin_help_probe(tool_path, &words);
         let (raw, _argv_display, confession) =
-            probe_help_text_confession_aware(probe, tool_path, &words, hints)?;
+            probe_help_text_hint_aware(probe, tool_path, &words, hints)?;
         let node_name = path.last().cloned().unwrap_or_else(|| tool.name.clone());
 
         // The tool refusing the word is not help for it (S-217).
@@ -669,6 +670,43 @@ fn probe_help_text_confession_aware(
     }
 }
 
+/// [`probe_help_text_confession_aware`], further resolved against the help
+/// hint (spec §6 rule 2e, docs/shapes.md S-253): when the answer gave the
+/// parser nothing, is a man page, or confesses without being expanded, the
+/// quoted help invocations it names are run (`hint::follow`), and the first
+/// that answers with help replaces it.
+fn probe_help_text_hint_aware(
+    probe: &dyn Probe,
+    tool_path: &Path,
+    words: &[String],
+    hints: NodeHints,
+) -> Result<(String, String, Option<Confession>), ExtractError> {
+    let (text, flag, confession) =
+        probe_help_text_confession_aware(probe, tool_path, words, hints)?;
+    let unfollowed = confession.as_ref().is_some_and(|c| !c.followed);
+    if !(unfollowed || hint::gives_nothing(&text) || sections::is_man_page_banner(&text)) {
+        return Ok((text, flag, confession));
+    }
+    match hint::follow(probe, tool_path, words, &text, &tried_argvs(words, &flag)) {
+        Some(found) => Ok((found.text, found.argv, None)),
+        None => Ok((text, flag, confession)),
+    }
+}
+
+/// The argvs already sent for `words` when the answer came from `flag`.
+fn tried_argvs(words: &[String], flag: &str) -> Vec<Vec<String>> {
+    let with = |last: &str| {
+        let mut a = words.to_vec();
+        a.push(last.to_string());
+        a
+    };
+    let mut tried = vec![with("--help")];
+    if flag == "-h" {
+        tried.push(with("-h"));
+    }
+    tried
+}
+
 /// Entries a parse of `text` yields: flags, subcommands, usage lines.
 fn structure_size(text: &str) -> usize {
     let parsed = sections::parse_with_profile(text, None, None);
@@ -926,10 +964,17 @@ fn raw_probe_streams_confession_aware(
 
     let merged = streams.merged();
     let directives = confession::detect_directives(&merged);
-    if directives.is_empty() {
-        return Ok(RawProbeOutcome::Streams(streams, flag));
-    }
     let Some(chosen) = confession::expandable(&directives) else {
+        // Rule 2e, as on the parsing path: a confession naming no
+        // followable word counts as unfollowed.
+        let unfollowed = !directives.is_empty();
+        if unfollowed || hint::gives_nothing(&merged) || sections::is_man_page_banner(&merged) {
+            let tried = tried_argvs(words, &flag);
+            if let Some(found) = hint::follow(probe, tool_path, words, &merged, &tried) {
+                let streams = RawStreams::from_output(&found.out);
+                return Ok(RawProbeOutcome::Streams(streams, found.argv));
+            }
+        }
         return Ok(RawProbeOutcome::Streams(streams, flag));
     };
 

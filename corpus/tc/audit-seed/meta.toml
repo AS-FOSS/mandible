@@ -13,10 +13,18 @@ stdout = "help.stdout.txt"
 stderr = "help.stderr.txt"
 exit_code = 255
 
+[[capture]]
+argv = ["tc", "-help"]
+stdout = "hint.stdout.txt"
+stderr = "hint.stderr.txt"
+exit_code = 0
+
 [contract]
 expected_framework = "generic"
-min_status = "ok"
+must_contain_flags = ["Version", "statistics", "batch", "Numeric", "brief"]
+must_contain_positionals = ["OBJECT", "COMMAND"]
+must_not_contain_flags = ["-f", "-n"]
 
 [xfail]
 broken = true
-reason = "[S-253] `--help` is refused with one error line that names the invocation that prints help: `tc -help`. The tree is empty. A fix follows that quoted invocation when the first answer gave nothing (design.md section 6 rule 2e) and parses the page it prints. The contract needs that page's flags once it is captured."
+reason = "The page the hint reaches (`tc -help`) is read, but two rows are invented: `-nm` splits into `-n` with value `m`, taking the next line's text as its description, and `[-force]` in the second usage form becomes the flag `-f` with value `orce`. A fix needs `-nm` kept as one spelling and a bracketed `[-word]` in a usage form kept as a whole word."

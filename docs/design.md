@@ -1077,7 +1077,8 @@ allowlist below.
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`,
    `help [<words...>]`, `help <option>` (rule 2d),
    `<words...> --help`/`-h` (a subcommand path's own
-   probe), `<words...> --help <word>` (rule 2b), or `-- <partial>` under
+   probe), `<words...> --help <word>` (rule 2b), a hint the tool's own
+   answer quotes (rule 2e), or `-- <partial>` under
    `COMPLETE=` (currently unused — no tier constructs it since Tier E's
    clap probe was removed, kept on the type only so removing it is not a
    breaking change). Any other shape needs a spec amendment.
@@ -1139,6 +1140,43 @@ allowlist below.
    listed row is `heading_attested`, so its own page probe is the existing
    gate. Rule 0's list still wins, since the argv is never exactly
    `["--help"]`. Docs/shapes.md S-214.
+
+   **2e. `InertArgv::HelpHint`, the tool's own instruction for getting
+   help.** Rules 2b, 2c and 2d are three instances of one rule: beyond the
+   fixed probes, mandible runs a help invocation only when the tool's own
+   printed text quotes it, and what may be run is fixed by a vocabulary, not
+   by the phrasing. Docs/shapes.md S-253.
+
+   1. *When.* Only when the answer gave mandible nothing: the parser found
+      no flags, commands, operands or usage line in it, or it is a man page,
+      or the tool said its help is incomplete and rule 2b did not expand it.
+      An empty or timed-out answer has no text to quote. A page that parses
+      keeps its result and never triggers this rule; 2c and 2d fire on
+      usable pages, as before.
+   2. *What.* A quoted invocation found in that same answer. The quote
+      opens with the tool's own name as invoked, and every later word is
+      one of `--help`, `-help`, `-h`, `help` (the constant `HINT_SAFE_WORDS`
+      in `exec/policy.rs`, the only copy), `all` directly after `--help`, a
+      command name the same text lists, or, for a subcommand node, the
+      node's own path opening the argv. At least one word is a help word, so
+      a quoted command alone is never run. Any other word, `-?` included,
+      and the hint is not followed. The grammar matches `try "X -help"`,
+      `try 'X help'`, `run "X --help all"` alike; prose such as
+      "See 'git help <command>'" carries `<command>` and never matches.
+   3. *How often.* At most two hints per node, none equal to an argv
+      already sent, never recursive: a page a hint reached is parsed, not
+      searched for more hints.
+   4. *Kept only if it is help.* The new answer must pass the help-shape
+      check (`looks_like_help_output`, not a man page); otherwise it is
+      discarded and the first answer stands. The worst case is one wasted
+      probe.
+   5. *Rule 0 wins.* A listed program is never sent anything but
+      `--help`: `run_inert` refuses a hint like every other argv that is
+      not exactly `["--help"]`, before spawning.
+
+   A new phrasing of a hint is a grammar line plus a corpus fixture and a
+   sweep-diff, like any parser shape. A new word in `HINT_SAFE_WORDS` changes
+   what mandible may run and is a maintainer decision (§16).
 
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 

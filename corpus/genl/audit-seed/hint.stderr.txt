@@ -1,0 +1,3 @@
+Usage: genl [ OPTIONS ] OBJECT [help] }
+where  OBJECT := { ctrl etc }
+       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -V[ersion] | -h[elp] }

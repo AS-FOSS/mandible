@@ -681,6 +681,10 @@ mod tests {
             InertArgv::HelpListing {
                 option: "-a".to_string(),
             },
+            // Rule 2e: a followed hint is refused like any other shape.
+            InertArgv::HelpHint {
+                words: vec!["-help".to_string()],
+            },
             InertArgv::CobraComplete { words: vec![] },
             InertArgv::CompletionScript {
                 shell: "zsh".to_string(),
