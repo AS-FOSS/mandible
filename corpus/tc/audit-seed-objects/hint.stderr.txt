@@ -1,0 +1,9 @@
+Usage:	tc [ OPTIONS ] OBJECT { COMMAND | help }
+	tc [-force] -batch filename
+where  OBJECT := { qdisc | class | filter | chain |
+		    action | monitor | exec }
+       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[aw] |
+		    -o[neline] | -j[son] | -p[retty] | -c[olor]
+		    -b[atch] [filename] | -n[etns] name | -N[umeric] |
+		     -nm | -nam[es] | { -cf | -conf } path
+		     -br[ief] }

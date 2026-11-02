@@ -4,6 +4,14 @@
 //! invocation" or "arbitrary args" variant exists, so the type system
 //! enforces the allowlist rather than a runtime check.
 
+/// The words a followed help hint (spec §6 rule 2e) may be made of, besides
+/// the command names the same text lists and the node's own path. The one
+/// place this list lives; adding a word is a maintainer decision (§16).
+pub const HINT_SAFE_WORDS: [&str; 4] = ["--help", "-help", "-h", "help"];
+
+/// Also safe, but only directly after `--help` (as rule 2b uses it).
+pub const HINT_WORD_AFTER_HELP: &str = "all";
+
 /// One of the inert argv shapes a tier is permitted to invoke a tool with.
 /// Every variant's [`InertArgv::args`] is non-empty.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -63,6 +71,15 @@ pub enum InertArgv {
         /// The word the tool's own text recommended, verbatim.
         word: String,
     },
+    /// The argv of a quoted self-invocation the tool's own answer named as
+    /// the way to get help (spec §6 rule 2e). Only [`InertArgv::help_hint`]
+    /// builds one, so every word is on [`HINT_SAFE_WORDS`], is
+    /// [`HINT_WORD_AFTER_HELP`] after `--help`, is a command the same text
+    /// lists, or belongs to the node's own path; at least one is a help word.
+    HelpHint {
+        /// The words after the tool's name, verbatim from the quote.
+        words: Vec<String>,
+    },
     /// `<tool> --` under `COMPLETE=<shell>`, used to detect clap
     /// `CompleteEnv` support (spec §7 Tier E). Never invoked without the
     /// trailing `--`.
@@ -114,11 +131,40 @@ impl InertArgv {
                 a.push(word.clone());
                 a
             }
+            InertArgv::HelpHint { words } => words.clone(),
             InertArgv::ClapCompleteEnvProbe { .. } => vec!["--".to_string()],
             InertArgv::ClapCompleteEnvComplete { partial, .. } => {
                 vec!["--".to_string(), partial.clone()]
             }
         }
+    }
+
+    /// The hint argv `quoted` (the words after the tool's name) names for the
+    /// node at `node_words`, or `None` when any word is not safe. The node's
+    /// own path may open the argv; `listed` are the command names the
+    /// answer's text lists. Spec §6 rule 2e.
+    pub fn help_hint(quoted: &[String], node_words: &[String], listed: &[String]) -> Option<Self> {
+        let rest = quoted.strip_prefix(node_words)?;
+        let mut helped = false;
+        for (i, w) in rest.iter().enumerate() {
+            let prev = i.checked_sub(1).map(|p| rest[p].as_str());
+            let next = rest.get(i + 1).map(String::as_str);
+            // `help` only opens the argv, so no command reads it as an operand.
+            let is_help = HINT_SAFE_WORDS.contains(&w.as_str()) && (w != "help" || i == 0);
+            let after_help = w == HINT_WORD_AFTER_HELP && prev == Some("--help");
+            // A listed command only as `help <cmd>` or `<cmd> --help`, the
+            // forms rule 2c and the subcommand probe already send.
+            let command = listed.contains(w)
+                && (prev == Some("help")
+                    || next.is_some_and(|n| n != "help" && HINT_SAFE_WORDS.contains(&n)));
+            if !(is_help || after_help || command) {
+                return None;
+            }
+            helped |= is_help;
+        }
+        helped.then(|| InertArgv::HelpHint {
+            words: quoted.to_vec(),
+        })
     }
 
     /// Extra environment variables this shape requires beyond the baseline
@@ -158,6 +204,9 @@ mod tests {
             InertArgv::HelpExpand {
                 words: vec![],
                 word: "all".to_string(),
+            },
+            InertArgv::HelpHint {
+                words: vec!["-help".to_string()],
             },
             InertArgv::ClapCompleteEnvProbe {
                 shell: "zsh".to_string(),

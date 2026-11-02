@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- [S-256] When a tool's `--help` answer gives nothing and quotes the invocation that prints help (`try "tc -help"`), mandible runs that invocation, at most twice, if every word in it is `--help`, `-help`, `-h`, `help`, `all` after `--help`, or a command the text lists; `tc`, `genl` and `rtmon` show their pages.
+
 ### Changed
 
 - [S-253] A value written only as alternatives (`y|n`, `[none|zlib]`, `{auto|manual}`) shows as a muted `{…}` where its name would be, with the values listed once on the `values:` line, which sits on the flag's own row when it has no description, as in `vgchange --activate`, `ld --compress-debug-sections`, `sg_inq --block` and `apt-mark`'s first operand.

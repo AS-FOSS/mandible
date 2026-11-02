@@ -1,0 +1,44 @@
+name: genl
+usage:
+- 'Usage: genl [ OPTIONS ] OBJECT [help] }'
+positionals:
+- name: OBJECT
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: help
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -s[tatistics]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d[etails]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r[aw]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V[ersion]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h[elp]
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

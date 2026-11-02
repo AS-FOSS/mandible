@@ -1,0 +1,29 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "genl"
+version = "audit-seed-objects"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["genl", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["genl", "-help"]
+stdout = "hint.stdout.txt"
+stderr = "hint.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 1
+must_not_contain_positionals = ["OBJECT"]
+
+[xfail]
+broken = true
+reason = "`OBJECT := { ctrl etc }` names the command `ctrl` (`genl ctrl ...`), and `genl ctrl help` prints its page, which the usage form `genl [ OPTIONS ] OBJECT [help] }` shows. OBJECT is read as one positional instead. The list has no `|` separators and its second word is the English `etc`, so a rule reading `NAME := { a | b }` lists must not take it as written; a fix needs evidence that `ctrl` is a command without inventing an `etc` command."

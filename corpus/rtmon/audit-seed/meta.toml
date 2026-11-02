@@ -1,0 +1,32 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "rtmon"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["rtmon", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["rtmon", "help"]
+stdout = "hint.stdout.txt"
+stderr = "hint.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["family", "-4", "-6", "-0", "Version"]
+must_contain_positionals = ["FILE"]
+
+[contract.must_attach_choices]
+"family" = ["inet", "inet6", "link"]
+
+[xfail]
+broken = true
+reason = "The page `rtmon help` prints is a grammar (`OPTIONS := { -f[amily] { inet | inet6 | link | help } | -4 | -6 | -0 | -V[ersion] }`) and is read as a table: `OPTIONS :` becomes a group heading on `-f[amily]` only, and the family list `{ inet | inet6 | link | help } |` becomes its description instead of its values. A fix needs `NAME := { ... | ... }` lines read as alternatives, the braced lowercase list after a flag as its values."
