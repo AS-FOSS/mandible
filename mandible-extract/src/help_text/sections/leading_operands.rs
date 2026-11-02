@@ -1,6 +1,6 @@
 //! A usage form whose operands come first and whose options follow in
 //! brackets: `usage: mount.fuse type#[source] destination [-t type]
-//! [-o opt[,opts...]]` (S-255). Two or more bare lowercase words straight
+//! [-o opt[,opts...]]` (S-253). Two or more bare lowercase words straight
 //! after the program, then bracketed flag groups only. Each operand keeps
 //! the name as written.
 

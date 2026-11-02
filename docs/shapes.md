@@ -5164,7 +5164,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   A form that does not name the node's own command (`git log -h` also
   prints `or: git show ...`) is another command's form, never a verb of
   this node (`git log`, `show`, `shortlog` fixtures in the same dir). Its
-  operands are not this node's either (S-255).
+  operands are not this node's either (S-253).
 - fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses: fragiso
   gains 6 subcommands (0 -> 6) and 12 positionals (5 -> 17). The parent rule
   moved 2 tools on a full-`PATH` sweep of 2271 tools, 2026-10-12: the roots of
@@ -5826,9 +5826,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
 - fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.
 
-### S-255: usage-line operand forms the reader skipped
+### S-253: usage-line operand forms the reader skipped
 
-- id: S-255
+- id: S-253
 - looks like: |
       /usr/sbin/update-ca-certificates: [--verbose] [--fresh]
       xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...
