@@ -1,4 +1,4 @@
-//! The help hint (spec §6 rule 2e, docs/shapes.md S-254).
+//! The help hint (spec §6 rule 2e, docs/shapes.md S-253).
 //!
 //! When an answer gave nothing usable and quotes the way to get help, that
 //! quoted invocation is run, at most twice and never from a page a hint

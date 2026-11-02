@@ -671,7 +671,7 @@ fn probe_help_text_confession_aware(
 }
 
 /// [`probe_help_text_confession_aware`], further resolved against the help
-/// hint (spec §6 rule 2e, docs/shapes.md S-254): when the answer gave the
+/// hint (spec §6 rule 2e, docs/shapes.md S-253): when the answer gave the
 /// parser nothing, is a man page, or confesses without being expanded, the
 /// quoted help invocations it names are run (`hint::follow`), and the first
 /// that answers with help replaces it.

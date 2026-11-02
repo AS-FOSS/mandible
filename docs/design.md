@@ -1145,7 +1145,7 @@ allowlist below.
    help.** Rules 2b, 2c and 2d are three instances of one rule: beyond the
    fixed probes, mandible runs a help invocation only when the tool's own
    printed text quotes it, and what may be run is fixed by a vocabulary, not
-   by the phrasing. Docs/shapes.md S-254.
+   by the phrasing. Docs/shapes.md S-253.
 
    1. *When.* Only when the answer gave mandible nothing: the parser found
       no flags, commands, operands or usage line in it, or it is a man page,
