@@ -1,0 +1,29 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "tc"
+version = "audit-seed-objects"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["tc", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["tc", "-help"]
+stdout = "hint.stdout.txt"
+stderr = "hint.stderr.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 7
+must_not_contain_positionals = ["OBJECT"]
+
+[xfail]
+broken = true
+reason = "`OBJECT := { qdisc | class | filter | chain | action | monitor | exec }` lists the commands (`tc qdisc ...`), but OBJECT is read as one positional and the list is ignored. A fix reads the members of a `NAME := { a | b }` production as commands when the usage form puts NAME in a command slot (`tc [ OPTIONS ] OBJECT { COMMAND | help }`). Each command prints its own page as `tc <object> help`; probing it is a separate probe-policy decision."
