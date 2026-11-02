@@ -147,9 +147,17 @@ impl InertArgv {
         let rest = quoted.strip_prefix(node_words)?;
         let mut helped = false;
         for (i, w) in rest.iter().enumerate() {
-            let is_help = HINT_SAFE_WORDS.contains(&w.as_str());
-            let after_help = w == HINT_WORD_AFTER_HELP && i > 0 && rest[i - 1] == "--help";
-            if !(is_help || after_help || listed.contains(w)) {
+            let prev = i.checked_sub(1).map(|p| rest[p].as_str());
+            let next = rest.get(i + 1).map(String::as_str);
+            // `help` only opens the argv, so no command reads it as an operand.
+            let is_help = HINT_SAFE_WORDS.contains(&w.as_str()) && (w != "help" || i == 0);
+            let after_help = w == HINT_WORD_AFTER_HELP && prev == Some("--help");
+            // A listed command only as `help <cmd>` or `<cmd> --help`, the
+            // forms rule 2c and the subcommand probe already send.
+            let command = listed.contains(w)
+                && (prev == Some("help")
+                    || next.is_some_and(|n| n != "help" && HINT_SAFE_WORDS.contains(&n)));
+            if !(is_help || after_help || command) {
                 return None;
             }
             helped |= is_help;

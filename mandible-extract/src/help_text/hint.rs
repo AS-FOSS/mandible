@@ -1,4 +1,4 @@
-//! The help hint (spec §6 rule 2e, docs/shapes.md S-253).
+//! The help hint (spec §6 rule 2e, docs/shapes.md S-254).
 //!
 //! When an answer gave nothing usable and quotes the way to get help, that
 //! quoted invocation is run, at most twice and never from a page a hint
@@ -198,8 +198,12 @@ mod tests {
         let words = v(&["help", "qdisc"]);
         assert!(InertArgv::help_hint(&words, &[], &listed).is_some());
         assert!(InertArgv::help_hint(&words, &[], &[]).is_none());
+        assert!(InertArgv::help_hint(&v(&["qdisc", "--help"]), &[], &listed).is_some());
         // A command alone would run it, so a help word is required.
         assert!(InertArgv::help_hint(&v(&["qdisc"]), &[], &listed).is_none());
+        // `help` after a command could be read as its operand.
+        assert!(InertArgv::help_hint(&v(&["qdisc", "help"]), &[], &listed).is_none());
+        assert!(InertArgv::help_hint(&v(&["-h", "help"]), &[], &[]).is_none());
     }
 
     #[test]

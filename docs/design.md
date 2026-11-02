@@ -1145,7 +1145,7 @@ allowlist below.
    help.** Rules 2b, 2c and 2d are three instances of one rule: beyond the
    fixed probes, mandible runs a help invocation only when the tool's own
    printed text quotes it, and what may be run is fixed by a vocabulary, not
-   by the phrasing. Docs/shapes.md S-253.
+   by the phrasing. Docs/shapes.md S-254.
 
    1. *When.* Only when the answer gave mandible nothing: the parser found
       no flags, commands, operands or usage line in it, or it is a man page,
@@ -1156,9 +1156,10 @@ allowlist below.
    2. *What.* A quoted invocation found in that same answer. The quote
       opens with the tool's own name as invoked, and every later word is
       one of `--help`, `-help`, `-h`, `help` (the constant `HINT_SAFE_WORDS`
-      in `exec/policy.rs`, the only copy), `all` directly after `--help`, a
-      command name the same text lists, or, for a subcommand node, the
-      node's own path opening the argv. At least one word is a help word, so
+      in `exec/policy.rs`, the only copy; `help` only as the first word),
+      `all` directly after `--help`, a command name the same text lists in
+      the forms `help <command>` or `<command> --help` (or `-help`, `-h`),
+      or, for a subcommand node, the node's own path opening the argv. At least one word is a help word, so
       a quoted command alone is never run. Any other word, `-?` included,
       and the hint is not followed. The grammar matches `try "X -help"`,
       `try 'X help'`, `run "X --help all"` alike; prose such as
