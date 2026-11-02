@@ -5813,14 +5813,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       [!] --protocol	-p proto	protocol: by number or name, eg. `tcp'
       [!] --version	-V		print package version.
-- tools: ip6tables-translate
+- tools: iptables, iptables-legacy, iptables-nft, iptables-translate, ip6tables, ip6tables-legacy, ip6tables-nft, ip6tables-translate, arptables, arptables-nft
 - handling: Fixed. A flag row led by `[!]` is read as an ordinary row, and every
   spelling it names gets the `!` negation form (`Spelling::negation`): the tool
   takes a `!` typed before the flag to invert the test. The page draws `[!]`
   once before the spellings, in the muted colour, as the tool wrote it. The
   marker adds no spelling and no search form. Fixture:
   `corpus/ip6tables-translate/1.8.10`.
-- fleet: not measured
+- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (a `:` separator no longer opens three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.
 
 ### S-254: a flag head written long first, then its short alias
 
@@ -5829,7 +5829,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --append  -A chain		Append to chain
       --delete-chain
                 -X [chain]		Delete a user-defined chain
-- tools: ip6tables-translate
+- tools: iptables, iptables-legacy, iptables-nft, iptables-translate, ip6tables, ip6tables-legacy, ip6tables-nft, ip6tables-translate, arptables, arptables-nft
 - handling: Fixed. In a block where at least three rows, and half of the dash-led
   rows, open with a lone `--long` and a one-letter `-X` after a gap, that gap is
   an alias separator and the description gap is the next one, or none. Such a
@@ -5839,4 +5839,4 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`chain [rulenum]`, `PKTS BYTES`, `input name[+]`) stay with the value, as
   S-225 keeps `name value`. A tab between spellings separates them like a space.
   Fixture: `corpus/ip6tables-translate/1.8.10`.
-- fleet: not measured
+- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (a `:` separator no longer opens three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.
