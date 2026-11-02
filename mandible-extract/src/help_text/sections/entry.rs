@@ -253,7 +253,9 @@ fn long_first_alias_tail(line: &str) -> Option<usize> {
     let is_short = chars.next() == Some('-')
         && chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
         && chars.next().is_none();
-    if !is_short {
+    // `-p [!] proto` writes the marker after the alias; the row keeps its
+    // old reading.
+    if !is_short || after[short_len..].trim_start().starts_with("[!]") {
         return None;
     }
     Some(line.len() - after.len() + short_len)

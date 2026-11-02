@@ -22,12 +22,15 @@ fn upper_word(w: &str) -> bool {
             .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
 }
 
-/// A word that continues a value: plain lowercase, ALL-CAPS, a plain word
-/// in brackets, or one with a bracket suffix (`chain [rulenum]`,
-/// `PKTS BYTES`, `input name[+]`).
-fn value_word(w: &str) -> bool {
+/// A word that continues a value written in the same case as it: ALL-CAPS
+/// after an ALL-CAPS value (`PKTS BYTES`); after a plain one, a plain word,
+/// a plain word in brackets or one with a bracket suffix (`chain [rulenum]`,
+/// `input name[+]`).
+fn value_word(value: &str, w: &str) -> bool {
+    if upper_word(value) {
+        return upper_word(w);
+    }
     plain_word(w)
-        || upper_word(w)
         || w.strip_prefix('[')
             .and_then(|r| r.strip_suffix(']'))
             .is_some_and(plain_word)
@@ -58,7 +61,7 @@ fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
         || !(plain_word(value) || upper_word(value))
         || extra.is_empty()
         || extra.len() > MAX_EXTRA_WORDS
-        || !extra.iter().all(|w| value_word(w))
+        || !extra.iter().all(|w| value_word(value, w))
     {
         return;
     }
