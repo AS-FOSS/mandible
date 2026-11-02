@@ -160,13 +160,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -h, -help topic     show help
       --help topic        show help
-- tools: ffplay, ffmpeg, ffprobe
+- tools: ffplay, ffmpeg, ffprobe, jstack, jdb, jps, jrunscript, javap
 - handling: Entity::long reported "-help" and "--help" as the same bare name "help", so
   merge_entity_bucket's short/long reconstruction kept only one dash count and
   silently dropped the other. The long-name key now carries dash count,
   L:1:help versus L:2:help, so the two spellings are never bucketed together
   unless a source genuinely repeats the identical spelling.
-- fleet: not measured
+  A row of bare spellings joined by spaces, `-? -h --help -help`, keeps `-help`
+  whole when a double-dash spelling of the same name is already in the run
+  (`corpus/jstack/17`); any other single-dash word there still truncates.
+- fleet: the space-joined run `-? -h --help -help` appears in 5 of 2271 swept PATH
+  tools, jstack, jdb, jps, jrunscript and javap, 2026-11-02.
 
 ### S-009: layout-driven option table, column detected per block
 
@@ -278,7 +282,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
             oldgnu
             pax
             posix
-- tools: tar, automake, cp, ffplay
+- tools: tar, automake, cp, ffplay, nl
 - handling: An indented list nested under a flag is that flag's choices, never
   subcommands. A per-value description, when the source documents one, is kept
   on the value rather than dropped, and a block with no plausible owning flag
@@ -297,7 +301,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   under the heading, with the deeper value rows as its choices
   (`corpus/ffplay/6.1.1-3ubuntu5-avfilter-options`). See S-025 for the still-open
   morphological-variant gap this leaves.
-- fleet: not measured
+  A row of a proven owner's block that opens lowercase and carries capitals,
+  `pBRE`, is a choice (`corpus/nl/9.4`); with no owner it is dropped, as the
+  all-caps placeholders are.
+- fleet: 1 of 2271 swept PATH tools moved (nl, `-b`), 2026-11-02. `-f` and `-h`
+  take the same `STYLE` and stay without choices,
+  since ownership goes to the first flag naming the value.
 
 ### S-015: described choice values in a scope-flag sub-table
 
@@ -1407,7 +1416,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
        -A             --smarthome             Enable smart home key
         -l    --list
        -f progfile    --file=progfile
-- tools: nano, jdeprscan, awk, gawk, nawk, ntfsmove, ntfswipe, less
+- tools: nano, jdeprscan, awk, gawk, nawk, ntfsmove, ntfswipe, less, strip, objcopy
 - handling: A row's second column is itself another spelling of the same option, not the
   start of its description, but the ordinary description-gap finder cuts at
   the first wide gap and reads the long spelling as prose. jdeprscan's long
@@ -1416,7 +1425,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   run qualifies only when exactly one of its leading cells is a long spelling,
   since a run of two shorts or two longs is a genuine two-column table of
   separate options.
-- fleet: 24 adjacent cell pairs across 5 tools, 2301 frozen captures, 2026-08-22
+  A block that already writes short and long spellings side by side on one
+  space, three rows or more, also reads a row with a wider gap between the two
+  as the same pair (`-M  --merge-notes`, `corpus/aarch64-linux-gnu-strip/2.42`).
+- fleet: 24 adjacent cell pairs across 5 tools, 2301 frozen captures, 2026-08-22;
+  the one-space pair layout moved strip and
+  objcopy (4 binaries) of 2271 swept PATH tools, 2026-11-02.
 
 ### S-083: alias run keeps every recognized spelling, not just the first pair
 
@@ -1425,7 +1439,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --replace -R chain rulenum
       -? -h --help
       --quiet --noquiet --verbose --noverbose
-- tools: iptables, jdeprscan, dpkg-split, gold, screen, xxd, socat-mux.sh, pod2html
+- tools: iptables, jdeprscan, dpkg-split, gold, screen, xxd, socat-mux.sh, pod2html, javac, javadoc, pod2text, ld, add-apt-repository, asan_symbolize
 - handling: The parser keeps every recognized spelling in one run rather than only the
   first short and first long spelling found. A run may continue on bare
   whitespace only while the previous spelling was a genuine short flag; a
@@ -1433,7 +1447,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   that repeats its value placeholder after every spelling records the value
   once, on the first sighting, so the alias list can resume after it. Leftover
   text is never read as the next flag's own name serving as this flag's value.
-- fleet: not measured
+  A single-dash word after an alias separator is a spelling in its own right
+  when the value before it was spaced or `=`-joined (`-h FILENAME, -soname
+  FILENAME`, `--width=N, -width`); after a glued value (`-dsa |
+  -disablesystemassertions`) it is not. A value followed by its own bracketed
+  repeat, `SOURCESLIST [SOURCESLIST ...]`, keeps the repeat in the value name as
+  the tool wrote it (`corpus/add-apt-repository/0.99.49.4`); no field says "one
+  or more" for a flag's value.
+- fleet: comma-joined single-dash aliases moved 11 of 2271 swept PATH tools (ld
+  and gold in 8 binaries, javac,
+  javadoc, pod2text); the repeated placeholder moved 4 (add-apt-repository,
+  apt-add-repository, asan_symbolize, asan_symbolize-18), 2026-11-02.
 
 ### S-084: delimited flag alternation inside an option-table row
 
@@ -1441,7 +1465,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       {-i|--input} <input xml file>
       {-v | --version}
-- tools: cache_restore, eqn, xfs_io
+- tools: cache_restore, eqn, xfs_io, era_invalidate, era_dump, cache_dump, cache_metadata_size, thin_dump
 - handling: A brace or bracket delimited group whose every member is a bare flag
   spelling is read as an alternation of flag spellings and rewritten into the
   ordinary comma-free alias list the rest of the grammar reads. Before this
@@ -1451,7 +1475,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   starting with a dash at all. A member carrying its own value inside the
   alternation is refused rather than guessed, since attributing the value to
   the right alternative is genuinely ambiguous.
-- fleet: not measured
+  A whole row wrapped in one brace group around a single spelling and its value,
+  `{-o <xml file>}`, is read as that spelling and value, and starts a flag row
+  (`corpus/era_invalidate/0.9.0`).
+- fleet: brace-wrapped rows with a value appear in 5 of 2271 swept PATH tools
+  (era_invalidate, era_dump, cache_dump,
+  cache_metadata_size, thin_dump), +8 flags, 2026-11-02.
 
 ### S-085: duplicate spelling refused within one alias list
 
@@ -4598,7 +4627,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-190
 - looks like: |
       -? | -h | --help | -help to print this help message
-- tools: jinfo
+- tools: jinfo, jstack, jdb, jps, jrunscript
 - handling: Fixed. `find_pipe_alias_single_space_gap` is the last finder in
   `find_description_gap`'s chain, so it runs only when every other finder
   found nothing: two or more bare spellings joined by ` | `, then at least
@@ -4607,9 +4636,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   one value-free flag with its own text instead of the word `to` read as a
   value. A lone trailing token (`-a | -b FILE`) stays that flag's value.
   `corpus/jinfo/17.0.20` pins it.
-- fleet: not measured; the raw-capture grep for the row shape finds `jinfo`
-  alone among 2301 captures (pre-check sweep of the 14 tools with a
-  pipe-joined row: zero other changes).
+  The same cut applies when the spellings are joined by single spaces instead of
+  pipes, from three spellings on and with a tail of plain words (no dash words,
+  no digits): `-? -h --help -help to print this help message`.
+- fleet: the pipe-joined row appears in jinfo alone; the space-joined row moved
+  jstack, jdb, jps and jrunscript, 2026-11-02.
 
 ### S-191: ALL-CAPS placeholder after a single dash is one spelling
 
@@ -5051,7 +5082,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
                                   Link against shared libraries
       -Bsymbolic                  Bind global references locally
       -Tbss ADDRESS               Set address of .bss section
-- tools: ld, gold, lto-dump, sginfo
+- tools: ld, gold, lto-dump, sginfo, screen, readelf, clang
 - handling: Fixed. A run of four or more letters followed by `, -` and
   another single-dash spelling is one multi-letter spelling of an alias run
   (`-Bdynamic, -dy, -call_shared`, `-shared, -Bshareable`). Three or more
@@ -5063,8 +5094,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   indented deeper (`-Flogical`, `-Flba64`) are that flag's choices with
   their descriptions. Fixtures: `corpus/ld/2.42-single-dash`,
   `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`, `corpus/sginfo/2.43`.
-- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
-  (224 tools; ld, gold and their aliases moved).
+  A table row `-<letter><word>` is one single-dash option when the same document
+  documents the bare `-<letter>` without a value (`-EB`, `-Map FILE/DIR`, `-MD`,
+  `-Logfile`), unless the word is a case-mixed cluster of three letters or more.
+  A lowercase single-dash word with a spaced ALL-CAPS value (`-fini SYMBOL`)
+  keeps that value. Fixture: `corpus/ld/2.42-single-dash-values`.
+- fleet: 20 of 2271 swept PATH tools moved (ld and gold in 8 binaries, clang in 5,
+  lto-dump in 4, readelf in 2, screen), 2026-11-02.
 
 ### S-213: a heading drawn between two runs of box-drawing glyphs
 

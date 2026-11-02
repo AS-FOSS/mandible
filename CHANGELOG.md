@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-212] Flag rows read whole: `ld`'s `-EB`, `-Map FILE/DIR`, `-fini SYMBOL` and `-h FILENAME, -soname FILENAME`, `jstack`'s `-? -h --help -help`, `strip`'s `-M  --merge-notes`, `era_invalidate`'s `{-o <xml file>}`, `add-apt-repository`'s `-S SOURCESLIST [SOURCESLIST ...]` and `nl`'s `pBRE` choice.
+
 ## [0.9.0] - 2026-10-30
 
 ### Added
