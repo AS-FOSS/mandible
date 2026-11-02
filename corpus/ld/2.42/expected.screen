@@ -184,9 +184,11 @@ FLAGS (395) ──────────────────────�
 -p, --pic-executable ie       Create a position independent executable
     -no-pie                   Create a position dependent executable
                               (default)
-    --sort-common[=ascending|descending] Sort common symbols by alignment
-                              [in specified order]
-    --sort-section name|alignment Sort sections by name or maximum alignment
+    --sort-common[={…}]       Sort common symbols by alignment [in specified
+                              order]
+                                values: ascending, descending
+    --sort-section {…}        Sort sections by name or maximum alignment
+                                values: name, alignment
     --spare-dynamic-tags COUNT How many tags to reserve in .dynamic section
     --split-by-file[=SIZE]    Split output sections every SIZE octets
     --split-by-reloc[=COUNT]  Split output sections every COUNT relocs
@@ -255,8 +257,10 @@ FLAGS (395) ──────────────────────�
 ELF emulations ─────────────────────────────────────────────────────────────
     --build-id[=STYLE]        Generate build ID note
     --package-metadata[=JSON] Generate package metadata note
-    --compress-debug-sections [none|zlib|zlib-gnu|zlib-gabi|zstd] Compress
-                              DWARF debug sections Default: none
+    --compress-debug-sections {…} Compress DWARF debug sections Default:
+                              none
+                                values: none, zlib, zlib-gnu, zlib-gabi,
+                                zstd
 -z common-page-size=SIZE      Set common page size to SIZE
 -z max-page-size=SIZE         Set maximum page size to SIZE
 -z defs                       Report unresolved symbols in object files
@@ -352,8 +356,9 @@ Aarch64linux ──────────────────────�
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -376,8 +381,9 @@ Aarch64elf ───────────────────────
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -400,8 +406,9 @@ Aarch64elf32 ──────────────────────�
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -424,8 +431,9 @@ Aarch64elf32b ──────────────────────
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -448,8 +456,9 @@ Aarch64elfb ──────────────────────�
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -548,8 +557,9 @@ Aarch64linuxb ──────────────────────
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -572,8 +582,9 @@ Aarch64linux32 ─────────────────────�
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism
@@ -596,8 +607,9 @@ Aarch64linux32b ─────────────────────�
                               Values of +/-1 indicate the linker should
                               choose suitable defaults.
     --fix-cortex-a53-835769   Fix erratum 835769
-    --fix-cortex-a53-843419[=full|adr|adrp] Fix erratum 843419 and
-                              optionally specify which workaround to use.
+    --fix-cortex-a53-843419[={…}] Fix erratum 843419 and optionally specify
+                              which workaround to use.
+                                values: full, adr, adrp
     --no-apply-dynamic-relocs Do not apply link-time values for dynamic
                               relocations
 -z force-bti                  Turn on Branch Target Identification mechanism

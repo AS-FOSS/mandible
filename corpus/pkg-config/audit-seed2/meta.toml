@@ -25,3 +25,10 @@ expected_framework = "generic"
 min_status = "ok"
 min_subcommands = 0
 must_contain_flags = ["--help", "--about", "--version", "--atleast-pkgconfig-version", "--errors-to-stdout"]
+
+# Alternation values (S-253).
+[contract.must_attach_choices]
+"--personality" = ["triplet", "filename"]
+
+[contract.must_not_value_name]
+"--personality" = "triplet|filename"

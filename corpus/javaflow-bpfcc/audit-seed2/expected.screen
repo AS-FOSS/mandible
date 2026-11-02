@@ -14,7 +14,7 @@ POSITIONALS (1) ─────────────────────�
 
 FLAGS (5) ──────────────────────────────────────────────────────────────────
 -h, --help           show this help message and exit
--l, --language       language to trace
+-l, --language {…}   language to trace
                        values: java, perl, php, python, ruby, tcl
 -M, --method METHOD  trace only calls to methods starting with this prefix
 -C, --class CLAZZ    trace only calls to classes starting with this prefix

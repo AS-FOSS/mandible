@@ -13,6 +13,7 @@
 #![warn(clippy::cognitive_complexity)]
 #![warn(missing_docs)]
 
+mod alternation;
 pub mod audit;
 pub mod config;
 mod entity;
@@ -24,6 +25,7 @@ mod provenance;
 mod snapshot;
 mod text;
 
+pub use alternation::{alternation_members, CHOICES_MARK};
 pub use entity::{
     is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Negation, OptionalJoin,
     RangeStartNotASpelling, Spelling, SpellingRange, BANG_LEAD,

@@ -58,11 +58,17 @@ pub(super) fn entity_name_spec(flag: &Entity) -> String {
     // Shorts before longs, always (spec §16): display-side only, a stable
     // sort so each group keeps its own source order and the IR's
     // `spellings` vector is untouched.
-    let spellings = display_order(flag)
-        .into_iter()
-        .map(|i| spelling_text(flag, i))
-        .collect::<Vec<_>>()
-        .join(", ");
+    let spellings = if flag.name_is_choices() {
+        // A positional named by its own alternatives draws the mark; the
+        // values follow on the row's values line (spec §9.3 rule 6).
+        CHOICES_MARK.to_string()
+    } else {
+        display_order(flag)
+            .into_iter()
+            .map(|i| spelling_text(flag, i))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     // `repeatable` is one fact spelled two ways by the two kinds'
     // notation (`Entity::repeatable`): a flag says it by being accepted
     // again (`-v -v -v`), a positional by the POSIX synopsis ellipsis the
@@ -169,7 +175,7 @@ fn entity_lines(
     };
     let leading = " ".repeat(head_column);
     let leading = leading.as_str();
-    let spelling_style = if dim {
+    let spelling_style = if dim || flag.name_is_choices() {
         style::muted(palette)
     } else {
         style::accent(palette)
@@ -227,7 +233,18 @@ fn entity_lines(
         }
     }
 
-    let description_text = row_description(flag);
+    // A row with no description of its own carries its values summary in
+    // the description slot, muted (spec §9.3 rule 7).
+    let values_row = row_description(flag)
+        .is_none()
+        .then(|| values_summary(flag))
+        .flatten();
+    let description_text = values_row.clone().or_else(|| row_description(flag));
+    let desc_style = if values_row.is_some() {
+        style::muted(palette)
+    } else {
+        desc_style
+    };
 
     if description_text.is_none() && flag.choices.is_empty() && flag.env_var.is_none() {
         if !head.is_empty() {
@@ -302,7 +319,11 @@ fn entity_lines(
     }
 
     lines.extend(subordinate_lines(
-        flag, column, text_width, palette, layout.man,
+        flag,
+        column,
+        text_width,
+        palette,
+        (layout.man, values_row.is_some()),
     ));
 
     lines
@@ -315,7 +336,9 @@ pub(super) fn subordinate_lines(
     column: usize,
     width: usize,
     palette: style::Palette,
-    man: bool,
+    // Whether the layout is the man one, and whether the values summary
+    // already sits in the row's description slot.
+    (man, values_on_row): (bool, bool),
 ) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
     // A flag's `choices` (spec §7 Tier B rule 4) never fold into
@@ -326,15 +349,7 @@ pub(super) fn subordinate_lines(
     // carry their own text (ffmpeg/ffplay AVOptions) render one indented
     // `name  description` row each instead, via `choice_detail_lines`.
     let has_choice_descriptions = flag.choices.iter().any(|c| c.description.is_some());
-    let values_line = (!flag.choices.is_empty() && !has_choice_descriptions).then(|| {
-        let joined = flag
-            .choices
-            .iter()
-            .map(|c| c.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        format!("values: {joined}")
-    });
+    let values_line = values_summary(flag).filter(|_| !values_on_row);
 
     // A flag's own environment-variable cross-reference (spec §4.5)
     // renders the same way `values:` does: its own line, two columns past
@@ -373,6 +388,21 @@ pub(super) fn subordinate_lines(
     }
 
     lines
+}
+
+/// The one-line `values: a, b, c` summary of a flag's choices, or `None`
+/// when it has none or any of them carries a description of its own.
+pub(super) fn values_summary(flag: &Entity) -> Option<String> {
+    if flag.choices.is_empty() || flag.choices.iter().any(|c| c.description.is_some()) {
+        return None;
+    }
+    let joined = flag
+        .choices
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!("values: {joined}"))
 }
 
 /// Render a flag's choices as a `values:` header followed by one indented

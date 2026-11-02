@@ -212,7 +212,7 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
 /// the gap before the short flag is an alias separator, so the description
 /// gap is the first one after it, or none. Only for a block that writes
 /// most of its rows this way ([`block_is_long_first`]). See docs/shapes.md
-/// S-253 and corpus/ip6tables-translate/1.8.10.
+/// S-254 and corpus/ip6tables-translate/1.8.10.
 pub(super) fn find_long_first_gap(line: &str) -> Option<Option<usize>> {
     let tail = long_first_alias_tail(line)?;
     Some(find_multi_space_gap(&format!("x{}", &line[tail..])).map(|c| tail + c - 1))

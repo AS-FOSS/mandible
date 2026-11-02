@@ -35,8 +35,9 @@ Basic options
     --dont-relocate-paths  disables path relocation support
 
 Cross-compilation personality support ──────────────────────────────────────
-    --personality triplet|filename sets the personality to 'triplet' or a
-                           file named 'filename'
+    --personality {…}      sets the personality to 'triplet' or a file named
+                           'filename'
+                             values: triplet, filename
     --dump-personality     dumps details concerning selected personality
 
 Checking specific pkg-config database entries ──────────────────────────────

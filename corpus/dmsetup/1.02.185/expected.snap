@@ -47,8 +47,11 @@ flags:
     - help-text-synopsis
 - spellings:
   - --manglename
-  value_name: '{none|hex|auto}'
   value_kind: Required
+  choices:
+  - none
+  - hex
+  - auto
   provenance:
     sources:
     - help-text-synopsis

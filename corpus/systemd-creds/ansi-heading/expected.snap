@@ -36,8 +36,11 @@ flags:
     - help-text
 - spellings:
   - --json
-  value_name: pretty|short|off
   value_kind: Required
+  choices:
+  - pretty
+  - short
+  - off
   description: Generate JSON output
   provenance:
     sources:
@@ -50,16 +53,23 @@ flags:
     - help-text
 - spellings:
   - --transcode
-  value_name: base64|unbase64|hex|unhex
   value_kind: Required
+  choices:
+  - base64
+  - unbase64
+  - hex
+  - unhex
   description: Transcode credential data
   provenance:
     sources:
     - help-text
 - spellings:
   - --newline
-  value_name: auto|yes|no
   value_kind: Required
+  choices:
+  - auto
+  - yes
+  - no
   description: Suffix output with newline
   provenance:
     sources:

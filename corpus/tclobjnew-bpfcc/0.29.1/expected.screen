@@ -15,7 +15,7 @@ POSITIONALS (2) ─────────────────────�
 
 FLAGS (5) ──────────────────────────────────────────────────────────────────
 -h, --help                 show this help message and exit
--l, --language             language to trace
+-l, --language {…}         language to trace
                              values: c, java, ruby, tcl
 -C, --top-count TOP_COUNT  number of most frequently allocated types to
                            print
