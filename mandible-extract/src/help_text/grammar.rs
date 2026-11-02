@@ -107,13 +107,18 @@ impl FlagSpec {
 pub fn parse_flag_spec(input: &str) -> FlagSpec {
     // A leading `[!]` says every spelling of the row can be inverted by a
     // `!` written before it. docs/shapes.md S-254.
-    if let Some(rest) = strip_bang_lead(input) {
-        let mut spec = parse_flag_spec(rest);
-        for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
-            s.negation = Some(Negation::Bang);
-        }
-        return spec;
+    let Some(rest) = strip_bang_lead(input) else {
+        return parse_unmarked_flag_spec(input);
+    };
+    let mut spec = parse_unmarked_flag_spec(rest);
+    for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
+        s.negation = Some(Negation::Bang);
     }
+    spec
+}
+
+/// [`parse_flag_spec`] for a row with no leading `[!]`.
+fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
     // A tab between spellings separates them like a space does.
     let detabbed = input.replace('\t', " ");
     let normalized = unwrap_brace_alternation(detabbed.trim());

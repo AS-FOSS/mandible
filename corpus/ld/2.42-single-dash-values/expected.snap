@@ -71,8 +71,13 @@ flags:
     - help-text
 - spellings:
   - --compress-debug-sections
-  value_name: '[none|zlib|zlib-gnu|zlib-gabi|zstd]'
   value_kind: Required
+  choices:
+  - none
+  - zlib
+  - zlib-gnu
+  - zlib-gabi
+  - zstd
   provenance:
     sources:
     - help-text
