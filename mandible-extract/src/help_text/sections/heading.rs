@@ -976,7 +976,7 @@ pub fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
 /// `/usr/sbin/update-ca-certificates: [--verbose] [--fresh]`: the program
 /// (its name or a path ending in it), a colon, then bracketed flags and
 /// nothing else. An error line (`x: invalid option -- 'q'`) never matches.
-/// See S-253.
+/// See S-255.
 pub fn is_program_colon_flag_list(t: &str, name: &str) -> bool {
     let Some((program, rest)) = t.split_once(": ") else {
         return false;

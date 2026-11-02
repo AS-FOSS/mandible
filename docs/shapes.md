@@ -5826,39 +5826,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
 - fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.
 
-### S-253: `<program path>: [--flag] [--flag]` is a usage form
-
-- id: S-253
-- looks like: |
-      /usr/sbin/update-ca-certificates: [--verbose] [--fresh]
-- tools: update-ca-certificates
-- handling: Fixed. A line that is the tool's name or a path ending in it, a colon, and nothing but bracketed flags is a usage form. The colon is dropped from the stored form. An error line (`x: invalid option -- 'q'`) holds no bracketed flags and never matches. Fixture: `corpus/update-ca-certificates/audit-seed8`.
-- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; no other tool changed.
-
-### S-254: operand alternatives joined by spaced pipes and repeated
-
-- id: S-254
-- looks like: |
-      xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...
-- tools: xfs_fsr
-- handling: Fixed. In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). Without the closing dots the words stay unread. Fixture: `corpus/xfs_fsr/audit-seed8`.
-- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: xfs_fsr gained 1 positional; no other tool matched.
-
-### S-255: a usage form for another command gives this node no operands
+### S-255: usage-line operand forms the reader skipped
 
 - id: S-255
 - looks like: |
+      /usr/sbin/update-ca-certificates: [--verbose] [--fresh]
+      xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...
       usage: git log [<options>] [<revision-range>] [[--] <path>...]
          or: git show [<options>] <object>...
-- tools: git (log)
-- handling: Fixed. When the first form names the node and a later form opens with the same program word and a different command word, an operand only that later form names is dropped from the node. Every form stays in the usage text. Fixtures: `corpus/git/2.43.0-log`, `corpus/git/2.43.0-verbs`.
-- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: no tool other than the git pages in the corpus changed on this rule.
-
-### S-256: a usage form opens with its operands, then bracketed flags
-
-- id: S-256
-- looks like: |
       usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]
-- tools: mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb
-- handling: Fixed for a root node with one usage form, no subcommands and no other operand. Two or more bare lowercase words straight after the program, followed only by bracketed flag groups, are required operands named as written. Fixture: `corpus/mount.fuse/audit-seed8`.
-- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: 5 tools gained 2 positionals each; each read against its raw help.
+- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb
+- handling: Fixed, four readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus.

@@ -383,6 +383,14 @@ pub(super) fn finalize_bare_bracket_group(
         .collect()
 }
 
+/// `groups[idx]` is a bare flag and `groups[idx + 1]` its `<angle>` value.
+fn bare_flag_then_angle_value(groups: &[String], idx: usize) -> bool {
+    is_bare_flag_spelling(&groups[idx])
+        && groups
+            .get(idx + 1)
+            .is_some_and(|g| g.starts_with('<') && g.ends_with('>'))
+}
+
 /// A flag spelling with no bracket and no `=`: `--written-since`, `-s`.
 fn is_bare_flag_spelling(group: &str) -> bool {
     group.len() > 1
@@ -574,12 +582,7 @@ pub(super) fn recover_primary_tail_operands(
         {
             continue;
         }
-        if single_operand
-            && is_bare_flag_spelling(earlier)
-            && groups
-                .get(idx + 1)
-                .is_some_and(|g| g.starts_with('<') && g.ends_with('>'))
-        {
+        if single_operand && bare_flag_then_angle_value(&groups, idx) {
             earlier_all_placeholder = false;
             value_follows = true;
             continue;

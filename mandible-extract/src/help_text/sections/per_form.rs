@@ -457,7 +457,7 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
                 last_flag = Some(i);
             }
             Tok::Word(w) if pipe_alternation(&toks, i).is_some() => {
-                // `xfsdev | dir | file ...`: one repeated operand (S-254).
+                // `xfsdev | dir | file ...`: one repeated operand (S-255).
                 if let Some((name, end)) = pipe_alternation(&toks, i) {
                     ops.push(Op {
                         name,
