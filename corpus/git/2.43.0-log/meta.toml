@@ -42,7 +42,3 @@ show = ["object..."]
 
 [contract.must_not_contain_positionals_by_path]
 log = ["object..."]
-
-[xfail]
-broken = true
-reason = "[S-215] `git log -h` lists `git show [<options>] <object>...` as its second usage form, and the tree gives `git log` the positional `object...` from it. A fix takes a node's operands only from the usage forms that open with its own command path, and keeps every form in the usage text."

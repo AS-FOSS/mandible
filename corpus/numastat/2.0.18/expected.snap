@@ -3,7 +3,6 @@ usage:
 - 'Usage: numastat [-c] [-m] [-n] [-p <PID>|<pattern>] [-s[<node>]] [-v] [-V] [-z] [ <PID>|<pattern>... ]'
 positionals:
 - name: PID|pattern
-  required: true
   variadic: true
   provenance:
     sources:

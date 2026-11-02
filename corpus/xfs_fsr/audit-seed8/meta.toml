@@ -14,7 +14,3 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 must_contain_positionals = ["xfsdev | dir | file..."]
-
-[xfail]
-broken = true
-reason = "[S-153] The second usage form ends in `xfsdev | dir | file ...`, a bare alternation with repeat dots. The tree has no positional for it. A fix keeps one repeatable positional named as written, without splitting the alternatives."

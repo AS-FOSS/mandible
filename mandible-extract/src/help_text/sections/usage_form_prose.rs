@@ -128,22 +128,24 @@ pub(super) fn repeats_first_form_program_word(
 }
 
 /// True when `line` (raw) is a hanging-indent plain-English description of
-/// the usage form above it, with no terminal punctuation at all
-/// (`/usr/bin/ranlib [options] archive` / ` Generate an index to speed
-/// access to archives`): five or more words of letters, digits and hyphens,
-/// opening with a capital, no flag, no ALL-CAPS placeholder, no column gap.
-/// A real wrapped synopsis continuation carries brackets, operands or
-/// closing punctuation (`unzip`'s `... to exdir;`). See docs/shapes.md
-/// S-195.
-pub(super) fn is_form_description_line(line: &str, base_indent: usize) -> bool {
+/// the usage form above it (`/usr/bin/ranlib [options] archive` / ` Generate
+/// an index to speed access to archives`): five or more words of letters,
+/// digits and hyphens, opening with a capital, no flag, no ALL-CAPS
+/// placeholder, no column gap. With `punctuated`, sentence punctuation
+/// (`. , ' /`) is allowed too. A real wrapped synopsis continuation carries
+/// brackets, operands or closing punctuation (`unzip`'s `... to exdir;`).
+/// See docs/shapes.md S-195.
+pub(super) fn is_form_description_line(line: &str, base_indent: usize, punctuated: bool) -> bool {
     let trimmed = line.trim();
     let words: Vec<&str> = trimmed.split_whitespace().collect();
     leading_whitespace(line) > base_indent
         && words.len() >= heading::MIN_PROSE_SENTENCE_WORDS
         && trimmed.chars().next().is_some_and(char::is_uppercase)
-        && trimmed
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == ' ' || c == '-')
+        && trimmed.chars().all(|c| {
+            c.is_alphanumeric()
+                || matches!(c, ' ' | '-')
+                || (punctuated && matches!(c, '.' | ',' | '\'' | '/'))
+        })
         && !words.iter().any(|w| w.starts_with('-'))
         && !words
             .iter()
@@ -151,11 +153,28 @@ pub(super) fn is_form_description_line(line: &str, base_indent: usize) -> bool {
         && find_multi_space_gap(line).is_none()
 }
 
+/// Whether `lines[i]` is a form description the usage scan leaves out of
+/// the synopsis: an unpunctuated one anywhere, a punctuated one only while
+/// the unbroken run from the usage line holds.
+pub(super) fn form_desc_skip(
+    labelled_usage_start: Option<usize>,
+    lines: &[&str],
+    (start, i): (usize, usize),
+    base_indent: usize,
+) -> bool {
+    labelled_usage_start.is_some()
+        && (is_form_description_line(lines[i], base_indent, false)
+            || (i > start
+                && (start + 1..=i).all(|k| is_form_description_line(lines[k], base_indent, true))))
+}
+
 /// The description lines [`is_form_description_line`] finds in `lines`
-/// between the usage block's `start` and `end`, joined into one sentence
-/// per line, so a skipped line is relocated to the node description
-/// instead of dropped. Only under a labelled usage block: an unlabelled
-/// command row's description is not the form's own (`corepack`).
+/// between the usage block's `start` and `end`, one sentence per line, so a
+/// skipped line is relocated to the node description instead of dropped.
+/// Unpunctuated lines count wherever they sit; punctuated ones only as the
+/// unbroken run that follows the usage line. Only under a labelled usage
+/// block: an unlabelled command row's description is not the form's own
+/// (`corepack`).
 pub(super) fn form_description_lines(
     lines: &[&str],
     labelled_usage_start: Option<usize>,
@@ -166,12 +185,17 @@ pub(super) fn form_description_lines(
         return Vec::new();
     }
     let base_indent = leading_whitespace(lines[start]);
-    lines
+    let body = lines
         .get(start + 1..end.min(lines.len()))
-        .unwrap_or_default()
+        .unwrap_or_default();
+    let run = body
         .iter()
-        .filter(|l| is_form_description_line(l, base_indent))
-        .map(|l| l.trim().to_string())
+        .take_while(|l| is_form_description_line(l, base_indent, true))
+        .count();
+    body.iter()
+        .enumerate()
+        .filter(|(i, l)| *i < run || is_form_description_line(l, base_indent, false))
+        .map(|(_, l)| l.trim().to_string())
         .collect()
 }
 
@@ -180,10 +204,21 @@ pub(super) fn with_form_description(
     description: Option<String>,
     form_description: &[String],
 ) -> Option<String> {
-    if form_description.is_empty() {
+    // A line the description already carries is not repeated.
+    let present = |line: &String| {
+        description
+            .as_deref()
+            .is_some_and(|d| d.contains(line.as_str()))
+    };
+    let fresh: Vec<&String> = form_description.iter().filter(|l| !present(l)).collect();
+    if fresh.is_empty() {
         return description;
     }
-    let own = form_description.join("\n");
+    let own = fresh
+        .iter()
+        .map(|l| l.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
     Some(match description {
         Some(d) => format!("{own}\n\n{d}"),
         None => own,

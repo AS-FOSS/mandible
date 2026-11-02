@@ -15,7 +15,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 must_contain_positionals = ["in-file(s)"]
 must_not_contain_positionals = ["option(s)"]
-
-[xfail]
-broken = true
-reason = "[S-128] The usage line `strip <option(s)> in-file(s)` names the options placeholder `<option(s)>` and the operand `in-file(s)`. A fix keeps the placeholder out of the positionals and keeps `in-file(s)` as an operand named as written."

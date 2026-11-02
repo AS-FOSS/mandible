@@ -428,7 +428,12 @@ pub(super) fn extract_positionals_inner(
                     ),
                     None => continue,
                 }
-            } else if cleaned.chars().all(|c| c.is_uppercase() || c == '_') && cleaned.len() > 1 {
+            } else if cleaned
+                .chars()
+                .all(|c| c.is_uppercase() || c == '_' || c == '-')
+                && cleaned.len() > 1
+                && !(cleaned.contains('-') && hyphenated_caps_refused(cleaned, line))
+            {
                 (cleaned.to_string(), token_marks_repetition(token))
             } else {
                 continue;
@@ -437,7 +442,9 @@ pub(super) fn extract_positionals_inner(
             if name.is_empty() || option_list_word || !seen.insert(name.clone()) {
                 continue;
             }
-            let required = !token.contains('[') && !line.contains(&format!("[{token}"));
+            let required = !token.contains('[')
+                && !line.contains(&format!("[{token}"))
+                && !line.contains(&format!("[ {token}"));
             let mut positional = Entity::positional(name, Provenance::single(Source::HelpText));
             positional.required = required;
             positional.repeatable = variadic;
@@ -573,10 +580,9 @@ fn is_clean_flag_group(stripped: &str) -> bool {
 /// subsumes. See S-041's earlier-context gate in
 /// [`recover_primary_tail_operands`].
 pub(super) fn ends_with_option_list_placeholder(stripped: &str) -> bool {
-    stripped
-        .split_whitespace()
-        .next_back()
-        .is_some_and(is_option_list_placeholder)
+    stripped.split_whitespace().next_back().is_some_and(|w| {
+        is_option_list_placeholder(w.trim_matches(['<', '>']).trim_end_matches('.'))
+    })
 }
 
 /// True when a bracket group ahead of a recovered operand run is grammar
@@ -605,57 +611,6 @@ pub(super) fn is_understood_flag_context(stripped: &str) -> bool {
             (w.starts_with('<') && w.ends_with('>') && w.len() > 2)
                 || (w.chars().all(|c| c.is_uppercase() || c == '_') && w.len() > 1)
         })
-}
-
-/// One synopsis group, its own outer brackets (if any) still attached, as
-/// an operand: `(name, required, repeatable)`. `None` when the group is
-/// not operand-shaped — dash-led, an option-list placeholder, an
-/// `ALL-CAPS` metavariable (the token loop above's own job, S-041's
-/// "out of scope" test), or carrying more than a dots-only suffix after
-/// its first word (`true`'s `[ignored command line arguments]` must not
-/// read `ignored` as an operand). See S-041 and
-/// [`recover_primary_tail_operands`].
-pub(super) fn parse_operand_group(group: &str) -> Option<(String, bool, bool)> {
-    let stripped = group.trim_matches(|c| c == '[' || c == ']');
-    let mut words = stripped.split_whitespace();
-    let raw_word = words.next()?;
-    // A dots-glued word (`file...`) marks repetition itself. See S-101.
-    let marker_repeat = token_marks_repetition(raw_word);
-    let word = raw_word.trim_end_matches('.');
-    if word.is_empty() || word.starts_with('-') || is_option_list_placeholder(word) {
-        return None;
-    }
-    let mut chars = word.chars();
-    let first = chars.next()?;
-    if !first.is_ascii_lowercase() {
-        return None;
-    }
-    if !chars.all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
-        return None;
-    }
-    let mut inline_repeat = false;
-    for w in words {
-        if w.chars().all(|c| c == '.') {
-            inline_repeat = true;
-        } else {
-            return None;
-        }
-    }
-    let required = !group.starts_with('[');
-    Some((word.to_string(), required, marker_repeat || inline_repeat))
-}
-
-/// `[[--] word word...]`: an optional end-of-options marker followed by
-/// operand words, as `(name, repeatable)` in source order. `None` for any
-/// other group. See docs/shapes.md S-153 and S-096.
-pub(super) fn parse_separator_operand_group(group: &str) -> Option<Vec<(String, bool)>> {
-    let inner = group.strip_prefix("[[--]")?.strip_suffix(']')?;
-    let mut out = Vec::new();
-    for w in inner.split_whitespace() {
-        let (name, _, repeat) = parse_operand_group(w)?;
-        out.push((name, repeat));
-    }
-    (!out.is_empty()).then_some(out)
 }
 
 /// After the usage block, some tools describe each named positional on a

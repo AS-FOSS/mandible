@@ -970,6 +970,28 @@ pub fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
         // `cd: cd [-L|[-P [-e]]] [-@] [dir]`: bash's builtin help writes
         // the name twice, the second a synopsis line (S-227).
         .is_some_and(|r| starts_with_usage_prefix(r) || looks_like_unlabeled_synopsis_line(r, name))
+        || is_program_colon_flag_list(t, name)
+}
+
+/// `/usr/sbin/update-ca-certificates: [--verbose] [--fresh]`: the program
+/// (its name or a path ending in it), a colon, then bracketed flags and
+/// nothing else. An error line (`x: invalid option -- 'q'`) never matches.
+/// See S-253.
+pub fn is_program_colon_flag_list(t: &str, name: &str) -> bool {
+    let Some((program, rest)) = t.split_once(": ") else {
+        return false;
+    };
+    let basename = program.rsplit('/').next().unwrap_or(program);
+    let groups = group_synopsis_tokens(rest.trim());
+    !name.is_empty()
+        && basename == name
+        && !program.contains(char::is_whitespace)
+        && !groups.is_empty()
+        && groups.iter().all(|g| {
+            g.strip_prefix('[')
+                .and_then(|g| g.strip_suffix(']'))
+                .is_some_and(|inner| inner.starts_with('-') && inner.len() > 1)
+        })
 }
 
 /// Drop the `<program>: ` prefix [`starts_with_name_prefixed_usage`]
@@ -982,6 +1004,10 @@ pub fn starts_with_name_prefixed_usage(t: &str, name: &str) -> bool {
 pub(super) fn strip_name_prefixed_usage_label(t: &str, tool_name: Option<&str>) -> String {
     let trimmed = t.trim();
     if let Some(name) = tool_name {
+        // The colon after the program is punctuation, not part of the form.
+        if is_program_colon_flag_list(trimmed, name) {
+            return trimmed.replacen(": ", " ", 1);
+        }
         if starts_with_name_prefixed_usage(trimmed, name) {
             // `starts_with_name_prefixed_usage` already confirmed `trimmed`
             // opens with exactly `"{name}: "`.

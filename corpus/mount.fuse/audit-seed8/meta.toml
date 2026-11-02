@@ -15,7 +15,3 @@ stdout = "help.txt"
 expected_framework = "BSD-terse"
 must_contain_positionals = ["type#[source]", "destination"]
 must_contain_flags = ["-t", "-o"]
-
-[xfail]
-broken = true
-reason = "[S-153] The usage line `type#[source] destination [-t type] [-o opt[,opts...]]` opens with two bare operands before the option groups. The tree has the two flags and no positionals. A fix keeps both operands, named as written, ahead of the option groups."

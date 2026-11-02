@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- [S-041] Usage-line operands now reach the tree for `[option...] [mapfile...]`, `COMMAND [INITIAL-ARGS]...`, `operation [count]`, `type#[source] destination [-t type]` and `xfsdev | dir | file ...`; `option(s)` is no longer an operand, and `update-ca-certificates` shows its two flags.
+
 ## [0.9.0] - 2026-10-30
 
 ### Added

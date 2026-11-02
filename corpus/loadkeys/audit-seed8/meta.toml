@@ -15,7 +15,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 must_contain_positionals = ["mapfile..."]
 must_not_contain_positionals = ["option..."]
-
-[xfail]
-broken = true
-reason = "[S-041] The usage line ends in the optional operand `[mapfile...]`. The tree has no positional for it. A fix reads a bracketed operand at the usage tail as an optional repeatable positional, and keeps `[option...]` as the options placeholder."

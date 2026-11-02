@@ -14,7 +14,3 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 must_contain_positionals = ["{device|file}"]
-
-[xfail]
-broken = true
-reason = "[S-153] The usage line ends in the brace alternation `{device|file}` after a valued flag `--written-since <era>`. The tree has no positional. A fix reads the alternation as one operand, as for a line without the valued flag."

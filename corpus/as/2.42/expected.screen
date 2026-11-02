@@ -7,6 +7,10 @@ USAGE ────────────────────────�
   as [option...] [asmfile...]
 
 
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  asmfile...
+
+
 FLAGS (61) ─────────────────────────────────────────────────────────────────
 -a[sub-option...]           turn on listings Sub-options [default hls]:
                             =FILE: list to FILE (must be last sub-option)

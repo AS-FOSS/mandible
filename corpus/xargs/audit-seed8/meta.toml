@@ -15,7 +15,3 @@ stdout = "help.txt"
 expected_framework = "generic"
 must_contain_positionals = ["COMMAND", "INITIAL-ARGS..."]
 must_not_contain_positionals = ["OPTION"]
-
-[xfail]
-broken = true
-reason = "[S-041] The usage line ends `COMMAND [INITIAL-ARGS]...`. The tree has COMMAND but no INITIAL-ARGS. A fix reads the bracketed operand with the repeat dots after the bracket as an optional repeatable positional."

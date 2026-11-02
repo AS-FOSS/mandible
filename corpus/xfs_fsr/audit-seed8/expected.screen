@@ -1,0 +1,20 @@
+=== xfs_fsr ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  xfs_fsr [-d] [-v] [-g] [-t time] [-p passes] [-f leftf] [-m mtab]
+  xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...
+  xfs_fsr -V
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  xfsdev | dir | file...
+
+
+FLAGS (8) ──────────────────────────────────────────────────────────────────
+-g          Print to syslog (default if stdout not a tty).
+-t time     How long to run in seconds.
+-p passes   Number of passes before terminating global re-org.
+-f leftoff  Use this instead of /var/tmp/.fsrlast_xfs.
+-m mtab     Use something other than /etc/mtab.
+-d          Debug, print even more.
+-v          Verbose, more -v's more verbose.
+-V          Print version number and exit.

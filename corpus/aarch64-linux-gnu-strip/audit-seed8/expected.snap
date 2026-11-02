@@ -1,0 +1,259 @@
+name: aarch64-linux-gnu-strip
+description: |-
+  Removes symbols and sections from files
+
+  /usr/bin/aarch64-linux-gnu-strip: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>
+usage:
+- 'Usage: /usr/bin/aarch64-linux-gnu-strip <option(s)> in-file(s)'
+positionals:
+- name: in-file(s)
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -I
+  - --input-target
+  value_name: <bfdname>
+  value_kind: Required
+  group: 'The options are:'
+  description: Assume input file is in format <bfdname>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --output-target
+  value_name: <bfdname>
+  value_kind: Required
+  group: 'The options are:'
+  description: Create an output file in format <bfdname>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --target
+  value_name: <bfdname>
+  value_kind: Required
+  group: 'The options are:'
+  description: Set both input and output format to <bfdname>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --preserve-dates
+  group: 'The options are:'
+  description: Copy modified/access timestamps to the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --enable-deterministic-archives
+  group: 'The options are:'
+  description: Produce deterministic output when stripping archives (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --disable-deterministic-archives
+  group: 'The options are:'
+  description: Disable -D behavior
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --remove-section
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Also remove section <name> from the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --remove-relocations
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Remove relocations from section <name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-section-headers
+  group: 'The options are:'
+  description: Strip section headers from the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --strip-all
+  group: 'The options are:'
+  description: Remove all symbol and relocation information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  - -S
+  - -d
+  - --strip-debug
+  group: 'The options are:'
+  description: Remove all debugging symbols & sections
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-dwo
+  group: 'The options are:'
+  description: Remove all DWO sections
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --strip-unneeded
+  group: 'The options are:'
+  description: Remove all symbols not needed by relocations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --only-keep-debug
+  group: 'The options are:'
+  description: Strip everything but the debug information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  group: 'The options are:'
+  description: --merge-notes Remove redundant entries in note sections (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-merge-notes
+  group: 'The options are:'
+  description: Do not attempt to remove redundant notes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --strip-symbol
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Do not copy symbol <name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --keep-section
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Do not strip section <name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --keep-symbol
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Do not strip symbol <name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --keep-section-symbols
+  group: 'The options are:'
+  description: Do not strip section symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --keep-file-symbols
+  group: 'The options are:'
+  description: Do not strip file symbol(s)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --wildcard
+  group: 'The options are:'
+  description: Permit wildcard in symbol comparison
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --discard-all
+  group: 'The options are:'
+  description: Remove all non-global symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --discard-locals
+  group: 'The options are:'
+  description: Remove any compiler-generated symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  group: 'The options are:'
+  description: List all object files modified
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'The options are:'
+  description: Display this program's version number
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'The options are:'
+  description: Display this output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --info
+  group: 'The options are:'
+  description: List object formats & architectures supported
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  value_name: <file>
+  value_kind: Required
+  group: 'The options are:'
+  description: Place stripped output into <file>
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
