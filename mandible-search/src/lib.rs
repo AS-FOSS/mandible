@@ -190,7 +190,7 @@ pub fn substring_indices(name: &str, query: &str) -> Vec<u32> {
 pub fn spelling_forms(spelling: &Spelling) -> Vec<String> {
     let typed = spelling.typed();
     let mut forms = vec![typed.clone()];
-    if spelling.negatable {
+    if spelling.negation == Some(mandible_core::Negation::NoPrefix) {
         let lead = &typed[..typed.len() - spelling.name.len()];
         forms.push(format!("{lead}no-{}", spelling.name));
     } else if spelling.render() != typed {
@@ -303,6 +303,11 @@ fn push_entity(entries: &mut Vec<Entry>, entity: &Entity, path: &[String]) {
         haystack.push_str(&v);
         haystack.push(' ');
     }
+    // The `values:` line is on the page, so its names can be typed too.
+    for choice in &entity.choices {
+        haystack.push_str(&choice.name);
+        haystack.push(' ');
+    }
     if let Some(d) = &entity.description {
         haystack.push_str(d.as_str());
     }
@@ -319,7 +324,7 @@ fn push_entity(entries: &mut Vec<Entry>, entity: &Entity, path: &[String]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mandible_core::{Entity, Provenance, Source, Text};
+    use mandible_core::{Choice, Entity, Provenance, Source, Text};
 
     fn flag(short: Option<char>, long: Option<&str>, description: &str) -> Entity {
         let mut f = Entity::flag_spelled(
@@ -714,6 +719,21 @@ mod tests {
         assert_eq!(entity_forms(&root.entities[0]), ["--squash", "--no-squash"]);
     }
 
+    #[test]
+    fn a_bang_spelling_adds_no_search_form() {
+        let mut e = Entity::flag_spelled(
+            Some('p'),
+            Some("protocol".to_string()),
+            false,
+            false,
+            Provenance::single(Source::HelpText),
+        );
+        for s in &mut e.spellings {
+            s.negation = Some(mandible_core::Negation::Bang);
+        }
+        assert_eq!(entity_forms(&e), ["-p", "--protocol"]);
+    }
+
     fn found(root: &CommandNode, query: &str) -> bool {
         !name_index(root, query).is_empty()
     }
@@ -749,6 +769,17 @@ mod tests {
             entity_forms(&root.entities[0]),
             ["--color", "--color[=WHEN]"]
         );
+    }
+
+    #[test]
+    fn a_choice_listed_on_the_values_line_is_found() {
+        let mut root = CommandNode::new("vgchange", Provenance::single(Source::HelpText));
+        let mut activate = Entity::flag_long("activate", Provenance::single(Source::HelpText));
+        activate.value_kind = mandible_core::ValueKind::Required;
+        activate.choices = vec![Choice::bare("y"), Choice::bare("ay")];
+        root.entities.push(activate);
+        assert!(found(&root, "ay"));
+        assert!(!wide_index(&root, "ay").is_empty());
     }
 
     #[test]

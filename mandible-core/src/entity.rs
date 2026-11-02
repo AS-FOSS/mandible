@@ -26,6 +26,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::alternation::CHOICES_MARK;
 use crate::node::ValueKind;
 use crate::provenance::Provenance;
 use crate::text::Text;
@@ -43,6 +44,35 @@ pub enum Dashes {
     Double,
 }
 
+/// How a tool writes the inverse of a flag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Negation {
+    /// The `no-` prefix, drawn `--[no-]name`: `--name` and `--no-name`
+    /// are both spelled.
+    NoPrefix,
+    /// A `!` typed before the flag, drawn `[!] -p`: `! -p tcp` inverts
+    /// the test. It adds no spelling of its own.
+    Bang,
+}
+
+/// Reads `negation`, accepting the pre-bang `negatable` bool.
+fn read_negation<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Negation>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Raw {
+        Flag(bool),
+        Kind(Negation),
+    }
+    Ok(match Option::<Raw>::deserialize(d)? {
+        Some(Raw::Flag(true)) => Some(Negation::NoPrefix),
+        Some(Raw::Kind(k)) => Some(k),
+        _ => None,
+    })
+}
+
+/// The `[!] ` that leads a row whose flags can be inverted with `!`.
+pub const BANG_LEAD: &str = "[!] ";
+
 /// One documented spelling of an [`Entity`].
 ///
 /// `name` never contains dashes or brackets — the same rule
@@ -58,9 +88,16 @@ pub struct Spelling {
     pub name: String,
     /// How many dashes [`Spelling::render`] puts in front of `name`.
     pub dashes: Dashes,
-    /// True when the tool documents the `--[no-]name` negation convention
-    /// for this spelling (the pre-0.5.0 `Flag::negatable`).
-    pub negatable: bool,
+    /// How the tool writes this spelling's inverse, when it documents one:
+    /// `--[no-]name` (the pre-0.5.0 `Flag::negatable`) or a leading `[!]`.
+    /// A `[!]` row sets `Bang` on every spelling it names.
+    #[serde(
+        default,
+        alias = "negatable",
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "read_negation"
+    )]
+    pub negation: Option<Negation>,
     /// `Some(n)` when the tool documents an abbreviation bracket — the
     /// minimum accepted prefix length: `-r[esolve]` is `name: "resolve"`,
     /// `abbrev: Some(1)`; `-rc[vbuf]` is `name: "rcvbuf"`, `abbrev:
@@ -79,7 +116,7 @@ impl Spelling {
         Spelling {
             name: c.to_string(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: None,
         }
     }
@@ -89,7 +126,7 @@ impl Spelling {
         Spelling {
             name: name.into(),
             dashes: Dashes::Double,
-            negatable: false,
+            negation: None,
             abbrev: None,
         }
     }
@@ -99,7 +136,7 @@ impl Spelling {
         Spelling {
             name: name.into(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: None,
         }
     }
@@ -111,7 +148,7 @@ impl Spelling {
         Spelling {
             name: name.into(),
             dashes: Dashes::None,
-            negatable: false,
+            negation: None,
             abbrev: None,
         }
     }
@@ -124,7 +161,7 @@ impl Spelling {
     /// and `negatable` wins if they ever were: `--[no-]name` is a rendering
     /// convention with nothing analogous to abbreviate.
     pub fn render(&self) -> String {
-        if self.negatable {
+        if self.negation == Some(Negation::NoPrefix) {
             return format!("{}[no-]{}", self.dash_prefix(), self.name);
         }
         match self.abbrev {
@@ -135,6 +172,15 @@ impl Spelling {
                 format!("{}{prefix}[{rest}]", self.dash_prefix())
             }
             _ => format!("{}{}", self.dash_prefix(), self.name),
+        }
+    }
+
+    /// [`Spelling::render`] as the tool wrote it: a `Bang` spelling carries
+    /// its `[!] ` lead, the form `expected.snap` stores.
+    pub fn written(&self) -> String {
+        match self.negation {
+            Some(Negation::Bang) => format!("{BANG_LEAD}{}", self.render()),
+            _ => self.render(),
         }
     }
 
@@ -525,7 +571,7 @@ impl Entity {
                 } else {
                     Dashes::Double
                 },
-                negatable,
+                negation: negatable.then_some(Negation::NoPrefix),
                 abbrev: None,
             });
         }
@@ -568,7 +614,14 @@ impl Entity {
     /// True when any spelling documents the `--[no-]name` negation
     /// convention.
     pub fn negatable(&self) -> bool {
-        self.spellings.iter().any(|s| s.negatable)
+        self.spellings
+            .iter()
+            .any(|s| s.negation == Some(Negation::NoPrefix))
+    }
+
+    /// How the tool writes this entity's inverse, if it documents one.
+    pub fn negation(&self) -> Option<Negation> {
+        self.spellings.iter().find_map(|s| s.negation)
     }
 
     /// True when the long-like spelling is written with one dash rather
@@ -623,9 +676,13 @@ impl Entity {
     /// enclose what may be left out, joiner included. `None` when the
     /// entity takes no value.
     pub fn value_text(&self) -> Option<String> {
-        let name = self.value_name.as_ref()?;
+        let name = match &self.value_name {
+            Some(name) => name.clone(),
+            None if self.value_is_choices() => CHOICES_MARK.to_string(),
+            None => return None,
+        };
         match self.value_kind {
-            ValueKind::Required => Some(name.clone()),
+            ValueKind::Required => Some(name),
             // A glued run of optional bracketed groups (docs/shapes.md
             // S-097) keeps its source spelling, brackets included, so
             // it is never wrapped a second time.
@@ -634,7 +691,7 @@ impl Entity {
                 Some(match (self.optional_join, run) {
                     (Some(OptionalJoin::Equals), true) => format!("[={}", &name[1..]),
                     (Some(OptionalJoin::Equals), false) => format!("[={name}]"),
-                    (_, true) => name.clone(),
+                    (_, true) => name,
                     (_, false) => format!("[{name}]"),
                 })
             }
@@ -712,6 +769,11 @@ impl Entity {
     /// that type's own `spelling()` (pinned by tests below).
     pub fn spelling(&self) -> String {
         let mut spelling = self
+            .negation()
+            .filter(|n| *n == Negation::Bang)
+            .map_or("", |_| BANG_LEAD)
+            .to_string();
+        spelling += &self
             .spellings
             .iter()
             .map(Spelling::render)
@@ -859,7 +921,7 @@ mod tests {
                 spellings: vec![Spelling {
                     name: "staged".into(),
                     dashes: Dashes::Double,
-                    negatable: true,
+                    negation: Some(Negation::NoPrefix),
                     abbrev: None,
                 }],
                 expected_spelling: "--[no-]staged",
@@ -875,7 +937,7 @@ mod tests {
                     Spelling {
                         name: "staged".into(),
                         dashes: Dashes::Double,
-                        negatable: true,
+                        negation: Some(Negation::NoPrefix),
                         abbrev: None,
                     },
                 ],
@@ -1120,7 +1182,7 @@ mod tests {
         let ip_resolve = Spelling {
             name: "resolve".into(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: Some(1),
         };
         assert_eq!(ip_resolve.render(), "-r[esolve]");
@@ -1129,7 +1191,7 @@ mod tests {
         let ip_rcvbuf = Spelling {
             name: "rcvbuf".into(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: Some(2),
         };
         assert_eq!(ip_rcvbuf.render(), "-rc[vbuf]");
@@ -1138,7 +1200,7 @@ mod tests {
         let brief = Spelling {
             name: "brief".into(),
             dashes: Dashes::Double,
-            negatable: false,
+            negation: None,
             abbrev: Some(2),
         };
         assert_eq!(brief.render(), "--br[ief]");
@@ -1383,5 +1445,46 @@ mod tests {
         let mut other = entity_flag(vec![Spelling::short('1')]);
         assert_eq!(other.set_range(range), Err(RangeStartNotASpelling));
         assert_eq!(other.range(), None);
+    }
+
+    /// `[!] -p, --protocol proto`: the `!` kind adds no spelling of its own,
+    /// is stored as the tool wrote it, and reads back from a snapshot string.
+    #[test]
+    fn a_bang_row_is_one_marker_before_its_spellings() {
+        let mut e = Entity::flag_spelled(
+            Some('p'),
+            Some("protocol".into()),
+            false,
+            false,
+            Provenance::default(),
+        );
+        for s in &mut e.spellings {
+            s.negation = Some(Negation::Bang);
+        }
+        e.value_name = Some("proto".into());
+        e.value_kind = ValueKind::Required;
+        assert_eq!(e.negation(), Some(Negation::Bang));
+        assert!(!e.negatable());
+        assert_eq!(e.spellings[0].render(), "-p");
+        assert_eq!(e.spellings[0].written(), "[!] -p");
+        assert_eq!(e.spelling(), "[!] -p, --protocol proto");
+        assert_eq!(e.shell_spelling().as_deref(), Some("--protocol"));
+    }
+
+    /// A cached tree from before the `!` kind carries a bool.
+    #[test]
+    fn the_old_negatable_bool_reads_as_the_no_prefix() {
+        let old: Spelling = serde_json::from_str(
+            r#"{"name":"color","dashes":"Double","negatable":true,"abbrev":null}"#,
+        )
+        .unwrap();
+        assert_eq!(old.negation, Some(Negation::NoPrefix));
+        let off: Spelling = serde_json::from_str(
+            r#"{"name":"color","dashes":"Double","negatable":false,"abbrev":null}"#,
+        )
+        .unwrap();
+        assert_eq!(off.negation, None);
+        let plain = serde_json::to_string(&Spelling::long("color")).unwrap();
+        assert!(!plain.contains("negat"));
     }
 }

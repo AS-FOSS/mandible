@@ -109,9 +109,12 @@ flags:
     - help-text
 - spellings:
   - -deferglyphs
-  value_name: '[none|all|16]'
   value_kind: Optional
   optional_join: separate
+  choices:
+  - none
+  - all
+  - '16'
   description: defer loading of [no|all|16-bit] glyphs
   provenance:
     sources:
@@ -265,9 +268,13 @@ flags:
     - help-text
 - spellings:
   - -render
-  value_name: '[default|mono|gray|color]'
   value_kind: Optional
   optional_join: separate
+  choices:
+  - default
+  - mono
+  - gray
+  - color
   description: set render color alloc policy
   provenance:
     sources:

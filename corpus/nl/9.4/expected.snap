@@ -1,0 +1,145 @@
+name: nl
+description: |-
+  Write each FILE to standard output, with line numbers added.
+
+  With no FILE, or when FILE is -, read standard input.
+usage:
+- 'Usage: /usr/bin/nl [OPTION]... [FILE]...'
+positionals:
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -b
+  - --body-numbering
+  value_name: STYLE
+  value_kind: Required
+  choices:
+  - name: a
+    description: number all lines
+  - name: t
+    description: number only nonempty lines
+  - name: n
+    description: number no lines
+  - name: pBRE
+    description: number only lines that contain a match for the basic regular expression, BRE
+  description: use STYLE for numbering body lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --section-delimiter
+  value_name: CC
+  value_kind: Required
+  description: use CC for logical page delimiters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --footer-numbering
+  value_name: STYLE
+  value_kind: Required
+  description: use STYLE for numbering footer lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --header-numbering
+  value_name: STYLE
+  value_kind: Required
+  description: use STYLE for numbering header lines
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --line-increment
+  value_name: NUMBER
+  value_kind: Required
+  description: line number increment at each line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --join-blank-lines
+  value_name: NUMBER
+  value_kind: Required
+  description: group of NUMBER empty lines counted as one
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --number-format
+  value_name: FORMAT
+  value_kind: Required
+  choices:
+  - name: ln
+    description: left justified, no leading zeros
+  - name: rn
+    description: right justified, no leading zeros
+  - name: rz
+    description: right justified, leading zeros
+  description: insert line numbers according to FORMAT
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --no-renumber
+  description: do not reset line numbers for each section
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --number-separator
+  value_name: STRING
+  value_kind: Required
+  description: add STRING after (possible) line number
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --starting-line-number
+  value_name: NUMBER
+  value_kind: Required
+  description: first line number for each section
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --number-width
+  value_name: NUMBER
+  value_kind: Required
+  description: use NUMBER columns for line numbers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

@@ -11,7 +11,7 @@
 //! `help_text::sections` uses to compute this tier's confidence score.
 
 use super::spec_parts::{optional_join_of, parse_range_head};
-use mandible_core::{Dashes, OptionalJoin, Spelling, SpellingRange, ValueKind};
+use mandible_core::{Dashes, Negation, OptionalJoin, Spelling, SpellingRange, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
 use winnow::error::ContextError;
@@ -96,14 +96,32 @@ impl FlagSpec {
     /// no need to ask the whole spec first.
     #[cfg(test)]
     pub fn negatable(&self) -> bool {
-        self.spellings.iter().any(|s| s.negatable)
+        self.spellings
+            .iter()
+            .any(|s| s.negation == Some(Negation::NoPrefix))
     }
 }
 
 /// Parse a flag-spec fragment (the part of a `--help` entry line before
 /// the description column — already isolated by the layout parser).
 pub fn parse_flag_spec(input: &str) -> FlagSpec {
-    let normalized = unwrap_brace_alternation(input.trim());
+    // A leading `[!]` says every spelling of the row can be inverted by a
+    // `!` written before it. docs/shapes.md S-254.
+    let Some(rest) = strip_bang_lead(input) else {
+        return parse_unmarked_flag_spec(input);
+    };
+    let mut spec = parse_unmarked_flag_spec(rest);
+    for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
+        s.negation = Some(Negation::Bang);
+    }
+    spec
+}
+
+/// [`parse_flag_spec`] for a row with no leading `[!]`.
+fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
+    // A tab between spellings separates them like a space does.
+    let detabbed = input.replace('\t', " ");
+    let normalized = unwrap_brace_alternation(detabbed.trim());
     let mut rest = normalized.as_ref().trim();
     if let Some(spec) = parse_range_head(rest) {
         return spec;
@@ -112,6 +130,12 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
     // The text right after the last spelling collected, before any
     // separator is skipped: it tells how an optional value joins.
     let mut after_spellings;
+    // True for the first spelling of a run resumed after a value spec: the
+    // `,`/`|`/`or` that joined it was consumed with the value.
+    let mut resumed = false;
+    // Whether the last value spec was spaced or `=`-joined to its spelling
+    // (`-h FILE`, `--width=N`), not glued to a short (`-dsa`).
+    let mut spaced_value;
 
     loop {
         // One run of alias spellings: `-p`, `--pid`, `-A, --catenate`.
@@ -136,6 +160,7 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
             // consumed. See docs/shapes.md S-099.
             let or_alias = strip_or_alias_separator(rest);
             let explicit = or_alias.is_some() || saw_explicit_separator(before, rest);
+            let alias_position = explicit || std::mem::take(&mut resumed);
             if let Some(after_or) = or_alias {
                 rest = after_or;
             }
@@ -149,12 +174,25 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
                 break;
             }
 
+            // Without a separator, `-help` after `--help` is the single-dash
+            // twin of a spelling already collected (`-? -h --help -help`),
+            // never `try_short`'s truncated `-h`. See docs/shapes.md S-008
+            // and corpus/jstack/17.
+            if !explicit {
+                if let Some((spelling, tail)) = single_dash_twin(&spec, rest) {
+                    last_was_long_like = true;
+                    spec.spellings.push(spelling);
+                    rest = tail;
+                    continue;
+                }
+            }
+
             // In alias position, a multi-letter single-dash run with no
             // abbreviation bracket is its own spelling, not `try_short`'s
             // truncate-to-first-character fallback (gold's `-G, -shared`
             // would otherwise collide with `-s, --strip-all`). See
             // docs/shapes.md S-083.
-            if explicit {
+            if alias_position {
                 if let Some((spelling, tail)) = try_alias_position_single_dash_long(rest) {
                     if already_collected(&spec, &spelling) {
                         break;
@@ -308,14 +346,16 @@ pub fn parse_flag_spec(input: &str) -> FlagSpec {
         // (`pod2text`'s `-w, --width=width, -width`, its own description
         // on the next line with no column gap to bound the spec): see
         // [`recover_comma_swallowed_alias`], S-160.
-        let Some(next) = alias_continues(tail)
+        spaced_value = after_spellings.starts_with([' ', '\t', '=']);
+        let Some(next) = alias_continues(tail, spaced_value)
             .or_else(|| or_alias_continues(tail))
-            .or_else(|| recover_comma_swallowed_alias(&mut spec, tail))
+            .or_else(|| recover_comma_swallowed_alias(&mut spec, tail, spaced_value))
         else {
             spec.fully_consumed = tail.trim().is_empty();
             return spec;
         };
         rest = next;
+        resumed = true;
     }
 }
 
@@ -338,9 +378,27 @@ fn is_alias_separator(c: char) -> bool {
 /// terminate it — a `}`/`)`/`]` directly after means the dash was inside a
 /// bracketed value (`{a,-b}`), not an alias separator.
 fn alias_follows(after_separator: &str) -> bool {
+    alias_follows_in(after_separator, false)
+}
+
+/// [`alias_follows`], optionally also reading a whole single-dash word
+/// (`-soname`) as the next spelling. Callers pass `true` only where the
+/// text before the separator is a spaced value or the word `or`; after a
+/// glued value (`-dsa | -disablesystemassertions`) the first spelling is a
+/// short with a glued tail and the repair owns it.
+fn alias_follows_in(after_separator: &str, single_dash_word: bool) -> bool {
     let after = after_separator.trim_start_matches(' ');
     let Some(tail) = try_long(after)
         .map(|(_, t)| t)
+        .or_else(|| {
+            try_alias_position_single_dash_long(after)
+                .filter(|(s, t)| {
+                    single_dash_word
+                        && s.name.chars().all(|c| c.is_alphanumeric() || c == '_')
+                        && (t.is_empty() || t.starts_with([' ', '\t']))
+                })
+                .map(|(_, t)| t)
+        })
         .or_else(|| try_short(after).map(|(_, t)| t))
     else {
         return false;
@@ -360,7 +418,7 @@ fn strip_or_alias_separator(rest: &str) -> Option<&str> {
         return None;
     }
     let after = after.trim_start_matches(' ');
-    if !alias_follows(after) {
+    if !alias_follows_in(after, true) {
         return None;
     }
     or_alias_ends_the_spec(after).then_some(after)
@@ -407,11 +465,11 @@ fn separator_has_a_left_operand(before_separator: &str) -> bool {
 /// explicit separator must be the next non-space character in
 /// `after_value` — a space alone never resumes the run — and a whole
 /// spelling must follow it.
-fn alias_continues(after_value: &str) -> Option<&str> {
+fn alias_continues(after_value: &str, spaced_value: bool) -> Option<&str> {
     let s = after_value.trim_start_matches(' ');
     let separator = s.chars().next().filter(|c| is_alias_separator(*c))?;
     let rest = &s[separator.len_utf8()..];
-    alias_follows(rest).then(|| rest.trim_start_matches(' '))
+    alias_follows_in(rest, spaced_value).then(|| rest.trim_start_matches(' '))
 }
 
 /// The rest of an alias list continuing past a value spec via the bare
@@ -451,11 +509,15 @@ fn or_alias_continues(after_value: &str) -> Option<&str> {
 /// value never ends in one on its own. Strips the comma from `spec`'s
 /// value and hands back `tail` positioned at the recovered spelling, the
 /// same shape [`alias_continues`] returns. See docs/shapes.md S-160.
-fn recover_comma_swallowed_alias<'a>(spec: &mut FlagSpec, tail: &'a str) -> Option<&'a str> {
+fn recover_comma_swallowed_alias<'a>(
+    spec: &mut FlagSpec,
+    tail: &'a str,
+    spaced_value: bool,
+) -> Option<&'a str> {
     let value = spec.value_name.as_deref()?;
     let trimmed_value = value.strip_suffix(',')?;
     let after = tail.trim_start_matches(' ');
-    if !alias_follows(after) {
+    if !alias_follows_in(after, spaced_value) {
         return None;
     }
     spec.value_name = Some(trimmed_value.to_string());
@@ -473,8 +535,28 @@ fn unwrap_brace_alternation(input: &str) -> std::borrow::Cow<'_, str> {
         Some(alt) if alt.open == '{' => {
             std::borrow::Cow::Owned(format!("{} {}", alt.members.join(" "), alt.rest))
         }
-        _ => std::borrow::Cow::Borrowed(input),
+        _ => match brace_wrapped_valued_spelling(input) {
+            Some((content, "")) => std::borrow::Cow::Borrowed(content),
+            _ => std::borrow::Cow::Borrowed(input),
+        },
     }
+}
+
+/// The content of a brace group holding one spelling and its value,
+/// `{-o <xml file>}` (the braces only mark the row optional), and the text
+/// after it. `None` unless the group opens the text, is followed by
+/// whitespace or the end, holds no `|` and opens with a bare flag
+/// spelling. See docs/shapes.md S-084 and corpus/era_invalidate/0.9.0.
+fn brace_wrapped_valued_spelling(input: &str) -> Option<(&str, &str)> {
+    let trimmed = input.trim_start();
+    let (content, rest) = split_at_matching_close(trimmed, '{', '}')?;
+    if !trimmed.starts_with('{') || !(rest.is_empty() || rest.starts_with(char::is_whitespace)) {
+        return None;
+    }
+    let content = content.trim();
+    let (head, value) = content.split_once(' ')?;
+    let single = split_alternatives(content).len() == 1;
+    (single && is_bare_flag_spelling(head) && !value.trim().is_empty()).then_some((content, rest))
 }
 
 fn skip_separators(input: &str) -> &str {
@@ -564,6 +646,17 @@ fn trailing_token_is_a_value(tail: &str) -> bool {
     try_short(t).is_none() && try_long(t).is_none()
 }
 
+/// A whole single-dash word at the front of `rest` whose name is a
+/// double-dash spelling already in `spec`.
+fn single_dash_twin<'a>(spec: &FlagSpec, rest: &'a str) -> Option<(Spelling, &'a str)> {
+    let (spelling, tail) = try_alias_position_single_dash_long(rest)?;
+    let twin = spec
+        .spellings
+        .iter()
+        .any(|s| matches!(s.dashes, Dashes::Double) && s.name == spelling.name);
+    (twin && !already_collected(spec, &spelling)).then_some((spelling, tail))
+}
+
 /// In alias position (text right after an explicit `,`/`|`), a
 /// multi-letter single-dash run with no abbreviation bracket is a
 /// spelling in its own right (gold's `-G, -shared`), not `try_short`'s
@@ -591,7 +684,7 @@ fn try_alias_position_single_dash_long(input: &str) -> Option<(Spelling, &str)> 
         Spelling {
             name: run.to_string(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: None,
         },
         after_run,
@@ -651,7 +744,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
                 Spelling {
                     name: format!("{run}{content}"),
                     dashes: Dashes::Single,
-                    negatable: false,
+                    negation: None,
                     abbrev: Some(prefix_len),
                 },
                 rest,
@@ -674,7 +767,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             Spelling {
                 name: run.to_string(),
                 dashes: Dashes::Single,
-                negatable: false,
+                negation: None,
                 abbrev: None,
             },
             after_run,
@@ -700,7 +793,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
             Spelling {
                 name: run.to_string(),
                 dashes: Dashes::Single,
-                negatable: false,
+                negation: None,
                 abbrev: None,
             },
             after_run,
@@ -796,7 +889,7 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
                 Spelling {
                     name: format!("{name}{content}"),
                     dashes: Dashes::Double,
-                    negatable: false,
+                    negation: None,
                     abbrev: Some(name.chars().count()),
                 },
                 rest,
@@ -807,7 +900,7 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
         Spelling {
             name: name.to_string(),
             dashes: Dashes::Double,
-            negatable,
+            negation: negatable.then_some(Negation::NoPrefix),
             abbrev: None,
         },
         s,
@@ -838,6 +931,13 @@ fn try_bare_sigil(input: &str) -> Option<(Spelling, &str)> {
 /// caller.
 fn is_bare_end_of_options_marker(spec: &FlagSpec) -> bool {
     matches!(spec.spellings.as_slice(), [s] if s.dashes == Dashes::None && s.name == "--")
+}
+
+/// The text after a leading `[!]` marker, when the row starts with one and
+/// a dash-led spelling follows. See docs/shapes.md S-254.
+pub fn strip_bang_lead(input: &str) -> Option<&str> {
+    let rest = input.trim_start().strip_prefix("[!]")?.trim_start();
+    rest.starts_with('-').then_some(rest)
 }
 
 /// Strips a leading `[no-]`/`[no]` prefix, if present. Recognized
@@ -1192,7 +1292,24 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             tail = after;
         }
     }
+    // argparse's `nargs='+'`: the placeholder repeated in a bracket with an
+    // ellipsis (`SOURCESLIST [SOURCESLIST ...]`) is part of the value, kept
+    // as the tool wrote it. See docs/shapes.md S-083 and
+    // corpus/add-apt-repository/0.99.49.4.
+    if let Some((repeat, after)) = take_repeat_group(&name, tail) {
+        name.push(' ');
+        name.push_str(repeat);
+        tail = after;
+    }
     Some((name, ValueKind::Required, tail))
+}
+
+/// The `[NAME ...]` group at the front of `tail` when it repeats `name`.
+fn take_repeat_group<'a>(name: &str, tail: &'a str) -> Option<(&'a str, &'a str)> {
+    let group = tail.strip_prefix(' ')?;
+    let close = group.find(']')?;
+    let inner = group.get(1..close).filter(|_| group.starts_with('['))?;
+    (inner.strip_suffix(" ...") == Some(name)).then(|| (&group[..=close], &group[close + 1..]))
 }
 
 /// Take one "value token": an angle/brace-delimited placeholder or a run
@@ -1355,6 +1472,9 @@ fn take_glued_second_metavar_word(name: &str, tail: &str) -> Option<(String, usi
 /// See docs/shapes.md S-084.
 pub fn looks_like_flag_start(input: &str) -> bool {
     let trimmed = input.trim_start();
+    if let Some(rest) = strip_bang_lead(trimmed) {
+        return looks_like_flag_start(rest);
+    }
     if trimmed.starts_with('-') {
         return !is_dash_underline_token(first_token(trimmed));
     }
@@ -1365,6 +1485,7 @@ pub fn looks_like_flag_start(input: &str) -> bool {
     // `%`-conversion-modifier table row). See `try_bare_sigil`'s own doc
     // comment.
     parse_flag_alternation(trimmed).is_some_and(|alt| alt.open == '{')
+        || brace_wrapped_valued_spelling(trimmed).is_some()
 }
 
 /// The first whitespace-delimited token of `input`, or the whole string
@@ -2852,20 +2973,19 @@ mod tests {
         assert_eq!(spec.value_name.as_deref(), Some("<arg>"));
     }
 
-    /// jdb's real `-? -h --help -help`: the trailing `-help` is reached
-    /// only by bare whitespace, so alias-position reading must not apply.
-    /// Out of scope: widening to bare whitespace. S-083.
+    /// jdb's real `-? -h --help -help`: the trailing `-help` is reached by
+    /// bare whitespace and is the single-dash twin of `--help`, so it is
+    /// read whole; a single-dash word with no twin still truncates. S-008.
     #[test]
-    fn bare_whitespace_position_still_truncates_rather_than_reading_a_long_spelling() {
-        let spec = parse_flag_spec("-? -h --help -help");
-        assert!(
-            !spec
+    fn bare_whitespace_reads_a_single_dash_twin_but_truncates_any_other_word() {
+        let has = |row: &str, name: &str| {
+            parse_flag_spec(row)
                 .spellings
                 .iter()
-                .any(|s| matches!(s.dashes, Dashes::Single) && s.name == "help"),
-            "no bare-whitespace-reached spelling reads `-help` as a whole single-dash word: {:?}",
-            spec.spellings
-        );
+                .any(|s| matches!(s.dashes, Dashes::Single) && s.name == name)
+        };
+        assert!(has("-? -h --help -help", "help"));
+        assert!(!has("-? -h --help -other", "other"));
     }
 
     /// unzip's real `[-opts[modifiers]]` placeholder: "opts" is a
@@ -3193,5 +3313,35 @@ mod tests {
             Some(OptionalJoin::Equals)
         );
         assert_eq!(parse_flag_spec("--max-count NUM").optional_join, None);
+    }
+
+    #[test]
+    fn a_repeated_placeholder_group_stays_on_the_value() {
+        let spec = parse_flag_spec(
+            "-S SOURCESLIST [SOURCESLIST ...], --sourceslist SOURCESLIST [SOURCESLIST ...]",
+        );
+        assert_eq!(spec.short(), Some('S'));
+        assert_eq!(spec.long(), Some("sourceslist"));
+        assert_eq!(
+            spec.value_name.as_deref(),
+            Some("SOURCESLIST [SOURCESLIST ...]")
+        );
+        assert!(spec.fully_consumed);
+    }
+
+    #[test]
+    fn a_comma_after_a_value_does_not_hide_a_single_dash_alias() {
+        let spec = parse_flag_spec("-h FILENAME, -soname FILENAME");
+        assert_eq!(spec.spellings.len(), 2);
+        assert_eq!(spec.value_name.as_deref(), Some("FILENAME"));
+        assert!(spec.fully_consumed);
+    }
+
+    #[test]
+    fn a_brace_wrapped_spelling_with_a_value_is_one_flag() {
+        let spec = parse_flag_spec("{-o <xml file>}");
+        assert_eq!(spec.short(), Some('o'));
+        assert_eq!(spec.value_name.as_deref(), Some("<xml file>"));
+        assert!(looks_like_flag_start("{-o <xml file>}"));
     }
 }

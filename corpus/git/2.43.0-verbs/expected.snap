@@ -410,11 +410,6 @@ subcommands:
     provenance:
       sources:
       - help-text
-  - name: object
-    variadic: true
-    provenance:
-      sources:
-      - help-text
   flags:
   - spellings:
     - -q

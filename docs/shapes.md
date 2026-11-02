@@ -160,13 +160,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       -h, -help topic     show help
       --help topic        show help
-- tools: ffplay, ffmpeg, ffprobe
+- tools: ffplay, ffmpeg, ffprobe, jstack, jdb, jps, jrunscript, javap
 - handling: Entity::long reported "-help" and "--help" as the same bare name "help", so
   merge_entity_bucket's short/long reconstruction kept only one dash count and
   silently dropped the other. The long-name key now carries dash count,
   L:1:help versus L:2:help, so the two spellings are never bucketed together
   unless a source genuinely repeats the identical spelling.
-- fleet: not measured
+  A row of bare spellings joined by spaces, `-? -h --help -help`, keeps `-help`
+  whole when a double-dash spelling of the same name is already in the run
+  (`corpus/jstack/17`); any other single-dash word there still truncates.
+- fleet: the space-joined run `-? -h --help -help` appears in 5 of 2271 swept PATH
+  tools, jstack, jdb, jps, jrunscript and javap, 2026-11-02.
 
 ### S-009: layout-driven option table, column detected per block
 
@@ -278,7 +282,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
             oldgnu
             pax
             posix
-- tools: tar, automake, cp, ffplay
+- tools: tar, automake, cp, ffplay, nl
 - handling: An indented list nested under a flag is that flag's choices, never
   subcommands. A per-value description, when the source documents one, is kept
   on the value rather than dropped, and a block with no plausible owning flag
@@ -297,7 +301,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   under the heading, with the deeper value rows as its choices
   (`corpus/ffplay/6.1.1-3ubuntu5-avfilter-options`). See S-025 for the still-open
   morphological-variant gap this leaves.
-- fleet: not measured
+  A row of a proven owner's block that opens lowercase and carries capitals,
+  `pBRE`, is a choice (`corpus/nl/9.4`); with no owner it is dropped, as the
+  all-caps placeholders are.
+- fleet: 1 of 2271 swept PATH tools moved (nl, `-b`), 2026-11-02. `-f` and `-h`
+  take the same `STYLE` and stay without choices,
+  since ownership goes to the first flag naming the value.
 
 ### S-015: described choice values in a scope-flag sub-table
 
@@ -768,11 +777,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]
       usage: lessecho [-ox] ... [-a] file ...
-- tools: bashbug, lessecho, vim.basic
+- tools: bashbug, lessecho, vim.basic, loadkeys, xargs, mt, getent, setmetamode, cpio, info, libtool, ld.so, kernel-install
 - handling: An operand named only inside a bracket group at the tail of a usage line is
   not extracted as a positional; the tree currently carries no positionals at
-  all for these tools even though the operand is real and documented. Open
-  defect.
+  all for these tools even though the operand is real and documented. Fixed
+  for two sub-shapes: the repeat dots after an option placeholder
+  (`[option...]`, `[option(s)]`) no longer block the recovery, so
+  `[mapfile...]` reaches the tree; and an ALL-CAPS operand may contain a
+  hyphen (`[INITIAL-ARGS]...`), refused when its last word is an option word
+  (`SHORT-OPTION`), when the line holds no `[`, `<` or `{`, or when it sits in
+  prose of three or more lowercase words. Open for the rest.
 - fleet: detector fires on 150 tools, 150 flags, over a 2318-tool sweep,
   2026-09-03, down from 194 before the single-line synopsis repair.
   Calibrated and passing: 3 of 3 labelled members detected, 0 false alarms
@@ -1407,7 +1421,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
        -A             --smarthome             Enable smart home key
         -l    --list
        -f progfile    --file=progfile
-- tools: nano, jdeprscan, awk, gawk, nawk, ntfsmove, ntfswipe, less
+- tools: nano, jdeprscan, awk, gawk, nawk, ntfsmove, ntfswipe, less, strip, objcopy
 - handling: A row's second column is itself another spelling of the same option, not the
   start of its description, but the ordinary description-gap finder cuts at
   the first wide gap and reads the long spelling as prose. jdeprscan's long
@@ -1416,7 +1430,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   run qualifies only when exactly one of its leading cells is a long spelling,
   since a run of two shorts or two longs is a genuine two-column table of
   separate options.
-- fleet: 24 adjacent cell pairs across 5 tools, 2301 frozen captures, 2026-08-22
+  A block that already writes short and long spellings side by side on one
+  space, three rows or more, also reads a row with a wider gap between the two
+  as the same pair (`-M  --merge-notes`, `corpus/aarch64-linux-gnu-strip/2.42`).
+- fleet: 24 adjacent cell pairs across 5 tools, 2301 frozen captures, 2026-08-22;
+  the one-space pair layout moved strip and
+  objcopy (4 binaries) of 2271 swept PATH tools, 2026-11-02.
 
 ### S-083: alias run keeps every recognized spelling, not just the first pair
 
@@ -1425,7 +1444,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --replace -R chain rulenum
       -? -h --help
       --quiet --noquiet --verbose --noverbose
-- tools: iptables, jdeprscan, dpkg-split, gold, screen, xxd, socat-mux.sh, pod2html
+- tools: iptables, jdeprscan, dpkg-split, gold, screen, xxd, socat-mux.sh, pod2html, javac, javadoc, pod2text, ld, add-apt-repository, asan_symbolize
 - handling: The parser keeps every recognized spelling in one run rather than only the
   first short and first long spelling found. A run may continue on bare
   whitespace only while the previous spelling was a genuine short flag; a
@@ -1433,7 +1452,17 @@ entry's `tools` field and nothing else. It does not get a new entry.
   that repeats its value placeholder after every spelling records the value
   once, on the first sighting, so the alias list can resume after it. Leftover
   text is never read as the next flag's own name serving as this flag's value.
-- fleet: not measured
+  A single-dash word after an alias separator is a spelling in its own right
+  when the value before it was spaced or `=`-joined (`-h FILENAME, -soname
+  FILENAME`, `--width=N, -width`); after a glued value (`-dsa |
+  -disablesystemassertions`) it is not. A value followed by its own bracketed
+  repeat, `SOURCESLIST [SOURCESLIST ...]`, keeps the repeat in the value name as
+  the tool wrote it (`corpus/add-apt-repository/0.99.49.4`); no field says "one
+  or more" for a flag's value.
+- fleet: comma-joined single-dash aliases moved 11 of 2271 swept PATH tools (ld
+  and gold in 8 binaries, javac,
+  javadoc, pod2text); the repeated placeholder moved 4 (add-apt-repository,
+  apt-add-repository, asan_symbolize, asan_symbolize-18), 2026-11-02.
 
 ### S-084: delimited flag alternation inside an option-table row
 
@@ -1441,7 +1470,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       {-i|--input} <input xml file>
       {-v | --version}
-- tools: cache_restore, eqn, xfs_io
+- tools: cache_restore, eqn, xfs_io, era_invalidate, era_dump, cache_dump, cache_metadata_size, thin_dump
 - handling: A brace or bracket delimited group whose every member is a bare flag
   spelling is read as an alternation of flag spellings and rewritten into the
   ordinary comma-free alias list the rest of the grammar reads. Before this
@@ -1451,7 +1480,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
   starting with a dash at all. A member carrying its own value inside the
   alternation is refused rather than guessed, since attributing the value to
   the right alternative is genuinely ambiguous.
-- fleet: not measured
+  A whole row wrapped in one brace group around a single spelling and its value,
+  `{-o <xml file>}`, is read as that spelling and value, and starts a flag row
+  (`corpus/era_invalidate/0.9.0`).
+- fleet: brace-wrapped rows with a value appear in 5 of 2271 swept PATH tools
+  (era_invalidate, era_dump, cache_dump,
+  cache_metadata_size, thin_dump), +8 flags, 2026-11-02.
 
 ### S-085: duplicate spelling refused within one alias list
 
@@ -2372,8 +2406,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
       usage: makeconv [-options] files...
 - tools: makeconv, cpan, enc2xs, h2ph, libnetcfg, ptar, ptardiff, splain,
   lshw, xauth, xev, xkill, xwininfo, genbrk, gencfu, gencnval, gendict,
-  gensprep, icuexportdata, pkgdata
-- handling: Fixed. `usage::is_dash_prefixed_option_list_placeholder` reads
+  gensprep, icuexportdata, pkgdata, aarch64-linux-gnu-strip, strip, elfedit,
+  objdump, readelf
+- handling: Fixed. `option(s)` and `<option(s)>` are placeholders too
+  (`is_option_list_placeholder` drops a trailing `(s)`), and a name written
+  `in-file(s)` is an operand kept as written, not marked repeatable.
+  `usage::is_dash_prefixed_option_list_placeholder` reads
   a usage token's first word, dash stripped: `options`/`option`/`opts`,
   the same closed set `is_option_list_placeholder` already reads with no
   leading dash, dropped before it ever reaches the flag grammar rather
@@ -3218,8 +3256,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   btrfs-image, btrfs-map-logical, btrfstune, dpkg-reconfigure, ffplay,
   llvm-bitcode-strip-18, llvm-install-name-tool-18, make-bcache, ntfscluster,
   ntfscp, ntfsfix, ntfsinfo, ntfsls, ntfsmove, ntfsundelete, ntfswipe,
-  split-file-18, ucf, ucfr, xfs_growfs, xfs_repair, xfs_scrub
-- handling: Fixed for the shapes evidence can settle, refused for the rest. A
+  split-file-18, ucf, ucfr, xfs_growfs, xfs_repair, xfs_scrub,
+  era_invalidate
+- handling: A bare flag with an `<angle>` value (`--written-since <era>`)
+  before a lone tail operand no longer blocks the walk (`era_invalidate`);
+  a longer run stays refused as prose. Earlier handling: Fixed for the shapes evidence can settle, refused for the rest. A
   trailing operand run after a bracketed option run now reaches the tree as
   positionals: a brace alternation naming one operand becomes one positional
   keeping its source spelling and its members as choices (`{device|file}`), a
@@ -3327,7 +3368,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: grub-mkimage, grub-mkstandalone, rustc, tclobjnew-bpfcc,
   javaflow-bpfcc, rubyobjnew-bpfcc, curl (brace/angle forms only where a
   choice reading holds — see the false-positive note below) and
-  everywhere else the shape occurs on a full-`PATH` sweep (PLACEHOLDER_TOOLS
+  everywhere else the shape occurs on a full-`PATH` sweep (sg_inq, vgchange, ld, as, lto-dump, pkg-config, speedtest, awk,
+  setterm, rustfmt, systemd-creds, hostnamectl, unshare, tail, od, size and
+  the rest of 93 tools on a full-`PATH` sweep; apt-mark and cache_repair for
+  the braced operand. The `{…}` mark also reaches every flag that already
+  had choices and no name (lvcreate, pvscan, vgck, ssh-keygen, tcpdump,
+  ethtool, icupkg)
   moved, PLACEHOLDER_FINDINGS findings)
 - handling: Fixed. A value spec that is one delimited alternation of
   literal members, with no other token inside the delimiter, is that
@@ -4598,7 +4644,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - id: S-190
 - looks like: |
       -? | -h | --help | -help to print this help message
-- tools: jinfo
+- tools: jinfo, jstack, jdb, jps, jrunscript
 - handling: Fixed. `find_pipe_alias_single_space_gap` is the last finder in
   `find_description_gap`'s chain, so it runs only when every other finder
   found nothing: two or more bare spellings joined by ` | `, then at least
@@ -4607,9 +4653,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   one value-free flag with its own text instead of the word `to` read as a
   value. A lone trailing token (`-a | -b FILE`) stays that flag's value.
   `corpus/jinfo/17.0.20` pins it.
-- fleet: not measured; the raw-capture grep for the row shape finds `jinfo`
-  alone among 2301 captures (pre-check sweep of the 14 tools with a
-  pipe-joined row: zero other changes).
+  The same cut applies when the spellings are joined by single spaces instead of
+  pipes, from three spellings on and with a tail of plain words (no dash words,
+  no digits): `-? -h --help -help to print this help message`.
+- fleet: the pipe-joined row appears in jinfo alone; the space-joined row moved
+  jstack, jdb, jps and jrunscript, 2026-11-02.
 
 ### S-191: ALL-CAPS placeholder after a single dash is one spelling
 
@@ -4683,8 +4731,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/ranlib [options] archive
        Generate an index to speed access to archives
-- tools: gcc-ranlib-13, ranlib, gcc-ranlib, aarch64-linux-gnu-ranlib, aarch64-linux-gnu-gcc-ranlib, aarch64-linux-gnu-gcc-ranlib-13
-- handling: Fixed, and the S-152 `ranlib` remainder with it. A line indented
+- tools: gcc-ranlib-13, ranlib, gcc-ranlib, aarch64-linux-gnu-ranlib, aarch64-linux-gnu-gcc-ranlib, aarch64-linux-gnu-gcc-ranlib-13, aarch64-linux-gnu-addr2line
+- handling: Sentences with `. , ' /` also count when they form the unbroken
+  run of indented lines straight after the usage line
+  (`Convert addresses into line number/file name pairs.` then `If no
+  addresses are specified on the command line, they will be read from
+  stdin`); a line the description already holds is not repeated. The
+  binutils footer stays a trailing paragraph of the description (S-165).
+  Original handling: Fixed, and the S-152 `ranlib` remainder with it. A line indented
   under the usage form that is five or more plain words with a capital first
   letter, no terminal punctuation, no flag, no ALL-CAPS placeholder and no
   column gap is the form's description, not synopsis. It leaves the usage
@@ -5051,7 +5105,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
                                   Link against shared libraries
       -Bsymbolic                  Bind global references locally
       -Tbss ADDRESS               Set address of .bss section
-- tools: ld, gold, lto-dump, sginfo
+- tools: ld, gold, lto-dump, sginfo, screen, readelf, clang
 - handling: Fixed. A run of four or more letters followed by `, -` and
   another single-dash spelling is one multi-letter spelling of an alias run
   (`-Bdynamic, -dy, -call_shared`, `-shared, -Bshareable`). Three or more
@@ -5063,8 +5117,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
   indented deeper (`-Flogical`, `-Flba64`) are that flag's choices with
   their descriptions. Fixtures: `corpus/ld/2.42-single-dash`,
   `corpus/ld/2.42`, `corpus/lto-dump/13.3.0`, `corpus/sginfo/2.43`.
-- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check
-  (224 tools; ld, gold and their aliases moved).
+  A table row `-<letter><word>` is one single-dash option when the same document
+  documents the bare `-<letter>` without a value (`-EB`, `-Map FILE/DIR`, `-MD`,
+  `-Logfile`), unless the word is a case-mixed cluster of three letters or more.
+  A lowercase single-dash word with a spaced ALL-CAPS value (`-fini SYMBOL`)
+  keeps that value. Fixture: `corpus/ld/2.42-single-dash-values`.
+- fleet: 20 of 2271 swept PATH tools moved (ld and gold in 8 binaries, clang in 5,
+  lto-dump in 4, readelf in 2, screen), 2026-11-02.
 
 ### S-213: a heading drawn between two runs of box-drawing glyphs
 
@@ -5145,7 +5204,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `git_history_forms_give_three_verbs_with_choice_valued_flags` pins them).
   A form that does not name the node's own command (`git log -h` also
   prints `or: git show ...`) is another command's form, never a verb of
-  this node (`git log`, `show`, `shortlog` fixtures in the same dir).
+  this node (`git log`, `show`, `shortlog` fixtures in the same dir). Its
+  operands are not this node's either (S-253).
 - fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses: fragiso
   gains 6 subcommands (0 -> 6) and 12 positionals (5 -> 17). The parent rule
   moved 2 tools on a full-`PATH` sweep of 2271 tools, 2026-10-12: the roots of
@@ -5807,9 +5867,84 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
 - fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.
 
-### S-253: the `--help` answer quotes the invocation that prints help
+### S-253: a value written only as alternatives
 
 - id: S-253
+- looks like: |
+      -a, --activate y|n|ay                            vgchange
+      --compress-debug-sections=[none|zlib|zlib-gnu|zlib-gabi|zstd]   ld
+      --elf-stt-common=[no|yes] (default: no)          as
+      apt-mark [options] {auto|manual} pkg1 [pkg2 ...]
+- tools: sg_inq, vgchange, ld, as, lto-dump, pkg-config, speedtest, awk,
+  setterm, rustfmt, systemd-creds, hostnamectl, unshare, tail, od, size and
+  the rest of 93 tools on a full-`PATH` sweep; apt-mark and cache_repair for
+  the braced operand. The `{…}` mark also reaches every flag that already
+  had choices and no name (lvcreate, pvscan, vgck, ssh-keygen, tcpdump,
+  ethtool, icupkg)
+- handling: Fixed. A value spec of two or more words joined by `|`, each
+  lowercase letters and digits with `-` and `_` inside, bare or wrapped once
+  in `{}` or `[]`, is the entity's `choices` and its `value_name` is dropped
+  (`mandible_core::alternation`, run by `merge_nodes` on every node, so
+  every tier gets it). A capitalised word (`VG|Tag`, `PID|pattern`) is a
+  placeholder and stays as written; `<a|b>` is S-155's. A positional counts
+  only when its name is braced (`{auto|manual}`, S-153): a bare
+  `device|mountpoint` operand names kinds of argument, and keeps its name.
+  The page draws a muted `{…}` where the name would be, inside the optional
+  value's brackets when it has them (`--sort-common[={…}]`), and lists the
+  values once on the `values:` line. A row with no description carries that
+  line in its own description column. A value name the tool wrote
+  (`--color=WHEN`) is kept. Wide-mode search also matches the choice names.
+  Fixtures: `corpus/sg_inq/audit-seed8`, `corpus/vgchange/2.03.16`,
+  `corpus/ld/2.42`, `corpus/as/2.42`, `corpus/apt-mark/2.8.3`.
+- fleet: replaying 2271 `PATH` tools (2026-11-02) moves a value
+  spec from `value_name` into `choices` on 181 flags of 93 tools, with 0 flag,
+  0 subcommand and 0 positional losses and no status change. 41 of 266 corpus
+  fixtures change their rendered page. The sweep does not count the flags
+  that already carried choices and no name, which only change in display.
+
+### S-254: a leading `[!]` marks an invertible flag row; heads written long first
+
+- id: S-254
+- looks like: |
+      [!] --protocol	-p proto	protocol: by number or name, eg. `tcp'
+      [!] --version	-V		print package version.
+      --append  -A chain		Append to chain
+      --delete-chain
+                -X [chain]		Delete a user-defined chain
+- tools: iptables, iptables-legacy, iptables-nft, iptables-translate, ip6tables, ip6tables-legacy, ip6tables-nft, ip6tables-translate, arptables, arptables-nft
+- handling: Fixed. A flag row led by `[!]` is read as an ordinary row, and every
+  spelling it names gets the `!` negation form (`Spelling::negation`): the tool
+  takes a `!` typed before the flag to invert the test. The page draws `[!]`
+  once before the spellings, in the muted colour, as the tool wrote it. The
+  marker adds no spelling and no search form. Fixture:
+  `corpus/ip6tables-translate/1.8.10`.
+  Long-first heads: in a block where at least three rows, and half of the dash-led
+  rows, open with a lone `--long` and a one-letter `-X` after a gap, that gap is
+  an alias separator and the description gap is the next one, or none. Such a
+  row is one flag with both spellings and one value. A lone `--long` row
+  followed by a deeper row that starts with `-X` is the same head wrapped onto
+  two lines and is joined. A value's continuation words after its first
+  (`chain [rulenum]`, `PKTS BYTES`, `input name[+]`) stay with the value, as
+  S-225 keeps `name value`. A tab between spellings separates them like a space.
+  Fixture: `corpus/ip6tables-translate/1.8.10`.
+- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (the `:` separator dropped from three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.
+
+### S-255: usage-line operand forms the reader skipped
+
+- id: S-255
+- looks like: |
+      /usr/sbin/update-ca-certificates: [--verbose] [--fresh]
+      xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...
+      usage: git log [<options>] [<revision-range>] [[--] <path>...]
+         or: git show [<options>] <object>...
+      usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]
+- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb
+- handling: Fixed, four readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus.
+
+### S-256: the `--help` answer quotes the invocation that prints help
+
+- id: S-256
 - looks like: |
       Option "--help" is unknown, try "tc -help".
 - tools: tc, genl, rtmon

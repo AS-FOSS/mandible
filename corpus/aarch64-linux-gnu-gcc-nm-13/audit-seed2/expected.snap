@@ -2,6 +2,11 @@ name: aarch64-linux-gnu-gcc-nm-13
 description: '/usr/bin/nm: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>.'
 usage:
 - 'Usage: /usr/bin/nm [option(s)] [file(s)]'
+positionals:
+- name: file(s)
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -a
@@ -245,8 +250,14 @@ flags:
     - help-text
 - spellings:
   - --unicode
-  value_name: '{default|show|invalid|hex|escape|highlight}'
   value_kind: Required
+  choices:
+  - default
+  - show
+  - invalid
+  - hex
+  - escape
+  - highlight
   group: 'The options are:'
   description: Specify how to treat UTF-8 encoded unicode characters
   provenance:

@@ -19,7 +19,7 @@ FLAGS (27) ───────────────────────
 -v, --verbose
 -f, --force
     --checks
-    --manglename {none|hex|auto}
+    --manglename {…}      values: none, hex, auto
 -r, --readonly
     --noopencount
     --noflush

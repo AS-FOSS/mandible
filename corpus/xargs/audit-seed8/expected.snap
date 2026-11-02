@@ -1,0 +1,188 @@
+name: xargs
+description: Run COMMAND with arguments INITIAL-ARGS and more arguments read from input.
+usage:
+- 'Usage: /usr/bin/xargs [OPTION]... COMMAND [INITIAL-ARGS]...'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: INITIAL-ARGS
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - '-0'
+  - --null
+  description: items are separated by a null, not whitespace; disables quote and backslash processing and logical EOF processing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --arg-file
+  value_name: FILE
+  value_kind: Required
+  description: read arguments from FILE, not standard input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --delimiter
+  value_name: CHARACTER
+  value_kind: Required
+  description: items in input stream are separated by CHARACTER, not by whitespace; disables quote and backslash processing and logical EOF processing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  value_name: END
+  value_kind: Required
+  description: set logical EOF string; if END occurs as a line of input, the rest of the input is ignored (ignored if -0 or -d was specified)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --eof
+  value_name: END
+  value_kind: Optional
+  optional_join: equals
+  description: equivalent to -E END if END is specified; otherwise, there is no end-of-file string
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  value_name: R
+  value_kind: Required
+  description: same as --replace=R
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --replace
+  value_name: R
+  value_kind: Optional
+  optional_join: equals
+  description: replace R in INITIAL-ARGS with names read from standard input, split at newlines; if R is unspecified, assume {}
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --max-lines
+  value_name: MAX-LINES
+  value_kind: Required
+  description: use at most MAX-LINES non-blank input lines per command line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  value_name: MAX-LINES
+  value_kind: Optional
+  optional_join: glued
+  description: similar to -L but defaults to at most one non- blank input line if MAX-LINES is not specified
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --max-args
+  value_name: MAX-ARGS
+  value_kind: Required
+  description: use at most MAX-ARGS arguments per command line
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --open-tty
+  description: Reopen stdin as /dev/tty in the child process before executing the command; useful to run an interactive application.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --max-procs
+  value_name: MAX-PROCS
+  value_kind: Required
+  description: run at most MAX-PROCS processes at a time
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --interactive
+  description: prompt before running commands
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --process-slot-var
+  value_name: VAR
+  value_kind: Required
+  description: set environment variable VAR in child processes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --no-run-if-empty
+  description: if there are no arguments, then do not run COMMAND; if this option is not given, COMMAND will be run at least once
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --max-chars
+  value_name: MAX-CHARS
+  value_kind: Required
+  description: limit length of command line to MAX-CHARS
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-limits
+  description: show limits on command-line length
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --verbose
+  description: print commands before executing them
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --exit
+  description: exit if the size (see -s) is exceeded
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

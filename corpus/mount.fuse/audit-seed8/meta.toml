@@ -1,0 +1,17 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "mount.fuse"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["mount.fuse", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "BSD-terse"
+must_contain_positionals = ["type#[source]", "destination"]
+must_contain_flags = ["-t", "-o"]

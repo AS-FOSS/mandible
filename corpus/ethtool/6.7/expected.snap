@@ -74,6 +74,10 @@ positionals:
   provenance:
     sources:
     - help-text
+- name: REGION-NUMBER-TO-FLASH
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - --debug

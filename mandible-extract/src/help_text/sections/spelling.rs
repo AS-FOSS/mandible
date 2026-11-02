@@ -234,8 +234,10 @@ pub(super) fn block_has_aligned_spelling_column(entry_lines: &[&str]) -> bool {
     let mut offset_counts: std::collections::HashMap<usize, usize> =
         std::collections::HashMap::new();
     let mut value_paired_rows = 0usize;
+    let mut run_rows = 0usize;
     for line in entry_lines {
         if let Some(run) = spelling_run(line) {
+            run_rows += 1;
             *offset_counts.entry(run.second_offset).or_insert(0) += 1;
             if run.value_paired {
                 value_paired_rows += 1;
@@ -246,6 +248,33 @@ pub(super) fn block_has_aligned_spelling_column(entry_lines: &[&str]) -> bool {
         .values()
         .any(|&count| count >= MIN_SPELLING_COLUMN_RECURRENCE)
         || value_paired_rows >= MIN_SPELLING_COLUMN_RECURRENCE
+        || (run_rows > 0 && space_joined_pair_rows(entry_lines) >= MIN_SPACE_JOINED_PAIR_ROWS)
+}
+
+/// Rows of a block that already write a short and a long spelling side by
+/// side on one space (`-p --preserve-dates  Copy ...`) prove the block
+/// pairs them, so a lone row with a wider gap between the two is the same
+/// pair, not a short flag whose description opens with the long one.
+const MIN_SPACE_JOINED_PAIR_ROWS: usize = 3;
+
+/// Rows opening with a one-letter short, one space, then a `--long`
+/// spelling. See S-082 and corpus/aarch64-linux-gnu-strip/2.42.
+fn space_joined_pair_rows(entry_lines: &[&str]) -> usize {
+    entry_lines
+        .iter()
+        .filter(|line| {
+            let mut words = line.split_whitespace();
+            let (Some(a), Some(b)) = (words.next(), words.next()) else {
+                return false;
+            };
+            let short = a.len() == 2 && a.starts_with('-') && !a.ends_with('-');
+            let sep = line
+                .trim_start()
+                .strip_prefix(a)
+                .is_some_and(|r| r.starts_with(' ') && !r.starts_with("  "));
+            short && sep && b.starts_with("--")
+        })
+        .count()
 }
 
 /// Split one entry row of a block [`block_has_aligned_spelling_column`]
@@ -323,6 +352,12 @@ fn attach_value(spellings: &str, value: &str, join: Option<OptionalJoin>) -> Str
 /// [`secondary_column_offsets`] didn't flag, and the fallback for a
 /// multi-column block's occasional non-splitting line.
 pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
+    split_entry(line, false)
+}
+
+/// [`split_single_column_entry`], reading a long-first row (S-254) as one
+/// head when `long_first` says the block writes its rows that way.
+pub(super) fn split_entry(line: &str, long_first: bool) -> (String, String) {
     // `find_dash_token_separator_gap` is deliberately *not* part of
     // `find_description_gap`'s own chain (see that function's own doc
     // comment): it is tried here, out of band, only once
@@ -330,7 +365,10 @@ pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     // finder supplies the column, `split_at_column` strips a leading lone
     // `-` separator from the description side — `ar`'s tables put ` - ` on
     // every row, aligned or overrun, and the two must read the same.
-    let gap = find_description_gap(line).or_else(|| find_dash_token_separator_gap(line));
+    let gap = match long_first.then(|| find_long_first_gap(line)).flatten() {
+        Some(gap) => gap,
+        None => find_description_gap(line).or_else(|| find_dash_token_separator_gap(line)),
+    };
     // A naive gap landing right before an `or`-joined second spelling
     // (`-h  or  --help`) is pushed past it — see
     // `extend_gap_past_or_joined_alias` and docs/shapes.md S-099.
@@ -633,31 +671,21 @@ mod tests {
     }
 
     #[test]
-    fn a_flag_followed_by_unrelated_text_is_never_paired_by_value() {
-        // `arptables --help`, verbatim — the case `is_value_placeholder_only`
-        // stays narrow for, and the reason the value test is *equality
-        // between two cells* rather than "the cell has a trailing word".
-        // `--append` names no value at all, so there is nothing for `-A
-        // chain` to match, and the row keeps the reading it had.
+    fn a_long_first_head_is_one_valued_flag() {
+        // A block of long-first rows (`--append  -A chain`) writes the
+        // short alias and the value after the long spelling. S-254.
         let parsed = parse(concat!(
             "Commands:\n",
             "--append  -A chain\t\tAppend to chain\n",
             "--delete  -D chain rulenum\t\tDelete rule rulenum from chain\n",
             "--insert  -I chain [rulenum]\t\tInsert in chain as rulenum\n",
         ));
-        assert!(
-            !parsed
-                .flags
-                .iter()
-                .any(|f| f.value_name.as_deref() == Some("chain")
-                    && f.long() == Some("append")
-                    && f.short() == Some('A')),
-            "`--append  -A chain` must not be merged into one valued flag: {:?}",
-            parsed
-                .flags
-                .iter()
-                .map(|f| f.spelling())
-                .collect::<Vec<_>>()
+        let append = flag_named(&parsed, "append");
+        assert_eq!(append.short(), Some('A'));
+        assert_eq!(append.value_name.as_deref(), Some("chain"));
+        assert_eq!(
+            append.description.as_ref().map(|d| d.as_str()),
+            Some("Append to chain")
         );
     }
 

@@ -671,7 +671,7 @@ fn probe_help_text_confession_aware(
 }
 
 /// [`probe_help_text_confession_aware`], further resolved against the help
-/// hint (spec §6 rule 2e, docs/shapes.md S-253): when the answer gave the
+/// hint (spec §6 rule 2e, docs/shapes.md S-256): when the answer gave the
 /// parser nothing, is a man page, or confesses without being expanded, the
 /// quoted help invocations it names are run (`hint::follow`), and the first
 /// that answers with help replaces it.
@@ -1135,7 +1135,19 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         .map(|s| Text::sanitize_preserving_layout(s))
         .collect();
     node.set_flags(parsed.flags);
-    node.set_positionals(parsed.positionals);
+    // Operands that only another command's usage form names are not this
+    // node's (S-255).
+    let own = (name != tool_name).then_some(name);
+    let mut positionals = parsed.positionals;
+    if let Some(own) = own {
+        sections::foreign_form::drop_foreign_operands(&parsed.usage, own, &mut positionals);
+    }
+    // A root form that opens with its operands and then lists bracketed
+    // flags (S-153).
+    if own.is_none() && positionals.is_empty() && parsed.subcommands.is_empty() {
+        positionals = sections::leading_operands::recover(&parsed.usage);
+    }
+    node.set_positionals(positionals);
     node.set_modifiers(parsed.modifiers);
     node.set_env_vars(parsed.env_vars);
     // Identical rows under one heading are one row. See docs/shapes.md S-187.
@@ -1143,7 +1155,6 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     // Forms that each open with a different literal verb after the node's
     // own path name subcommands (S-215).
     let mut subcommands = parsed.subcommands;
-    let own = (name != tool_name).then_some(name);
     let all_verbs =
         sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
     node.subcommands = subcommands;

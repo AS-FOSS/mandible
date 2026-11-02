@@ -1,0 +1,16 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "update-ca-certificates"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["update-ca-certificates", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--verbose", "--fresh"]

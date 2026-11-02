@@ -1,0 +1,19 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jstack"
+version = "17"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["jstack", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+min_status = "ok"
+must_contain_flags = ["-l", "-e", "-?", "-h", "--help", "-help"]
+must_describe = { "-help" = "to print this help message" }
+must_not_describe = { "-?" = "-help" }

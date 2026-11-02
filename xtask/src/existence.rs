@@ -920,7 +920,7 @@ mod tests {
         flag.spellings = vec![Spelling {
             name: "resolve".to_string(),
             dashes: Dashes::Single,
-            negatable: false,
+            negation: None,
             abbrev: Some(1),
         }];
         let raw = "OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n";

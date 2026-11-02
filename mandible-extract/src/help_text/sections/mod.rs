@@ -47,15 +47,18 @@ mod example_command_line;
 mod examples;
 mod flag_row_column;
 mod flag_rows;
+pub(crate) mod foreign_form;
 mod heading;
 mod invocation_block;
 mod key_value_text;
 mod labelled_values;
 mod layout;
+pub(crate) mod leading_operands;
 mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
 mod no_option_row;
+mod operand_group;
 mod operand_rows;
 mod or_choice_fold;
 mod paren_flag_rows;
@@ -95,6 +98,7 @@ mod value_form_row;
 mod value_tail_row;
 mod word_grid;
 mod wrapped_flag_line;
+mod wrapped_head;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
@@ -112,6 +116,7 @@ use key_value_text::key_value_paragraphs;
 pub use layout::*;
 use multiword::*;
 use no_option_row::take_no_option_row;
+use operand_group::*;
 use operand_rows::{describe_positionals_from_name_rows, fold_separator_row_into_operand};
 use or_choice_fold::fold_or_joined_choice_rows;
 use plural_owner::plural_owner_index;
@@ -134,6 +139,9 @@ use value_form_row::{
     choice_name_len, choices_sub_row_description, mark_sole_equals_rows, value_form_sub_row,
 };
 use word_grid::take_word_grid;
+use wrapped_head::{
+    block_column_offsets, block_reads_long_first, entry_row_lines, joined_head_entry,
+};
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output stays below it
@@ -945,7 +953,7 @@ fn scan_usage_section(
             if leading_whitespace(l) > base_indent
                 && (is_prose_sentence(trimmed_start)
                     || looks_like_unpunctuated_description_continuation(l)
-                    || (labelled_usage_start.is_some() && is_form_description_line(l, base_indent)))
+                    || form_desc_skip(labelled_usage_start, lines, (start, i), base_indent))
             {
                 i += 1;
                 continue;
@@ -2562,6 +2570,7 @@ fn parse_body(
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
     short_letter_word_family::split_short_letter_word_family(&mut result.flags, raw);
+    short_letter_word_family::split_word_on_value_free_short(&mut result.flags, raw);
     short_letter_word_family::fold_valued_example_rows(&mut result.flags, raw);
     // A narrower sibling of the repair above, admitted on its own
     // evidence rather than S-145's table-wide argument (atlas S-172): a

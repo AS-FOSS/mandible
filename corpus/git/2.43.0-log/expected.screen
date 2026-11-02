@@ -1,0 +1,148 @@
+=== git ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git [-v | --version] [-h | --help] [-C <path>] [-c <name>=<value>]
+      [--exec-path[=<path>]] [--html-path] [--man-path] [--info-path] [-p |
+      --paginate | -P | --no-pager] [--no-replace-objects] [--bare]
+      [--git-dir=<path>] [--work-tree=<path>] [--namespace=<name>]
+      [--config-env=<name>=<envvar>] <command> [<args>]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  command
+  args
+
+
+FLAGS (18) ─────────────────────────────────────────────────────────────────
+-v, --version
+-h, --help
+-C <path>
+-c <name>
+    --exec-path[=<path>]
+    --html-path
+    --man-path
+    --info-path
+-p
+    --paginate
+-P
+    --no-pager
+    --no-replace-objects
+    --bare
+    --git-dir <path>
+    --work-tree <path>
+    --namespace <name>
+    --config-env <name>
+
+=== git clone ===
+Clone a repository into a new directory
+
+=== git init ===
+Create an empty Git repository or reinitialize an existing one
+
+=== git add ===
+Add file contents to the index
+
+=== git mv ===
+Move or rename a file, a directory, or a symlink
+
+=== git restore ===
+Restore working tree files
+
+=== git rm ===
+Remove files from the working tree and from the index
+
+=== git bisect ===
+Use binary search to find the commit that introduced a bug
+
+=== git diff ===
+Show changes between commits, commit and working tree, etc
+
+=== git grep ===
+Print lines matching a pattern
+
+=== git log ===
+Show commit logs
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git log [<options>] [<revision-range>] [[--] <path>...]
+  git show [<options>] <object>...
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  revision-range
+  path...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-q, --[no-]quiet           suppress diff output
+    --[no-]source          show source
+    --[no-]use-mailmap     use mail map file
+    --[no-]mailmap         alias of --use-mailmap
+    --clear-decorations    clear all previously-defined decoration filters
+    --[no-]decorate-refs <pattern> only decorate refs that match <pattern>
+    --[no-]decorate-refs-exclude <pattern> do not decorate refs that match
+                           <pattern>
+    --[no-]decorate[=...]  decorate options
+-L <range:file>            trace the evolution of line range <start>,<end>
+                           or function :<funcname> in <file>
+
+=== git show ===
+Show various types of objects
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  git log [<options>] [<revision-range>] [[--] <path>...]
+  git show [<options>] <object>...
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  revision-range
+  path...
+  object...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-q, --[no-]quiet           suppress diff output
+    --[no-]source          show source
+    --[no-]use-mailmap     use mail map file
+    --[no-]mailmap         alias of --use-mailmap
+    --clear-decorations    clear all previously-defined decoration filters
+    --[no-]decorate-refs <pattern> only decorate refs that match <pattern>
+    --[no-]decorate-refs-exclude <pattern> do not decorate refs that match
+                           <pattern>
+    --[no-]decorate[=...]  decorate options
+-L <range:file>            trace the evolution of line range <start>,<end>
+                           or function :<funcname> in <file>
+
+=== git status ===
+Show the working tree status
+
+=== git branch ===
+List, create, or delete branches
+
+=== git commit ===
+Record changes to the repository
+
+=== git merge ===
+Join two or more development histories together
+
+=== git rebase ===
+Reapply commits on top of another base tip
+
+=== git reset ===
+Reset current HEAD to the specified state
+
+=== git switch ===
+Switch branches
+
+=== git tag ===
+Create, list, delete or verify a tag object signed with GPG
+
+=== git fetch ===
+Download objects and refs from another repository
+
+=== git pull ===
+Fetch from and integrate with another repository or a local branch
+
+=== git push ===
+Update remote refs along with associated objects

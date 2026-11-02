@@ -1,0 +1,108 @@
+name: loadkeys
+usage:
+- 'Usage: loadkeys [option...] [mapfile...]'
+positionals:
+- name: mapfile
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -C
+  - --console
+  value_name: DEV
+  value_kind: Required
+  description: the console device to be used.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --ascii
+  description: force conversion to ASCII.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --bkeymap
+  description: output a binary keymap to stdout.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --clearcompose
+  description: clear kernel compose table.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --default
+  description: load default.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - --mktable
+  description: output a 'defkeymap.c' to stdout.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --parse
+  description: search and parse keymap without action.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --clearstrings
+  description: clear kernel string table.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --unicode
+  description: force conversion to Unicode.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - --quiet
+  description: suppress all normal output.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: be more verbose.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: print version number.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  description: print this usage message.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

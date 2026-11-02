@@ -18,7 +18,3 @@ must_contain_flags = ["-d", "--debug", "-c", "--component", "-P", "--ppa", "-U",
 [contract.must_value_name]
 "-S" = "SOURCESLIST"
 "--sourceslist" = "SOURCESLIST [SOURCESLIST ...]"
-
-[xfail]
-broken = true
-reason = "The row `-S SOURCESLIST [SOURCESLIST ...], --sourceslist SOURCESLIST [SOURCESLIST ...]` takes one or more values. The tree keeps only `-S SOURCESLIST`: the long spelling `--sourceslist` and the `[SOURCESLIST ...]` repeat are dropped. A fix would keep both spellings on one row and keep the placeholder text as the tool wrote it."

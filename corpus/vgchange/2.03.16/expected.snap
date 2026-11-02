@@ -18,8 +18,11 @@ flags:
 - spellings:
   - -a
   - --activate
-  value_name: y|n|ay
   value_kind: Required
+  choices:
+  - y
+  - n
+  - ay
   group: Activate or deactivate LVs.
   provenance:
     sources:
@@ -261,8 +264,11 @@ flags:
     - help-text
 - spellings:
   - --locktype
-  value_name: sanlock|dlm|none
   value_kind: Required
+  choices:
+  - sanlock
+  - dlm
+  - none
   group: Change the lock type for a shared VG.
   provenance:
     sources:
@@ -432,8 +438,10 @@ flags:
 - spellings:
   - -x
   - --resizeable
-  value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   provenance:
     sources:
     - help-text-synopsis
@@ -453,15 +461,24 @@ flags:
     - help-text-synopsis
 - spellings:
   - --alloc
-  value_name: contiguous|cling|cling_by_tags|normal|anywhere|inherit
   value_kind: Required
+  choices:
+  - contiguous
+  - cling
+  - cling_by_tags
+  - normal
+  - anywhere
+  - inherit
   provenance:
     sources:
     - help-text-synopsis
 - spellings:
   - --pvmetadatacopies
-  value_name: 0|1|2
   value_kind: Required
+  choices:
+  - '0'
+  - '1'
+  - '2'
   provenance:
     sources:
     - help-text-synopsis
@@ -486,8 +503,10 @@ flags:
     - help-text-synopsis
 - spellings:
   - --setautoactivation
-  value_name: y|n
   value_kind: Required
+  choices:
+  - y
+  - n
   provenance:
     sources:
     - help-text-synopsis

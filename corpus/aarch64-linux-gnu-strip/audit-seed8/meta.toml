@@ -1,0 +1,17 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "aarch64-linux-gnu-strip"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["aarch64-linux-gnu-strip", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["in-file(s)"]
+must_not_contain_positionals = ["option(s)"]

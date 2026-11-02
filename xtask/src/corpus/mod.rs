@@ -21,6 +21,7 @@
 //! - (b) `[contract]`: `expected_framework`, `min_status`,
 //!   `min_subcommands`, `must_contain_flags`, `must_contain_flags_by_path`,
 //!   `must_contain_positionals`, `must_contain_positionals_by_path`,
+//!   `must_not_contain_positionals_by_path`,
 //!   `must_contain_modifiers`,   `must_not_contain_flags`, `must_not_contain_positionals`,
 //!   `must_not_contain_flags`, `must_not_contain_usage_text`,
 //!   `must_not_describe_root`, `must_describe_root`,
@@ -166,6 +167,10 @@ pub(crate) struct ContractMeta {
     /// path `""` names the root.
     #[serde(default)]
     must_contain_positionals_by_path: std::collections::BTreeMap<String, Vec<String>>,
+    /// The negative mirror of `must_contain_positionals_by_path`: operand
+    /// names the node at that path must NOT carry.
+    #[serde(default)]
+    must_not_contain_positionals_by_path: std::collections::BTreeMap<String, Vec<String>>,
     /// Modifier letters the tree must carry (spec §4.5, §7 Tier B
     /// "Modifier tables"). Written as the bare letter (`"a"`, `"D"`),
     /// matched on `Entity::primary_name`, root only. Case is significant:

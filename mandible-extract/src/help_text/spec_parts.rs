@@ -36,7 +36,7 @@ fn take_plain_flag(input: &str) -> Option<(Spelling, &str)> {
     let spelling = Spelling {
         name: name.to_string(),
         dashes,
-        negatable: false,
+        negation: None,
         abbrev: None,
     };
     Some((spelling, tail))

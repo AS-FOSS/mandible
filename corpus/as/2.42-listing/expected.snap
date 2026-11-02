@@ -2,6 +2,12 @@ name: as
 description: Report bugs to <https://sourceware.org/bugzilla/>
 usage:
 - 'Usage: /usr/bin/as [option...] [asmfile...]'
+positionals:
+- name: asmfile
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -a
@@ -39,9 +45,14 @@ flags:
     - help-text
 - spellings:
   - --compress-debug-sections
-  value_name: '{none|zlib|zlib-gnu|zlib-gabi|zstd}'
   value_kind: Optional
   optional_join: equals
+  choices:
+  - none
+  - zlib
+  - zlib-gnu
+  - zlib-gabi
+  - zstd
   description: 'compress DWARF debug sections Default: none'
   provenance:
     sources:
@@ -94,16 +105,20 @@ flags:
     - help-text
 - spellings:
   - --size-check
-  value_name: '[error|warning]'
   value_kind: Required
+  choices:
+  - error
+  - warning
   description: ELF .size directive check (default --size-check=error)
   provenance:
     sources:
     - help-text
 - spellings:
   - --elf-stt-common
-  value_name: '[no|yes]'
   value_kind: Required
+  choices:
+  - no
+  - yes
   description: no) generate ELF common symbols with STT_COMMON type
   provenance:
     sources:
@@ -116,8 +131,10 @@ flags:
     - help-text
 - spellings:
   - --generate-missing-build-notes
-  value_name: '[no|yes]'
   value_kind: Required
+  choices:
+  - no
+  - yes
   description: no) generate GNU Build notes if none are present in the input
   provenance:
     sources:

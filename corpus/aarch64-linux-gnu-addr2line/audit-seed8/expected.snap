@@ -1,0 +1,140 @@
+name: aarch64-linux-gnu-addr2line
+description: |-
+  Convert addresses into line number/file name pairs. If no addresses are specified on the command line, they will be read from stdin
+
+  /usr/bin/aarch64-linux-gnu-addr2line: supported targets: elf64-littleaarch64 elf64-bigaarch64 elf32-littleaarch64 elf32-bigaarch64 elf32-littlearm elf32-bigarm pei-aarch64-little pe-aarch64-little elf64-little elf64-big elf32-little elf32-big srec symbolsrec verilog tekhex binary ihex plugin Report bugs to <https://sourceware.org/bugzilla/>
+usage:
+- 'Usage: /usr/bin/aarch64-linux-gnu-addr2line [option(s)] [addr(s)]'
+positionals:
+- name: addr(s)
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  group: 'The options are:'
+  description: Read options from <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --addresses
+  group: 'The options are:'
+  description: Show addresses
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --target
+  value_name: <bfdname>
+  value_kind: Required
+  group: 'The options are:'
+  description: Set the binary file format
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --exe
+  value_name: <executable>
+  value_kind: Required
+  group: 'The options are:'
+  description: Set the input file name (default is a.out)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --inlines
+  group: 'The options are:'
+  description: Unwind inlined functions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --section
+  value_name: <name>
+  value_kind: Required
+  group: 'The options are:'
+  description: Read section-relative offsets instead of addresses
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --pretty-print
+  group: 'The options are:'
+  description: Make the output easier to read for humans
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --basenames
+  group: 'The options are:'
+  description: Strip directory names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --functions
+  group: 'The options are:'
+  description: Show function names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --demangle
+  value_name: style
+  value_kind: Optional
+  optional_join: equals
+  group: 'The options are:'
+  description: Demangle function names
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --recurse-limit
+  group: 'The options are:'
+  description: Enable a limit on recursion whilst demangling. [Default]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --no-recurse-limit
+  group: 'The options are:'
+  description: Disable a limit on recursion whilst demangling
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'The options are:'
+  description: Display this information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  group: 'The options are:'
+  description: Display the program's version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,17 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "xargs"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["xargs", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["COMMAND", "INITIAL-ARGS..."]
+must_not_contain_positionals = ["OPTION"]

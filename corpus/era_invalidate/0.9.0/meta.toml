@@ -1,0 +1,19 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "era_invalidate"
+version = "0.9.0"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["era_invalidate", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+must_contain_flags = ["-h", "--help", "-o", "--metadata-snapshot", "-V", "--version"]
+
+[contract.must_value_name]
+"-o" = "<xml file>"

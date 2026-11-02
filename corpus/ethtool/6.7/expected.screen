@@ -149,10 +149,11 @@ USAGE ────────────────────────�
       --show-module | --set-module ) [ DEVNAME | * ]
 
 
-POSITIONALS (3) ────────────────────────────────────────────────────────────
+POSITIONALS (4) ────────────────────────────────────────────────────────────
   DEVNAME
   FEATURE
   FILENAME
+  REGION-NUMBER-TO-FLASH
 
 
 FLAGS (64) ─────────────────────────────────────────────────────────────────
@@ -175,8 +176,7 @@ FLAGS (64) ───────────────────────
                                ]
 -a, --show-pause DEVNAME       Show pause options [ --src aggregate | emac |
                                pmac ]
-    --src
-                                 values: aggregate, emac, pmac
+    --src {…}                  values: aggregate, emac, pmac
 -A, --pause DEVNAME            Set pause options [ autoneg on|off ] [ rx
                                on|off ] [ tx on|off ]
 -c, --show-coalesce DEVNAME    Show coalesce options
@@ -219,8 +219,7 @@ FLAGS (64) ───────────────────────
                                --groups [eth-phy] [eth-mac] [eth-ctrl]
                                [rmon] ] [ --src aggregate | emac | pmac ]
     --all-groups
-    --groups
-                                 values: eth-phy, eth-mac, eth-ctrl, rmon
+    --groups [{…}]             values: eth-phy, eth-mac, eth-ctrl, rmon
     --phy-statistics DEVNAME   Show phy statistics
 -n, --show-nfc DEVNAME         Show Rx network flow classification options
  or -u, --show-ntuple          or rules [ rx-flow-hash

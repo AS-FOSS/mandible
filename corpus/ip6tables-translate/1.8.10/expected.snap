@@ -1,0 +1,324 @@
+name: ip6tables-translate
+description: ip6tables-translate v1.8.10 (nf_tables)
+usage:
+- 'Usage: ip6tables-translate -[ACD] chain rule-specification [options]'
+- '       ip6tables-translate -I chain [rulenum] rule-specification [options]'
+- '       ip6tables-translate -R chain rulenum rule-specification [options]'
+- '       ip6tables-translate -D chain rulenum [options]'
+- '       ip6tables-translate -[LS] [chain [rulenum]] [options]'
+- '       ip6tables-translate -[FZ] [chain] [options]'
+- '       ip6tables-translate -[NX] chain'
+- '       ip6tables-translate -E old-chain-name new-chain-name'
+- '       ip6tables-translate -P chain target [options]'
+- '       ip6tables-translate -h (print this help information)'
+positionals:
+- name: chain
+  provenance:
+    sources:
+    - help-text
+- name: rule-specification
+  provenance:
+    sources:
+    - help-text
+- name: rulenum
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --append
+  - -A
+  value_name: chain
+  value_kind: Required
+  description: Append to chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --check
+  - -C
+  value_name: chain
+  value_kind: Required
+  description: Check for the existence of a rule
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --delete
+  - -D
+  value_name: chain
+  value_kind: Required
+  description: Delete matching rule from chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --delete
+  - -D
+  value_name: chain rulenum
+  value_kind: Required
+  description: Delete rule rulenum (1 = first) from chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --insert
+  - -I
+  value_name: chain [rulenum]
+  value_kind: Required
+  description: Insert in chain as rulenum (default 1=first)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --replace
+  - -R
+  value_name: chain rulenum
+  value_kind: Required
+  description: Replace rule rulenum (1 = first) in chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --list
+  - -L
+  value_name: '[chain [rulenum]]'
+  value_kind: Optional
+  optional_join: separate
+  description: List the rules in a chain or all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --list-rules
+  - -S
+  value_name: '[chain [rulenum]]'
+  value_kind: Optional
+  optional_join: separate
+  description: Print the rules in a chain or all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --flush
+  - -F
+  value_name: chain
+  value_kind: Optional
+  optional_join: separate
+  description: Delete all rules in chain or all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --zero
+  - -Z
+  value_name: '[chain [rulenum]]'
+  value_kind: Optional
+  optional_join: separate
+  description: Zero counters in chain or all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --new
+  - -N
+  value_name: chain
+  value_kind: Required
+  description: Create a new user-defined chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --delete-chain
+  - -X
+  value_name: chain
+  value_kind: Optional
+  optional_join: separate
+  description: Delete a user-defined chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --policy
+  - -P
+  value_name: chain target
+  value_kind: Required
+  description: Change policy on chain to target
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rename-chain
+  - -E
+  value_name: old-chain new-chain
+  value_kind: Required
+  description: Change chain name, (moving any references)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ipv4
+  - '-4'
+  description: Error (line is ignored by ip6tables-restore)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ipv6
+  - '-6'
+  description: Nothing (line is ignored by iptables-restore)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --protocol'
+  - '[!] -p'
+  value_name: proto
+  value_kind: Required
+  description: 'protocol: by number or name, eg. `tcp'''
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --source'
+  - '[!] -s'
+  value_name: address[/mask][...]
+  value_kind: Required
+  description: source specification
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --destination'
+  - '[!] -d'
+  value_name: address[/mask][...]
+  value_kind: Required
+  description: destination specification
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --in-interface'
+  - '[!] -i'
+  value_name: input name[+]
+  value_kind: Required
+  description: network interface name ([+] for wildcard)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --jump
+  - -j
+  value_name: target
+  value_kind: Required
+  description: target for rule (may load target extension)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --goto
+  - -g
+  value_name: chain
+  value_kind: Required
+  description: jump to chain with no return
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --match
+  - -m
+  value_name: match
+  value_kind: Required
+  description: extended match (may load extension)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --numeric
+  - -n
+  description: numeric output of addresses and ports
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --out-interface'
+  - '[!] -o'
+  value_name: output name[+]
+  value_kind: Required
+  description: network interface name ([+] for wildcard)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --table
+  - -t
+  value_name: table
+  value_kind: Required
+  description: 'table to manipulate (default: `filter'')'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  description: verbose mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wait
+  - -w
+  value_name: seconds
+  value_kind: Optional
+  optional_join: separate
+  description: maximum wait to acquire xtables lock before give up
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --line-numbers
+  description: print line numbers when listing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --exact
+  - -x
+  description: expand numbers (display exact values)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --modprobe
+  value_name: <command>
+  value_kind: Required
+  description: try to insert modules using this command
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --set-counters
+  - -c
+  value_name: PKTS BYTES
+  value_kind: Required
+  description: set the counter during insert/append
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --version'
+  - '[!] -V'
+  description: print package version.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

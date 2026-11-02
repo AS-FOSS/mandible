@@ -1,0 +1,17 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "loadkeys"
+version = "audit-seed8"
+platform = "ubuntu-24.04"
+captured_with = "xtask audit"
+
+[[capture]]
+argv = ["loadkeys", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["mapfile..."]
+must_not_contain_positionals = ["option..."]

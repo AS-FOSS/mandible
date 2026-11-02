@@ -1,0 +1,73 @@
+name: xfs_fsr
+usage:
+- 'Usage: xfs_fsr [-d] [-v] [-g] [-t time] [-p passes] [-f leftf] [-m mtab]'
+- '       xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...'
+- '       xfs_fsr -V'
+positionals:
+- name: xfsdev | dir | file
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -g
+  description: Print to syslog (default if stdout not a tty).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  value_name: time
+  value_kind: Required
+  description: How long to run in seconds.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  value_name: passes
+  value_kind: Required
+  description: Number of passes before terminating global re-org.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  value_name: leftoff
+  value_kind: Required
+  description: Use this instead of /var/tmp/.fsrlast_xfs.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  value_name: mtab
+  value_kind: Required
+  description: Use something other than /etc/mtab.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: Debug, print even more.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  description: Verbose, more -v's more verbose.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  description: Print version number and exit.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

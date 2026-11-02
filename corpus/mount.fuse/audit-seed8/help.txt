@@ -1,0 +1,1 @@
+usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]
