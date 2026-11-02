@@ -1,4 +1,4 @@
-//! Long-first flag heads, `--long -X value` (S-254): the block-level
+//! Long-first flag heads, `--long -X value` (S-257): the block-level
 //! decision, and a head wrapped onto two lines (`--delete-chain` /
 //! `-X [chain]  Delete`). corpus/ip6tables-translate/1.8.10.
 
@@ -35,7 +35,7 @@ pub(super) fn entry_row_lines<'a>(rows: &[FlagsBlockRow<'a>]) -> Vec<&'a str> {
         .collect()
 }
 
-/// True when the block writes its heads long first (S-254), or has a head
+/// True when the block writes its heads long first (S-257), or has a head
 /// wrapped onto two lines.
 pub(super) fn block_reads_long_first(rows: &[FlagsBlockRow<'_>], entry_lines: &[&str]) -> bool {
     block_is_long_first(entry_lines) || rows.iter().any(|r| matches!(r, FlagsBlockRow::Joined(_)))

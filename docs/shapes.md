@@ -5807,12 +5807,15 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
 - fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.
 
-### S-253: a leading `[!]` marks a flag row that can be inverted
+### S-257: a leading `[!]` marks an invertible flag row; heads written long first
 
-- id: S-253
+- id: S-257
 - looks like: |
       [!] --protocol	-p proto	protocol: by number or name, eg. `tcp'
       [!] --version	-V		print package version.
+      --append  -A chain		Append to chain
+      --delete-chain
+                -X [chain]		Delete a user-defined chain
 - tools: iptables, iptables-legacy, iptables-nft, iptables-translate, ip6tables, ip6tables-legacy, ip6tables-nft, ip6tables-translate, arptables, arptables-nft
 - handling: Fixed. A flag row led by `[!]` is read as an ordinary row, and every
   spelling it names gets the `!` negation form (`Spelling::negation`): the tool
@@ -5820,17 +5823,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   once before the spellings, in the muted colour, as the tool wrote it. The
   marker adds no spelling and no search form. Fixture:
   `corpus/ip6tables-translate/1.8.10`.
-- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (a `:` separator no longer opens three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.
-
-### S-254: a flag head written long first, then its short alias
-
-- id: S-254
-- looks like: |
-      --append  -A chain		Append to chain
-      --delete-chain
-                -X [chain]		Delete a user-defined chain
-- tools: iptables, iptables-legacy, iptables-nft, iptables-translate, ip6tables, ip6tables-legacy, ip6tables-nft, ip6tables-translate, arptables, arptables-nft
-- handling: Fixed. In a block where at least three rows, and half of the dash-led
+  Long-first heads: in a block where at least three rows, and half of the dash-led
   rows, open with a lone `--long` and a one-letter `-X` after a gap, that gap is
   an alias separator and the description gap is the next one, or none. Such a
   row is one flag with both spellings and one value. A lone `--long` row
@@ -5839,4 +5832,4 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (`chain [rulenum]`, `PKTS BYTES`, `input name[+]`) stay with the value, as
   S-225 keeps `name value`. A tab between spellings separates them like a space.
   Fixture: `corpus/ip6tables-translate/1.8.10`.
-- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (a `:` separator no longer opens three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.
+- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (the `:` separator dropped from three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.

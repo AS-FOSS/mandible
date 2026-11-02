@@ -326,7 +326,7 @@ pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
     split_entry(line, false)
 }
 
-/// [`split_single_column_entry`], reading a long-first row (S-254) as one
+/// [`split_single_column_entry`], reading a long-first row (S-257) as one
 /// head when `long_first` says the block writes its rows that way.
 pub(super) fn split_entry(line: &str, long_first: bool) -> (String, String) {
     // `find_dash_token_separator_gap` is deliberately *not* part of
@@ -644,7 +644,7 @@ mod tests {
     #[test]
     fn a_long_first_head_is_one_valued_flag() {
         // A block of long-first rows (`--append  -A chain`) writes the
-        // short alias and the value after the long spelling. S-254.
+        // short alias and the value after the long spelling. S-257.
         let parsed = parse(concat!(
             "Commands:\n",
             "--append  -A chain\t\tAppend to chain\n",

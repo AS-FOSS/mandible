@@ -106,7 +106,7 @@ impl FlagSpec {
 /// the description column — already isolated by the layout parser).
 pub fn parse_flag_spec(input: &str) -> FlagSpec {
     // A leading `[!]` says every spelling of the row can be inverted by a
-    // `!` written before it. docs/shapes.md S-253.
+    // `!` written before it. docs/shapes.md S-257.
     if let Some(rest) = strip_bang_lead(input) {
         let mut spec = parse_flag_spec(rest);
         for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
@@ -854,7 +854,7 @@ fn is_bare_end_of_options_marker(spec: &FlagSpec) -> bool {
 }
 
 /// The text after a leading `[!]` marker, when the row starts with one and
-/// a dash-led spelling follows. See docs/shapes.md S-253.
+/// a dash-led spelling follows. See docs/shapes.md S-257.
 pub fn strip_bang_lead(input: &str) -> Option<&str> {
     let rest = input.trim_start().strip_prefix("[!]")?.trim_start();
     rest.starts_with('-').then_some(rest)
