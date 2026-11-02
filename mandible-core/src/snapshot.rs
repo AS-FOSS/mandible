@@ -241,7 +241,7 @@ impl From<&Entity> for FlagSnapshot {
     /// four old keys never coexist with the new one in any fixture.
     fn from(e: &Entity) -> Self {
         FlagSnapshot {
-            spellings: e.spellings.iter().map(Spelling::render).collect(),
+            spellings: e.spellings.iter().map(Spelling::written).collect(),
             range: e.range().map(SpellingRange::render),
             value_name: e.value_name.clone(),
             value_kind: e.value_kind,

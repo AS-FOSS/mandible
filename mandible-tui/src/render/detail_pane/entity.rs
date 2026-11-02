@@ -26,10 +26,15 @@ pub(super) fn is_drawn_short(entity: &Entity, s: &Spelling) -> bool {
 /// it is the range's start.
 pub(super) fn spelling_text(entity: &Entity, i: usize) -> String {
     let s = &entity.spellings[i];
-    match entity.range() {
+    let text = match entity.range() {
         Some(range) if is_range_start(entity, s) => range.render(),
         _ => s.render(),
+    };
+    // `[!]` is written once, before the first spelling drawn.
+    if s.negation == Some(Negation::Bang) && display_order(entity).first() == Some(&i) {
+        return format!("{BANG_LEAD}{text}");
     }
+    text
 }
 
 /// The order spellings are drawn in; see [`Entity::display_order`].
@@ -127,6 +132,20 @@ pub(super) fn row_description(flag: &Entity) -> Option<String> {
 /// with every continuation back at the column (spec §9.3). Returned lines
 /// are one logical row; the caller records that as an [`EntryRow`].
 pub(super) fn entity_line(
+    flag: &Entity,
+    dim: bool,
+    width: usize,
+    palette: style::Palette,
+    layout: SectionLayout,
+) -> Vec<Line<'static>> {
+    let mut lines = entity_lines(flag, dim, width, palette, layout);
+    if !dim {
+        super::notation::mute(&mut lines, style::accent(palette), style::muted(palette));
+    }
+    lines
+}
+
+fn entity_lines(
     flag: &Entity,
     dim: bool,
     width: usize,

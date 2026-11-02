@@ -1,0 +1,25 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip6tables-translate"
+version = "1.8.10"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["ip6tables-translate", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+must_contain_flags = ["--append", "-A", "--protocol", "-p", "--source", "-s", "--version", "-V", "--delete-chain", "-X", "--list-rules", "-S"]
+
+[contract.must_value_name]
+"-A" = "chain"
+"--append" = "chain"
+"-p" = "proto"
+"--in-interface" = "input name[+]"
+"--set-counters" = "PKTS BYTES"
+
