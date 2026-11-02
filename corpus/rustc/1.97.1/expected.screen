@@ -24,12 +24,12 @@ FLAGS (29) ───────────────────────
                             <bundle|verbatim|whole-archive|as-needed> may be
                             specified each with a prefix of either '+' to
                             enable or '-' to disable.
-    --crate-type            Comma separated list of types of crates for the
+    --crate-type {…}        Comma separated list of types of crates for the
                             compiler to emit
                               values: bin, lib, rlib, dylib, cdylib,
                               staticlib, proc-macro
     --crate-name <NAME>     Specify the name of the crate being built
-    --edition               Specify which edition of the compiler to use
+    --edition {…}           Specify which edition of the compiler to use
                             when compiling code. The default is 2015 and the
                             latest stable edition is 2024.
                               values: 2015, 2018, 2021, 2024, future

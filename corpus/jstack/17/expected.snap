@@ -1,0 +1,36 @@
+name: jstack
+usage:
+- '    jstack [-l][-e] <pid> (to connect to running process)'
+positionals:
+- name: pid
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -l
+  description: long listing. Prints additional information about locks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  description: extended listing. Prints additional information about threads
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - -h
+  - --help
+  - -help
+  description: to print this help message
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

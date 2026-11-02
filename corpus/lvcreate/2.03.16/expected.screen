@@ -31,13 +31,11 @@ Create a striped LV ────────────────────
 -I, --stripesize Size[k|UNIT]
 
 Create a raid1 or mirror LV ────────────────────────────────────────────────
-    --type
-                                 values: raid1, mirror
+    --type {…}                 values: raid1, mirror
 -l, --extents Number[PERCENT]
 -I, --stripesize Size[k|UNIT]
 -R, --regionsize Size[m|UNIT]
-    --mirrorlog
-                                 values: core, disk
+    --mirrorlog {…}            values: core, disk
     --minrecoveryrate Size[k|UNIT]
     --maxrecoveryrate Size[k|UNIT]
 
@@ -50,8 +48,7 @@ Create a raid LV (a specific raid level must be used, e.g. raid1) ────�
 -R, --regionsize Size[m|UNIT]
     --minrecoveryrate Size[k|UNIT]
     --maxrecoveryrate Size[k|UNIT]
-    --raidintegrity
-                                 values: y, n
+    --raidintegrity {…}        values: y, n
     --raidintegritymode String
     --raidintegrityblocksize Number
 
@@ -78,13 +75,10 @@ Create a thin pool ────────────────────�
 -T, --thin
 -c, --chunksize Size[k|UNIT]
     --thinpool LV_new
-    --discards
-                                 values: passdown, nopassdown, ignore
-    --errorwhenfull
-                                 values: y, n
+    --discards {…}             values: passdown, nopassdown, ignore
+    --errorwhenfull {…}        values: y, n
     --poolmetadatasize Size[m|UNIT]
-    --poolmetadataspare
-                                 values: y, n
+    --poolmetadataspare {…}    values: y, n
 
 Create a cache pool ────────────────────────────────────────────────────────
     --type cache-pool
@@ -93,16 +87,12 @@ Create a cache pool ────────────────────
 -I, --stripesize Size[k|UNIT]
 -H, --cache
 -c, --chunksize Size[k|UNIT]
-    --cachemode
-                                 values: writethrough, writeback,
-                                 passthrough
+    --cachemode {…}            values: writethrough, writeback, passthrough
     --cachepolicy String
     --cachesettings String
-    --cachemetadataformat
-                                 values: auto, 1, 2
+    --cachemetadataformat {…}  values: auto, 1, 2
     --poolmetadatasize Size[m|UNIT]
-    --poolmetadataspare
-                                 values: y, n
+    --poolmetadataspare {…}    values: y, n
 
 Create a thin LV in a thin pool ────────────────────────────────────────────
     --type thin
@@ -124,10 +114,8 @@ Create a LV that returns VDO when used ─────────────�
 -V, --virtualsize Size[m|UNIT]
     --vdo
     --vdopool LV_new
-    --compression
-                                 values: y, n
-    --deduplication
-                                 values: y, n
+    --compression {…}          values: y, n
+    --deduplication {…}        values: y, n
     --vdosettings String
 
 Create a new LV, then attach the specified cachepool which converts the new
@@ -138,16 +126,12 @@ LV to type cache
 -I, --stripesize Size[k|UNIT]
 -H, --cache
 -c, --chunksize Size[k|UNIT]
-    --cachemode
-                                 values: writethrough, writeback,
-                                 passthrough
+    --cachemode {…}            values: writethrough, writeback, passthrough
     --cachepolicy String
     --cachesettings String
-    --cachemetadataformat
-                                 values: auto, 1, 2
+    --cachemetadataformat {…}  values: auto, 1, 2
     --poolmetadatasize Size[m|UNIT]
-    --poolmetadataspare
-                                 values: y, n
+    --poolmetadataspare {…}    values: y, n
 
 Create a new LV, then attach the specified cachevol which converts the new
 LV to type cache
@@ -156,13 +140,10 @@ LV to type cache
 -i, --stripes Number
 -I, --stripesize Size[k|UNIT]
 -c, --chunksize Size[k|UNIT]
-    --cachemode
-                                 values: writethrough, writeback,
-                                 passthrough
+    --cachemode {…}            values: writethrough, writeback, passthrough
     --cachepolicy String
     --cachesettings String
-    --cachemetadataformat
-                                 values: auto, 1, 2
+    --cachemetadataformat {…}  values: auto, 1, 2
 
 Create a new LV, then attach a cachevol created from the specified cache
 device, which converts the new LV to type cache
@@ -172,13 +153,10 @@ device, which converts the new LV to type cache
 -I, --stripesize Size[k|UNIT]
 -c, --chunksize Size[k|UNIT]
     --cachesize Size[m|UNIT]
-    --cachemode
-                                 values: writethrough, writeback,
-                                 passthrough
+    --cachemode {…}            values: writethrough, writeback, passthrough
     --cachepolicy String
     --cachesettings String
-    --cachemetadataformat
-                                 values: auto, 1, 2
+    --cachemetadataformat {…}  values: auto, 1, 2
 
 Create a new LV, then attach the specified cachevol which converts the new
 LV to type writecache
@@ -198,42 +176,29 @@ device, which converts the new LV to type writecache
     --cachesettings String
 
 Common options for command ─────────────────────────────────────────────────
--a, --activate
-                                 values: y, n, ay
--A, --autobackup
-                                 values: y, n
--C, --contiguous
-                                 values: y, n
--M, --persistent
-                                 values: y, n
+-a, --activate {…}             values: y, n, ay
+-A, --autobackup {…}           values: y, n
+-C, --contiguous {…}           values: y, n
+-M, --persistent {…}           values: y, n
 -j, --major Number
--k, --setactivationskip
-                                 values: y, n
+-k, --setactivationskip {…}    values: y, n
 -K, --ignoreactivationskip
 -n, --name String
--p, --permission
-                                 values: rw, r
--r, --readahead
-                                 values: auto, none, Number
--W, --wipesignatures
-                                 values: y, n
--Z, --zero
-                                 values: y, n
+-p, --permission {…}           values: rw, r
+-r, --readahead {…}            values: auto, none, Number
+-W, --wipesignatures {…}       values: y, n
+-Z, --zero {…}                 values: y, n
     --addtag Tag
-    --alloc
-                                 values: contiguous, cling, cling_by_tags,
-                                 normal, anywhere, inherit
-    --setautoactivation
-                                 values: y, n
+    --alloc {…}                values: contiguous, cling, cling_by_tags,
+                               normal, anywhere, inherit
+    --setautoactivation {…}    values: y, n
     --ignoremonitoring
     --metadataprofile String
     --minor Number
-    --monitor
-                                 values: y, n
+    --monitor {…}              values: y, n
     --nosync
     --noudevsync
-    --reportformat
-                                 values: basic, json
+    --reportformat {…}         values: basic, json
 
 Common options for lvm ─────────────────────────────────────────────────────
 -d, --debug
@@ -244,8 +209,7 @@ Common options for lvm ───────────────────
 -t, --test
     --commandprofile String
     --config String
-    --driverloaded
-                                 values: y, n
+    --driverloaded {…}         values: y, n
     --nolocking
     --lockopt String
     --longhelp

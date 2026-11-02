@@ -250,8 +250,14 @@ flags:
     - help-text
 - spellings:
   - --unicode
-  value_name: '{default|show|invalid|hex|escape|highlight}'
   value_kind: Required
+  choices:
+  - default
+  - show
+  - invalid
+  - hex
+  - escape
+  - highlight
   group: 'The options are:'
   description: Specify how to treat UTF-8 encoded unicode characters
   provenance:

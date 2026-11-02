@@ -1091,7 +1091,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
         .collect();
     node.set_flags(parsed.flags);
     // Operands that only another command's usage form names are not this
-    // node's (S-253).
+    // node's (S-255).
     let own = (name != tool_name).then_some(name);
     let mut positionals = parsed.positionals;
     if let Some(own) = own {

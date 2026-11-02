@@ -301,9 +301,11 @@ subcommands:
       - help-text
   - spellings:
     - --[no-]fixup
-    value_name: amend|reword
     value_kind: Required
     optional_join: separate
+    choices:
+    - amend
+    - reword
     group: Commit message options
     description: use autosquash formatted message to fixup or amend/reword specified commit
     provenance:

@@ -108,9 +108,20 @@ pub(super) fn is_quoted_word(name: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
 }
 
-/// A row name only a proven owner may take: `no-CATEGORY` or `'Autoconf'`.
+/// `pBRE`: a letter run that opens lowercase and carries capitals, the way
+/// a value that takes an argument is written in a choices block (`nl`'s
+/// `STYLE`). Never an all-caps placeholder (`BYTES`). See S-014 and
+/// corpus/nl/9.4.
+pub(super) fn is_mixed_case_word(name: &str) -> bool {
+    name.chars().all(|c| c.is_ascii_alphabetic())
+        && name.starts_with(|c: char| c.is_ascii_lowercase())
+        && name.chars().any(|c| c.is_ascii_uppercase())
+}
+
+/// A row name only a proven owner may take: `no-CATEGORY`, `'Autoconf'` or
+/// `pBRE`.
 pub(super) fn is_owned_only_name(name: &str) -> bool {
-    is_prefixed_placeholder(name) || is_quoted_word(name)
+    is_prefixed_placeholder(name) || is_quoted_word(name) || is_mixed_case_word(name)
 }
 
 /// Drops the `prefix-PLACEHOLDER` rows whose placeholder is not the proven
@@ -126,7 +137,7 @@ pub(super) fn keep_owned_placeholders(
         .map(placeholder_word);
     rows.into_iter()
         .filter(|(name, _)| {
-            if is_quoted_word(name) {
+            if is_quoted_word(name) || is_mixed_case_word(name) {
                 return owner.is_some();
             }
             !is_prefixed_placeholder(name)

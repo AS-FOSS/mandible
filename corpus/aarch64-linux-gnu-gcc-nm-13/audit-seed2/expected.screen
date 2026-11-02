@@ -55,8 +55,10 @@ The options are ─────────────────────�
     --target BFDNAME    Specify the target object format as BFDNAME
 -u, --undefined-only    Display only undefined symbols
 -U, --defined-only      Display only defined symbols
-    --unicode {default|show|invalid|hex|escape|highlight} Specify how to
-                        treat UTF-8 encoded unicode characters
+    --unicode {…}       Specify how to treat UTF-8 encoded unicode
+                        characters
+                          values: default, show, invalid, hex, escape,
+                          highlight
 -W, --no-weak           Ignore weak symbols
     --without-symbol-versions Do not display version strings after symbol
                         names

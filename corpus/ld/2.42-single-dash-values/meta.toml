@@ -1,0 +1,34 @@
+# Excerpt of the 2.42 capture: single-dash rows in a table that also lists
+# short-letter rows and `-X` rows. `-EB`, `-EL`, `-Map`, `-fini` and `-init`
+# are whole spellings; `-h FILENAME, -soname FILENAME` is one alias pair.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ld"
+version = "2.42"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ld", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+min_status = "ok"
+verdict_scope = ["flags"]
+must_contain_flags = ["-E", "--export-dynamic", "-EB", "-EL", "-Map", "-fini", "-init", "-h", "-soname", "-M", "--print-map", "-m"]
+
+[contract.must_value_name]
+"-Map" = "FILE/DIR"
+"-fini" = "SYMBOL"
+"-init" = "SYMBOL"
+"-h" = "FILENAME"
+"-soname" = "FILENAME"
+"-m" = "EMULATION"
+
+[contract.must_not_value_name]
+"-h" = ","

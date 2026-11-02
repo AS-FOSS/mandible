@@ -4,6 +4,8 @@ usage:
 flags:
 - spellings:
   - -assert
+  value_name: KEYWORD
+  value_kind: Required
   description: Ignored for SunOS compatibility
   provenance:
     sources:

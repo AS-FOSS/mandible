@@ -4,8 +4,7 @@ USAGE ────────────────────────�
 
 
 POSITIONALS (1) ────────────────────────────────────────────────────────────
-  {dir|jar|class}...
-                        values: dir, jar, class
+  {…}...  values: dir, jar, class
 
 
 FLAGS (8) ──────────────────────────────────────────────────────────────────
@@ -22,9 +21,10 @@ FLAGS (8) ───────────────────────�
                        deprecated APIs. No scanning is done, so no
                        directory, jar, or class arguments should be
                        provided.
-    --release 7|8|9|10|11|12|13|14|15|16|17 The --release option specifies
-                       the Java SE release that provides the set of
-                       deprecated APIs for scanning.
+    --release {…}      The --release option specifies the Java SE release
+                       that provides the set of deprecated APIs for
+                       scanning.
+                         values: 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
 -v, --verbose          The --verbose (-v) option enables additional message
                        output during processing.
     --version          The --version option prints out the abbreviated

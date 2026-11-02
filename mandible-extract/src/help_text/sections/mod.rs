@@ -98,6 +98,7 @@ mod value_form_row;
 mod value_tail_row;
 mod word_grid;
 mod wrapped_flag_line;
+mod wrapped_head;
 
 use avoption::{
     is_avoption_row_text, is_avoptions_heading, recover_avoption_type_column, scan_avoption_section,
@@ -138,6 +139,9 @@ use value_form_row::{
     choice_name_len, choices_sub_row_description, mark_sole_equals_rows, value_form_sub_row,
 };
 use word_grid::take_word_grid;
+use wrapped_head::{
+    block_column_offsets, block_reads_long_first, entry_row_lines, joined_head_entry,
+};
 
 /// Hard cap on distinct entries (subcommands, flags, or choices) accepted
 /// from a single probe's output. Real `--help` output stays below it
@@ -2566,6 +2570,7 @@ fn parse_body(
     // gone from the fingerprint the two detectors share.
     repair_single_dash_long_options(&mut result.flags, &glued_tokens, raw);
     short_letter_word_family::split_short_letter_word_family(&mut result.flags, raw);
+    short_letter_word_family::split_word_on_value_free_short(&mut result.flags, raw);
     short_letter_word_family::fold_valued_example_rows(&mut result.flags, raw);
     // A narrower sibling of the repair above, admitted on its own
     // evidence rather than S-145's table-wide argument (atlas S-172): a

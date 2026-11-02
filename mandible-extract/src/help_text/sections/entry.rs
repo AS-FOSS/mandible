@@ -207,18 +207,74 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
     find_pipe_alias_single_space_gap(line)
 }
 
-/// Last-resort gap for a pipe-joined alias group whose description sits one
-/// space after the last spelling: `-? | -h | --help | -help to print this
-/// help message`. Cuts right after the last spelling when the row is two
-/// or more bare spellings joined by ` | ` followed by at least two words, the
-/// first not a placeholder, so `-a | -b FILE` stays that flag's value. Only
-/// consulted when every other finder found nothing. See docs/shapes.md
-/// S-190 and corpus/jinfo/17.0.20.
+/// The description gap of a row that writes its long spelling first and
+/// its short one after a gap (`--append  -A chain<tab>Append to chain`):
+/// the gap before the short flag is an alias separator, so the description
+/// gap is the first one after it, or none. Only for a block that writes
+/// most of its rows this way ([`block_is_long_first`]). See docs/shapes.md
+/// S-254 and corpus/ip6tables-translate/1.8.10.
+pub(super) fn find_long_first_gap(line: &str) -> Option<Option<usize>> {
+    let tail = long_first_alias_tail(line)?;
+    Some(find_multi_space_gap(&format!("x{}", &line[tail..])).map(|c| tail + c - 1))
+}
+
+/// True when at least three rows of the block, and half of its dash-led
+/// rows, are long-first rows: one row doing so in prose (`--null -T reads
+/// ...`) is a description naming another flag.
+pub(super) fn block_is_long_first(entry_lines: &[&str]) -> bool {
+    let dashed = entry_lines
+        .iter()
+        .filter(|l| {
+            let t = l.trim_start();
+            t.starts_with('-') || crate::help_text::grammar::strip_bang_lead(t).is_some()
+        })
+        .count();
+    let long_first = entry_lines
+        .iter()
+        .filter(|l| long_first_alias_tail(l).is_some())
+        .count();
+    long_first >= 3 && long_first * 2 >= dashed
+}
+
+/// Byte offset just past the short flag of a long-first row; `None` for
+/// any other row.
+fn long_first_alias_tail(line: &str) -> Option<usize> {
+    let head = line.trim_start();
+    let head = crate::help_text::grammar::strip_bang_lead(head).unwrap_or(head);
+    let long_end = head.find([' ', '\t'])?;
+    let long = &head[..long_end];
+    if !long.starts_with("--") || long.len() < 3 || long.contains(['=', ',', '|']) {
+        return None;
+    }
+    let after = head[long_end..].trim_start_matches([' ', '\t']);
+    let short_len = after.find([' ', '\t', ',']).unwrap_or(after.len());
+    let short = &after[..short_len];
+    let mut chars = short.chars();
+    let is_short = chars.next() == Some('-')
+        && chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
+        && chars.next().is_none();
+    // `-p [!] proto` writes the marker after the alias; the row keeps its
+    // old reading.
+    if !is_short || after[short_len..].trim_start().starts_with("[!]") {
+        return None;
+    }
+    Some(line.len() - after.len() + short_len)
+}
+
+/// Last-resort gap for an alias group whose description sits one space
+/// after the last spelling: `-? | -h | --help | -help to print this help
+/// message`, or the same run joined by single spaces. Cuts right after the
+/// last spelling when the row is two or more bare spellings joined by ` | `
+/// or a space, followed by at least two words, the first not a placeholder,
+/// so `-a | -b FILE` stays that flag's value. Only consulted when every
+/// other finder found nothing. See docs/shapes.md S-190, corpus/jinfo/17.0.20
+/// and corpus/jstack/17.
 pub(super) fn find_pipe_alias_single_space_gap(line: &str) -> Option<usize> {
     let trimmed = line.trim_start();
     let mut end = line.len() - trimmed.len();
     let mut words = trimmed.split(' ').peekable();
     let mut spellings = 0usize;
+    let mut spaced = false;
     let bare = |w: &str| {
         w.len() >= 2
             && w.starts_with('-')
@@ -238,13 +294,27 @@ pub(super) fn find_pipe_alias_single_space_gap(line: &str) -> Option<usize> {
             end += 3;
             continue;
         }
+        if words.peek().is_some_and(|w| bare(w)) {
+            end += 1;
+            spaced = true;
+            continue;
+        }
         break;
     }
     let rest: Vec<&str> = words.collect();
     let prose_first = rest
         .first()
         .is_some_and(|w| !w.starts_with(['<', '[']) && w.chars().any(|c| c.is_ascii_lowercase()));
-    (spellings >= 2 && rest.len() >= 2 && prose_first).then_some(end)
+    // A run joined by spaces alone needs three spellings, or `--replace -R
+    // chain rulenum` reads `chain` as prose.
+    let needed = if spaced { 3 } else { 2 };
+    // ... and a tail of plain words: `stty`'s `-isig -iuclc -xcase min 1
+    // time 0` is a list of settings, not a described alias run.
+    let plain_tail = !spaced
+        || rest
+            .iter()
+            .all(|w| !w.starts_with('-') && !w.chars().any(|c| c.is_ascii_digit()));
+    (spellings >= needed && rest.len() >= 2 && prose_first && plain_tail).then_some(end)
 }
 
 /// Last-resort gap for a value-free `-x or --long description` row whose

@@ -35,53 +35,46 @@ FLAGS (63) ───────────────────────
 -p, --maxphysicalvolumes Number
 -u, --uuid
 -s, --physicalextentsize Size[m|UNIT]
--x, --resizeable y|n
+-x, --resizeable {…}        values: y, n
     --addtag Tag
     --deltag Tag
-    --alloc contiguous|cling|cling_by_tags|normal|anywhere|inherit
-    --pvmetadatacopies 0|1|2
+    --alloc {…}             values: contiguous, cling, cling_by_tags,
+                            normal, anywhere, inherit
+    --pvmetadatacopies {…}  values: 0, 1, 2
     --vgmetadatacopies all|unmanaged|Number
     --detachprofile
     --metadataprofile String
-    --setautoactivation y|n
+    --setautoactivation {…} values: y, n
 
 Activate or deactivate LVs ─────────────────────────────────────────────────
--a, --activate y|n|ay
+-a, --activate {…}          values: y, n, ay
 -K, --ignoreactivationskip
 -P, --partial
--A, --autobackup
-                               values: y, n
+-A, --autobackup {…}        values: y, n
 -S, --select String
 -f, --force
-    --activationmode
-                               values: partial, degraded, complete
+    --activationmode {…}    values: partial, degraded, complete
     --sysinit
     --readonly
     --ignorelockingfailure
-    --monitor
-                               values: y, n
-    --poll
-                               values: y, n
+    --monitor {…}           values: y, n
+    --poll {…}              values: y, n
     --autoactivation String
     --ignoremonitoring
     --noudevsync
-    --reportformat
-                               values: basic, json
+    --reportformat {…}      values: basic, json
 
 Reactivate LVs using the latest metadata ───────────────────────────────────
     --refresh
--A, --autobackup
-                               values: y, n
+-A, --autobackup {…}        values: y, n
 -S, --select String
 -f, --force
     --sysinit
     --ignorelockingfailure
-    --poll
-                               values: y, n
+    --poll {…}              values: y, n
     --ignoremonitoring
     --noudevsync
-    --reportformat
-                               values: basic, json
+    --reportformat {…}      values: basic, json
 
 Change the system ID of a VG ───────────────────────────────────────────────
     --systemid String
@@ -95,7 +88,7 @@ Stop the lockspace of a shared VG in lvmlockd ───────────�
 -S, --select String
 
 Change the lock type for a shared VG ───────────────────────────────────────
-    --locktype sanlock|dlm|none
+    --locktype {…}          values: sanlock, dlm, none
 
 Common options for lvm ─────────────────────────────────────────────────────
 -d, --debug
@@ -106,8 +99,7 @@ Common options for lvm ───────────────────
 -t, --test
     --commandprofile String
     --config String
-    --driverloaded
-                               values: y, n
+    --driverloaded {…}      values: y, n
     --nolocking
     --lockopt String
     --longhelp

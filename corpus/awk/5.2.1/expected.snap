@@ -148,9 +148,12 @@ flags:
 - spellings:
   - -L
   - --lint
-  value_name: fatal|invalid|no-ext
   value_kind: Optional
   optional_join: equals
+  choices:
+  - fatal
+  - invalid
+  - no-ext
   group: "Short options:\t\tGNU long options: (extensions)"
   provenance:
     sources:

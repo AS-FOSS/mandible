@@ -1,0 +1,6 @@
+Usage: era_invalidate [options] --written-since <era> {device|file}
+Options:
+  {-h|--help}
+  {-o <xml file>}
+  {--metadata-snapshot}
+  {-V|--version}

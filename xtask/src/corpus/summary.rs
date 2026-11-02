@@ -175,6 +175,11 @@ fn snap_to_command_node(n: &SnapNode) -> CommandNode {
 /// parser: a name that itself began with a literal `-` would round-trip
 /// wrong, and no real flag spelling does.
 fn parse_rendered_spelling(rendered: &str) -> Spelling {
+    if let Some(rest) = rendered.strip_prefix(mandible_core::BANG_LEAD) {
+        let mut spelling = parse_rendered_spelling(rest);
+        spelling.negation = Some(mandible_core::Negation::Bang);
+        return spelling;
+    }
     // The end-of-options marker is stored as a bare "--", not a long flag named "".
     if rendered == "--" {
         return Spelling::bare("--");
@@ -190,7 +195,7 @@ fn parse_rendered_spelling(rendered: &str) -> Spelling {
         return Spelling {
             name: base.to_string(),
             dashes,
-            negatable: true,
+            negation: Some(mandible_core::Negation::NoPrefix),
             abbrev: None,
         };
     }
@@ -203,7 +208,7 @@ fn parse_rendered_spelling(rendered: &str) -> Spelling {
             return Spelling {
                 name: format!("{prefix}{bracketed}"),
                 dashes,
-                negatable: false,
+                negation: None,
                 abbrev: Some(prefix.chars().count()),
             };
         }
@@ -211,7 +216,7 @@ fn parse_rendered_spelling(rendered: &str) -> Spelling {
     Spelling {
         name: rest.to_string(),
         dashes,
-        negatable: false,
+        negation: None,
         abbrev: None,
     }
 }

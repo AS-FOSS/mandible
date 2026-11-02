@@ -9,9 +9,8 @@ USAGE ────────────────────────�
 
 POSITIONALS (3) ────────────────────────────────────────────────────────────
   size
-  policy
-             values: preferred-many, local, interleave, membind, preferred,
-             default
+  policy   values: preferred-many, local, interleave, membind, preferred,
+           default
   nodeset
 
 

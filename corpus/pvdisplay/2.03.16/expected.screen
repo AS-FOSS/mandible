@@ -25,8 +25,7 @@ FLAGS (39) ───────────────────────
 -O, --sort String
     --aligned
     --binary
-    --configreport
-                          values: log, vg, lv, pv, pvseg, seg
+    --configreport {…}  values: log, vg, lv, pv, pvseg, seg
     --foreign
     --ignorelockingfailure
     --logonly
@@ -36,9 +35,8 @@ FLAGS (39) ───────────────────────
     --separator String
     --shared
     --unbuffered
-    --units [Number]
-                          values: r, R, h, H, b, B, s, S, k, K, m, M, g, G,
-                          t, T, p, P, e, E
+    --units [Number]    values: r, R, h, H, b, B, s, S, k, K, m, M, g, G, t,
+                        T, p, P, e, E
 
 Common options for lvm ─────────────────────────────────────────────────────
 -d, --debug
@@ -49,8 +47,7 @@ Common options for lvm ───────────────────
 -t, --test
     --commandprofile String
     --config String
-    --driverloaded
-                          values: y, n
+    --driverloaded {…}  values: y, n
     --nolocking
     --lockopt String
     --longhelp

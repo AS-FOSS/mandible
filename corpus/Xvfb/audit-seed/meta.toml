@@ -54,9 +54,6 @@ must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx", "ena
 "+extension" = "Enable extension"
 
 [contract.must_value_name]
-# The `+/-render` collision never costs `-render` its own four-choice
-# bracket value (S-163).
-"-render" = "default"
 # Bare-word single-dash-long-table values (S-157): each used to read as a
 # boolean, its value name absorbed into the row's own description column.
 "-audit" = "int"
@@ -68,6 +65,9 @@ must_not_contain_flag_group_prefixes = ["use: X", "Enable/disable accessx", "ena
 "+extension" = "name"
 
 [contract.must_attach_choices]
+# The `+/-render` collision never costs `-render` its own four-choice
+# bracket value (S-163).
+"-render" = ["default", "mono", "gray", "color"]
 # The colon-introduced list of run-time-toggleable extensions (S-168)
 # becomes `name`'s own choices, shared by both halves of the
 # `+extension`/`-extension` pair — never folded into `-extension`'s

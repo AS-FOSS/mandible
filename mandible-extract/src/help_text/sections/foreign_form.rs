@@ -1,4 +1,4 @@
-//! Usage forms that name a different command than the node (S-253).
+//! Usage forms that name a different command than the node (S-255).
 //! `git log -h` lists `git show [<options>] <object>...` as its second
 //! form; `object` is an operand of `show`, not of `log`.
 

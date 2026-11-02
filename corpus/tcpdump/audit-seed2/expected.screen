@@ -58,8 +58,7 @@ FLAGS (53) ───────────────────────
 -M secret
     --number
     --print
--Q
-                 values: in, out, inout
+-Q {…}         values: in, out, inout
 -r file
 -s snaplen
 -T type

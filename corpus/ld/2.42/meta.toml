@@ -25,3 +25,12 @@ must_keep_separate = [
     ["--warn-execstack", "--no-warn-execstack"],
     ["--error-rwx-segments", "--warn-rwx-segments"],
 ]
+
+# Alternation values (S-253): the bracketed and bare alternations are choices.
+[contract.must_attach_choices]
+"--compress-debug-sections" = ["none", "zlib", "zlib-gnu", "zlib-gabi", "zstd"]
+"--sort-section" = ["name", "alignment"]
+"--sort-common" = ["ascending", "descending"]
+
+[contract.must_not_value_name]
+"--compress-debug-sections" = "zlib"

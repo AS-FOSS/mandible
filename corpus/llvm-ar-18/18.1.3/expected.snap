@@ -84,8 +84,12 @@ flags:
     - help-text
 - spellings:
   - -X
-  value_name: '{32|64|32_64|any}'
   value_kind: Required
+  choices:
+  - '32'
+  - '64'
+  - 32_64
+  - any
   description: object mode (only for AIX OS)
   provenance:
     sources:

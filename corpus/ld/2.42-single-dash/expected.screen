@@ -4,7 +4,7 @@ USAGE ────────────────────────�
 
 
 FLAGS (6) ──────────────────────────────────────────────────────────────────
-    -assert               Ignored for SunOS compatibility
+    -assert KEYWORD       Ignored for SunOS compatibility
     -Bdynamic             Link against shared libraries
  or -dy, -call_shared
     -Bstatic              Do not link against shared libraries

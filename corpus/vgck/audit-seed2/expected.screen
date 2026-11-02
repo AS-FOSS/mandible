@@ -9,8 +9,7 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (20) ─────────────────────────────────────────────────────────────────
-    --reportformat
-                           values: basic, json
+    --reportformat {…}   values: basic, json
     --updatemetadata VG
 
 Common options for lvm ─────────────────────────────────────────────────────
@@ -22,8 +21,7 @@ Common options for lvm ───────────────────
 -t, --test
     --commandprofile String
     --config String
-    --driverloaded
-                           values: y, n
+    --driverloaded {…}   values: y, n
     --nolocking
     --lockopt String
     --longhelp

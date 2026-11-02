@@ -36,7 +36,7 @@ Short options:GNU long options: (extensions) ───────────�
 -i, --include includefile
 -I, --trace
 -l, --load library
--L, --lint[=fatal|invalid|no-ext]
+-L, --lint[={…}]           values: fatal, invalid, no-ext
 -M, --bignum
 -N, --use-lc-numeric
 -n, --non-decimal-data
