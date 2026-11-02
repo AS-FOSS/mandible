@@ -133,8 +133,9 @@ flags:
     - help-text
 - spellings:
   - -M
+  - --merge-notes
   group: 'The options are:'
-  description: --merge-notes Remove redundant entries in note sections (default)
+  description: Remove redundant entries in note sections (default)
   provenance:
     sources:
     - help-text

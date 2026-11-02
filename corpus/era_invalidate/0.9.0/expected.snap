@@ -1,6 +1,15 @@
 name: era_invalidate
 usage:
 - 'Usage: era_invalidate [options] --written-since <era> {device|file}'
+positionals:
+- name: '{device|file}'
+  required: true
+  choices:
+  - device
+  - file
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - -h

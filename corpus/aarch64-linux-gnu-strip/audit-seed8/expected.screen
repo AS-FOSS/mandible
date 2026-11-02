@@ -35,8 +35,8 @@ The options are
     --strip-dwo               Remove all DWO sections
     --strip-unneeded          Remove all symbols not needed by relocations
     --only-keep-debug         Strip everything but the debug information
--M                            --merge-notes Remove redundant entries in note
-                              sections (default)
+-M, --merge-notes             Remove redundant entries in note sections
+                              (default)
     --no-merge-notes          Do not attempt to remove redundant notes
 -N, --strip-symbol <name>     Do not copy symbol <name>
     --keep-section <name>     Do not strip section <name>

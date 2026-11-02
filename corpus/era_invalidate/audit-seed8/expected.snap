@@ -18,6 +18,13 @@ flags:
     sources:
     - help-text
 - spellings:
+  - -o
+  value_name: <xml file>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
   - --metadata-snapshot
   provenance:
     sources:

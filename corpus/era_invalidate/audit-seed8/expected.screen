@@ -4,12 +4,12 @@ USAGE ────────────────────────�
 
 
 POSITIONALS (1) ────────────────────────────────────────────────────────────
-  {device|file}
-                   values: device, file
+  {…}   values: device, file
 
 
-FLAGS (4) ──────────────────────────────────────────────────────────────────
+FLAGS (5) ──────────────────────────────────────────────────────────────────
 -h, --help
+-o <xml file>
     --metadata-snapshot
 -V, --version
     --written-since <era>
