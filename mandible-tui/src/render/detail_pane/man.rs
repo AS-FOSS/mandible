@@ -74,6 +74,12 @@ pub(super) fn man_entity_lines(
             )));
         }
     }
-    lines.extend(subordinate_lines(flag, column, width, palette, true));
+    lines.extend(subordinate_lines(
+        flag,
+        column,
+        width,
+        palette,
+        (true, false),
+    ));
     lines
 }

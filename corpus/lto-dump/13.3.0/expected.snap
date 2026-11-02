@@ -34,32 +34,41 @@ flags:
     - help-text
 - spellings:
   - -fcontract-assumption-mode
-  value_name: '[on|off]'
   value_kind: Required
+  choices:
+  - on
+  - off
   group: 'The following options are specific to just the language C++:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -fcontract-build-level
-  value_name: '[off|default|audit]'
   value_kind: Required
+  choices:
+  - off
+  - default
+  - audit
   group: 'The following options are specific to just the language C++:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -fcontract-continuation-mode
-  value_name: '[on|off]'
   value_kind: Required
+  choices:
+  - on
+  - off
   group: 'The following options are specific to just the language C++:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -fcontract-mode
-  value_name: '[on|off]'
   value_kind: Required
+  choices:
+  - on
+  - off
   group: 'The following options are specific to just the language C++:'
   description: '[available in C++]'
   provenance:
@@ -83,8 +92,10 @@ flags:
     - help-text
 - spellings:
   - -fcontract-strict-declarations
-  value_name: '[on|off]'
   value_kind: Required
+  choices:
+  - on
+  - off
   group: 'The following options are specific to just the language C++:'
   description: '[available in C++]'
   provenance:
@@ -202,8 +213,11 @@ flags:
     - help-text
 - spellings:
   - -fbounds-check
-  value_name: '[on|safeonly|off]'
   value_kind: Required
+  choices:
+  - on
+  - safeonly
+  - off
   group: 'The following options are specific to just the language D:'
   description: '[available in D]'
   provenance:
@@ -5075,8 +5089,12 @@ flags:
     - help-text
 - spellings:
   - -fvisibility
-  value_name: '[private|protected|public|package]'
   value_kind: Required
+  choices:
+  - private
+  - protected
+  - public
+  - package
   group: 'The following options are language-related:'
   description: '[available in ObjC, ObjC++]'
   provenance:
@@ -5394,8 +5412,11 @@ flags:
     - help-text
 - spellings:
   - -fsso-struct
-  value_name: '[big-endian|little-endian|native]'
   value_kind: Required
+  choices:
+  - big-endian
+  - little-endian
+  - native
   group: 'The following options are language-related:'
   description: '[available in C, ObjC]'
   provenance:
@@ -9686,8 +9707,11 @@ flags:
     - help-text
 - spellings:
   - -fexcess-precision
-  value_name: '[fast|standard|16]'
   value_kind: Required
+  choices:
+  - fast
+  - standard
+  - '16'
   group: 'The following options control optimizations:'
   description: '[default]'
   provenance:
@@ -9730,8 +9754,11 @@ flags:
     - help-text
 - spellings:
   - -ffp-contract
-  value_name: '[off|on|fast]'
   value_kind: Required
+  choices:
+  - off
+  - on
+  - fast
   group: 'The following options control optimizations:'
   description: fast
   provenance:
@@ -10028,8 +10055,11 @@ flags:
     - help-text
 - spellings:
   - -fira-region
-  value_name: '[one|all|mixed]'
   value_kind: Required
+  choices:
+  - one
+  - all
+  - mixed
   group: 'The following options control optimizations:'
   description: one
   provenance:
@@ -10086,8 +10116,10 @@ flags:
     - help-text
 - spellings:
   - -flive-patching
-  value_name: '[inline-only-static|inline-clone]'
   value_kind: Required
+  choices:
+  - inline-only-static
+  - inline-clone
   group: 'The following options control optimizations:'
   description: '[default]'
   provenance:
@@ -10327,8 +10359,10 @@ flags:
     - help-text
 - spellings:
   - -freorder-blocks-algorithm
-  value_name: '[simple|stc]'
   value_kind: Required
+  choices:
+  - simple
+  - stc
   group: 'The following options control optimizations:'
   description: simple
   provenance:
@@ -10590,8 +10624,12 @@ flags:
     - help-text
 - spellings:
   - -fsimd-cost-model
-  value_name: '[unlimited|dynamic|cheap|very-cheap]'
   value_kind: Required
+  choices:
+  - unlimited
+  - dynamic
+  - cheap
+  - very-cheap
   group: 'The following options control optimizations:'
   description: unlimited
   provenance:
@@ -10655,8 +10693,11 @@ flags:
     - help-text
 - spellings:
   - -fstack-check
-  value_name: '[no|generic|specific]'
   value_kind: Required
+  choices:
+  - no
+  - generic
+  - specific
   group: 'The following options control optimizations:'
   provenance:
     sources:
@@ -10698,8 +10739,11 @@ flags:
     - help-text
 - spellings:
   - -fstack-reuse
-  value_name: '[all|named_vars|none]'
   value_kind: Required
+  choices:
+  - all
+  - named_vars
+  - none
   group: 'The following options control optimizations:'
   description: all
   provenance:
@@ -11023,8 +11067,11 @@ flags:
     - help-text
 - spellings:
   - -ftrivial-auto-var-init
-  value_name: '[uninitialized|pattern|zero]'
   value_kind: Required
+  choices:
+  - uninitialized
+  - pattern
+  - zero
   group: 'The following options control optimizations:'
   description: uninitialized
   provenance:
@@ -11116,8 +11163,12 @@ flags:
     - help-text
 - spellings:
   - -fvect-cost-model
-  value_name: '[unlimited|dynamic|cheap|very-cheap]'
   value_kind: Required
+  choices:
+  - unlimited
+  - dynamic
+  - cheap
+  - very-cheap
   group: 'The following options control optimizations:'
   description: '[default]'
   provenance:
@@ -11691,8 +11742,13 @@ flags:
     - help-text
 - spellings:
   - -fcf-protection
-  value_name: '[full|branch|return|none|check]'
   value_kind: Required
+  choices:
+  - full
+  - branch
+  - return
+  - none
+  - check
   group: 'The following options are language-independent:'
   description: none
   provenance:
@@ -11794,8 +11850,11 @@ flags:
     - help-text
 - spellings:
   - -fdiagnostics-color
-  value_name: '[never|always|auto]'
   value_kind: Required
+  choices:
+  - never
+  - always
+  - auto
   group: 'The following options are language-independent:'
   description: never
   provenance:
@@ -11811,24 +11870,34 @@ flags:
     - help-text
 - spellings:
   - -fdiagnostics-column-unit
-  value_name: '[display|byte]'
   value_kind: Required
+  choices:
+  - display
+  - byte
   group: 'The following options are language-independent:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -fdiagnostics-escape-format
-  value_name: '[unicode|bytes]'
   value_kind: Required
+  choices:
+  - unicode
+  - bytes
   group: 'The following options are language-independent:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -fdiagnostics-format
-  value_name: '[text|sarif-stderr|sarif-file|json|json-stderr|json-file]'
   value_kind: Required
+  choices:
+  - text
+  - sarif-stderr
+  - sarif-file
+  - json
+  - json-stderr
+  - json-file
   group: 'The following options are language-independent:'
   provenance:
     sources:
@@ -11892,8 +11961,10 @@ flags:
     - help-text
 - spellings:
   - -fdiagnostics-show-location
-  value_name: '[once|every-line]'
   value_kind: Required
+  choices:
+  - once
+  - every-line
   group: 'The following options are language-independent:'
   provenance:
     sources:
@@ -11921,8 +11992,11 @@ flags:
     - help-text
 - spellings:
   - -fdiagnostics-urls
-  value_name: '[never|always|auto]'
   value_kind: Required
+  choices:
+  - never
+  - always
+  - auto
   group: 'The following options are language-independent:'
   description: auto
   provenance:
@@ -12434,8 +12508,10 @@ flags:
     - help-text
 - spellings:
   - -foffload-abi
-  value_name: '[lp64|ilp32]'
   value_kind: Required
+  choices:
+  - lp64
+  - ilp32
   group: 'The following options are language-independent:'
   provenance:
     sources:
@@ -12472,8 +12548,10 @@ flags:
     - help-text
 - spellings:
   - -fpermitted-flt-eval-methods
-  value_name: '[c11|ts-18661]'
   value_kind: Required
+  choices:
+  - c11
+  - ts-18661
   group: 'The following options are language-independent:'
   description: '[default]'
   provenance:
@@ -12636,8 +12714,11 @@ flags:
     - help-text
 - spellings:
   - -fprofile-reproducible
-  value_name: '[serial|parallel-runs|multithreaded]'
   value_kind: Required
+  choices:
+  - serial
+  - parallel-runs
+  - multithreaded
   group: 'The following options are language-independent:'
   description: serial
   provenance:
@@ -12645,8 +12726,11 @@ flags:
     - help-text
 - spellings:
   - -fprofile-update
-  value_name: '[single|atomic|prefer-atomic]'
   value_kind: Required
+  choices:
+  - single
+  - atomic
+  - prefer-atomic
   group: 'The following options are language-independent:'
   description: single
   provenance:
@@ -12886,8 +12970,12 @@ flags:
     - help-text
 - spellings:
   - -ftls-model
-  value_name: '[global-dynamic|local-dynamic|initial-exec|local-exec]'
   value_kind: Required
+  choices:
+  - global-dynamic
+  - local-dynamic
+  - initial-exec
+  - local-exec
   group: 'The following options are language-independent:'
   description: global- dynamic
   provenance:
@@ -13024,8 +13112,12 @@ flags:
     - help-text
 - spellings:
   - -fvisibility
-  value_name: '[default|internal|hidden|protected]'
   value_kind: Required
+  choices:
+  - default
+  - internal
+  - hidden
+  - protected
   group: 'The following options are language-independent:'
   description: default
   provenance:

@@ -11,6 +11,7 @@
 //! order wins": attempt order is a cost ordering (spec §7); conflict
 //! resolution is authority (spec §4.4).
 
+use crate::alternation::fold_alternation_values;
 use crate::entity::{is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Spelling};
 use crate::node::CommandNode;
 use crate::provenance::{Axis, Provenance};
@@ -39,6 +40,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     }
     if candidates.len() == 1 {
         let mut only = candidates.pop().expect("len checked above");
+        fold_alternation_values(&mut only.entities);
         let flags = only.take_entities_of(EntityKind::Flag);
         only.set_flags(pair_aliases(flags));
         return Ok(only);
@@ -47,6 +49,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     // Alias-pair each candidate's own flags before it participates in
     // cross-source merge (spec §4.4: "Pairing runs before merge").
     for c in &mut candidates {
+        fold_alternation_values(&mut c.entities);
         let flags = c.take_entities_of(EntityKind::Flag);
         c.set_flags(pair_aliases(flags));
     }

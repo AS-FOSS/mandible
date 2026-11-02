@@ -66,8 +66,10 @@ flags:
 - spellings:
   - -p
   - --progress
-  value_name: yes|no
   value_kind: Required
+  choices:
+  - yes
+  - no
   description: 'Enable or disable progress bar (Note: only available for ''human-readable'' or ''json'' and defaults to yes when interactive)'
   provenance:
     sources:

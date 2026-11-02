@@ -26,6 +26,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::alternation::CHOICES_MARK;
 use crate::node::ValueKind;
 use crate::provenance::Provenance;
 use crate::text::Text;
@@ -623,9 +624,13 @@ impl Entity {
     /// enclose what may be left out, joiner included. `None` when the
     /// entity takes no value.
     pub fn value_text(&self) -> Option<String> {
-        let name = self.value_name.as_ref()?;
+        let name = match &self.value_name {
+            Some(name) => name.clone(),
+            None if self.value_is_choices() => CHOICES_MARK.to_string(),
+            None => return None,
+        };
         match self.value_kind {
-            ValueKind::Required => Some(name.clone()),
+            ValueKind::Required => Some(name),
             // A glued run of optional bracketed groups (docs/shapes.md
             // S-097) keeps its source spelling, brackets included, so
             // it is never wrapped a second time.
@@ -634,7 +639,7 @@ impl Entity {
                 Some(match (self.optional_join, run) {
                     (Some(OptionalJoin::Equals), true) => format!("[={}", &name[1..]),
                     (Some(OptionalJoin::Equals), false) => format!("[={name}]"),
-                    (_, true) => name.clone(),
+                    (_, true) => name,
                     (_, false) => format!("[{name}]"),
                 })
             }

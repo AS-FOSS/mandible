@@ -30,3 +30,11 @@ must_keep_separate = [["-C", "-CC"]]
 # (docs/shapes.md S-164).
 [contract.must_flag_group]
 "-fdump-scos" = ""
+
+# Alternation values (S-253): a bracketed alternation after `=` is choices.
+[contract.must_attach_choices]
+"-fcontract-assumption-mode" = ["on", "off"]
+"-fcontract-build-level" = ["off", "default", "audit"]
+
+[contract.must_not_value_name]
+"-fcontract-assumption-mode" = "on"
