@@ -6,7 +6,7 @@ description: |-
 usage:
 - 'Usage: /usr/bin/aarch64-linux-gnu-strip <option(s)> in-file(s)'
 positionals:
-- name: option(s)
+- name: in-file(s)
   required: true
   provenance:
     sources:

@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - [S-254] A flag row led by `[!]` (iptables' invertible flags) is read, and the page draws `[!]` before its spellings, muted like `[no-]`; a long-first head (`--append  -A chain`) is one flag with both spellings and its value, on `ip6tables-translate`.
 - [S-212] Flag rows read whole: `ld`'s `-EB`, `-Map FILE/DIR`, `-fini SYMBOL` and `-h FILENAME, -soname FILENAME`, `jstack`'s `-? -h --help -help`, `strip`'s `-M  --merge-notes`, `era_invalidate`'s `{-o <xml file>}`, `add-apt-repository`'s `-S SOURCESLIST [SOURCESLIST ...]` and `nl`'s `pBRE` choice.
+- [S-041] Usage-line operands now reach the tree for `[option...] [mapfile...]`, `COMMAND [INITIAL-ARGS]...`, `operation [count]`, `type#[source] destination [-t type]` and `xfsdev | dir | file ...`; `option(s)` is no longer an operand, and `update-ca-certificates` shows its two flags.
 
 ## [0.9.0] - 2026-10-30
 

@@ -383,6 +383,23 @@ pub(super) fn finalize_bare_bracket_group(
         .collect()
 }
 
+/// `groups[idx]` is a bare flag and `groups[idx + 1]` its `<angle>` value.
+fn bare_flag_then_angle_value(groups: &[String], idx: usize) -> bool {
+    is_bare_flag_spelling(&groups[idx])
+        && groups
+            .get(idx + 1)
+            .is_some_and(|g| g.starts_with('<') && g.ends_with('>'))
+}
+
+/// A flag spelling with no bracket and no `=`: `--written-since`, `-s`.
+fn is_bare_flag_spelling(group: &str) -> bool {
+    group.len() > 1
+        && group.starts_with('-')
+        && group
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
 /// True for a clean flag spelling followed by exactly one lowercase bare
 /// value word (`-m mode`). See [`recover_primary_tail_operands`].
 fn is_bracketed_valued_flag(stripped: &str) -> bool {
@@ -555,7 +572,21 @@ pub(super) fn recover_primary_tail_operands(
     if boundary_known {
         earlier_all_placeholder = false;
     }
-    for earlier in groups.iter().filter(|_| !boundary_known) {
+    let mut value_follows = false;
+    let single_operand = collected.len() == 1;
+    for (idx, earlier) in groups.iter().enumerate().filter(|_| !boundary_known) {
+        // A bare flag with an `<angle>` value right behind it
+        // (`--written-since <era>`) is a valued flag, not an operand. Only
+        // a lone operand behind it is read: a longer run is prose.
+        if std::mem::take(&mut value_follows) && earlier.starts_with('<') && earlier.ends_with('>')
+        {
+            continue;
+        }
+        if single_operand && bare_flag_then_angle_value(&groups, idx) {
+            earlier_all_placeholder = false;
+            value_follows = true;
+            continue;
+        }
         let earlier_stripped = earlier.trim_matches(|c| c == '[' || c == ']');
         if ends_with_option_list_placeholder(earlier_stripped) {
             continue;

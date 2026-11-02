@@ -1,0 +1,23 @@
+=== loadkeys ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  loadkeys [option...] [mapfile...]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  mapfile...
+
+
+FLAGS (13) ─────────────────────────────────────────────────────────────────
+-C, --console DEV   the console device to be used.
+-a, --ascii         force conversion to ASCII.
+-b, --bkeymap       output a binary keymap to stdout.
+-c, --clearcompose  clear kernel compose table.
+-d, --default       load default.
+-m, --mktable       output a 'defkeymap.c' to stdout.
+-p, --parse         search and parse keymap without action.
+-s, --clearstrings  clear kernel string table.
+-u, --unicode       force conversion to Unicode.
+-q, --quiet         suppress all normal output.
+-v, --verbose       be more verbose.
+-V, --version       print version number.
+-h, --help          print this usage message.

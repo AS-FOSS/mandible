@@ -11,6 +11,10 @@ USAGE ────────────────────────�
   aarch64-linux-gnu-gcc-nm-13 [option(s)] [file(s)]
 
 
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  file(s)
+
+
 FLAGS (37) ─────────────────────────────────────────────────────────────────
 -h, --help              Display this information
 -V, --version           Display this program's version number

@@ -41,6 +41,34 @@ pub(super) fn check_all(contract: &ContractMeta, root: &CommandNode) -> Vec<Cont
     failures.extend(check_must_subcommand_group(contract, root));
     failures.extend(check_must_contain_usage_by_path(contract, root));
     failures.extend(check_must_contain_positionals_by_path(contract, root));
+    failures.extend(check_must_not_contain_positionals_by_path(contract, root));
+    failures
+}
+
+/// `must_not_contain_positionals_by_path`: operand names a node must not
+/// carry. Matched as `must_not_contain_positionals` matches them. A path
+/// with no node satisfies the claim vacuously.
+fn check_must_not_contain_positionals_by_path(
+    contract: &ContractMeta,
+    root: &CommandNode,
+) -> Vec<ContractFailure> {
+    let mut failures = Vec::new();
+    for (path, specs) in &contract.must_not_contain_positionals_by_path {
+        let Some(node) = find_node_by_path(root, path) else {
+            continue;
+        };
+        let present: Vec<&str> = specs
+            .iter()
+            .filter(|spec| positional_present(node, spec))
+            .map(|s| s.as_str())
+            .collect();
+        if !present.is_empty() {
+            failures.push(ContractFailure(format!(
+                "must_not_contain_positionals_by_path[{path:?}]: present {}",
+                present.join(", ")
+            )));
+        }
+    }
     failures
 }
 
@@ -223,6 +251,20 @@ pub(super) fn contract_weakened_lines(
         if !missing.is_empty() {
             lines.push(format!(
                 "CONTRACT WEAKENED: {label} must_contain_positionals_by_path[{path:?}] (dropped: {})",
+                missing.join(", ")
+            ));
+        }
+    }
+    for (path, base_specs) in &b.must_not_contain_positionals_by_path {
+        let now_specs = n.must_not_contain_positionals_by_path.get(path);
+        let missing: Vec<&str> = base_specs
+            .iter()
+            .filter(|spec| !now_specs.is_some_and(|specs| specs.iter().any(|s| s == *spec)))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            lines.push(format!(
+                "CONTRACT WEAKENED: {label} must_not_contain_positionals_by_path[{path:?}] (dropped: {})",
                 missing.join(", ")
             ));
         }

@@ -47,15 +47,18 @@ mod example_command_line;
 mod examples;
 mod flag_row_column;
 mod flag_rows;
+pub(crate) mod foreign_form;
 mod heading;
 mod invocation_block;
 mod key_value_text;
 mod labelled_values;
 mod layout;
+pub(crate) mod leading_operands;
 mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
 mod no_option_row;
+mod operand_group;
 mod operand_rows;
 mod or_choice_fold;
 mod paren_flag_rows;
@@ -113,6 +116,7 @@ use key_value_text::key_value_paragraphs;
 pub use layout::*;
 use multiword::*;
 use no_option_row::take_no_option_row;
+use operand_group::*;
 use operand_rows::{describe_positionals_from_name_rows, fold_separator_row_into_operand};
 use or_choice_fold::fold_or_joined_choice_rows;
 use plural_owner::plural_owner_index;
@@ -949,7 +953,7 @@ fn scan_usage_section(
             if leading_whitespace(l) > base_indent
                 && (is_prose_sentence(trimmed_start)
                     || looks_like_unpunctuated_description_continuation(l)
-                    || (labelled_usage_start.is_some() && is_form_description_line(l, base_indent)))
+                    || form_desc_skip(labelled_usage_start, lines, (start, i), base_indent))
             {
                 i += 1;
                 continue;

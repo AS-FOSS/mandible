@@ -1,0 +1,35 @@
+name: mount.fuse
+usage:
+- 'usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]'
+positionals:
+- name: type#[source]
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: destination
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -t
+  value_name: type
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -o
+  value_name: opt[,opts...]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+detected_framework: BSD-terse
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -1,0 +1,19 @@
+name: update-ca-certificates
+usage:
+- /usr/sbin/update-ca-certificates [--verbose] [--fresh]
+flags:
+- spellings:
+  - --verbose
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --fresh
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

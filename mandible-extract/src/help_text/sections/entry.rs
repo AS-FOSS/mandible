@@ -878,6 +878,8 @@ pub(in crate::help_text) const OPTION_LIST_PLACEHOLDERS: &[&str] =
 /// True when `name` (already unwrapped from its notation) is one of
 /// [`OPTION_LIST_PLACEHOLDERS`].
 pub fn is_option_list_placeholder(name: &str) -> bool {
+    // `option(s)` names the option list as much as `options`.
+    let name = name.strip_suffix("(s)").unwrap_or(name);
     OPTION_LIST_PLACEHOLDERS
         .iter()
         .any(|p| name.eq_ignore_ascii_case(p))

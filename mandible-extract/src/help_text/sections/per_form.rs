@@ -265,6 +265,23 @@ fn read_group(inner: &str, head: bool, occs: &mut Vec<Occ>, ops: &mut Vec<Op>) {
     ops.extend(group);
 }
 
+/// Operand words joined by spaced pipes and closed by a bare `...`
+/// (`xfsdev | dir | file ...`): the name as written and the index of the
+/// last member. The dots token itself is left to the caller's loop.
+fn pipe_alternation(toks: &[Tok], at: usize) -> Option<(String, usize)> {
+    let word = |k: usize| match toks.get(k) {
+        Some(Tok::Word(w)) => Some(w.as_str()),
+        _ => None,
+    };
+    let mut members = vec![word(at).filter(|w| operand_name(w).is_some())?];
+    let mut end = at;
+    while word(end + 1) == Some("|") {
+        members.push(word(end + 2).filter(|w| operand_name(w).is_some())?);
+        end += 2;
+    }
+    (members.len() >= 2 && word(end + 1).is_some_and(is_dots)).then(|| (members.join(" | "), end))
+}
+
 fn is_single_operand(inner: &str) -> bool {
     !inner.contains(['|', '[', ' ']) && operand_name(inner).is_some()
 }
@@ -438,6 +455,21 @@ fn read_form(text: &str, takes_value: &dyn Fn(&str) -> bool) -> (Vec<Occ>, Vec<O
                 }
                 i += usize::from(eaten);
                 last_flag = Some(i);
+            }
+            Tok::Word(w) if pipe_alternation(&toks, i).is_some() => {
+                // `xfsdev | dir | file ...`: one repeated operand (S-255).
+                if let Some((name, end)) = pipe_alternation(&toks, i) {
+                    ops.push(Op {
+                        name,
+                        required: true,
+                        repeatable: false,
+                        admit: false,
+                        angle: true,
+                        at: 0,
+                        word: false,
+                    });
+                    i = end;
+                }
             }
             Tok::Word(w) => {
                 if name_is_lower(w) {

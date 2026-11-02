@@ -777,11 +777,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/bashbug [--help] [--version] [bug-report-email-address]
       usage: lessecho [-ox] ... [-a] file ...
-- tools: bashbug, lessecho, vim.basic
+- tools: bashbug, lessecho, vim.basic, loadkeys, xargs, mt, getent, setmetamode, cpio, info, libtool, ld.so, kernel-install
 - handling: An operand named only inside a bracket group at the tail of a usage line is
   not extracted as a positional; the tree currently carries no positionals at
-  all for these tools even though the operand is real and documented. Open
-  defect.
+  all for these tools even though the operand is real and documented. Fixed
+  for two sub-shapes: the repeat dots after an option placeholder
+  (`[option...]`, `[option(s)]`) no longer block the recovery, so
+  `[mapfile...]` reaches the tree; and an ALL-CAPS operand may contain a
+  hyphen (`[INITIAL-ARGS]...`), refused when its last word is an option word
+  (`SHORT-OPTION`), when the line holds no `[`, `<` or `{`, or when it sits in
+  prose of three or more lowercase words. Open for the rest.
 - fleet: detector fires on 150 tools, 150 flags, over a 2318-tool sweep,
   2026-09-03, down from 194 before the single-line synopsis repair.
   Calibrated and passing: 3 of 3 labelled members detected, 0 false alarms
@@ -2401,8 +2406,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
       usage: makeconv [-options] files...
 - tools: makeconv, cpan, enc2xs, h2ph, libnetcfg, ptar, ptardiff, splain,
   lshw, xauth, xev, xkill, xwininfo, genbrk, gencfu, gencnval, gendict,
-  gensprep, icuexportdata, pkgdata
-- handling: Fixed. `usage::is_dash_prefixed_option_list_placeholder` reads
+  gensprep, icuexportdata, pkgdata, aarch64-linux-gnu-strip, strip, elfedit,
+  objdump, readelf
+- handling: Fixed. `option(s)` and `<option(s)>` are placeholders too
+  (`is_option_list_placeholder` drops a trailing `(s)`), and a name written
+  `in-file(s)` is an operand kept as written, not marked repeatable.
+  `usage::is_dash_prefixed_option_list_placeholder` reads
   a usage token's first word, dash stripped: `options`/`option`/`opts`,
   the same closed set `is_option_list_placeholder` already reads with no
   leading dash, dropped before it ever reaches the flag grammar rather
@@ -3247,8 +3256,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   btrfs-image, btrfs-map-logical, btrfstune, dpkg-reconfigure, ffplay,
   llvm-bitcode-strip-18, llvm-install-name-tool-18, make-bcache, ntfscluster,
   ntfscp, ntfsfix, ntfsinfo, ntfsls, ntfsmove, ntfsundelete, ntfswipe,
-  split-file-18, ucf, ucfr, xfs_growfs, xfs_repair, xfs_scrub
-- handling: Fixed for the shapes evidence can settle, refused for the rest. A
+  split-file-18, ucf, ucfr, xfs_growfs, xfs_repair, xfs_scrub,
+  era_invalidate
+- handling: A bare flag with an `<angle>` value (`--written-since <era>`)
+  before a lone tail operand no longer blocks the walk (`era_invalidate`);
+  a longer run stays refused as prose. Earlier handling: Fixed for the shapes evidence can settle, refused for the rest. A
   trailing operand run after a bracketed option run now reaches the tree as
   positionals: a brace alternation naming one operand becomes one positional
   keeping its source spelling and its members as choices (`{device|file}`), a
@@ -4719,8 +4731,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Usage: /usr/bin/ranlib [options] archive
        Generate an index to speed access to archives
-- tools: gcc-ranlib-13, ranlib, gcc-ranlib, aarch64-linux-gnu-ranlib, aarch64-linux-gnu-gcc-ranlib, aarch64-linux-gnu-gcc-ranlib-13
-- handling: Fixed, and the S-152 `ranlib` remainder with it. A line indented
+- tools: gcc-ranlib-13, ranlib, gcc-ranlib, aarch64-linux-gnu-ranlib, aarch64-linux-gnu-gcc-ranlib, aarch64-linux-gnu-gcc-ranlib-13, aarch64-linux-gnu-addr2line
+- handling: Sentences with `. , ' /` also count when they form the unbroken
+  run of indented lines straight after the usage line
+  (`Convert addresses into line number/file name pairs.` then `If no
+  addresses are specified on the command line, they will be read from
+  stdin`); a line the description already holds is not repeated. The
+  binutils footer stays a trailing paragraph of the description (S-165).
+  Original handling: Fixed, and the S-152 `ranlib` remainder with it. A line indented
   under the usage form that is five or more plain words with a capital first
   letter, no terminal punctuation, no flag, no ALL-CAPS placeholder and no
   column gap is the form's description, not synopsis. It leaves the usage
@@ -5186,7 +5204,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `git_history_forms_give_three_verbs_with_choice_valued_flags` pins them).
   A form that does not name the node's own command (`git log -h` also
   prints `or: git show ...`) is another command's form, never a verb of
-  this node (`git log`, `show`, `shortlog` fixtures in the same dir).
+  this node (`git log`, `show`, `shortlog` fixtures in the same dir). Its
+  operands are not this node's either (S-253).
 - fleet: full-`PATH` sweep of 2271 tools, 2026-10-11, zero losses: fragiso
   gains 6 subcommands (0 -> 6) and 12 positionals (5 -> 17). The parent rule
   moved 2 tools on a full-`PATH` sweep of 2271 tools, 2026-10-12: the roots of
@@ -5909,3 +5928,16 @@ entry's `tools` field and nothing else. It does not get a new entry.
   S-225 keeps `name value`. A tab between spellings separates them like a space.
   Fixture: `corpus/ip6tables-translate/1.8.10`.
 - fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (the `:` separator dropped from three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.
+
+### S-255: usage-line operand forms the reader skipped
+
+- id: S-255
+- looks like: |
+      /usr/sbin/update-ca-certificates: [--verbose] [--fresh]
+      xfs_fsr [-d] [-v] [-g] xfsdev | dir | file ...
+      usage: git log [<options>] [<revision-range>] [[--] <path>...]
+         or: git show [<options>] <object>...
+      usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]
+- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb
+- handling: Fixed, four readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus.

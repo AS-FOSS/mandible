@@ -1,0 +1,15 @@
+=== era_invalidate ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  era_invalidate [options] --written-since <era> {device|file}
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  {…}   values: device, file
+
+
+FLAGS (5) ──────────────────────────────────────────────────────────────────
+-h, --help
+-o <xml file>
+    --metadata-snapshot
+-V, --version
+    --written-since <era>
