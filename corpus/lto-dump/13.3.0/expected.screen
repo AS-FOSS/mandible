@@ -354,15 +354,15 @@ The following options are language-related ────────────�
 -I <dir>
 -J <directory>
 -M                             [disabled]
--M D                           [disabled]
+    -MD                        [disabled]
 -M F
--M G                           [disabled]
+    -MG                        [disabled]
     -MM                        [disabled]
--M MD                          [disabled]
--M P                           [disabled]
+    -MMD                       [disabled]
+    -MP                        [disabled]
 -M Q
 -M T
--M modules                     [disabled]
+    -Mmodules                  [disabled]
 -P                             [disabled]
 -U <macro>
     -WNSObject-attribute       [available in C, C++, LTO, ObjC, ObjC++]

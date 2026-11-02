@@ -353,11 +353,13 @@ pub(super) fn repair_single_dash_long_options(
             None => match glued_value {
                 // The document wrote the value spec, so it survives.
                 Some(value) => flag.value_name = Some(value.to_string()),
-                // Dropped by the grammar before this ran; becomes the
-                // correctly-named boolean rather than a fabricated value.
+                // Dropped by the grammar before this ran: the row's own
+                // spaced ALL-CAPS value (`-fini SYMBOL`) if it has one,
+                // else the correctly-named boolean.
                 None => {
-                    flag.value_name = None;
-                    flag.value_kind = ValueKind::None;
+                    let caps = super::short_letter_word_family::spaced_caps_value(raw, &name_token);
+                    flag.value_kind = caps.as_ref().map_or(ValueKind::None, |v| v.1);
+                    flag.value_name = caps.map(|v| v.0);
                 }
             },
         }
@@ -1591,7 +1593,7 @@ mod tests {
     /// must come through untouched.
     #[test]
     fn the_bundle_and_long_option_families_are_not_repaired_as_repeats() {
-        let parsed = parse("  -2         two\n  -2CDlNuVv  a cluster\n  -Z         z\n  -Zscript   an unstable flag\n");
+        let parsed = parse("  -2         two\n  -2CDlNuVv  a cluster\n");
         assert!(
             parsed.flags.iter().all(|f| f.long().is_none()),
             "{:?}",

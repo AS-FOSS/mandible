@@ -1,0 +1,134 @@
+name: add-apt-repository
+description: Only ONE of -P, -C, -U, -S, or old-style 'line' can be specified
+usage:
+- 'usage: add-apt-repository [-h] [-d] [-r] [-s] [-c COMPONENT] [-p POCKET] [-y] [-n] [-l] [--dry-run] [-L] [-P PPA] [-C CLOUD] [-U URI] [-S SOURCESLIST [SOURCESLIST ...]] [line ...]'
+positionals:
+- name: line
+  variadic: true
+  description: sources.list line to add (deprecated)
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: show this help message and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  description: Print debug
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --remove
+  description: Disable repository
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --enable-source
+  description: Allow downloading of the source packages from the repository
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --component
+  value_name: COMPONENT
+  value_kind: Required
+  description: Components to use with the repository
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --pocket
+  value_name: POCKET
+  value_kind: Required
+  description: Add entry for this pocket
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --yes
+  description: Assume yes to all queries
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-update
+  description: Do not update package cache after adding
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --login
+  description: Login to Launchpad.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dry-run
+  description: Don't actually make any changes.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --list
+  description: List currently configured repositories
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --ppa
+  value_name: PPA
+  value_kind: Required
+  description: PPA to add
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --cloud
+  value_name: CLOUD
+  value_kind: Required
+  description: Cloud Archive to add
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U
+  - --uri
+  value_name: URI
+  value_kind: Required
+  description: Archive URI to add
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --sourceslist
+  value_name: SOURCESLIST [SOURCESLIST ...]
+  value_kind: Required
+  description: Full sources.list entry line to add
+  provenance:
+    sources:
+    - help-text
+detected_framework: argparse
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

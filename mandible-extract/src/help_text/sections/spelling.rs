@@ -234,8 +234,10 @@ pub(super) fn block_has_aligned_spelling_column(entry_lines: &[&str]) -> bool {
     let mut offset_counts: std::collections::HashMap<usize, usize> =
         std::collections::HashMap::new();
     let mut value_paired_rows = 0usize;
+    let mut run_rows = 0usize;
     for line in entry_lines {
         if let Some(run) = spelling_run(line) {
+            run_rows += 1;
             *offset_counts.entry(run.second_offset).or_insert(0) += 1;
             if run.value_paired {
                 value_paired_rows += 1;
@@ -246,6 +248,33 @@ pub(super) fn block_has_aligned_spelling_column(entry_lines: &[&str]) -> bool {
         .values()
         .any(|&count| count >= MIN_SPELLING_COLUMN_RECURRENCE)
         || value_paired_rows >= MIN_SPELLING_COLUMN_RECURRENCE
+        || (run_rows > 0 && space_joined_pair_rows(entry_lines) >= MIN_SPACE_JOINED_PAIR_ROWS)
+}
+
+/// Rows of a block that already write a short and a long spelling side by
+/// side on one space (`-p --preserve-dates  Copy ...`) prove the block
+/// pairs them, so a lone row with a wider gap between the two is the same
+/// pair, not a short flag whose description opens with the long one.
+const MIN_SPACE_JOINED_PAIR_ROWS: usize = 3;
+
+/// Rows opening with a one-letter short, one space, then a `--long`
+/// spelling. See S-082 and corpus/aarch64-linux-gnu-strip/2.42.
+fn space_joined_pair_rows(entry_lines: &[&str]) -> usize {
+    entry_lines
+        .iter()
+        .filter(|line| {
+            let mut words = line.split_whitespace();
+            let (Some(a), Some(b)) = (words.next(), words.next()) else {
+                return false;
+            };
+            let short = a.len() == 2 && a.starts_with('-') && !a.ends_with('-');
+            let sep = line
+                .trim_start()
+                .strip_prefix(a)
+                .is_some_and(|r| r.starts_with(' ') && !r.starts_with("  "));
+            short && sep && b.starts_with("--")
+        })
+        .count()
 }
 
 /// Split one entry row of a block [`block_has_aligned_spelling_column`]

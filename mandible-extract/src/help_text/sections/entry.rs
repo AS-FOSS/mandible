@@ -261,18 +261,20 @@ fn long_first_alias_tail(line: &str) -> Option<usize> {
     Some(line.len() - after.len() + short_len)
 }
 
-/// Last-resort gap for a pipe-joined alias group whose description sits one
-/// space after the last spelling: `-? | -h | --help | -help to print this
-/// help message`. Cuts right after the last spelling when the row is two
-/// or more bare spellings joined by ` | ` followed by at least two words, the
-/// first not a placeholder, so `-a | -b FILE` stays that flag's value. Only
-/// consulted when every other finder found nothing. See docs/shapes.md
-/// S-190 and corpus/jinfo/17.0.20.
+/// Last-resort gap for an alias group whose description sits one space
+/// after the last spelling: `-? | -h | --help | -help to print this help
+/// message`, or the same run joined by single spaces. Cuts right after the
+/// last spelling when the row is two or more bare spellings joined by ` | `
+/// or a space, followed by at least two words, the first not a placeholder,
+/// so `-a | -b FILE` stays that flag's value. Only consulted when every
+/// other finder found nothing. See docs/shapes.md S-190, corpus/jinfo/17.0.20
+/// and corpus/jstack/17.
 pub(super) fn find_pipe_alias_single_space_gap(line: &str) -> Option<usize> {
     let trimmed = line.trim_start();
     let mut end = line.len() - trimmed.len();
     let mut words = trimmed.split(' ').peekable();
     let mut spellings = 0usize;
+    let mut spaced = false;
     let bare = |w: &str| {
         w.len() >= 2
             && w.starts_with('-')
@@ -292,13 +294,27 @@ pub(super) fn find_pipe_alias_single_space_gap(line: &str) -> Option<usize> {
             end += 3;
             continue;
         }
+        if words.peek().is_some_and(|w| bare(w)) {
+            end += 1;
+            spaced = true;
+            continue;
+        }
         break;
     }
     let rest: Vec<&str> = words.collect();
     let prose_first = rest
         .first()
         .is_some_and(|w| !w.starts_with(['<', '[']) && w.chars().any(|c| c.is_ascii_lowercase()));
-    (spellings >= 2 && rest.len() >= 2 && prose_first).then_some(end)
+    // A run joined by spaces alone needs three spellings, or `--replace -R
+    // chain rulenum` reads `chain` as prose.
+    let needed = if spaced { 3 } else { 2 };
+    // ... and a tail of plain words: `stty`'s `-isig -iuclc -xcase min 1
+    // time 0` is a list of settings, not a described alias run.
+    let plain_tail = !spaced
+        || rest
+            .iter()
+            .all(|w| !w.starts_with('-') && !w.chars().any(|c| c.is_ascii_digit()));
+    (spellings >= needed && rest.len() >= 2 && prose_first && plain_tail).then_some(end)
 }
 
 /// Last-resort gap for a value-free `-x or --long description` row whose

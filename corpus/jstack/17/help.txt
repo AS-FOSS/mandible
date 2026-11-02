@@ -1,0 +1,8 @@
+Usage:
+    jstack [-l][-e] <pid>
+        (to connect to running process)
+
+Options:
+    -l  long listing. Prints additional information about locks
+    -e  extended listing. Prints additional information about threads
+    -? -h --help -help to print this help message
