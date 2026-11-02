@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- [S-257] A flag row led by `[!]` (iptables' invertible flags) is read, and the page draws `[!]` before its spellings, muted like `[no-]`; a long-first head (`--append  -A chain`) is one flag with both spellings and its value, on `ip6tables-translate`.
+- [S-253] A flag row led by `[!]` (iptables' invertible flags) is read, and the page draws `[!]` before its spellings, muted like `[no-]`; a long-first head (`--append  -A chain`) is one flag with both spellings and its value, on `ip6tables-translate`.
 
 ## [0.9.0] - 2026-10-30
 

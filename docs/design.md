@@ -486,7 +486,7 @@ row's spellings, as the tool wrote it: `[!] -p, --protocol proto`. A `[!]` row
 sets `Bang` on every spelling it names. `Bang` adds no spelling and no
 search form (there is no `--no-protocol`). `expected.snap` stores each
 spelling as the tool wrote it, `[!] -p`; a cached tree that still carries the
-boolean `negatable` reads as `NoPrefix`. See `docs/shapes.md` S-257.
+boolean `negatable` reads as `NoPrefix`. See `docs/shapes.md` S-253.
 
 One constraint carries over from `Flag::negatable` and `Flag::single_dash`:
 the searched/copied name never smuggles punctuation. `-h`, `-?`, `-help`,
