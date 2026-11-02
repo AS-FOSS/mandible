@@ -56,7 +56,7 @@ FLAGS (17) ───────────────────────
 (Only the last occurrence of an option is used.) ───────────────────────────
 -h, --help               print this message and exit
  or -?
--t, --type
+-t, --type {…}
                            values:
                              l  output for little-endian/ASCII charset
                                 family

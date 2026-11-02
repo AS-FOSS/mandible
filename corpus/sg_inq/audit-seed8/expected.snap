@@ -1,0 +1,207 @@
+name: sg_inq
+description: Performs a SCSI INQUIRY command on DEVICE or decodes INQUIRY response held in file FN. If no options given then does a 'standard' INQUIRY. Can list VPD pages with '--vpd' or '--page=PG' option. The sg_vpd and sdparm utilities decode more VPD pages than this utility.
+usage:
+- 'Usage: sg_inq [--block=0|1] [--cmddt] [--descriptors] [--export] [--extended] [--help] [--hex] [--id] [--inhex=FN] [--len=LEN] [--long] [--maxlen=LEN] [--only] [--page=PG] [--raw] [--verbose] [--version] [--vpd] DEVICE'
+positionals:
+- name: DEVICE
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --block
+  value_kind: Required
+  choices:
+  - '0'
+  - '1'
+  group: 'where:'
+  description: 0-> open(non-blocking); 1-> open(blocking)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  value_kind: Required
+  choices:
+  - '0'
+  - '1'
+  group: 'where:'
+  description: '(def: depends on OS; Linux pt: 0)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cmddt
+  - -c
+  group: 'where:'
+  description: command support data mode (set opcode with '--page=PG') use twice for list of supported commands; obsolete
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --descriptors
+  - -d
+  group: 'where:'
+  description: fetch and decode version descriptors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --export
+  - -u
+  group: 'where:'
+  description: SCSI_IDENT_<assoc>_<type>=<ident> output format. Defaults to device id page (0x83) if --page not given, only supported for VPD pages 0x80 and 0x83
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --extended
+  - -E
+  - -x
+  group: 'where:'
+  description: decode extended INQUIRY data VPD page (0x86)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --force
+  - -f
+  group: 'where:'
+  description: skip VPD page 0 check; directly fetch requested page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -h
+  group: 'where:'
+  description: print usage message then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hex
+  - -H
+  group: 'where:'
+  description: output response in hex
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --id
+  - -i
+  group: 'where:'
+  description: decode device identification VPD page (0x83)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --inhex
+  - -I
+  value_name: FN
+  value_kind: Required
+  group: 'where:'
+  description: read ASCII hex from file FN instead of DEVICE; if used with --raw then read binary from FN
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --len
+  - -l
+  value_name: LEN
+  value_kind: Required
+  group: 'where:'
+  description: 'requested response length (def: 0 -> fetch 36 bytes first, then fetch again as indicated)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --long
+  - -L
+  group: 'where:'
+  description: supply extra information on NVMe devices
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --maxlen
+  - -m
+  value_name: LEN
+  value_kind: Required
+  group: 'where:'
+  description: same as '--len='
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --old
+  - -O
+  group: 'where:'
+  description: use old interface (use as first option)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --only
+  - -o
+  group: 'where:'
+  description: for std inquiry do not fetch serial number vpd page; for NVMe device only do Identify controller
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --page
+  - -p
+  value_name: PG
+  value_kind: Required
+  group: 'where:'
+  description: Vital Product Data (VPD) page number or abbreviation (opcode number if '--cmddt' given)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --raw
+  - -r
+  group: 'where:'
+  description: output response in binary (to stdout)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vendor
+  - -s
+  group: 'where:'
+  description: show vendor specific fields in std inquiry
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  group: 'where:'
+  description: increase verbosity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  - -V
+  group: 'where:'
+  description: print version string then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vpd
+  - -e
+  group: 'where:'
+  description: vital product data (set page with '--page=PG')
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

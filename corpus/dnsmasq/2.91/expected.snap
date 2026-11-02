@@ -955,9 +955,11 @@ flags:
     - help-text
 - spellings:
   - --tftp-unique-root
-  value_name: ip|mac
   value_kind: Optional
   optional_join: equals
+  choices:
+  - ip
+  - mac
   group: 'Valid options are:'
   description: Add client IP or hardware address to tftp-root.
   provenance:
@@ -1199,9 +1201,11 @@ flags:
     - help-text
 - spellings:
   - --add-mac
-  value_name: base64|text
   value_kind: Optional
   optional_join: equals
+  choices:
+  - base64
+  - text
   group: 'Valid options are:'
   description: Add requestor's MAC address to forwarded DNS queries.
   provenance:

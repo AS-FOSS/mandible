@@ -18,3 +18,12 @@ stdout = "help.txt"
 
 [contract]
 must_keep_separate = [["-w", "-X"]]
+
+# Alternation values (S-253): braced and bracketed alternations are choices.
+[contract.must_attach_choices]
+"--compress-debug-sections" = ["none", "zlib", "zlib-gnu", "zlib-gabi", "zstd"]
+"--elf-stt-common" = ["no", "yes"]
+"--generate-missing-build-notes" = ["no", "yes"]
+
+[contract.must_not_value_name]
+"--elf-stt-common" = "yes"

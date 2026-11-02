@@ -21,9 +21,10 @@ FLAGS (20) ───────────────────────
                          connecting to servers
 -o, --host ARG           Specify a server, from the server list, using its
                          host's fully qualified domain name
--p, --progress yes|no    Enable or disable progress bar (Note: only
+-p, --progress {…}       Enable or disable progress bar (Note: only
                          available for 'human-readable' or 'json' and
                          defaults to yes when interactive)
+                           values: yes, no
 -P, --precision #        Number of decimals to use (0-8, default=2)
 -f, --format ARG         Output format (see below for valid formats) Machine
                          readable formats (csv, tsv, json, jsonl,

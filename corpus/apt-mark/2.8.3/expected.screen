@@ -13,8 +13,7 @@ USAGE ────────────────────────�
 
 
 POSITIONALS (2) ────────────────────────────────────────────────────────────
-  {auto|manual}
-                   values: auto, manual
+  {…}     values: auto, manual
   pkg...
 
 === apt-mark auto ===

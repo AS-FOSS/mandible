@@ -932,17 +932,21 @@ flags:
     - help-text
 - spellings:
   - --sort-common
-  value_name: ascending|descending
   value_kind: Optional
   optional_join: equals
+  choices:
+  - ascending
+  - descending
   description: Sort common symbols by alignment [in specified order]
   provenance:
     sources:
     - help-text
 - spellings:
   - --sort-section
-  value_name: name|alignment
   value_kind: Required
+  choices:
+  - name
+  - alignment
   description: Sort sections by name or maximum alignment
   provenance:
     sources:
@@ -1306,8 +1310,13 @@ flags:
     - help-text
 - spellings:
   - --compress-debug-sections
-  value_name: '[none|zlib|zlib-gnu|zlib-gabi|zstd]'
   value_kind: Required
+  choices:
+  - none
+  - zlib
+  - zlib-gnu
+  - zlib-gabi
+  - zstd
   group: 'ELF emulations:'
   description: 'Compress DWARF debug sections Default: none'
   provenance:
@@ -1856,9 +1865,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64linux:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -1928,9 +1940,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64elf:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2000,9 +2015,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64elf32:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2072,9 +2090,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64elf32b:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2144,9 +2165,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64elfb:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2508,9 +2532,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64linuxb:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2580,9 +2607,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64linux32:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:
@@ -2652,9 +2682,12 @@ flags:
     - help-text
 - spellings:
   - --fix-cortex-a53-843419
-  value_name: full|adr|adrp
   value_kind: Optional
   optional_join: equals
+  choices:
+  - full
+  - adr
+  - adrp
   group: 'aarch64linux32b:'
   description: Fix erratum 843419 and optionally specify which workaround to use.
   provenance:

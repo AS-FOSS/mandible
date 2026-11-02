@@ -11,6 +11,7 @@
 //! order wins": attempt order is a cost ordering (spec §7); conflict
 //! resolution is authority (spec §4.4).
 
+use crate::alternation::fold_alternation_values;
 use crate::entity::{is_literal_choice_value, Choice, Dashes, Entity, EntityKind, Spelling};
 use crate::node::CommandNode;
 use crate::provenance::{Axis, Provenance};
@@ -39,6 +40,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     }
     if candidates.len() == 1 {
         let mut only = candidates.pop().expect("len checked above");
+        fold_alternation_values(&mut only.entities);
         let flags = only.take_entities_of(EntityKind::Flag);
         only.set_flags(pair_aliases(flags));
         return Ok(only);
@@ -47,6 +49,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     // Alias-pair each candidate's own flags before it participates in
     // cross-source merge (spec §4.4: "Pairing runs before merge").
     for c in &mut candidates {
+        fold_alternation_values(&mut c.entities);
         let flags = c.take_entities_of(EntityKind::Flag);
         c.set_flags(pair_aliases(flags));
     }
@@ -469,7 +472,7 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     // One dash or two, and negatability, are facts about how the tool
     // spells this option: a single source that saw it is enough, because
     // no other source can have seen the same flag spelled the other way.
-    let negatable = bucket.iter().any(|f| f.negatable());
+    let negation = bucket.iter().find_map(|f| f.negation());
     let single_dash = bucket.iter().any(|f| f.single_dash());
     let (value_name, choices) = resolve_value_name_and_choices(&bucket);
     let value_kind = bucket
@@ -523,7 +526,10 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
     // keys are recovered from.
     let mut spellings = Vec::new();
     if let Some(c) = short {
-        spellings.push(Spelling::short(c));
+        let mut spelling = Spelling::short(c);
+        // `[!]` is written once for the whole row; `[no-]` belongs to the long.
+        spelling.negation = negation.filter(|n| *n == crate::Negation::Bang);
+        spellings.push(spelling);
     }
     if let Some(name) = long_name {
         spellings.push(Spelling {
@@ -533,7 +539,7 @@ fn merge_entity_bucket(mut bucket: Vec<Entity>) -> Entity {
             } else {
                 Dashes::Double
             },
-            negatable,
+            negation,
             abbrev: None,
         });
     }

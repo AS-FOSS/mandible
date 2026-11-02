@@ -3356,7 +3356,12 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: grub-mkimage, grub-mkstandalone, rustc, tclobjnew-bpfcc,
   javaflow-bpfcc, rubyobjnew-bpfcc, curl (brace/angle forms only where a
   choice reading holds — see the false-positive note below) and
-  everywhere else the shape occurs on a full-`PATH` sweep (PLACEHOLDER_TOOLS
+  everywhere else the shape occurs on a full-`PATH` sweep (sg_inq, vgchange, ld, as, lto-dump, pkg-config, speedtest, awk,
+  setterm, rustfmt, systemd-creds, hostnamectl, unshare, tail, od, size and
+  the rest of 93 tools on a full-`PATH` sweep; apt-mark and cache_repair for
+  the braced operand. The `{…}` mark also reaches every flag that already
+  had choices and no name (lvcreate, pvscan, vgck, ssh-keygen, tcpdump,
+  ethtool, icupkg)
   moved, PLACEHOLDER_FINDINGS findings)
 - handling: Fixed. A value spec that is one delimited alternation of
   literal members, with no other token inside the delimiter, is that
@@ -5842,3 +5847,65 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: tcpretrans.bt and the other `*.bt` wrapper scripts, unified-monitoring-agent-gem, egrep, vi, view, ex, update-grub, pnpx, bzless, slogin, domainname
 - handling: Fixed in the USAGE renderer and in the usage scan. When no form names the node and every form opens with the same lowercase program word, the forms are shown as printed with no name prefix, and nothing in them is accented. The rule reads only the forms, so it never names a tool. The usage scan stored the first form under a bare `Usage:` label with its indentation stripped and later forms with theirs, so forms 2 and up rendered four columns deeper; it now keeps the indentation on all of them. Tests: `forms_sharing_a_foreign_program_word_are_shown_as_printed`, `first_form_under_a_bare_label_keeps_its_indentation`.
 - fleet: replaying 2324 PATH tools (2026-10-18) changed the USAGE text of 155 tools, each only by losing the prefixed node name; no other token moved. 42 tools had forms 2 and up move left by 2 or 4 columns (39 `*.bt` scripts, unified-monitoring-agent-gem, streamzip, llvm-jitlink-executor-18). Seven corpus snapshots changed by one leading indent on the first usage line. The coverage sweep-diff reported no flag, subcommand or positional change.
+
+### S-253: a value written only as alternatives
+
+- id: S-253
+- looks like: |
+      -a, --activate y|n|ay                            vgchange
+      --compress-debug-sections=[none|zlib|zlib-gnu|zlib-gabi|zstd]   ld
+      --elf-stt-common=[no|yes] (default: no)          as
+      apt-mark [options] {auto|manual} pkg1 [pkg2 ...]
+- tools: sg_inq, vgchange, ld, as, lto-dump, pkg-config, speedtest, awk,
+  setterm, rustfmt, systemd-creds, hostnamectl, unshare, tail, od, size and
+  the rest of 93 tools on a full-`PATH` sweep; apt-mark and cache_repair for
+  the braced operand. The `{…}` mark also reaches every flag that already
+  had choices and no name (lvcreate, pvscan, vgck, ssh-keygen, tcpdump,
+  ethtool, icupkg)
+- handling: Fixed. A value spec of two or more words joined by `|`, each
+  lowercase letters and digits with `-` and `_` inside, bare or wrapped once
+  in `{}` or `[]`, is the entity's `choices` and its `value_name` is dropped
+  (`mandible_core::alternation`, run by `merge_nodes` on every node, so
+  every tier gets it). A capitalised word (`VG|Tag`, `PID|pattern`) is a
+  placeholder and stays as written; `<a|b>` is S-155's. A positional counts
+  only when its name is braced (`{auto|manual}`, S-153): a bare
+  `device|mountpoint` operand names kinds of argument, and keeps its name.
+  The page draws a muted `{…}` where the name would be, inside the optional
+  value's brackets when it has them (`--sort-common[={…}]`), and lists the
+  values once on the `values:` line. A row with no description carries that
+  line in its own description column. A value name the tool wrote
+  (`--color=WHEN`) is kept. Wide-mode search also matches the choice names.
+  Fixtures: `corpus/sg_inq/audit-seed8`, `corpus/vgchange/2.03.16`,
+  `corpus/ld/2.42`, `corpus/as/2.42`, `corpus/apt-mark/2.8.3`.
+- fleet: replaying 2271 `PATH` tools (2026-11-02) moves a value
+  spec from `value_name` into `choices` on 181 flags of 93 tools, with 0 flag,
+  0 subcommand and 0 positional losses and no status change. 41 of 266 corpus
+  fixtures change their rendered page. The sweep does not count the flags
+  that already carried choices and no name, which only change in display.
+
+### S-254: a leading `[!]` marks an invertible flag row; heads written long first
+
+- id: S-254
+- looks like: |
+      [!] --protocol	-p proto	protocol: by number or name, eg. `tcp'
+      [!] --version	-V		print package version.
+      --append  -A chain		Append to chain
+      --delete-chain
+                -X [chain]		Delete a user-defined chain
+- tools: iptables, iptables-legacy, iptables-nft, iptables-translate, ip6tables, ip6tables-legacy, ip6tables-nft, ip6tables-translate, arptables, arptables-nft
+- handling: Fixed. A flag row led by `[!]` is read as an ordinary row, and every
+  spelling it names gets the `!` negation form (`Spelling::negation`): the tool
+  takes a `!` typed before the flag to invert the test. The page draws `[!]`
+  once before the spellings, in the muted colour, as the tool wrote it. The
+  marker adds no spelling and no search form. Fixture:
+  `corpus/ip6tables-translate/1.8.10`.
+  Long-first heads: in a block where at least three rows, and half of the dash-led
+  rows, open with a lone `--long` and a one-letter `-X` after a gap, that gap is
+  an alias separator and the description gap is the next one, or none. Such a
+  row is one flag with both spellings and one value. A lone `--long` row
+  followed by a deeper row that starts with `-X` is the same head wrapped onto
+  two lines and is joined. A value's continuation words after its first
+  (`chain [rulenum]`, `PKTS BYTES`, `input name[+]`) stay with the value, as
+  S-225 keeps `name value`. A tab between spellings separates them like a space.
+  Fixture: `corpus/ip6tables-translate/1.8.10`.
+- fleet: full-PATH sweep (2271 tools, 2026-11-02), zero flag, subcommand or positional losses; 10 tools gained 16 flags (the iptables, ip6tables and arptables families), each read against its `--help`. Also moved: ebtables and ebtables-nft (the `:` separator dropped from three descriptions), innotop (`--[no]color -C` is one flag), install-info and ginstall-info (`--section R SEC` keeps `SEC`), pygmentize (`-H NAME TYPE` keeps `TYPE`), mdmon (the `:` separator dropped from four descriptions). Every `[!]` marker drawn comes from a row the tool led with `[!]`; a `[!]` written after the alias (ebtables) is left as read.

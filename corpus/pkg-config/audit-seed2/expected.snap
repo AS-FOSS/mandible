@@ -150,8 +150,10 @@ flags:
     - help-text
 - spellings:
   - --personality
-  value_name: triplet|filename
   value_kind: Required
+  choices:
+  - triplet
+  - filename
   group: 'cross-compilation personality support:'
   description: sets the personality to 'triplet' or a file named 'filename'
   provenance:

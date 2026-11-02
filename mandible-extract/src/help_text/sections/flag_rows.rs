@@ -403,6 +403,8 @@ pub(super) enum FlagsBlockRow<'a> {
     /// text only — the row's own indentation has already done its job),
     /// with the raw line beside it for the multi-column rescue.
     Continuation(&'a str, &'a str),
+    /// A head wrapped onto two lines, already joined; see `wrapped_head`.
+    Joined(String),
 }
 
 // --- S-095: the neighbor-gated `+`/`+<placeholder>` option row ---------
@@ -885,6 +887,11 @@ fn collect_flags_block_rows<'a>(
             && plus_minus_alternation_word(first_word(trimmed).trim_end_matches(',')).is_some()
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
+        if is_entry_start && super::wrapped_head::join_into_previous(&mut rows, line) {
+            current_entry_line = Some(line);
+            i += 1;
+            continue;
+        }
         if is_entry_start || is_plus_sigil_start || is_alternation_start {
             rows.push(if is_plus_sigil_start {
                 FlagsBlockRow::PlusSigil(line)
@@ -1031,17 +1038,10 @@ pub(super) fn scan_flags_block(
     // decided once from every entry row together — never per line, which
     // would let an ordinary single-column row get split as if a bare
     // second word were a second flag. See docs/shapes.md S-036.
-    let entry_lines: Vec<&str> = rows
-        .iter()
-        .filter_map(|r| match r {
-            FlagsBlockRow::Entry(l) => Some(*l),
-            FlagsBlockRow::PlusSigil(_)
-            | FlagsBlockRow::AlternationSigil(_)
-            | FlagsBlockRow::Continuation(..) => None,
-        })
-        .collect();
+    let entry_lines = entry_row_lines(&rows);
+    let long_first = block_reads_long_first(&rows, &entry_lines);
     let dash_cells = dash_cells_are_flags(&entry_lines);
-    let column_offsets = secondary_column_offsets(&entry_lines, dash_cells);
+    let column_offsets = block_column_offsets(long_first, &entry_lines, dash_cells);
     let desc_col = block_description_column(&entry_lines);
     let multi_column = !column_offsets.is_empty();
     let rows = rescue_column_rows(rows, &column_offsets);
@@ -1049,13 +1049,14 @@ pub(super) fn scan_flags_block(
     // several flag+description pairs per line (that decision) *or* spell
     // one option across aligned spelling columns (this one). Only a block
     // the first decision did not claim consults the second.
-    let aligned_spellings = !multi_column && block_has_aligned_spelling_column(&entry_lines);
+    let plain = !long_first && !multi_column;
+    let aligned_spellings = plain && block_has_aligned_spelling_column(&entry_lines);
     // Subordinate to both of the above, for the reason each of their own
     // doc comments gives for the other: a block already claimed by either
     // shape never reaches the packed-row reader, and the packed reader
     // itself refuses (see `block_is_packed_flag_rows`) rather than compete
     // for a row a working splitter already owns.
-    let packed = !multi_column && !aligned_spellings && block_is_packed_flag_rows(&entry_lines);
+    let packed = plain && !aligned_spellings && block_is_packed_flag_rows(&entry_lines);
 
     let mut entries: Vec<FlagRowEntry> = Vec::new();
     // Parallel to `entries`, one entry per element: `true` where that
@@ -1175,12 +1176,13 @@ pub(super) fn scan_flags_block(
                             }
                             None => desc_col
                                 .and_then(|c| split_at_block_column(line, c))
-                                .unwrap_or_else(|| split_single_column_entry(line)),
+                                .unwrap_or_else(|| split_entry(line, long_first)),
                         };
                         entries.push((s, d, Vec::new()));
                     }
                 }
             }
+            FlagsBlockRow::Joined(text) => entries.push(joined_head_entry(&text)),
             FlagsBlockRow::Continuation(text, _) => {
                 if choice_list_rows[row_idx] {
                     // S-168: a colon-introduced choice list — the

@@ -440,7 +440,7 @@ pub enum EntityKind { Flag, Positional, Modifier, EnvVar }
 pub struct Choice { pub name: String, pub description: Option<Text> }
 ```
 
-`short()`, `long()`, `negatable()`, and `single_dash()` are derived from
+`short()`, `long()`, `negation()`, `negatable()`, and `single_dash()` are derived from
 `spellings` by shape, never stored: two dashes is long, one dash is long
 when the name is longer than a single character (`-help`, `-vv`, `-CC`) and
 short otherwise. A one-character single-dash spelling is a short flag,
@@ -469,7 +469,7 @@ flag accepted repeatedly, and a positional written with an ellipsis
 pub struct Spelling {
     pub name: String,
     pub dashes: Dashes,   // None | Single | Double
-    pub negatable: bool,
+    pub negation: Option<Negation>,   // None | NoPrefix | Bang
     /// `Some(n)` when the tool documents an abbreviation bracket — the
     /// minimum accepted prefix length: `-r[esolve]` is `name: "resolve"`,
     /// `abbrev: Some(1)`; `-rc[vbuf]` is `name: "rcvbuf"`, `abbrev:
@@ -477,6 +477,16 @@ pub struct Spelling {
     pub abbrev: Option<usize>,
 }
 ```
+
+`negation` is how the tool writes a flag's inverse, one field with two kinds.
+`NoPrefix` is the `no-` prefix, drawn `--[no-]name`: `--name` and `--no-name`
+are both spelled. `Bang` is a `!` typed before the flag (iptables:
+`iptables -A INPUT ! -p tcp` inverts the test), drawn `[!]` once before the
+row's spellings, as the tool wrote it: `[!] -p, --protocol proto`. A `[!]` row
+sets `Bang` on every spelling it names. `Bang` adds no spelling and no
+search form (there is no `--no-protocol`). `expected.snap` stores each
+spelling as the tool wrote it, `[!] -p`; a cached tree that still carries the
+boolean `negatable` reads as `NoPrefix`. See `docs/shapes.md` S-254.
 
 One constraint carries over from `Flag::negatable` and `Flag::single_dash`:
 the searched/copied name never smuggles punctuation. `-h`, `-?`, `-help`,
@@ -1993,6 +2003,7 @@ drawn given a terminal that cannot be trusted to support any of it.
 | Description preview pointer (§9.3 rule 19) | The section heading's grey; the rows above it are drawn as in the full text |
 | **Flag spelling** | **Accent**, the payload the user came for |
 | Value placeholder (`<FILE>`) | Muted italic |
+| Negation notation (`[no-]` in `--[no-]name`, a leading `[!]`) | Muted; the names around it keep the spelling's accent |
 | Flag description | Default foreground |
 | Inherited flag group | Entire group muted |
 | Deprecated | Muted + a `(deprecated)` tag |
@@ -2127,6 +2138,17 @@ sections.
    the tool is shown as written. Only values carry them in the parsed view:
    a positional is drawn bare, and whether it is optional is read from the
    USAGE line above it, which shows the author's own brackets.
+   A value the tool writes only as alternatives has no name to draw. That is
+   two or more words joined by `|`, each lowercase letters and digits with
+   `-` and `_` inside, bare or wrapped once in `{}` or `[]` (`y|n|ay`,
+   `0|1`, `[no|yes]`, `{auto|manual}`). Such a spec is the entity's
+   `choices`, and the placeholder is the muted mark `{…}`, which takes the
+   optional brackets like a name (`--color[={…}]`). A capitalised word
+   (`VG|Tag`) is a placeholder and stays as written. A name the tool wrote
+   (`--color=WHEN`) is kept. A positional named by a braced alternation
+   (`{auto|manual}`) draws `{…}` too, with `...` when repeatable, and keeps
+   the tool's text as its name for search and copy. A bare `device|file`
+   operand names kinds of argument, so it stays as written.
 7. A flag's or positional's `choices` render as their own `values:` line under the
    description, indented two columns past the shared description column
    (in the man layout, past the description's own indent),
@@ -2135,7 +2157,10 @@ sections.
    renders one further indent past `values:`, one `name  description` row
    per choice, in the same style; a flag whose choices all lack one keeps
    the single-line `values: a, b, c` summary, and the two forms may mix
-   within one flag's list. A tool's own scope-flag columns (ffmpeg's
+   within one flag's list. A row with no description of its own carries the
+   one-line summary in its description column instead, muted, so
+   `-a, --activate {…}` and `values: y, n, ay` share a line; the man layout
+   keeps the line below. A tool's own scope-flag columns (ffmpeg's
    `ED.VAS.....`) stay verbatim inside the description; mandible parses no
    meaning out of them.
 8. A flag's own `env_var` cross-reference (§4.5) renders as its own
@@ -2537,8 +2562,8 @@ findable, and how a match is shown in context.
    `Name` for a dashless entity's bare `primary_name()` (a positional's
    placeholder, a modifier's letter, an environment variable's name, §4.5's
    three dashless `EntityKind`s). Each entry's haystack is every spelling
-   as the page draws it, `value_name`, the drawn value, and description, the
-   same shape for every kind, dashless spellings indexed with no dash
+   as the page draws it, `value_name`, the drawn value, the names of its
+   `choices`, and description, the same shape for every kind, dashless spellings indexed with no dash
    prefix. Search text is built from the same model pieces the detail pane
    draws from (`Spelling::render`, `Entity::value_text`), so what is on
    screen can be typed. A `--[no-]x` spelling is indexed as both `--x` and
@@ -3447,6 +3472,16 @@ only as a zero-confidence fallback, which never touches a tool that already
 parsed. [M-14]'s reading wins. A tool whose only good documentation is a man
 page stays shallow in the tree, and that is a stated limit rather than a bug
 to chase.
+
+**Alternation values are choices, drawn once (2026-11-02).** The maintainer
+ruled that a value written only as alternatives (`y|n`, `[none|zlib]`,
+`{auto|manual}`) is the entity's `choices`, that the row shows a muted `{…}`
+where a name would be, and that the values appear once, on the `values:`
+line, which moves up into the description column when the row has no
+description. Positionals follow the same rules as flags, but only a braced
+name counts. A capitalised word makes the spec a placeholder, and no member
+count is required. Docs/shapes.md
+S-253.
 
 **Small terminals answer three questions and nothing else (2026-10-22).**
 Every size-dependent behaviour answers one of SCREEN (do two panes fit),

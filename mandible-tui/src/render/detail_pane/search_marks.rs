@@ -90,7 +90,13 @@ fn emphasize(lines: &mut [Line<'static>], entity: &Entity, marks: &PageMarks<'_>
             let chars: Vec<char> = form.chars().collect();
             for i in mandible_search::substring_indices(form, marks.query) {
                 let i = i as usize;
-                let Some(pos) = displayed_at(at, lead, spelling.negatable, n == 1, i) else {
+                let Some(pos) = displayed_at(
+                    at,
+                    lead,
+                    spelling.negation == Some(Negation::NoPrefix),
+                    n == 1,
+                    i,
+                ) else {
                     continue;
                 };
                 let same = |a: char, b: char| a.to_lowercase().eq(b.to_lowercase());

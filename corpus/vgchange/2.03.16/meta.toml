@@ -111,3 +111,15 @@ must_contain_flags = [
   "--monitor",
   "--poll",
 ]
+
+# Alternation values (S-253): the values are the flag's choices, and no
+# value name repeats them.
+[contract.must_attach_choices]
+"--activate" = ["y", "n", "ay"]
+"--resizeable" = ["y", "n"]
+"--alloc" = ["contiguous", "cling", "cling_by_tags", "normal", "anywhere", "inherit"]
+"--locktype" = ["sanlock", "dlm", "none"]
+
+[contract.must_not_value_name]
+"--activate" = "y|n"
+"--alloc" = "cling"

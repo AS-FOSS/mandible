@@ -17,24 +17,25 @@ POSITIONALS (4) ─────────────────────�
 
 
 FLAGS (10) ─────────────────────────────────────────────────────────────────
-    --format          archive format to create
-                        values:
-                          default     default
-                          gnu         gnu
-                          darwin      darwin
-                          bsd         bsd
-                          bigarchive  big archive (AIX OS)
+    --format       archive format to create
+                     values:
+                       default     default
+                       gnu         gnu
+                       darwin      darwin
+                       bsd         bsd
+                       bigarchive  big archive (AIX OS)
     --plugin <string> ignored for compatibility
--h, --help            display this help and exit
-    --output          the directory to extract archive members to
-    --rsp-quoting     quoting style for response files
-                        values:
-                          posix    posix
-                          windows  windows
-    --thin            create a thin archive
-    --version         print the version and exit
--X {32|64|32_64|any}  object mode (only for AIX OS)
-@<file>               read options from <file>
+-h, --help         display this help and exit
+    --output       the directory to extract archive members to
+    --rsp-quoting  quoting style for response files
+                     values:
+                       posix    posix
+                       windows  windows
+    --thin         create a thin archive
+    --version      print the version and exit
+-X {…}             object mode (only for AIX OS)
+                     values: 32, 64, 32_64, any
+@<file>            read options from <file>
 -M [<mri-script]
 
 
