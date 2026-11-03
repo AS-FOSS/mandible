@@ -1,22 +1,11 @@
-//! `<command> help` for a command a grammar production listed (spec §6 rule
-//! 2f, docs/shapes.md S-257).
-//!
-//! `ip [ OPTIONS ] OBJECT { COMMAND | help }` shows `help` right after the
-//! command slot, so each listed object prints its page as `ip <object> help`.
-//! When the normal `<object> --help` answer gave nothing, that one argv is
-//! run, before the quoted hints of rule 2e. It is built only by
-//! [`InertArgv::help_after_command`] from a node whose evidence bit is set,
-//! kept only if it is help, sent at most once per node, and never searched
-//! for further hints.
+//! `<command> help` for a production-listed command (spec §6 rule 2f, S-257).
 
 use std::path::Path;
 
 use super::hint::{self, Followed};
 use crate::exec::{InertArgv, Probe};
 
-/// The help ways for a node whose answer gave nothing: its `<command> help`
-/// when `help_slot_attested`, then the hints the answer quotes (rule 2e),
-/// none equal to an argv in `tried` or to the one just sent.
+/// `<command> help` when attested, then rule 2e's quoted hints.
 pub(super) fn follow(
     probe: &dyn Probe,
     tool_path: &Path,

@@ -1,19 +1,10 @@
-//! A flag row inside a grammar production whose value is a braced list of
-//! lowercase alternatives (docs/shapes.md S-257):
-//!
-//! ```text
-//! OPTIONS := { -f[amily] { inet | inet6 | link | help } |
-//! ```
-//!
-//! The list is the flag's values. The row is rewritten to the compact
-//! `-f[amily] {inet|inet6|link|help}` spec, which the alternation reading
-//! (S-253) turns into choices.
+//! A production flag row whose value is a braced lowercase list (S-257):
+//! `-f[amily] { inet | inet6 | link } |` becomes `-f[amily] {inet|inet6|link}`.
 
 use super::*;
 use mandible_core::alternation_members;
 
-/// The `(spec, description)` entry for `line`, or `None` when it is not one
-/// flag followed by one braced alternation and nothing else.
+/// The entry for one flag plus one braced alternation, else `None`.
 pub(super) fn braced_value_entry(line: &str) -> Option<(String, String)> {
     let text = line.trim().trim_end_matches('|').trim_end();
     let open = text.find('{')?;
@@ -32,8 +23,7 @@ pub(super) fn braced_value_entry(line: &str) -> Option<(String, String)> {
         .then(|| (format!("{head} {compact}"), String::new()))
 }
 
-/// The entries a production row splits into: the one valued flag of
-/// [`braced_value_entry`], else the alternatives of S-043.
+/// [`braced_value_entry`], else S-043's alternatives.
 pub(super) fn alternatives(line: &str) -> Option<Vec<(String, String)>> {
     match braced_value_entry(line) {
         Some(entry) => Some(vec![entry]),
