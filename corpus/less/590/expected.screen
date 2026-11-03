@@ -1,77 +1,78 @@
 === less ===
-FLAGS (45) ─────────────────────────────────────────────────────────────────
--?, --help                  Display help (from command line).
--a, --search-skip-screen    Search skips current screen.
--A, --SEARCH-SKIP-SCREEN    Search starts just after target line.
--b, --buffers [_N]          Number of buffers.
--B, --auto-buffers          Don't automatically allocate buffers for pipes.
--c, --clear-screen          Repaint by clearing rather than scrolling.
--d, --dumb                  Dumb terminal.
--D, --color xx_c_o_l_o_r    Set screen colors.
--e, --quit-at-eof           Quit at end of file.
+FLAGS (58) ─────────────────────────────────────────────────────────────────
+-?, --help                Display help (from command line).
+-a, --search-skip-screen  Search skips current screen.
+-A, --SEARCH-SKIP-SCREEN  Search starts just after target line.
+-b, --buffers [N]         Number of buffers.
+-B, --auto-buffers        Don't automatically allocate buffers for pipes.
+-c, --clear-screen        Repaint by clearing rather than scrolling.
+-d, --dumb                Dumb terminal.
+-D, --color xcolor        Set screen colors.
+-e, --quit-at-eof         Quit at end of file.
  or -E, --QUIT-AT-EOF
--f, --force                 Force open non-regular files.
--F, --quit-if-one-screen    Quit if entire file fits on first screen.
--g, --hilite-search         Highlight only last match for searches.
--G, --HILITE-SEARCH         Don't highlight any matches for searches.
--h, --max-back-scroll [_N]  Backward scroll limit.
--i, --ignore-case           Ignore case in searches that do not contain
-                            uppercase.
--I, --IGNORE-CASE           Ignore case in all searches.
--j, --jump-target [_N]      Screen position of target lines.
--J, --status-column         Display a status column at left edge of screen.
--k, --lesskey-file [_f_i_l_e] Use a lesskey file.
--K, --quit-on-intr          Exit less in response to ctrl-C.
--L, --no-lessopen           Ignore the LESSOPEN environment variable.
--m, --long-prompt           Set prompt style.
+-f, --force               Force open non-regular files.
+-F, --quit-if-one-screen  Quit if entire file fits on first screen.
+-g, --hilite-search       Highlight only last match for searches.
+-G, --HILITE-SEARCH       Don't highlight any matches for searches.
+-h, --max-back-scroll [N] Backward scroll limit.
+-i, --ignore-case         Ignore case in searches that do not contain
+                          uppercase.
+-I, --IGNORE-CASE         Ignore case in all searches.
+-j, --jump-target [N]     Screen position of target lines.
+-J, --status-column       Display a status column at left edge of screen.
+-k, --lesskey-file [file] Use a lesskey file.
+-K, --quit-on-intr        Exit less in response to ctrl-C.
+-L, --no-lessopen         Ignore the LESSOPEN environment variable.
+-m, --long-prompt         Set prompt style.
  or -M, --LONG-PROMPT
--n, --line-numbers          Don't use line numbers.
+-n, --line-numbers        Don't use line numbers.
  or -N, --LINE-NUMBERS
--o, --log-file [_f_i_l_e]   Copy to log file (standard input only).
--O, --LOG-FILE [_f_i_l_e]   Copy to log file (unconditionally overwrite).
--p, --pattern[=_p_a_t_t_e_r_n] Start at pattern (from command line).
--P, --prompt[=_p_r_o_m_p_t] Define new prompt.
--q, --quiet                 Quiet the terminal bell.
+-o, --log-file [file]     Copy to log file (standard input only).
+-O, --LOG-FILE [file]     Copy to log file (unconditionally overwrite).
+-p, --pattern[=pattern]   Start at pattern (from command line).
+-P, --prompt[=prompt]     Define new prompt.
+-q, --quiet               Quiet the terminal bell.
  or -Q, --QUIET, --silent
  or --SILENT
--r, --raw-control-chars     Output "raw" control characters.
- or -R, --RAW-CONTROL-CHARS
--s, --squeeze-blank-lines   Squeeze multiple blank lines.
--S, --chop-long-lines       Chop (truncate) long lines rather than wrapping.
--t, --tag [_t_a_g]          Find a tag.
--T [_t_a_g_s_f_i_l_e]       Use an alternate tags file.
--u, --underline-special     Change handling of backspaces.
- or -U, --UNDERLINE-SPECIAL
--V, --version               Display the version number of "less".
--w, --hilite-unread         Highlight first new line after forward-screen.
--W, --HILITE-UNREAD         Highlight first new line after any forward
-                            movement.
--x, --tabs[=_N[,...]]       Set tab stops.
--X, --no-init               Don't use termcap init/deinit strings.
--y, --max-forw-scroll [_N]  Forward scroll limit.
--z, --window [_N]           Set size of window.
--", --quotes [_c[_c]]       Set shell quote characters.
--~, --tilde                 Don't display tildes after end of file.
--#, --shift [_N]            Set horizontal scroll amount (0 = one half
-                            screen width). --file-size Automatically
-                            determine the size of the input file.
-                            --follow-name The F command changes files if the
-                            input file is renamed. --incsearch Search file
-                            as each pattern character is typed in.
-                            --line-num-width=N Set the width of the -N line
-                            number field to N characters. --mouse Enable
-                            mouse input. --no-keypad Don't send termcap
-                            keypad init/deinit strings. --no-histdups Remove
-                            duplicates from command history. --rscroll=C Set
-                            the character used to mark truncated lines.
-                            --save-marks Retain marks across invocations of
-                            less. --status-col-width=N Set the width of the
-                            -J status column to N characters.
-                            --use-backslash Subsequent options use backslash
-                            as escape char. --use-color Enables colored
-                            text. --wheel-lines=N Each click of the mouse
-                            wheel moves N lines.
+-r, --raw-control-chars   Output "raw" control characters.
+ or -R
+ or --RAW-CONTROL-CHARS
+-s, --squeeze-blank-lines Squeeze multiple blank lines.
+-S, --chop-long-lines     Chop (truncate) long lines rather than wrapping.
+-t, --tag [tag]           Find a tag.
+-T [tagsfile]             Use an alternate tags file.
+-u, --underline-special   Change handling of backspaces.
+ or -U
+ or --UNDERLINE-SPECIAL
+-V, --version             Display the version number of "less".
+-w, --hilite-unread       Highlight first new line after forward-screen.
+-W, --HILITE-UNREAD       Highlight first new line after any forward
+                          movement.
+-x, --tabs[=N[,...]]      Set tab stops.
+-X, --no-init             Don't use termcap init/deinit strings.
+-y, --max-forw-scroll [N] Forward scroll limit.
+-z, --window [N]          Set size of window.
+-", --quotes [c[c]]       Set shell quote characters.
+-~, --tilde               Don't display tildes after end of file.
+-#, --shift [N]           Set horizontal scroll amount (0 = one half screen
+                          width).
+    --file-size           Automatically determine the size of the input
+                          file.
+    --follow-name         The F command changes files if the input file is
+                          renamed.
+    --incsearch           Search file as each pattern character is typed in.
+    --line-num-width N    Set the width of the -N line number field to N
+                          characters.
+    --mouse               Enable mouse input.
+    --no-keypad           Don't send termcap keypad init/deinit strings.
+    --no-histdups         Remove duplicates from command history.
+    --rscroll C           Set the character used to mark truncated lines.
+    --save-marks          Retain marks across invocations of less.
+    --status-col-width N  Set the width of the -J status column to N
+                          characters.
+    --use-backslash       Subsequent options use backslash as escape char.
+    --use-color           Enables colored text.
+    --wheel-lines N       Each click of the mouse wheel moves N lines.
 
-Mmiisscceellllaanneeoouuss ccoommmmaannddss ────────────────────────────────
--_ <_f_l_a_g_>              Toggle a command line option [see OPTIONS
-                            below].
+Miscellaneous commands ─────────────────────────────────────────────────────
+-_ <flag>                 Toggle a command line option [see OPTIONS below].

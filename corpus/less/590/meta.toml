@@ -14,7 +14,13 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
-must_contain_flags = ["--search-skip-screen", "--clear-screen", "--quit-at-eof", "--buffers"]
+must_contain_flags = ["--search-skip-screen", "--clear-screen", "--quit-at-eof", "--buffers", "--file-size", "--wheel-lines"]
+
+[contract.must_value_name]
+"-b" = "N"
+"--wheel-lines" = "N"
+"--rscroll" = "C"
 
 [contract.must_describe]
+"--wheel-lines" = "Each click of the mouse wheel moves N lines."
 "--search-skip-screen" = "Search skips current screen."

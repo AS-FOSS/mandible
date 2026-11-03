@@ -51,6 +51,7 @@ pub(crate) mod foreign_form;
 mod heading;
 mod invocation_block;
 mod key_value_text;
+mod label_overstrike;
 mod labelled_values;
 mod layout;
 pub(crate) mod leading_operands;
@@ -448,6 +449,7 @@ pub fn parse_with_profile(
         None => parse_body(&raw, profile, tool_name, &std::collections::HashSet::new()),
     };
     parsed.examples = examples;
+    label_overstrike::resolve(&mut parsed);
     parsed
 }
 

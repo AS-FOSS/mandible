@@ -63,3 +63,36 @@ pub(super) fn split_at_block_column(line: &str, col: usize) -> Option<(String, S
     (spec.starts_with('-') && (1..=3).contains(&tokens) && sentence && lone_ok)
         .then(|| (spec.to_string(), right.trim().to_string()))
 }
+
+/// True when the line at `i` sits within `tolerance` of the block's entry
+/// indent, or is a lone long spelling (`--mouse`, `--rscroll=C`) set
+/// shallower than the description line above it and followed by a deeper
+/// description of its own: a row whose description is on the next line.
+/// See docs/shapes.md S-257 and corpus/less/590.
+pub(super) fn entry_indent_fits(
+    min_entry_indent: Option<usize>,
+    tolerance: usize,
+    rows: &[FlagsBlockRow<'_>],
+    lines: &[&str],
+    i: usize,
+) -> bool {
+    let Some(min) = min_entry_indent else {
+        return true;
+    };
+    let indent = leading_whitespace(lines[i]);
+    if indent <= min + tolerance {
+        return true;
+    }
+    let Some(FlagsBlockRow::Continuation(_, above)) = rows.last() else {
+        return false;
+    };
+    let name = lines[i].trim().strip_prefix("--").unwrap_or("");
+    let (word, value) = name.split_once('=').unwrap_or((name, "x"));
+    let lone = !word.is_empty()
+        && word.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+        && !value.is_empty()
+        && !value.contains(char::is_whitespace);
+    let below = lines[i + 1..].iter().find(|l| !l.trim().is_empty());
+    lone && leading_whitespace(above) > indent
+        && below.is_some_and(|l| leading_whitespace(l) > indent)
+}
