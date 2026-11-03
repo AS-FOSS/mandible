@@ -106,12 +106,20 @@ fn described_rows(lines: &[&str], declared: &[String]) -> Vec<String> {
 /// Headed blocks after line `from`: a flush heading ending in `:` whose
 /// indented lines all start with the usage's command path (`jfr configure
 /// ...`). The heading and its lines, one paragraph each, as printed.
-fn trailing_invocation_blocks(lines: &[&str], from: usize, path: &str) -> Vec<String> {
+fn trailing_invocation_blocks(
+    lines: &[&str],
+    from: usize,
+    path: &str,
+    tool_name: Option<&str>,
+) -> Vec<String> {
     let mut blocks = Vec::new();
     let mut at = from;
     while at < lines.len() {
         let heading = lines[at].trim();
-        if leading_whitespace(lines[at]) != 0 || !heading.ends_with(':') {
+        if leading_whitespace(lines[at]) != 0
+            || !heading.ends_with(':')
+            || super::examples::heads_captured_usage_block(lines, at, tool_name)
+        {
             at += 1;
             continue;
         }
@@ -197,7 +205,11 @@ fn usage_path(usage: &[String]) -> String {
 /// The paragraphs of `key=value` text to append to the description: the
 /// described rows of the usage's declared words, then each placeholder
 /// block, in the order printed.
-pub(super) fn key_value_paragraphs(usage: &[String], lines: &[&str]) -> Option<String> {
+pub(super) fn key_value_paragraphs(
+    usage: &[String],
+    lines: &[&str],
+    tool_name: Option<&str>,
+) -> Option<String> {
     let mut paragraphs = Vec::new();
     let declared = declared_tokens(usage);
     if !declared.is_empty() {
@@ -215,7 +227,7 @@ pub(super) fn key_value_paragraphs(usage: &[String], lines: &[&str]) -> Option<S
             .iter()
             .rposition(|l| l.trim().contains("=<"))
             .map_or(0, |i| i + 1);
-        paragraphs.extend(trailing_invocation_blocks(lines, from, &path));
+        paragraphs.extend(trailing_invocation_blocks(lines, from, &path, tool_name));
     }
     (!paragraphs.is_empty()).then(|| paragraphs.join("\n\n"))
 }
@@ -237,7 +249,7 @@ mod tests {
             "",
             "  limit=<timespan>",
         ];
-        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        let text = key_value_paragraphs(&usage, &lines, None).unwrap();
         assert_eq!(
             text,
             "option=value  The option value. Wrapped.\n\nOptions for x.jfc:\n\ngc=<off|high>\n\nlimit=<timespan>"
@@ -255,7 +267,7 @@ mod tests {
             "",
             "Notes:",
         ];
-        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        let text = key_value_paragraphs(&usage, &lines, None).unwrap();
         assert_eq!(
             text,
             "option=value  The option value.\n\nThe delimiter can be omitted. See the docs."
@@ -277,7 +289,7 @@ mod tests {
             "Other notes:",
             "  something else",
         ];
-        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        let text = key_value_paragraphs(&usage, &lines, None).unwrap();
         assert!(text.ends_with("c=<d>\n\nTo run it:\n\njfr configure --interactive"));
     }
 
@@ -285,6 +297,6 @@ mod tests {
     fn undeclared_pairs_and_a_lone_row_are_left_alone() {
         let usage = vec!["tool [OPTION]...".to_string()];
         let lines = ["  bs=BYTES   read and write", "Notes:", "  a=<b>"];
-        assert!(key_value_paragraphs(&usage, &lines).is_none());
+        assert!(key_value_paragraphs(&usage, &lines, None).is_none());
     }
 }

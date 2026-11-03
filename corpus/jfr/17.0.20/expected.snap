@@ -54,6 +54,12 @@ subcommands:
     provenance:
       sources:
       - help-text
+  examples:
+  - text: jfr print --events OldObjectSample recording.jfr
+  - text: jfr print --events CPULoad,GarbageCollection recording.jfr
+  - text: jfr print --categories 'GC,JVM,Java*' recording.jfr
+  - text: jfr print --events 'jdk.*' --stack-depth 64 recording.jfr
+  - text: jfr print --json --events CPULoad recording.jfr
   provenance:
     sources:
     - help-text
@@ -99,18 +105,6 @@ subcommands:
     To run interactive configuration wizard:
 
     jfr configure --interactive
-
-    Example usage:
-
-    jfr configure gc=high method-profiling=high --output high.jfc
-
-    jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
-
-    jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
-
-    jfr configure --input default.jfc,third-party.jfc --output unified.jfc
-
-    jfr configure --input none +Hello#enabled=true --output minimal.jfc
   usage:
   - jfr configure [--interactive] [--verbose] [--input <files>] [--output <file>] [option=value]* [event-setting=value]*
   flags:
@@ -149,6 +143,12 @@ subcommands:
     provenance:
       sources:
       - help-text-synopsis
+  examples:
+  - text: jfr configure gc=high method-profiling=high --output high.jfc
+  - text: jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
+  - text: jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
+  - text: jfr configure --input default.jfc,third-party.jfc --output unified.jfc
+  - text: jfr configure --input none +Hello#enabled=true --output minimal.jfc
   provenance:
     sources:
     - help-text
@@ -183,6 +183,12 @@ subcommands:
     provenance:
       sources:
       - help-text
+  examples:
+  - text: jfr metadata
+  - text: jfr metadata --events jdk.ThreadStart recording.jfr
+  - text: jfr metadata --events CPULoad,GarbageCollection
+  - text: jfr metadata --categories 'GC,JVM,Java*'
+  - text: jfr metadata --events 'Thread*'
   provenance:
     sources:
     - help-text

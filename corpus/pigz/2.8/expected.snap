@@ -1,6 +1,13 @@
 name: pigz
+description: will compress files in place, adding the suffix '.gz'. If no files are specified, stdin will be compressed to stdout. pigz does what gzip does, but spreads the work over multiple processors and cores when compressing.
 usage:
-- 'Usage: pigz [options] [files ...] will compress files in place, adding the suffix ''.gz''. If no files are specified, stdin will be compressed to stdout. pigz does what gzip does,'
+- 'Usage: pigz [options] [files ...]'
+positionals:
+- name: files
+  variadic: true
+  provenance:
+    sources:
+    - help-text
 flags:
 - spellings:
   - '-0'

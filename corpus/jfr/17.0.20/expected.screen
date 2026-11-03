@@ -30,6 +30,18 @@ FLAGS (5) ───────────────────────�
                            qualified, and/or quoted glob patterns
     --stack-depth <depth>  Number of frames in stack traces, by default 5
 
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+jfr print --events OldObjectSample recording.jfr
+
+jfr print --events CPULoad,GarbageCollection recording.jfr
+
+jfr print --categories 'GC,JVM,Java*' recording.jfr
+
+jfr print --events 'jdk.*' --stack-depth 64 recording.jfr
+
+jfr print --json --events CPULoad recording.jfr
+
 === jfr configure ===
 Creates a custom .jfc-file for event configuration
 
@@ -65,6 +77,18 @@ FLAGS (5) ───────────────────────�
     --ouput <file>   The filename of the generated output file. If not
                      specified, the filename custom.jfc will be used.
     --output <file>
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+jfr configure gc=high method-profiling=high --output high.jfc
+
+jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
+
+jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
+
+jfr configure --input default.jfc,third-party.jfc --output unified.jfc
+
+jfr configure --input none +Hello#enabled=true --output minimal.jfc
 
 
 DESCRIPTION ────────────────────────────────────────────────────────────────
@@ -109,18 +133,6 @@ To run interactive configuration wizard:
 
 jfr configure --interactive
 
-Example usage:
-
-jfr configure gc=high method-profiling=high --output high.jfc
-
-jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
-
-jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
-
-jfr configure --input default.jfc,third-party.jfc --output unified.jfc
-
-jfr configure --input none +Hello#enabled=true --output minimal.jfc
-
 === jfr metadata ===
 Display event metadata, such as labels, descriptions and field layout. See
 'jfr help metadata' for details.
@@ -145,6 +157,18 @@ FLAGS (2) ───────────────────────�
     --events <filter>      Select events matching an event name. The filter
                            is a comma-separated list of names, simple and/or
                            qualified, and/or quoted glob patterns
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+jfr metadata
+
+jfr metadata --events jdk.ThreadStart recording.jfr
+
+jfr metadata --events CPULoad,GarbageCollection
+
+jfr metadata --categories 'GC,JVM,Java*'
+
+jfr metadata --events 'Thread*'
 
 === jfr summary ===
 Display general information about a recording file (.jfr)

@@ -1241,6 +1241,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `Example`/`Examples` block at the document's left edge are kept verbatim as
   the node's examples: an indented block ends at the first shallower line, a
   flush block ends at the first flush line that is not a command invocation.
+  An `Example usage:` heading at the left edge also heads examples when a
+  synopsis already sits above it and every line of its block opens with the
+  tool's own name (`jfr configure ...`); the block leaves the description.
+  A text whose only usage is that block keeps it as usage (S-196).
 - fleet: not measured
 
 ### S-072: free-running REPL banner explosion
@@ -4749,6 +4753,10 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (an unlabelled `corepack disable [...]` row, description beneath) are not a
   usage form's description and are left as before. Fixtures:
   `corpus/gcc-ranlib-13/2.42`, `corpus/corepack/0.34.6` (still `[xfail]`).
+  The punctuated run may also open lowercase, as prose that runs on from the
+  usage line (`Usage: pigz [options] [files ...]` then `will compress files in
+  place, ...`): all four lines move to the description, the usage stays the
+  first line. Fixture: `corpus/pigz/2.8`.
 - fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
 
 ### S-196: an `Example usage:` label above sample lines hides the synopsis

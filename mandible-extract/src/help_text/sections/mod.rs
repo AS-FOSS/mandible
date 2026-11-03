@@ -415,7 +415,7 @@ pub fn parse_with_profile(
     // word. See S-002.
     let raw = strip_escapes(raw);
     // Read before the rewrites below, so the text is the tool's own.
-    let examples = examples::capture(&raw);
+    let examples = examples::capture(&raw, tool_name);
     // A leading option-rejection diagnostic (`fuser`'s `Invalid option
     // --help`, `Xvfb`'s `Unrecognized option: --help`, `nfsidmap`'s
     // `invalid option -- '-'`) is the tool's own complaint about the probe,
@@ -2498,7 +2498,7 @@ fn parse_body(
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
-    if let Some(text) = key_value_paragraphs(&result.usage, &lines) {
+    if let Some(text) = key_value_paragraphs(&result.usage, &lines, tool_name) {
         result.description = Some(match result.description.take() {
             Some(d) => format!("{d}\n\n{text}"),
             None => text,
