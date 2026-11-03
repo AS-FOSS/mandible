@@ -17,7 +17,7 @@ pub(super) fn follow(
     let mut tried = tried.to_vec();
     if let Some(argv) = InertArgv::help_after_command(node_words, help_slot_attested) {
         tried.push(argv.args());
-        if let Some(found) = hint::run_kept_if_help(probe, tool_path, &argv) {
+        if let Some(found) = hint::run_kept_if_help(probe, tool_path, node_words, &argv) {
             return Some(found);
         }
     }
@@ -91,7 +91,12 @@ mod tests {
     fn an_attested_command_is_asked_for_its_help_page() {
         let probe = scripted(&[(&["link", "help"], PAGE)]);
         let found = run(&probe, true, &["link"], REFUSAL).expect("followed");
-        assert_eq!(found.argv, "link help");
+        // The path is not repeated: the page header reads `tool link help`.
+        assert_eq!(found.argv, "help");
+        assert_eq!(
+            super::super::render_argv("tool", &v(&["link"]), &found.argv),
+            "tool link help"
+        );
         assert_eq!(found.text, PAGE);
         assert_eq!(*probe.asked.lock().unwrap(), vec![v(&["link", "help"])]);
     }
@@ -130,7 +135,7 @@ mod tests {
         let probe = scripted(&[(&["link", "-h"], PAGE)]);
         let text = "try \"tool link -h\"\n";
         let found = run(&probe, true, &["link"], text).expect("followed");
-        assert_eq!(found.argv, "link -h");
+        assert_eq!(found.argv, "-h");
         assert_eq!(
             *probe.asked.lock().unwrap(),
             vec![v(&["link", "help"]), v(&["link", "-h"])]

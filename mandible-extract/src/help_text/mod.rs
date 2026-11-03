@@ -1166,6 +1166,9 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     // Forms that each open with a different literal verb after the node's
     // own path name subcommands (S-215).
     let mut subcommands = parsed.subcommands;
+    if let Some(own) = own {
+        sections::foreign_form::lift_own_name_command(&mut subcommands, own);
+    }
     let all_verbs =
         sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
     node.subcommands = subcommands;
@@ -1396,6 +1399,24 @@ mod tests {
             joined.contains("\n\nShowing shimtool --help instead:\n\n"),
             "{joined}"
         );
+    }
+
+    /// Rows that repeat `ip link` are the verbs of `link`: no command named
+    /// `link` appears under it, so none is ever probed as `ip link link`.
+    #[test]
+    fn rows_repeating_the_nodes_own_word_make_no_command_of_that_name() {
+        let page = "Usage: ip link add [link DEV | parentdev NAME] [ name ] NAME\n\t\t    [ txqueuelen PACKETS ]\n\t\t    [ address LLADDR ]\n\t\t    [ broadcast LLADDR ]\n\t\t    [ mtu MTU ] [index IDX ]\n\t\t    [ numtxqueues QUEUE_COUNT ]\n\t\t    [ numrxqueues QUEUE_COUNT ]\n\t\t    [ netns { PID | NAME } ]\n\t\t    type TYPE [ ARGS ]\n\n\tip link delete { DEVICE | dev DEVICE | group DEVGROUP } type TYPE [ ARGS ]\n\n\tip link set { DEVICE | dev DEVICE | group DEVGROUP }\n\t\t\t[ { up | down } ]\n\t\t\t[ type TYPE ARGS ]\n\t\t[ arp { on | off } ]\n\t\t[ dynamic { on | off } ]\n\t\t[ multicast { on | off } ]\n\t\t[ allmulticast { on | off } ]\n\t\t[ promisc { on | off } ]\n\t\t[ trailers { on | off } ]\n\t\t[ carrier { on | off } ]\n\t\t[ txqueuelen PACKETS ]\n\t\t[ name NEWNAME ]\n\t\t[ address LLADDR ]\n\t\t[ broadcast LLADDR ]\n\t\t[ mtu MTU ]\n\t\t[ netns { PID | NAME } ]\n\t\t[ link-netns NAME | link-netnsid ID ]\n\t\t[ alias NAME ]\n\t\t[ vf NUM [ mac LLADDR ]\n\t\t\t [ vlan VLANID [ qos VLAN-QOS ] [ proto VLAN-PROTO ] ]\n\t\t\t [ rate TXRATE ]\n\t\t\t [ max_tx_rate TXRATE ]\n\t\t\t [ min_tx_rate TXRATE ]\n\t\t\t [ spoofchk { on | off} ]\n\t\t\t [ query_rss { on | off} ]\n\t\t\t [ state { auto | enable | disable} ]\n\t\t\t [ trust { on | off} ]\n\t\t\t [ node_guid EUI64 ]\n\t\t\t [ port_guid EUI64 ] ]\n\t\t[ { xdp | xdpgeneric | xdpdrv | xdpoffload } { off |\n\t\t\t  object FILE [ { section | program } NAME ] [ verbose ] |\n\t\t\t  pinned FILE } ]\n\t\t[ master DEVICE ][ vrf NAME ]\n\t\t[ nomaster ]\n\t\t[ addrgenmode { eui64 | none | stable_secret | random } ]\n\t\t[ protodown { on | off } ]\n\t\t[ protodown_reason PREASON { on | off } ]\n\t\t[ gso_max_size BYTES ] | [ gso_max_segs PACKETS ]\n\t\t[ gro_max_size BYTES ]\n\n\tip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE]\n\t\t[nomaster]\n\n\tip link xstats type TYPE [ ARGS ]\n\n\tip link afstats [ dev DEVICE ]\n\tip link property add dev DEVICE [ altname NAME .. ]\n\tip link property del dev DEVICE [ altname NAME .. ]\n\n\tip link help [ TYPE ]\n";
+        let node = build_node("link", page, None, "ip");
+        let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert!(!names.contains(&"link"), "{names:?}");
+        assert!(
+            names.contains(&"delete") && names.contains(&"set"),
+            "{names:?}"
+        );
+        assert!(node
+            .subcommands
+            .iter()
+            .all(|c| !c.heading_attested && !c.help_slot_attested));
     }
 
     #[test]

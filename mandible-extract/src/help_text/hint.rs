@@ -118,13 +118,15 @@ pub(super) fn follow(
     let tool = tool_path.file_name()?.to_str()?;
     hints(text, tool, node_words, tried)
         .iter()
-        .find_map(|hint| run_kept_if_help(probe, tool_path, hint))
+        .find_map(|hint| run_kept_if_help(probe, tool_path, node_words, hint))
 }
 
 /// Run `argv`; its answer is kept only when it is help and not a man page.
+/// `Followed::argv` is the part after the node's own path, as a flag is.
 pub(super) fn run_kept_if_help(
     probe: &dyn Probe,
     tool_path: &Path,
+    node_words: &[String],
     argv: &InertArgv,
 ) -> Option<Followed> {
     let out = crate::exec::run_probe(probe, tool_path, argv).ok()?;
@@ -133,7 +135,7 @@ pub(super) fn run_kept_if_help(
     }
     let answer = pick_stream(&out.stdout, &out.stderr);
     (looks_like_help_output(&answer) && !sections::is_man_page_banner(&answer)).then(|| Followed {
-        argv: argv.args().join(" "),
+        argv: argv.args()[node_words.len().min(argv.args().len())..].join(" "),
         text: answer,
         out,
     })
