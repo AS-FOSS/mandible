@@ -1,0 +1,384 @@
+name: less
+flags:
+- spellings:
+  - -_
+  value_name: "\b<_\bf_\bl_\ba_\bg_\b>"
+  value_kind: Required
+  group: "M\bMI\bIS\bSC\bCE\bEL\bLL\bLA\bAN\bNE\bEO\bOU\bUS\bS C\bCO\bOM\bMM\bMA\bAN\bND\bDS\bS"
+  description: Toggle a command line option [see OPTIONS below].
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - --help
+  description: Display help (from command line).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  - --search-skip-screen
+  description: Search skips current screen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --SEARCH-SKIP-SCREEN
+  description: Search starts just after target line.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  - --buffers
+  value_name: "_\bN"
+  value_kind: Optional
+  optional_join: separate
+  description: Number of buffers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  - --auto-buffers
+  description: Don't automatically allocate buffers for pipes.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --clear-screen
+  description: Repaint by clearing rather than scrolling.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --dumb
+  description: Dumb terminal.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --color
+  value_name: "x\bx_\bc_\bo_\bl_\bo_\br"
+  value_kind: Required
+  description: Set screen colors.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - -E
+  - --quit-at-eof
+  - --QUIT-AT-EOF
+  description: Quit at end of file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --force
+  description: Force open non-regular files.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -F
+  - --quit-if-one-screen
+  description: Quit if entire file fits on first screen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  - --hilite-search
+  description: Highlight only last match for searches.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -G
+  - --HILITE-SEARCH
+  description: Don't highlight any matches for searches.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --max-back-scroll
+  value_name: "_\bN"
+  value_kind: Optional
+  optional_join: separate
+  description: Backward scroll limit.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --ignore-case
+  description: Ignore case in searches that do not contain uppercase.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --IGNORE-CASE
+  description: Ignore case in all searches.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --jump-target
+  value_name: "_\bN"
+  value_kind: Optional
+  optional_join: separate
+  description: Screen position of target lines.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  - --status-column
+  description: Display a status column at left edge of screen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -k
+  - --lesskey-file
+  value_name: "_\bf_\bi_\bl_\be"
+  value_kind: Optional
+  optional_join: separate
+  description: Use a lesskey file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -K
+  - --quit-on-intr
+  description: Exit less in response to ctrl-C.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --no-lessopen
+  description: Ignore the LESSOPEN environment variable.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  - -M
+  - --long-prompt
+  - --LONG-PROMPT
+  description: Set prompt style.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - -N
+  - --line-numbers
+  - --LINE-NUMBERS
+  description: Don't use line numbers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --log-file
+  value_name: "_\bf_\bi_\bl_\be"
+  value_kind: Optional
+  optional_join: separate
+  description: Copy to log file (standard input only).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  - --LOG-FILE
+  value_name: "_\bf_\bi_\bl_\be"
+  value_kind: Optional
+  optional_join: separate
+  description: Copy to log file (unconditionally overwrite).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --pattern
+  value_name: "_\bp_\ba_\bt_\bt_\be_\br_\bn"
+  value_kind: Optional
+  optional_join: equals
+  description: Start at pattern (from command line).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --prompt
+  value_name: "_\bp_\br_\bo_\bm_\bp_\bt"
+  value_kind: Optional
+  optional_join: equals
+  description: Define new prompt.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  - -Q
+  - --quiet
+  - --QUIET
+  - --silent
+  - --SILENT
+  description: Quiet the terminal bell.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - -R
+  - --raw-control-chars
+  - --RAW-CONTROL-CHARS
+  description: Output "raw" control characters.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --squeeze-blank-lines
+  description: Squeeze multiple blank lines.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --chop-long-lines
+  description: Chop (truncate) long lines rather than wrapping.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --tag
+  value_name: "_\bt_\ba_\bg"
+  value_kind: Optional
+  optional_join: separate
+  description: Find a tag.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  value_name: "_\bt_\ba_\bg_\bs_\bf_\bi_\bl_\be"
+  value_kind: Optional
+  optional_join: separate
+  description: Use an alternate tags file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - -U
+  - --underline-special
+  - --UNDERLINE-SPECIAL
+  description: Change handling of backspaces.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  description: Display the version number of "less".
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --hilite-unread
+  description: Highlight first new line after forward-screen.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --HILITE-UNREAD
+  description: Highlight first new line after any forward movement.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --tabs
+  value_name: "[_\bN[,...]]"
+  value_kind: Optional
+  optional_join: equals
+  description: Set tab stops.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --no-init
+  description: Don't use termcap init/deinit strings.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -y
+  - --max-forw-scroll
+  value_name: "_\bN"
+  value_kind: Optional
+  optional_join: separate
+  description: Forward scroll limit.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --window
+  value_name: "_\bN"
+  value_kind: Optional
+  optional_join: separate
+  description: Set size of window.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -"
+  - --quotes
+  value_name: "[_\bc[_\bc]]"
+  value_kind: Optional
+  optional_join: separate
+  description: Set shell quote characters.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -~
+  - --tilde
+  description: Don't display tildes after end of file.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -#
+  - --shift
+  value_name: "_\bN"
+  value_kind: Optional
+  optional_join: separate
+  description: Set horizontal scroll amount (0 = one half screen width). --file-size Automatically determine the size of the input file. --follow-name The F command changes files if the input file is renamed. --incsearch Search file as each pattern character is typed in. --line-num-width=N Set the width of the -N line number field to N characters. --mouse Enable mouse input. --no-keypad Don't send termcap keypad init/deinit strings. --no-histdups Remove duplicates from command history. --rscroll=C Set the character used to mark truncated lines. --save-marks Retain marks across invocations of less. --status-col-width=N Set the width of the -J status column to N characters. --use-backslash Subsequent options use backslash as escape char. --use-color Enables colored text. --wheel-lines=N Each click of the mouse wheel moves N lines.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
