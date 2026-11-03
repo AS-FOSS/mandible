@@ -1245,8 +1245,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   synopsis already sits above it and every line of its block opens with the
   tool's own name (`jfr configure ...`); the block leaves the description.
   A text whose only usage is that block keeps it as usage (S-196).
-  Fleet 2026-11-02: the root sweep changed no tool; the corpus holds 2 such blocks (`jfr`, `jfr configure`) and 1 text keeps it as usage (`brew`).
-- fleet: not measured
+- fleet: the root sweep of 2271 PATH tools changed none, 2026-11-02; the corpus holds 2 such blocks (`jfr`, `jfr configure`) and 1 text keeps it as usage (`brew`).
 
 ### S-072: free-running REPL banner explosion
 
@@ -4758,8 +4757,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
   usage line (`Usage: pigz [options] [files ...]` then `will compress files in
   place, ...`): all four lines move to the description, the usage stays the
   first line. Fixture: `corpus/pigz/2.8`.
-  Fleet 2026-11-02: the sweep gained one operand on each of 2 tools (`pigz`, `unpigz`) and lost nothing.
-- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+- fleet: the root sweep of 2271 PATH tools gained one operand on each of 2 (`pigz`, `unpigz`) and lost nothing, 2026-11-02.
 
 ### S-196: an `Example usage:` label above sample lines hides the synopsis
 
