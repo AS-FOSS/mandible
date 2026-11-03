@@ -1136,7 +1136,7 @@ pub(super) fn scan_flags_block(
                 // before the ordinary column splitters. See docs/shapes.md
                 // S-043.
                 if heading_is_bnf {
-                    if let Some(alternatives) = split_bnf_alternation_row(line.trim()) {
+                    if let Some(alternatives) = super::bnf_value_row::alternatives(line.trim()) {
                         entries.extend(alternatives.into_iter().map(|(s, d)| (s, d, Vec::new())));
                         continue;
                     }

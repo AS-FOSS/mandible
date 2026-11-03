@@ -3,10 +3,6 @@ usage:
 - 'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }'
 - '       ip [ -force ] -batch filename'
 positionals:
-- name: OBJECT
-  provenance:
-    sources:
-    - help-text
 - name: COMMAND
   required: true
   provenance:
@@ -46,8 +42,14 @@ flags:
     - help-text
 - spellings:
   - -f[amily]
+  value_kind: Required
+  choices:
+  - inet
+  - inet6
+  - mpls
+  - bridge
+  - link
   group: 'OPTIONS :'
-  description: '{ inet | inet6 | mpls | bridge | link } |'
   provenance:
     sources:
     - help-text
@@ -155,3 +157,190 @@ provenance:
   - help-text
   confidence: 0.5
 children_filled: true
+subcommands:
+- name: address
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: addrlabel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: amt
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: fou
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ila
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ioam
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: l2tp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: link
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: macsec
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: maddress
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mptcp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mroute
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mrule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbour
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netconf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netns
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: nexthop
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntable
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntbl
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: route
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: rule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: sr
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tcpmetrics
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: token
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tunnel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tuntap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: vrf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: xfrm
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

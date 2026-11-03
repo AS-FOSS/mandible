@@ -82,6 +82,7 @@ mod tests {
             heading_attested: true,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         };
         let result = tier.extract_node(&tool, &["widget".to_string(), "start".to_string()], hints);
         assert!(

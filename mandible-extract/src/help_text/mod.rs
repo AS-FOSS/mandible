@@ -17,6 +17,7 @@ pub mod confession;
 mod error_only;
 mod fold_repeats;
 mod grammar;
+mod help_slot;
 mod help_word;
 mod hint;
 mod listing_probe;
@@ -687,7 +688,15 @@ fn probe_help_text_hint_aware(
     if !(unfollowed || hint::gives_nothing(&text) || sections::is_man_page_banner(&text)) {
         return Ok((text, flag, confession));
     }
-    match hint::follow(probe, tool_path, words, &text, &tried_argvs(words, &flag)) {
+    let tried = tried_argvs(words, &flag);
+    match help_slot::follow(
+        probe,
+        tool_path,
+        words,
+        hints.help_slot_attested,
+        &text,
+        &tried,
+    ) {
         Some(found) => Ok((found.text, found.argv, None)),
         None => Ok((text, flag, confession)),
     }
@@ -970,7 +979,8 @@ fn raw_probe_streams_confession_aware(
         let unfollowed = !directives.is_empty();
         if unfollowed || hint::gives_nothing(&merged) || sections::is_man_page_banner(&merged) {
             let tried = tried_argvs(words, &flag);
-            if let Some(found) = hint::follow(probe, tool_path, words, &merged, &tried) {
+            let slot = hints.help_slot_attested;
+            if let Some(found) = help_slot::follow(probe, tool_path, words, slot, &merged, &tried) {
                 let streams = RawStreams::from_output(&found.out);
                 return Ok(RawProbeOutcome::Streams(streams, found.argv));
             }
@@ -1055,6 +1065,7 @@ fn not_attested_fallback(
             heading_attested: true,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     ) {
         if !root_streams.is_empty() {
@@ -1245,6 +1256,7 @@ mod tests {
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     };
 
     fn fixture(name: &str) -> String {
@@ -1295,6 +1307,7 @@ mod tests {
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("`pkill --help` is the one permitted shape and must be shown");
@@ -1310,6 +1323,7 @@ mod tests {
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect_err("a positional path must still be refused");
@@ -1358,6 +1372,7 @@ mod tests {
                 heading_attested: false,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("a not-attested refusal must resolve to Ok with an explanation, not Err");

@@ -1,0 +1,153 @@
+name: tc
+usage:
+- 'Usage:  tc [ OPTIONS ] OBJECT { COMMAND | help }'
+- '        tc [-force] -batch filename'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V[ersion]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s[tatistics]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d[etails]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r[aw]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o[neline]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j[son]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p[retty]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c[olor]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b[atch]
+  value_name: filename
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[etns]
+  value_name: name
+  value_kind: Required
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N[umeric]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  value_name: m
+  value_kind: Required
+  group: 'OPTIONS :'
+  description: '| { -cf | -conf } path'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -br[ief]
+  group: 'OPTIONS :'
+  description: '}'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  value_name: orce
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: qdisc
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: class
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: filter
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: chain
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: action
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: exec
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

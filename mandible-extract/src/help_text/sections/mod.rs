@@ -33,6 +33,7 @@ use mandible_core::{
 
 mod avoption;
 mod backfill;
+mod bnf_value_row;
 mod bracket_rows;
 mod builtin_usage;
 mod bullet_values;
@@ -67,6 +68,7 @@ mod plural_owner;
 mod plus_minus;
 mod positional_choices;
 mod preamble;
+mod production_commands;
 mod punct_short;
 mod repair;
 mod root_prose;
@@ -2603,6 +2605,9 @@ fn parse_body(
     // duplicates or overwrites a spelling an ordinary row already
     // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
     result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
+
+    // `NAME := { a | b }` behind a usage form's command position (S-257).
+    production_commands::apply(&mut result, &lines);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result

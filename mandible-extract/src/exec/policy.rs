@@ -80,6 +80,14 @@ pub enum InertArgv {
         /// The words after the tool's name, verbatim from the quote.
         words: Vec<String>,
     },
+    /// `<words...> help` — the node's own path, then the literal `help` the
+    /// parent's usage form shows in the slot after the command placeholder
+    /// (spec §6 rule 2f, docs/shapes.md S-257). Only
+    /// [`InertArgv::help_after_command`] builds one.
+    HelpAfterCommand {
+        /// The node's path words, non-empty, none starting with `-`.
+        words: Vec<String>,
+    },
     /// `<tool> --` under `COMPLETE=<shell>`, used to detect clap
     /// `CompleteEnv` support (spec §7 Tier E). Never invoked without the
     /// trailing `--`.
@@ -132,6 +140,11 @@ impl InertArgv {
                 a
             }
             InertArgv::HelpHint { words } => words.clone(),
+            InertArgv::HelpAfterCommand { words } => {
+                let mut a = words.clone();
+                a.push("help".to_string());
+                a
+            }
             InertArgv::ClapCompleteEnvProbe { .. } => vec!["--".to_string()],
             InertArgv::ClapCompleteEnvComplete { partial, .. } => {
                 vec!["--".to_string(), partial.clone()]
@@ -164,6 +177,21 @@ impl InertArgv {
         }
         helped.then(|| InertArgv::HelpHint {
             words: quoted.to_vec(),
+        })
+    }
+
+    /// `<node_words> help` for a command node, or `None` unless `attested`:
+    /// the node came from a grammar production in a command slot whose
+    /// parent usage form shows `help` right after it (spec §6 rule 2f).
+    /// The path must be non-empty and made of command words, never a flag
+    /// and never `help` itself.
+    pub fn help_after_command(node_words: &[String], attested: bool) -> Option<Self> {
+        let plain = node_words.last().is_some_and(|w| w != "help")
+            && node_words
+                .iter()
+                .all(|w| !w.is_empty() && !w.starts_with('-'));
+        (attested && plain).then(|| InertArgv::HelpAfterCommand {
+            words: node_words.to_vec(),
         })
     }
 
@@ -208,6 +236,9 @@ mod tests {
             InertArgv::HelpHint {
                 words: vec!["-help".to_string()],
             },
+            InertArgv::HelpAfterCommand {
+                words: vec!["link".to_string()],
+            },
             InertArgv::ClapCompleteEnvProbe {
                 shell: "zsh".to_string(),
             },
@@ -219,6 +250,19 @@ mod tests {
         for v in &variants {
             assert!(!v.args().is_empty(), "{v:?} produced empty argv");
         }
+    }
+
+    /// Rule 2f: the constructor checks the evidence and the path.
+    #[test]
+    fn help_after_command_needs_the_evidence_and_a_plain_path() {
+        let v = |w: &[&str]| w.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let made = InertArgv::help_after_command(&v(&["link"]), true).expect("attested");
+        assert_eq!(made.args(), v(&["link", "help"]));
+        assert!(InertArgv::help_after_command(&v(&["link"]), false).is_none());
+        assert!(InertArgv::help_after_command(&[], true).is_none());
+        assert!(InertArgv::help_after_command(&v(&["help"]), true).is_none());
+        assert!(InertArgv::help_after_command(&v(&["-x"]), true).is_none());
+        assert!(InertArgv::help_after_command(&v(&["a", "--b"]), true).is_none());
     }
 
     #[test]

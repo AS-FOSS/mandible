@@ -17,7 +17,3 @@ exit_code = 255
 expected_framework = "generic"
 min_subcommands = 30
 must_not_contain_positionals = ["OBJECT"]
-
-[xfail]
-broken = true
-reason = "`OBJECT := { address | addrlabel | ... | xfrm }` lists the commands (`ip link ...`), but OBJECT is read as one positional and the list is ignored. A fix reads the members of a `NAME := { a | b }` production as commands when the usage form puts NAME in a command slot (`ip [ OPTIONS ] OBJECT { COMMAND | help }`). Each command prints its own page as `ip <object> help`, which the usage form shows; probing it is a separate probe-policy decision."

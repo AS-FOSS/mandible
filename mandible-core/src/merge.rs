@@ -190,6 +190,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
     // field.
     let abbrev_probe_attested = candidates.iter().any(|c| c.abbrev_probe_attested);
     let help_word_attested = candidates.iter().any(|c| c.help_word_attested);
+    let help_slot_attested = candidates.iter().any(|c| c.help_slot_attested);
 
     let mut provenance = Provenance::default();
     for c in &candidates {
@@ -220,6 +221,7 @@ pub fn merge_nodes(mut candidates: Vec<CommandNode>) -> Result<CommandNode, Merg
         invocation_attested,
         abbrev_probe_attested,
         help_word_attested,
+        help_slot_attested,
         discovered_binary,
         confession,
         same_as_ancestor,
