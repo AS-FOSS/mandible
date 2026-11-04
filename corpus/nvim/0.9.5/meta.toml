@@ -58,11 +58,12 @@ expected_framework = "generic"
 
 # The three spellings once dropped, now recovered (see the row-by-row
 # classification above).
-must_contain_flags = ["--", "+", "-c"]
+must_contain_flags = ["--", "+", "-c", "+<cmd>"]
 
 [contract.must_value_name]
 "-q" = "errorfile"
 "-V" = "file"
+"-l" = "[args...]"
 
 [contract.must_describe]
 "-t" = "Edit file where tag is defined"
@@ -73,4 +74,4 @@ must_contain_flags = ["--", "+", "-c"]
 
 [xfail]
 broken = true
-reason = "1. `-l <script> [args...] Execute Lua <script>` has one space before its description, so the row splits after `<script>` and `[args...]` lands in the description; it is part of the value. 2. `+<cmd>, -c <cmd>`: the value is glued to `+` (`nvim + cmd` would open a file named cmd), but required values always draw after a space, so the pane shows `-c, + <cmd>`. The tree records no joiner for required values."
+reason = "`+<cmd>, -c <cmd>`: the value is glued to `+` (`nvim + cmd` would open a file named cmd), but required values always draw after a space, so the pane shows `-c, + <cmd>`. The tree records no joiner for required values, so the spelling `+<cmd>` cannot be asserted yet."

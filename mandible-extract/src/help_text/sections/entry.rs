@@ -843,10 +843,27 @@ pub(super) fn find_placeholder_boundary_gap(line: &str) -> Option<usize> {
         // in `line` — no need to re-check that this isn't a longer run.
         let desc_start = after + 1;
         if matches!(bytes.get(desc_start), Some(c) if *c != b' ') {
+            // A further repeating placeholder (`<script> [args...]`) is
+            // still the value; the description starts after it.
+            if starts_repeat_placeholder(&line[desc_start..]) {
+                continue;
+            }
             return Some(after);
         }
     }
     None
+}
+
+/// True when `rest` opens with a whole bracketed placeholder that repeats
+/// (`[args...]`, `<file>...`) and a word follows it. Value, not description.
+/// See docs/shapes.md S-059 and corpus/nvim/0.9.5.
+fn starts_repeat_placeholder(rest: &str) -> bool {
+    let Some((token, tail)) = rest.split_once(' ') else {
+        return false;
+    };
+    let bracketed = (token.starts_with('[') && token.ends_with(']'))
+        || (token.starts_with('<') && token.ends_with(">..."));
+    bracketed && token.contains("...") && tail.trim_start().starts_with(|c: char| c.is_alphabetic())
 }
 
 pub(super) fn split_at_column(line: &str, col: Option<usize>) -> (&str, String) {

@@ -78,6 +78,17 @@ impl Text {
         Text(Self::finish_pipeline(&normalized))
     }
 
+    /// `raw` with backspace-overstrike resolved (`_\bX` shows `X`), for the
+    /// plain labels an entity carries beside its sanitized text: a value
+    /// name, a group heading.
+    pub fn resolve_overstrike(raw: &str) -> String {
+        if raw.contains('\u{8}') {
+            resolve_backspace(raw)
+        } else {
+            raw.to_string()
+        }
+    }
+
     /// The tail of the sanitization pipeline, shared by [`Text::sanitize`]
     /// and [`Text::sanitize_markdown`] (which differ only in what happens
     /// to the text *before* this point: markdown normalization, if any,

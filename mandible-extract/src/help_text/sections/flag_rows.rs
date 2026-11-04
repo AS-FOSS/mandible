@@ -857,7 +857,7 @@ fn collect_flags_block_rows<'a>(
             // The plus-or-minus row (S-086): the `+|-x` sigil is
             // unambiguous on its own; and the bare `(`/`)` rows (S-222).
             || super::paren_flag_rows::sigil_row(trimmed, indent, min_entry_indent))
-            && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
+            && entry_indent_fits(min_entry_indent, ENTRY_INDENT_TOLERANCE, &rows, lines, i);
 
         // The neighbor-gated `+`/`+<placeholder>` row (S-095): indented
         // (a heading has none) **or** inside a block this scan has

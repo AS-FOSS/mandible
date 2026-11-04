@@ -1,0 +1,29 @@
+=== tc ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  tc [ OPTIONS ] OBJECT { COMMAND | help }
+  tc [-force] -batch filename
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  OBJECT
+  COMMAND
+
+
+FLAGS (14) ─────────────────────────────────────────────────────────────────
+    -force
+
+Options ────────────────────────────────────────────────────────────────────
+    -V[ersion]
+    -s[tatistics]
+    -d[etails]
+    -r[aw]
+    -o[neline]
+    -j[son]
+    -p[retty]
+    -c[olor]
+    -b[atch] [filename]
+    -n[etns] name
+    -N[umeric]
+    -nm            | { -cf | -conf } path
+ or -nam[es]
+    -br[ief]       }
