@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [S-257] `ip link help` and the pages like it: every form of a multi-form usage block belongs to its verb (including `add`, `delete`, `exec`, `route add`), wrapped form lines no longer become a command's description, and the page no longer lists the verbs' keyword placeholders as operands.
 - [S-253] A value written only as alternatives (`y|n`, `[none|zlib]`, `{auto|manual}`) shows as a muted `{…}` where its name would be, with the values listed once on the `values:` line, which sits on the flag's own row when it has no description, as in `vgchange --activate`, `ld --compress-debug-sections`, `sg_inq --block` and `apt-mark`'s first operand.
 
 ### Fixed

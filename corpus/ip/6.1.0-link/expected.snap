@@ -1,0 +1,647 @@
+name: ip
+usage:
+- 'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }'
+- '       ip [ -force ] -batch filename'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V[ersion]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s[tatistics]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d[etails]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r[esolve]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h[uman-readable]
+  group: 'OPTIONS :'
+  description: '| -iec | -j[son] | -p[retty] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f[amily]
+  value_kind: Required
+  choices:
+  - inet
+  - inet6
+  - mpls
+  - bridge
+  - link
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l[oops]
+  group: 'OPTIONS :'
+  description: '{ maximum-addr-flush-attempts } | -br[ief] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o[neline]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t[imestamp]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ts[hort]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b[atch]
+  value_name: filename
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -rc[vbuf]
+  value_name: size
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[etns]
+  value_name: name
+  value_kind: Required
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N[umeric]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a[ll]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c[olor]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: address
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: addrlabel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: amt
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: fou
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ila
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ioam
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: l2tp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: link
+  usage:
+  - 'Usage: ip link add [link DEV | parentdev NAME] [ name ] NAME [ txqueuelen PACKETS ] [ address LLADDR ] [ broadcast LLADDR ] [ mtu MTU ] [index IDX ] [ numtxqueues QUEUE_COUNT ] [ numrxqueues QUEUE_COUNT ] [ netns { PID | NAME } ] type TYPE [ ARGS ]'
+  - '        ip link delete { DEVICE | dev DEVICE | group DEVGROUP } type TYPE [ ARGS ]'
+  - '        ip link set { DEVICE | dev DEVICE | group DEVGROUP } [ { up | down } ] [ type TYPE ARGS ] [ arp { on | off } ] [ dynamic { on | off } ] [ multicast { on | off } ] [ allmulticast { on | off } ] [ promisc { on | off } ] [ trailers { on | off } ] [ carrier { on | off } ] [ txqueuelen PACKETS ] [ name NEWNAME ] [ address LLADDR ] [ broadcast LLADDR ] [ mtu MTU ] [ netns { PID | NAME } ] [ link-netns NAME | link-netnsid ID ] [ alias NAME ] [ vf NUM [ mac LLADDR ] [ vlan VLANID [ qos VLAN-QOS ] [ proto VLAN-PROTO ] ] [ rate TXRATE ] [ max_tx_rate TXRATE ] [ min_tx_rate TXRATE ] [ spoofchk { on | off} ] [ query_rss { on | off} ] [ state { auto | enable | disable} ] [ trust { on | off} ] [ node_guid EUI64 ] [ port_guid EUI64 ] ] [ { xdp | xdpgeneric | xdpdrv | xdpoffload } { off | object FILE [ { section | program } NAME ] [ verbose ] | pinned FILE } ] [ master DEVICE ][ vrf NAME ] [ nomaster ] [ addrgenmode { eui64 | none | stable_secret | random } ] [ protodown { on | off } ] [ protodown_reason PREASON { on | off } ] [ gso_max_size BYTES ] | [ gso_max_segs PACKETS ] [ gro_max_size BYTES ]'
+  - '        ip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE] [nomaster]'
+  - '        ip link xstats type TYPE [ ARGS ]'
+  - '        ip link afstats [ dev DEVICE ]'
+  - '        ip link property add dev DEVICE [ altname NAME .. ]'
+  - '        ip link property del dev DEVICE [ altname NAME .. ]'
+  - '        ip link help [ TYPE ]'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.0
+  children_filled: true
+  heading_attested: true
+  help_slot_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - ip link add [link DEV | parentdev NAME] [ name ] NAME [ txqueuelen PACKETS ] [ address LLADDR ] [ broadcast LLADDR ] [ mtu MTU ] [index IDX ] [ numtxqueues QUEUE_COUNT ] [ numrxqueues QUEUE_COUNT ] [ netns { PID | NAME } ] type TYPE [ ARGS ]
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NAME
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PACKETS
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: LLADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: MTU
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: IDX
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: QUEUE_COUNT
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: TYPE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: ARGS
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: delete
+    usage:
+    - ip link delete { DEVICE | dev DEVICE | group DEVGROUP } type TYPE [ ARGS ]
+    positionals:
+    - name: DEVICE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEVGROUP
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: TYPE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: ARGS
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set
+    usage:
+    - ip link set { DEVICE | dev DEVICE | group DEVGROUP } [ { up | down } ] [ type TYPE ARGS ] [ arp { on | off } ] [ dynamic { on | off } ] [ multicast { on | off } ] [ allmulticast { on | off } ] [ promisc { on | off } ] [ trailers { on | off } ] [ carrier { on | off } ] [ txqueuelen PACKETS ] [ name NEWNAME ] [ address LLADDR ] [ broadcast LLADDR ] [ mtu MTU ] [ netns { PID | NAME } ] [ link-netns NAME | link-netnsid ID ] [ alias NAME ] [ vf NUM [ mac LLADDR ] [ vlan VLANID [ qos VLAN-QOS ] [ proto VLAN-PROTO ] ] [ rate TXRATE ] [ max_tx_rate TXRATE ] [ min_tx_rate TXRATE ] [ spoofchk { on | off} ] [ query_rss { on | off} ] [ state { auto | enable | disable} ] [ trust { on | off} ] [ node_guid EUI64 ] [ port_guid EUI64 ] ] [ { xdp | xdpgeneric | xdpdrv | xdpoffload } { off | object FILE [ { section | program } NAME ] [ verbose ] | pinned FILE } ] [ master DEVICE ][ vrf NAME ] [ nomaster ] [ addrgenmode { eui64 | none | stable_secret | random } ] [ protodown { on | off } ] [ protodown_reason PREASON { on | off } ] [ gso_max_size BYTES ] | [ gso_max_segs PACKETS ] [ gro_max_size BYTES ]
+    positionals:
+    - name: DEVICE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEVGROUP
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: TYPE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: ARGS
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PACKETS
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NEWNAME
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: LLADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: MTU
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NAME
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: ID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NUM
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VLANID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VLAN-QOS
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VLAN-PROTO
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: TXRATE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: FILE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PREASON
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: BYTES
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - ip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE] [nomaster]
+    positionals:
+    - name: DEVICE
+      provenance:
+        sources:
+        - help-text
+    - name: GROUP
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NAME
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: TYPE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: xstats
+    usage:
+    - ip link xstats type TYPE [ ARGS ]
+    positionals:
+    - name: TYPE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: ARGS
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: afstats
+    usage:
+    - ip link afstats [ dev DEVICE ]
+    positionals:
+    - name: DEVICE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: property
+    usage:
+    - ip link property add dev DEVICE [ altname NAME .. ]
+    - ip link property del dev DEVICE [ altname NAME .. ]
+    positionals:
+    - name: DEVICE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NAME
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: help
+    usage:
+    - ip link help [ TYPE ]
+    positionals:
+    - name: TYPE
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: macsec
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: maddress
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mptcp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mroute
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mrule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbour
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netconf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netns
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: nexthop
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntable
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntbl
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: route
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: rule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: sr
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tcpmetrics
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: token
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tunnel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tuntap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: vrf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: xfrm
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

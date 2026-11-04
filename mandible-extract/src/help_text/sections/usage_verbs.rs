@@ -17,7 +17,7 @@ use super::*;
 fn tokens(form: &str) -> Vec<String> {
     let (mut out, mut cur, mut depth) = (Vec::new(), String::new(), 0i32);
     for c in form.chars() {
-        depth += i32::from(matches!(c, '[' | '(')) - i32::from(matches!(c, ']' | ')'));
+        depth += i32::from(matches!(c, '[' | '(' | '{')) - i32::from(matches!(c, ']' | ')' | '}'));
         if c.is_whitespace() && depth <= 0 {
             if !cur.is_empty() {
                 out.push(std::mem::take(&mut cur));
@@ -37,10 +37,13 @@ fn is_word(t: &str) -> bool {
     is_command_name_shaped(t)
 }
 
-/// `(good|bad)`: two or more literal lowercase words.
+/// `(good|bad)` or `{ add | del }`: two or more literal lowercase words.
 fn alternation(t: &str) -> Option<Vec<String>> {
-    let inner = t.strip_prefix('(')?.strip_suffix(')')?;
-    let words: Vec<&str> = inner.split('|').collect();
+    let inner = t
+        .strip_prefix('(')
+        .and_then(|r| r.strip_suffix(')'))
+        .or_else(|| t.strip_prefix('{').and_then(|r| r.strip_suffix('}')))?;
+    let words: Vec<&str> = inner.split('|').map(str::trim).collect();
     (words.len() >= 2 && words.iter().all(|w| is_word(w)))
         .then(|| words.iter().map(|w| w.to_string()).collect())
 }
@@ -56,6 +59,8 @@ fn is_flag_group(t: &str) -> bool {
 
 struct Form {
     toks: Vec<String>,
+    /// Flag groups printed between the program and the command path.
+    lead: Vec<String>,
     text: String,
 }
 
@@ -68,16 +73,22 @@ fn is_program_word(first: &str, program: &str) -> bool {
             .is_some_and(|(_, last)| !last.is_empty() && last == program)
 }
 
+/// The entry without its `usage:` / `or:` label.
+fn without_label(entry: &str) -> &str {
+    let t = entry.trim();
+    let lower = t.to_ascii_lowercase();
+    if lower.starts_with("usage:") || lower.starts_with("or:") {
+        return t.split_once(':').map_or("", |(_, r)| r).trim();
+    }
+    t
+}
+
 /// The usage entries as forms: label removed, program name stripped.
 fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
     let mut prog = tool.map(str::to_string);
     let mut out = Vec::new();
     for entry in usage {
-        let mut t = entry.trim();
-        let lower = t.to_ascii_lowercase();
-        if lower.starts_with("usage:") || lower.starts_with("or:") {
-            t = t.split_once(':').map_or("", |(_, r)| r).trim();
-        }
+        let t = without_label(entry);
         let Some(first) = t.split_whitespace().next() else {
             continue;
         };
@@ -86,8 +97,11 @@ fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
             continue;
         }
         let toks = tokens(t);
+        let rest = &toks[1..];
+        let lead = rest.iter().take_while(|t| is_flag_group(t)).count();
         out.push(Form {
-            toks: toks[1..].to_vec(),
+            toks: rest[lead..].to_vec(),
+            lead: rest[..lead].to_vec(),
             text: t.to_string(),
         });
     }
@@ -124,8 +138,9 @@ fn verbs_of(f: &Form, at: usize) -> Option<(Vec<String>, usize, bool)> {
 }
 
 /// Add a node per verb to `subcommands` (names already present are kept
-/// untouched). `usage` is the parsed usage entries. True when every usage
-/// entry is a form opening with a verb that is now a subcommand.
+/// untouched). `usage` is the parsed usage entries. `None` when no verbs
+/// were read or a form that is neither a verb's nor a dispatch form remains;
+/// otherwise the dispatch forms.
 ///
 /// `own` is the node's own command word when it is not the root. Verbs must
 /// follow the node's own path: a form that does not name it (`git show ...`
@@ -136,21 +151,21 @@ pub(crate) fn recover(
     own: Option<&str>,
     raw: &str,
     subcommands: &mut Vec<CommandNode>,
-) -> bool {
+) -> Option<Vec<String>> {
     // Only a labelled usage block: bare indented invocation lines are
     // examples or a command table (S-016), not the tool's forms.
     if !usage
         .first()
         .is_some_and(|u| starts_with_usage_prefix(u.trim()))
     {
-        return false;
+        return None;
     }
     let mut forms = forms(usage, tool_name);
     if let Some(own) = own {
         forms.retain(|f| f.toks.iter().take_while(|t| is_word(t)).any(|t| t == own));
     }
     if forms.len() < 2 {
-        return false;
+        return None;
     }
     let at = path_len(&forms);
     let found: Vec<Option<(Vec<String>, usize, bool)>> =
@@ -164,7 +179,7 @@ pub(crate) fn recover(
     direct.sort();
     direct.dedup();
     if direct.len() < 2 {
-        return false;
+        return None;
     }
     let mut order: Vec<String> = Vec::new();
     for (verbs, _, _) in found.iter().flatten() {
@@ -175,8 +190,16 @@ pub(crate) fn recover(
         }
     }
     for verb in order {
-        if subcommands.iter().any(|n| n.name == verb)
-            || subcommands.len() >= MAX_RECOVERED_ENTRIES
+        // A verb a table already named takes its forms when it has none.
+        let listed = subcommands.iter().position(|n| n.name == verb);
+        let carries_forms = |n: &CommandNode| {
+            !n.invocation_attested
+                || n.heading_attested
+                || !n.usage.is_empty()
+                || !n.entities.is_empty()
+        };
+        if listed.is_some_and(|k| carries_forms(&subcommands[k]))
+            || (listed.is_none() && subcommands.len() >= MAX_RECOVERED_ENTRIES)
             || !token_occurs_literally(raw, &verb)
         {
             continue;
@@ -198,6 +221,7 @@ pub(crate) fn recover(
             let mut line = vec![verb.clone()];
             line.extend(f.toks[*j + 1..].iter().cloned());
             line.extend(f.toks[at..*j].iter().cloned());
+            line.extend(f.lead.iter().cloned());
             own.push(line.join(" "));
         }
         let mut flags: Vec<Entity> = Vec::new();
@@ -215,36 +239,104 @@ pub(crate) fn recover(
         super::usage_numbered_caps::add_numbered_operands(&own, &mut positionals);
         node.entities.extend(flags);
         node.entities.extend(positionals);
-        subcommands.push(node);
+        match listed {
+            Some(k) => {
+                subcommands[k].usage = node.usage;
+                subcommands[k].entities = node.entities;
+                subcommands[k].children_filled = true;
+            }
+            None => subcommands.push(node),
+        }
     }
-    forms.len() == usage.iter().filter(|u| !u.trim().is_empty()).count()
-        && found.iter().all(|hit| {
+    let verb_forms: Vec<&str> = forms
+        .iter()
+        .zip(&found)
+        .filter(|(_, hit)| {
             hit.as_ref().is_some_and(|(verbs, _, _)| {
                 verbs
                     .iter()
                     .all(|v| subcommands.iter().any(|n| &n.name == v))
             })
         })
+        .map(|(f, _)| f.text.as_str())
+        .collect();
+    let others: Vec<String> = usage
+        .iter()
+        .filter(|u| !u.trim().is_empty() && !verb_forms.contains(&without_label(u)))
+        .cloned()
+        .collect();
+    others
+        .iter()
+        .all(|u| is_dispatch_form(without_label(u)))
+        .then_some(others)
+}
+
+/// `ip ioam { COMMAND | help }`: the program, the command path and then
+/// nothing but placeholders, braces and the word `help`: the form names the
+/// verbs' slot, not an operand of its own.
+fn is_dispatch_form(form: &str) -> bool {
+    let mut rest = form.split_whitespace().skip(1).skip_while(|t| is_word(t));
+    rest.all(|t| {
+        t == "help"
+            || t.chars()
+                .all(|c| c.is_ascii_uppercase() || matches!(c, '{' | '}' | '|' | '[' | ']' | '_'))
+    })
 }
 
 /// Drop the parent's undescribed rows that a verb node carries: every form
 /// spelling them is that verb's (S-240), so they are relocated, not lost.
-pub(crate) fn drop_relocated(parent: &mut CommandNode) {
+/// A row a form that is no verb's names stays. A bare lowercase word of a verb's form (`dev` in `{ DEVICE | dev DEVICE }`)
+/// is the form's keyword, so it is carried by that form's text.
+pub(crate) fn drop_relocated(parent: &mut CommandNode, other_forms: &[String]) {
     let key = |e: &Entity| {
         let names: Vec<String> = e.spellings.iter().map(|s| s.render()).collect();
         (e.kind, names)
     };
-    let carried: std::collections::HashSet<_> = parent
-        .subcommands
-        .iter()
-        .filter(|n| n.invocation_attested)
+    let verbs = || parent.subcommands.iter().filter(|n| n.invocation_attested);
+    let carried: std::collections::HashSet<_> = verbs()
         .flat_map(|n| n.entities.iter().map(key))
         .collect();
+    let keywords: std::collections::HashSet<String> = verbs()
+        .flat_map(|n| n.usage.iter())
+        .flat_map(|u| u.to_string().split_whitespace().map(str::to_string).collect::<Vec<_>>())
+        .filter(|w| is_word(w))
+        .collect();
+    let named_elsewhere = |e: &Entity| {
+        other_forms.iter().any(|f| {
+            f.split_whitespace().any(|w| {
+                let w = w.trim_matches(|c: char| "[]<>(){}|.,".contains(c));
+                e.spellings.iter().any(|s| s.render() == w)
+            })
+        })
+    };
+    let relocated = |e: &Entity| {
+        let is_keyword = e.kind == EntityKind::Positional
+            && e.spellings.iter().all(|s| keywords.contains(&s.render()));
+        (carried.contains(&key(e)) || is_keyword) && !named_elsewhere(e)
+    };
     parent.entities.retain(|e| {
         !matches!(e.kind, EntityKind::Flag | EntityKind::Positional)
             || e.description.is_some()
             || !e.choices.is_empty()
-            || !carried.contains(&key(e))
+            || !relocated(e)
+    });
+}
+
+/// A verb the forms print in the command slot (`{ show | list }`) is read
+/// once as a command; the operand row that spells the same word is dropped.
+/// Only an undescribed row and only a command a form named (never a heading).
+pub(crate) fn drop_verb_operands(parent: &mut CommandNode) {
+    let verbs: std::collections::HashSet<String> = parent
+        .subcommands
+        .iter()
+        .filter(|n| n.invocation_attested && !n.heading_attested)
+        .map(|n| n.name.clone())
+        .collect();
+    parent.entities.retain(|e| {
+        e.kind != EntityKind::Positional
+            || e.description.is_some()
+            || !e.choices.is_empty()
+            || !e.spellings.iter().all(|s| verbs.contains(&s.render()))
     });
 }
 

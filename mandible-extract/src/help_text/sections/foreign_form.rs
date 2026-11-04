@@ -46,6 +46,24 @@ pub(crate) fn foreign_entries(entries: &[String], node: Option<&str>) -> Vec<usi
         .collect()
 }
 
+/// A blank line between two forms of one command: the next line opens
+/// with the first form's program word and command word (`ip link add ...`,
+/// blank, `ip link set ...`). S-257.
+pub(crate) fn blank_between_forms_of_one_command(
+    lines: &[&str],
+    blank: usize,
+    first: Option<&String>,
+) -> bool {
+    let Some(first) = first else { return false };
+    let head = form_words(first);
+    let (Some(&program), Some(&word)) = (head.first(), head.get(1)) else {
+        return false;
+    };
+    let next = lines.get(blank + 1).map(|l| form_words(l));
+    is_command_word(word)
+        && next.is_some_and(|w| w.first() == Some(&program) && w.get(1) == Some(&word))
+}
+
 /// Whether some word of `entry` is `name` once its notation is stripped.
 fn mentions(entry: &str, name: &str) -> bool {
     entry

@@ -1169,12 +1169,13 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     if let Some(own) = own {
         sections::foreign_form::lift_own_name_command(&mut subcommands, own);
     }
-    let all_verbs =
+    let other_forms =
         sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
     node.subcommands = subcommands;
-    if all_verbs {
-        sections::usage_verbs::drop_relocated(&mut node);
+    if let Some(other_forms) = other_forms {
+        sections::usage_verbs::drop_relocated(&mut node, &other_forms);
     }
+    sections::usage_verbs::drop_verb_operands(&mut node);
     help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct

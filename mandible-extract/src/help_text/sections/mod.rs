@@ -832,6 +832,12 @@ fn scan_usage_section(
                 i = next;
                 continue;
             }
+            if labelled_usage_start.is_some()
+                && foreign_form::blank_between_forms_of_one_command(lines, i, usage_entries.first())
+            {
+                i += 1;
+                continue;
+            }
             break;
         }
         let trimmed_start = l.trim_start();
