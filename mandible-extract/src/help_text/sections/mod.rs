@@ -661,7 +661,9 @@ fn continue_usage_block_across_blank(
             }
         }
     }
-    None
+    (labelled_usage_start.is_some()
+        && foreign_form::blank_between_forms_of_one_command(lines, i, usage_entries.first()))
+    .then_some((i + 1, false))
 }
 
 /// Where the block resumes past a bare usage label's own blank gap, and
@@ -830,12 +832,6 @@ fn scan_usage_section(
                     recovered_bare_root_stanza = true;
                 }
                 i = next;
-                continue;
-            }
-            if labelled_usage_start.is_some()
-                && foreign_form::blank_between_forms_of_one_command(lines, i, usage_entries.first())
-            {
-                i += 1;
                 continue;
             }
             break;

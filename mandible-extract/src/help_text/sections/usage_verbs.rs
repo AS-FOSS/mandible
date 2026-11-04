@@ -293,12 +293,16 @@ pub(crate) fn drop_relocated(parent: &mut CommandNode, other_forms: &[String]) {
         (e.kind, names)
     };
     let verbs = || parent.subcommands.iter().filter(|n| n.invocation_attested);
-    let carried: std::collections::HashSet<_> = verbs()
-        .flat_map(|n| n.entities.iter().map(key))
-        .collect();
+    let carried: std::collections::HashSet<_> =
+        verbs().flat_map(|n| n.entities.iter().map(key)).collect();
     let keywords: std::collections::HashSet<String> = verbs()
         .flat_map(|n| n.usage.iter())
-        .flat_map(|u| u.to_string().split_whitespace().map(str::to_string).collect::<Vec<_>>())
+        .flat_map(|u| {
+            u.to_string()
+                .split_whitespace()
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
         .filter(|w| is_word(w))
         .collect();
     let named_elsewhere = |e: &Entity| {

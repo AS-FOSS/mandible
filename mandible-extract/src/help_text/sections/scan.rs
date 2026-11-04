@@ -341,8 +341,7 @@ pub(super) fn scan_headingless_invocation_table<'a>(
             // `<file>`) sits above the description: it belongs to the row's
             // usage, not to the summary. Only when a description follows
             // it. S-239.
-            let synopsis_end =
-                desc_start + synopsis_run(trimmed, &lines[desc_start..i]);
+            let synopsis_end = desc_start + synopsis_run(trimmed, &lines[desc_start..i]);
             let row_usage = (synopsis_end > desc_start && pending.len() == 1).then(|| {
                 std::iter::once(trimmed)
                     .chain(lines[desc_start..synopsis_end].iter().map(|l| l.trim()))
