@@ -3,7 +3,9 @@
 //! `-bind` likewise) is one multi-letter option when the document names the
 //! whole word on two or more lines, standing alone each time. A short flag
 //! with a glued value is never also written as a separate token on a second
-//! line. See docs/shapes.md S-172.
+//! line. A document that already spells options as abbreviated single-dash
+//! words (`-V[ersion]`, `-s[tatistics]`) vouches for the word on one line.
+//! See docs/shapes.md S-172.
 
 use super::*;
 
@@ -13,6 +15,19 @@ const MIN_TAIL_CHARS: usize = 3;
 
 /// Fewest distinct document lines that must spell the whole word.
 const MIN_LINES: usize = 2;
+
+/// Fewest abbreviated single-dash spellings that make the document's own
+/// dialect single-dash words.
+const MIN_WORD_DIALECT: usize = 3;
+
+fn word_dialect(flags: &[Entity]) -> bool {
+    let words = flags
+        .iter()
+        .flat_map(|f| f.spellings.iter())
+        .filter(|s| matches!(s.dashes, Dashes::Single) && s.abbrev.is_some())
+        .count();
+    words >= MIN_WORD_DIALECT
+}
 
 fn whole_word_on(line: &str, word: &str) -> bool {
     line.split(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
@@ -44,6 +59,7 @@ fn angle_value_after(usage_lines: &[String], word: &str) -> Option<String> {
 }
 
 pub(super) fn repair(usage_lines: &[String], raw: &str, flags: &mut [Entity]) {
+    let min_lines = if word_dialect(flags) { 1 } else { MIN_LINES };
     for flag in flags.iter_mut() {
         if !flag
             .provenance
@@ -68,7 +84,7 @@ pub(super) fn repair(usage_lines: &[String], raw: &str, flags: &mut [Entity]) {
         }
         let name = format!("{short}{tail}");
         let word = format!("-{name}");
-        if raw.lines().filter(|l| whole_word_on(l, &word)).count() < MIN_LINES {
+        if raw.lines().filter(|l| whole_word_on(l, &word)).count() < min_lines {
             continue;
         }
         flag.spellings = vec![Spelling::single_dash(&name)];

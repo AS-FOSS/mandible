@@ -61,6 +61,7 @@ mod no_option_row;
 mod operand_group;
 mod operand_rows;
 mod or_choice_fold;
+mod overstrike;
 mod paren_flag_rows;
 mod per_form;
 mod plural_owner;
@@ -414,6 +415,7 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    let raw = overstrike::resolve_underline(&raw).into_owned();
     // Read before the rewrites below, so the text is the tool's own.
     let examples = examples::capture(&raw);
     // A leading option-rejection diagnostic (`fuser`'s `Invalid option
@@ -448,6 +450,7 @@ pub fn parse_with_profile(
         None => parse_body(&raw, profile, tool_name, &std::collections::HashSet::new()),
     };
     parsed.examples = examples;
+    overstrike::resolve_labels(&mut parsed);
     parsed
 }
 
