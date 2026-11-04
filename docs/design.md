@@ -1196,10 +1196,10 @@ allowlist below.
    COMMAND | help }` and `where OBJECT := { address | link | ... }`; each
    object prints its page as `ip <object> help`. Rule 2e's filter forbids
    `help` after a command word on purpose (`tool delete help` could act), so
-   this is its own rule, and 2e's filter is unchanged. Docs/shapes.md S-257.
+   this is its own rule, and 2e's filter is unchanged. Docs/shapes.md S-258.
 
    1. *Which nodes.* Only a node the production reader made (§7 Tier B,
-      S-257): a usage form puts `NAME` in its command position and a
+      S-258): a usage form puts `NAME` in its command position and a
       `NAME := { a | b }` production lists the words. The node carries
       `help_slot_attested` only when that same usage form shows `help` as an
       alternative in the slot right after the placeholder (`OBJECT {
@@ -3557,7 +3557,7 @@ lowercase list after a flag inside a production is that flag's values. Second,
 rule 2f lets mandible run `<command> help` for such a command when its
 `--help` answer gave nothing, only when the parent's usage form shows `help`
 in the slot after the placeholder. Rule 2e's filter is unchanged. Docs/shapes.md
-S-257.
+S-258.
 
 **Alternation values are choices, drawn once (2026-11-02).** The maintainer
 ruled that a value written only as alternatives (`y|n`, `[none|zlib]`,

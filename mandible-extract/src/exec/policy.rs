@@ -82,7 +82,7 @@ pub enum InertArgv {
     },
     /// `<words...> help` — the node's own path, then the literal `help` the
     /// parent's usage form shows in the slot after the command placeholder
-    /// (spec §6 rule 2f, docs/shapes.md S-257). Only
+    /// (spec §6 rule 2f, docs/shapes.md S-258). Only
     /// [`InertArgv::help_after_command`] builds one.
     HelpAfterCommand {
         /// The node's path words, non-empty, none starting with `-`.

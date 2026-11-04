@@ -62,6 +62,7 @@ mod no_option_row;
 mod operand_group;
 mod operand_rows;
 mod or_choice_fold;
+mod overstrike;
 mod paren_flag_rows;
 mod per_form;
 mod plural_owner;
@@ -416,6 +417,7 @@ pub fn parse_with_profile(
     // fuses into one alphanumeric run that matches no recognized heading
     // word. See S-002.
     let raw = strip_escapes(raw);
+    let raw = overstrike::resolve_underline(&raw).into_owned();
     // Read before the rewrites below, so the text is the tool's own.
     let examples = examples::capture(&raw);
     // A leading option-rejection diagnostic (`fuser`'s `Invalid option
@@ -450,6 +452,7 @@ pub fn parse_with_profile(
         None => parse_body(&raw, profile, tool_name, &std::collections::HashSet::new()),
     };
     parsed.examples = examples;
+    overstrike::resolve_labels(&mut parsed);
     parsed
 }
 
@@ -2608,7 +2611,7 @@ fn parse_body(
     // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
     result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
 
-    // `NAME := { a | b }` behind a usage form's command position (S-257).
+    // `NAME := { a | b }` behind a usage form's command position (S-258).
     production_commands::apply(&mut result, &lines);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());

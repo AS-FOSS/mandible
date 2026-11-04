@@ -80,7 +80,7 @@ pub struct CommandNode {
     /// under a **recognized** command heading (spec §7 Tier B rule 1: a
     /// literal heading-vocabulary match, or a chain started by one, e.g.
     /// git's group headings), or from a `NAME := { a | b }` production in a
-    /// usage form's command position (S-257) — as opposed to being
+    /// usage form's command position (S-258) — as opposed to being
     /// conjured from layout alone. This is *positive evidence the node names a real command*,
     /// independent of whether the source `--help` text bothered to
     /// describe it: `openssl --help`'s `Standard commands:` grid lists
@@ -138,7 +138,7 @@ pub struct CommandNode {
     pub help_word_attested: bool,
     /// True when this node's word came from a `NAME := { a | b }` production
     /// in a usage form's command position and that form shows `help` in the
-    /// slot after it (`OBJECT { COMMAND | help }`, docs/shapes.md S-257).
+    /// slot after it (`OBJECT { COMMAND | help }`, docs/shapes.md S-258).
     /// Admits exactly one more probe, `<word> help`, when `<word> --help`
     /// gave nothing (spec §6 rule 2f).
     pub help_slot_attested: bool,

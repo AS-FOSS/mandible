@@ -48,7 +48,7 @@ pub(crate) fn foreign_entries(entries: &[String], node: Option<&str>) -> Vec<usi
 
 /// A blank line between two forms of one command: the next line opens
 /// with the first form's program word and command word (`ip link add ...`,
-/// blank, `ip link set ...`). S-257.
+/// blank, `ip link set ...`). S-258.
 pub(crate) fn blank_between_forms_of_one_command(
     lines: &[&str],
     blank: usize,
@@ -92,7 +92,7 @@ pub(crate) fn drop_foreign_operands(usage: &[String], node: &str, positionals: &
 /// Rows that repeat the program and the node's own word (`ip link delete`)
 /// read as a command named after the node. Its verbs are the node's own
 /// commands, so they replace it. A command listed under a heading stays.
-/// S-257.
+/// S-258.
 pub(crate) fn lift_own_name_command(subcommands: &mut Vec<CommandNode>, own: &str) {
     let Some(at) = subcommands
         .iter()

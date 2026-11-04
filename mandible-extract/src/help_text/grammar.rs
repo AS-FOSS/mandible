@@ -811,6 +811,18 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     {
         return Some((Spelling::single_dash(run), after_run));
     }
+    // A lower-case run of two or more letters followed by ` | ` and a
+    // further single-dash word is one spelling of a `|` alias run
+    // (`-nm | -nam[es]`), never a short flag plus a glued value. See
+    // docs/shapes.md S-212 and corpus/tc/audit-seed.
+    if run.chars().count() >= 2
+        && run.chars().all(|c| c.is_ascii_lowercase())
+        && after_run
+            .strip_prefix(" | -")
+            .is_some_and(|rest| rest.starts_with(|c: char| c.is_ascii_alphabetic()))
+    {
+        return Some((Spelling::single_dash(run), after_run));
+    }
     // A lower-case word of three or more letters glued to an optional
     // value (`-verbose[:suboptions]`) is one single-dash spelling with
     // an optional value, never `-v` plus a value `erbose[:suboptions]`.
@@ -1309,7 +1321,11 @@ fn take_repeat_group<'a>(name: &str, tail: &'a str) -> Option<(&'a str, &'a str)
     let group = tail.strip_prefix(' ')?;
     let close = group.find(']')?;
     let inner = group.get(1..close).filter(|_| group.starts_with('['))?;
-    (inner.strip_suffix(" ...") == Some(name)).then(|| (&group[..=close], &group[close + 1..]))
+    // A single bracketed word ending in an ellipsis (`<script> [args...]`)
+    // is the same repeat. See docs/shapes.md S-083 and corpus/nvim/0.9.5.
+    let repeats = inner.strip_suffix(" ...") == Some(name)
+        || (inner.len() > 3 && inner.ends_with("...") && !inner.contains(char::is_whitespace));
+    repeats.then(|| (&group[..=close], &group[close + 1..]))
 }
 
 /// Take one "value token": an angle/brace-delimited placeholder or a run

@@ -81,9 +81,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -n
-  value_name: m
-  value_kind: Required
+  - -nm
+  - -nam[es]
   group: 'OPTIONS :'
   description: '| { -cf | -conf } path'
   provenance:
@@ -97,9 +96,7 @@ flags:
     sources:
     - help-text
 - spellings:
-  - -f
-  value_name: orce
-  value_kind: Required
+  - -force
   provenance:
     sources:
     - help-text-synopsis

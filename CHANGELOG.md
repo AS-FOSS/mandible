@@ -10,15 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - [S-256] When a tool's `--help` answer gives nothing and quotes the invocation that prints help (`try "tc -help"`), mandible runs that invocation, at most twice, if every word in it is `--help`, `-help`, `-h`, `help`, `all` after `--help`, or a command the text lists; `tc`, `genl` and `rtmon` show their pages.
-- [S-257] A `NAME := { a | b }` production behind a usage form's command position (`ip [ OPTIONS ] OBJECT { COMMAND | help }`) lists that tool's commands, so `ip`, `tc`, `bridge`, `devlink`, `rdma`, `dcb` and `vdpa` show them instead of an `OBJECT` operand; the braced list after a flag in a production is its values (`rtmon -f[amily]`); a command whose `--help` gives nothing is asked `<command> help` once, when the usage form shows `help` there.
+- [S-258] A `NAME := { a | b }` production behind a usage form's command position (`ip [ OPTIONS ] OBJECT { COMMAND | help }`) lists that tool's commands, so `ip`, `tc`, `bridge`, `devlink`, `rdma`, `dcb` and `vdpa` show them instead of an `OBJECT` operand; the braced list after a flag in a production is its values (`rtmon -f[amily]`); a command whose `--help` gives nothing is asked `<command> help` once, when the usage form shows `help` there.
 
 ### Changed
 
-- [S-257] `ip link help` and the pages like it: every form of a multi-form usage block belongs to its verb (including `add`, `delete`, `exec`, `route add`), wrapped form lines no longer become a command's description, and the page no longer lists the verbs' keyword placeholders as operands.
+- [S-258] `ip link help` and the pages like it: every form of a multi-form usage block belongs to its verb (including `add`, `delete`, `exec`, `route add`), wrapped form lines no longer become a command's description, and the page no longer lists the verbs' keyword placeholders as operands.
 - [S-253] A value written only as alternatives (`y|n`, `[none|zlib]`, `{auto|manual}`) shows as a muted `{…}` where its name would be, with the values listed once on the `values:` line, which sits on the flag's own row when it has no description, as in `vgchange --activate`, `ld --compress-debug-sections`, `sg_inq --block` and `apt-mark`'s first operand.
 
 ### Fixed
 
+- [S-257] Flag rows with a dot leader between the short and long spelling (`-a  ........  --search-skip-screen`) are read as one flag with both names, `-nm | -nam[es]` and a once-written `[-force]` stay whole words, and `<script> [args...]` is one value, on `less`, `tc` and `nvim -l`; `less`'s long-only rows are their own flags, and overstrike no longer leaks into value names.
 - [S-254] A flag row led by `[!]` (iptables' invertible flags) is read, and the page draws `[!]` before its spellings, muted like `[no-]`; a long-first head (`--append  -A chain`) is one flag with both spellings and its value, on `ip6tables-translate`.
 - [S-212] Flag rows read whole: `ld`'s `-EB`, `-Map FILE/DIR`, `-fini SYMBOL` and `-h FILENAME, -soname FILENAME`, `jstack`'s `-? -h --help -help`, `strip`'s `-M  --merge-notes`, `era_invalidate`'s `{-o <xml file>}`, `add-apt-repository`'s `-S SOURCESLIST [SOURCESLIST ...]` and `nl`'s `pBRE` choice.
 - [S-041] Usage-line operands now reach the tree for `[option...] [mapfile...]`, `COMMAND [INITIAL-ARGS]...`, `operation [count]`, `type#[source] destination [-t type]` and `xfsdev | dir | file ...`; `option(s)` is no longer an operand, and `update-ca-certificates` shows its two flags.

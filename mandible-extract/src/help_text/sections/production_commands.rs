@@ -1,4 +1,4 @@
-//! A grammar production that lists the commands (docs/shapes.md S-257):
+//! A grammar production that lists the commands (docs/shapes.md S-258):
 //!
 //! ```text
 //! Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }

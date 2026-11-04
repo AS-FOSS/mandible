@@ -358,6 +358,9 @@ pub(super) fn split_single_column_entry(line: &str) -> (String, String) {
 /// [`split_single_column_entry`], reading a long-first row (S-254) as one
 /// head when `long_first` says the block writes its rows that way.
 pub(super) fn split_entry(line: &str, long_first: bool) -> (String, String) {
+    if let Some(spec) = dot_leader_alias_spec(line) {
+        return (spec, String::new());
+    }
     // `find_dash_token_separator_gap` is deliberately *not* part of
     // `find_description_gap`'s own chain (see that function's own doc
     // comment): it is tried here, out of band, only once
@@ -393,6 +396,34 @@ pub(super) fn split_entry(line: &str, long_first: bool) -> (String, String) {
         desc
     };
     (spec.to_string(), desc)
+}
+
+/// A row whose short and long spellings sit either side of a dot leader
+/// (`-e  -E  ....  --quit-at-eof  --QUIT-AT-EOF`), its description on the
+/// next line: the leader is the alias separator, so the spec is the
+/// spellings joined by commas. The leader counts only between spellings.
+/// See docs/shapes.md S-257 and corpus/less/590.
+fn dot_leader_alias_spec(line: &str) -> Option<String> {
+    let line = line.trim();
+    let at = line.match_indices("  .").map(|(i, _)| i).find(|&i| {
+        let dots = line[i + 2..].trim_start_matches('.');
+        dots.len() < line.len() - i - 2 && dots.starts_with("  ")
+    })?;
+    let (left, right) = (&line[..at], line[at..].trim_start().trim_start_matches('.'));
+    let spellings = |side: &str| -> Option<Vec<String>> {
+        let side = side.trim();
+        let mut out: Vec<String> = Vec::new();
+        for token in side.split_whitespace() {
+            if token.starts_with('-') && token.len() > 1 {
+                out.push(token.to_string());
+            } else {
+                // A value placeholder belongs to the spelling before it.
+                out.last_mut()?.push_str(&format!(" {token}"));
+            }
+        }
+        (!out.is_empty()).then_some(out)
+    };
+    Some([spellings(left)?, spellings(right)?].concat().join(", "))
 }
 
 /// True when `token`, trimmed, is a short flag spelling and nothing else —

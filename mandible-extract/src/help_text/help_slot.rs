@@ -1,4 +1,4 @@
-//! `<command> help` for a production-listed command (spec §6 rule 2f, S-257).
+//! `<command> help` for a production-listed command (spec §6 rule 2f, S-258).
 
 use std::path::Path;
 

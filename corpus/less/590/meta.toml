@@ -14,11 +14,15 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
-must_contain_flags = ["--search-skip-screen", "--clear-screen"]
+must_contain_flags = ["--search-skip-screen", "--clear-screen", "--quit-at-eof", "--buffers", "--file-size", "--wheel-lines"]
+
+must_not_contain_flags = ["-_", "--_"]
+
+[contract.must_value_name]
+"-b" = "N"
+"--wheel-lines" = "N"
+"--rscroll" = "C"
 
 [contract.must_describe]
+"--wheel-lines" = "Each click of the mouse wheel moves N lines."
 "--search-skip-screen" = "Search skips current screen."
-
-[xfail]
-broken = true
-reason = "Option rows put a dot leader between the short and the long name (`-a  ........  --search-skip-screen`, description on the next line). The dots and the long name land in the description of the short flag, so the long names are missing as spellings, on all 45 option rows. A fix reads the dot leader as the separator of one alias run, `-a, --search-skip-screen`, with the next line as the description."

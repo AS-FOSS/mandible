@@ -1,4 +1,4 @@
-//! A production flag row whose value is a braced lowercase list (S-257):
+//! A production flag row whose value is a braced lowercase list (S-258):
 //! `-f[amily] { inet | inet6 | link } |` becomes `-f[amily] {inet|inet6|link}`.
 
 use super::*;

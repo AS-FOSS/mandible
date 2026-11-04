@@ -9,7 +9,7 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (14) ─────────────────────────────────────────────────────────────────
--f orce
+    -force
 
 Options ────────────────────────────────────────────────────────────────────
     -V[ersion]
@@ -23,7 +23,8 @@ Options ────────────────────────
     -b[atch] [filename]
     -n[etns] name
     -N[umeric]
--n m               | { -cf | -conf } path
+    -nm            | { -cf | -conf } path
+ or -nam[es]
     -br[ief]       }
 
 === tc qdisc ===
