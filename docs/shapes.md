@@ -5605,11 +5605,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed (maintainer decision). The described rows of a
   `key=value` word the usage declares, and each heading with two or more
   `key=<placeholder>` rows, are printed in the node's description, in order
-  after the existing text, one paragraph per row. The flush prose paragraph
-  printed after those rows and the headed invocation blocks (`To run ...:`,
-  `Example usage:`) after the placeholder block join them, in printed order.
-  They are not operands or dashless flags (replaces S-202 and S-205). Fixture:
-  `corpus/jfr/17.0.20-configure`.
+  after the existing text, as their source lines with their indentation, so
+  the rule for lines indented deeper than their paragraph keeps each row's
+  wrapped lines apart (design.md, "Within the prose tier"). The flush prose
+  paragraph printed after those rows and the headed invocation blocks (`To run
+  ...:`, `Example usage:`) after the placeholder block join them, in printed
+  order. They are not operands or dashless flags (replaces S-202 and S-205).
+  Fixture: `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
 
@@ -5946,9 +5948,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
       usage: git log [<options>] [<revision-range>] [[--] <path>...]
          or: git show [<options>] <object>...
       usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]
-- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb
-- handling: Fixed, four readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`.
-- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus.
+- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb, chmod, msgexec, msgfilter, sotruss
+- handling: Fixed, seven readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. (5) An ALL-CAPS operand with a repeat group glued to it (`MODE[,MODE]...`) is one repeatable operand named as written. (6) A hyphenated ALL-CAPS word ending in an option word (`COMMAND-OPTION`, `EXECUTABLE-OPTION...`) is an operand when its stem is a word of the same line ahead of it; `SHORT-OPTION` with no such stem stays refused. (7) An operand that ends every usage form and is listed ahead of operands only a later form adds (`FILE...` after `MODE` and `OCTAL-MODE`) is listed after them, when every listed operand is named by a usage line. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`, `corpus/chmod/audit-seed`, `corpus/msgexec/audit-seed`, `corpus/sotruss/audit-seed`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus. Readings (5) to (7), sweep of 2271 tools, 2026-11-05: chmod, msgexec, msgfilter (`FILTER-OPTION`) and sotruss each gained one operand, chmod listing `MODE[,MODE]...`, `OCTAL-MODE`, `FILE...`; no other tool's operands changed.
 
 ### S-256: the `--help` answer quotes the invocation that prints help
 
@@ -5970,3 +5972,29 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: less, tc, nvim
 - handling: Fixed, five readings. (1) A row of dash-led spellings, a dots-only leader set off by two spaces each side, then more dash-led spellings is one alias run; the leader is the separator only between spellings, and the description is the next line. (2) A lower-case run of two or more letters followed by ` | -` and a letter is one single-dash spelling of a `|` alias run, never a short flag with a glued value (`-nm | -nam[es]`). (3) In a usage line, a synopsis-only short flag with a lower-case tail of three or more letters is one single-dash word when the document spells three or more options as abbreviated single-dash words (`-V[ersion]`), even if it is written once (`[-force]`). A bracketed word ending in an ellipsis after a value (`<script> [args...]`) is part of the value, so the one-space description gap falls after it. (4) A lone long spelling (`--mouse`, `--rscroll=C`) set shallower than the description line above it, with a deeper description line below, is a row of its own, not a continuation of the row above. (5) Underline overstrike (`_\bX`) is resolved over the page before any row is split, so a glued underlined placeholder (`-<flag>`, `--<name>`) never reaches a spelling as `-_`; `-<flag>` reads as the spelling `-<` with value `flag>`, as `last`'s `-<number>` does (a glued required value has no field yet), and the `--<name>` row is not read as a flag. Bold heading overstrike is left as written, since resolved headings turn key tables into commands; value names and groups that still carry it are resolved after the parse. Fixtures: `corpus/less/590`, `corpus/tc/audit-seed`, `corpus/nvim/0.9.5`.
 - fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: zero flag, subcommand or positional losses and no status change; 10 tools changed, each read against its rendered page. less, pager and zstdless gained the 45 long names beside their short ones and 13 long-only flags (`--mouse`, `--wheel-lines=N`), with value names free of overstrike; tc and bridge keep `-nm`, `-force` and `-batch` whole instead of `-n`, `-f`, `-b` plus a fabricated value; java joins `-dsa` and `-esa` with their long spellings; nvim `-l` and dpkg-deb `-I`/`-f` keep the trailing `[args...]`-style group in the value.
+
+### S-258: a legend names a value placeholder several flags share
+
+- id: S-258
+- looks like: |
+      -b, --body-numbering=STYLE      use STYLE for numbering body lines
+      -f, --footer-numbering=STYLE    use STYLE for numbering footer lines
+      STYLE is one of:
+        a      number all lines
+        t      number only nonempty lines
+
+      --foreground default|<color>  set foreground color
+      --hbcolor [bright] <color>    set half-bright text color
+              <color>: black blue cyan green grey magenta red white yellow
+- tools: nl, numfmt, od, setterm
+- handling: Fixed, one rule for two shapes. A `NAME is one of:` block gives its values, with their descriptions, to every flag whose value names NAME, not only the first; a flag found by its own `--name` in the heading keeps the block to itself. A flag description that ends in a `<name>: a b c` legend of three or more plain lowercase words gives the legend up, and the words become the values of every flag whose value names `<name>`, the plain words of an `a|<name>` value listed ahead of them; a flag that already lists values keeps them. Fixtures: `corpus/nl/9.4`, `corpus/setterm/audit-seed`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-05, against the build before the change: zero losses and no status change; 4 tools changed, each read on its rendered page: nl `-f` and `-h` gained the four `STYLE` values with their descriptions, numfmt `--to` the `UNIT` values `--from` already had, od `-N`, `-S` and `-w` the `BYTES` suffix values `-j` already had, setterm `--foreground`, `--background`, `--ulcolor` and `--hbcolor` the colours (and `default`).
+
+### S-259: a bracketed value followed by an angle placeholder
+
+- id: S-259
+- looks like: |
+      --ulcolor [bright] <color>    set underlined text color
+- tools: setterm
+- handling: Fixed. A bracketed value, one space, then an angle placeholder that ends the spec stay together as the flag's required value, `[bright] <color>`, as written; before, the placeholder was left out. Fixture: `corpus/setterm/audit-seed`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-05: only setterm changed (`--ulcolor` and `--hbcolor` read `[bright] <color>`).
