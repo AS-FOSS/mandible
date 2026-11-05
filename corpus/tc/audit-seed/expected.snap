@@ -3,10 +3,6 @@ usage:
 - 'Usage:  tc [ OPTIONS ] OBJECT { COMMAND | help }'
 - '        tc [-force] -batch filename'
 positionals:
-- name: OBJECT
-  provenance:
-    sources:
-    - help-text
 - name: COMMAND
   required: true
   provenance:
@@ -88,14 +84,21 @@ flags:
   - -nm
   - -nam[es]
   group: 'OPTIONS :'
-  description: '| { -cf | -conf } path'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cf
+  - -conf
+  value_name: path
+  value_kind: Required
+  group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
   - -br[ief]
   group: 'OPTIONS :'
-  description: '}'
   provenance:
     sources:
     - help-text
@@ -109,3 +112,46 @@ provenance:
   - help-text
   confidence: 0.5
 children_filled: true
+subcommands:
+- name: qdisc
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: class
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: filter
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: chain
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: action
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: exec
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

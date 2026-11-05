@@ -34,6 +34,7 @@ const ATTESTED: NodeHints = NodeHints {
     heading_attested: true,
     abbrev_probe_attested: false,
     help_word_attested: false,
+    help_slot_attested: false,
 };
 
 fn fixture(name: &str) -> String {

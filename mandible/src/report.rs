@@ -131,6 +131,7 @@ fn raw_help(
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     };
     help_text::raw_help(resolved, &root_path, hints)
 }

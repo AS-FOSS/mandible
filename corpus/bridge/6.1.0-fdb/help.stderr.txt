@@ -1,0 +1,6 @@
+Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }
+       bridge [ -force ] -batch filename
+where  OBJECT := { link | fdb | mdb | vlan | monitor }
+       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] |
+                    -o[neline] | -t[imestamp] | -n[etns] name |
+                    -c[ompressvlans] -color -p[retty] -j[son] }

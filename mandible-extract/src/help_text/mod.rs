@@ -17,6 +17,7 @@ pub mod confession;
 mod error_only;
 mod fold_repeats;
 mod grammar;
+mod help_slot;
 mod help_word;
 mod hint;
 mod listing_probe;
@@ -687,7 +688,15 @@ fn probe_help_text_hint_aware(
     if !(unfollowed || hint::gives_nothing(&text) || sections::is_man_page_banner(&text)) {
         return Ok((text, flag, confession));
     }
-    match hint::follow(probe, tool_path, words, &text, &tried_argvs(words, &flag)) {
+    let tried = tried_argvs(words, &flag);
+    match help_slot::follow(
+        probe,
+        tool_path,
+        words,
+        hints.help_slot_attested,
+        &text,
+        &tried,
+    ) {
         Some(found) => Ok((found.text, found.argv, None)),
         None => Ok((text, flag, confession)),
     }
@@ -970,7 +979,8 @@ fn raw_probe_streams_confession_aware(
         let unfollowed = !directives.is_empty();
         if unfollowed || hint::gives_nothing(&merged) || sections::is_man_page_banner(&merged) {
             let tried = tried_argvs(words, &flag);
-            if let Some(found) = hint::follow(probe, tool_path, words, &merged, &tried) {
+            let slot = hints.help_slot_attested;
+            if let Some(found) = help_slot::follow(probe, tool_path, words, slot, &merged, &tried) {
                 let streams = RawStreams::from_output(&found.out);
                 return Ok(RawProbeOutcome::Streams(streams, found.argv));
             }
@@ -1055,6 +1065,7 @@ fn not_attested_fallback(
             heading_attested: true,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     ) {
         if !root_streams.is_empty() {
@@ -1141,6 +1152,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     let mut positionals = parsed.positionals;
     if let Some(own) = own {
         sections::foreign_form::drop_foreign_operands(&parsed.usage, own, &mut positionals);
+        sections::legend_rows::apply(raw, &parsed.usage, &mut positionals);
     }
     // A root form that opens with its operands and then lists bracketed
     // flags (S-153).
@@ -1155,12 +1167,16 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     // Forms that each open with a different literal verb after the node's
     // own path name subcommands (S-215).
     let mut subcommands = parsed.subcommands;
-    let all_verbs =
+    if let Some(own) = own {
+        sections::foreign_form::lift_own_name_command(&mut subcommands, own);
+    }
+    let other_forms =
         sections::usage_verbs::recover(&parsed.usage, Some(tool_name), own, raw, &mut subcommands);
     node.subcommands = subcommands;
-    if all_verbs {
-        sections::usage_verbs::drop_relocated(&mut node);
+    if let Some(other_forms) = other_forms {
+        sections::usage_verbs::drop_relocated(&mut node, &other_forms);
     }
+    sections::usage_verbs::drop_verb_operands(&mut node);
     help_word::mark_help_word_attested(&mut node.subcommands, raw, tool_name);
     // A single probe of this node genuinely does discover its complete
     // direct-children *list* (spec §5.2: "the names of its direct
@@ -1245,6 +1261,7 @@ mod tests {
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     };
 
     fn fixture(name: &str) -> String {
@@ -1295,6 +1312,7 @@ mod tests {
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("`pkill --help` is the one permitted shape and must be shown");
@@ -1310,6 +1328,7 @@ mod tests {
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect_err("a positional path must still be refused");
@@ -1358,6 +1377,7 @@ mod tests {
                 heading_attested: false,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("a not-attested refusal must resolve to Ok with an explanation, not Err");
@@ -1381,6 +1401,24 @@ mod tests {
             joined.contains("\n\nShowing shimtool --help instead:\n\n"),
             "{joined}"
         );
+    }
+
+    /// Rows that repeat `ip link` are the verbs of `link`: no command named
+    /// `link` appears under it, so none is ever probed as `ip link link`.
+    #[test]
+    fn rows_repeating_the_nodes_own_word_make_no_command_of_that_name() {
+        let page = "Usage: ip link add [link DEV | parentdev NAME] [ name ] NAME\n\t\t    [ txqueuelen PACKETS ]\n\t\t    [ address LLADDR ]\n\t\t    [ broadcast LLADDR ]\n\t\t    [ mtu MTU ] [index IDX ]\n\t\t    [ numtxqueues QUEUE_COUNT ]\n\t\t    [ numrxqueues QUEUE_COUNT ]\n\t\t    [ netns { PID | NAME } ]\n\t\t    type TYPE [ ARGS ]\n\n\tip link delete { DEVICE | dev DEVICE | group DEVGROUP } type TYPE [ ARGS ]\n\n\tip link set { DEVICE | dev DEVICE | group DEVGROUP }\n\t\t\t[ { up | down } ]\n\t\t\t[ type TYPE ARGS ]\n\t\t[ arp { on | off } ]\n\t\t[ dynamic { on | off } ]\n\t\t[ multicast { on | off } ]\n\t\t[ allmulticast { on | off } ]\n\t\t[ promisc { on | off } ]\n\t\t[ trailers { on | off } ]\n\t\t[ carrier { on | off } ]\n\t\t[ txqueuelen PACKETS ]\n\t\t[ name NEWNAME ]\n\t\t[ address LLADDR ]\n\t\t[ broadcast LLADDR ]\n\t\t[ mtu MTU ]\n\t\t[ netns { PID | NAME } ]\n\t\t[ link-netns NAME | link-netnsid ID ]\n\t\t[ alias NAME ]\n\t\t[ vf NUM [ mac LLADDR ]\n\t\t\t [ vlan VLANID [ qos VLAN-QOS ] [ proto VLAN-PROTO ] ]\n\t\t\t [ rate TXRATE ]\n\t\t\t [ max_tx_rate TXRATE ]\n\t\t\t [ min_tx_rate TXRATE ]\n\t\t\t [ spoofchk { on | off} ]\n\t\t\t [ query_rss { on | off} ]\n\t\t\t [ state { auto | enable | disable} ]\n\t\t\t [ trust { on | off} ]\n\t\t\t [ node_guid EUI64 ]\n\t\t\t [ port_guid EUI64 ] ]\n\t\t[ { xdp | xdpgeneric | xdpdrv | xdpoffload } { off |\n\t\t\t  object FILE [ { section | program } NAME ] [ verbose ] |\n\t\t\t  pinned FILE } ]\n\t\t[ master DEVICE ][ vrf NAME ]\n\t\t[ nomaster ]\n\t\t[ addrgenmode { eui64 | none | stable_secret | random } ]\n\t\t[ protodown { on | off } ]\n\t\t[ protodown_reason PREASON { on | off } ]\n\t\t[ gso_max_size BYTES ] | [ gso_max_segs PACKETS ]\n\t\t[ gro_max_size BYTES ]\n\n\tip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE]\n\t\t[nomaster]\n\n\tip link xstats type TYPE [ ARGS ]\n\n\tip link afstats [ dev DEVICE ]\n\tip link property add dev DEVICE [ altname NAME .. ]\n\tip link property del dev DEVICE [ altname NAME .. ]\n\n\tip link help [ TYPE ]\n";
+        let node = build_node("link", page, None, "ip");
+        let names: Vec<&str> = node.subcommands.iter().map(|c| c.name.as_str()).collect();
+        assert!(!names.contains(&"link"), "{names:?}");
+        assert!(
+            names.contains(&"delete") && names.contains(&"set"),
+            "{names:?}"
+        );
+        assert!(node
+            .subcommands
+            .iter()
+            .all(|c| !c.heading_attested && !c.help_slot_attested));
     }
 
     #[test]

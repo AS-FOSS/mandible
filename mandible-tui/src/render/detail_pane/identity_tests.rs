@@ -138,6 +138,7 @@ pub(super) fn replay_fixture(dir: &Path) -> Option<CommandNode> {
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     };
     mandible_extract::ExtractionTier::extract_node(&tier, &tool, &[argv[0].clone()], ATTESTED).ok()
 }

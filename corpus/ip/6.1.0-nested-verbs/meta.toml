@@ -1,0 +1,65 @@
+# `ip ioam help` and `ip mptcp help` list forms two words deep (`ip ioam namespace add ...`,
+# `ip mptcp endpoint add ...`): the first word is a verb, and the second is that verb's command.
+# The operands the deepest forms carry belong to them, not to the pages above.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip"
+version = "6.1.0-nested-verbs"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ip", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "ioam", "--help"]
+stdout = "ioam-flag.txt"
+stderr = "ioam-flag.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "ioam", "help"]
+stdout = "ioam-help.txt"
+stderr = "ioam-help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "mptcp", "--help"]
+stdout = "mptcp-flag.txt"
+stderr = "mptcp-flag.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "mptcp", "help"]
+stdout = "mptcp-help.txt"
+stderr = "mptcp-help.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 30
+
+[contract.must_not_contain_positionals_by_path]
+ioam = ["ID", "DATA", "DATA32", "DATA64"]
+"ioam namespace" = ["ID", "DATA32", "DATA64"]
+"ioam schema" = ["ID", "DATA"]
+mptcp = ["ADDRESS", "NR", "FLAG-LIST", "CHANGE-OPT"]
+"mptcp endpoint" = ["ADDRESS", "NR", "FLAG-LIST", "CHANGE-OPT"]
+"mptcp limits" = ["NR"]
+
+[contract.must_contain_positionals_by_path]
+"ioam namespace add" = ["ID", "DATA32", "DATA64"]
+"ioam schema add" = ["ID", "DATA"]
+"mptcp endpoint add" = ["ADDRESS", "NR", "FLAG-LIST"]
+"mptcp endpoint change" = ["ADDRESS", "NR", "CHANGE-OPT"]
+"mptcp limits set" = ["NR"]
+
+[contract.must_contain_usage_by_path]
+"ioam namespace set" = ["ip ioam namespace set ID schema { ID | none }"]
+"mptcp endpoint flush" = ["ip mptcp endpoint flush"]

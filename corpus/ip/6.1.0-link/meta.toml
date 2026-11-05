@@ -1,0 +1,37 @@
+# `ip link help` prints one usage block of forms (`ip link add ...`, `ip link set ...`)
+# separated by blank lines, each wrapped over deeper-indented lines. Every form belongs to
+# its verb; the page itself lists none of their keyword placeholders.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip"
+version = "6.1.0-link"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ip", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "link", "--help"]
+stdout = "link-flag.txt"
+stderr = "link-flag.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "link", "help"]
+stdout = "link-help.txt"
+stderr = "link-help.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 30
+
+[contract.must_not_contain_positionals_by_path]
+link = ["dev", "group", "DEV", "LLADDR", "PACKETS", "MTU", "IDX", "QUEUE_COUNT", "PID"]

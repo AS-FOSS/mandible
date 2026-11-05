@@ -685,6 +685,10 @@ mod tests {
             InertArgv::HelpHint {
                 words: vec!["-help".to_string()],
             },
+            // Rule 2f: a command's `help` is refused the same way.
+            InertArgv::HelpAfterCommand {
+                words: vec!["link".to_string()],
+            },
             InertArgv::CobraComplete { words: vec![] },
             InertArgv::CompletionScript {
                 shell: "zsh".to_string(),

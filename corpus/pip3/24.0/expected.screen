@@ -96,6 +96,10 @@ Manage local and global configuration.
 USAGE ──────────────────────────────────────────────────────────────────────
   pip3 config [<file-option>] list
   pip3 config [<file-option>] [--editor <editor-path>] edit
+  pip3 config [<file-option>] get command.option
+  pip3 config [<file-option>] set command.option value
+  pip3 config [<file-option>] unset command.option
+  pip3 config [<file-option>] debug
 
 
 POSITIONALS (1) ────────────────────────────────────────────────────────────

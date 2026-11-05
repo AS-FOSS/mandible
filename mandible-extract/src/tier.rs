@@ -31,6 +31,9 @@ pub struct NodeHints {
     /// Mirrors [`mandible_core::CommandNode::help_word_attested`]: admits the
     /// `help <word>` probe and no other (spec §6 rule 2).
     pub help_word_attested: bool,
+    /// Mirrors [`mandible_core::CommandNode::help_slot_attested`]: admits the
+    /// `<word> help` probe, once (spec §6 rule 2f).
+    pub help_slot_attested: bool,
 }
 
 /// One source of `CommandNode` data: a known-spec catalog, `--help` grammar

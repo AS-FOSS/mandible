@@ -1,0 +1,26 @@
+# The `OPTIONS := { ... }` production lists its last flags without a `|` between them:
+# `-v[erbose] -s[tatistics] -[he]x }`.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "devlink"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["devlink", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 1
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 5
+must_contain_flags = ["Version", "no-nice-names", "json", "pretty", "verbose", "statistics", "-[he]x", "force", "batch", "Netns"]
+must_contain_positionals = ["COMMAND"]
+
+[contract.must_not_describe]
+Version = "-n[o-nice-names]"

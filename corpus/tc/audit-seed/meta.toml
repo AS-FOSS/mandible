@@ -21,6 +21,13 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
-must_contain_flags = ["Version", "statistics", "batch", "Numeric", "brief", "-nm", "-force"]
-must_contain_positionals = ["OBJECT", "COMMAND"]
+must_contain_flags = ["Version", "statistics", "batch", "Numeric", "brief", "-nm", "-names", "-cf", "-conf", "-force"]
+must_contain_positionals = ["COMMAND"]
 must_not_contain_flags = ["-f", "-n"]
+
+[contract.must_not_describe]
+"-nm" = "{ -cf"
+brief = "}"
+
+[contract.must_value_name]
+"-cf" = "path"

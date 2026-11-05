@@ -3,8 +3,7 @@ USAGE ────────────────────────�
   vdpa [ OPTIONS ] OBJECT { COMMAND | help }
 
 
-POSITIONALS (2) ────────────────────────────────────────────────────────────
-  OBJECT
+POSITIONALS (1) ────────────────────────────────────────────────────────────
   COMMAND
 
 
@@ -13,3 +12,7 @@ FLAGS (4) ───────────────────────�
     -n[o-nice-names]
     -j[son]
     -p[retty]
+
+=== vdpa mgmtdev ===
+
+=== vdpa dev ===

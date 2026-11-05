@@ -352,6 +352,7 @@ mod tests {
                     heading_attested: true,
                     abbrev_probe_attested: false,
                     help_word_attested: false,
+                    help_slot_attested: false,
                 },
             )
             .expect("root override should resolve");
@@ -381,6 +382,7 @@ mod tests {
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         );
         assert!(matches!(result, Err(ExtractError::PathNotFound)));

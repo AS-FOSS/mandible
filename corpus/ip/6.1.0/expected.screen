@@ -4,8 +4,7 @@ USAGE ────────────────────────�
   ip [ -force ] -batch filename
 
 
-POSITIONALS (2) ────────────────────────────────────────────────────────────
-  OBJECT
+POSITIONALS (1) ────────────────────────────────────────────────────────────
   COMMAND
 
 
@@ -16,7 +15,7 @@ Options
     -d[etails]
     -r[esolve]
     -h[uman-readable] | -iec | -j[son] | -p[retty] |
-    -f[amily]         { inet | inet6 | mpls | bridge | link } |
+    -f[amily] {…}     values: inet, inet6, mpls, bridge, link
 -4
 -6
 -M
@@ -32,3 +31,65 @@ Options
     -N[umeric]
     -a[ll]
     -c[olor]
+
+=== ip address ===
+
+=== ip addrlabel ===
+
+=== ip amt ===
+
+=== ip fou ===
+
+=== ip ila ===
+
+=== ip ioam ===
+
+=== ip l2tp ===
+
+=== ip link ===
+
+=== ip macsec ===
+
+=== ip maddress ===
+
+=== ip monitor ===
+
+=== ip mptcp ===
+
+=== ip mroute ===
+
+=== ip mrule ===
+
+=== ip neighbor ===
+
+=== ip neighbour ===
+
+=== ip netconf ===
+
+=== ip netns ===
+
+=== ip nexthop ===
+
+=== ip ntable ===
+
+=== ip ntbl ===
+
+=== ip route ===
+
+=== ip rule ===
+
+=== ip sr ===
+
+=== ip tap ===
+
+=== ip tcpmetrics ===
+
+=== ip token ===
+
+=== ip tunnel ===
+
+=== ip tuntap ===
+
+=== ip vrf ===
+
+=== ip xfrm ===

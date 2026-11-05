@@ -33,6 +33,7 @@ use mandible_core::{
 
 mod avoption;
 mod backfill;
+mod bnf_value_row;
 mod bracket_rows;
 mod builtin_usage;
 mod bullet_values;
@@ -54,6 +55,7 @@ mod key_value_text;
 mod labelled_values;
 mod layout;
 pub(crate) mod leading_operands;
+pub(crate) mod legend_rows;
 mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
@@ -68,6 +70,7 @@ mod plural_owner;
 mod plus_minus;
 mod positional_choices;
 mod preamble;
+mod production_commands;
 mod punct_short;
 mod repair;
 mod root_prose;
@@ -662,7 +665,9 @@ fn continue_usage_block_across_blank(
             }
         }
     }
-    None
+    (labelled_usage_start.is_some()
+        && foreign_form::blank_between_forms_of_one_command(lines, i, usage_entries.first()))
+    .then_some((i + 1, false))
 }
 
 /// Where the block resumes past a bare usage label's own blank gap, and
@@ -2606,6 +2611,9 @@ fn parse_body(
     // duplicates or overwrites a spelling an ordinary row already
     // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
     result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
+
+    // `NAME := { a | b }` behind a usage form's command position (S-258).
+    production_commands::apply(&mut result, &lines);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result

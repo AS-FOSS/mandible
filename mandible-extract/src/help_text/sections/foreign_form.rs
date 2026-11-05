@@ -2,7 +2,7 @@
 //! `git log -h` lists `git show [<options>] <object>...` as its second
 //! form; `object` is an operand of `show`, not of `log`.
 
-use mandible_core::Entity;
+use mandible_core::{CommandNode, Entity};
 
 /// The words of a usage entry after its `usage:` / `or:` label.
 fn form_words(entry: &str) -> Vec<&str> {
@@ -46,6 +46,24 @@ pub(crate) fn foreign_entries(entries: &[String], node: Option<&str>) -> Vec<usi
         .collect()
 }
 
+/// A blank line between two forms of one command: the next line opens
+/// with the first form's program word and command word (`ip link add ...`,
+/// blank, `ip link set ...`). S-258.
+pub(crate) fn blank_between_forms_of_one_command(
+    lines: &[&str],
+    blank: usize,
+    first: Option<&String>,
+) -> bool {
+    let Some(first) = first else { return false };
+    let head = form_words(first);
+    let (Some(&program), Some(&word)) = (head.first(), head.get(1)) else {
+        return false;
+    };
+    let next = lines.get(blank + 1).map(|l| form_words(l));
+    is_command_word(word)
+        && next.is_some_and(|w| w.first() == Some(&program) && w.get(1) == Some(&word))
+}
+
 /// Whether some word of `entry` is `name` once its notation is stripped.
 fn mentions(entry: &str, name: &str) -> bool {
     entry
@@ -69,4 +87,49 @@ pub(crate) fn drop_foreign_operands(usage: &[String], node: &str, positionals: &
         };
         !(named_by(false) && !named_by(true))
     });
+}
+
+/// Rows that repeat the program and the node's own word (`ip link delete`)
+/// read as a command named after the node. Its verbs are the node's own
+/// commands, so they replace it. A command listed under a heading stays.
+/// S-258.
+pub(crate) fn lift_own_name_command(subcommands: &mut Vec<CommandNode>, own: &str) {
+    let Some(at) = subcommands
+        .iter()
+        .position(|c| c.name == own && !c.heading_attested)
+    else {
+        return;
+    };
+    let echo = subcommands.remove(at);
+    for verb in echo.subcommands {
+        if subcommands.iter().all(|c| c.name != verb.name) {
+            subcommands.push(verb);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mandible_core::{Provenance, Source};
+
+    fn node(name: &str, kids: &[&str]) -> CommandNode {
+        let mut n = CommandNode::new(name, Provenance::single(Source::HelpText));
+        n.subcommands = kids.iter().map(|k| node(k, &[])).collect();
+        n
+    }
+
+    #[test]
+    fn a_command_named_after_the_node_gives_way_to_its_verbs() {
+        let mut subs = vec![node("link", &["set", "show"])];
+        lift_own_name_command(&mut subs, "link");
+        let names: Vec<_> = subs.iter().map(|c| c.name.as_str()).collect();
+        assert_eq!(names, ["set", "show"]);
+        let mut bare = vec![node("link", &[])];
+        lift_own_name_command(&mut bare, "link");
+        assert!(bare.is_empty());
+        let mut other = vec![node("add", &[])];
+        lift_own_name_command(&mut other, "link");
+        assert_eq!(other.len(), 1);
+    }
 }

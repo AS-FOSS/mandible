@@ -17,6 +17,24 @@ pub(super) fn is_synopsis_continuation(trimmed: &str) -> bool {
     trimmed.starts_with('[') || trimmed.starts_with('<')
 }
 
+/// How many of the lines below a form's lead continue that form: a line
+/// opening like synopsis, or any line while a bracket the form opened is
+/// still unclosed (`[ { xdp } { off |` then `object FILE ... |`). The rest
+/// is description.
+pub(super) fn synopsis_run(lead: &str, below: &[&str]) -> usize {
+    let mut depth = usage::bracket_depth_delta(lead).max(0);
+    let mut n = 0;
+    for line in below {
+        let t = line.trim();
+        if depth <= 0 && !is_synopsis_continuation(t) {
+            break;
+        }
+        depth = (depth + usage::bracket_depth_delta(t)).max(0);
+        n += 1;
+    }
+    n
+}
+
 /// Where the block led by `lines[idx]` ends (first blank line or first line
 /// not indented deeper than the lead), and whether its last line is a
 /// description: prose that is not a synopsis continuation.
@@ -29,7 +47,8 @@ fn block_extent(lines: &[&str], idx: usize) -> (usize, bool) {
     {
         end += 1;
     }
-    let described = end > idx + 1 && !is_synopsis_continuation(lines[end - 1].trim());
+    let described =
+        end > idx + 1 && synopsis_run(lines[idx].trim(), &lines[idx + 1..end]) < end - idx - 1;
     (end, described)
 }
 

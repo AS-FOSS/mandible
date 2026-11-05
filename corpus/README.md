@@ -504,6 +504,28 @@ corpus` fails when the positional is absent, or when its description does
 not contain the text. A fixture that produces no root fails this exactly
 as it fails `must_contain_positionals`.
 
+### A subcommand's operand text, by path: `must_describe_positional_by_path`
+
+`must_describe_positional` reads the root only. These three fields state
+the same claims for any node, keyed by its path and then the operand's
+`primary_name`; the text comparison collapses whitespace as above.
+
+```toml
+[contract.must_describe_positional_by_path]
+"macsec" = { ID = "128-bit hex string" }
+
+[contract.must_not_describe_positional_by_path]
+"macsec" = { ID = ":=" }
+
+[contract.must_attach_positional_choices_by_path]
+"l2tp" = { L2SPEC = ["none", "default"] }
+```
+
+The first requires the operand to exist and its description to contain the
+text; the second requires the description not to contain it (a missing
+operand passes); the third requires each named choice among the operand's
+values.
+
 ### A subcommand's own source spelling: `must_display_name`
 
 A command-table row can document a subcommand together with the
