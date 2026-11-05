@@ -2132,7 +2132,7 @@ fn scan_entries(
 
         // A prose line ending in a comma runs on into the next line: a
         // heading never does, so the paragraph is description. See
-        // docs/shapes.md S-258.
+        // docs/shapes.md S-261.
         if let Some(end) = absorb_run_on_prose(lines, i, st.result) {
             i = end;
             continue;
@@ -2189,7 +2189,7 @@ fn scan_entries(
 }
 
 /// Adds a comma run-on paragraph at `lines[at]` to the description; the
-/// index past it. S-258.
+/// index past it. S-261.
 fn absorb_run_on_prose(lines: &[&str], at: usize, result: &mut ParsedHelp) -> Option<usize> {
     let (end, text) = comma_run_on_paragraph(lines, at)?;
     let own = result.description.take();

@@ -446,7 +446,7 @@ pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool 
 /// (not dash-led, at least [`MIN_PROSE_SENTENCE_WORDS`] words) ending in a
 /// comma with a dash-led line at the same indent right after it: the
 /// sentence runs on, so it is no heading and the line is no flag. The index past the paragraph, and its text.
-/// See docs/shapes.md S-258.
+/// See docs/shapes.md S-261.
 pub(super) fn comma_run_on_paragraph(lines: &[&str], idx: usize) -> Option<(usize, String)> {
     let line = lines[idx];
     let next = lines.get(idx + 1)?;

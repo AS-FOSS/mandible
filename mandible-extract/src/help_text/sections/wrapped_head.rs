@@ -32,7 +32,7 @@ pub(super) fn join_wrapped_head(prev: &str, line: &str) -> Option<String> {
 /// it finishes the value list of the dash-led head `prev`: a few value
 /// words, then ` : ` and the description (`--change-counters -C chain`
 /// over `[rulenum] pcnt bcnt : change counters`). The first word reads as a
-/// value, never as the start of a sentence (`A : separated list`). S-258.
+/// value, never as the start of a sentence (`A : separated list`). S-261.
 pub(super) fn value_tail_before_colon<'a>(prev: &str, text: &'a str) -> Option<(&'a str, &'a str)> {
     let (values, desc) = text.split_once(" : ")?;
     let plain = values
@@ -149,7 +149,7 @@ fn abbreviates(a: &str, b: &str) -> bool {
 /// Joins `lines[at]` into the entry row just pushed when both are
 /// spelling-only lines at one indent stacked above one shared description
 /// (`-cp <path>` / `-classpath <path>` / `--class-path <path>` over its
-/// text): the lines are one alias run. See docs/shapes.md S-258.
+/// text): the lines are one alias run. See docs/shapes.md S-261.
 pub(super) fn stack_into_previous<'a>(
     rows: &mut Vec<FlagsBlockRow<'a>>,
     lines: &[&str],
@@ -178,7 +178,7 @@ pub(super) fn stack_into_previous<'a>(
 /// own line and the description on the deeper lines below it
 /// (`@argument files` / `one or more argument files containing
 /// options`): the entry and the index past its description. docs/shapes.md
-/// S-258.
+/// S-261.
 pub(super) fn hanging_argfile_row(
     lines: &[&str],
     at: usize,
@@ -208,7 +208,7 @@ pub(super) fn hanging_argfile_row(
 
 /// Folds a continuation into the entry's head when it finishes an unclosed
 /// placeholder, or the value list of a description-less head
-/// (`[rulenum] pcnt bcnt : text`): true when it did. S-048, S-258.
+/// (`[rulenum] pcnt bcnt : text`): true when it did. S-048, S-261.
 pub(super) fn extend_open_head(last: &mut super::FlagRowEntry, text: &str) -> bool {
     if super::flag_rows::placeholder_left_open(&last.0) {
         last.0.push_str(text);

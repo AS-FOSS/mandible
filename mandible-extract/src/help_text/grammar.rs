@@ -396,7 +396,7 @@ fn record_value(
 
 /// After two or more shorts, a lower-case word of three or more letters is
 /// the next alias (`-? -h -help`), never `-h` again. See docs/shapes.md
-/// S-258.
+/// S-261.
 fn word_alias_after_shorts<'a>(spec: &FlagSpec, rest: &'a str) -> Option<(Spelling, &'a str)> {
     if spec.spellings.len() < 2 || !spec.spellings.iter().all(is_genuine_short) {
         return None;
@@ -884,13 +884,13 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     }
     // A lower-case word of three or more letters with a `:` straight after
     // it (`-splash:<imagepath>`, `-verbose:[class|gc]`) is the spelling,
-    // and the `:` opens its glued value. See docs/shapes.md S-258.
+    // and the `:` opens its glued value. See docs/shapes.md S-261.
     if let Some(len) = colon_glued_word_len(s) {
         return Some((Spelling::single_dash(&s[..len]), &s[len..]));
     }
     // A lower-case run followed by a spaced `<value>` (`-cp <path>`) is the
     // whole spelling: a flag cannot take both a glued and a spaced value.
-    // See docs/shapes.md S-258.
+    // See docs/shapes.md S-261.
     if run.chars().count() >= 2
         && run.chars().all(|c| c.is_ascii_lowercase())
         && after_run
@@ -1490,7 +1490,7 @@ fn unclosed_angle_end(s: &str, end: usize) -> Option<usize> {
 }
 
 /// Length of a colon-list tail glued onto a `<value>`: `:<name2>` and `:...`
-/// runs (`<name1>:<name2>:...`), kept in the value as written. S-258.
+/// runs (`<name1>:<name2>:...`), kept in the value as written. S-261.
 fn colon_list_tail(s: &str) -> usize {
     let mut taken = 0;
     loop {

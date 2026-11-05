@@ -839,7 +839,7 @@ fn collect_flags_block_rows<'a>(
             break;
         }
         // The same row written `@argument files` over its indented
-        // description: read in place, the block goes on. S-258.
+        // description: read in place, the block goes on. S-261.
         if super::wrapped_head::take_hanging_argfile(lines, &mut i, &mut argfile_entry) {
             continue;
         }

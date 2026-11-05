@@ -720,7 +720,7 @@ must_draw = ["-Z<type>", "-c, +<cmd>"]
 
 Each entry must appear inside one line of the pages the pane draws for the
 tree, whitespace collapsed. It holds what the tree cannot say, such as how a
-value joins its flag. See docs/shapes.md S-258.
+value joins its flag. See docs/shapes.md S-261.
 
 ### What `--bless` does and does not assert: `verdict_scope`
 
