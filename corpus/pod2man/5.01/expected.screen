@@ -14,7 +14,7 @@ POSITIONALS (2) ─────────────────────�
   output...
 
 
-FLAGS (22) ─────────────────────────────────────────────────────────────────
+FLAGS (23) ─────────────────────────────────────────────────────────────────
 -c, --center string      [1.00] Sets the centered page header for the ".TH"
                          macro to string. The default is "User Contributed
                          Perl Documentation", but also see --official below.
@@ -149,8 +149,9 @@ FLAGS (22) ───────────────────────
                          the commands added with this option are specific to
                          groff and will not work with other troff and nroff
                          implementations.
-    --lquote quote       [4.08] Sets the quote marks used to surround C<>
- or --rquote             text. --lquote sets the left quote mark and
+    --lquote quote
+    --rquote quote       [4.08] Sets the quote marks used to surround C<>
+                         text. --lquote sets the left quote mark and
                          --rquote sets the right quote mark. Either may also
                          be set to the special value "none", in which case
                          no quote mark is added on that side of C<> text

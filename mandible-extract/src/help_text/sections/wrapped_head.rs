@@ -117,6 +117,25 @@ fn stack_has_description(lines: &[&str], at: usize) -> bool {
     false
 }
 
+/// The name of the first spelling on `line`, without its dashes.
+fn first_name(line: &str) -> String {
+    line.trim_start()
+        .trim_start_matches('-')
+        .chars()
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+        .collect::<String>()
+        .to_lowercase()
+}
+
+/// True when the letters of the shorter name appear in order in the longer
+/// one (`cp` in `classpath`, `ea` in `enableassertions`): two lines that
+/// stack above one description are spellings of one flag only then.
+fn abbreviates(a: &str, b: &str) -> bool {
+    let (short, long) = if a.len() <= b.len() { (a, b) } else { (b, a) };
+    let mut rest = long.chars();
+    !short.is_empty() && short.chars().all(|c| rest.any(|l| l == c))
+}
+
 /// Joins `lines[at]` into the entry row just pushed when both are
 /// spelling-only lines at one indent stacked above one shared description
 /// (`-cp <path>` / `-classpath <path>` / `--class-path <path>` over its
@@ -133,7 +152,11 @@ pub(super) fn stack_into_previous<'a>(
         _ => return false,
     };
     let same_indent = leading_whitespace(line) == leading_whitespace(&prev);
-    if !spelling_only(&prev) || !same_indent || !stack_has_description(lines, at) {
+    if !spelling_only(&prev)
+        || !same_indent
+        || !abbreviates(&first_name(&prev), &first_name(line))
+        || !stack_has_description(lines, at)
+    {
         return false;
     }
     rows.pop();
