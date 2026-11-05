@@ -1,0 +1,16 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "chmod"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "mandible --report, setsid, null stdin"
+
+[[capture]]
+argv = ["chmod", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["MODE[,MODE]...", "OCTAL-MODE", "FILE..."]

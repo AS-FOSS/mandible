@@ -2,11 +2,6 @@ name: vdpa
 usage:
 - 'Usage: vdpa [ OPTIONS ] OBJECT { COMMAND | help }'
 positionals:
-- name: OBJECT
-  required: true
-  provenance:
-    sources:
-    - help-text
 - name: COMMAND
   required: true
   provenance:
@@ -38,3 +33,16 @@ provenance:
   - help-text
   confidence: 0.5
 children_filled: true
+subcommands:
+- name: mgmtdev
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: dev
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

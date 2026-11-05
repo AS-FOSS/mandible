@@ -1,0 +1,25 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "setterm"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "mandible --report, setsid, null stdin"
+
+[[capture]]
+argv = ["setterm", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "generic"
+
+[contract.must_value_name]
+"--ulcolor" = "[bright] <color>"
+"--hbcolor" = "[bright] <color>"
+
+[contract.must_attach_choices]
+"--foreground" = ["default", "black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]
+"--background" = ["default", "black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]
+"--ulcolor" = ["black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]
+"--hbcolor" = ["black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]

@@ -10,13 +10,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ### Added
 
 - [S-256] When a tool's `--help` answer gives nothing and quotes the invocation that prints help (`try "tc -help"`), mandible runs that invocation, at most twice, if every word in it is `--help`, `-help`, `-h`, `help`, `all` after `--help`, or a command the text lists; `tc`, `genl` and `rtmon` show their pages.
+- [S-258] A `NAME := { a | b }` production behind a usage form's command position (`ip [ OPTIONS ] OBJECT { COMMAND | help }`) lists that tool's commands, so `ip`, `tc`, `bridge`, `devlink`, `rdma`, `dcb` and `vdpa` show them instead of an `OBJECT` operand; the braced list after a flag in a production is its values (`rtmon -f[amily]`); a command whose `--help` gives nothing is asked `<command> help` once, when the usage form shows `help` there.
 
 ### Changed
 
+- [S-258] `ip link help` and the pages like it: every form of a multi-form usage block belongs to its verb (including `add`, `delete`, `exec`, `route add`), wrapped form lines no longer become a command's description, and the page no longer lists the verbs' keyword placeholders as operands.
+- [S-258] `where NAME := text` legends describe their placeholder on `ip macsec` and `ip l2tp` (`:=` dropped, `{ none | default }` as values), `ip l2tp del tunnel` and `del session` are commands of `del`, `bridge fdb show` is a command of `bridge fdb`, a new dash word separates flags in `devlink`'s option production, `tc` reads `{ -cf | -conf } path` as one flag, and `genl` no longer lists `help` as an operand.
 - [S-253] A value written only as alternatives (`y|n`, `[none|zlib]`, `{auto|manual}`) shows as a muted `{…}` where its name would be, with the values listed once on the `values:` line, which sits on the flag's own row when it has no description, as in `vgchange --activate`, `ld --compress-debug-sections`, `sg_inq --block` and `apt-mark`'s first operand.
 
 ### Fixed
 
+- [S-237] `mandible jfr configure` keeps the line breaks and indentation of the `option=value`, `event-setting=value` and `Options for default.jfc:` rows in its description.
+- [S-255] `chmod` lists `MODE[,MODE]...`, `OCTAL-MODE` and `FILE...`, `msgexec` its `COMMAND-OPTION` and `sotruss` its `EXECUTABLE-OPTION...` operand.
+- [S-259] A `STYLE is one of:` block (`nl -b`, `-f`, `-h`) or a `<color>: black blue ...` legend (`setterm`) gives its values to every flag whose value names the placeholder, and `setterm --ulcolor` and `--hbcolor` keep `[bright] <color>` as their value ([S-259]).
+- [S-071] An `Example usage:` block of the tool's own command lines (`jfr configure ...`) is listed under `EXAMPLES` instead of the description, when a synopsis already sits above it.
+- [S-195] Prose indented under a `Usage:` line and running on from it (`pigz`) is the description, not part of the usage line, and its last line is no longer dropped.
 - [S-261] A value written straight onto its flag draws that way (`-Z<type>`, `-z#`, `+<cmd>`, `-D<name>=<value>`, `-splash:<imagepath>`), `--buffers=[N]` draws as written, `-cp <path>` and `-verbose:[...]` stay whole words, stacked spelling lines and `-? -h -help` are one flag, `ebtables`' `[!]` rows read, and `less`'s `-<flag>` key is no flag, on `java`, `dpkg-deb`, `nvim`, `less`, `ebtables` and the tools that write glued values.
 - [S-257] Flag rows with a dot leader between the short and long spelling (`-a  ........  --search-skip-screen`) are read as one flag with both names, `-nm | -nam[es]` and a once-written `[-force]` stay whole words, and `<script> [args...]` is one value, on `less`, `tc` and `nvim -l`; `less`'s long-only rows are their own flags, and overstrike no longer leaks into value names.
 - [S-254] A flag row led by `[!]` (iptables' invertible flags) is read, and the page draws `[!]` before its spellings, muted like `[no-]`; a long-first head (`--append  -A chain`) is one flag with both spellings and its value, on `ip6tables-translate`.

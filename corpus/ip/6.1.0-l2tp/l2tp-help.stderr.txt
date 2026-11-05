@@ -1,0 +1,26 @@
+Usage: ip l2tp add tunnel
+          remote ADDR local ADDR
+          tunnel_id ID peer_tunnel_id ID
+          [ encap { ip | udp } ]
+          [ udp_sport PORT ] [ udp_dport PORT ]
+          [ udp_csum { on | off } ]
+          [ udp6_csum_tx { on | off } ]
+          [ udp6_csum_rx { on | off } ]
+Usage: ip l2tp add session [ name NAME ]
+          tunnel_id ID
+          session_id ID peer_session_id ID
+          [ cookie HEXSTR ] [ peer_cookie HEXSTR ]
+          [ seq { none | send | recv | both } ]
+          [ l2spec_type L2SPEC ]
+       ip l2tp del tunnel tunnel_id ID
+       ip l2tp del session tunnel_id ID session_id ID
+       ip l2tp show tunnel [ tunnel_id ID ]
+       ip l2tp show session [ tunnel_id ID ] [ session_id ID ]
+
+Where: NAME   := STRING
+       ADDR   := { IP_ADDRESS | any }
+       PORT   := { 0..65535 }
+       ID     := { 1..4294967295 }
+       HEXSTR := { 8 or 16 hex digits (4 / 8 bytes) }
+       L2SPEC := { none | default }
+

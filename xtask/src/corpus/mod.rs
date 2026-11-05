@@ -28,7 +28,9 @@
 //!   `must_keep_separate`, `must_attach_choices`,
 //!   `must_describe`, `must_usage_forms_min`,
 //!   `must_not_contain_flag_group_prefixes`, `must_flag_group`,
-//!   `must_describe_subcommand`, `must_subcommand_group`
+//!   `must_describe_subcommand`, `must_subcommand_group`,
+//!   `must_describe_positional_by_path`, `must_not_describe_positional_by_path`,
+//!   `must_attach_positional_choices_by_path`
 //!   ([`check_contract`]).
 //! - (c) Strict xfail: an `[xfail]` fixture whose snapshot and contract
 //!   both pass fails the run — the bug is fixed, promote it
@@ -56,6 +58,7 @@ mod group_rows_contract;
 mod keep_separate_by_path;
 mod markdown;
 mod not_attach_choices;
+mod positional_text;
 mod refill_contract;
 mod report;
 mod runner;
@@ -301,6 +304,19 @@ pub(crate) struct ContractMeta {
     /// after collapsing whitespace, the same rule `must_describe` uses.
     #[serde(default)]
     must_describe_positional: std::collections::BTreeMap<String, String>,
+    /// `must_describe_positional` for a subcommand's own operands:
+    /// `path -> operand name -> text` its description must contain.
+    #[serde(default)]
+    must_describe_positional_by_path:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    /// The negative mirror: text an operand's description must not contain.
+    #[serde(default)]
+    must_not_describe_positional_by_path:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, String>>,
+    /// Choices an operand must carry, `path -> operand name -> names`.
+    #[serde(default)]
+    must_attach_positional_choices_by_path:
+        std::collections::BTreeMap<String, std::collections::BTreeMap<String, Vec<String>>>,
     /// A root flag's rendered description must NOT contain this text,
     /// keyed by the flag's own spelling (matched the way `must_describe`
     /// matches) — the mirror of `must_not_contain_flags` one level down.

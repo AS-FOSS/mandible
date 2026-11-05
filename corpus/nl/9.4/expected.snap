@@ -44,6 +44,15 @@ flags:
   - --footer-numbering
   value_name: STYLE
   value_kind: Required
+  choices:
+  - name: a
+    description: number all lines
+  - name: t
+    description: number only nonempty lines
+  - name: n
+    description: number no lines
+  - name: pBRE
+    description: number only lines that contain a match for the basic regular expression, BRE
   description: use STYLE for numbering footer lines
   provenance:
     sources:
@@ -53,6 +62,15 @@ flags:
   - --header-numbering
   value_name: STYLE
   value_kind: Required
+  choices:
+  - name: a
+    description: number all lines
+  - name: t
+    description: number only nonempty lines
+  - name: n
+    description: number no lines
+  - name: pBRE
+    description: number only lines that contain a match for the basic regular expression, BRE
   description: use STYLE for numbering header lines
   provenance:
     sources:

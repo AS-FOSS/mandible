@@ -24,6 +24,7 @@ fn view(
         heading_attested: node.is_some_and(|n| n.heading_attested),
         abbrev_probe_attested: node.is_some_and(|n| n.abbrev_probe_attested),
         help_word_attested: node.is_some_and(|n| n.help_word_attested),
+        help_slot_attested: node.is_some_and(|n| n.help_slot_attested),
     };
     // The node's own log first, then its ancestors', which the
     // not-attested fallback reads for the root document.
@@ -146,6 +147,7 @@ mod tests {
             heading_attested: true,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         };
         probe_raw_with(probe, &tool("/opt/t"), &path(name), hints)
     }

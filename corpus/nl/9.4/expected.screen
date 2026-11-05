@@ -24,7 +24,21 @@ FLAGS (13) ───────────────────────
                                          expression, BRE
 -d, --section-delimiter CC     use CC for logical page delimiters
 -f, --footer-numbering STYLE   use STYLE for numbering footer lines
+                                 values:
+                                   a     number all lines
+                                   t     number only nonempty lines
+                                   n     number no lines
+                                   pBRE  number only lines that contain a
+                                         match for the basic regular
+                                         expression, BRE
 -h, --header-numbering STYLE   use STYLE for numbering header lines
+                                 values:
+                                   a     number all lines
+                                   t     number only nonempty lines
+                                   n     number no lines
+                                   pBRE  number only lines that contain a
+                                         match for the basic regular
+                                         expression, BRE
 -i, --line-increment NUMBER    line number increment at each line
 -l, --join-blank-lines NUMBER  group of NUMBER empty lines counted as one
 -n, --number-format FORMAT     insert line numbers according to FORMAT

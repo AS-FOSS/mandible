@@ -1,0 +1,6 @@
+/usr/sbin/devlink: unrecognized option '--help'
+Unknown option.
+Usage: devlink [ OPTIONS ] OBJECT { COMMAND | help }
+       devlink [ -f[orce] ] -b[atch] filename -N[etns] netnsname
+where  OBJECT := { dev | port | lc | sb | monitor | dpipe | resource | region | health | trap }
+       OPTIONS := { -V[ersion] | -n[o-nice-names] | -j[son] | -p[retty] | -v[erbose] -s[tatistics] -[he]x }

@@ -33,6 +33,7 @@ use mandible_core::{
 
 mod avoption;
 mod backfill;
+mod bnf_value_row;
 mod bracket_rows;
 mod builtin_usage;
 mod bullet_values;
@@ -54,6 +55,7 @@ mod key_value_text;
 mod labelled_values;
 mod layout;
 pub(crate) mod leading_operands;
+pub(crate) mod legend_rows;
 mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
@@ -68,6 +70,7 @@ mod plural_owner;
 mod plus_minus;
 mod positional_choices;
 mod preamble;
+mod production_commands;
 mod punct_short;
 mod repair;
 mod root_prose;
@@ -96,6 +99,7 @@ pub(crate) mod usage_verbs;
 mod usage_word_flags;
 mod valid_values_line;
 mod value_form_row;
+mod value_legend;
 mod value_tail_row;
 mod word_grid;
 mod wrapped_flag_line;
@@ -217,6 +221,13 @@ impl ParsedHelp {
         }
         self.subcommands.push(node);
         true
+    }
+
+    /// [`Self::try_push_subcommand`] for each of `nodes`, in order.
+    fn push_subcommands(&mut self, nodes: Vec<CommandNode>) {
+        for node in nodes {
+            self.try_push_subcommand(node);
+        }
     }
 }
 
@@ -417,7 +428,7 @@ pub fn parse_with_profile(
     let raw = strip_escapes(raw);
     let raw = overstrike::resolve_underline(&raw).into_owned();
     // Read before the rewrites below, so the text is the tool's own.
-    let examples = examples::capture(&raw);
+    let examples = examples::capture(&raw, tool_name);
     // A leading option-rejection diagnostic (`fuser`'s `Invalid option
     // --help`, `Xvfb`'s `Unrecognized option: --help`, `nfsidmap`'s
     // `invalid option -- '-'`) is the tool's own complaint about the probe,
@@ -662,7 +673,9 @@ fn continue_usage_block_across_blank(
             }
         }
     }
-    None
+    (labelled_usage_start.is_some()
+        && foreign_form::blank_between_forms_of_one_command(lines, i, usage_entries.first()))
+    .then_some((i + 1, false))
 }
 
 /// Where the block resumes past a bare usage label's own blank gap, and
@@ -2367,9 +2380,7 @@ fn parse_body(
     });
     if let Some((end, nodes)) = optional_word_table {
         i = end;
-        for node in nodes {
-            result.try_push_subcommand(node);
-        }
+        result.push_subcommands(nodes);
     } else if let Some(start) = usage_start {
         let scan = scan_usage_section(
             &lines,
@@ -2389,9 +2400,7 @@ fn parse_body(
             .zip(tool_name)
             .and_then(|(at, name)| scan_invocation_block(&lines, at, name, raw))
         {
-            for node in nodes {
-                result.try_push_subcommand(node);
-            }
+            result.push_subcommands(nodes);
         }
         // A command table sitting directly under the root's own labelled
         // usage block, one line per command, rows never repeating the
@@ -2409,9 +2418,7 @@ fn parse_body(
                 scan_headingless_usage_command_table(&lines, i, tool_name, raw)
             {
                 i = end;
-                for node in nodes {
-                    result.try_push_subcommand(node);
-                }
+                result.push_subcommands(nodes);
             }
         }
         // A block right under the usage line naming each positional's own
@@ -2517,7 +2524,7 @@ fn parse_body(
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);
-    if let Some(text) = key_value_paragraphs(&result.usage, &lines) {
+    if let Some(text) = key_value_paragraphs(&result.usage, &lines, tool_name) {
         result.description = Some(match result.description.take() {
             Some(d) => format!("{d}\n\n{text}"),
             None => text,
@@ -2611,6 +2618,7 @@ fn parse_body(
     fold_or_joined_choice_rows(raw, &mut result.flags);
     bullet_values::attach_bullet_value_choices(&mut result.flags);
     attach_description_tail_choices(&mut result.flags);
+    value_legend::attach_inline_legends(&mut result.flags);
     valid_values_line::attach(&lines, &mut result.flags);
     spellings_documented_elsewhere::split_spellings_documented_elsewhere(&mut result.flags);
     // A `+word` row's own value column (S-163) is borrowed onto its
@@ -2622,6 +2630,9 @@ fn parse_body(
     // duplicates or overwrites a spelling an ordinary row already
     // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
     result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
+
+    // `NAME := { a | b }` behind a usage form's command position (S-258).
+    production_commands::apply(&mut result, &lines);
 
     result.confidence = compute_confidence(total_entries, clean_entries, !result.usage.is_empty());
     result

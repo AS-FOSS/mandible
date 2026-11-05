@@ -944,15 +944,7 @@ pub(super) fn emit_choices(
         Some(idx) => {
             // Proven ownership (a literal `--name` match or a value_name
             // word match) — full names and descriptions, both trustworthy.
-            for (name, desc) in candidates {
-                if out.flags[idx].choices.iter().any(|c| c.name == name) {
-                    continue;
-                }
-                out.flags[idx].choices.push(Choice {
-                    name,
-                    description: desc.map(|d| Text::sanitize(&d)),
-                });
-            }
+            super::value_legend::attach_to_owner(out, idx, heading, candidates);
         }
         None if !out.flags.is_empty() => {
             // Unproven owner: base's byte-for-byte fallback still attaches

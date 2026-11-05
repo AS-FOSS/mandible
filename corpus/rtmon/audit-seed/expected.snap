@@ -1,0 +1,51 @@
+name: rtmon
+usage:
+- 'Usage: rtmon [ OPTIONS ] file FILE [ all | LISTofOBJECTS ]'
+positionals:
+- name: FILE
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -f[amily]
+  value_kind: Required
+  choices:
+  - inet
+  - inet6
+  - link
+  - help
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V[ersion]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

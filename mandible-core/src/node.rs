@@ -79,8 +79,9 @@ pub struct CommandNode {
     /// True when this node was recovered from a bare-word block sitting
     /// under a **recognized** command heading (spec §7 Tier B rule 1: a
     /// literal heading-vocabulary match, or a chain started by one, e.g.
-    /// git's group headings) — as opposed to being conjured from layout
-    /// alone. This is *positive evidence the node names a real command*,
+    /// git's group headings), or from a `NAME := { a | b }` production in a
+    /// usage form's command position (S-258) — as opposed to being
+    /// conjured from layout alone. This is *positive evidence the node names a real command*,
     /// independent of whether the source `--help` text bothered to
     /// describe it: `openssl --help`'s `Standard commands:` grid lists
     /// `asn1parse`, `ca`, `ciphers`, ... with no per-entry description at
@@ -135,6 +136,12 @@ pub struct CommandNode {
     /// S-189). Admits exactly one probe, `help <word>`, never `<word> --help`
     /// (spec §6 rule 2).
     pub help_word_attested: bool,
+    /// True when this node's word came from a `NAME := { a | b }` production
+    /// in a usage form's command position and that form shows `help` in the
+    /// slot after it (`OBJECT { COMMAND | help }`, docs/shapes.md S-258).
+    /// Admits exactly one more probe, `<word> help`, when `<word> --help`
+    /// gave nothing (spec §6 rule 2f).
+    pub help_slot_attested: bool,
     /// The binary this node was discovered as, when it was found by the
     /// `<parent>-<sub>` PATH convention rather than documented by its
     /// parent's own help text (spec §5.4) — e.g. `Some("cargo-clippy")` on
@@ -307,6 +314,7 @@ impl CommandNode {
             invocation_attested: false,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
             discovered_binary: None,
             confession: None,
             same_as_ancestor: false,

@@ -486,6 +486,10 @@ pub struct NodeSnapshot {
     /// [`crate::CommandNode::help_word_attested`].
     #[serde(skip_serializing_if = "is_false")]
     pub help_word_attested: bool,
+    /// True when `<word> help` may be probed for this node. See
+    /// [`crate::CommandNode::help_slot_attested`].
+    #[serde(skip_serializing_if = "is_false")]
+    pub help_slot_attested: bool,
     /// The binary this node was discovered as under the `<parent>-<sub>`
     /// PATH convention (spec §5.4), when it was. Omitted for every node an
     /// extraction tier produced — which is every node a fixture replays,
@@ -585,6 +589,7 @@ impl From<&CommandNode> for NodeSnapshot {
             invocation_attested: n.invocation_attested,
             abbrev_probe_attested: n.abbrev_probe_attested,
             help_word_attested: n.help_word_attested,
+            help_slot_attested: n.help_slot_attested,
             discovered_binary: n.discovered_binary.clone(),
             unparsed: n.unparsed.iter().map(|t| t.as_str().to_string()).collect(),
             // The order-preservation this whole module exists to protect:

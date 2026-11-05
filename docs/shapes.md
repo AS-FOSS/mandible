@@ -347,6 +347,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
   to occur literally in the raw text, and only the leading run of name-shaped
   tokens after the tool's name contributes. Emission goes two levels deep.
   Every produced node is invocation_attested true, heading_attested false.
+  The wrapped rest of a row's form (lines opening like synopsis, or any line
+  while a bracket the form opened is unclosed) is the form, never its
+  description; it is kept as the usage of the row's last named command.
 - fleet: not measured
 
 ### S-017: headed command table with a non-standard separator
@@ -1241,7 +1244,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   `Example`/`Examples` block at the document's left edge are kept verbatim as
   the node's examples: an indented block ends at the first shallower line, a
   flush block ends at the first flush line that is not a command invocation.
-- fleet: not measured
+  An `Example usage:` heading at the left edge also heads examples when a
+  synopsis already sits above it and every line of its block opens with the
+  tool's own name (`jfr configure ...`); the block leaves the description.
+  A text whose only usage is that block keeps it as usage (S-196).
+- fleet: the root sweep of 2271 PATH tools changed none, 2026-11-02; the corpus holds 2 such blocks (`jfr`, `jfr configure`) and 1 text keeps it as usage (`brew`).
 
 ### S-072: free-running REPL banner explosion
 
@@ -4749,7 +4756,11 @@ entry's `tools` field and nothing else. It does not get a new entry.
   (an unlabelled `corepack disable [...]` row, description beneath) are not a
   usage form's description and are left as before. Fixtures:
   `corpus/gcc-ranlib-13/2.42`, `corpus/corepack/0.34.6` (still `[xfail]`).
-- fleet: not measured beyond the corpus and the `--tools`-pinned pre-check.
+  The punctuated run may also open lowercase, as prose that runs on from the
+  usage line (`Usage: pigz [options] [files ...]` then `will compress files in
+  place, ...`): all four lines move to the description, the usage stays the
+  first line. Fixture: `corpus/pigz/2.8`.
+- fleet: the root sweep of 2271 PATH tools gained one operand on each of 2 (`pigz`, `unpigz`) and lost nothing, 2026-11-02.
 
 ### S-196: an `Example usage:` label above sample lines hides the synopsis
 
@@ -5597,11 +5608,13 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed (maintainer decision). The described rows of a
   `key=value` word the usage declares, and each heading with two or more
   `key=<placeholder>` rows, are printed in the node's description, in order
-  after the existing text, one paragraph per row. The flush prose paragraph
-  printed after those rows and the headed invocation blocks (`To run ...:`,
-  `Example usage:`) after the placeholder block join them, in printed order.
-  They are not operands or dashless flags (replaces S-202 and S-205). Fixture:
-  `corpus/jfr/17.0.20-configure`.
+  after the existing text, as their source lines with their indentation, so
+  the rule for lines indented deeper than their paragraph keeps each row's
+  wrapped lines apart (design.md, "Within the prose tier"). The flush prose
+  paragraph printed after those rows and the headed invocation blocks (`To run
+  ...:`, `Example usage:`) after the placeholder block join them, in printed
+  order. They are not operands or dashless flags (replaces S-202 and S-205).
+  Fixture: `corpus/jfr/17.0.20-configure`.
 - fleet: the corpus and a `--tools` pre-check over 1270 tools found no other
   tool with either shape; only `jfr configure` changes.
 
@@ -5938,9 +5951,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
       usage: git log [<options>] [<revision-range>] [[--] <path>...]
          or: git show [<options>] <object>...
       usage: /usr/sbin/mount.fuse type#[source] destination [-t type] [-o opt[,opts...]]
-- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb
-- handling: Fixed, four readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`.
-- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus.
+- tools: update-ca-certificates, xfs_fsr, git (log), mount.fuse, mount.fuse3, mount.nfs, mount.nfs4, debconf-copydb, chmod, msgexec, msgfilter, sotruss
+- handling: Fixed, seven readings. (1) A line that is the tool's name or a path ending in it, a colon, and bracketed flags only is a usage form; the colon is dropped from the stored form, and an error line (`x: invalid option -- 'q'`) never matches. (2) In the per-form reading, two or more operand words joined by `|` and closed by a bare `...` are one repeatable operand named as written (`xfsdev | dir | file`). (3) When the first form names the node and a later form opens with the same program word and another command word, an operand only that later form names is dropped from the node; every form stays in the usage text. (4) On a root node with one form, no subcommands and no other operand, two or more bare lowercase words straight after the program followed only by bracketed flag groups are required operands named as written. (5) An ALL-CAPS operand with a repeat group glued to it (`MODE[,MODE]...`) is one repeatable operand named as written. (6) A hyphenated ALL-CAPS word ending in an option word (`COMMAND-OPTION`, `EXECUTABLE-OPTION...`) is an operand when its stem is a word of the same line ahead of it; `SHORT-OPTION` with no such stem stays refused. (7) An operand that ends every usage form and is listed ahead of operands only a later form adds (`FILE...` after `MODE` and `OCTAL-MODE`) is listed after them, when every listed operand is named by a usage line. Fixtures: `corpus/update-ca-certificates/audit-seed8`, `corpus/xfs_fsr/audit-seed8`, `corpus/git/2.43.0-log`, `corpus/mount.fuse/audit-seed8`, `corpus/chmod/audit-seed`, `corpus/msgexec/audit-seed`, `corpus/sotruss/audit-seed`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: update-ca-certificates went from no tier to ok with 2 flags; xfs_fsr gained 1 positional; 5 tools gained 2 positionals by reading (4), each read against its raw help; reading (3) changed only the git pages in the corpus. Readings (5) to (7), sweep of 2271 tools, 2026-11-05: chmod, msgexec, msgfilter (`FILTER-OPTION`) and sotruss each gained one operand, chmod listing `MODE[,MODE]...`, `OCTAL-MODE`, `FILE...`; no other tool's operands changed.
 
 ### S-256: the `--help` answer quotes the invocation that prints help
 
@@ -5948,7 +5961,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - looks like: |
       Option "--help" is unknown, try "tc -help".
 - tools: tc, genl, rtmon
-- handling: Fixed in the probe policy (design.md section 6 rule 2e), not in the text parser. When the answer parsed to nothing, is a man page, or confesses an incomplete page that rule 2b did not expand, a quoted invocation that opens with the tool's own name is run if every later word is `--help`, `-help`, `-h`, `help`, `all` directly after `--help`, a command the same text lists, or the node's own path, with at least one help word. At most two are run per node, none recursively, and the answer is kept only if it is help. A listed program is never sent anything but `--help`. Fixtures: `corpus/genl/audit-seed`, plus `corpus/tc/audit-seed` and `corpus/rtmon/audit-seed` (xfail: its `OPTIONS := { ... }` grammar is read as a table, so the family list is a description, not values). Tests in `help_text/hint.rs`.
+- handling: Fixed in the probe policy (design.md section 6 rule 2e), not in the text parser. When the answer parsed to nothing, is a man page, or confesses an incomplete page that rule 2b did not expand, a quoted invocation that opens with the tool's own name is run if every later word is `--help`, `-help`, `-h`, `help`, `all` directly after `--help`, a command the same text lists, or the node's own path, with at least one help word. At most two are run per node, none recursively, and the answer is kept only if it is help. A listed program is never sent anything but `--help`. Fixtures: `corpus/genl/audit-seed`, plus `corpus/tc/audit-seed` and `corpus/rtmon/audit-seed` (its family list is read as values, S-258). Tests in `help_text/hint.rs`.
 - fleet: sweeping 2325 PATH tools (2026-11-02) ran the rule on 3 (tc, genl, rtmon: `-help`, `-help`, `help`), each kept. Sweep-diff against the previous sweep: those 3 went from verbatim to low-confidence with 24 flags and 5 operands gained; no other tool changed status, flags, commands or operands, and no corpus snapshot outside the new fixtures moved.
 
 ### S-257: flag-row spellings split across a leader, a pipe or a repeat; labels with overstrike
@@ -5962,6 +5975,43 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: less, tc, nvim
 - handling: Fixed, five readings. (1) A row of dash-led spellings, a dots-only leader set off by two spaces each side, then more dash-led spellings is one alias run; the leader is the separator only between spellings, and the description is the next line. (2) A lower-case run of two or more letters followed by ` | -` and a letter is one single-dash spelling of a `|` alias run, never a short flag with a glued value (`-nm | -nam[es]`). (3) In a usage line, a synopsis-only short flag with a lower-case tail of three or more letters is one single-dash word when the document spells three or more options as abbreviated single-dash words (`-V[ersion]`), even if it is written once (`[-force]`). A bracketed word ending in an ellipsis after a value (`<script> [args...]`) is part of the value, so the one-space description gap falls after it. (4) A lone long spelling (`--mouse`, `--rscroll=C`) set shallower than the description line above it, with a deeper description line below, is a row of its own, not a continuation of the row above. (5) Underline overstrike (`_\bX`) is resolved over the page before any row is split, so a glued underlined placeholder (`-<flag>`, `--<name>`) never reaches a spelling as `-_`; `-<flag>` reads as the spelling `-<` with value `flag>`, as `last`'s `-<number>` does (a glued required value has no field yet), and the `--<name>` row is not read as a flag. Bold heading overstrike is left as written, since resolved headings turn key tables into commands; value names and groups that still carry it are resolved after the parse. Fixtures: `corpus/less/590`, `corpus/tc/audit-seed`, `corpus/nvim/0.9.5`.
 - fleet: full-`PATH` sweep of 2271 tools, 2026-11-02, against the build before the change: zero flag, subcommand or positional losses and no status change; 10 tools changed, each read against its rendered page. less, pager and zstdless gained the 45 long names beside their short ones and 13 long-only flags (`--mouse`, `--wheel-lines=N`), with value names free of overstrike; tc and bridge keep `-nm`, `-force` and `-batch` whole instead of `-n`, `-f`, `-b` plus a fabricated value; java joins `-dsa` and `-esa` with their long spellings; nvim `-l` and dpkg-deb `-I`/`-f` keep the trailing `[args...]`-style group in the value.
+
+### S-258: a production lists the commands; a command prints its page as `<command> help`
+
+- id: S-258
+- looks like: |
+      Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
+      where  OBJECT := { address | addrlabel | amt | fou | help | ila | link | xfrm }
+             OPTIONS := { -V[ersion] | -f[amily] { inet | inet6 | mpls | bridge | link } |
+- tools: ip, tc, bridge, devlink, rdma, dcb, vdpa, genl (commands); rtmon, ip (flag values); ip macsec, ip l2tp (legends)
+- handling: Fixed, three parts. (1) When a usage form puts a name in its command position (the first operand after bracketed option groups, followed by `{..}`, `[..]` or `help`) and a `NAME := { a | b | ... }` production lists command-shaped lowercase words joined by `|`, those words are the node's commands in the production's order, with no description, and the name is not an operand. A list with no `|` (genl's `{ ctrl etc }`), a nested group, or a capitalised member is not read; `help` is dropped when the slot already shows it. Fixtures: `corpus/ip/6.1.0-objects`, `corpus/tc/audit-seed-objects`; `corpus/genl/audit-seed-objects` stays xfail, since no rule can take `ctrl` without inventing an `etc` command. (2) Inside a production, a flag followed by a braced list of lowercase alternatives has that list as its values (S-253), so `-f[amily] { inet | inet6 | link | help } |` is one flag with choices. Fixture: `corpus/rtmon/audit-seed`. (3) A command made by (1) is probed with `<command> --help` like any listed command; when that gave nothing, and the usage form shows `help` as an alternative in the slot after the placeholder, mandible runs `<command> help` once (design.md section 6 rule 2f). (4) On a command page, rows that repeat the program and the node's own word (`ip link delete ...`) read as a command named after the node; its verbs replace it, so no command `link` sits under `ip link` and none is probed. The page header names the argv without repeating the node's path. Tests in `help_text/help_slot.rs`, `help_text/sections/production_commands.rs` and `help_text/sections/foreign_form.rs`. (4) A labelled usage block continues past a blank line when the next line opens with the first form's program and command word (`ip link add ...`, blank, `ip link set ...`). The forms are read as verb forms (S-215): a verb may be a braced alternation (`ip route { add | del }`), flag groups before the command path (`ip [-all] netns delete`) are skipped, a verb a table already named takes its form, flags and operands, and when every other form is only a dispatch form (`ip ioam { COMMAND | help }`) the parent drops the rows its verbs carry and the bare lowercase keywords of their forms. An undescribed operand spelled like a command a form named is dropped (`tc qdisc { show | list }`). Fixture: `corpus/ip/6.1.0-link`. (5) On a command page, `NAME := text` lines after `where` or `Where:` are legends: each describes the placeholder it names, without the `:=`; a name the usage forms or another legend use becomes an operand when it was not one; a `{ a | b }` list of plain lowercase words is the operand's values; legend operands follow the others, in legend order. A legend whose text is a dash-led list is an option production, not a legend. An operand with no legend that every verb carries still moves to the verbs (4). Fixtures: `corpus/ip/6.1.0-macsec`, `corpus/ip/6.1.0-l2tp`. (6) The verb reading (4) applies once more inside a verb: when every form of a verb continues with one of a few fixed words (`ip l2tp del tunnel ...`, `ip l2tp del session ...`), those words are its commands, each with its form, and the verb drops the operands they carry. (7) A form whose verb is optional, `bridge fdb [ show [ br BRDEV ] ... ]`, names that verb when it is the only form without one; a bracket holding the one word (`git remote [show] <x>`) or alternatives (`tc qdisc [ add | del | show ]`) names none. Fixture: `corpus/bridge/6.1.0-fdb`. (8) In a production row, a new dash word separates flags even where the author left out the `|` (`-v[erbose] -s[tatistics] -[he]x`), `-[he]x` is one spelling named as written, a braced list of dash words with the value after it (`-nm | -nam[es] | { -cf | -conf } path`) is one flag with those aliases, and a lone closing brace after a flag is the production's own. Fixtures: `corpus/devlink/audit-seed`, `corpus/tc/audit-seed`. (9) `help` in the slot after the command name (`OBJECT [help]`) is the help word, not an operand; `corpus/genl/audit-seed-objects` asserts it and stays xfail for the `{ ctrl etc }` list.
+- fleet: replaying 2271 PATH tools (2026-11-02), (1) fired on 7: ip +31 commands, devlink +10, tc +7, dcb +6, bridge +5, rdma +5, vdpa +2, each with its `OBJECT` operand removed and no other flag, command or operand lost or gained; the other tools whose pages carry `:=` (ss, delv, mariadb-admin, whiptail) did not change. (2) changed the `-f[amily]` value of ip and rtmon. Opening each of the 66 commands live ran (3) on ip (30 commands, 29 kept), tc (7, 7) and bridge (5, 5); devlink, rdma, dcb and vdpa answered `--help` themselves. (4) changes no root page: a replay of 2271 PATH tools (2026-11-04) shows the same 7 tools and 8 field-level changes as (1) and (2), with 0 flag, command or status losses; its effect is on command pages (`ip link`, `ip netns`, `ip route`, `bridge fdb`, `tc qdisc`), read on the rendered screens, and in `pip3 config`, whose usage now shows all six forms. A replay of 2271 PATH tools (2026-11-05) against main shows 0 flag, subcommand or status-by-loss changes: 8 tools lost the `OBJECT` operand (commands instead) and `genl` its `help` operand; devlink gained 6 flags and rdma 4 (the option production split), tc 1 (`-cf, -conf`) and sqlite3 1 (`-[no]header`); devlink and rdma read ok -> low-confidence because their flags no longer carry the production text as a description (0% described, as ip and tc). Every command page of ip, tc, bridge, devlink, dcb, rdma, vdpa, genl and rtmon was opened before and after: 203 pages after, 170 before; 32 ip, 7 tc, 2 bridge, 1 devlink, 1 rdma and 1 genl page changed and 30 ip, 2 tc and 1 bridge page appeared, each read; operands only a verb's own forms carry moved to the verb, legend operands stay on the page above.
+
+### S-259: a legend names a value placeholder several flags share
+
+- id: S-259
+- looks like: |
+      -b, --body-numbering=STYLE      use STYLE for numbering body lines
+      -f, --footer-numbering=STYLE    use STYLE for numbering footer lines
+      STYLE is one of:
+        a      number all lines
+        t      number only nonempty lines
+
+      --foreground default|<color>  set foreground color
+      --hbcolor [bright] <color>    set half-bright text color
+              <color>: black blue cyan green grey magenta red white yellow
+- tools: nl, numfmt, od, setterm
+- handling: Fixed, one rule for two shapes. A `NAME is one of:` block gives its values, with their descriptions, to every flag whose value names NAME, not only the first; a flag found by its own `--name` in the heading keeps the block to itself. A flag description that ends in a `<name>: a b c` legend of three or more plain lowercase words gives the legend up, and the words become the values of every flag whose value names `<name>`, the plain words of an `a|<name>` value listed ahead of them; a flag that already lists values keeps them. Fixtures: `corpus/nl/9.4`, `corpus/setterm/audit-seed`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-05, against the build before the change: zero losses and no status change; 4 tools changed, each read on its rendered page: nl `-f` and `-h` gained the four `STYLE` values with their descriptions, numfmt `--to` the `UNIT` values `--from` already had, od `-N`, `-S` and `-w` the `BYTES` suffix values `-j` already had, setterm `--foreground`, `--background`, `--ulcolor` and `--hbcolor` the colours (and `default`).
+
+### S-260: a bracketed value followed by an angle placeholder
+
+- id: S-260
+- looks like: |
+      --ulcolor [bright] <color>    set underlined text color
+- tools: setterm
+- handling: Fixed. A bracketed value, one space, then an angle placeholder that ends the spec stay together as the flag's required value, `[bright] <color>`, as written; before, the placeholder was left out. Fixture: `corpus/setterm/audit-seed`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-05: only setterm changed (`--ulcolor` and `--hbcolor` read `[bright] <color>`).
 
 ### S-261: flag spellings and values written as the tool writes them
 

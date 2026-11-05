@@ -1,0 +1,131 @@
+name: devlink
+usage:
+- 'Usage: devlink [ OPTIONS ] OBJECT { COMMAND | help }'
+- '       devlink [ -f[orce] ] -b[atch] filename -N[etns] netnsname'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V[ersion]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[o-nice-names]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j[son]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p[retty]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v[erbose]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s[tatistics]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -[he]x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f[orce]
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -b[atch]
+  value_name: filename
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -N[etns]
+  value_name: netnsname
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: dev
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: port
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: lc
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: sb
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: dpipe
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: resource
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: region
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: health
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: trap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

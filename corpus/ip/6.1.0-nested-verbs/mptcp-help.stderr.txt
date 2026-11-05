@@ -1,0 +1,12 @@
+Usage:  ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ]
+                                      [ port NR ] [ FLAG-LIST ]
+        ip mptcp endpoint delete id ID [ ADDRESS ]
+        ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT
+        ip mptcp endpoint show [ id ID ]
+        ip mptcp endpoint flush
+        ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]
+        ip mptcp limits show
+        ip mptcp monitor
+FLAG-LIST := [ FLAG-LIST ] FLAG
+FLAG  := [ signal | subflow | backup | fullmesh ]
+CHANGE-OPT := [ backup | nobackup | fullmesh | nofullmesh ]

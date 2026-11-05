@@ -43,6 +43,46 @@ fn is_examples_heading(line: &str) -> bool {
     word.eq_ignore_ascii_case("example") || word.eq_ignore_ascii_case("examples")
 }
 
+/// True for an `Example usage:` style label: `Example` or `Examples` then
+/// the word `usage`, with the colon.
+fn is_example_usage_heading(line: &str) -> bool {
+    let t = line.trim();
+    t.ends_with(':') && super::heading::is_example_usage_label(t)
+}
+
+/// Whether the `Example usage:` heading at `at` heads sample invocations of
+/// the tool and not its synopsis: a synopsis already sits above it, and every
+/// line of the block opens with the tool's own name (`docs/shapes.md` S-071).
+fn is_tool_invocation_block(
+    lines: &[&str],
+    at: usize,
+    block: &[&str],
+    tool_name: Option<&str>,
+) -> bool {
+    let Some(name) = tool_name else { return false };
+    let mut rows = block
+        .iter()
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .peekable();
+    rows.peek().is_some()
+        && rows.all(|l| super::heading::starts_with_tool_name(l, name))
+        && super::locate_usage_start(lines, tool_name)
+            .1
+            .is_some_and(|synopsis| synopsis < at)
+}
+
+/// Whether the line at `at` heads an `Example usage:` block [`capture`] keeps
+/// as examples.
+pub(super) fn heads_captured_usage_block(
+    lines: &[&str],
+    at: usize,
+    tool_name: Option<&str>,
+) -> bool {
+    is_example_usage_heading(lines[at])
+        && is_tool_invocation_block(lines, at, &block_lines(lines, at), tool_name)
+}
+
 /// The lines under the heading at `at`, up to where its block ends.
 fn block_lines<'a>(lines: &[&'a str], at: usize) -> Vec<&'a str> {
     let heading_indent = indent_of(lines[at]);
@@ -73,7 +113,7 @@ fn block_lines<'a>(lines: &[&'a str], at: usize) -> Vec<&'a str> {
 }
 
 /// Every example block of `raw`, as paragraphs of lines.
-pub(super) fn capture(raw: &str) -> Vec<Vec<String>> {
+pub(super) fn capture(raw: &str, tool_name: Option<&str>) -> Vec<Vec<String>> {
     let lines: Vec<&str> = raw.lines().collect();
     if super::looks_like_man_page(&lines) {
         return Vec::new();
@@ -86,10 +126,17 @@ pub(super) fn capture(raw: &str) -> Vec<Vec<String>> {
         .unwrap_or(0);
     let mut out: Vec<Vec<String>> = Vec::new();
     for at in 0..lines.len() {
-        if !is_examples_heading(lines[at]) || indent_of(lines[at]) != edge {
+        if indent_of(lines[at]) != edge {
+            continue;
+        }
+        let plain = is_examples_heading(lines[at]);
+        if !plain && !is_example_usage_heading(lines[at]) {
             continue;
         }
         let block = block_lines(&lines, at);
+        if !plain && !is_tool_invocation_block(&lines, at, &block, tool_name) {
+            continue;
+        }
         let common = block
             .iter()
             .filter(|l| !l.trim().is_empty())
@@ -119,7 +166,7 @@ mod tests {
     use super::*;
 
     fn got(raw: &str) -> Vec<Vec<String>> {
-        capture(raw)
+        capture(raw, None)
     }
 
     #[test]

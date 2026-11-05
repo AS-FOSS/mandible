@@ -1,0 +1,21 @@
+=== sotruss ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  sotruss [OPTION...] [--] EXECUTABLE [EXECUTABLE-OPTION...]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  EXECUTABLE
+  EXECUTABLE-OPTION...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-F, --from FROMLIST    Trace calls from objects on FROMLIST
+-T, --to TOLIST        Trace calls to objects on TOLIST
+-e, --exit             Also show exits from the function calls
+-f, --follow           Trace child processes
+-o, --output FILENAME  Write output to FILENAME (or FILENAME. in case -f is
+                       also used) instead of standard error
+-?, --help             Give this help list
+    --usage            Give a short usage message
+    --version          Print program version
+--

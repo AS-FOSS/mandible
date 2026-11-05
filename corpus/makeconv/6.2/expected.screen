@@ -1,4 +1,8 @@
 === makeconv ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+read .ucm codepage mapping files and write .cnv files
+
+
 USAGE ──────────────────────────────────────────────────────────────────────
   makeconv [-options] files...
 

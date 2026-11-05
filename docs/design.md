@@ -1029,7 +1029,8 @@ allowlist below.
    A second, narrower gate closes the general form of the same hazard for
    every tool, not just these thirteen: Tier B's `<word> --help`/`-h`
    probe (§7 Tier B) fires only when a node's `heading_attested` bit is
-   true, meaning the word came from a recognized command heading, never
+   true, meaning the word came from a recognized command heading or from
+   a production listing the commands in a command slot (rule 2f), never
    from layout alone. A non-attested node is declined, never probed under a
    fabricated word. The root is exempt by construction, since it is the
    name the user typed. This gate and rule 0's list are deliberately
@@ -1088,7 +1089,8 @@ allowlist below.
    `help [<words...>]`, `help <option>` (rule 2d),
    `<words...> --help`/`-h` (a subcommand path's own
    probe), `<words...> --help <word>` (rule 2b), a hint the tool's own
-   answer quotes (rule 2e), or `-- <partial>` under
+   answer quotes (rule 2e), `<words...> help` for a command a grammar
+   production listed (rule 2f), or `-- <partial>` under
    `COMPLETE=` (currently unused — no tier constructs it since Tier E's
    clap probe was removed, kept on the type only so removing it is not a
    breaking change). Any other shape needs a spec amendment.
@@ -1188,6 +1190,38 @@ allowlist below.
    A new phrasing of a hint is a grammar line plus a corpus fixture and a
    sweep-diff, like any parser shape. A new word in `HINT_SAFE_WORDS` changes
    what mandible may run and is a maintainer decision (§16).
+
+   **2f. `InertArgv::HelpAfterCommand`, `<command> help` for a command a
+   grammar production listed.** iproute2 writes `ip [ OPTIONS ] OBJECT {
+   COMMAND | help }` and `where OBJECT := { address | link | ... }`; each
+   object prints its page as `ip <object> help`. Rule 2e's filter forbids
+   `help` after a command word on purpose (`tool delete help` could act), so
+   this is its own rule, and 2e's filter is unchanged. Docs/shapes.md S-258.
+
+   1. *Which nodes.* Only a node the production reader made (§7 Tier B,
+      S-258): a usage form puts `NAME` in its command position and a
+      `NAME := { a | b }` production lists the words. The node carries
+      `help_slot_attested` only when that same usage form shows `help` as an
+      alternative in the slot right after the placeholder (`OBJECT {
+      COMMAND | help }`, `OBJECT [help]`). A production without it, a `help`
+      elsewhere in the usage, and every other node get no such probe.
+   2. *When.* Only when the normal `<command> --help` answer gave the parser
+      nothing, by the same test as rule 2e (nothing parsed, a man page, or an
+      unexpanded confession). The probe is sent before 2e's quoted hints,
+      and an identical quoted argv is not sent twice.
+   3. *How often.* At most one per node; never recursive; the root has no
+      command word and is never asked.
+   4. *Kept only if it is help.* Help-shape validation, not a man page;
+      otherwise the first answer stands.
+   5. *Rule 0 wins.* A listed program is never sent anything but `--help`;
+      `run_inert` refuses this argv before spawning. The type has one
+      constructor, `InertArgv::help_after_command`, which returns `None`
+      unless the evidence bit is set and the path is non-empty command words
+      (no flag, not `help`).
+
+   The production's words are probed with `<command> --help` like any
+   listed command, so the reader sets `heading_attested` on them: a
+   production in a command slot is the tool's own list of its commands.
 
 3. **stdin is always `/dev/null`.** No tier may ever inherit or pipe stdin.
 
@@ -3511,6 +3545,32 @@ only as a zero-confidence fallback, which never touches a tool that already
 parsed. [M-14]'s reading wins. A tool whose only good documentation is a man
 page stays shallow in the tree, and that is a stated limit rather than a bug
 to chase.
+
+**A production in a command slot lists commands, and `<command> help`
+may be asked (2026-11-04).** The maintainer approved two steps for iproute2's
+`ip [ OPTIONS ] OBJECT { COMMAND | help }` with `where OBJECT := { address |
+link | ... }`. First, the words of a `NAME := { a | b }` production whose name
+stands in a usage form's command position are that node's commands (existing
+kind, in the production's order, no descriptions invented), and the name is
+not an operand; a list without `|` (`{ ctrl etc }`) is not read. The braced
+lowercase list after a flag inside a production is that flag's values. Second,
+rule 2f lets mandible run `<command> help` for such a command when its
+`--help` answer gave nothing, only when the parent's usage form shows `help`
+in the slot after the placeholder. Rule 2e's filter is unchanged. Docs/shapes.md
+S-258.
+
+**Legends describe their placeholder; verbs nest one level; an optional
+verb is still a verb (2026-11-05).** The maintainer approved, from before
+and after screens of `ip macsec`, `ip l2tp`, `bridge fdb`, `tc`, `devlink`
+and `genl`: each `NAME := text` legend line on a command page describes the
+placeholder it names, without the `:=`, and a `{ a | b }` list of plain
+lowercase words is its values; the verb reading of a multi-form usage block
+applies once more inside a verb whose forms each continue with a fixed word
+(`ip l2tp del tunnel`, `del session`); a form whose verb is optional
+(`bridge fdb [ show ... ]`) names it when every other form opens with one;
+a new dash word separates flags in a production row even without a `|`; and
+`OBJECT [help]` shows `help` as the help word, not an operand. Docs/shapes.md
+S-258.
 
 **Alternation values are choices, drawn once (2026-11-02).** The maintainer
 ruled that a value written only as alternatives (`y|n`, `[none|zlib]`,

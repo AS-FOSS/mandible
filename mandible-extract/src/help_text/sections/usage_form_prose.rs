@@ -132,7 +132,8 @@ pub(super) fn repeats_first_form_program_word(
 /// an index to speed access to archives`): five or more words of letters,
 /// digits and hyphens, opening with a capital, no flag, no ALL-CAPS
 /// placeholder, no column gap. With `punctuated`, sentence punctuation
-/// (`. , ' /`) is allowed too. A real wrapped synopsis continuation carries
+/// (`. , ' /`) is allowed too, and so is a lowercase opening (`pigz`'s
+/// prose runs on from its usage line: `will compress files in place`). A real wrapped synopsis continuation carries
 /// brackets, operands or closing punctuation (`unzip`'s `... to exdir;`).
 /// See docs/shapes.md S-195.
 pub(super) fn is_form_description_line(line: &str, base_indent: usize, punctuated: bool) -> bool {
@@ -140,7 +141,7 @@ pub(super) fn is_form_description_line(line: &str, base_indent: usize, punctuate
     let words: Vec<&str> = trimmed.split_whitespace().collect();
     leading_whitespace(line) > base_indent
         && words.len() >= heading::MIN_PROSE_SENTENCE_WORDS
-        && trimmed.chars().next().is_some_and(char::is_uppercase)
+        && (punctuated || trimmed.chars().next().is_some_and(char::is_uppercase))
         && trimmed.chars().all(|c| {
             c.is_alphanumeric()
                 || matches!(c, ' ' | '-')

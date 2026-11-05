@@ -15,6 +15,10 @@ use mandible_search::SearchIndex;
 /// value that sits against it.
 fn drawn_spellings(entity: &Entity) -> Vec<String> {
     let mut out = Vec::new();
+    // A braced name is drawn as the muted `{…}`; its values are the choices.
+    if entity.name_is_choices() {
+        return out;
+    }
     let parts: Vec<String> = entity_name_spec(entity)
         .split(", ")
         .map(str::to_string)

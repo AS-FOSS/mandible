@@ -1,0 +1,361 @@
+name: setterm
+description: Set the attributes of a terminal.
+usage:
+- ' setterm [options]'
+flags:
+- spellings:
+  - --term
+  value_name: <terminal_name>
+  value_kind: Required
+  description: override TERM environment variable
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reset
+  description: reset terminal to power-on state
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --resize
+  description: reset terminal rows and columns
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --initialize
+  description: display init string, and use default settings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --default
+  description: use default terminal settings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --store
+  description: save current terminal settings as default
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --cursor
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: display cursor
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --repeat
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: keyboard repeat
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --appcursorkeys
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: cursor key application mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linewrap
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: continue on a new line when a line is full
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --inversescreen
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: swap colors for the whole screen
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --msg
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: send kernel messages to console
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --msglevel
+  value_name: <0-8>
+  value_kind: Required
+  description: kernel console log level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --foreground
+  value_name: default|<color>
+  value_kind: Required
+  choices:
+  - default
+  - black
+  - blue
+  - cyan
+  - green
+  - grey
+  - magenta
+  - red
+  - white
+  - yellow
+  description: set foreground color
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --background
+  value_name: default|<color>
+  value_kind: Required
+  choices:
+  - default
+  - black
+  - blue
+  - cyan
+  - green
+  - grey
+  - magenta
+  - red
+  - white
+  - yellow
+  description: set background color
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ulcolor
+  value_name: '[bright] <color>'
+  value_kind: Required
+  choices:
+  - black
+  - blue
+  - cyan
+  - green
+  - grey
+  - magenta
+  - red
+  - white
+  - yellow
+  description: set underlined text color
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hbcolor
+  value_name: '[bright] <color>'
+  value_kind: Required
+  choices:
+  - black
+  - blue
+  - cyan
+  - green
+  - grey
+  - magenta
+  - red
+  - white
+  - yellow
+  description: set half-bright text color
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bold
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: bold
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --half-bright
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: dim
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --blink
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: blink
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --underline
+  value_kind: Required
+  choices:
+  - on
+  - off
+  description: underline
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reverse
+  description: on|off swap foreground and background colors
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --clear
+  value_name: <all|rest>
+  value_kind: Optional
+  optional_join: equals
+  description: clear screen and set cursor position
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --tabs
+  value_name: <number>...
+  value_kind: Optional
+  optional_join: equals
+  description: set these tab stop positions, or show them
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --clrtabs
+  value_name: <number>...
+  value_kind: Optional
+  optional_join: equals
+  description: clear these tab stop positions, or all
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --regtabs
+  value_name: 1-160
+  value_kind: Optional
+  optional_join: equals
+  description: set a regular tab stop interval
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --blank
+  value_kind: Optional
+  optional_join: equals
+  choices:
+  - 0-60
+  - force
+  - poke
+  description: set time of inactivity before screen blanks
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dump
+  value_name: <number>
+  value_kind: Optional
+  optional_join: equals
+  description: write vcsa<number> console dump to file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --append
+  value_name: <number>
+  value_kind: Required
+  description: append vcsa<number> console dump to file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --file
+  value_name: <filename>
+  value_kind: Required
+  description: name of the dump file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --powersave
+  value_kind: Required
+  choices:
+  - on
+  - vsync
+  - hsync
+  - powerdown
+  - off
+  description: set vesa powersaving features
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --powerdown
+  value_name: <0-60>
+  value_kind: Optional
+  optional_join: equals
+  description: set vesa powerdown interval in minutes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --blength
+  value_name: <0-2000>
+  value_kind: Optional
+  optional_join: equals
+  description: duration of the bell in milliseconds
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --bfreq
+  value_name: <number>
+  value_kind: Optional
+  optional_join: equals
+  description: bell frequency in Hertz
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: display version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

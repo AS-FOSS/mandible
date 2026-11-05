@@ -30,6 +30,29 @@ pub(super) fn required_join_of(after_spellings: &str, value: &str) -> Option<Opt
     glued.then_some(OptionalJoin::Glued)
 }
 
+/// A bracketed value followed, after one space, by an angle placeholder that
+/// ends the spec (`--ulcolor [bright] <color>`): both stay on the value, as
+/// written, which is then required. `head` is the bracket run as `try_value`
+/// holds it, `folded` whether it already carries its own brackets. See
+/// docs/shapes.md S-260.
+pub(super) fn bracket_then_angle<'a>(
+    head: &str,
+    folded: bool,
+    s: &'a str,
+) -> Option<(String, &'a str)> {
+    let rest = s.strip_prefix(' ')?.strip_prefix('<')?;
+    let close = rest.find('>').filter(|&c| c > 0)?;
+    let after = &rest[close + 1..];
+    after.trim().is_empty().then(|| {
+        let head = if folded {
+            head.to_string()
+        } else {
+            format!("[{head}]")
+        };
+        (format!("{head} <{}>", &rest[..close]), after)
+    })
+}
+
 /// One plain flag name at the front of `input` (`-9`, `-11`, `--fast`):
 /// dashes, then letters, digits, `_` or `-`, ending at whitespace, a comma,
 /// a dot or the end of the text.

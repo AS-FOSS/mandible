@@ -536,23 +536,7 @@ subcommands:
   - '   or: git stash create [<message>]'
   - '   or: git stash store [(-m | --message) <message>] [-q | --quiet] <commit>'
   positionals:
-  - name: log-options
-    provenance:
-      sources:
-      - help-text
-  - name: stash
-    provenance:
-      sources:
-      - help-text
   - name: diff-options
-    provenance:
-      sources:
-      - help-text
-  - name: branchname
-    provenance:
-      sources:
-      - help-text
-  - name: message
     provenance:
       sources:
       - help-text
@@ -560,82 +544,6 @@ subcommands:
     provenance:
       sources:
       - help-text
-  flags:
-  - spellings:
-    - -u
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - --include-untracked
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - --only-untracked
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - -q
-    - --quiet
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - --index
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - -p
-    - --patch
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - -S
-    - --staged
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - -k
-    - --[no-]keep-index
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - -a
-    - --all
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - -m
-    - --message
-    value_name: <message>
-    value_kind: Required
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - --pathspec-from-file
-    value_name: <file>
-    value_kind: Required
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - --pathspec-file-nul
-    provenance:
-      sources:
-      - help-text-synopsis
-  - spellings:
-    - --
-    provenance:
-      sources:
-      - help-text-synopsis
   group: Main Porcelain Commands
   provenance:
     sources:
@@ -754,6 +662,82 @@ subcommands:
       provenance:
         sources:
         - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: push
+    usage:
+    - git stash [push [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet] [-u | --include-untracked] [-a | --all] [(-m | --message) <message>] [--pathspec-from-file=<file> [--pathspec-file-nul]] [--] [<pathspec>...]]
+    positionals:
+    - name: pathspec
+      variadic: true
+      provenance:
+        sources:
+        - help-text
+    flags:
+    - spellings:
+      - -p
+      - --patch
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -S
+      - --staged
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -k
+      - --[no-]keep-index
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -q
+      - --quiet
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -u
+      - --include-untracked
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -a
+      - --all
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - -m
+      - --message
+      value_name: <message>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --pathspec-from-file
+      value_name: <file>
+      value_kind: Required
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --pathspec-file-nul
+      provenance:
+        sources:
+        - help-text-synopsis
+    - spellings:
+      - --
+      provenance:
+        sources:
+        - help-text-synopsis
     provenance:
       sources:
       - help-text

@@ -406,29 +406,9 @@ USAGE ────────────────────────�
   git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
 
 
-POSITIONALS (6) ────────────────────────────────────────────────────────────
-  log-options
-  stash
+POSITIONALS (2) ────────────────────────────────────────────────────────────
   diff-options
-  branchname
-  message
   commit
-
-
-FLAGS (13) ─────────────────────────────────────────────────────────────────
--u
-    --include-untracked
-    --only-untracked
--q, --quiet
-    --index
--p, --patch
--S, --staged
--k, --[no-]keep-index
--a, --all
--m, --message <message>
-    --pathspec-from-file <file>
-    --pathspec-file-nul
---
 
 === git stash list ===
 USAGE ──────────────────────────────────────────────────────────────────────
@@ -487,6 +467,30 @@ USAGE ────────────────────────�
 POSITIONALS (2) ────────────────────────────────────────────────────────────
   branchname
   stash
+
+=== git stash push ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  git stash [push [-p | --patch] [-S | --staged] [-k | --[no-]keep-index]
+      [-q | --quiet] [-u | --include-untracked] [-a | --all] [(-m |
+      --message) <message>] [--pathspec-from-file=<file>
+      [--pathspec-file-nul]] [--] [<pathspec>...]]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  pathspec...
+
+
+FLAGS (10) ─────────────────────────────────────────────────────────────────
+-p, --patch
+-S, --staged
+-k, --[no-]keep-index
+-q, --quiet
+-u, --include-untracked
+-a, --all
+-m, --message <message>
+    --pathspec-from-file <file>
+    --pathspec-file-nul
+--
 
 === git stash save ===
 USAGE ──────────────────────────────────────────────────────────────────────

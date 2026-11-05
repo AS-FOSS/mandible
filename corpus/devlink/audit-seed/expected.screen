@@ -1,0 +1,41 @@
+=== devlink ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  devlink [ OPTIONS ] OBJECT { COMMAND | help }
+  devlink [ -f[orce] ] -b[atch] filename -N[etns] netnsname
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (10) ─────────────────────────────────────────────────────────────────
+    -V[ersion]
+    -n[o-nice-names]
+    -j[son]
+    -p[retty]
+    -v[erbose]
+    -s[tatistics]
+    -[he]x
+    -f[orce]
+    -b[atch] filename
+    -N[etns] netnsname
+
+=== devlink dev ===
+
+=== devlink port ===
+
+=== devlink lc ===
+
+=== devlink sb ===
+
+=== devlink monitor ===
+
+=== devlink dpipe ===
+
+=== devlink resource ===
+
+=== devlink region ===
+
+=== devlink health ===
+
+=== devlink trap ===

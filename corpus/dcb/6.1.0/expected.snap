@@ -3,10 +3,6 @@ usage:
 - 'Usage: dcb [ OPTIONS ] OBJECT { COMMAND | help }'
 - '       dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname'
 positionals:
-- name: OBJECT
-  provenance:
-    sources:
-    - help-text
 - name: COMMAND
   required: true
   provenance:
@@ -78,3 +74,40 @@ provenance:
   - help-text
   confidence: 0.5
 children_filled: true
+subcommands:
+- name: app
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: buffer
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: dcbx
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ets
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: maxrate
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: pfc
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

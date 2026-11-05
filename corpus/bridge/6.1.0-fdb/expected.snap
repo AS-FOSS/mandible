@@ -1,0 +1,361 @@
+name: bridge
+usage:
+- 'Usage: bridge [ OPTIONS ] OBJECT { COMMAND | help }'
+- '       bridge [ -force ] -batch filename'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V[ersion]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s[tatistics]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d[etails]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o[neline]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t[imestamp]
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[etns]
+  value_name: name
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c[ompressvlans]
+  description: -color -p[retty] -j[son] }
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -force
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -batch
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: link
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: fdb
+  usage:
+  - 'Usage: bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static | dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [ nhid NHID ] } [ via DEV ] [ src_vni VNI ]'
+  - '       bridge fdb [ show [ br BRDEV ] [ brport DEV ] [ vlan VID ] [ state STATE ] [ dynamic ] ]'
+  - '       bridge fdb get [ to ] LLADDR [ br BRDEV ] { brport | dev } DEV [ vlan VID ] [ vni VNI ] [ self ] [ master ] [ dynamic ]'
+  - '       bridge fdb flush dev DEV [ brport DEV ] [ vlan VID ] [ self ] [ master ] [ [no]permanent | [no]static | [no]dynamic ] [ [no]added_by_user ] [ [no]extern_learn ] [ [no]sticky ] [ [no]offloaded ]'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  help_slot_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static | dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [ nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+    positionals:
+    - name: ADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: IPADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PORT
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VNI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NHID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: append
+    usage:
+    - bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static | dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [ nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+    positionals:
+    - name: ADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: IPADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PORT
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VNI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NHID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: del
+    usage:
+    - bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static | dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [ nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+    positionals:
+    - name: ADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: IPADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PORT
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VNI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NHID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: replace
+    usage:
+    - bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static | dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [ nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+    positionals:
+    - name: ADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: IPADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: PORT
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VNI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: NHID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - bridge fdb [ show [ br BRDEV ] [ brport DEV ] [ vlan VID ] [ state STATE ] [ dynamic ] ]
+    positionals:
+    - name: BRDEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: STATE
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: get
+    usage:
+    - bridge fdb get [ to ] LLADDR [ br BRDEV ] { brport | dev } DEV [ vlan VID ] [ vni VNI ] [ self ] [ master ] [ dynamic ]
+    positionals:
+    - name: LLADDR
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: BRDEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VNI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: flush
+    usage:
+    - bridge fdb flush dev DEV [ brport DEV ] [ vlan VID ] [ self ] [ master ] [ [no]permanent | [no]static | [no]dynamic ] [ [no]added_by_user ] [ [no]extern_learn ] [ [no]sticky ] [ [no]offloaded ]
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: VID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: mdb
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: vlan
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

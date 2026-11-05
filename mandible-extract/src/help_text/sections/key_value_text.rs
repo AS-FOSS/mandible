@@ -31,20 +31,6 @@ fn declared_tokens(usage: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// The row at `at` joined with its wrapped continuation lines at or past
-/// the description column `col`.
-fn row_with_continuation(lines: &[&str], at: usize, col: usize) -> String {
-    let mut text = lines[at].trim().to_string();
-    for next in &lines[at + 1..] {
-        if next.trim().is_empty() || leading_whitespace(next) < col {
-            break;
-        }
-        text.push(' ');
-        text.push_str(next.trim());
-    }
-    text
-}
-
 /// The flush (column 0) prose paragraph right after line `after`, past
 /// blank lines: the sentence the help prints under the described rows
 /// before its next heading. A line ending in `:` is a heading, not prose.
@@ -62,8 +48,9 @@ fn flush_paragraph_after(lines: &[&str], after: usize) -> Option<String> {
     (!words.is_empty() && !text.ends_with(':') && text.ends_with(['.', '!', '?'])).then_some(text)
 }
 
-/// The described rows `option=value  description` of a declared word,
-/// then the flush prose paragraph that follows the last of them.
+/// The described rows `option=value  description` of a declared word, as
+/// their source lines, then the flush prose paragraph that follows the
+/// last of them.
 fn described_rows(lines: &[&str], declared: &[String]) -> Vec<String> {
     let mut seen: Vec<&str> = Vec::new();
     let mut rows = Vec::new();
@@ -83,7 +70,6 @@ fn described_rows(lines: &[&str], declared: &[String]) -> Vec<String> {
         }
         seen.push(token);
         let col = line.len() - rest.trim_start().len();
-        let text = row_with_continuation(lines, at, col);
         let mut end = at;
         while end + 1 < lines.len()
             && !lines[end + 1].trim().is_empty()
@@ -92,26 +78,35 @@ fn described_rows(lines: &[&str], declared: &[String]) -> Vec<String> {
             end += 1;
         }
         last_end = Some(end);
-        rows.push(match text.split_once(char::is_whitespace) {
-            Some((key, tail)) => format!("{key}  {}", tail.trim()),
-            None => text,
-        });
+        rows.extend(lines[at..=end].iter().map(|l| l.trim_end().to_string()));
+    }
+    let mut paragraphs = Vec::new();
+    if !rows.is_empty() {
+        paragraphs.push(rows.join("\n"));
     }
     if let Some(prose) = last_end.and_then(|end| flush_paragraph_after(lines, end)) {
-        rows.push(prose);
+        paragraphs.push(prose);
     }
-    rows
+    paragraphs
 }
 
 /// Headed blocks after line `from`: a flush heading ending in `:` whose
 /// indented lines all start with the usage's command path (`jfr configure
-/// ...`). The heading and its lines, one paragraph each, as printed.
-fn trailing_invocation_blocks(lines: &[&str], from: usize, path: &str) -> Vec<String> {
+/// ...`). The heading and its lines, as printed.
+fn trailing_invocation_blocks(
+    lines: &[&str],
+    from: usize,
+    path: &str,
+    tool_name: Option<&str>,
+) -> Vec<String> {
     let mut blocks = Vec::new();
     let mut at = from;
     while at < lines.len() {
         let heading = lines[at].trim();
-        if leading_whitespace(lines[at]) != 0 || !heading.ends_with(':') {
+        if leading_whitespace(lines[at]) != 0
+            || !heading.ends_with(':')
+            || super::examples::heads_captured_usage_block(lines, at, tool_name)
+        {
             at += 1;
             continue;
         }
@@ -122,7 +117,7 @@ fn trailing_invocation_blocks(lines: &[&str], from: usize, path: &str) -> Vec<St
             if text.is_empty() {
                 j += 1;
             } else if leading_whitespace(lines[j]) > 0 && text.starts_with(path) {
-                rows.push(text);
+                rows.push(lines[j].trim_end());
                 j += 1;
             } else {
                 break;
@@ -131,7 +126,7 @@ fn trailing_invocation_blocks(lines: &[&str], from: usize, path: &str) -> Vec<St
         if rows.is_empty() {
             at += 1;
         } else {
-            blocks.push(format!("{heading}\n\n{}", rows.join("\n\n")));
+            blocks.push(format!("{}\n{}", lines[at].trim_end(), rows.join("\n")));
             at = j;
         }
     }
@@ -139,7 +134,7 @@ fn trailing_invocation_blocks(lines: &[&str], from: usize, path: &str) -> Vec<St
 }
 
 /// Every heading ending in `:` with two or more rows that are each one
-/// `key=<placeholder>`: the heading, then the rows one per line.
+/// `key=<placeholder>`: the heading, then its rows with their indentation.
 fn placeholder_blocks(lines: &[&str]) -> Vec<String> {
     let mut blocks = Vec::new();
     let mut at = 0;
@@ -167,7 +162,7 @@ fn placeholder_blocks(lines: &[&str]) -> Vec<String> {
                         && value.starts_with('<')
                         && value.ends_with('>') =>
                 {
-                    rows.push(text);
+                    rows.push(lines[j].trim_end());
                     j += 1;
                 }
                 _ => break,
@@ -175,7 +170,7 @@ fn placeholder_blocks(lines: &[&str]) -> Vec<String> {
         }
         if rows.len() >= 2 {
             at = j;
-            blocks.push(format!("{heading_text}\n\n{}", rows.join("\n\n")));
+            blocks.push(format!("{}\n{}", heading.trim_end(), rows.join("\n")));
         }
     }
     blocks
@@ -197,13 +192,17 @@ fn usage_path(usage: &[String]) -> String {
 /// The paragraphs of `key=value` text to append to the description: the
 /// described rows of the usage's declared words, then each placeholder
 /// block, in the order printed.
-pub(super) fn key_value_paragraphs(usage: &[String], lines: &[&str]) -> Option<String> {
+pub(super) fn key_value_paragraphs(
+    usage: &[String],
+    lines: &[&str],
+    tool_name: Option<&str>,
+) -> Option<String> {
     let mut paragraphs = Vec::new();
     let declared = declared_tokens(usage);
     if !declared.is_empty() {
         let rows = described_rows(lines, &declared);
         if !rows.is_empty() {
-            paragraphs.push(rows.join("\n\n"));
+            paragraphs.extend(rows);
         }
     }
     let blocks = placeholder_blocks(lines);
@@ -215,7 +214,7 @@ pub(super) fn key_value_paragraphs(usage: &[String], lines: &[&str]) -> Option<S
             .iter()
             .rposition(|l| l.trim().contains("=<"))
             .map_or(0, |i| i + 1);
-        paragraphs.extend(trailing_invocation_blocks(lines, from, &path));
+        paragraphs.extend(trailing_invocation_blocks(lines, from, &path, tool_name));
     }
     (!paragraphs.is_empty()).then(|| paragraphs.join("\n\n"))
 }
@@ -237,10 +236,10 @@ mod tests {
             "",
             "  limit=<timespan>",
         ];
-        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        let text = key_value_paragraphs(&usage, &lines, None).unwrap();
         assert_eq!(
             text,
-            "option=value  The option value. Wrapped.\n\nOptions for x.jfc:\n\ngc=<off|high>\n\nlimit=<timespan>"
+            "  option=value     The option value.\n                   Wrapped.\n\nOptions for x.jfc:\n  gc=<off|high>\n  limit=<timespan>"
         );
     }
 
@@ -255,10 +254,10 @@ mod tests {
             "",
             "Notes:",
         ];
-        let text = key_value_paragraphs(&usage, &lines).unwrap();
+        let text = key_value_paragraphs(&usage, &lines, None).unwrap();
         assert_eq!(
             text,
-            "option=value  The option value.\n\nThe delimiter can be omitted. See the docs."
+            "  option=value     The option value.\n\nThe delimiter can be omitted. See the docs."
         );
     }
 
@@ -277,14 +276,14 @@ mod tests {
             "Other notes:",
             "  something else",
         ];
-        let text = key_value_paragraphs(&usage, &lines).unwrap();
-        assert!(text.ends_with("c=<d>\n\nTo run it:\n\njfr configure --interactive"));
+        let text = key_value_paragraphs(&usage, &lines, None).unwrap();
+        assert!(text.ends_with("c=<d>\n\nTo run it:\n  jfr configure --interactive"));
     }
 
     #[test]
     fn undeclared_pairs_and_a_lone_row_are_left_alone() {
         let usage = vec!["tool [OPTION]...".to_string()];
         let lines = ["  bs=BYTES   read and write", "Notes:", "  a=<b>"];
-        assert!(key_value_paragraphs(&usage, &lines).is_none());
+        assert!(key_value_paragraphs(&usage, &lines, None).is_none());
     }
 }

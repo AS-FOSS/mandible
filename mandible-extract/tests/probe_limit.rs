@@ -155,6 +155,7 @@ fn the_verbatim_view_of_a_timed_out_page_says_so_from_the_kept_probes() {
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     };
     let tier = mandible_extract::help_text::HelpTextTier::new(probe.clone());
     let (_, kept) = tier.extract_node_kept(&tool, &path, hints);

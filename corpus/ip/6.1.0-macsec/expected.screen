@@ -1,0 +1,170 @@
+=== ip ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip [ OPTIONS ] OBJECT { COMMAND | help }
+  ip [ -force ] -batch filename
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (21) ─────────────────────────────────────────────────────────────────
+Options
+    -V[ersion]
+    -s[tatistics]
+    -d[etails]
+    -r[esolve]
+    -h[uman-readable] | -iec | -j[son] | -p[retty] |
+    -f[amily] {…}     values: inet, inet6, mpls, bridge, link
+-4
+-6
+-M
+-B
+-0
+    -l[oops]          { maximum-addr-flush-attempts } | -br[ief] |
+    -o[neline]
+    -t[imestamp]
+    -ts[hort]
+    -b[atch] [filename]
+    -rc[vbuf] [size]
+    -n[etns] name
+    -N[umeric]
+    -a[ll]
+    -c[olor]
+
+=== ip address ===
+
+=== ip addrlabel ===
+
+=== ip amt ===
+
+=== ip fou ===
+
+=== ip ila ===
+
+=== ip ioam ===
+
+=== ip l2tp ===
+
+=== ip link ===
+
+=== ip macsec ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip macsec add DEV tx sa { 0..3 } [ OPTS ] key ID KEY
+  ip macsec set DEV tx sa { 0..3 } [ OPTS ]
+  ip macsec del DEV tx sa { 0..3 }
+  ip macsec add DEV rx SCI [ on | off ]
+  ip macsec set DEV rx SCI [ on | off ]
+  ip macsec del DEV rx SCI
+  ip macsec add DEV rx SCI sa { 0..3 } [ OPTS ] key ID KEY
+  ip macsec set DEV rx SCI sa { 0..3 } [ OPTS ]
+  ip macsec del DEV rx SCI sa { 0..3 }
+  ip macsec show
+  ip macsec show DEV
+  ip macsec offload DEV [ off | phy | mac ]
+
+
+POSITIONALS (5) ────────────────────────────────────────────────────────────
+  OPTS  [ pn <u32> | xpn <u64> ] [ salt SALT ] [ ssci <u32> ] [ on | off ]
+  ID    128-bit hex string
+  KEY   128-bit or 256-bit hex string
+  SCI   { sci <u64> | port { 1..2^16-1 } address <lladdr> }
+  SALT  96-bit hex string
+
+=== ip macsec add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip macsec add DEV tx sa { 0..3 } [ OPTS ] key ID KEY
+  ip macsec add DEV rx SCI [ on | off ]
+  ip macsec add DEV rx SCI sa { 0..3 } [ OPTS ] key ID KEY
+
+
+POSITIONALS (5) ────────────────────────────────────────────────────────────
+  DEV
+  OPTS
+  ID
+  KEY
+  SCI
+
+=== ip macsec set ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip macsec set DEV tx sa { 0..3 } [ OPTS ]
+  ip macsec set DEV rx SCI [ on | off ]
+  ip macsec set DEV rx SCI sa { 0..3 } [ OPTS ]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  DEV
+  OPTS
+  SCI
+
+=== ip macsec del ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip macsec del DEV tx sa { 0..3 }
+  ip macsec del DEV rx SCI
+  ip macsec del DEV rx SCI sa { 0..3 }
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  DEV
+  SCI
+
+=== ip macsec show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip macsec show
+  ip macsec show DEV
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  DEV
+
+=== ip macsec offload ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip macsec offload DEV [ off | phy | mac ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  DEV
+
+=== ip maddress ===
+
+=== ip monitor ===
+
+=== ip mptcp ===
+
+=== ip mroute ===
+
+=== ip mrule ===
+
+=== ip neighbor ===
+
+=== ip neighbour ===
+
+=== ip netconf ===
+
+=== ip netns ===
+
+=== ip nexthop ===
+
+=== ip ntable ===
+
+=== ip ntbl ===
+
+=== ip route ===
+
+=== ip rule ===
+
+=== ip sr ===
+
+=== ip tap ===
+
+=== ip tcpmetrics ===
+
+=== ip token ===
+
+=== ip tunnel ===
+
+=== ip tuntap ===
+
+=== ip vrf ===
+
+=== ip xfrm ===
