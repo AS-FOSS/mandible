@@ -35,7 +35,3 @@ must_draw = [
 "-s" = "source mac address"
 "--logical-in" = "logical bridge input interface name"
 "-C" = "change counters of existing rule"
-
-[xfail]
-broken = true
-reason = "[S-254] `--long -s [!] value : text` rows read the alias and `[!]` as description (`--proto` alone is the flag), a glued `address[/mask]:` drops its description, `--logical-in  [!] name[+] :` keeps the marker in the description, and a head wrapped onto two lines (`--change-counters -C chain` over `[rulenum] pcnt bcnt : text`) keeps only `chain`. A fix reads the marker after the spellings as the existing `!` negation, the colon as the separator, and the wrapped value words as the value."

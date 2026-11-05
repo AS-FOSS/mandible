@@ -111,12 +111,6 @@ flags:
     - help-text
 - spellings:
   - --lquote
-  value_name: quote
-  value_kind: Required
-  provenance:
-    sources:
-    - help-text
-- spellings:
   - --rquote
   value_name: quote
   value_kind: Required

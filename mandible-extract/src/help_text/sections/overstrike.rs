@@ -35,4 +35,17 @@ pub(super) fn resolve_labels(parsed: &mut ParsedHelp) {
     for node in &mut parsed.subcommands {
         clean(&mut node.group);
     }
+    parsed.flags.retain(|f| !is_key_placeholder_row(f));
+}
+
+/// True for a row of a commands table that names a key pressed inside the
+/// tool by a dash and an angle placeholder (`-<flag>`, read as the spelling
+/// `-<` with the value `flag>`): it is no flag. See docs/shapes.md S-258.
+fn is_key_placeholder_row(flag: &mandible_core::Entity) -> bool {
+    let key = matches!(flag.spellings.as_slice(), [s] if s.dashes == mandible_core::Dashes::Single && s.name == "<");
+    key && flag.group.as_deref().is_some_and(super::mentions_commands_word)
+        && flag
+            .value_name
+            .as_deref()
+            .is_some_and(|v| v.ends_with('>') && !v.contains('<'))
 }

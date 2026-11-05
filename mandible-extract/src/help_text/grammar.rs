@@ -10,7 +10,7 @@
 //! reports whether it fully consumed the input, which
 //! `help_text::sections` uses to compute this tier's confidence score.
 
-use super::spec_parts::{optional_join_of, parse_range_head};
+use super::spec_parts::{optional_join_of, parse_range_head, required_join_of};
 use mandible_core::{Dashes, Negation, OptionalJoin, Spelling, SpellingRange, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
@@ -205,6 +205,26 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
                 }
             }
 
+            // After two or more shorts, a lower-case word of three or more
+            // letters is the next alias (`-? -h -help`), never `-h` again.
+            // See docs/shapes.md S-258.
+            if !explicit && spec.spellings.len() >= 2 && spec.spellings.iter().all(is_genuine_short)
+            {
+                if let Some((spelling, tail)) = try_alias_position_single_dash_long(rest) {
+                    let word = spelling.name.chars();
+                    if word.clone().count() >= 3
+                        && word.clone().all(|c| c.is_ascii_lowercase())
+                        && !already_collected(&spec, &spelling)
+                        && !trailing_token_is_a_value(tail)
+                    {
+                        last_was_long_like = true;
+                        spec.spellings.push(spelling);
+                        rest = tail;
+                        continue;
+                    }
+                }
+            }
+
             if let Some((spelling, tail)) = try_short(rest) {
                 if last_was_long_like && is_long_like(&spelling) && !explicit {
                     break;
@@ -285,6 +305,15 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
         }
 
         rest = skip_separators(rest);
+        // A `[!]` after the spellings (`--proto -p [!] proto`) says the same
+        // as one before them. See docs/shapes.md S-254.
+        if let Some(after_bang) = rest.strip_prefix("[!]").filter(|r| r.starts_with(' ')) {
+            for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
+                s.negation = Some(Negation::Bang);
+            }
+            after_spellings = after_bang;
+            rest = skip_separators(after_bang);
+        }
         if rest.is_empty() {
             spec.fully_consumed = true;
             return spec;
@@ -324,6 +353,7 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
         // function: the value's own glue character (`-Wa,<options>`'s
         // comma) becomes the leading character of `value_name` itself.
         if spec.value_name.is_none() {
+            let prefixed = spec.value_prefix.is_some();
             spec.value_name = Some(match spec.value_prefix.take() {
                 Some(c) => format!("{c}{value_name}"),
                 None => value_name,
@@ -331,6 +361,8 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
             spec.value_kind = kind;
             if kind == ValueKind::Optional {
                 spec.optional_join = Some(optional_join_of(after_spellings, rest));
+            } else if !prefixed {
+                spec.optional_join = required_join_of(after_spellings, rest);
             }
         } else if kind == ValueKind::Optional && spec.value_kind == ValueKind::Optional {
             // The value is drawn after the last spelling, so that
@@ -823,13 +855,29 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     {
         return Some((Spelling::single_dash(run), after_run));
     }
-    // A lower-case word of three or more letters glued to an optional
-    // value (`-verbose[:suboptions]`) is one single-dash spelling with
-    // an optional value, never `-v` plus a value `erbose[:suboptions]`.
-    // See docs/shapes.md S-230.
-    if run.chars().count() >= 3
+    // A lower-case word glued to an optional value (`-verbose[:suboptions]`,
+    // `-ea[:<class>]`) is one single-dash spelling with an optional value,
+    // never `-v` plus a value `erbose[:suboptions]`. See docs/shapes.md S-230.
+    if run.chars().all(|c| c.is_ascii_lowercase())
+        && ((run.chars().count() >= 2 && after_run.starts_with("[:"))
+            || (run.chars().count() >= 3 && after_run.starts_with("[=")))
+    {
+        return Some((Spelling::single_dash(run), after_run));
+    }
+    // A lower-case word of three or more letters with a `:` straight after
+    // it (`-splash:<imagepath>`, `-verbose:[class|gc]`) is the spelling,
+    // and the `:` opens its glued value. See docs/shapes.md S-258.
+    if let Some(len) = colon_glued_word_len(s) {
+        return Some((Spelling::single_dash(&s[..len]), &s[len..]));
+    }
+    // A lower-case run followed by a spaced `<value>` (`-cp <path>`) is the
+    // whole spelling: a flag cannot take both a glued and a spaced value.
+    // See docs/shapes.md S-258.
+    if run.chars().count() >= 2
         && run.chars().all(|c| c.is_ascii_lowercase())
-        && (after_run.starts_with("[:") || after_run.starts_with("[="))
+        && after_run
+            .strip_prefix(' ')
+            .is_some_and(|v| v.trim_start().starts_with('<'))
     {
         return Some((Spelling::single_dash(run), after_run));
     }
@@ -837,6 +885,14 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;
     Some((Spelling::short(c), &s[c.len_utf8()..]))
+}
+
+/// Byte length of the lower-case word at the front of `s` (three or more
+/// letters) when a `:` and then more text follow it directly.
+fn colon_glued_word_len(s: &str) -> Option<usize> {
+    let len = s.find(|c: char| !c.is_ascii_lowercase())?;
+    let after = s[len..].strip_prefix(':')?;
+    (len >= 3 && !after.is_empty() && !after.starts_with(char::is_whitespace)).then_some(len)
 }
 
 fn is_short_char(c: char) -> bool {
@@ -894,7 +950,18 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
         s = rest;
         true
     });
-    let name = long_name(&mut s).ok()?;
+    let base = s;
+    let mut name = long_name(&mut s).ok()?;
+    // An `@` between name characters is part of the name (`--disable-@files`).
+    if name.ends_with('-') && s.starts_with('@') {
+        let word = s[1..]
+            .find(|c: char| !(c.is_alphanumeric() || c == '-'))
+            .unwrap_or(s.len() - 1);
+        if word > 0 {
+            name = &base[..name.len() + 1 + word];
+            s = &s[1 + word..];
+        }
+    }
     if !negatable && name.chars().count() <= MAX_ABBREV_PREFIX_LEN {
         if let Some((content, rest)) = parse_abbrev_bracket(s) {
             return Some((
@@ -1346,6 +1413,12 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
                     break;
                 }
                 taken += 2 + close + 1;
+            }
+            // `<name>=<value>` is one value spec, kept whole (`-D<name>=<value>`).
+            if let Some(more) = s[taken..].strip_prefix("=<") {
+                if let Some(close) = more.find('>').filter(|&c| !more[..c].contains(' ')) {
+                    taken += 2 + close + 1;
+                }
             }
             taken += glued_list_tail(&s[taken..]);
             return (s[..taken].to_string(), &s[taken..]);

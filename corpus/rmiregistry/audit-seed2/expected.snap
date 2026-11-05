@@ -13,6 +13,7 @@ flags:
   - -J
   value_name: <runtime flag>
   value_kind: Required
+  optional_join: glued
   group: 'where <options> includes:'
   description: Pass argument to the java interpreter
   provenance:

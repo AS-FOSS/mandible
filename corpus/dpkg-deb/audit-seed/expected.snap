@@ -1,0 +1,229 @@
+name: dpkg-deb
+description: |-
+  Format syntax:
+    A format is a string that will be output for each package. The format
+    can include the standard escape sequences \n (newline), \r (carriage
+    return) or \\ (plain backslash). Package information can be included
+    by inserting variable references to package fields using the ${var[;width]}
+    syntax. Fields will be right-aligned unless the width is negative in which
+    case left alignment will be used.
+usage:
+- 'Usage: dpkg-deb [<option>...] <command>'
+positionals:
+- name: command
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -b
+  - --build
+  value_name: <directory>
+  value_kind: Required
+  group: 'Commands:'
+  description: Build an archive.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --contents
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: List contents.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --info
+  value_name: <deb> [<cfile>...]
+  value_kind: Required
+  group: 'Commands:'
+  description: Show info to stdout.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --show
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: Show information on package(s)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --field
+  value_name: <deb> [<cfield>...]
+  value_kind: Required
+  group: 'Commands:'
+  description: Show field(s) to stdout.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --control
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: '[<directory>] Extract control info.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --extract
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: Extract files.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --vextract
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: Extract & list files.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --raw-extract
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: <directory> Extract control info and files.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ctrl-tarfile
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: Output control tarfile.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --fsys-tarfile
+  value_name: <deb>
+  value_kind: Required
+  group: 'Commands:'
+  description: Output filesystem tarfile.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - --help
+  group: 'Commands:'
+  description: Show this help message.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'Commands:'
+  description: Show the version.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Enable verbose output.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --debug
+  description: Enable debugging output.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --showformat
+  value_name: <format>
+  value_kind: Required
+  description: Use alternative format for --show.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --deb-format
+  value_name: <format>
+  value_kind: Required
+  description: 'Select archive format. Allowed values: 0.939000, 2.0 (default).'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nocheck
+  description: Suppress control file check (build bad packages).
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --root-owner-group
+  description: Forces the owner and groups to root.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --threads-max
+  value_name: <threads>
+  value_kind: Required
+  description: Use at most <threads> with compressor.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --[no-]uniform-compression
+  description: Use the compression params on all members.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  value_name: '#'
+  value_kind: Required
+  optional_join: glued
+  description: Set the compression level when building.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -Z
+  value_name: <type>
+  value_kind: Required
+  optional_join: glued
+  description: 'Set the compression type used when building. Allowed types: gzip, xz, zstd, none.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  value_name: <strategy>
+  value_kind: Required
+  optional_join: glued
+  description: 'Set the compression strategy when building. Allowed values: none; extreme (xz); filtered, huffman, rle, fixed (gzip).'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

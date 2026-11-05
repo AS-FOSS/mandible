@@ -13,4 +13,4 @@ POSITIONALS (1) ─────────────────────�
 
 FLAGS (1) ──────────────────────────────────────────────────────────────────
 Where <options> includes
--J <runtime flag>  Pass argument to the java interpreter
+-J<runtime flag>  Pass argument to the java interpreter

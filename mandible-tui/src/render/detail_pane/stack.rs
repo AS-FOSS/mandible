@@ -42,7 +42,14 @@ fn main_indices(flag: &Entity) -> Vec<usize> {
         });
     // The range always stays on the main line, after the other longs.
     let range = flag.spellings.iter().position(|s| is_range_start(flag, s));
-    let picked: Vec<usize> = short.into_iter().chain(long).chain(range).collect();
+    // The spelling a glued value follows is drawn last, the value on it.
+    let glued = flag.glued_spelling();
+    let mut picked: Vec<usize> = short.into_iter().chain(long).collect();
+    if let Some(g) = glued {
+        picked.retain(|&i| i != g);
+        picked.push(g);
+    }
+    picked.extend(range);
     if picked.is_empty() {
         vec![0]
     } else {

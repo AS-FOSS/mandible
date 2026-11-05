@@ -1,9 +1,9 @@
 === less ===
-FLAGS (58) ─────────────────────────────────────────────────────────────────
+FLAGS (57) ─────────────────────────────────────────────────────────────────
 -?, --help                Display help (from command line).
 -a, --search-skip-screen  Search skips current screen.
 -A, --SEARCH-SKIP-SCREEN  Search starts just after target line.
--b, --buffers[=N]         Number of buffers.
+-b, --buffers=[N]         Number of buffers.
 -B, --auto-buffers        Don't automatically allocate buffers for pipes.
 -c, --clear-screen        Repaint by clearing rather than scrolling.
 -d, --dumb                Dumb terminal.
@@ -14,21 +14,21 @@ FLAGS (58) ───────────────────────
 -F, --quit-if-one-screen  Quit if entire file fits on first screen.
 -g, --hilite-search       Highlight only last match for searches.
 -G, --HILITE-SEARCH       Don't highlight any matches for searches.
--h, --max-back-scroll[=N] Backward scroll limit.
+-h, --max-back-scroll=[N] Backward scroll limit.
 -i, --ignore-case         Ignore case in searches that do not contain
                           uppercase.
 -I, --IGNORE-CASE         Ignore case in all searches.
--j, --jump-target[=N]     Screen position of target lines.
+-j, --jump-target=[N]     Screen position of target lines.
 -J, --status-column       Display a status column at left edge of screen.
--k, --lesskey-file[=file] Use a lesskey file.
+-k, --lesskey-file=[file] Use a lesskey file.
 -K, --quit-on-intr        Exit less in response to ctrl-C.
 -L, --no-lessopen         Ignore the LESSOPEN environment variable.
 -m, --long-prompt         Set prompt style.
  or -M, --LONG-PROMPT
 -n, --line-numbers        Don't use line numbers.
  or -N, --LINE-NUMBERS
--o, --log-file[=file]     Copy to log file (standard input only).
--O, --LOG-FILE[=file]     Copy to log file (unconditionally overwrite).
+-o, --log-file=[file]     Copy to log file (standard input only).
+-O, --LOG-FILE=[file]     Copy to log file (unconditionally overwrite).
 -p, --pattern[=pattern]   Start at pattern (from command line).
 -P, --prompt[=prompt]     Define new prompt.
 -q, --quiet               Quiet the terminal bell.
@@ -39,7 +39,7 @@ FLAGS (58) ───────────────────────
  or --RAW-CONTROL-CHARS
 -s, --squeeze-blank-lines Squeeze multiple blank lines.
 -S, --chop-long-lines     Chop (truncate) long lines rather than wrapping.
--t, --tag[=tag]           Find a tag.
+-t, --tag=[tag]           Find a tag.
 -T [tagsfile]             Use an alternate tags file.
 -u, --underline-special   Change handling of backspaces.
  or -U
@@ -50,11 +50,11 @@ FLAGS (58) ───────────────────────
                           movement.
 -x, --tabs[=N[,...]]      Set tab stops.
 -X, --no-init             Don't use termcap init/deinit strings.
--y, --max-forw-scroll[=N] Forward scroll limit.
--z, --window[=N]          Set size of window.
+-y, --max-forw-scroll=[N] Forward scroll limit.
+-z, --window=[N]          Set size of window.
 -", --quotes [c[c]]       Set shell quote characters.
 -~, --tilde               Don't display tildes after end of file.
--#, --shift[=N]           Set horizontal scroll amount (0 = one half screen
+-#, --shift=[N]           Set horizontal scroll amount (0 = one half screen
                           width).
     --file-size           Automatically determine the size of the input
                           file.
@@ -73,6 +73,3 @@ FLAGS (58) ───────────────────────
     --use-backslash       Subsequent options use backslash as escape char.
     --use-color           Enables colored text.
     --wheel-lines N       Each click of the mouse wheel moves N lines.
-
-Miscellaneous commands ─────────────────────────────────────────────────────
--< flag>                  Toggle a command line option [see OPTIONS below].

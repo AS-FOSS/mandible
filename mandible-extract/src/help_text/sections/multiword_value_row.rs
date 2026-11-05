@@ -8,7 +8,7 @@ use super::*;
 
 /// Most plain words after the first one that still read as part of the
 /// value.
-const MAX_EXTRA_WORDS: usize = 1;
+const MAX_EXTRA_WORDS: usize = 3;
 
 fn plain_word(w: &str) -> bool {
     w.chars().next().is_some_and(|c| c.is_ascii_lowercase())

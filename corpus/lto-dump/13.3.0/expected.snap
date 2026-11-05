@@ -2389,8 +2389,9 @@ flags:
     - help-text
 - spellings:
   - -A
-  value_name: <question>
+  value_name: <question>=<answer>
   value_kind: Required
+  optional_join: glued
   group: 'The following options are language-related:'
   provenance:
     sources:
@@ -2413,6 +2414,7 @@ flags:
   - -D
   value_name: <macro>[=<val>]
   value_kind: Required
+  optional_join: glued
   group: 'The following options are language-related:'
   provenance:
     sources:
@@ -2444,6 +2446,7 @@ flags:
   - -J
   value_name: <directory>
   value_kind: Required
+  optional_join: glued
   group: 'The following options are language-related:'
   provenance:
     sources:
@@ -2532,6 +2535,7 @@ flags:
   - -U
   value_name: <macro>
   value_kind: Required
+  optional_join: glued
   group: 'The following options are language-related:'
   provenance:
     sources:
@@ -4535,6 +4539,7 @@ flags:
   - -d
   value_name: <letters>
   value_kind: Required
+  optional_join: glued
   group: 'The following options are language-related:'
   provenance:
     sources:
@@ -5600,60 +5605,80 @@ flags:
     - help-text
 - spellings:
   - -idirafter
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -imacros
+  value_name: <file>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -imultilib
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -include
+  value_name: <file>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -iprefix
+  value_name: <path>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -iquote
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -isysroot
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -isystem
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -iwithprefix
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
     - help-text
 - spellings:
   - -iwithprefixbefore
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-related:'
   provenance:
     sources:
@@ -9436,6 +9461,7 @@ flags:
   - -O
   value_name: <number>
   value_kind: Required
+  optional_join: glued
   group: 'The following options control optimizations:'
   provenance:
     sources:
@@ -11495,6 +11521,8 @@ flags:
     - help-text
 - spellings:
   - -dumpbase
+  value_name: <file>
+  value_kind: Required
   group: 'The following options are language-independent:'
   provenance:
     sources:
@@ -11507,6 +11535,8 @@ flags:
     - help-text
 - spellings:
   - -dumpdir
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-independent:'
   provenance:
     sources:
@@ -13390,6 +13420,8 @@ flags:
     - help-text
 - spellings:
   - -imultiarch
+  value_name: <dir>
+  value_kind: Required
   group: 'The following options are language-independent:'
   provenance:
     sources:

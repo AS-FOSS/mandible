@@ -405,6 +405,9 @@ pub(super) enum FlagsBlockRow<'a> {
     Continuation(&'a str, &'a str),
     /// A head wrapped onto two lines, already joined; see `wrapped_head`.
     Joined(String),
+    /// Spelling-only lines stacked above one description, joined into one
+    /// alias run; see `wrapped_head::stack_into_previous`.
+    Stacked(String),
 }
 
 // --- S-095: the neighbor-gated `+`/`+<placeholder>` option row ---------
@@ -643,6 +646,35 @@ pub(super) fn argfile_row_value_name(trimmed: &str) -> Option<&str> {
     None
 }
 
+/// An `@` row of one or two lower-case words with no description on its
+/// own line and the description on the deeper lines below it
+/// (`@argument files` / `one or more argument files containing
+/// options`): the entry and the index past its description. docs/shapes.md
+/// S-258.
+fn hanging_argfile_row(lines: &[&str], at: usize) -> Option<(FlagRowEntry, usize)> {
+    let line = lines[at];
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let head = words.first()?.strip_prefix('@')?;
+    let plain = |w: &str| !w.is_empty() && w.chars().all(|c| c.is_ascii_lowercase());
+    if words.len() > 2 || !plain(head) || !words.iter().skip(1).all(|w| plain(w)) {
+        return None;
+    }
+    let indent = leading_whitespace(line);
+    let end = (at + 1..lines.len())
+        .find(|&j| lines[j].trim().is_empty() || leading_whitespace(lines[j]) <= indent)
+        .unwrap_or(lines.len());
+    if end == at + 1 {
+        return None;
+    }
+    let desc = lines[at + 1..end]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let value_name = line.trim().trim_start_matches('@').to_string();
+    Some(((value_name, desc, Vec::new()), end))
+}
+
 /// Build the argfile row's own [`FlagRowEntry`] once
 /// [`argfile_row_value_name`] has matched: the placeholder text as the
 /// "spec" slot (never fed to [`super::super::grammar::parse_flag_spec`] —
@@ -838,6 +870,13 @@ fn collect_flags_block_rows<'a>(
             argfile_entry = Some(argfile_flag_entry(line, value_name));
             break;
         }
+        // The same row written `@argument files` over its indented
+        // description: read in place, the block goes on. S-258.
+        if let Some((entry, end)) = hanging_argfile_row(lines, i) {
+            argfile_entry = Some(entry);
+            i = end;
+            continue;
+        }
 
         let is_entry_start = !follows_backslash_line(lines, i)
             && !continues_wrapped_description(&rows, current_entry_line, line)
@@ -888,6 +927,11 @@ fn collect_flags_block_rows<'a>(
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
         if is_entry_start && super::wrapped_head::join_into_previous(&mut rows, line) {
+            current_entry_line = Some(line);
+            i += 1;
+            continue;
+        }
+        if is_entry_start && super::wrapped_head::stack_into_previous(&mut rows, lines, i) {
             current_entry_line = Some(line);
             i += 1;
             continue;
@@ -1183,6 +1227,7 @@ pub(super) fn scan_flags_block(
                 }
             }
             FlagsBlockRow::Joined(text) => entries.push(joined_head_entry(&text)),
+            FlagsBlockRow::Stacked(text) => entries.push((text, String::new(), Vec::new())),
             FlagsBlockRow::Continuation(text, _) => {
                 if choice_list_rows[row_idx] {
                     // S-168: a colon-introduced choice list — the
@@ -1224,6 +1269,15 @@ pub(super) fn scan_flags_block(
                     // docs/shapes.md S-048.
                     if placeholder_left_open(&last.0) {
                         last.0.push_str(text);
+                    } else if let Some((values, desc)) = last
+                        .1
+                        .is_empty()
+                        .then(|| super::wrapped_head::value_tail_before_colon(&last.0, text))
+                        .flatten()
+                    {
+                        last.0.push(' ');
+                        last.0.push_str(values);
+                        last.1.push_str(desc);
                     } else if let Some((name, desc)) = choice_description_sub_row(text) {
                         // ffmpeg/ffplay's described AVOption sub-rows —
                         // see `choice_description_sub_row`. Tried before

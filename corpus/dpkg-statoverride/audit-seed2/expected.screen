@@ -13,9 +13,9 @@ FLAGS (14) ───────────────────────
     --root <directory>       set the directory of the root filesystem.
     --update                 immediately update <path> permissions.
     --force                  deprecated alias for --force-all.
-    --force- <thing>[,...]   override problems (see --force-help).
-    --no-force- <thing>[,...] stop when problems encountered.
-    --refuse- <thing>[,...]  ditto.
+    --force-<thing>[,...]    override problems (see --force-help).
+    --no-force-<thing>[,...] stop when problems encountered.
+    --refuse-<thing>[,...]   ditto.
     --quiet                  quiet operation, minimal output.
     --help                   show this help message.
     --version                show the version.

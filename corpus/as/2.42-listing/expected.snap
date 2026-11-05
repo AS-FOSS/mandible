@@ -176,6 +176,7 @@ flags:
   - --gdwarf-
   value_name: <N>
   value_kind: Required
+  optional_join: glued
   description: generate DWARF<N> debugging information. 2 <= <N> <= 5
   provenance:
     sources:

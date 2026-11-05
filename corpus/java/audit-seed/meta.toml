@@ -51,7 +51,3 @@ must_draw = [
 "-?" = "print this help message to the error stream"
 "--disable-@files" = "prevent further argument file expansion"
 "@" = "one or more argument files containing options"
-
-[xfail]
-broken = true
-reason = "[S-258] single-dash words are cut (`-cp <path>` reads `-c` with value `p`, `-verbose:[...]` reads `-v`), colon-glued values and `-D<name>=<value>` are drawn spaced, spelling-only lines stacked above one description are separate rows, `-? -h -help` drops `-help`, `--disable-@files` is split at the `@`, and the prose above `where options include:` is read as a group label and a fake `-m or` flag. A fix needs the whole-word rule, the glued-value join, the stacked-alias fold and the comma run-on prose rule."

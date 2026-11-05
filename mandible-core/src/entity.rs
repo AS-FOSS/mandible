@@ -271,17 +271,20 @@ impl Choice {
     }
 }
 
-/// How an optional value joins its flag, as the flag's own row writes it.
+/// How a value joins its flag, as the flag's own row writes it.
 ///
-/// Decides where the brackets go when the value is drawn: they enclose
-/// exactly what may be left out, joiner included (`--color[=WHEN]`,
-/// `-O[N]`, `--foo [FOO]`). Meaningful only for [`ValueKind::Optional`].
+/// For an optional value it decides where the brackets go when the value
+/// is drawn: they enclose exactly what may be left out, joiner included
+/// (`--color[=WHEN]`, `-O[N]`, `--foo [FOO]`). For a required value only
+/// [`OptionalJoin::Glued`] is recorded, so a value written straight onto
+/// its flag draws that way (`-Z<type>`, `+<cmd>`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OptionalJoin {
-    /// Joined by `=` inside the brackets: `--color[=WHEN]`, also written
-    /// `--color=[WHEN]`.
+    /// Joined by `=` inside the brackets: `--color[=WHEN]`.
     Equals,
-    /// Glued straight onto the flag: `-O[N]`.
+    /// Joined by `=` outside the brackets: `--color=[WHEN]`.
+    EqualsThenBracket,
+    /// Glued straight onto the flag: `-O[N]`, or a required `-Z<type>`.
     Glued,
     /// A separate word: argparse's `--foo [FOO]`.
     Separate,
@@ -292,6 +295,7 @@ impl OptionalJoin {
     pub fn label(self) -> &'static str {
         match self {
             OptionalJoin::Equals => "equals",
+            OptionalJoin::EqualsThenBracket => "equals-then-bracket",
             OptionalJoin::Glued => "glued",
             OptionalJoin::Separate => "separate",
         }
@@ -358,9 +362,9 @@ pub struct Entity {
     /// Whether this entity takes no value, a required one, or an optional
     /// one.
     pub value_kind: ValueKind,
-    /// How an optional value joins its flag, when the row shows it.
-    /// `None` for a flag without an optional value, or when the source
-    /// does not say.
+    /// How the value joins its flag, when the row shows it. `None` for a
+    /// flag without a value, a required value set apart from its flag, or
+    /// when the source does not say.
     #[serde(default)]
     pub optional_join: Option<OptionalJoin>,
     /// Enumerated choices, e.g. `{json|yaml|table}` for `--format`. Each
@@ -657,18 +661,30 @@ impl Entity {
     }
 
     /// The order the page draws the spellings in: shorts, then longs in
-    /// source order, then the range. Indices into `spellings`.
+    /// source order, then the spelling a glued value follows, then the range. Indices into `spellings`.
     pub fn display_order(&self) -> Vec<usize> {
+        let glued = self.glued_spelling();
         let mut order: Vec<usize> = (0..self.spellings.len()).collect();
         order.sort_by_key(|&i| {
             let s = &self.spellings[i];
             if self.is_range_start(s) {
+                3
+            } else if glued == Some(i) {
                 2
             } else {
                 u8::from(!self.is_drawn_short(s))
             }
         });
         order
+    }
+
+    /// The spelling a glued required value follows (`+` in `+<cmd>, -c
+    /// <cmd>`): the row's first, drawn last of the spellings so the value
+    /// touches it as written. `None` for any other row.
+    pub fn glued_spelling(&self) -> Option<usize> {
+        let glued = self.value_kind == ValueKind::Required
+            && self.optional_join == Some(OptionalJoin::Glued);
+        (glued && self.spellings.len() > 1).then_some(0)
     }
 
     /// The value placeholder as the page draws it: `FILE`, or `[FILE]`,
@@ -691,6 +707,8 @@ impl Entity {
                 Some(match (self.optional_join, run) {
                     (Some(OptionalJoin::Equals), true) => format!("[={}", &name[1..]),
                     (Some(OptionalJoin::Equals), false) => format!("[={name}]"),
+                    (Some(OptionalJoin::EqualsThenBracket), true) => format!("={name}"),
+                    (Some(OptionalJoin::EqualsThenBracket), false) => format!("=[{name}]"),
                     (_, true) => name,
                     (_, false) => format!("[{name}]"),
                 })
@@ -704,12 +722,17 @@ impl Entity {
     /// glue character, an optional value joined by `=` or glued), one
     /// space otherwise.
     pub fn value_gap(&self) -> &'static str {
-        let glued_optional = self.value_kind == ValueKind::Optional
-            && matches!(
+        let glued = match self.value_kind {
+            ValueKind::Optional => matches!(
                 self.optional_join,
-                Some(OptionalJoin::Equals | OptionalJoin::Glued)
-            );
-        if self.spelling_is_sigil() || self.value_glues_by_prefix() || glued_optional {
+                Some(
+                    OptionalJoin::Equals | OptionalJoin::EqualsThenBracket | OptionalJoin::Glued
+                )
+            ),
+            ValueKind::Required => self.optional_join == Some(OptionalJoin::Glued),
+            ValueKind::None => false,
+        };
+        if self.spelling_is_sigil() || self.value_glues_by_prefix() || glued {
             ""
         } else {
             " "

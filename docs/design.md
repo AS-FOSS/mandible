@@ -3730,6 +3730,17 @@ or `Separate` from the flag's own row, and §9.3 rule 6 draws `--color[=WHEN]`,
 `--log=[PATH]` is the optional value `PATH` joined by `=`, where it used to be
 a required value named `[PATH]`.
 
+**A required value records how it joins its flag (2026-11-04).** The maintainer
+extended the joiner record to required values, so a value written straight
+onto its flag draws that way: `Entity::optional_join` is `Glued` for
+`-Z<type>`, `-z#`, `+<cmd>`, `-D<name>=<value>` and `-splash:<imagepath>`, and
+§9.3 rule 6 draws no space between the spellings and the value. The glued
+spelling is drawn last of the row's spellings, the value on it
+(`-c, +<cmd>`). Only a value opening with `<`, `#` or `:` is recorded, since a
+word may be the rest of the flag's name. `--color=[WHEN]` records
+`EqualsThenBracket` and draws as written, where `--color[=WHEN]` stays `Equals`.
+A required value after `=` or a space is unchanged.
+
 **A mixed bracket-and-angle glued value spec ships below the five-tool bar
 (2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a
 raw-shape count of 1 tool (`rustc`), maintainer-named from the seed 7 audit.

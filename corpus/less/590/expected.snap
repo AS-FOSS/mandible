@@ -1,15 +1,6 @@
 name: less
 flags:
 - spellings:
-  - -<
-  value_name: flag>
-  value_kind: Required
-  group: MISCELLANEOUS COMMANDS
-  description: Toggle a command line option [see OPTIONS below].
-  provenance:
-    sources:
-    - help-text
-- spellings:
   - -?
   - --help
   description: Display help (from command line).
@@ -35,7 +26,7 @@ flags:
   - --buffers
   value_name: N
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Number of buffers.
   provenance:
     sources:
@@ -112,7 +103,7 @@ flags:
   - --max-back-scroll
   value_name: N
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Backward scroll limit.
   provenance:
     sources:
@@ -136,7 +127,7 @@ flags:
   - --jump-target
   value_name: N
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Screen position of target lines.
   provenance:
     sources:
@@ -153,7 +144,7 @@ flags:
   - --lesskey-file
   value_name: file
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Use a lesskey file.
   provenance:
     sources:
@@ -195,7 +186,7 @@ flags:
   - --log-file
   value_name: file
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Copy to log file (standard input only).
   provenance:
     sources:
@@ -205,7 +196,7 @@ flags:
   - --LOG-FILE
   value_name: file
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Copy to log file (unconditionally overwrite).
   provenance:
     sources:
@@ -269,7 +260,7 @@ flags:
   - --tag
   value_name: tag
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Find a tag.
   provenance:
     sources:
@@ -335,7 +326,7 @@ flags:
   - --max-forw-scroll
   value_name: N
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Forward scroll limit.
   provenance:
     sources:
@@ -345,7 +336,7 @@ flags:
   - --window
   value_name: N
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Set size of window.
   provenance:
     sources:
@@ -372,7 +363,7 @@ flags:
   - --shift
   value_name: N
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Set horizontal scroll amount (0 = one half screen width).
   provenance:
     sources:

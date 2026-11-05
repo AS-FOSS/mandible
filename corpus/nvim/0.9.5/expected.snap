@@ -35,15 +35,16 @@ flags:
   - -c
   value_name: <cmd>
   value_kind: Required
+  optional_join: glued
   description: Execute <cmd> after config and first file
   provenance:
     sources:
     - help-text
 - spellings:
   - -l
-  value_name: <script>
+  value_name: <script> [args...]
   value_kind: Required
-  description: '[args...] Execute Lua <script> (with optional args)'
+  description: Execute Lua <script> (with optional args)
   provenance:
     sources:
     - help-text

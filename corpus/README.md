@@ -711,6 +711,17 @@ Keyed by group label (`""` is no group), each spelling must have exactly
 one row under it, in the parse and after the refill simulation. It fails
 on zero rows too. See docs/shapes.md S-187.
 
+### Text drawn on one line: `must_draw`
+
+```toml
+[contract]
+must_draw = ["-Z<type>", "-c, +<cmd>"]
+```
+
+Each entry must appear inside one line of the pages the pane draws for the
+tree, whitespace collapsed. It holds what the tree cannot say, such as how a
+value joins its flag. See docs/shapes.md S-258.
+
 ### What `--bless` does and does not assert: `verdict_scope`
 
 `--bless` freezes the *entire* tree into `expected.snap` — node summaries,

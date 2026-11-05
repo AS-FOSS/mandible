@@ -36,9 +36,9 @@ Allowed options are ────────────────────
 -P    Access Power Condition Page.
 -r    List known raw scsi devices on the system
 -s    Display serial number (from INQUIRY VPD page).
--t <pn[,sp]> Access mode page <pn> [subpage <sp>] and decode.
+-t<pn[,sp]> Access mode page <pn> [subpage <sp>] and decode.
 -T    Trace commands (for debugging, double for more)
--u <pn[,sp]> Access mode page <pn> [subpage <sp>], output in hex
+-u<pn[,sp]> Access mode page <pn> [subpage <sp>], output in hex
 -v    Show version number
 -V    Access Verify Error Recovery Page.
 -z    single fetch mode pages (rather than double fetch)

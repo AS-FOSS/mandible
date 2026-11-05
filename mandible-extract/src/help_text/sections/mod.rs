@@ -2130,6 +2130,15 @@ fn scan_entries(
             }
         }
 
+        // A prose line ending in a comma runs on into the next line: a
+        // heading never does, so the paragraph is description. See
+        // docs/shapes.md S-258.
+        if let Some((end, text)) = comma_run_on_paragraph(lines, i) {
+            let own = st.result.description.take();
+            st.result.description = Some(builtin_usage::append_paragraph(own, lines, i, text));
+            i = end;
+            continue;
+        }
         let heading_indent = leading_whitespace(line);
         let heading = line.trim().to_string();
         let heading_idx = i;

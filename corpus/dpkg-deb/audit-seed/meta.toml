@@ -21,7 +21,3 @@ must_draw = ["-z#", "-Z<type>", "-S<strategy>"]
 "-z" = "#"
 "-Z" = "<type>"
 "-S" = "<strategy>"
-
-[xfail]
-broken = true
-reason = "[S-258] values written straight onto the flag (`-z#`, `-Z<type>`, `-S<strategy>`) are drawn after a space, as `-z #`; the tree records no joiner for required values. A fix records a glued required value and draws it joined."

@@ -215,7 +215,23 @@ pub(super) fn find_description_gap(line: &str) -> Option<usize> {
 /// S-254 and corpus/ip6tables-translate/1.8.10.
 pub(super) fn find_long_first_gap(line: &str) -> Option<Option<usize>> {
     let tail = long_first_alias_tail(line)?;
-    Some(find_multi_space_gap(&format!("x{}", &line[tail..])).map(|c| tail + c - 1))
+    let gap = find_multi_space_gap(&format!("x{}", &line[tail..])).map(|c| tail + c - 1);
+    Some(gap.or_else(|| glued_colon_gap(line, tail)))
+}
+
+/// The offset of the `:` that ends a head's last token with the description
+/// after it (`address[/mask]: source mac address`), looking from `from`.
+fn glued_colon_gap(line: &str, from: usize) -> Option<usize> {
+    let rest = line.get(from..)?;
+    let mut offset = 0;
+    for token in rest.split(' ') {
+        if token.len() > 1 && token.ends_with(':') {
+            let after = line.get(from + offset + token.len()..)?;
+            return (!after.trim().is_empty()).then_some(from + offset + token.len() - 1);
+        }
+        offset += token.len() + 1;
+    }
+    None
 }
 
 /// True when at least three rows of the block, and half of its dash-led
@@ -247,15 +263,17 @@ fn long_first_alias_tail(line: &str) -> Option<usize> {
         return None;
     }
     let after = head[long_end..].trim_start_matches([' ', '\t']);
+    // `--logical-in  [!] name[+] : text`: the marker leads the value.
+    if after.starts_with("[!] ") {
+        return Some(line.len() - after.len() + 3);
+    }
     let short_len = after.find([' ', '\t', ',']).unwrap_or(after.len());
     let short = &after[..short_len];
     let mut chars = short.chars();
     let is_short = chars.next() == Some('-')
         && chars.next().is_some_and(|c| c.is_ascii_alphanumeric())
         && chars.next().is_none();
-    // `-p [!] proto` writes the marker after the alias; the row keeps its
-    // old reading.
-    if !is_short || after[short_len..].trim_start().starts_with("[!]") {
+    if !is_short {
         return None;
     }
     Some(line.len() - after.len() + short_len)

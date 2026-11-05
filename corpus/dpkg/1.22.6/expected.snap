@@ -251,6 +251,7 @@ flags:
   - --assert-
   value_name: <feature>
   value_kind: Required
+  optional_join: glued
   group: 'Commands:'
   description: Assert support for the specified feature.
   provenance:
@@ -260,6 +261,7 @@ flags:
   - --validate-
   value_name: <thing>
   value_kind: Required
+  optional_join: glued
   group: 'Commands:'
   description: Validate a <thing>'s <string>.
   provenance:
@@ -469,6 +471,7 @@ flags:
   - --force-
   value_name: <thing>[,...]
   value_kind: Required
+  optional_join: glued
   description: Override problems (see --force-help).
   provenance:
     sources:
@@ -477,6 +480,7 @@ flags:
   - --no-force-
   value_name: <thing>[,...]
   value_kind: Required
+  optional_join: glued
   description: Stop when problems encountered.
   provenance:
     sources:
@@ -485,6 +489,7 @@ flags:
   - --refuse-
   value_name: <thing>[,...]
   value_kind: Required
+  optional_join: glued
   description: Ditto.
   provenance:
     sources:
