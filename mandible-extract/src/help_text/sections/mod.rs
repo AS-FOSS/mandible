@@ -222,6 +222,13 @@ impl ParsedHelp {
         self.subcommands.push(node);
         true
     }
+
+    /// [`Self::try_push_subcommand`] for each of `nodes`, in order.
+    fn push_subcommands(&mut self, nodes: Vec<CommandNode>) {
+        for node in nodes {
+            self.try_push_subcommand(node);
+        }
+    }
 }
 
 /// Minimum count of independently parsed flag rows a same-indent (or
@@ -2357,9 +2364,7 @@ fn parse_body(
     });
     if let Some((end, nodes)) = optional_word_table {
         i = end;
-        for node in nodes {
-            result.try_push_subcommand(node);
-        }
+        result.push_subcommands(nodes);
     } else if let Some(start) = usage_start {
         let scan = scan_usage_section(
             &lines,
@@ -2379,9 +2384,7 @@ fn parse_body(
             .zip(tool_name)
             .and_then(|(at, name)| scan_invocation_block(&lines, at, name, raw))
         {
-            for node in nodes {
-                result.try_push_subcommand(node);
-            }
+            result.push_subcommands(nodes);
         }
         // A command table sitting directly under the root's own labelled
         // usage block, one line per command, rows never repeating the
@@ -2399,9 +2402,7 @@ fn parse_body(
                 scan_headingless_usage_command_table(&lines, i, tool_name, raw)
             {
                 i = end;
-                for node in nodes {
-                    result.try_push_subcommand(node);
-                }
+                result.push_subcommands(nodes);
             }
         }
         // A block right under the usage line naming each positional's own
