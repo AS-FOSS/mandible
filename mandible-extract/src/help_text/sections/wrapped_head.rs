@@ -129,18 +129,93 @@ pub(super) fn stack_into_previous<'a>(
     let line = lines[at];
     let prev = match rows.last() {
         Some(FlagsBlockRow::Entry(p)) => p.trim_end().to_string(),
-        Some(FlagsBlockRow::Stacked(p)) => p.clone(),
+        Some(FlagsBlockRow::Joined(p)) => p.clone(),
         _ => return false,
     };
-    let prev_indent = match rows.last() {
-        Some(FlagsBlockRow::Entry(p)) => leading_whitespace(p),
-        _ => leading_whitespace(&prev),
-    };
-    let own = matches!(rows.last(), Some(FlagsBlockRow::Entry(p)) if !spelling_only(p));
-    if own || leading_whitespace(line) != prev_indent || !stack_has_description(lines, at) {
+    let same_indent = leading_whitespace(line) == leading_whitespace(&prev);
+    if !spelling_only(&prev) || !same_indent || !stack_has_description(lines, at) {
         return false;
     }
     rows.pop();
-    rows.push(FlagsBlockRow::Stacked(format!("{prev}, {}", line.trim())));
+    rows.push(FlagsBlockRow::Joined(format!("{prev}, {}", line.trim())));
+    true
+}
+
+/// An `@` row of one or two lower-case words with no description on its
+/// own line and the description on the deeper lines below it
+/// (`@argument files` / `one or more argument files containing
+/// options`): the entry and the index past its description. docs/shapes.md
+/// S-258.
+pub(super) fn hanging_argfile_row(
+    lines: &[&str],
+    at: usize,
+) -> Option<(super::FlagRowEntry, usize)> {
+    let line = lines[at];
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let head = words.first()?.strip_prefix('@')?;
+    let plain = |w: &str| !w.is_empty() && w.chars().all(|c| c.is_ascii_lowercase());
+    if words.len() > 2 || !plain(head) || !words.iter().skip(1).all(|w| plain(w)) {
+        return None;
+    }
+    let indent = leading_whitespace(line);
+    let end = (at + 1..lines.len())
+        .find(|&j| lines[j].trim().is_empty() || leading_whitespace(lines[j]) <= indent)
+        .unwrap_or(lines.len());
+    if end == at + 1 {
+        return None;
+    }
+    let desc = lines[at + 1..end]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let value_name = line.trim().trim_start_matches('@').to_string();
+    Some(((value_name, desc, Vec::new()), end))
+}
+
+/// Folds a continuation into the entry's head when it finishes an unclosed
+/// placeholder, or the value list of a description-less head
+/// (`[rulenum] pcnt bcnt : text`): true when it did. S-048, S-258.
+pub(super) fn extend_open_head(last: &mut super::FlagRowEntry, text: &str) -> bool {
+    if super::flag_rows::placeholder_left_open(&last.0) {
+        last.0.push_str(text);
+        return true;
+    }
+    let Some((values, desc)) = last
+        .1
+        .is_empty()
+        .then(|| value_tail_before_colon(&last.0, text))
+        .flatten()
+    else {
+        return false;
+    };
+    last.0.push(' ');
+    last.0.push_str(values);
+    last.1.push_str(desc);
+    true
+}
+
+/// Joins `lines[at]` into the entry row before it as a wrapped head or as
+/// stacked alias lines; true when it did.
+pub(super) fn join_head_lines<'a>(
+    rows: &mut Vec<FlagsBlockRow<'a>>,
+    lines: &[&str],
+    at: usize,
+) -> bool {
+    join_into_previous(rows, lines[at]) || stack_into_previous(rows, lines, at)
+}
+
+/// Reads the hanging argfile row at `*at` into `entry` and moves `*at` past
+/// it; true when there was one.
+pub(super) fn take_hanging_argfile(
+    lines: &[&str],
+    at: &mut usize,
+    entry: &mut Option<super::FlagRowEntry>,
+) -> bool {
+    let Some((found, end)) = hanging_argfile_row(lines, *at) else {
+        return false;
+    };
+    *entry = Some(found);
+    *at = end;
     true
 }
