@@ -1,0 +1,360 @@
+name: jpackage
+usage:
+- 'Usage: jpackage <options>'
+flags:
+- spellings:
+  - '@'
+  value_name: <filename>
+  value_kind: Required
+  group: 'Generic Options:'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --type
+  - -t
+  value_name: <type>
+  value_kind: Required
+  description: 'The type of package to create Valid values are: {"app-image", "rpm", "deb"} If this option is not specified a platform dependent default type will be created.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --app-version
+  value_name: <version>
+  value_kind: Required
+  description: Version of the application and/or package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --copyright
+  value_name: <copyright string>
+  value_kind: Required
+  description: Copyright for the application
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --description
+  value_name: <description string>
+  value_kind: Required
+  description: Description of the application
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -h
+  description: Print the usage text with a list and description of each valid option for the current platform to the output stream, and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --icon
+  value_name: <file path>
+  value_kind: Required
+  description: Path of the icon of the application package (absolute path or relative to the current directory)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --name
+  - -n
+  value_name: <name>
+  value_kind: Required
+  description: Name of the application and/or package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dest
+  - -d
+  value_name: <destination path>
+  value_kind: Required
+  description: Path where generated output file is placed (absolute path or relative to the current directory) Defaults to the current working directory.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --temp
+  value_name: <directory path>
+  value_kind: Required
+  description: Path of a new or empty directory used to create temporary files (absolute path or relative to the current directory) If specified, the temp dir will not be removed upon the task completion and must be removed manually. If not specified, a temporary directory will be created and removed upon the task completion.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --vendor
+  value_name: <vendor string>
+  value_kind: Required
+  description: Vendor of the application
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  description: Enables verbose output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Print the product version to the output stream and exit.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-modules
+  value_name: <module name>[,<module name>...]
+  value_kind: Required
+  group: 'Options for creating the runtime image:'
+  description: A comma (",") separated list of modules to add This module list, along with the main module (if specified) will be passed to jlink as the --add-module argument. If not specified, either just the main module (if --module is specified), or the default set of modules (if --main-jar is specified) are used. This option can be used multiple times.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --module-path
+  - -p
+  value_name: <module path>
+  value_kind: Required
+  group: 'Options for creating the runtime image:'
+  description: 'A : separated list of paths Each path is either a directory of modules or the path to a modular jar. (Each path is absolute or relative to the current directory.) This option can be used multiple times.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --jlink-options
+  value_name: <jlink options>
+  value_kind: Required
+  group: 'Options for creating the runtime image:'
+  description: A space separated list of options to pass to jlink If not specified, defaults to "--strip-native-commands --strip-debug --no-man-pages --no-header-files". This option can be used multiple times.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --runtime-image
+  value_name: <directory path>
+  value_kind: Required
+  group: 'Options for creating the runtime image:'
+  description: 'Path of the predefined runtime image that will be copied into the application image (absolute path or relative to the current directory) If --runtime-image is not specified, jpackage will run jlink to create the runtime image using options: --strip-debug, --no-header-files, --no-man-pages, and --strip-native-commands.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --input
+  - -i
+  value_name: <directory path>
+  value_kind: Required
+  group: 'Options for creating the application image:'
+  description: Path of the input directory that contains the files to be packaged (absolute path or relative to the current directory) All files in the input directory will be packaged into the application image.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --app-content
+  value_name: <additional content>[,<additional content>...]
+  value_kind: Required
+  group: 'Options for creating the application image:'
+  description: A comma separated list of paths to files and/or directories to add to the application payload. This option can be used more than once.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-launcher
+  value_name: <launcher name>
+  value_kind: Required
+  group: 'Options for creating the application launcher(s):'
+  description: Name of launcher, and a path to a Properties file that contains a list of key, value pairs (absolute path or relative to the current directory) The keys "module", "main-jar", "main-class", "description", "arguments", "java-options", "app-version", "icon", "launcher-as-service", "win-console", "win-shortcut", "win-menu", "linux-app-category", and "linux-shortcut" can be used. These options are added to, or used to overwrite, the original command line options to build an additional alternative launcher. The main application launcher will be built from the command line options. Additional alternative launchers can be built using this option, and this option can be used multiple times to build multiple additional launchers.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --arguments
+  value_name: <main class arguments>
+  value_kind: Required
+  group: 'Options for creating the application launcher(s):'
+  description: Command line arguments to pass to the main class if no command line arguments are given to the launcher This option can be used multiple times.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --java-options
+  value_name: <java options>
+  value_kind: Required
+  group: 'Options for creating the application launcher(s):'
+  description: Options to pass to the Java runtime This option can be used multiple times.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --main-class
+  value_name: <class name>
+  value_kind: Required
+  group: 'Options for creating the application launcher(s):'
+  description: Qualified name of the application main class to execute This option can only be used if --main-jar is specified.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --main-jar
+  value_name: <main jar file>
+  value_kind: Required
+  group: 'Options for creating the application launcher(s):'
+  description: The main JAR of the application; containing the main class (specified as a path relative to the input path) Either --module or --main-jar option can be specified but not both.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --module
+  - -m
+  value_name: <module name>[/<main class>]
+  value_kind: Required
+  group: 'Options for creating the application launcher(s):'
+  description: The main module (and optionally main class) of the application This module must be located on the module path. When this option is specified, the main module will be linked in the Java runtime image. Either --module or --main-jar option can be specified but not both.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --about-url
+  value_name: <url>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: URL of the application's home page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --app-image
+  value_name: <directory path>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: Location of the predefined application image that is used to build an installable package (absolute path or relative to the current directory)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --file-associations
+  value_name: <file path>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: Path to a Properties file that contains list of key, value pairs (absolute path or relative to the current directory) The keys "extension", "mime-type", "icon", and "description" can be used to describe the association. This option can be used multiple times.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --install-dir
+  value_name: <directory path>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: Absolute path of the installation directory of the application
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --license-file
+  value_name: <file path>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: Path to the license file (absolute path or relative to the current directory)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --resource-dir
+  value_name: <directory path>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: Path to override jpackage resources Icons, template files, and other resources of jpackage can be over-ridden by adding replacement resources to this directory. (absolute path or relative to the current directory)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --runtime-image
+  value_name: <directory path>
+  value_kind: Required
+  group: 'Options for creating the application package:'
+  description: Path of the predefined runtime image to install (absolute path or relative to the current directory) Option is required when creating a runtime package.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --launcher-as-service
+  group: 'Options for creating the application package:'
+  description: Request to create an installer that will register the main application launcher as a background service-type application.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-package-name
+  value_name: <package name>
+  value_kind: Required
+  group: 'Platform dependent options for creating the application package:'
+  description: Name for Linux package, defaults to the application name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-deb-maintainer
+  value_name: <email address>
+  value_kind: Required
+  group: 'Platform dependent options for creating the application package:'
+  description: Maintainer for .deb package
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-menu-group
+  value_name: <menu-group-name>
+  value_kind: Required
+  group: 'Platform dependent options for creating the application package:'
+  description: Menu group this application is placed in
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-package-deps
+  group: 'Platform dependent options for creating the application package:'
+  description: Required packages or capabilities for the application
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-rpm-license-type
+  value_name: <type string>
+  value_kind: Required
+  group: 'Platform dependent options for creating the application package:'
+  description: 'Type of the license ("License: <value>" of the RPM .spec)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-app-release
+  value_name: <release value>
+  value_kind: Required
+  group: 'Platform dependent options for creating the application package:'
+  description: Release value of the RPM <name>.spec file or Debian revision value of the DEB control file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-app-category
+  value_name: <category value>
+  value_kind: Required
+  group: 'Platform dependent options for creating the application package:'
+  description: Group value of the RPM <name>.spec file or Section value of DEB control file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --linux-shortcut
+  group: 'Platform dependent options for creating the application package:'
+  description: Creates a shortcut for the application.
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

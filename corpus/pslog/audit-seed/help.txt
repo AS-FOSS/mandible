@@ -1,0 +1,6 @@
+pslog: invalid process id: --help
+
+Usage: pslog PID...
+       pslog -V, --version
+
+  -V,--version display version information

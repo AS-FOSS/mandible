@@ -1,0 +1,25 @@
+name: pslog
+description: 'pslog: invalid process id: --help'
+usage:
+- 'Usage: pslog PID...'
+- '       pslog -V, --version'
+positionals:
+- name: PID
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V
+  - --version
+  value_name: display
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

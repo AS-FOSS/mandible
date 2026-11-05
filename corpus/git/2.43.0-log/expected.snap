@@ -33,7 +33,7 @@ flags:
     - help-text-synopsis
 - spellings:
   - -c
-  value_name: <name>
+  value_name: <name>=<value>
   value_kind: Required
   provenance:
     sources:
@@ -114,7 +114,7 @@ flags:
     - help-text-synopsis
 - spellings:
   - --config-env
-  value_name: <name>
+  value_name: <name>=<envvar>
   value_kind: Required
   provenance:
     sources:

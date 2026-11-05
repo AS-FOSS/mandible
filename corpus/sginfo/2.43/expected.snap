@@ -164,6 +164,7 @@ flags:
   - -t
   value_name: <pn[,sp]>
   value_kind: Required
+  optional_join: glued
   group: 'Allowed options are:'
   description: Access mode page <pn> [subpage <sp>] and decode.
   provenance:
@@ -180,6 +181,7 @@ flags:
   - -u
   value_name: <pn[,sp]>
   value_kind: Required
+  optional_join: glued
   group: 'Allowed options are:'
   description: Access mode page <pn> [subpage <sp>], output in hex
   provenance:

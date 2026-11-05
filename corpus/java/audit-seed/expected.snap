@@ -1,0 +1,318 @@
+name: java
+description: Arguments following the main class, source file, -jar <jarfile>, -m or --module <module>/<mainclass> are passed as the arguments to main class.
+usage:
+- 'Usage: java [options] <mainclass> [args...] (to execute a class) or  java [options] -jar <jarfile> [args...] (to execute a jar file) or  java [options] -m <module>[/<mainclass>] [args...]'
+- '       java [options] --module <module>[/<mainclass>] [args...] (to execute the main class in a module) or  java [options] <sourcefile> [args] (to execute a single source-file program)'
+positionals:
+- name: mainclass
+  provenance:
+    sources:
+    - help-text
+- name: args
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: sourcefile
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -zero
+  group: 'where options include:'
+  description: to select the "zero" VM
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cp
+  - -classpath
+  - --class-path
+  value_name: <class search path of directories and zip/jar files>
+  value_kind: Required
+  group: 'where options include:'
+  description: 'A : separated list of directories, JAR archives, and ZIP archives to search for class files.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --module-path
+  value_name: <module path>
+  value_kind: Required
+  group: 'where options include:'
+  description: 'A : separated list of elements, each element is a file path to a module or a directory containing modules. Each module is either a modular JAR or an exploded-module directory.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --upgrade-module-path
+  value_name: <module path>
+  value_kind: Required
+  group: 'where options include:'
+  description: 'A : separated list of elements, each element is a file path to a module or a directory containing modules to replace upgradeable modules in the runtime image. Each module is either a modular JAR or an exploded-module directory.'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-modules
+  value_name: <module name>[,<module name>...]
+  value_kind: Required
+  group: 'where options include:'
+  description: root modules to resolve in addition to the initial module. <module name> can also be ALL-DEFAULT, ALL-SYSTEM, ALL-MODULE-PATH.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-native-access
+  value_name: <module name>[,<module name>...]
+  value_kind: Required
+  group: 'where options include:'
+  description: modules that are permitted to perform restricted native operations. <module name> can also be ALL-UNNAMED.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --list-modules
+  group: 'where options include:'
+  description: list observable modules and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --describe-module
+  value_name: <module name>
+  value_kind: Required
+  group: 'where options include:'
+  description: describe a module and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dry-run
+  group: 'where options include:'
+  description: create VM and load main class but do not execute main method. The --dry-run option may be useful for validating the command-line options such as the module system configuration.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --validate-modules
+  group: 'where options include:'
+  description: validate all modules and exit The --validate-modules option may be useful for finding conflicts and other errors with modules on the module path.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  value_name: <name>=<value>
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: set a system property
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -verbose
+  value_name: :[class|module|gc|jni]
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: enable verbose output for the given subsystem
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -version
+  group: 'where options include:'
+  description: print product version to the error stream and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'where options include:'
+  description: print product version to the output stream and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -showversion
+  group: 'where options include:'
+  description: print product version to the error stream and continue
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-version
+  group: 'where options include:'
+  description: print product version to the output stream and continue
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-module-resolution
+  group: 'where options include:'
+  description: show module resolution output during startup
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - -h
+  - -help
+  group: 'where options include:'
+  description: print this help message to the error stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  group: 'where options include:'
+  description: print this help message to the output stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  group: 'where options include:'
+  description: print help on extra options to the error stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-extra
+  group: 'where options include:'
+  description: print help on extra options to the output stream
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ea
+  - -enableassertions
+  value_name: :<packagename>...|:<classname>
+  value_kind: Optional
+  optional_join: glued
+  group: 'where options include:'
+  description: enable assertions with specified granularity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -da
+  - -disableassertions
+  value_name: :<packagename>...|:<classname>
+  value_kind: Optional
+  optional_join: glued
+  group: 'where options include:'
+  description: disable assertions with specified granularity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -esa
+  - -enablesystemassertions
+  group: 'where options include:'
+  description: enable system assertions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -dsa
+  - -disablesystemassertions
+  group: 'where options include:'
+  description: disable system assertions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -agentlib
+  value_name: :<libname>[=<options>]
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: load native agent library <libname>, e.g. -agentlib:jdwp see also -agentlib:jdwp=help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -agentpath
+  value_name: :<pathname>[=<options>]
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: load native agent library by full pathname
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -javaagent
+  value_name: :<jarpath>[=<options>]
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: load Java programming language agent, see java.lang.instrument
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -splash
+  value_name: :<imagepath>
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: show splash screen with specified image HiDPI scaled images are automatically supported and used if available. The unscaled image filename, e.g. image.ext, should always be passed as the argument to the -splash option. The most appropriate scaled image provided will be picked up automatically. See the SplashScreen API documentation for more information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-@files
+  group: 'where options include:'
+  description: prevent further argument file expansion
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-preview
+  group: 'where options include:'
+  description: allow classes to depend on preview features of this release
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '@'
+  value_name: argument files
+  value_kind: Required
+  group: 'where options include:'
+  description: one or more argument files containing options
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -jar
+  value_name: <jarfile>
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -m
+  value_name: <module>[/<mainclass>]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - --module
+  value_name: <module>[/<mainclass>]
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

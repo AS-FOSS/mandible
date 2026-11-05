@@ -1,0 +1,248 @@
+name: ebtables
+description: ebtables 1.8.10 (nf_tables)
+usage:
+- ebtables -[ADI] chain rule-specification [options]
+- ebtables -P chain target
+- ebtables -[LFZ] [chain]
+- ebtables -[NX] [chain]
+- ebtables -E old-chain-name new-chain-name
+positionals:
+- name: chain
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --append
+  - -A
+  value_name: chain
+  value_kind: Required
+  description: append to chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --delete
+  - -D
+  value_name: chain
+  value_kind: Required
+  description: delete matching rule from chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --delete
+  - -D
+  value_name: chain rulenum
+  value_kind: Required
+  description: delete rule at position rulenum from chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --change-counters
+  - -C
+  value_name: chain [rulenum] pcnt bcnt
+  value_kind: Required
+  description: change counters of existing rule
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --insert
+  - -I
+  value_name: chain rulenum
+  value_kind: Required
+  description: insert rule at position rulenum in chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --list
+  - -L
+  value_name: chain
+  value_kind: Optional
+  optional_join: separate
+  description: list the rules in a chain or in all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --flush
+  - -F
+  value_name: chain
+  value_kind: Optional
+  optional_join: separate
+  description: delete all rules in chain or in all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --init-table
+  description: replace the kernel table with the initial table
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --zero
+  - -Z
+  value_name: chain
+  value_kind: Optional
+  optional_join: separate
+  description: put counters on zero in chain or in all chains
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --policy
+  - -P
+  value_name: chain target
+  value_kind: Required
+  description: change policy on chain to target
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --new-chain
+  - -N
+  value_name: chain
+  value_kind: Required
+  description: create a user defined chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --rename-chain
+  - -E
+  value_name: old new
+  value_kind: Required
+  description: rename a chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --delete-chain
+  - -X
+  value_name: chain
+  value_kind: Optional
+  optional_join: separate
+  description: delete a user defined chain
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --proto'
+  - '[!] -p'
+  value_name: proto
+  value_kind: Required
+  group: 'Options:'
+  description: protocol hexadecimal, by name or LENGTH
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --src'
+  - '[!] -s'
+  value_name: address[/mask]
+  value_kind: Required
+  group: 'Options:'
+  description: source mac address
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --dst'
+  - '[!] -d'
+  value_name: address[/mask]
+  value_kind: Required
+  group: 'Options:'
+  description: destination mac address
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --in-if'
+  - '[!] -i'
+  value_name: name[+]
+  value_kind: Required
+  group: 'Options:'
+  description: network input interface name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --out-if'
+  - '[!] -o'
+  value_name: name[+]
+  value_kind: Required
+  group: 'Options:'
+  description: network output interface name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --logical-in'
+  value_name: name[+]
+  value_kind: Required
+  group: 'Options:'
+  description: logical bridge input interface name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '[!] --logical-out'
+  value_name: name[+]
+  value_kind: Required
+  group: 'Options:'
+  description: logical bridge output interface name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --set-counters
+  - -c
+  value_name: chain pcnt bcnt
+  value_kind: Required
+  group: 'Options:'
+  description: set the counters of the to be added rule
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --modprobe
+  - -M
+  value_name: program
+  value_kind: Required
+  group: 'Options:'
+  description: try to insert modules using this program
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --concurrent
+  group: 'Options:'
+  description: use a file lock to support concurrent scripts
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --verbose
+  - -v
+  group: 'Options:'
+  description: verbose mode
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  - -V
+  group: 'Options:'
+  description: print package version
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

@@ -258,6 +258,7 @@ flags:
   - +
   value_name: <lnum>
   value_kind: Required
+  optional_join: glued
   group: 'Arguments:'
   description: Start at line <lnum>
   provenance:

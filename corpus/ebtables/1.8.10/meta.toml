@@ -1,0 +1,37 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ebtables"
+version = "1.8.10"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["ebtables", "--help"]
+stdout = "help.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--proto", "-p", "--src", "-s", "--dst", "-d", "--logical-in", "--logical-out", "--change-counters", "-C", "--set-counters", "-c"]
+must_draw = [
+  "-p, --proto proto",
+  "-s, --src address[/mask]",
+  "[!] --logical-in name[+]",
+  "-C, --change-counters chain [rulenum] pcnt bcnt",
+  "-c, --set-counters chain pcnt bcnt",
+]
+
+[contract.must_value_name]
+"-p" = "proto"
+"-s" = "address[/mask]"
+"--logical-in" = "name[+]"
+"-C" = "chain [rulenum] pcnt bcnt"
+"-c" = "chain pcnt bcnt"
+
+[contract.must_describe]
+"-p" = "protocol hexadecimal, by name or LENGTH"
+"-s" = "source mac address"
+"--logical-in" = "logical bridge input interface name"
+"-C" = "change counters of existing rule"

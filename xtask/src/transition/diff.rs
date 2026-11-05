@@ -112,6 +112,9 @@ pub(super) struct FieldDiff<'a> {
     pub(super) choices_changed: Vec<&'a str>,
     /// Flags present on both sides whose `value_name` text differs.
     pub(super) value_name_changed: Vec<&'a str>,
+    /// Flags present on both sides whose value join (space, `=`, glued) differs;
+    /// skipped when either side predates the field.
+    pub(super) join_changed: Vec<&'a str>,
     pub(super) subcommands_added: Vec<&'a str>,
     pub(super) subcommands_removed: Vec<&'a str>,
     pub(super) tier_changed: Option<(&'a str, &'a str)>,
@@ -132,6 +135,7 @@ impl FieldDiff<'_> {
             && self.description_changed.is_empty()
             && self.choices_changed.is_empty()
             && self.value_name_changed.is_empty()
+            && self.join_changed.is_empty()
             && self.subcommands_added.is_empty()
             && self.subcommands_removed.is_empty()
             && self.tier_changed.is_none()
@@ -262,6 +266,7 @@ fn per_tool_fingerprint_diff<'a>(
                     description_changed: Vec::new(),
                     choices_changed: Vec::new(),
                     value_name_changed: Vec::new(),
+                    join_changed: Vec::new(),
                     subcommands_added: Vec::new(),
                     subcommands_removed: Vec::new(),
                     tier_changed,
@@ -466,6 +471,7 @@ pub(super) fn field_diff<'a>(
     let mut description_changed = Vec::new();
     let mut choices_changed = Vec::new();
     let mut value_name_changed = Vec::new();
+    let mut join_changed = Vec::new();
 
     // Description/choices/value_name changes stay on the shared lists
     // above rather than getting their own positional-only split: those
@@ -495,6 +501,9 @@ pub(super) fn field_diff<'a>(
                 }
                 if before_f.value_name != after_f.value_name {
                     value_name_changed.push(id.as_str());
+                }
+                if matches!((&before_f.join, &after_f.join), (Some(b), Some(a)) if b != a) {
+                    join_changed.push(id.as_str());
                 }
             }
         }
@@ -529,6 +538,7 @@ pub(super) fn field_diff<'a>(
     description_changed.sort_unstable();
     choices_changed.sort_unstable();
     value_name_changed.sort_unstable();
+    join_changed.sort_unstable();
 
     FieldDiff {
         tool,
@@ -539,6 +549,7 @@ pub(super) fn field_diff<'a>(
         description_changed,
         choices_changed,
         value_name_changed,
+        join_changed,
         subcommands_added,
         subcommands_removed,
         tier_changed,

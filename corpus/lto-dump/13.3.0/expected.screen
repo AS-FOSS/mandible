@@ -345,14 +345,14 @@ The following options are specific to just the language Rust ──────�
 -f rust-metadata-output=
 
 The following options are language-related ─────────────────────────────────
--A <question>
+-A<question>=<answer>
 -C                             [disabled]
     -CC                        [disabled]
--D <macro>[=<val>]
+-D<macro>[=<val>]
 -F <dir>
 -H                             [disabled]
 -I <dir>
--J <directory>
+-J<directory>
 -M                             [disabled]
     -MD                        [disabled]
 -M F
@@ -364,7 +364,7 @@ The following options are language-related ────────────�
 -M T
     -Mmodules                  [disabled]
 -P                             [disabled]
--U <macro>
+-U<macro>
     -WNSObject-attribute       [available in C, C++, LTO, ObjC, ObjC++]
     -Wabi                      [available in C, C++, LTO, ObjC, ObjC++]
     -Wabi-tag                  [available in C++, ObjC++]
@@ -645,7 +645,7 @@ The following options are language-related ────────────�
     -Wzero-as-null-pointer-constant [available in C++, ObjC++]
     -Wzero-length-bounds       [available in C, C++, ObjC, ObjC++]
     -ansi                      [disabled]
--d <letters>
+-d<letters>
 -f RTS=
 -f abi-compat-version=         [available in C++, ObjC++]
     -faccess-control           [available in C++, ObjC++]
@@ -799,16 +799,16 @@ The following options are language-related ────────────�
     -gen-decls                 [available in ObjC, ObjC++]
 -g nat<options>
 -g natO                        [disabled]
-    -idirafter
-    -imacros
-    -imultilib
-    -include
-    -iprefix
-    -iquote
-    -isysroot
-    -isystem
-    -iwithprefix
-    -iwithprefixbefore
+    -idirafter <dir>
+    -imacros <file>
+    -imultilib <dir>
+    -include <file>
+    -iprefix <path>
+    -iquote <dir>
+    -isysroot <dir>
+    -isystem <dir>
+    -iwithprefix <dir>
+    -iwithprefixbefore <dir>
     -nostdinc                  [disabled]
 -n ostdinc++                   [disabled]
     -nostdlib                  [disabled]
@@ -1260,7 +1260,7 @@ The following options control compiler warning messages ────────
     -Wvector-operation-performance [disabled]
 
 The following options control optimizations ────────────────────────────────
--O <number>
+-O<number>
 -O fast
 -O g
 -O s
@@ -1558,9 +1558,9 @@ The following options are language-independent ───────────
 -W error=
     -Wfatal-errors             [disabled]
     -aux-info
-    -dumpbase
+    -dumpbase <file>
     -dumpbase-ext
-    -dumpdir
+    -dumpdir <dir>
 -f PIC                         [disabled]
 -f PIE                         [disabled]
     -fanalyzer                 [disabled]
@@ -1828,7 +1828,7 @@ The following options are language-independent ───────────
 -g xcoff+
 -g z
 -g z=<format>
-    -imultiarch
+    -imultiarch <dir>
     -iplugindir <dir>
 -p                             [disabled]
     -pedantic-errors           [disabled]

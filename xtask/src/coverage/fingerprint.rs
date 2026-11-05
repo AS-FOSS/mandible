@@ -23,6 +23,7 @@ struct FlagFingerprint {
     description_hash: Option<u64>,
     choices_hash: Option<u64>,
     value_name: Option<String>,
+    join: String,
 }
 
 /// One tool's full field-level fingerprint: every entity — flag,
@@ -67,6 +68,19 @@ fn entity_identity(path: &str, entity: &mandible_core::Entity) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!("{path}::{:?}::{spelling}", entity.kind)
+}
+
+/// How the value attaches, as `<kind>-<join>` (`required-glued`, `optional-equals`,
+/// `required-none`, `none-none`), so a change of join moves the fingerprint.
+fn join_word(entity: &mandible_core::Entity) -> String {
+    use mandible_core::ValueKind;
+    let kind = match entity.value_kind {
+        ValueKind::None => "none",
+        ValueKind::Required => "required",
+        ValueKind::Optional => "optional",
+    };
+    let join = entity.optional_join.map_or("none", |j| j.label());
+    format!("{kind}-{join}")
 }
 
 /// FNV-1a over raw bytes — deterministic across processes and Rust std
@@ -126,6 +140,7 @@ pub(super) fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> To
                     description_hash,
                     choices_hash,
                     value_name: entity.value_name.clone(),
+                    join: join_word(entity),
                 },
             );
         }
@@ -196,7 +211,7 @@ const FP_SUBCOMMAND_SEP: char = ',';
 const FP_ID_SEP: char = '=';
 
 /// Separator between one entity entry's fields
-/// (`<has_desc>:<desc_hash>:<choices_hash>:<value_name>`) — mirrored in
+/// (`<has_desc>/<join>:<desc_hash>:<choices_hash>:<value_name>`) — mirrored in
 /// `crate::transition`.
 const FP_ENTRY_SEP: char = ':';
 
@@ -219,7 +234,7 @@ const FP_LINE_PREFIX_V2: &str = "#fp2 ";
 /// instead of "every entity removed."
 ///
 /// Line shape: `#fp2 <tool>\t<sub1>,<sub2>,...\t<entity1>|<entity2>|...`,
-/// each entity `<id>=<has_desc:0/1>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
+/// each entity `<id>=<has_desc:0/1>/<join>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
 /// (hex hashes, `id` carries its `EntityKind` tag). Every field individually
 /// run through [`fp_escape`] first. Format version 2 — see
 /// [`FP_LINE_PREFIX_V2`].
@@ -239,9 +254,10 @@ pub(super) fn fingerprint_lines(rows: &[Row]) -> String {
             .iter()
             .map(|(id, f)| {
                 format!(
-                    "{}={}:{}:{}:{}",
+                    "{}={}/{}:{}:{}:{}",
                     fp_escape(id),
                     if f.has_description { 1 } else { 0 },
+                    f.join,
                     f.description_hash
                         .map(|h| format!("{h:x}"))
                         .unwrap_or_else(|| "-".to_string()),

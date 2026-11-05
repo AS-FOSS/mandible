@@ -1,0 +1,51 @@
+name: xfs_estimate
+usage:
+- 'Usage: xfs_estimate [opts] directory [directory ...]'
+flags:
+- spellings:
+  - -b
+  value_name: blocksize
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  value_name: logsize
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  value_name: logsize
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  value_name: prints
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  value_name: prints
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  value_name: prints
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true

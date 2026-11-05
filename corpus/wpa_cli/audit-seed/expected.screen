@@ -6,20 +6,20 @@ USAGE ────────────────────────�
 
 
 FLAGS (11) ─────────────────────────────────────────────────────────────────
--h                         help (show this usage text)
--v                         shown version information
--a                         run in daemon mode executing the action file
-                           based on events from wpa_supplicant
--r                         try to reconnect when client socket is
-                           disconnected. This is useful only when used with
-                           -a.
--B                         run a daemon in the background
--p <path to ctrl sockets>
--i <ifname>
--P <pid file>
--g <global ctrl>
--G <ping interval>
--s <wpa_client_socket_file_path>
+-h                        help (show this usage text)
+-v                        shown version information
+-a                        run in daemon mode executing the action file based
+                          on events from wpa_supplicant
+-r                        try to reconnect when client socket is
+                          disconnected. This is useful only when used with
+                          -a.
+-B                        run a daemon in the background
+-p<path to ctrl sockets>
+-i<ifname>
+-P<pid file>
+-g<global ctrl>
+-G<ping interval>
+-s<wpa_client_socket_file_path>
 
 === wpa_cli status ===
 get current WPA/EAPOL/EAP status

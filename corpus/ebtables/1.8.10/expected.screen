@@ -1,0 +1,47 @@
+=== ebtables ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+ebtables 1.8.10 (nf_tables)
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  ebtables -[ADI] chain rule-specification [options]
+  ebtables -P chain target
+  ebtables -[LFZ] [chain]
+  ebtables -[NX] [chain]
+  ebtables -E old-chain-name new-chain-name
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  chain
+
+
+FLAGS (25) ─────────────────────────────────────────────────────────────────
+-A, --append chain            append to chain
+-D, --delete chain            delete matching rule from chain
+-D, --delete chain rulenum    delete rule at position rulenum from chain
+-C, --change-counters chain [rulenum] pcnt bcnt change counters of existing
+                              rule
+-I, --insert chain rulenum    insert rule at position rulenum in chain
+-L, --list [chain]            list the rules in a chain or in all chains
+-F, --flush [chain]           delete all rules in chain or in all chains
+    --init-table              replace the kernel table with the initial
+                              table
+-Z, --zero [chain]            put counters on zero in chain or in all chains
+-P, --policy chain target     change policy on chain to target
+-N, --new-chain chain         create a user defined chain
+-E, --rename-chain old new    rename a chain
+-X, --delete-chain [chain]    delete a user defined chain
+
+Options ────────────────────────────────────────────────────────────────────
+[!] -p, --proto proto         protocol hexadecimal, by name or LENGTH
+[!] -s, --src address[/mask]  source mac address
+[!] -d, --dst address[/mask]  destination mac address
+[!] -i, --in-if name[+]       network input interface name
+[!] -o, --out-if name[+]      network output interface name
+    [!] --logical-in name[+]  logical bridge input interface name
+    [!] --logical-out name[+] logical bridge output interface name
+-c, --set-counters chain pcnt bcnt set the counters of the to be added rule
+-M, --modprobe program        try to insert modules using this program
+    --concurrent              use a file lock to support concurrent scripts
+-v, --verbose                 verbose mode
+-V, --version                 print package version

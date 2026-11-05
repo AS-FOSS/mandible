@@ -807,6 +807,11 @@ fn collect_flags_block_rows<'a>(
             argfile_entry = Some(argfile_flag_entry(line, value_name));
             break;
         }
+        // The same row written `@argument files` over its indented
+        // description: read in place, the block goes on. S-261.
+        if super::wrapped_head::take_hanging_argfile(lines, &mut i, &mut argfile_entry) {
+            continue;
+        }
 
         let is_entry_start = !follows_backslash_line(lines, i)
             && !continues_wrapped_description(&rows, current_entry_line, line)
@@ -856,7 +861,7 @@ fn collect_flags_block_rows<'a>(
             && plus_minus_alternation_word(first_word(trimmed).trim_end_matches(',')).is_some()
             && min_entry_indent.is_none_or(|min| indent <= min + ENTRY_INDENT_TOLERANCE);
 
-        if is_entry_start && super::wrapped_head::join_into_previous(&mut rows, line) {
+        if is_entry_start && super::wrapped_head::join_head_lines(&mut rows, lines, i) {
             current_entry_line = Some(line);
             i += 1;
             continue;
@@ -1191,8 +1196,7 @@ pub(super) fn scan_flags_block(
                     // inserted, since the wrap lands mid-word right after
                     // the hyphen the source already carries. See
                     // docs/shapes.md S-048.
-                    if placeholder_left_open(&last.0) {
-                        last.0.push_str(text);
+                    if super::wrapped_head::extend_open_head(last, text) {
                     } else if let Some((name, desc)) = choice_description_sub_row(text) {
                         // ffmpeg/ffplay's described AVOption sub-rows —
                         // see `choice_description_sub_row`. Tried before

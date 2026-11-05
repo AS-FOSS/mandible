@@ -10,7 +10,7 @@
 //! reports whether it fully consumed the input, which
 //! `help_text::sections` uses to compute this tier's confidence score.
 
-use super::spec_parts::{self, optional_join_of, parse_range_head};
+use super::spec_parts::{self, optional_join_of, parse_range_head, required_join_of};
 use mandible_core::{Dashes, Negation, OptionalJoin, Spelling, SpellingRange, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
@@ -205,6 +205,15 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
                 }
             }
 
+            if !explicit {
+                if let Some((spelling, tail)) = word_alias_after_shorts(&spec, rest) {
+                    last_was_long_like = true;
+                    spec.spellings.push(spelling);
+                    rest = tail;
+                    continue;
+                }
+            }
+
             if let Some((spelling, tail)) = try_short(rest) {
                 if last_was_long_like && is_long_like(&spelling) && !explicit {
                     break;
@@ -285,6 +294,10 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
         }
 
         rest = skip_separators(rest);
+        if let Some(after_bang) = take_bang_after_spellings(&mut spec, rest) {
+            after_spellings = after_bang;
+            rest = skip_separators(after_bang);
+        }
         if rest.is_empty() {
             spec.fully_consumed = true;
             return spec;
@@ -319,24 +332,7 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
             spec.fully_consumed = false;
             return spec;
         };
-        // First value wins: a repeated placeholder names one value once.
-        // `value_prefix` folds in here rather than living on past this
-        // function: the value's own glue character (`-Wa,<options>`'s
-        // comma) becomes the leading character of `value_name` itself.
-        if spec.value_name.is_none() {
-            spec.value_name = Some(match spec.value_prefix.take() {
-                Some(c) => format!("{c}{value_name}"),
-                None => value_name,
-            });
-            spec.value_kind = kind;
-            if kind == ValueKind::Optional {
-                spec.optional_join = Some(optional_join_of(after_spellings, rest));
-            }
-        } else if kind == ValueKind::Optional && spec.value_kind == ValueKind::Optional {
-            // The value is drawn after the last spelling, so that
-            // spelling's own joiner is the one that applies.
-            spec.optional_join = Some(optional_join_of(after_spellings, rest));
-        }
+        record_value(&mut spec, (value_name, kind), after_spellings, rest);
 
         // The alias list may continue past it via `,`/`|`, see
         // [`alias_continues`], or via the word `or` when the second
@@ -369,6 +365,60 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
 /// True when `c` separates the spellings of one flag rather than
 /// belonging to a value: `,` or `|`. Whitespace deliberately excluded —
 /// see [`skip_separators`] and docs/shapes.md S-083.
+/// First value wins: a repeated placeholder names one value once.
+/// `value_prefix` folds in here rather than living on past the spec parse:
+/// the value's own glue character (`-Wa,<options>`'s comma) becomes the
+/// leading character of `value_name` itself. The joiner is read from the
+/// text between the last spelling (`after_spellings`) and the value (`rest`);
+/// for a later optional value the last spelling's own joiner applies.
+fn record_value(
+    spec: &mut FlagSpec,
+    (value_name, kind): (String, ValueKind),
+    after_spellings: &str,
+    rest: &str,
+) {
+    if spec.value_name.is_none() {
+        let prefixed = spec.value_prefix.is_some();
+        spec.value_name = Some(match spec.value_prefix.take() {
+            Some(c) => format!("{c}{value_name}"),
+            None => value_name,
+        });
+        spec.value_kind = kind;
+        if kind == ValueKind::Optional {
+            spec.optional_join = Some(optional_join_of(after_spellings, rest));
+        } else if !prefixed {
+            spec.optional_join = required_join_of(after_spellings, rest);
+        }
+    } else if kind == ValueKind::Optional && spec.value_kind == ValueKind::Optional {
+        spec.optional_join = Some(optional_join_of(after_spellings, rest));
+    }
+}
+
+/// After two or more shorts, a lower-case word of three or more letters is
+/// the next alias (`-? -h -help`), never `-h` again. See docs/shapes.md
+/// S-261.
+fn word_alias_after_shorts<'a>(spec: &FlagSpec, rest: &'a str) -> Option<(Spelling, &'a str)> {
+    if spec.spellings.len() < 2 || !spec.spellings.iter().all(is_genuine_short) {
+        return None;
+    }
+    let (spelling, tail) = try_alias_position_single_dash_long(rest)?;
+    let word = spelling.name.as_str();
+    let fits = word.chars().count() >= 3 && word.chars().all(|c| c.is_ascii_lowercase());
+    (fits && !already_collected(spec, &spelling) && !trailing_token_is_a_value(tail))
+        .then_some((spelling, tail))
+}
+
+/// A `[!]` after the spellings (`--proto -p [!] proto`) says the same as
+/// one before them: every spelling takes the `!` negation. Returns the text
+/// after the marker. See docs/shapes.md S-254.
+fn take_bang_after_spellings<'a>(spec: &mut FlagSpec, rest: &'a str) -> Option<&'a str> {
+    let after = rest.strip_prefix("[!]").filter(|r| r.starts_with(' '))?;
+    for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
+        s.negation = Some(Negation::Bang);
+    }
+    Some(after)
+}
+
 fn is_alias_separator(c: char) -> bool {
     c == ',' || c == '|'
 }
@@ -852,13 +902,29 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     {
         return Some((Spelling::single_dash(run), after_run));
     }
-    // A lower-case word of three or more letters glued to an optional
-    // value (`-verbose[:suboptions]`) is one single-dash spelling with
-    // an optional value, never `-v` plus a value `erbose[:suboptions]`.
-    // See docs/shapes.md S-230.
-    if run.chars().count() >= 3
+    // A lower-case word glued to an optional value (`-verbose[:suboptions]`,
+    // `-ea[:<class>]`) is one single-dash spelling with an optional value,
+    // never `-v` plus a value `erbose[:suboptions]`. See docs/shapes.md S-230.
+    if run.chars().all(|c| c.is_ascii_lowercase())
+        && ((run.chars().count() >= 2 && after_run.starts_with("[:"))
+            || (run.chars().count() >= 3 && after_run.starts_with("[=")))
+    {
+        return Some((Spelling::single_dash(run), after_run));
+    }
+    // A lower-case word of three or more letters with a `:` straight after
+    // it (`-splash:<imagepath>`, `-verbose:[class|gc]`) is the spelling,
+    // and the `:` opens its glued value. See docs/shapes.md S-261.
+    if let Some(len) = colon_glued_word_len(s) {
+        return Some((Spelling::single_dash(&s[..len]), &s[len..]));
+    }
+    // A lower-case run followed by a spaced `<value>` (`-cp <path>`) is the
+    // whole spelling: a flag cannot take both a glued and a spaced value.
+    // See docs/shapes.md S-261.
+    if run.chars().count() >= 2
         && run.chars().all(|c| c.is_ascii_lowercase())
-        && (after_run.starts_with("[:") || after_run.starts_with("[="))
+        && after_run
+            .strip_prefix(' ')
+            .is_some_and(|v| v.trim_start().starts_with('<'))
     {
         return Some((Spelling::single_dash(run), after_run));
     }
@@ -866,6 +932,14 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     // anything past it is left for the rest of the grammar.
     let c = run.chars().next()?;
     Some((Spelling::short(c), &s[c.len_utf8()..]))
+}
+
+/// Byte length of the lower-case word at the front of `s` (three or more
+/// letters) when a `:` and then more text follow it directly.
+fn colon_glued_word_len(s: &str) -> Option<usize> {
+    let len = s.find(|c: char| !c.is_ascii_lowercase())?;
+    let after = s[len..].strip_prefix(':')?;
+    (len >= 3 && !after.is_empty() && !after.starts_with(char::is_whitespace)).then_some(len)
 }
 
 fn is_short_char(c: char) -> bool {
@@ -923,7 +997,18 @@ fn try_long(input: &str) -> Option<(Spelling, &str)> {
         s = rest;
         true
     });
-    let name = long_name(&mut s).ok()?;
+    let base = s;
+    let mut name = long_name(&mut s).ok()?;
+    // An `@` between name characters is part of the name (`--disable-@files`).
+    if name.ends_with('-') && s.starts_with('@') {
+        let word = s[1..]
+            .find(|c: char| !(c.is_alphanumeric() || c == '-'))
+            .unwrap_or(s.len() - 1);
+        if word > 0 {
+            name = &base[..name.len() + 1 + word];
+            s = &s[1 + word..];
+        }
+    }
     if !negatable && name.chars().count() <= MAX_ABBREV_PREFIX_LEN {
         if let Some((content, rest)) = parse_abbrev_bracket(s) {
             return Some((
@@ -1379,6 +1464,13 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
                 }
                 taken += 2 + close + 1;
             }
+            // `<name>=<value>` is one value spec, kept whole (`-D<name>=<value>`).
+            if let Some(more) = s[taken..].strip_prefix("=<") {
+                if let Some(close) = more.find('>').filter(|&c| !more[..c].contains(' ')) {
+                    taken += 2 + close + 1;
+                }
+            }
+            taken += colon_list_tail(&s[taken..]);
             taken += glued_list_tail(&s[taken..]);
             return (s[..taken].to_string(), &s[taken..]);
         }
@@ -1427,6 +1519,27 @@ fn unclosed_angle_end(s: &str, end: usize) -> Option<usize> {
     }
     let taken = end + close + 1;
     Some(taken + glued_list_tail(s.get(taken..)?))
+}
+
+/// Length of a colon-list tail glued onto a `<value>`: `:<name2>` and `:...`
+/// runs (`<name1>:<name2>:...`), kept in the value as written. S-261.
+fn colon_list_tail(s: &str) -> usize {
+    let mut taken = 0;
+    loop {
+        let rest = &s[taken..];
+        let step = match rest.strip_prefix(':') {
+            Some(r) if r.starts_with("...") => Some(1 + 3),
+            Some(r) if r.starts_with('<') => r
+                .find('>')
+                .filter(|&c| !r[..c].contains(char::is_whitespace))
+                .map(|c| 1 + c + 1),
+            _ => None,
+        };
+        match step {
+            Some(n) => taken += n,
+            None => return taken,
+        }
+    }
 }
 
 /// Length of a comma-list tail glued onto a value placeholder with no
@@ -3352,7 +3465,10 @@ mod tests {
             spec.optional_join
         };
         assert_eq!(join("--color[=WHEN]"), Some(OptionalJoin::Equals));
-        assert_eq!(join("--color=[WHEN]"), Some(OptionalJoin::Equals));
+        assert_eq!(
+            join("--color=[WHEN]"),
+            Some(OptionalJoin::EqualsThenBracket)
+        );
         assert_eq!(join("-O[N]"), Some(OptionalJoin::Glued));
         assert_eq!(join("-V[N][fname]"), Some(OptionalJoin::Glued));
         assert_eq!(join("--foo [FOO]"), Some(OptionalJoin::Separate));

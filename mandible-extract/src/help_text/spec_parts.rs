@@ -6,16 +6,28 @@ use super::grammar::FlagSpec;
 use mandible_core::{Dashes, Entity, OptionalJoin, Spelling, SpellingRange};
 
 /// How an optional value spelled `value` joins the flag whose spelling
-/// ends where `after_spellings` begins: `[=V]` is `=`, a bracket touching
-/// the spelling is glued, anything else is a separate word.
+/// ends where `after_spellings` begins: `[=V]` and `=[V]` are `=` inside
+/// and outside the brackets, a bracket touching the spelling is glued,
+/// anything else is a separate word.
 pub(super) fn optional_join_of(after_spellings: &str, value: &str) -> OptionalJoin {
-    if value.starts_with("[=") || value.starts_with("=[") {
+    if value.starts_with("[=") {
         OptionalJoin::Equals
+    } else if value.starts_with("=[") {
+        OptionalJoin::EqualsThenBracket
     } else if after_spellings.starts_with('[') {
         OptionalJoin::Glued
     } else {
         OptionalJoin::Separate
     }
+}
+
+/// A required value written straight onto its flag (`-Z<type>`, `-z#`,
+/// `+<cmd>`, `-splash:<path>`) is glued: the text after the last spelling
+/// is the value itself, opening with a placeholder mark (`<`, `#`, `:`),
+/// never a word that may be the rest of the flag's name.
+pub(super) fn required_join_of(after_spellings: &str, value: &str) -> Option<OptionalJoin> {
+    let glued = after_spellings.len() == value.len() && value.starts_with(['<', '#', ':']);
+    glued.then_some(OptionalJoin::Glued)
 }
 
 /// A bracketed value followed, after one space, by an angle placeholder that

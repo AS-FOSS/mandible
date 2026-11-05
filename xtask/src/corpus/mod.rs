@@ -53,6 +53,7 @@ use std::time::{Duration, Instant};
 
 mod contract;
 mod describe_root;
+mod draw_contract;
 mod group_rows_contract;
 mod keep_separate_by_path;
 mod markdown;
@@ -64,6 +65,7 @@ mod runner;
 mod screen;
 mod subcommand;
 mod summary;
+mod value_name_contract;
 
 pub(crate) use contract::*;
 pub(crate) use markdown::*;
@@ -413,6 +415,10 @@ pub(crate) struct ContractMeta {
     /// `group_rows_contract.rs` and docs/shapes.md S-187.
     #[serde(default)]
     must_one_row_in_group: std::collections::BTreeMap<String, Vec<String>>,
+    /// Text the root's drawn page must carry on one line: a spelling and
+    /// its value as the pane joins them (`-Z<type>`). See `draw_contract.rs`.
+    #[serde(default)]
+    must_draw: Vec<String>,
     /// Which dimensions of this fixture's tree a human actually verified
     /// before blessing it — machine-readable replacement for the
     /// "SCOPE OF REVIEW" prose comment (`git show c9bfe76`). Not itself a

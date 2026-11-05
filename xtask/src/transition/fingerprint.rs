@@ -18,6 +18,8 @@ pub struct ParsedFlagFingerprint {
     pub description_hash: Option<u64>,
     pub choices_hash: Option<u64>,
     pub value_name: Option<String>,
+    /// `None` when the scoreboard predates the field; compared only when both sides have it.
+    pub join: Option<String>,
 }
 
 /// One tool's field-level fingerprint, read back from its `#fp`/`#fp2` line
@@ -72,7 +74,13 @@ pub(super) fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFinger
             // splitn(4, ':') so a value_name containing a colon lands whole
             // in the final piece instead of truncating at its first colon.
             let mut fields = rest.splitn(4, ':');
-            let has_description = fields.next()? == "1";
+            // The first piece is `<0|1>` or, with the join recorded, `<0|1>/<join>`.
+            let head = fields.next()?;
+            let (head, join) = match head.split_once('/') {
+                Some((d, j)) => (d, Some(fp_unescape(j))),
+                None => (head, None),
+            };
+            let has_description = head == "1";
             let description_hash = match fields.next()? {
                 "-" => None,
                 h => u64::from_str_radix(h, 16).ok(),
@@ -92,6 +100,7 @@ pub(super) fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFinger
                     description_hash,
                     choices_hash,
                     value_name,
+                    join,
                 },
             );
         }

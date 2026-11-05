@@ -1,0 +1,20 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "jpackage"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["jpackage", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--module-path", "-p"]
+
+[contract.must_describe]
+"--module-path" = "A : separated list of paths Each path is either a directory of modules or the path to a modular jar. (Each path is absolute or relative to the current directory.) This option can be used multiple times."

@@ -1,0 +1,27 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pkgconf"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["pkgconf", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--personality"]
+
+[contract.must_value_name]
+"--personality" = "triplet|filename"
+
+[contract.must_not_attach_choices]
+"--personality" = ["triplet", "filename"]
+
+[xfail]
+broken = true
+reason = "`--personality=triplet|filename` names two kinds of value (a triplet, a file name), but the values rule reads it as the choices `triplet` and `filename` and draws `values: triplet, filename`. The rule cannot tell placeholder kinds from literal words by shape."

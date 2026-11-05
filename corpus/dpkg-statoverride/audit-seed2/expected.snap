@@ -76,6 +76,7 @@ flags:
   - --force-
   value_name: <thing>[,...]
   value_kind: Required
+  optional_join: glued
   description: override problems (see --force-help).
   provenance:
     sources:
@@ -84,6 +85,7 @@ flags:
   - --no-force-
   value_name: <thing>[,...]
   value_kind: Required
+  optional_join: glued
   description: stop when problems encountered.
   provenance:
     sources:
@@ -92,6 +94,7 @@ flags:
   - --refuse-
   value_name: <thing>[,...]
   value_kind: Required
+  optional_join: glued
   description: ditto.
   provenance:
     sources:

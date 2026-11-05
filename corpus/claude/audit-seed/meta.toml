@@ -1,0 +1,27 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "claude"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["claude", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--cloud"]
+
+[contract.must_value_name]
+"--cloud" = "description|session_id|url"
+
+[contract.must_not_attach_choices]
+"--cloud" = ["description", "session_id", "url"]
+
+[xfail]
+broken = true
+reason = "`--cloud [description|session_id|url]` names three kinds of value (a description, a session ID, a URL), but the values rule reads it as the choices `description`, `session_id` and `url` and draws `values: description, session_id, url`. The rule cannot tell placeholder kinds from literal words by shape."

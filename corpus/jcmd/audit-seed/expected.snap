@@ -1,0 +1,32 @@
+name: jcmd
+usage:
+- 'Usage: jcmd <pid | main class> <command ...|PerfCounter.print|-f file>'
+- '   or: jcmd -l'
+- '   or: jcmd -h'
+flags:
+- spellings:
+  - -f
+  description: read and execute commands from the file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  description: list JVM processes on the local machine
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - -h
+  - --help
+  value_name: print
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

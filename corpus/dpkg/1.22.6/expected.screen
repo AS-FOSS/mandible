@@ -41,9 +41,9 @@ FLAGS (61) ───────────────────────
     --log <filename>          Log status changes and actions to <filename>.
     --ignore-depends <package>[,...] Ignore dependencies involving
                               <package>.
-    --force- <thing>[,...]    Override problems (see --force-help).
-    --no-force- <thing>[,...] Stop when problems encountered.
-    --refuse- <thing>[,...]   Ditto.
+    --force-<thing>[,...]     Override problems (see --force-help).
+    --no-force-<thing>[,...]  Stop when problems encountered.
+    --refuse-<thing>[,...]    Ditto.
     --abort-after <n>         Abort after encountering <n> errors.
     --robot                   Use machine-readable output on some commands.
 
@@ -80,8 +80,8 @@ Commands ───────────────────────�
     --print-architecture      Print dpkg architecture.
     --print-foreign-architectures Print allowed foreign architectures.
     --assert-help             Show help on assertions.
-    --assert- <feature>       Assert support for the specified feature.
-    --validate- <thing>       Validate a <thing>'s <string>.
+    --assert-<feature>        Assert support for the specified feature.
+    --validate-<thing>        Validate a <thing>'s <string>.
     --compare-versions <a>    Compare version numbers - see below.
     --force-help              Show help on forcing.
 -D, --debug h                 Show help on debugging.

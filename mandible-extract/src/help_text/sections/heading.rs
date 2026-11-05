@@ -442,6 +442,34 @@ pub(super) fn is_wrapped_prose_continuation(lines: &[&str], idx: usize) -> bool 
     prev.split_whitespace().count() >= MIN_PROSE_SENTENCE_WORDS
 }
 
+/// The paragraph that starts at `lines[idx]` when that line is prose
+/// (not dash-led, at least [`MIN_PROSE_SENTENCE_WORDS`] words) ending in a
+/// comma with a dash-led line at the same indent right after it: the
+/// sentence runs on, so it is no heading and the line is no flag. The index past the paragraph, and its text.
+/// See docs/shapes.md S-261.
+pub(super) fn comma_run_on_paragraph(lines: &[&str], idx: usize) -> Option<(usize, String)> {
+    let line = lines[idx];
+    let next = lines.get(idx + 1)?;
+    let prose = !line.trim_start().starts_with('-')
+        && line.trim_end().ends_with(',')
+        && line.split_whitespace().count() >= MIN_PROSE_SENTENCE_WORDS;
+    let runs_on = next.trim_start().starts_with('-')
+        && leading_whitespace(next) == leading_whitespace(line)
+        && leading_whitespace(line) > 0;
+    if !prose || !runs_on {
+        return None;
+    }
+    let end = (idx..lines.len())
+        .find(|&j| lines[j].trim().is_empty())
+        .unwrap_or(lines.len());
+    let text = lines[idx..end]
+        .iter()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+    Some((end, text))
+}
+
 /// The full prose paragraph a rescued wrapped-prose continuation at
 /// `flag_line_idx` belongs to (S-027): back to the blank line above it (or
 /// the document start), forward through every line

@@ -36,6 +36,7 @@ flags:
   - -p
   value_name: <path to ctrl sockets>
   value_kind: Required
+  optional_join: glued
   provenance:
     sources:
     - help-text-synopsis
@@ -43,6 +44,7 @@ flags:
   - -i
   value_name: <ifname>
   value_kind: Required
+  optional_join: glued
   provenance:
     sources:
     - help-text-synopsis
@@ -50,6 +52,7 @@ flags:
   - -P
   value_name: <pid file>
   value_kind: Required
+  optional_join: glued
   provenance:
     sources:
     - help-text-synopsis
@@ -57,6 +60,7 @@ flags:
   - -g
   value_name: <global ctrl>
   value_kind: Required
+  optional_join: glued
   provenance:
     sources:
     - help-text-synopsis
@@ -64,6 +68,7 @@ flags:
   - -G
   value_name: <ping interval>
   value_kind: Required
+  optional_join: glued
   provenance:
     sources:
     - help-text-synopsis
@@ -71,6 +76,7 @@ flags:
   - -s
   value_name: <wpa_client_socket_file_path>
   value_kind: Required
+  optional_join: glued
   provenance:
     sources:
     - help-text-synopsis

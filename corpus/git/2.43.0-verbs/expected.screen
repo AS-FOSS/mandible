@@ -16,7 +16,7 @@ FLAGS (18) ───────────────────────
 -v, --version
 -h, --help
 -C <path>
--c <name>
+-c <name>=<value>
     --exec-path[=<path>]
     --html-path
     --man-path
@@ -30,7 +30,7 @@ FLAGS (18) ───────────────────────
     --git-dir <path>
     --work-tree <path>
     --namespace <name>
-    --config-env <name>
+    --config-env <name>=<envvar>
 
 === git clone ===
 Clone a repository into a new directory
