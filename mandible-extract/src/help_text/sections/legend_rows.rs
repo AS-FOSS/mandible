@@ -1,17 +1,9 @@
 //! `NAME := text` legends under a command page's usage forms (docs/shapes.md
-//! S-258):
-//!
-//! ```text
-//! where  OPTS := [ pn <u32> | xpn <u64> ] [ salt SALT ]
-//!        ID   := 128-bit hex string
-//!        SCI  := { sci <u64> | port { 1..2^16-1 } address <lladdr> }
-//! ```
-//!
-//! Each legend line describes the placeholder it names, without the `:=`.
-//! A name the usage forms or another legend use becomes an operand when it
-//! was not one already; a `{ a | b }` list of plain lowercase words is its
-//! values. Legends are listed in their own order after the other operands.
-//! A list of dash-led words is an option production, not a legend.
+//! S-258), e.g. `where  ID := 128-bit hex string`. Each describes the
+//! placeholder it names, without the `:=`. A name the usage forms or another
+//! legend use becomes an operand when it was not one; a `{ a | b }` list of
+//! plain lowercase words is its values. Legends follow the other operands, in
+//! their own order. A dash-led list is an option production, not a legend.
 
 use super::production_commands::is_placeholder_name;
 use super::*;
