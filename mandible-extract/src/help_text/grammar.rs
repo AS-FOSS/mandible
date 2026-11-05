@@ -720,6 +720,35 @@ fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
         .parse_next(input)
 }
 
+/// A single-dash word whose bracket opens it (`devlink`'s `-[he]x`, the
+/// two spellings `-x` and `-hex`): one spelling, named as written. At most
+/// [`MAX_ABBREV_PREFIX_LEN`] lowercase letters in the bracket and at least
+/// one letter after it.
+fn try_prefix_bracket(after_dash: &str) -> Option<(Spelling, &str)> {
+    let rest = after_dash.strip_prefix('[')?;
+    let close = rest.find(']')?;
+    let content = &rest[..close];
+    let tail_len = rest[close + 1..]
+        .find(|c: char| !c.is_ascii_lowercase())
+        .unwrap_or(rest.len() - close - 1);
+    let valid = !content.is_empty()
+        && content.len() <= MAX_ABBREV_PREFIX_LEN
+        && content.chars().all(|c| c.is_ascii_lowercase())
+        && tail_len > 0;
+    valid.then(|| {
+        let end = close + 1 + tail_len;
+        (
+            Spelling {
+                name: format!("[{content}]{}", &rest[close + 1..end]),
+                dashes: Dashes::Single,
+                negation: None,
+                abbrev: None,
+            },
+            &rest[end..],
+        )
+    })
+}
+
 /// `-x`, or `-xy...[rest]` where an abbreviation-continuation bracket
 /// immediately follows a run of one or more such characters (`ip`'s
 /// `-V[ersion]`/`-rc[vbuf]`). With no bracket, only the run's first
@@ -733,7 +762,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
         .find(|(_, c)| !is_short_char(*c))
         .map_or(s.len(), |(i, _)| i);
     if run_end == 0 {
-        return None;
+        return try_prefix_bracket(s);
     }
     let run = &s[..run_end];
     let after_run = &s[run_end..];

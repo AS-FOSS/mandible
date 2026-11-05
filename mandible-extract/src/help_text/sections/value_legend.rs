@@ -1,6 +1,6 @@
 //! A legend that names a value placeholder (`STYLE is one of:`, `<color>:
 //! black blue ...`) gives its values to every flag whose value names that
-//! placeholder, not to the first one. See docs/shapes.md S-258 and
+//! placeholder, not to the first one. See docs/shapes.md S-259 and
 //! corpus/nl/9.4, corpus/setterm/audit-seed.
 
 use super::ParsedHelp;

@@ -1,0 +1,498 @@
+name: ip
+usage:
+- 'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }'
+- '       ip [ -force ] -batch filename'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V[ersion]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s[tatistics]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d[etails]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r[esolve]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h[uman-readable]
+  group: 'OPTIONS :'
+  description: '| -iec | -j[son] | -p[retty] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f[amily]
+  value_kind: Required
+  choices:
+  - inet
+  - inet6
+  - mpls
+  - bridge
+  - link
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l[oops]
+  group: 'OPTIONS :'
+  description: '{ maximum-addr-flush-attempts } | -br[ief] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o[neline]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t[imestamp]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ts[hort]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b[atch]
+  value_name: filename
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -rc[vbuf]
+  value_name: size
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[etns]
+  value_name: name
+  value_kind: Required
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N[umeric]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a[ll]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c[olor]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: address
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: addrlabel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: amt
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: fou
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ila
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ioam
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: l2tp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: link
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: macsec
+  usage:
+  - 'Usage: ip macsec add DEV tx sa { 0..3 } [ OPTS ] key ID KEY'
+  - '       ip macsec set DEV tx sa { 0..3 } [ OPTS ]'
+  - '       ip macsec del DEV tx sa { 0..3 }'
+  - '       ip macsec add DEV rx SCI [ on | off ]'
+  - '       ip macsec set DEV rx SCI [ on | off ]'
+  - '       ip macsec del DEV rx SCI'
+  - '       ip macsec add DEV rx SCI sa { 0..3 } [ OPTS ] key ID KEY'
+  - '       ip macsec set DEV rx SCI sa { 0..3 } [ OPTS ]'
+  - '       ip macsec del DEV rx SCI sa { 0..3 }'
+  - '       ip macsec show'
+  - '       ip macsec show DEV'
+  - '       ip macsec offload DEV [ off | phy | mac ]'
+  positionals:
+  - name: OPTS
+    description: '[ pn <u32> | xpn <u64> ] [ salt SALT ] [ ssci <u32> ] [ on | off ]'
+    provenance:
+      sources:
+      - help-text
+  - name: ID
+    description: 128-bit hex string
+    provenance:
+      sources:
+      - help-text
+  - name: KEY
+    description: 128-bit or 256-bit hex string
+    provenance:
+      sources:
+      - help-text
+  - name: SCI
+    description: '{ sci <u64> | port { 1..2^16-1 } address <lladdr> }'
+    provenance:
+      sources:
+      - help-text
+  - name: SALT
+    description: 96-bit hex string
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.0
+  children_filled: true
+  heading_attested: true
+  help_slot_attested: true
+  subcommands:
+  - name: add
+    usage:
+    - ip macsec add DEV tx sa { 0..3 } [ OPTS ] key ID KEY
+    - ip macsec add DEV rx SCI [ on | off ]
+    - ip macsec add DEV rx SCI sa { 0..3 } [ OPTS ] key ID KEY
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: OPTS
+      provenance:
+        sources:
+        - help-text
+    - name: ID
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: KEY
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: SCI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: set
+    usage:
+    - ip macsec set DEV tx sa { 0..3 } [ OPTS ]
+    - ip macsec set DEV rx SCI [ on | off ]
+    - ip macsec set DEV rx SCI sa { 0..3 } [ OPTS ]
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: OPTS
+      provenance:
+        sources:
+        - help-text
+    - name: SCI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: del
+    usage:
+    - ip macsec del DEV tx sa { 0..3 }
+    - ip macsec del DEV rx SCI
+    - ip macsec del DEV rx SCI sa { 0..3 }
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    - name: SCI
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: show
+    usage:
+    - ip macsec show
+    - ip macsec show DEV
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+  - name: offload
+    usage:
+    - ip macsec offload DEV [ off | phy | mac ]
+    positionals:
+    - name: DEV
+      required: true
+      provenance:
+        sources:
+        - help-text
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: maddress
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mptcp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mroute
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mrule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbour
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netconf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netns
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: nexthop
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntable
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntbl
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: route
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: rule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: sr
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tcpmetrics
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: token
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tunnel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tuntap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: vrf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: xfrm
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

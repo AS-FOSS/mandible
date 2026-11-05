@@ -4,8 +4,7 @@ USAGE ────────────────────────�
   dcb [ -f | --force ] { -b | --batch } filename [ -n | --netns ] netnsname
 
 
-POSITIONALS (2) ────────────────────────────────────────────────────────────
-  OBJECT
+POSITIONALS (1) ────────────────────────────────────────────────────────────
   COMMAND
 
 
@@ -20,3 +19,15 @@ FLAGS (10) ───────────────────────
 -f, --force
 -b, --batch
 -n, --netns
+
+=== dcb app ===
+
+=== dcb buffer ===
+
+=== dcb dcbx ===
+
+=== dcb ets ===
+
+=== dcb maxrate ===
+
+=== dcb pfc ===

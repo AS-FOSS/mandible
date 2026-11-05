@@ -109,6 +109,7 @@ fn extract_node_errors_rather_than_probing_when_never_detected() {
             heading_attested: true,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
     assert!(

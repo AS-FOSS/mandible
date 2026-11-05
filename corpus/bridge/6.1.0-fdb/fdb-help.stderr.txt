@@ -1,0 +1,14 @@
+Usage: bridge fdb { add | append | del | replace } ADDR dev DEV
+              [ self ] [ master ] [ use ] [ router ] [ extern_learn ]
+              [ sticky ] [ local | static | dynamic ] [ vlan VID ]
+              { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [ nhid NHID ] }
+               [ via DEV ] [ src_vni VNI ]
+       bridge fdb [ show [ br BRDEV ] [ brport DEV ] [ vlan VID ]
+              [ state STATE ] [ dynamic ] ]
+       bridge fdb get [ to ] LLADDR [ br BRDEV ] { brport | dev } DEV
+              [ vlan VID ] [ vni VNI ] [ self ] [ master ] [ dynamic ]
+       bridge fdb flush dev DEV [ brport DEV ] [ vlan VID ]
+              [ self ] [ master ] [ [no]permanent | [no]static | [no]dynamic ]
+              [ [no]added_by_user ] [ [no]extern_learn ] [ [no]sticky ]
+              [ [no]offloaded ]
+

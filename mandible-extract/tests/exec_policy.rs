@@ -491,6 +491,7 @@ exit 1
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     };
 
     let (raw, flag) = mandible_extract::help_text::raw_help(&tool, &path, attested)
@@ -557,6 +558,7 @@ exit 1
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("the shim always answers one of the two probes it's asked for");
@@ -608,6 +610,7 @@ fn never_probe_named_shim_never_receives_the_dash_h_fallback_even_when_man_shape
             heading_attested: true,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
 
@@ -666,6 +669,7 @@ fn non_attested_subcommand_word_is_never_probed_at_all() {
             heading_attested: false,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
 
@@ -720,6 +724,7 @@ exit 1
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("an attested word's --help probe must still run and succeed");
@@ -769,6 +774,7 @@ exit 1
                 heading_attested: false,
                 abbrev_probe_attested: true,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("an abbrev_probe_attested word's --help probe must still run and succeed");
@@ -811,6 +817,7 @@ fn rule_0_still_refuses_an_abbrev_probe_attested_word_naming_a_never_probe_tool(
             heading_attested: false,
             abbrev_probe_attested: true,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
 
@@ -876,6 +883,7 @@ exit 1
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("root probe must succeed");
@@ -905,6 +913,7 @@ exit 1
             heading_attested: device.heading_attested,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
     assert!(
@@ -953,6 +962,7 @@ exit 1
                 heading_attested: true,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         )
         .expect("root probe must succeed");
@@ -971,6 +981,7 @@ exit 1
                 heading_attested: node.heading_attested,
                 abbrev_probe_attested: false,
                 help_word_attested: false,
+                help_slot_attested: false,
             },
         );
         assert!(
@@ -1055,6 +1066,7 @@ fn help_word_child_is_probed_as_help_word_and_never_as_word_dash_dash_help() {
                 heading_attested: search.heading_attested,
                 abbrev_probe_attested: false,
                 help_word_attested: search.help_word_attested,
+                help_slot_attested: false,
             },
         )
         .expect("`help search` must be probed and parsed");
@@ -1071,6 +1083,7 @@ fn help_word_child_is_probed_as_help_word_and_never_as_word_dash_dash_help() {
             heading_attested: false,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
     assert!(install.is_err(), "{install:?}");
@@ -1107,6 +1120,7 @@ fn a_sentence_quoting_help_command_never_opens_the_help_word_gate() {
             heading_attested: false,
             abbrev_probe_attested: false,
             help_word_attested: false,
+            help_slot_attested: false,
         },
     );
     assert!(result.is_err(), "{result:?}");
@@ -1136,6 +1150,7 @@ fn rule_0_refuses_a_help_word_probe_naming_a_never_probe_tool() {
             heading_attested: false,
             abbrev_probe_attested: false,
             help_word_attested: true,
+            help_slot_attested: false,
         },
     );
     assert!(
@@ -1229,6 +1244,7 @@ fn attested() -> NodeHints {
         heading_attested: true,
         abbrev_probe_attested: false,
         help_word_attested: false,
+        help_slot_attested: false,
     }
 }
 

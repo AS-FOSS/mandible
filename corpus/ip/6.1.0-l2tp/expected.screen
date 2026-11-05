@@ -1,0 +1,193 @@
+=== ip ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip [ OPTIONS ] OBJECT { COMMAND | help }
+  ip [ -force ] -batch filename
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (21) ─────────────────────────────────────────────────────────────────
+Options
+    -V[ersion]
+    -s[tatistics]
+    -d[etails]
+    -r[esolve]
+    -h[uman-readable] | -iec | -j[son] | -p[retty] |
+    -f[amily] {…}     values: inet, inet6, mpls, bridge, link
+-4
+-6
+-M
+-B
+-0
+    -l[oops]          { maximum-addr-flush-attempts } | -br[ief] |
+    -o[neline]
+    -t[imestamp]
+    -ts[hort]
+    -b[atch] [filename]
+    -rc[vbuf] [size]
+    -n[etns] name
+    -N[umeric]
+    -a[ll]
+    -c[olor]
+
+=== ip address ===
+
+=== ip addrlabel ===
+
+=== ip amt ===
+
+=== ip fou ===
+
+=== ip ila ===
+
+=== ip ioam ===
+
+=== ip l2tp ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp add tunnel remote ADDR local ADDR tunnel_id ID peer_tunnel_id ID [
+      encap { ip | udp } ] [ udp_sport PORT ] [ udp_dport PORT ] [ udp_csum
+      { on | off } ] [ udp6_csum_tx { on | off } ] [ udp6_csum_rx { on | off
+      } ]
+  ip l2tp add session [ name NAME ] tunnel_id ID session_id ID
+      peer_session_id ID [ cookie HEXSTR ] [ peer_cookie HEXSTR ] [ seq {
+      none | send | recv | both } ] [ l2spec_type L2SPEC ]
+  ip l2tp del tunnel tunnel_id ID
+  ip l2tp del session tunnel_id ID session_id ID
+  ip l2tp show tunnel [ tunnel_id ID ]
+  ip l2tp show session [ tunnel_id ID ] [ session_id ID ]
+
+
+POSITIONALS (6) ────────────────────────────────────────────────────────────
+  NAME    STRING
+  ADDR    { IP_ADDRESS | any }
+  PORT    { 0..65535 }
+  ID      { 1..4294967295 }
+  HEXSTR  { 8 or 16 hex digits (4 / 8 bytes) }
+  L2SPEC  values: none, default
+
+=== ip l2tp add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp add tunnel remote ADDR local ADDR tunnel_id ID peer_tunnel_id ID [
+      encap { ip | udp } ] [ udp_sport PORT ] [ udp_dport PORT ] [ udp_csum
+      { on | off } ] [ udp6_csum_tx { on | off } ] [ udp6_csum_rx { on | off
+      } ]
+  ip l2tp add session [ name NAME ] tunnel_id ID session_id ID
+      peer_session_id ID [ cookie HEXSTR ] [ peer_cookie HEXSTR ] [ seq {
+      none | send | recv | both } ] [ l2spec_type L2SPEC ]
+
+=== ip l2tp add tunnel ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp add tunnel remote ADDR local ADDR tunnel_id ID peer_tunnel_id ID [
+      encap { ip | udp } ] [ udp_sport PORT ] [ udp_dport PORT ] [ udp_csum
+      { on | off } ] [ udp6_csum_tx { on | off } ] [ udp6_csum_rx { on | off
+      } ]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  ADDR
+  ID
+  PORT
+
+=== ip l2tp add session ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp add session [ name NAME ] tunnel_id ID session_id ID
+      peer_session_id ID [ cookie HEXSTR ] [ peer_cookie HEXSTR ] [ seq {
+      none | send | recv | both } ] [ l2spec_type L2SPEC ]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  NAME
+  ID
+  HEXSTR
+
+=== ip l2tp del ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp del tunnel tunnel_id ID
+  ip l2tp del session tunnel_id ID session_id ID
+
+=== ip l2tp del tunnel ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp del tunnel tunnel_id ID
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip l2tp del session ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp del session tunnel_id ID session_id ID
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip l2tp show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp show tunnel [ tunnel_id ID ]
+  ip l2tp show session [ tunnel_id ID ] [ session_id ID ]
+
+=== ip l2tp show tunnel ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp show tunnel [ tunnel_id ID ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip l2tp show session ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip l2tp show session [ tunnel_id ID ] [ session_id ID ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip link ===
+
+=== ip macsec ===
+
+=== ip maddress ===
+
+=== ip monitor ===
+
+=== ip mptcp ===
+
+=== ip mroute ===
+
+=== ip mrule ===
+
+=== ip neighbor ===
+
+=== ip neighbour ===
+
+=== ip netconf ===
+
+=== ip netns ===
+
+=== ip nexthop ===
+
+=== ip ntable ===
+
+=== ip ntbl ===
+
+=== ip route ===
+
+=== ip rule ===
+
+=== ip sr ===
+
+=== ip tap ===
+
+=== ip tcpmetrics ===
+
+=== ip token ===
+
+=== ip tunnel ===
+
+=== ip tuntap ===
+
+=== ip vrf ===
+
+=== ip xfrm ===

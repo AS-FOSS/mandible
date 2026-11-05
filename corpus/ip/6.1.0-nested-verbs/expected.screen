@@ -1,0 +1,257 @@
+=== ip ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip [ OPTIONS ] OBJECT { COMMAND | help }
+  ip [ -force ] -batch filename
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (21) ─────────────────────────────────────────────────────────────────
+Options
+    -V[ersion]
+    -s[tatistics]
+    -d[etails]
+    -r[esolve]
+    -h[uman-readable] | -iec | -j[son] | -p[retty] |
+    -f[amily] {…}     values: inet, inet6, mpls, bridge, link
+-4
+-6
+-M
+-B
+-0
+    -l[oops]          { maximum-addr-flush-attempts } | -br[ief] |
+    -o[neline]
+    -t[imestamp]
+    -ts[hort]
+    -b[atch] [filename]
+    -rc[vbuf] [size]
+    -n[etns] name
+    -N[umeric]
+    -a[ll]
+    -c[olor]
+
+=== ip address ===
+
+=== ip addrlabel ===
+
+=== ip amt ===
+
+=== ip fou ===
+
+=== ip ila ===
+
+=== ip ioam ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam { COMMAND | help }
+  ip ioam namespace show
+  ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]
+  ip ioam namespace del ID
+  ip ioam schema show
+  ip ioam schema add ID DATA
+  ip ioam schema del ID
+  ip ioam namespace set ID schema { ID | none }
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+=== ip ioam namespace ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam namespace show
+  ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]
+  ip ioam namespace del ID
+  ip ioam namespace set ID schema { ID | none }
+
+=== ip ioam namespace show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam namespace show
+
+=== ip ioam namespace add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  ID
+  DATA32
+  DATA64
+
+=== ip ioam namespace del ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam namespace del ID
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip ioam namespace set ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam namespace set ID schema { ID | none }
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip ioam schema ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam schema show
+  ip ioam schema add ID DATA
+  ip ioam schema del ID
+
+=== ip ioam schema show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam schema show
+
+=== ip ioam schema add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam schema add ID DATA
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  ID
+  DATA
+
+=== ip ioam schema del ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip ioam schema del ID
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip l2tp ===
+
+=== ip link ===
+
+=== ip macsec ===
+
+=== ip maddress ===
+
+=== ip monitor ===
+
+=== ip mptcp ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ] [ port NR ] [
+      FLAG-LIST ]
+  ip mptcp endpoint delete id ID [ ADDRESS ]
+  ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT
+  ip mptcp endpoint show [ id ID ]
+  ip mptcp endpoint flush
+  ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]
+  ip mptcp limits show
+  ip mptcp monitor
+
+=== ip mptcp endpoint ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ] [ port NR ] [
+      FLAG-LIST ]
+  ip mptcp endpoint delete id ID [ ADDRESS ]
+  ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT
+  ip mptcp endpoint show [ id ID ]
+  ip mptcp endpoint flush
+
+=== ip mptcp endpoint add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ] [ port NR ] [
+      FLAG-LIST ]
+
+
+POSITIONALS (5) ────────────────────────────────────────────────────────────
+  ADDRESS
+  NAME
+  ID
+  NR
+  FLAG-LIST
+
+=== ip mptcp endpoint delete ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint delete id ID [ ADDRESS ]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  ID
+  ADDRESS
+
+=== ip mptcp endpoint change ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT
+
+
+POSITIONALS (4) ────────────────────────────────────────────────────────────
+  ID
+  ADDRESS
+  NR
+  CHANGE-OPT
+
+=== ip mptcp endpoint show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint show [ id ID ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  ID
+
+=== ip mptcp endpoint flush ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp endpoint flush
+
+=== ip mptcp limits ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]
+  ip mptcp limits show
+
+=== ip mptcp limits set ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  NR
+
+=== ip mptcp limits show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp limits show
+
+=== ip mptcp monitor ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip mptcp monitor
+
+=== ip mroute ===
+
+=== ip mrule ===
+
+=== ip neighbor ===
+
+=== ip neighbour ===
+
+=== ip netconf ===
+
+=== ip netns ===
+
+=== ip nexthop ===
+
+=== ip ntable ===
+
+=== ip ntbl ===
+
+=== ip route ===
+
+=== ip rule ===
+
+=== ip sr ===
+
+=== ip tap ===
+
+=== ip tcpmetrics ===
+
+=== ip token ===
+
+=== ip tunnel ===
+
+=== ip tuntap ===
+
+=== ip vrf ===
+
+=== ip xfrm ===

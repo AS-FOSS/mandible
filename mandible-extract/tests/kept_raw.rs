@@ -61,12 +61,14 @@ const ATTESTED: NodeHints = NodeHints {
     heading_attested: true,
     abbrev_probe_attested: false,
     help_word_attested: false,
+    help_slot_attested: false,
 };
 
 const UNATTESTED: NodeHints = NodeHints {
     heading_attested: false,
     abbrev_probe_attested: false,
     help_word_attested: false,
+    help_slot_attested: false,
 };
 
 const ROOT: &str = "Usage: widget [COMMAND]\n\nCommands:\n  add   Add a thing\n";

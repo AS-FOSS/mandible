@@ -22,7 +22,7 @@ pub(super) fn optional_join_of(after_spellings: &str, value: &str) -> OptionalJo
 /// ends the spec (`--ulcolor [bright] <color>`): both stay on the value, as
 /// written, which is then required. `head` is the bracket run as `try_value`
 /// holds it, `folded` whether it already carries its own brackets. See
-/// docs/shapes.md S-259.
+/// docs/shapes.md S-260.
 pub(super) fn bracket_then_angle<'a>(
     head: &str,
     folded: bool,

@@ -1,0 +1,57 @@
+# `ip l2tp help` prints two `Usage:` blocks (add tunnel, add session), four verb forms
+# (`del`/`show` of `tunnel` and `session`) and a `Where:` legend.
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip"
+version = "6.1.0-l2tp"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ip", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "l2tp", "--help"]
+stdout = "l2tp-flag.txt"
+stderr = "l2tp-flag.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["ip", "l2tp", "help"]
+stdout = "l2tp-help.txt"
+stderr = "l2tp-help.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 30
+
+[contract.must_contain_positionals_by_path]
+l2tp = ["NAME", "ADDR", "PORT", "ID", "HEXSTR", "L2SPEC"]
+
+[contract.must_not_contain_positionals_by_path]
+"l2tp del" = ["ID"]
+"l2tp show" = ["ID"]
+
+[contract.must_describe_positional_by_path]
+l2tp = { NAME = "STRING", ADDR = "{ IP_ADDRESS | any }", PORT = "{ 0..65535 }", ID = "{ 1..4294967295 }", HEXSTR = "{ 8 or 16 hex digits (4 / 8 bytes) }" }
+
+[contract.must_not_describe_positional_by_path]
+l2tp = { NAME = ":=", ADDR = ":=", PORT = ":=", ID = ":=", HEXSTR = ":=" }
+
+[contract.must_attach_positional_choices_by_path]
+l2tp = { L2SPEC = ["none", "default"] }
+
+[contract.must_contain_usage_by_path]
+"l2tp add tunnel" = ["ip l2tp add tunnel remote ADDR local ADDR"]
+"l2tp add session" = ["ip l2tp add session [ name NAME ]"]
+"l2tp del tunnel" = ["ip l2tp del tunnel tunnel_id ID"]
+"l2tp del session" = ["ip l2tp del session tunnel_id ID session_id ID"]
+"l2tp show tunnel" = ["ip l2tp show tunnel [ tunnel_id ID ]"]
+"l2tp show session" = ["ip l2tp show session [ tunnel_id ID ] [ session_id ID ]"]

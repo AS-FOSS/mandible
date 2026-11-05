@@ -7,10 +7,6 @@ positionals:
   provenance:
     sources:
     - help-text
-- name: help
-  provenance:
-    sources:
-    - help-text
 flags:
 - spellings:
   - -s[tatistics]
