@@ -65,6 +65,7 @@ mod runner;
 mod screen;
 mod subcommand;
 mod summary;
+mod value_name_contract;
 
 pub(crate) use contract::*;
 pub(crate) use markdown::*;
