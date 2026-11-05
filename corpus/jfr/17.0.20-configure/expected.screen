@@ -1,59 +1,18 @@
 === jfr ===
-DESCRIPTION ────────────────────────────────────────────────────────────────
+DESCRIPTION · preview ──────────────────────────────────────────────────────
 Configures a .jfc file
 
-option=value The option value to modify. For available options, see listed
-input files below.
-
+option=value The option value to modify. For available options,
+        see listed input files below.
 event-setting=value The event setting value to modify. Use the form:
-<event-name>#<setting-name>=<value> To add a new event setting, prefix the
-event name with '+'.
+        <event-name>#<setting-name>=<value>
+        To add a new event setting, prefix the event name
+        with '+'.
 
 The whitespace delimiter can be omitted for timespan values, i.e. 20ms. For
 more information about the settings syntax, see Javadoc of the jdk.jfr
-package.
-
-Options for default.jfc:
-
-gc=<off|normal|detailed|high|all>
-
-allocation-profiling=<off|low|medium|high|maximum>
-
-compiler=<off|normal|detailed|all>
-
-method-profiling=<off|normal|high|max>
-
-thread-dump=<off|once|60s|10s|1s>
-
-exceptions=<off|errors|all>
-
-memory-leaks=<off|types|stack-traces|gc-roots>
-
-locking-threshold=<timespan>
-
-file-threshold=<timespan>
-
-socket-threshold=<timespan>
-
-class-loading=<true|false>
-
-To run interactive configuration wizard:
-
-jfr configure --interactive
-
-Example usage:
-
-jfr configure gc=high method-profiling=high --output high.jfc
-
-jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
-
-jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
-
-jfr configure --input default.jfc,third-party.jfc --output unified.jfc
-
-jfr configure --input none +Hello#enabled=true --output minimal.jfc
-
-
+…
+                                               ↓ full description at the end
 USAGE ──────────────────────────────────────────────────────────────────────
   jfr configure [--interactive] [--verbose] [--input <files>] [--output
       <file>] [option=value]* [event-setting=value]*
@@ -71,3 +30,46 @@ FLAGS (5) ───────────────────────�
     --ouput <file>   The filename of the generated output file. If not
                      specified, the filename custom.jfc will be used.
     --output <file>
+
+
+EXAMPLES ───────────────────────────────────────────────────────────────────
+jfr configure gc=high method-profiling=high --output high.jfc
+
+jfr configure jdk.JavaMonitorEnter#threshold=1ms --output locks.jfc
+
+jfr configure +HelloWorld#enabled=true +HelloWorld#stackTrace=true
+
+jfr configure --input default.jfc,third-party.jfc --output unified.jfc
+
+jfr configure --input none +Hello#enabled=true --output minimal.jfc
+
+
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Configures a .jfc file
+
+option=value The option value to modify. For available options,
+        see listed input files below.
+event-setting=value The event setting value to modify. Use the form:
+        <event-name>#<setting-name>=<value>
+        To add a new event setting, prefix the event name
+        with '+'.
+
+The whitespace delimiter can be omitted for timespan values, i.e. 20ms. For
+more information about the settings syntax, see Javadoc of the jdk.jfr
+package.
+
+Options for default.jfc:
+  gc=<off|normal|detailed|high|all>
+  allocation-profiling=<off|low|medium|high|maximum>
+  compiler=<off|normal|detailed|all>
+  method-profiling=<off|normal|high|max>
+  thread-dump=<off|once|60s|10s|1s>
+  exceptions=<off|errors|all>
+  memory-leaks=<off|types|stack-traces|gc-roots>
+  locking-threshold=<timespan>
+  file-threshold=<timespan>
+  socket-threshold=<timespan>
+  class-loading=<true|false>
+
+To run interactive configuration wizard:
+  jfr configure --interactive

@@ -3,6 +3,64 @@
 
 use super::*;
 
+/// Whether the stem of `name` (`COMMAND` of `COMMAND-OPTION`) is a word of
+/// `line` ahead of the first word that holds `name`. See docs/shapes.md S-255.
+fn extends_earlier_operand(name: &str, line: &str) -> bool {
+    let Some((stem, _)) = name.rsplit_once('-') else {
+        return false;
+    };
+    let clean = |w: &str| {
+        w.trim_matches(['[', ']', '<', '>', '.', '|', '{', '}'])
+            .to_string()
+    };
+    line.split_whitespace()
+        .take_while(|w| !w.contains(name))
+        .any(|w| clean(w) == stem)
+}
+
+/// An ALL-CAPS operand with a repeat group glued to it, `MODE[,MODE]...`,
+/// as the name it keeps (`MODE[,MODE]`; the dots make it repeatable). The
+/// group must repeat the word after a separator. See docs/shapes.md S-255.
+pub(super) fn glued_repeat_operand(token: &str) -> Option<String> {
+    let body = token.trim_start_matches('[');
+    let opened = token.len() - body.len();
+    let body = body.trim_end_matches('.');
+    if !token_marks_repetition(token) {
+        return None;
+    }
+    let (word, group) = body.split_once('[')?;
+    let caps = |w: &str| w.len() > 1 && w.chars().all(|c| c.is_ascii_uppercase() || c == '_');
+    let (sep, rest) = group.split_once(word)?;
+    let closers = rest.strip_prefix(']')?;
+    let tidy = closers.len() <= opened && closers.chars().all(|c| c == ']');
+    let sep_ok = !sep.is_empty()
+        && sep
+            .chars()
+            .all(|c| !c.is_alphanumeric() && !"[]<>".contains(c) && !c.is_whitespace());
+    (caps(word) && tidy && sep_ok).then(|| format!("{word}[{sep}{word}]"))
+}
+
+/// The operand that ends every usage form moves behind the operands only a
+/// later form adds (`chmod`'s `FILE...` after `MODE` and `OCTAL-MODE`), so
+/// the list reads in usage order. See docs/shapes.md S-255.
+pub(super) fn move_shared_tail_last(out: &mut Vec<Entity>, forms: &[Vec<String>]) {
+    let mut ending = forms.iter().filter_map(|f| f.last());
+    let Some(tail) = ending.next() else {
+        return;
+    };
+    let shared = forms.iter().filter(|f| !f.is_empty()).count() >= 2 && ending.all(|l| l == tail);
+    let Some(at) = out.iter().position(|e| e.primary_name() == tail) else {
+        return;
+    };
+    let all_named = out
+        .iter()
+        .all(|e| forms.iter().flatten().any(|n| n == e.primary_name()));
+    if shared && all_named && at + 1 < out.len() {
+        let moved = out.remove(at);
+        out.push(moved);
+    }
+}
+
 /// One synopsis group, its own outer brackets (if any) still attached, as
 /// an operand: `(name, required, repeatable)`. `None` when the group is
 /// not operand-shaped — dash-led, an option-list placeholder, an
@@ -60,12 +118,15 @@ pub(super) fn parse_separator_operand_group(group: &str) -> Option<Vec<(String, 
 
 /// Whether an ALL-CAPS name with a hyphen (`INITIAL-ARGS`) is not an operand
 /// on `line`: it ends in an option-list word (`SHORT-OPTION` stands for the
-/// tool's options), the line holds no synopsis group (`[`, `<` or `{`), or
+/// tool's options; `COMMAND-OPTION` after `COMMAND` extends that operand
+/// and stays one), the line holds no synopsis group (`[`, `<` or `{`), or
 /// it sits in running prose of three or more lowercase words after the
 /// program's own words (`<address> is a passive address like SSL-L`).
 pub(super) fn hyphenated_caps_refused(name: &str, line: &str) -> bool {
     let last = name.rsplit('-').next().unwrap_or(name);
-    if is_option_list_placeholder(last) || !line.contains(['[', '<', '{']) {
+    if (is_option_list_placeholder(last) && !extends_earlier_operand(name, line))
+        || !line.contains(['[', '<', '{'])
+    {
         return true;
     }
     let mut run = 0;

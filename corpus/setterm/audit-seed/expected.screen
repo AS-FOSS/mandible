@@ -1,0 +1,67 @@
+=== setterm ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Set the attributes of a terminal.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  setterm [options]
+
+
+FLAGS (36) ─────────────────────────────────────────────────────────────────
+    --term <terminal_name>      override TERM environment variable
+    --reset                     reset terminal to power-on state
+    --resize                    reset terminal rows and columns
+    --initialize                display init string, and use default
+                                settings
+    --default                   use default terminal settings
+    --store                     save current terminal settings as default
+    --cursor {…}                display cursor
+                                  values: on, off
+    --repeat {…}                keyboard repeat
+                                  values: on, off
+    --appcursorkeys {…}         cursor key application mode
+                                  values: on, off
+    --linewrap {…}              continue on a new line when a line is full
+                                  values: on, off
+    --inversescreen {…}         swap colors for the whole screen
+                                  values: on, off
+    --msg {…}                   send kernel messages to console
+                                  values: on, off
+    --msglevel <0-8>            kernel console log level
+    --foreground default|<color> set foreground color
+                                  values: default, black, blue, cyan, green,
+                                  grey, magenta, red, white, yellow
+    --background default|<color> set background color
+                                  values: default, black, blue, cyan, green,
+                                  grey, magenta, red, white, yellow
+    --ulcolor [bright] <color>  set underlined text color
+                                  values: black, blue, cyan, green, grey,
+                                  magenta, red, white, yellow
+    --hbcolor [bright] <color>  set half-bright text color
+                                  values: black, blue, cyan, green, grey,
+                                  magenta, red, white, yellow
+    --bold {…}                  bold
+                                  values: on, off
+    --half-bright {…}           dim
+                                  values: on, off
+    --blink {…}                 blink
+                                  values: on, off
+    --underline {…}             underline
+                                  values: on, off
+    --reverse                   on|off swap foreground and background colors
+    --clear[=<all|rest>]        clear screen and set cursor position
+    --tabs[=<number>...]        set these tab stop positions, or show them
+    --clrtabs[=<number>...]     clear these tab stop positions, or all
+    --regtabs[=1-160]           set a regular tab stop interval
+    --blank[={…}]               set time of inactivity before screen blanks
+                                  values: 0-60, force, poke
+    --dump[=<number>]           write vcsa<number> console dump to file
+    --append <number>           append vcsa<number> console dump to file
+    --file <filename>           name of the dump file
+    --powersave {…}             set vesa powersaving features
+                                  values: on, vsync, hsync, powerdown, off
+    --powerdown[=<0-60>]        set vesa powerdown interval in minutes
+    --blength[=<0-2000>]        duration of the bell in milliseconds
+    --bfreq[=<number>]          bell frequency in Hertz
+    --help                      display this help
+    --version                   display version

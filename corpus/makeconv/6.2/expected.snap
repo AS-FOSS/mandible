@@ -1,4 +1,5 @@
 name: makeconv
+description: read .ucm codepage mapping files and write .cnv files
 usage:
 - 'usage: makeconv [-options] files...'
 positionals:

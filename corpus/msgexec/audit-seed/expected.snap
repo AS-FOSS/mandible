@@ -1,0 +1,77 @@
+name: msgexec
+usage:
+- 'Usage: /usr/bin/msgexec [OPTION] COMMAND [COMMAND-OPTION]'
+positionals:
+- name: COMMAND
+  provenance:
+    sources:
+    - help-text
+- name: COMMAND-OPTION
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --newline
+  group: 'Command input:'
+  description: add newline at the end of input
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  - --input
+  value_name: INPUTFILE
+  value_kind: Required
+  group: 'Input file location:'
+  description: input PO file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --directory
+  value_name: DIRECTORY
+  value_kind: Required
+  group: 'Input file location:'
+  description: add DIRECTORY to list for input files search
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --properties-input
+  group: 'Input file syntax:'
+  description: input file is in Java .properties syntax
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --stringtable-input
+  group: 'Input file syntax:'
+  description: input file is in NeXTstep/GNUstep .strings syntax
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'Informative output:'
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version
+  group: 'Informative output:'
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

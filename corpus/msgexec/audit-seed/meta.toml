@@ -1,0 +1,16 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "msgexec"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "mandible --report, setsid, null stdin"
+
+[[capture]]
+argv = ["msgexec", "--help"]
+stdout = "help.txt"
+
+[contract]
+expected_framework = "GNU argp/getopt_long"
+must_contain_positionals = ["COMMAND", "COMMAND-OPTION"]
