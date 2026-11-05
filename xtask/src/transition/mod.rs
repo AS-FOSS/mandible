@@ -452,6 +452,7 @@ mod tests {
             description_hash,
             choices_hash,
             value_name: value_name.map(str::to_string),
+            join: None,
         }
     }
 
@@ -781,6 +782,23 @@ mod tests {
         assert_eq!(verbose.description_hash, None);
         assert_eq!(verbose.choices_hash, None);
         assert_eq!(verbose.value_name, None);
+    }
+
+    /// The value join rides on the description flag piece; a line without it
+    /// reads as unmeasured, and only two measured joins that differ are reported.
+    #[test]
+    fn join_is_read_and_compared_only_when_both_sides_have_it() {
+        let old = "t\t\t(root)::Flag::-z=1:aa:-:N";
+        let spaced = "t\t\t(root)::Flag::-z=1/required-none:aa:-:N";
+        let glued = "t\t\t(root)::Flag::-z=1/required-glued:aa:-:N";
+        let (_, o) = parse_fingerprint_line(old).unwrap();
+        let (_, s) = parse_fingerprint_line(spaced).unwrap();
+        let (_, g) = parse_fingerprint_line(glued).unwrap();
+        let id = "(root)::Flag::-z";
+        assert!(o.flags[id].has_description && o.flags[id].join.is_none());
+        assert_eq!(s.flags[id].join.as_deref(), Some("required-none"));
+        assert!(diff::field_diff("t", &o, &s, None, None).join_changed.is_empty());
+        assert_eq!(diff::field_diff("t", &s, &g, None, None).join_changed, vec![id]);
     }
 
     /// A tier or framework change on an otherwise field-identical tool is

@@ -403,6 +403,9 @@ fn md_field_level_section(t: &Transition) -> String {
                     capped_join(&fd.value_name_changed)
                 ));
             }
+            if !fd.join_changed.is_empty() {
+                parts.push(format!("join changed: {}", capped_join(&fd.join_changed)));
+            }
             if !fd.subcommands_added.is_empty() {
                 parts.push(format!(
                     "subcommands added: {}",
