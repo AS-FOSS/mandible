@@ -94,7 +94,10 @@ pub(super) fn joined_head_entry(text: &str) -> super::FlagRowEntry {
 /// True when `line` holds spellings and values only: no column gap and no
 /// description on it.
 fn spelling_only(line: &str) -> bool {
-    find_multi_space_gap(line.trim_start()).is_none() && !entry_row_carries_own_description(line)
+    find_multi_space_gap(line.trim_start()).is_none()
+        && !entry_row_carries_own_description(line)
+        && crate::help_text::grammar::parse_flag_spec(line.trim().trim_end_matches("..."))
+            .fully_consumed
 }
 
 /// True when the spelling-only line `lines[at]` and any spelling-only
