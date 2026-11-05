@@ -1,0 +1,47 @@
+# `bridge fdb help` has one form whose verb is optional, `bridge fdb [ show [ br BRDEV ] ... ]`,
+# beside forms that open with a verb (`add`, `get`, `flush`).
+
+[bless]
+provenance = "agent"
+
+[tool]
+name = "bridge"
+version = "6.1.0-fdb"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["bridge", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["bridge", "fdb", "--help"]
+stdout = "fdb-flag.txt"
+stderr = "fdb-flag.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["bridge", "fdb", "help"]
+stdout = "fdb-help.txt"
+stderr = "fdb-help.stderr.txt"
+exit_code = 255
+
+[xfail]
+broken = true
+reason = "`show` is not a command of `bridge fdb`: its form opens a bracket, `[ show [ br BRDEV ] ... ]`, so the page keeps the operands of every form (`ADDR`, `dev`, `BRDEV`, ...) and lists add, append, del, replace, get and flush only. A fix reads a form whose verb is optional as naming that verb when every other form opens with one, while `git remote [show] <x>` (a bracket holding the one word) stays one page."
+
+[contract]
+expected_framework = "generic"
+min_subcommands = 5
+
+[contract.must_not_contain_positionals_by_path]
+fdb = ["ADDR", "DEV", "dev", "brport", "VID", "IPADDR", "PORT", "VNI", "NHID", "BRDEV", "STATE", "LLADDR"]
+
+[contract.must_contain_positionals_by_path]
+"fdb show" = ["BRDEV", "STATE"]
+
+[contract.must_contain_usage_by_path]
+"fdb show" = ["bridge fdb [ show [ br BRDEV ] [ brport DEV ] [ vlan VID ] [ state STATE ] [ dynamic ] ]"]
+"fdb get" = ["bridge fdb get [ to ] LLADDR"]

@@ -28,6 +28,7 @@ pub(crate) fn contract_weakened_lines(current: &[Fixture], baseline: &[Fixture])
         };
         let (b, n) = (&base.meta.contract, &now.meta.contract);
         lines.extend(describe_root::weakened(&base.label, b, n));
+        lines.extend(positional_text::weakened(&base.label, b, n));
 
         // A framework assertion that's simply gone is a removed check —
         // never flagged for merely *changing* to a different framework
@@ -440,6 +441,7 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
         ));
     }
     failures.extend(describe_root::missing_root_failures(contract));
+    failures.extend(positional_text::missing_root_failures(contract));
     // `must_not_describe`, like `must_not_contain_flags`, is a negative
     // claim satisfied vacuously by no tree at all — omitted here for the
     // same reason `check_contract_missing_root`'s own doc comment gives.
@@ -592,6 +594,7 @@ fn check_contract_scalar_fields(
     }
 
     failures.extend(describe_root::check_describe_root(contract, root));
+    failures.extend(positional_text::check(contract, root));
 
     // The group-label mirror of the negative claim above: no root flag's
     // own `group` may start with one of these spellings — the invented

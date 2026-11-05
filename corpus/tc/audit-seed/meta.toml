@@ -19,8 +19,19 @@ stdout = "hint.stdout.txt"
 stderr = "hint.stderr.txt"
 exit_code = 0
 
+[xfail]
+broken = true
+reason = "In the `OPTIONS` production, `-nm | -nam[es] | { -cf | -conf } path` keeps `| { -cf | -conf } path` as the description of `-nm`, so `-cf` and `-conf` are not flags, and `-br[ief] }` carries the production's closing brace as its description. A fix reads a braced list of dash words as one flag with those aliases and the value after it, and a lone closing brace after a flag as grammar."
+
 [contract]
 expected_framework = "generic"
-must_contain_flags = ["Version", "statistics", "batch", "Numeric", "brief", "-nm", "-force"]
+must_contain_flags = ["Version", "statistics", "batch", "Numeric", "brief", "-nm", "-names", "-cf", "-conf", "-force"]
 must_contain_positionals = ["COMMAND"]
 must_not_contain_flags = ["-f", "-n"]
+
+[contract.must_not_describe]
+"-nm" = "{ -cf"
+brief = "}"
+
+[contract.must_value_name]
+"-cf" = "path"
