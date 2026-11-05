@@ -10,7 +10,7 @@
 //! reports whether it fully consumed the input, which
 //! `help_text::sections` uses to compute this tier's confidence score.
 
-use super::spec_parts::{optional_join_of, parse_range_head};
+use super::spec_parts::{self, optional_join_of, parse_range_head};
 use mandible_core::{Dashes, Negation, OptionalJoin, Spelling, SpellingRange, ValueKind};
 use std::collections::HashSet;
 use winnow::ascii::multispace0;
@@ -1260,6 +1260,9 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
             }
             combined.push_str(angle);
             return Some((combined, ValueKind::Required, after));
+        }
+        if let Some((value, after)) = spec_parts::bracket_then_angle(&combined, folded_any, s) {
+            return Some((value, ValueKind::Required, after));
         }
         return Some((combined, ValueKind::Optional, s));
     }

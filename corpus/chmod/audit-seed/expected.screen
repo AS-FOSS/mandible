@@ -1,0 +1,30 @@
+=== chmod ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Change the mode of each FILE to MODE. With --reference, change the mode of
+each FILE to that of RFILE.
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  chmod [OPTION]... MODE[,MODE]... FILE...
+  chmod [OPTION]... OCTAL-MODE FILE...
+  chmod [OPTION]... --reference=RFILE FILE...
+
+
+POSITIONALS (3) ────────────────────────────────────────────────────────────
+  MODE[,MODE]...
+  OCTAL-MODE
+  FILE...
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-c, --changes           like verbose but report only when a change is made
+-f, --silent            suppress most error messages
+ or --quiet
+-v, --verbose           output a diagnostic for every file processed
+    --no-preserve-root  do not treat '/' specially (the default)
+    --preserve-root     fail to operate recursively on '/'
+    --reference RFILE   use RFILE's mode instead of specifying MODE values.
+                        RFILE is always dereferenced if a symbolic link.
+-R, --recursive         change files and directories recursively
+    --help              display this help and exit
+    --version           output version information and exit

@@ -282,7 +282,10 @@ pub(super) fn extract_positionals_inner(
     // say: they must not make `out` look non-empty to the tail recoveries,
     // which only run when no other operand was found.
     let mut sign_operands: Vec<Entity> = Vec::new();
+    // The operands each line names, in order, for `move_shared_tail_last`.
+    let mut line_operands: Vec<Vec<String>> = Vec::new();
     for (line_idx, line) in usage_lines.iter().enumerate() {
+        line_operands.push(Vec::new());
         // A value-shaped token immediately following a bare flag token
         // (`-C <path>`) is that flag's argument, not a positional.
         // `prev_cleaned` tracks the preceding token's cleaned spelling so
@@ -435,14 +438,21 @@ pub(super) fn extract_positionals_inner(
                 && !(cleaned.contains('-') && hyphenated_caps_refused(cleaned, line))
             {
                 (cleaned.to_string(), token_marks_repetition(token))
+            } else if let Some(name) = glued_repeat_operand(token) {
+                (name, true)
             } else {
                 continue;
             };
             let option_list_word = !keep_option_list_words && is_option_list_placeholder(&name);
+            if !name.is_empty() && !option_list_word {
+                if let Some(operands) = line_operands.last_mut() {
+                    operands.push(name.clone());
+                }
+            }
             if name.is_empty() || option_list_word || !seen.insert(name.clone()) {
                 continue;
             }
-            let required = !token.contains('[')
+            let required = (!token.contains('[') || glued_repeat_operand(token).is_some())
                 && !line.contains(&format!("[{token}"))
                 && !line.contains(&format!("[ {token}"));
             let mut positional = Entity::positional(name, Provenance::single(Source::HelpText));
@@ -451,6 +461,7 @@ pub(super) fn extract_positionals_inner(
             out.push(positional);
         }
     }
+    move_shared_tail_last(&mut out, &line_operands);
     // A numbered pair (`source1 source2 ...`) ahead of further operands the
     // loop above already found (`mksquashfs`'s own `FILESYSTEM`) is never
     // reached by the tail-only recovery below, since `out` is no longer

@@ -18,3 +18,5 @@ must_contain_flags = ["-b", "--body-numbering", "-f", "-h", "-n"]
 
 [contract.must_attach_choices]
 "-b" = ["a", "t", "n", "pBRE"]
+"-f" = ["a", "t", "n", "pBRE"]
+"-h" = ["a", "t", "n", "pBRE"]

@@ -1,0 +1,25 @@
+=== msgexec ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  msgexec [OPTION] COMMAND [COMMAND-OPTION]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  COMMAND
+  COMMAND-OPTION
+
+
+FLAGS (7) ──────────────────────────────────────────────────────────────────
+Command input
+    --newline              add newline at the end of input
+
+Input file location ────────────────────────────────────────────────────────
+-i, --input INPUTFILE      input PO file
+-D, --directory DIRECTORY  add DIRECTORY to list for input files search
+
+Input file syntax ──────────────────────────────────────────────────────────
+-P, --properties-input     input file is in Java .properties syntax
+    --stringtable-input    input file is in NeXTstep/GNUstep .strings syntax
+
+Informative output ─────────────────────────────────────────────────────────
+-h, --help                 display this help and exit
+-V, --version              output version information and exit

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-237] `mandible jfr configure` keeps the line breaks and indentation of the `option=value`, `event-setting=value` and `Options for default.jfc:` rows in its description.
+- [S-255] `chmod` lists `MODE[,MODE]...`, `OCTAL-MODE` and `FILE...`, `msgexec` its `COMMAND-OPTION` and `sotruss` its `EXECUTABLE-OPTION...` operand.
+- [S-258] A `STYLE is one of:` block (`nl -b`, `-f`, `-h`) or a `<color>: black blue ...` legend (`setterm`) gives its values to every flag whose value names the placeholder, and `setterm --ulcolor` and `--hbcolor` keep `[bright] <color>` as their value ([S-259]).
 - [S-071] An `Example usage:` block of the tool's own command lines (`jfr configure ...`) is listed under `EXAMPLES` instead of the description, when a synopsis already sits above it.
 - [S-195] Prose indented under a `Usage:` line and running on from it (`pigz`) is the description, not part of the usage line, and its last line is no longer dropped.
 - [S-257] Flag rows with a dot leader between the short and long spelling (`-a  ........  --search-skip-screen`) are read as one flag with both names, `-nm | -nam[es]` and a once-written `[-force]` stay whole words, and `<script> [args...]` is one value, on `less`, `tc` and `nvim -l`; `less`'s long-only rows are their own flags, and overstrike no longer leaks into value names.

@@ -13,6 +13,7 @@ stdout = "help.txt"
 
 [contract]
 expected_framework = "generic"
+
 [contract.must_value_name]
 "--ulcolor" = "[bright] <color>"
 "--hbcolor" = "[bright] <color>"
@@ -22,7 +23,3 @@ expected_framework = "generic"
 "--background" = ["default", "black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]
 "--ulcolor" = ["black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]
 "--hbcolor" = ["black", "blue", "cyan", "green", "grey", "magenta", "red", "white", "yellow"]
-
-[xfail]
-broken = true
-reason = "--ulcolor and --hbcolor lose <color> from their value, and the `<color>: black blue ...` legend is glued onto --hbcolor's description; the legend must give its words as values to every flag whose value names <color>, --foreground and --background also keeping `default`."

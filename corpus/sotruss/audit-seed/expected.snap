@@ -1,0 +1,84 @@
+name: sotruss
+usage:
+- 'Usage: sotruss [OPTION...] [--] EXECUTABLE [EXECUTABLE-OPTION...]'
+positionals:
+- name: EXECUTABLE
+  provenance:
+    sources:
+    - help-text
+- name: EXECUTABLE-OPTION
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -F
+  - --from
+  value_name: FROMLIST
+  value_kind: Required
+  description: Trace calls from objects on FROMLIST
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --to
+  value_name: TOLIST
+  value_kind: Required
+  description: Trace calls to objects on TOLIST
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --exit
+  description: Also show exits from the function calls
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --follow
+  description: Trace child processes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  - --output
+  value_name: FILENAME
+  value_kind: Required
+  description: Write output to FILENAME (or FILENAME. in case -f is also used) instead of standard error
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -?
+  - --help
+  description: Give this help list
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --usage
+  description: Give a short usage message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Print program version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

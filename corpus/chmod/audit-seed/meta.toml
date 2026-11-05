@@ -14,7 +14,3 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 must_contain_positionals = ["MODE[,MODE]...", "OCTAL-MODE", "FILE..."]
-
-[xfail]
-broken = true
-reason = "The first usage form's MODE[,MODE]... (an operand with a repeat group glued to it) is dropped; the operand must be one positional kept as written, listed in usage order: MODE[,MODE]..., OCTAL-MODE, FILE... (docs/shapes.md S-041)."

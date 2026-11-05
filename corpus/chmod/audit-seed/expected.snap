@@ -1,0 +1,91 @@
+name: chmod
+description: Change the mode of each FILE to MODE. With --reference, change the mode of each FILE to that of RFILE.
+usage:
+- 'Usage: /usr/bin/chmod [OPTION]... MODE[,MODE]... FILE...'
+- '  or:  /usr/bin/chmod [OPTION]... OCTAL-MODE FILE...'
+- '  or:  /usr/bin/chmod [OPTION]... --reference=RFILE FILE...'
+positionals:
+- name: MODE[,MODE]
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+- name: OCTAL-MODE
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: FILE
+  required: true
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -c
+  - --changes
+  description: like verbose but report only when a change is made
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  - --silent
+  - --quiet
+  description: suppress most error messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: output a diagnostic for every file processed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-preserve-root
+  description: do not treat '/' specially (the default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --preserve-root
+  description: fail to operate recursively on '/'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reference
+  value_name: RFILE
+  value_kind: Required
+  description: use RFILE's mode instead of specifying MODE values. RFILE is always dereferenced if a symbolic link.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --recursive
+  description: change files and directories recursively
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

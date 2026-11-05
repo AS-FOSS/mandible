@@ -14,7 +14,3 @@ stdout = "help.txt"
 [contract]
 expected_framework = "generic"
 must_contain_positionals = ["EXECUTABLE", "EXECUTABLE-OPTION..."]
-
-[xfail]
-broken = true
-reason = "The usage operand [EXECUTABLE-OPTION...], which extends the EXECUTABLE placeholder before it, is dropped as if it were the OPTION placeholder; it must be an operand."
