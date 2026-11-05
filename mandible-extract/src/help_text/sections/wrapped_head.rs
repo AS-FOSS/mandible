@@ -31,14 +31,21 @@ pub(super) fn join_wrapped_head(prev: &str, line: &str) -> Option<String> {
 /// The value words of the continuation `text` and its description, when
 /// it finishes the value list of the dash-led head `prev`: a few value
 /// words, then ` : ` and the description (`--change-counters -C chain`
-/// over `[rulenum] pcnt bcnt : change counters`). S-258.
+/// over `[rulenum] pcnt bcnt : change counters`). The first word reads as a
+/// value, never as the start of a sentence (`A : separated list`). S-258.
 pub(super) fn value_tail_before_colon<'a>(prev: &str, text: &'a str) -> Option<(&'a str, &'a str)> {
     let (values, desc) = text.split_once(" : ")?;
     let plain = values
         .split_whitespace()
         .all(|w| w.len() <= 12 && !w.starts_with('-'));
     let fits = (1..=4).contains(&values.split_whitespace().count()) && plain;
-    (prev.trim_start().starts_with("--") && !entry_row_carries_own_description(prev) && fits)
+    let first = values.split_whitespace().next().unwrap_or("");
+    let sentence_start = first.chars().next().is_some_and(char::is_uppercase)
+        && !(first.len() > 1 && first.chars().all(|c| !c.is_lowercase()));
+    (prev.trim_start().starts_with("--")
+        && !entry_row_carries_own_description(prev)
+        && fits
+        && !sentence_start)
         .then_some((values, desc))
 }
 

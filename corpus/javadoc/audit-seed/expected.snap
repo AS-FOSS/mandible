@@ -1,0 +1,729 @@
+name: javadoc
+usage:
+- '    javadoc [options] [packagenames] [sourcefiles] [@files]'
+positionals:
+- name: packagenames
+  provenance:
+    sources:
+    - help-text
+- name: sourcefiles
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  group: 'where options include:'
+  description: Read options and filenames from file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-modules
+  value_name: <module>(,<module>)*
+  value_kind: Required
+  group: 'where options include:'
+  description: Root modules to resolve in addition to the initial modules, or all modules on the module path if <module> is ALL-MODULE-PATH.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -bootclasspath
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Override location of platform class files used for non-modular releases
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -breakiterator
+  group: 'where options include:'
+  description: Compute first sentence with BreakIterator
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --class-path
+  - -classpath
+  - -cp
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify where to find user class files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -doclet
+  value_name: <class>
+  value_kind: Required
+  group: 'where options include:'
+  description: Generate output via alternate doclet
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -docletpath
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify where to find doclet class files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-preview
+  group: 'where options include:'
+  description: Enable preview language features. To be used in conjunction with either -source or --release.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -encoding
+  value_name: <name>
+  value_kind: Required
+  group: 'where options include:'
+  description: Source file encoding name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -exclude
+  value_name: <pkglist>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify a list of packages to exclude
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --expand-requires
+  value_name: <value>
+  value_kind: Required
+  group: 'where options include:'
+  description: Instructs the tool to expand the set of modules to be documented. By default, only the modules given explicitly on the command line will be documented. A value of "transitive" will additionally include all "requires transitive" dependencies of those modules. A value of "all" will include all dependencies of those modules.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -extdirs
+  value_name: <dirlist>
+  value_kind: Required
+  group: 'where options include:'
+  description: Override location of installed extensions
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  - -help
+  - -?
+  - -h
+  group: 'where options include:'
+  description: Display command-line options and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-extra
+  - -X
+  group: 'where options include:'
+  description: Print a synopsis of nonstandard options and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -J
+  value_name: <flag>
+  value_kind: Required
+  optional_join: glued
+  group: 'where options include:'
+  description: Pass <flag> directly to the runtime system
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --limit-modules
+  value_name: <module>(,<module>)*
+  value_kind: Required
+  group: 'where options include:'
+  description: Limit the universe of observable modules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -locale
+  value_name: <name>
+  value_kind: Required
+  group: 'where options include:'
+  description: Locale to be used, e.g. en_US or en_US_WIN
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --module
+  value_name: <module>(,<module>)*
+  value_kind: Required
+  group: 'where options include:'
+  description: Document the specified module(s)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --module-path
+  - -p
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify where to find application modules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --module-source-path
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify where to find input source files for multiple modules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -package
+  group: 'where options include:'
+  description: Show package/protected/public types and members. For named modules, show all packages and all module details.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -private
+  group: 'where options include:'
+  description: Show all types and members. For named modules, show all packages and all module details.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -protected
+  group: 'where options include:'
+  description: Show protected/public types and members (default). For named modules, show exported packages and the module's API.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -public
+  group: 'where options include:'
+  description: Show only public types and members. For named modules, show exported packages and the module's API.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -quiet
+  group: 'where options include:'
+  description: Do not display status messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --release
+  value_name: <release>
+  value_kind: Required
+  group: 'where options include:'
+  description: Provide source compatibility with specified release
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-members
+  value_name: <value>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specifies which members (fields, methods, etc.) will be documented, where value can be one of "public", "protected", "package" or "private". The default is "protected", which will show public and protected members, "public" will show only public members, "package" will show public, protected and package members and "private" will show all members.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-module-contents
+  value_name: <value>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specifies the documentation granularity of module declarations. Possible values are "api" or "all".
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-packages
+  value_name: <value>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specifies which modules packages will be documented. Possible values are "exported" or "all" packages.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --show-types
+  value_name: <value>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specifies which types (classes, interfaces, etc.) will be documented, where value can be one of "public", "protected", "package" or "private". The default is "protected", which will show public and protected types, "public" will show only public types, "package" will show public, protected and package types and "private" will show all types.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --source
+  - -source
+  value_name: <release>
+  value_kind: Required
+  group: 'where options include:'
+  description: Provide source compatibility with specified release
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --source-path
+  - -sourcepath
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify where to find source files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -subpackages
+  value_name: <subpkglist>
+  value_kind: Required
+  group: 'where options include:'
+  description: Specify subpackages to recursively load
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --system
+  value_name: <jdk>
+  value_kind: Required
+  group: 'where options include:'
+  description: Override location of system modules used for modular releases
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --upgrade-module-path
+  value_name: <path>
+  value_kind: Required
+  group: 'where options include:'
+  description: Override location of upgradeable modules
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -verbose
+  group: 'where options include:'
+  description: Output messages about what Javadoc is doing
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  group: 'where options include:'
+  description: Print version information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  value_name: error
+  value_kind: Required
+  group: 'where options include:'
+  description: Report an error if any warnings occur
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --add-stylesheet
+  value_name: <file>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Additional stylesheet file for the generated documentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --allow-script-in-comments
+  group: 'Provided by the Standard doclet:'
+  description: Allow JavaScript in options and comments
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -author
+  group: 'Provided by the Standard doclet:'
+  description: Include @author paragraphs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -bottom
+  value_name: <html-code>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Include bottom text for each page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -charset
+  value_name: <charset>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Charset for cross-platform viewing of generated documentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  value_name: <directory>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Destination directory for output files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -docencoding
+  value_name: <name>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Specify the character encoding for the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -docfilessubdirs
+  group: 'Provided by the Standard doclet:'
+  description: Recursively copy doc-file subdirectories
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -doctitle
+  value_name: <html-code>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Include title for the overview page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -excludedocfilessubdir
+  value_name: <name>:...
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Exclude any doc-files subdirectories with given name
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -footer
+  value_name: <html-code>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Include footer text for each page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -group
+  value_name: <name>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: <g1>:<g2>... Group specified elements together in overview page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -header
+  value_name: <html-code>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Include header text for each page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -helpfile
+  value_name: <file>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Include file that help link links to
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -html5
+  group: 'Provided by the Standard doclet:'
+  description: Generate HTML 5 output. This option is no longer required.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --javafx
+  - -javafx
+  group: 'Provided by the Standard doclet:'
+  description: Enable JavaFX functionality
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -keywords
+  group: 'Provided by the Standard doclet:'
+  description: Include HTML meta tags with package, class and member info
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -link
+  value_name: <url>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Create links to javadoc output at <url>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -linkoffline
+  value_name: <url1>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: <url2> Link to docs at <url1> using package list at <url2>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --link-platform-properties
+  value_name: <url>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Link to platform documentation URLs declared in properties file at <url>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -linksource
+  group: 'Provided by the Standard doclet:'
+  description: Generate source in HTML
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --main-stylesheet
+  - -stylesheetfile
+  value_name: <file>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: File to change style of the generated documentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nocomment
+  group: 'Provided by the Standard doclet:'
+  description: Suppress description and tags, generate only declarations
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nodeprecated
+  group: 'Provided by the Standard doclet:'
+  description: Do not include @deprecated information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nodeprecatedlist
+  group: 'Provided by the Standard doclet:'
+  description: Do not generate deprecated list
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nohelp
+  group: 'Provided by the Standard doclet:'
+  description: Do not generate help link
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noindex
+  group: 'Provided by the Standard doclet:'
+  description: Do not generate index
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nonavbar
+  group: 'Provided by the Standard doclet:'
+  description: Do not generate navigation bar
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-platform-links
+  group: 'Provided by the Standard doclet:'
+  description: Do not generate links to the platform documentation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -noqualifier
+  value_name: <name1>:<name2>:...
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Exclude the list of qualifiers from the output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -nosince
+  group: 'Provided by the Standard doclet:'
+  description: Do not include @since information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -notimestamp
+  group: 'Provided by the Standard doclet:'
+  description: Do not include hidden time stamp
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -notree
+  group: 'Provided by the Standard doclet:'
+  description: Do not generate class hierarchy
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --override-methods
+  value_kind: Required
+  choices:
+  - detail
+  - summary
+  group: 'Provided by the Standard doclet:'
+  description: Document overridden methods in the detail or summary sections
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -overview
+  value_name: <file>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Read overview documentation from HTML file
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -serialwarn
+  group: 'Provided by the Standard doclet:'
+  description: Generate warning about @serial tag
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --since
+  value_name: <release>(,<release>)*
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Document new and deprecated API in the specified releases
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --since-label
+  value_name: <text>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Provide text to use in the heading of the "New API" page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -sourcetab
+  value_name: <tab length>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Specify the number of spaces each tab takes up in the source
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -splitindex
+  group: 'Provided by the Standard doclet:'
+  description: Split index into one file per letter
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -tag
+  value_name: <name>:<locations>:<header>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Specify single argument custom tags
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -taglet
+  group: 'Provided by the Standard doclet:'
+  description: The fully qualified name of Taglet to register
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -tagletpath
+  group: 'Provided by the Standard doclet:'
+  description: The path to Taglets
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -top
+  value_name: <html-code>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Include top text for each page
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -use
+  group: 'Provided by the Standard doclet:'
+  description: Create class and package usage pages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -version
+  group: 'Provided by the Standard doclet:'
+  description: Include @version paragraphs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -windowtitle
+  value_name: <text>
+  value_kind: Required
+  group: 'Provided by the Standard doclet:'
+  description: Browser window title for the documentation
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

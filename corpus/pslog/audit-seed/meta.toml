@@ -1,0 +1,20 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "pslog"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["pslog", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-V", "--version"]
+
+[contract.must_not_value_name]
+"--version" = "display version information"

@@ -797,8 +797,13 @@ mod tests {
         let id = "(root)::Flag::-z";
         assert!(o.flags[id].has_description && o.flags[id].join.is_none());
         assert_eq!(s.flags[id].join.as_deref(), Some("required-none"));
-        assert!(diff::field_diff("t", &o, &s, None, None).join_changed.is_empty());
-        assert_eq!(diff::field_diff("t", &s, &g, None, None).join_changed, vec![id]);
+        assert!(diff::field_diff("t", &o, &s, None, None)
+            .join_changed
+            .is_empty());
+        assert_eq!(
+            diff::field_diff("t", &s, &g, None, None).join_changed,
+            vec![id]
+        );
     }
 
     /// A tier or framework change on an otherwise field-identical tool is

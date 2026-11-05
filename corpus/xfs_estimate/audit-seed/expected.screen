@@ -1,0 +1,12 @@
+=== xfs_estimate ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  xfs_estimate [opts] directory [directory ...]
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-b blocksize
+-i logsize
+-e logsize
+-v prints
+-V prints
+-h prints

@@ -36,8 +36,8 @@ Where options include ───────────────────�
     or a directory containing modules. Each module is either a modular JAR
     or an exploded-module directory.
 --upgrade-module-path <module path>
-    separated list of elements, each element is a file path to a module or a
-    directory containing modules to replace upgradeable modules in the
+    A : separated list of elements, each element is a file path to a module
+    or a directory containing modules to replace upgradeable modules in the
     runtime image. Each module is either a modular JAR or an exploded-module
     directory.
 --add-modules <module name>[,<module name>...]

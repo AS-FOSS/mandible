@@ -51,7 +51,7 @@ flags:
   value_name: <module path>
   value_kind: Required
   group: 'where options include:'
-  description: separated list of elements, each element is a file path to a module or a directory containing modules to replace upgradeable modules in the runtime image. Each module is either a modular JAR or an exploded-module directory.
+  description: 'A : separated list of elements, each element is a file path to a module or a directory containing modules to replace upgradeable modules in the runtime image. Each module is either a modular JAR or an exploded-module directory.'
   provenance:
     sources:
     - help-text

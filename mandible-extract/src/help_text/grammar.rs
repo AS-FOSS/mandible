@@ -1438,6 +1438,7 @@ fn take_rest_value_token(input: &str) -> (String, &str) {
                     taken += 2 + close + 1;
                 }
             }
+            taken += colon_list_tail(&s[taken..]);
             taken += glued_list_tail(&s[taken..]);
             return (s[..taken].to_string(), &s[taken..]);
         }
@@ -1486,6 +1487,27 @@ fn unclosed_angle_end(s: &str, end: usize) -> Option<usize> {
     }
     let taken = end + close + 1;
     Some(taken + glued_list_tail(s.get(taken..)?))
+}
+
+/// Length of a colon-list tail glued onto a `<value>`: `:<name2>` and `:...`
+/// runs (`<name1>:<name2>:...`), kept in the value as written. S-258.
+fn colon_list_tail(s: &str) -> usize {
+    let mut taken = 0;
+    loop {
+        let rest = &s[taken..];
+        let step = match rest.strip_prefix(':') {
+            Some(r) if r.starts_with("...") => Some(1 + 3),
+            Some(r) if r.starts_with('<') => r
+                .find('>')
+                .filter(|&c| !r[..c].contains(char::is_whitespace))
+                .map(|c| 1 + c + 1),
+            _ => None,
+        };
+        match step {
+            Some(n) => taken += n,
+            None => return taken,
+        }
+    }
 }
 
 /// Length of a comma-list tail glued onto a value placeholder with no

@@ -1,0 +1,21 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "javadoc"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["javadoc", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-noqualifier", "-nosince"]
+must_draw = ["-noqualifier <name1>:<name2>:..."]
+
+[contract.must_value_name]
+"-noqualifier" = "<name1>:<name2>:..."

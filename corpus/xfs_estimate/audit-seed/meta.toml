@@ -1,0 +1,20 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "xfs_estimate"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["xfs_estimate", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-v", "-V", "-h"]
+
+[contract.must_not_value_name]
+"-v" = "prints more verbose messages"

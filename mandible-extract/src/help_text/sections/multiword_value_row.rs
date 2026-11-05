@@ -7,8 +7,12 @@
 use super::*;
 
 /// Most plain words after the first one that still read as part of the
-/// value.
+/// value, when the spec cell ends where a description starts.
 const MAX_EXTRA_WORDS: usize = 3;
+
+/// The same, when the row has no description: the words after the first may
+/// be the description itself (`-h print this message`).
+const MAX_EXTRA_WORDS_UNDESCRIBED: usize = 1;
 
 fn plain_word(w: &str) -> bool {
     w.chars().next().is_some_and(|c| c.is_ascii_lowercase())
@@ -41,7 +45,7 @@ fn value_word(value: &str, w: &str) -> bool {
 /// Extends `spec`'s bare one-word value to the whole run of plain lowercase
 /// words that follows the spellings in `spec_text`, when the grammar left
 /// that run unconsumed.
-fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
+fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str, described: bool) {
     if spec.fully_consumed || spec.value_kind != ValueKind::Required {
         return;
     }
@@ -56,11 +60,16 @@ fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
         return;
     };
     let extra = &tokens[at + 1..];
+    let max_extra = if described {
+        MAX_EXTRA_WORDS
+    } else {
+        MAX_EXTRA_WORDS_UNDESCRIBED
+    };
     if at == 0
         || tokens[at] != value
         || !(plain_word(value) || upper_word(value))
         || extra.is_empty()
-        || extra.len() > MAX_EXTRA_WORDS
+        || extra.len() > max_extra
         || !extra.iter().all(|w| value_word(value, w))
     {
         return;
@@ -72,6 +81,6 @@ fn extend_multiword_value(spec: &mut FlagSpec, spec_text: &str) {
 /// S-221's caps single dash and S-225's two-word value.
 pub(super) fn repair_row_spec(spec: &mut FlagSpec, spec_text: &str, description: &str) {
     super::caps_single_dash::repair_caps_single_dash(spec, spec_text, description);
-    extend_multiword_value(spec, spec_text);
+    extend_multiword_value(spec, spec_text, !description.is_empty());
     super::value_tail_row::extend_value_tail(spec, spec_text);
 }
