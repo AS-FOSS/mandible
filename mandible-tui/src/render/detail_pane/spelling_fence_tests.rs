@@ -61,6 +61,11 @@ fn missing(root: &CommandNode, tool: &str) -> Vec<String> {
             }
         }
         for entity in &node.entities {
+            // A positional named by its alternatives draws the `{…}` mark,
+            // which is no spelling to type.
+            if entity.name_is_choices() {
+                continue;
+            }
             let Some(key) = entity.key() else { continue };
             let item = NodeRef::Flag {
                 path: path.clone(),

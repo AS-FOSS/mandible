@@ -725,9 +725,7 @@ impl Entity {
         let glued = match self.value_kind {
             ValueKind::Optional => matches!(
                 self.optional_join,
-                Some(
-                    OptionalJoin::Equals | OptionalJoin::EqualsThenBracket | OptionalJoin::Glued
-                )
+                Some(OptionalJoin::Equals | OptionalJoin::EqualsThenBracket | OptionalJoin::Glued)
             ),
             ValueKind::Required => self.optional_join == Some(OptionalJoin::Glued),
             ValueKind::None => false,

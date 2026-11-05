@@ -1,5 +1,6 @@
 ---
 source: mandible-extract/tests/corpus_snapshot_format.rs
+assertion_line: 101
 expression: "mandible_core::to_snapshot(&node)"
 ---
 name: git
@@ -37,7 +38,7 @@ flags:
         - help-text-synopsis
   - spellings:
       - "-c"
-    value_name: "<name>"
+    value_name: "<name>=<value>"
     value_kind: Required
     provenance:
       sources:
@@ -118,7 +119,7 @@ flags:
         - help-text-synopsis
   - spellings:
       - "--config-env"
-    value_name: "<name>"
+    value_name: "<name>=<envvar>"
     value_kind: Required
     provenance:
       sources:

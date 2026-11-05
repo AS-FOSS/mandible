@@ -3411,7 +3411,10 @@ mod tests {
             spec.optional_join
         };
         assert_eq!(join("--color[=WHEN]"), Some(OptionalJoin::Equals));
-        assert_eq!(join("--color=[WHEN]"), Some(OptionalJoin::Equals));
+        assert_eq!(
+            join("--color=[WHEN]"),
+            Some(OptionalJoin::EqualsThenBracket)
+        );
         assert_eq!(join("-O[N]"), Some(OptionalJoin::Glued));
         assert_eq!(join("-V[N][fname]"), Some(OptionalJoin::Glued));
         assert_eq!(join("--foo [FOO]"), Some(OptionalJoin::Separate));
