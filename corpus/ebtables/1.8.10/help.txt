@@ -1,0 +1,39 @@
+ebtables 1.8.10 (nf_tables)
+Usage:
+ebtables -[ADI] chain rule-specification [options]
+ebtables -P chain target
+ebtables -[LFZ] [chain]
+ebtables -[NX] [chain]
+ebtables -E old-chain-name new-chain-name
+
+Commands:
+--append -A chain             : append to chain
+--delete -D chain             : delete matching rule from chain
+--delete -D chain rulenum     : delete rule at position rulenum from chain
+--change-counters -C chain
+          [rulenum] pcnt bcnt : change counters of existing rule
+--insert -I chain rulenum     : insert rule at position rulenum in chain
+--list   -L [chain]           : list the rules in a chain or in all chains
+--flush  -F [chain]           : delete all rules in chain or in all chains
+--init-table                  : replace the kernel table with the initial table
+--zero   -Z [chain]           : put counters on zero in chain or in all chains
+--policy -P chain target      : change policy on chain to target
+--new-chain -N chain          : create a user defined chain
+--rename-chain -E old new     : rename a chain
+--delete-chain -X [chain]     : delete a user defined chain
+Options:
+--proto  -p [!] proto         : protocol hexadecimal, by name or LENGTH
+--src    -s [!] address[/mask]: source mac address
+--dst    -d [!] address[/mask]: destination mac address
+--in-if  -i [!] name[+]       : network input interface name
+--out-if -o [!] name[+]       : network output interface name
+--logical-in  [!] name[+]     : logical bridge input interface name
+--logical-out [!] name[+]     : logical bridge output interface name
+--set-counters -c chain
+          pcnt bcnt           : set the counters of the to be added rule
+--modprobe -M program         : try to insert modules using this program
+--concurrent                  : use a file lock to support concurrent scripts
+--verbose -v                  : verbose mode
+--version -V                  : print package version
+
+Environment variable:

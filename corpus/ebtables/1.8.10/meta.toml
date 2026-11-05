@@ -1,0 +1,41 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ebtables"
+version = "1.8.10"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["ebtables", "--help"]
+stdout = "help.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["--proto", "-p", "--src", "-s", "--dst", "-d", "--logical-in", "--logical-out", "--change-counters", "-C", "--set-counters", "-c"]
+must_draw = [
+  "-p, --proto proto",
+  "-s, --src address[/mask]",
+  "[!] --logical-in name[+]",
+  "-C, --change-counters chain [rulenum] pcnt bcnt",
+  "-c, --set-counters chain pcnt bcnt",
+]
+
+[contract.must_value_name]
+"-p" = "proto"
+"-s" = "address[/mask]"
+"--logical-in" = "name[+]"
+"-C" = "chain [rulenum] pcnt bcnt"
+"-c" = "chain pcnt bcnt"
+
+[contract.must_describe]
+"-p" = "protocol hexadecimal, by name or LENGTH"
+"-s" = "source mac address"
+"--logical-in" = "logical bridge input interface name"
+"-C" = "change counters of existing rule"
+
+[xfail]
+broken = true
+reason = "[S-254] `--long -s [!] value : text` rows read the alias and `[!]` as description (`--proto` alone is the flag), a glued `address[/mask]:` drops its description, `--logical-in  [!] name[+] :` keeps the marker in the description, and a head wrapped onto two lines (`--change-counters -C chain` over `[rulenum] pcnt bcnt : text`) keeps only `chain`. A fix reads the marker after the spellings as the existing `!` negation, the colon as the separator, and the wrapped value words as the value."

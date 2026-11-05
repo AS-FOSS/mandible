@@ -1,0 +1,81 @@
+usage: pkgconf [OPTIONS] [LIBRARIES]
+
+basic options:
+
+  --help                            this message
+  --about                           print pkgconf version and license to stdout
+  --version                         print supported pkg-config version to stdout
+  --atleast-pkgconfig-version       check whether or not pkgconf is compatible
+                                    with a specified pkg-config version
+  --errors-to-stdout                print all errors on stdout instead of stderr
+  --print-errors                    ensure all errors are printed
+  --short-errors                    be less verbose about some errors
+  --silence-errors                  explicitly be silent about errors
+  --list-all                        list all known packages
+  --list-package-names              list all known package names
+  --simulate                        simulate walking the calculated dependency graph
+  --no-cache                        do not cache already seen packages when
+                                    walking the dependency graph
+  --log-file=filename               write an audit log to a specified file
+  --with-path=path                  adds a directory to the search path
+  --define-prefix                   override the prefix variable with one that is guessed based on
+                                    the location of the .pc file
+  --dont-define-prefix              do not override the prefix variable under any circumstances
+  --prefix-variable=varname         sets the name of the variable that pkgconf considers
+                                    to be the package prefix
+  --relocate=path                   relocates a path and exits (mostly for testsuite)
+  --dont-relocate-paths             disables path relocation support
+
+cross-compilation personality support:
+
+  --personality=triplet|filename    sets the personality to 'triplet' or a file named 'filename'
+  --dump-personality                dumps details concerning selected personality
+
+checking specific pkg-config database entries:
+
+  --atleast-version                 require a specific version of a module
+  --exact-version                   require an exact version of a module
+  --max-version                     require a maximum version of a module
+  --exists                          check whether or not a module exists
+  --uninstalled                     check whether or not an uninstalled module will be used
+  --no-uninstalled                  never use uninstalled modules when satisfying dependencies
+  --no-provides                     do not use 'provides' rules to resolve dependencies
+  --maximum-traverse-depth          maximum allowed depth for dependency graph
+  --static                          be more aggressive when computing dependency graph
+                                    (for static linking)
+  --shared                          use a simplified dependency graph (usually default)
+  --pure                            optimize a static dependency graph as if it were a normal
+                                    dependency graph
+  --env-only                        look only for package entries in PKG_CONFIG_PATH
+  --ignore-conflicts                ignore 'conflicts' rules in modules
+  --validate                        validate specific .pc files for correctness
+
+querying specific pkg-config database fields:
+
+  --define-variable=varname=value   define variable 'varname' as 'value'
+  --variable=varname                print specified variable entry to stdout
+  --cflags                          print required CFLAGS to stdout
+  --cflags-only-I                   print required include-dir CFLAGS to stdout
+  --cflags-only-other               print required non-include-dir CFLAGS to stdout
+  --libs                            print required linker flags to stdout
+  --libs-only-L                     print required LDPATH linker flags to stdout
+  --libs-only-l                     print required LIBNAME linker flags to stdout
+  --libs-only-other                 print required other linker flags to stdout
+  --print-requires                  print required dependency frameworks to stdout
+  --print-requires-private          print required dependency frameworks for static
+                                    linking to stdout
+  --print-provides                  print provided dependencies to stdout
+  --print-variables                 print all known variables in module to stdout
+  --digraph                         print entire dependency graph in graphviz 'dot' format
+  --keep-system-cflags              keep -I/usr/include entries in cflags output
+  --keep-system-libs                keep -L/lib:/lib/aarch64-linux-gnu:/usr/lib:/usr/lib/aarch64-linux-gnu entries in libs output
+  --path                            show the exact filenames for any matching .pc files
+  --modversion                      print the specified module's version to stdout
+  --internal-cflags                 do not filter 'internal' cflags from output
+
+filtering output:
+
+  --msvc-syntax                     print translatable fragments in MSVC syntax
+  --fragment-filter=types           filter output fragments to the specified types
+
+report bugs to <https://github.com/pkgconf/pkgconf/issues/new>.

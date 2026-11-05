@@ -1,0 +1,57 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "java"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["java", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-cp", "-classpath", "--class-path", "-p", "--module-path", "-d", "--describe-module", "-D", "-verbose", "-splash", "-agentlib", "-agentpath", "-javaagent", "-ea", "-enableassertions", "-da", "-disableassertions", "-?", "-h", "-help", "--disable-@files"]
+must_not_contain_flags = ["-c", "-v", "-e", "-a", "-s", "-j", "--disable-"]
+must_describe_root = ["Arguments following the main class, source file, -jar <jarfile>, -m or --module <module>/<mainclass> are passed as the arguments to main class."]
+must_draw = [
+  "-D<name>=<value>",
+  "-verbose:[class|module|gc|jni]",
+  "-splash:<imagepath>",
+  "-agentlib:<libname>[=<options>]",
+  "-agentpath:<pathname>[=<options>]",
+  "-javaagent:<jarpath>[=<options>]",
+  "-cp, -classpath, --class-path <class search path",
+  "-p, --module-path <module path>",
+  "-d, --describe-module <module name>",
+  "-?, -h, -help",
+  "-ea, -enableassertions[:<packagename>...|:<classname>]",
+  "-da, -disableassertions[:<packagename>...|:<classname>]",
+  "--disable-@files",
+  "@argument files",
+]
+
+[contract.must_value_name]
+"-D" = "<name>=<value>"
+"-verbose" = ":[class|module|gc|jni]"
+"-splash" = ":<imagepath>"
+"-agentlib" = ":<libname>[=<options>]"
+
+[contract.must_not_value_name]
+"-m" = "or"
+
+[contract.must_describe]
+"-cp" = "A : separated list of directories, JAR archives, and ZIP archives to search for class files."
+"-p" = "A : separated list of elements, each element is a file path to a module or a directory containing modules."
+"-d" = "describe a module and exit"
+"-ea" = "enable assertions with specified granularity"
+"-?" = "print this help message to the error stream"
+"--disable-@files" = "prevent further argument file expansion"
+"@" = "one or more argument files containing options"
+
+[xfail]
+broken = true
+reason = "[S-258] single-dash words are cut (`-cp <path>` reads `-c` with value `p`, `-verbose:[...]` reads `-v`), colon-glued values and `-D<name>=<value>` are drawn spaced, spelling-only lines stacked above one description are separate rows, `-? -h -help` drops `-help`, `--disable-@files` is split at the `@`, and the prose above `where options include:` is read as a group label and a fake `-m or` flag. A fix needs the whole-word rule, the glued-value join, the stacked-alias fold and the comma run-on prose rule."

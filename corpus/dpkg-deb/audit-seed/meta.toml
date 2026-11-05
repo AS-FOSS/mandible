@@ -1,0 +1,27 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "dpkg-deb"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["dpkg-deb", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-z", "-Z", "-S"]
+must_draw = ["-z#", "-Z<type>", "-S<strategy>"]
+
+[contract.must_value_name]
+"-z" = "#"
+"-Z" = "<type>"
+"-S" = "<strategy>"
+
+[xfail]
+broken = true
+reason = "[S-258] values written straight onto the flag (`-z#`, `-Z<type>`, `-S<strategy>`) are drawn after a space, as `-z #`; the tree records no joiner for required values. A fix records a glued required value and draws it joined."
