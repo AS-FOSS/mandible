@@ -3559,6 +3559,19 @@ rule 2f lets mandible run `<command> help` for such a command when its
 in the slot after the placeholder. Rule 2e's filter is unchanged. Docs/shapes.md
 S-258.
 
+**Legends describe their placeholder; verbs nest one level; an optional
+verb is still a verb (2026-11-05).** The maintainer approved, from before
+and after screens of `ip macsec`, `ip l2tp`, `bridge fdb`, `tc`, `devlink`
+and `genl`: each `NAME := text` legend line on a command page describes the
+placeholder it names, without the `:=`, and a `{ a | b }` list of plain
+lowercase words is its values; the verb reading of a multi-form usage block
+applies once more inside a verb whose forms each continue with a fixed word
+(`ip l2tp del tunnel`, `del session`); a form whose verb is optional
+(`bridge fdb [ show ... ]`) names it when every other form opens with one;
+a new dash word separates flags in a production row even without a `|`; and
+`OBJECT [help]` shows `help` as the help word, not an operand. Docs/shapes.md
+S-258.
+
 **Alternation values are choices, drawn once (2026-11-02).** The maintainer
 ruled that a value written only as alternatives (`y|n`, `[none|zlib]`,
 `{auto|manual}`) is the entity's `choices`, that the row shows a muted `{…}`

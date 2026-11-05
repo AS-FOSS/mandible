@@ -55,6 +55,7 @@ mod key_value_text;
 mod labelled_values;
 mod layout;
 pub(crate) mod leading_operands;
+pub(crate) mod legend_rows;
 mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;

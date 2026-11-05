@@ -16,10 +16,6 @@ stdout = "help.txt"
 stderr = "help.stderr.txt"
 exit_code = 1
 
-[xfail]
-broken = true
-reason = "The `OPTIONS := { ... }` row reads `-V[ersion]` with the rest of the line (`| -n[o-nice-names] | ... -v[erbose] -s[tatistics] -[he]x }`) as its description, so only four flags are listed. A fix lets a new dash word separate flags in a production row even where the author left out the `|`, and reads `-[he]x` as one spelling."
-
 [contract]
 expected_framework = "generic"
 min_subcommands = 5

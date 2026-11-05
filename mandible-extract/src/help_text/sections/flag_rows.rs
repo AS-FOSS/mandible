@@ -2,6 +2,7 @@
 //! splits into entries (packed rows, BNF alternations, bracket groups),
 //! and where a nested entry table interrupts a row's description.
 
+use super::bnf_value_row::{split_at_dash_words, strip_trailing_stray_bracket};
 use super::example_command_line::is_example_command_line;
 use super::wrapped_flag_line::{continues_wrapped_description, is_example_under_colon};
 use super::*;
@@ -220,41 +221,6 @@ pub(super) fn looks_like_bnf_continuation_row(trimmed: &str) -> bool {
         .is_some_and(|rest| looks_like_flag_start(rest.trim_start()))
 }
 
-/// The opening delimiter that would match a given closing one.
-pub(super) fn matching_open(close: char) -> char {
-    match close {
-        '}' => '{',
-        ')' => '(',
-        _ => '[',
-    }
-}
-
-/// Trims a trailing closing bracket (`}`/`)`/`]`) that has no opening
-/// counterpart earlier in the same segment — the residue of an *enclosing*
-/// BNF alternation group's own closer landing on the row's last
-/// alternative once the row has been split on `|`: `vdpa`'s `-p[retty] }`
-/// and `dcb`'s glued `--verbose]` are the same shape at two distances.
-///
-/// The no-matching-opener test tells this apart from a bracket that really
-/// belongs to the segment: `-b[atch] [filename]`'s trailing `]` closes a
-/// `[` earlier in the same segment and is left untouched. See
-/// docs/shapes.md S-043.
-pub(super) fn strip_trailing_stray_bracket(segment: &str) -> &str {
-    let trimmed = segment.trim_end();
-    let Some(last) = trimmed.chars().next_back() else {
-        return trimmed;
-    };
-    if !matches!(last, '}' | ')' | ']') {
-        return trimmed;
-    }
-    let before = &trimmed[..trimmed.len() - last.len_utf8()];
-    if before.contains(matching_open(last)) {
-        trimmed
-    } else {
-        before.trim_end()
-    }
-}
-
 /// Read a flag-table row as a BNF alternation group listing several
 /// distinct flags on one physical line — iproute2's shared `OPTIONS := {
 /// ... }` production, once [`split_shared_heading_row`] has already
@@ -291,10 +257,11 @@ pub(super) fn strip_trailing_stray_bracket(segment: &str) -> &str {
 ///    fabricate a value onto `-v`), and must sit at a real whitespace
 ///    boundary (`ip`'s glued multi-letter abbreviations like `-iec` have
 ///    none).
-/// 4. An unpaired segment may carry only one flag-shaped word — `rdma`'s
-///    `-p[retty] -r[aw]` packs two flags into one `|`-segment with a bare
-///    space, which `parse_flag_spec`'s alias loop would otherwise silently
-///    swallow with no trace, passing `fully_consumed` regardless.
+/// 4. A segment that packs two flags with a bare space (`rdma`'s
+///    `-p[retty] -r[aw]`, `devlink`'s `-v[erbose] -s[tatistics] -[he]x`) is
+///    cut before each top-level dash word first; a piece may then carry
+///    only one flag-shaped word, which `parse_flag_spec`'s alias loop would
+///    otherwise silently swallow with no trace.
 ///
 /// Any segment failing any check refuses the whole row — never a partial
 /// split, which would leave some flags recovered and others glued into
@@ -328,7 +295,9 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
             groups.push((format!("{} | {}", seg, segments[idx + 1]), true));
             idx += 2;
         } else {
-            groups.push((seg.to_string(), false));
+            // A new dash word starts a flag even where the author left
+            // out the `|` (`-v[erbose] -s[tatistics] -[he]x`).
+            groups.extend(split_at_dash_words(seg).into_iter().map(|g| (g, false)));
             idx += 1;
         }
     }
@@ -341,9 +310,9 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
         if !looks_like_flag_start(candidate) {
             return None;
         }
-        // See condition 4 in this function's own doc comment: an unpaired
-        // group with more than one flag-shaped word is refused rather than
-        // quietly losing a real flag.
+        // See condition 4 in this function's own doc comment: a group that
+        // still carries two flag-shaped words after the dash-word split
+        // is refused rather than quietly losing a real flag.
         if !*was_paired
             && candidate
                 .split_whitespace()
@@ -1790,20 +1759,34 @@ Options:
     }
 
     /// `rdma`'s `-p[retty] -r[aw]}` and `devlink`'s
-    /// `-v[erbose] -s[tatistics] -[he]x`: two or three flags run together
-    /// by a bare space inside one `|`-segment, the "missing separator"
-    /// shape this reader refuses. See docs/shapes.md S-043.
+    /// `-v[erbose] -s[tatistics] -[he]x`: flags run together by a bare space
+    /// inside one `|`-segment; each new dash word is its own flag.
     #[test]
-    fn a_row_whose_segment_runs_two_flags_together_with_a_bare_space_is_refused() {
+    fn a_segment_that_runs_flags_together_with_a_bare_space_splits_at_each_dash_word() {
+        let names = |row: &str| -> Vec<String> {
+            split_bnf_alternation_row(row)
+                .expect("row splits")
+                .into_iter()
+                .map(|(spec, _)| spec)
+                .collect()
+        };
         assert_eq!(
-            split_bnf_alternation_row("-V[ersion] | -d[etails] | -j[son] | -p[retty] -r[aw]}"),
-            None
+            names("-V[ersion] | -d[etails] | -j[son] | -p[retty] -r[aw]}"),
+            ["-V[ersion]", "-d[etails]", "-j[son]", "-p[retty]", "-r[aw]"]
         );
         assert_eq!(
-            split_bnf_alternation_row(
+            names(
                 "-V[ersion] | -n[o-nice-names] | -j[son] | -p[retty] | -v[erbose] -s[tatistics] -[he]x }"
             ),
-            None
+            [
+                "-V[ersion]",
+                "-n[o-nice-names]",
+                "-j[son]",
+                "-p[retty]",
+                "-v[erbose]",
+                "-s[tatistics]",
+                "-[he]x"
+            ]
         );
     }
 

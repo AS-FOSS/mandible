@@ -211,6 +211,53 @@ subcommands:
   - '        ip link property add dev DEVICE [ altname NAME .. ]'
   - '        ip link property del dev DEVICE [ altname NAME .. ]'
   - '        ip link help [ TYPE ]'
+  positionals:
+  - name: TYPE
+    choices:
+    - amt
+    - bareudp
+    - bond
+    - bond_slave
+    - bridge
+    - bridge_slave
+    - dsa
+    - dummy
+    - erspan
+    - geneve
+    - gre
+    - gretap
+    - gtp
+    - ifb
+    - ip6erspan
+    - ip6gre
+    - ip6gretap
+    - ip6tnl
+    - ipip
+    - ipoib
+    - ipvlan
+    - ipvtap
+    - macsec
+    - macvlan
+    - macvtap
+    - netdevsim
+    - nlmon
+    - rmnet
+    - sit
+    - team
+    - team_slave
+    - vcan
+    - veth
+    - vlan
+    - vrf
+    - vti
+    - vxcan
+    - vxlan
+    - wwan
+    - xfrm
+    - virt_wifi
+    provenance:
+      sources:
+      - help-text
   provenance:
     sources:
     - help-text
@@ -478,22 +525,50 @@ subcommands:
     usage:
     - ip link property add dev DEVICE [ altname NAME .. ]
     - ip link property del dev DEVICE [ altname NAME .. ]
-    positionals:
-    - name: DEVICE
-      required: true
-      provenance:
-        sources:
-        - help-text
-    - name: NAME
-      required: true
-      provenance:
-        sources:
-        - help-text
     provenance:
       sources:
       - help-text
     children_filled: true
     invocation_attested: true
+    subcommands:
+    - name: add
+      usage:
+      - ip link property add dev DEVICE [ altname NAME .. ]
+      positionals:
+      - name: DEVICE
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: NAME
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: del
+      usage:
+      - ip link property del dev DEVICE [ altname NAME .. ]
+      positionals:
+      - name: DEVICE
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: NAME
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
   - name: help
     usage:
     - ip link help [ TYPE ]

@@ -84,14 +84,21 @@ flags:
   - -nm
   - -nam[es]
   group: 'OPTIONS :'
-  description: '| { -cf | -conf } path'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -cf
+  - -conf
+  value_name: path
+  value_kind: Required
+  group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
 - spellings:
   - -br[ief]
   group: 'OPTIONS :'
-  description: '}'
   provenance:
     sources:
     - help-text

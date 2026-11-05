@@ -44,7 +44,7 @@ fn first_group(tokens: &[&str]) -> Option<String> {
     None
 }
 
-fn is_placeholder_name(token: &str) -> bool {
+pub(super) fn is_placeholder_name(token: &str) -> bool {
     token.starts_with(|c: char| c.is_ascii_uppercase())
         && token
             .chars()
@@ -120,6 +120,15 @@ fn production_members(lines: &[&str], name: &str) -> Option<Vec<String>> {
 /// Read the production behind a usage form's command position as the
 /// node's commands, and drop the name from its operands.
 pub(super) fn apply(result: &mut ParsedHelp, lines: &[&str]) {
+    // `help` in the slot after the command name (`OBJECT [help]`) is the
+    // help word, as in `{ COMMAND | help }`, never an operand of its own.
+    if result
+        .usage
+        .iter()
+        .any(|form| command_slot(form).is_some_and(|slot| slot.shows_help))
+    {
+        result.positionals.retain(|p| p.primary_name() != "help");
+    }
     let found = result.usage.iter().find_map(|form| {
         let slot = command_slot(form)?;
         let members = production_members(lines, &slot.name)?;

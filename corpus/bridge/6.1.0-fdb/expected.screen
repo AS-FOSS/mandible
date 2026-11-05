@@ -1,0 +1,146 @@
+=== bridge ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge [ OPTIONS ] OBJECT { COMMAND | help }
+  bridge [ -force ] -batch filename
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  COMMAND
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+    -V[ersion]
+    -s[tatistics]
+    -d[etails]
+    -o[neline]
+    -t[imestamp]
+    -n[etns] name
+    -c[ompressvlans]  -color -p[retty] -j[son] }
+    -force
+    -batch
+
+=== bridge link ===
+
+=== bridge fdb ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master
+      ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static |
+      dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [
+      nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+  bridge fdb [ show [ br BRDEV ] [ brport DEV ] [ vlan VID ] [ state STATE ]
+      [ dynamic ] ]
+  bridge fdb get [ to ] LLADDR [ br BRDEV ] { brport | dev } DEV [ vlan VID
+      ] [ vni VNI ] [ self ] [ master ] [ dynamic ]
+  bridge fdb flush dev DEV [ brport DEV ] [ vlan VID ] [ self ] [ master ] [
+      [no]permanent | [no]static | [no]dynamic ] [ [no]added_by_user ] [
+      [no]extern_learn ] [ [no]sticky ] [ [no]offloaded ]
+
+=== bridge fdb add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master
+      ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static |
+      dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [
+      nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+
+
+POSITIONALS (7) ────────────────────────────────────────────────────────────
+  ADDR
+  DEV
+  VID
+  IPADDR
+  PORT
+  VNI
+  NHID
+
+=== bridge fdb append ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master
+      ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static |
+      dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [
+      nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+
+
+POSITIONALS (7) ────────────────────────────────────────────────────────────
+  ADDR
+  DEV
+  VID
+  IPADDR
+  PORT
+  VNI
+  NHID
+
+=== bridge fdb del ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master
+      ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static |
+      dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [
+      nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+
+
+POSITIONALS (7) ────────────────────────────────────────────────────────────
+  ADDR
+  DEV
+  VID
+  IPADDR
+  PORT
+  VNI
+  NHID
+
+=== bridge fdb replace ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb { add | append | del | replace } ADDR dev DEV [ self ] [ master
+      ] [ use ] [ router ] [ extern_learn ] [ sticky ] [ local | static |
+      dynamic ] [ vlan VID ] { [ dst IPADDR ] [ port PORT] [ vni VNI ] | [
+      nhid NHID ] } [ via DEV ] [ src_vni VNI ]
+
+
+POSITIONALS (7) ────────────────────────────────────────────────────────────
+  ADDR
+  DEV
+  VID
+  IPADDR
+  PORT
+  VNI
+  NHID
+
+=== bridge fdb show ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb [ show [ br BRDEV ] [ brport DEV ] [ vlan VID ] [ state STATE ]
+      [ dynamic ] ]
+
+
+POSITIONALS (4) ────────────────────────────────────────────────────────────
+  BRDEV
+  DEV
+  VID
+  STATE
+
+=== bridge fdb get ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb get [ to ] LLADDR [ br BRDEV ] { brport | dev } DEV [ vlan VID
+      ] [ vni VNI ] [ self ] [ master ] [ dynamic ]
+
+
+POSITIONALS (5) ────────────────────────────────────────────────────────────
+  LLADDR
+  BRDEV
+  DEV
+  VID
+  VNI
+
+=== bridge fdb flush ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  bridge fdb flush dev DEV [ brport DEV ] [ vlan VID ] [ self ] [ master ] [
+      [no]permanent | [no]static | [no]dynamic ] [ [no]added_by_user ] [
+      [no]extern_learn ] [ [no]sticky ] [ [no]offloaded ]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  DEV
+  VID
+
+=== bridge mdb ===
+
+=== bridge vlan ===
+
+=== bridge monitor ===

@@ -28,10 +28,6 @@ stdout = "macsec-help.txt"
 stderr = "macsec-help.stderr.txt"
 exit_code = 255
 
-[xfail]
-broken = true
-reason = "The `where` legend lines are read as the operands' descriptions with the `:=` kept (`ID := 128-bit hex string`), and the `OPTS` line, which opens with `where`, and `SALT`, which only the `OPTS` legend uses, are not read at all. A fix reads each legend line as the description of the placeholder it names, drops the `:=`, counts a name used only inside another legend, and still lists a usage placeholder that has no legend (`DEV`) on the verbs' pages."
-
 [contract]
 expected_framework = "generic"
 min_subcommands = 30

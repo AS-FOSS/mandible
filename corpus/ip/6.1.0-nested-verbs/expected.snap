@@ -1,0 +1,652 @@
+name: ip
+usage:
+- 'Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }'
+- '       ip [ -force ] -batch filename'
+positionals:
+- name: COMMAND
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -V[ersion]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s[tatistics]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d[etails]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r[esolve]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h[uman-readable]
+  group: 'OPTIONS :'
+  description: '| -iec | -j[son] | -p[retty] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f[amily]
+  value_kind: Required
+  choices:
+  - inet
+  - inet6
+  - mpls
+  - bridge
+  - link
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-4'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-6'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -M
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '-0'
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l[oops]
+  group: 'OPTIONS :'
+  description: '{ maximum-addr-flush-attempts } | -br[ief] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o[neline]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t[imestamp]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -ts[hort]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b[atch]
+  value_name: filename
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -rc[vbuf]
+  value_name: size
+  value_kind: Optional
+  optional_join: separate
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n[etns]
+  value_name: name
+  value_kind: Required
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N[umeric]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a[ll]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c[olor]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: address
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: addrlabel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: amt
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: fou
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ila
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ioam
+  usage:
+  - 'Usage:  ip ioam { COMMAND | help }'
+  - '        ip ioam namespace show'
+  - '        ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]'
+  - '        ip ioam namespace del ID'
+  - '        ip ioam schema show'
+  - '        ip ioam schema add ID DATA'
+  - '        ip ioam schema del ID'
+  - '        ip ioam namespace set ID schema { ID | none }'
+  positionals:
+  - name: COMMAND
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  help_slot_attested: true
+  subcommands:
+  - name: namespace
+    usage:
+    - ip ioam namespace show
+    - ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]
+    - ip ioam namespace del ID
+    - ip ioam namespace set ID schema { ID | none }
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+    subcommands:
+    - name: show
+      usage:
+      - ip ioam namespace show
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: add
+      usage:
+      - ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: DATA32
+        provenance:
+          sources:
+          - help-text
+      - name: DATA64
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: del
+      usage:
+      - ip ioam namespace del ID
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: set
+      usage:
+      - ip ioam namespace set ID schema { ID | none }
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+  - name: schema
+    usage:
+    - ip ioam schema show
+    - ip ioam schema add ID DATA
+    - ip ioam schema del ID
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+    subcommands:
+    - name: show
+      usage:
+      - ip ioam schema show
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: add
+      usage:
+      - ip ioam schema add ID DATA
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: DATA
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: del
+      usage:
+      - ip ioam schema del ID
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+- name: l2tp
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: link
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: macsec
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: maddress
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: monitor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mptcp
+  usage:
+  - 'Usage:  ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ] [ port NR ] [ FLAG-LIST ]'
+  - '        ip mptcp endpoint delete id ID [ ADDRESS ]'
+  - '        ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT'
+  - '        ip mptcp endpoint show [ id ID ]'
+  - '        ip mptcp endpoint flush'
+  - '        ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]'
+  - '        ip mptcp limits show'
+  - '        ip mptcp monitor'
+  provenance:
+    sources:
+    - help-text
+    confidence: 0.5
+  children_filled: true
+  heading_attested: true
+  help_slot_attested: true
+  subcommands:
+  - name: endpoint
+    usage:
+    - ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ] [ port NR ] [ FLAG-LIST ]
+    - ip mptcp endpoint delete id ID [ ADDRESS ]
+    - ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT
+    - ip mptcp endpoint show [ id ID ]
+    - ip mptcp endpoint flush
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+    subcommands:
+    - name: add
+      usage:
+      - ip mptcp endpoint add ADDRESS [ dev NAME ] [ id ID ] [ port NR ] [ FLAG-LIST ]
+      positionals:
+      - name: ADDRESS
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: NAME
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: NR
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: FLAG-LIST
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: delete
+      usage:
+      - ip mptcp endpoint delete id ID [ ADDRESS ]
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: ADDRESS
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: change
+      usage:
+      - ip mptcp endpoint change [ id ID ] [ ADDRESS ] [ port NR ] CHANGE-OPT
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: ADDRESS
+        provenance:
+          sources:
+          - help-text
+      - name: NR
+        required: true
+        provenance:
+          sources:
+          - help-text
+      - name: CHANGE-OPT
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: show
+      usage:
+      - ip mptcp endpoint show [ id ID ]
+      positionals:
+      - name: ID
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: flush
+      usage:
+      - ip mptcp endpoint flush
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+  - name: limits
+    usage:
+    - ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]
+    - ip mptcp limits show
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+    subcommands:
+    - name: set
+      usage:
+      - ip mptcp limits set [ subflows NR ] [ add_addr_accepted NR ]
+      positionals:
+      - name: NR
+        required: true
+        provenance:
+          sources:
+          - help-text
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+    - name: show
+      usage:
+      - ip mptcp limits show
+      provenance:
+        sources:
+        - help-text
+      children_filled: true
+      invocation_attested: true
+  - name: monitor
+    usage:
+    - ip mptcp monitor
+    provenance:
+      sources:
+      - help-text
+    children_filled: true
+    invocation_attested: true
+- name: mroute
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: mrule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbor
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: neighbour
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netconf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: netns
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: nexthop
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntable
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: ntbl
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: route
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: rule
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: sr
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tcpmetrics
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: token
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tunnel
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: tuntap
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: vrf
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true
+- name: xfrm
+  provenance:
+    sources:
+    - help-text
+  heading_attested: true
+  help_slot_attested: true

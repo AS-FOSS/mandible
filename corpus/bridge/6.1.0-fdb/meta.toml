@@ -28,10 +28,6 @@ stdout = "fdb-help.txt"
 stderr = "fdb-help.stderr.txt"
 exit_code = 255
 
-[xfail]
-broken = true
-reason = "`show` is not a command of `bridge fdb`: its form opens a bracket, `[ show [ br BRDEV ] ... ]`, so the page keeps the operands of every form (`ADDR`, `dev`, `BRDEV`, ...) and lists add, append, del, replace, get and flush only. A fix reads a form whose verb is optional as naming that verb when every other form opens with one, while `git remote [show] <x>` (a bracket holding the one word) stays one page."
-
 [contract]
 expected_framework = "generic"
 min_subcommands = 5

@@ -1152,6 +1152,7 @@ fn build_node(name: &str, raw: &str, framework: Option<Framework>, tool_name: &s
     let mut positionals = parsed.positionals;
     if let Some(own) = own {
         sections::foreign_form::drop_foreign_operands(&parsed.usage, own, &mut positionals);
+        sections::legend_rows::apply(raw, &parsed.usage, &mut positionals);
     }
     // A root form that opens with its operands and then lists bracketed
     // flags (S-153).

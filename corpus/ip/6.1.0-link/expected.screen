@@ -79,6 +79,14 @@ USAGE ────────────────────────�
    ip link property del dev DEVICE [ altname NAME .. ]
    ip link help [ TYPE ]
 
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  TYPE  values: amt, bareudp, bond, bond_slave, bridge, bridge_slave, dsa,
+        dummy, erspan, geneve, gre, gretap, gtp, ifb, ip6erspan, ip6gre,
+        ip6gretap, ip6tnl, ipip, ipoib, ipvlan, ipvtap, macsec, macvlan,
+        macvtap, netdevsim, nlmon, rmnet, sit, team, team_slave, vcan, veth,
+        vlan, vrf, vti, vxcan, vxlan, wwan, xfrm, virt_wifi
+
 === ip link add ===
 USAGE ──────────────────────────────────────────────────────────────────────
   ip link add [link DEV | parentdev NAME] [ name ] NAME [ txqueuelen PACKETS
@@ -184,6 +192,19 @@ POSITIONALS (1) ─────────────────────�
 === ip link property ===
 USAGE ──────────────────────────────────────────────────────────────────────
   ip link property add dev DEVICE [ altname NAME .. ]
+  ip link property del dev DEVICE [ altname NAME .. ]
+
+=== ip link property add ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  ip link property add dev DEVICE [ altname NAME .. ]
+
+
+POSITIONALS (2) ────────────────────────────────────────────────────────────
+  DEVICE
+  NAME
+
+=== ip link property del ===
+USAGE ──────────────────────────────────────────────────────────────────────
   ip link property del dev DEVICE [ altname NAME .. ]
 
 

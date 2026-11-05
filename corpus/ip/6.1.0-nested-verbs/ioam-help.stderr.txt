@@ -1,0 +1,8 @@
+Usage:  ip ioam { COMMAND | help }
+        ip ioam namespace show
+        ip ioam namespace add ID [ data DATA32 ] [ wide DATA64 ]
+        ip ioam namespace del ID
+        ip ioam schema show
+        ip ioam schema add ID DATA
+        ip ioam schema del ID
+        ip ioam namespace set ID schema { ID | none }
