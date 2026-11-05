@@ -16,7 +16,10 @@ pub(crate) fn weakened_lines(label: &str, b: &ContractMeta, n: &ContractMeta) ->
 
 /// Every entry must appear inside one line of the pages the pane draws for
 /// the tree, whitespace collapsed on both sides.
-pub(crate) fn failures(contract: &ContractMeta, root: Option<&CommandNode>) -> Vec<ContractFailure> {
+pub(crate) fn failures(
+    contract: &ContractMeta,
+    root: Option<&CommandNode>,
+) -> Vec<ContractFailure> {
     if contract.must_draw.is_empty() {
         return Vec::new();
     }

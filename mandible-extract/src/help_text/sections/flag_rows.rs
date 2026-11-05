@@ -675,6 +675,28 @@ fn hanging_argfile_row(lines: &[&str], at: usize) -> Option<(FlagRowEntry, usize
     Some(((value_name, desc, Vec::new()), end))
 }
 
+/// Folds a continuation into the entry's head when it finishes an unclosed
+/// placeholder, or the value list of a description-less head
+/// (`[rulenum] pcnt bcnt : text`): true when it did. S-048, S-258.
+fn extend_open_head(last: &mut FlagRowEntry, text: &str) -> bool {
+    if placeholder_left_open(&last.0) {
+        last.0.push_str(text);
+        return true;
+    }
+    let Some((values, desc)) = last
+        .1
+        .is_empty()
+        .then(|| super::wrapped_head::value_tail_before_colon(&last.0, text))
+        .flatten()
+    else {
+        return false;
+    };
+    last.0.push(' ');
+    last.0.push_str(values);
+    last.1.push_str(desc);
+    true
+}
+
 /// Build the argfile row's own [`FlagRowEntry`] once
 /// [`argfile_row_value_name`] has matched: the placeholder text as the
 /// "spec" slot (never fed to [`super::super::grammar::parse_flag_spec`] —
@@ -1267,17 +1289,7 @@ pub(super) fn scan_flags_block(
                     // inserted, since the wrap lands mid-word right after
                     // the hyphen the source already carries. See
                     // docs/shapes.md S-048.
-                    if placeholder_left_open(&last.0) {
-                        last.0.push_str(text);
-                    } else if let Some((values, desc)) = last
-                        .1
-                        .is_empty()
-                        .then(|| super::wrapped_head::value_tail_before_colon(&last.0, text))
-                        .flatten()
-                    {
-                        last.0.push(' ');
-                        last.0.push_str(values);
-                        last.1.push_str(desc);
+                    if extend_open_head(last, text) {
                     } else if let Some((name, desc)) = choice_description_sub_row(text) {
                         // ffmpeg/ffplay's described AVOption sub-rows —
                         // see `choice_description_sub_row`. Tried before

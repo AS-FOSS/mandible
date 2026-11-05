@@ -2133,9 +2133,7 @@ fn scan_entries(
         // A prose line ending in a comma runs on into the next line: a
         // heading never does, so the paragraph is description. See
         // docs/shapes.md S-258.
-        if let Some((end, text)) = comma_run_on_paragraph(lines, i) {
-            let own = st.result.description.take();
-            st.result.description = Some(builtin_usage::append_paragraph(own, lines, i, text));
+        if let Some(end) = absorb_run_on_prose(lines, i, st.result) {
             i = end;
             continue;
         }
@@ -2188,6 +2186,15 @@ fn scan_entries(
         i = emit_heading_block(inp, tool_name, &h, i, &mut st);
     }
     (st.total_entries, st.clean_entries)
+}
+
+/// Adds a comma run-on paragraph at `lines[at]` to the description; the
+/// index past it. S-258.
+fn absorb_run_on_prose(lines: &[&str], at: usize, result: &mut ParsedHelp) -> Option<usize> {
+    let (end, text) = comma_run_on_paragraph(lines, at)?;
+    let own = result.description.take();
+    result.description = Some(builtin_usage::append_paragraph(own, lines, at, text));
+    Some(end)
 }
 
 /// [`parse_with_profile`]'s engine, over text whose shared heading rows

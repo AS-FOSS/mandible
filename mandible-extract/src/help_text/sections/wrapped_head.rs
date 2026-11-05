@@ -4,8 +4,8 @@
 
 use super::flag_rows::FlagsBlockRow;
 use super::{
-    block_is_long_first, entry_row_carries_own_description, find_multi_space_gap, leading_whitespace,
-    looks_like_flag_start, secondary_column_offsets,
+    block_is_long_first, entry_row_carries_own_description, find_multi_space_gap,
+    leading_whitespace, looks_like_flag_start, secondary_column_offsets,
 };
 
 /// The two lines joined into one head, when `line` is the second half of a

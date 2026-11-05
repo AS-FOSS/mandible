@@ -290,10 +290,6 @@ fn run_fixtures(
             &fixture.meta.contract,
             root.as_ref(),
         ));
-        contract_failures.extend(super::draw_contract::failures(
-            &fixture.meta.contract,
-            root.as_ref(),
-        ));
         let is_xfail = fixture.meta.xfail.as_ref().is_some_and(|x| x.broken);
         if !is_xfail {
             contract_failures.extend(super::refill_contract::check_refill_is_identity(

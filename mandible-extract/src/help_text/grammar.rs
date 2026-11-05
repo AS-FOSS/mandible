@@ -205,23 +205,12 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
                 }
             }
 
-            // After two or more shorts, a lower-case word of three or more
-            // letters is the next alias (`-? -h -help`), never `-h` again.
-            // See docs/shapes.md S-258.
-            if !explicit && spec.spellings.len() >= 2 && spec.spellings.iter().all(is_genuine_short)
-            {
-                if let Some((spelling, tail)) = try_alias_position_single_dash_long(rest) {
-                    let word = spelling.name.chars();
-                    if word.clone().count() >= 3
-                        && word.clone().all(|c| c.is_ascii_lowercase())
-                        && !already_collected(&spec, &spelling)
-                        && !trailing_token_is_a_value(tail)
-                    {
-                        last_was_long_like = true;
-                        spec.spellings.push(spelling);
-                        rest = tail;
-                        continue;
-                    }
+            if !explicit {
+                if let Some((spelling, tail)) = word_alias_after_shorts(&spec, rest) {
+                    last_was_long_like = true;
+                    spec.spellings.push(spelling);
+                    rest = tail;
+                    continue;
                 }
             }
 
@@ -305,12 +294,7 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
         }
 
         rest = skip_separators(rest);
-        // A `[!]` after the spellings (`--proto -p [!] proto`) says the same
-        // as one before them. See docs/shapes.md S-254.
-        if let Some(after_bang) = rest.strip_prefix("[!]").filter(|r| r.starts_with(' ')) {
-            for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
-                s.negation = Some(Negation::Bang);
-            }
+        if let Some(after_bang) = take_bang_after_spellings(&mut spec, rest) {
             after_spellings = after_bang;
             rest = skip_separators(after_bang);
         }
@@ -348,27 +332,7 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
             spec.fully_consumed = false;
             return spec;
         };
-        // First value wins: a repeated placeholder names one value once.
-        // `value_prefix` folds in here rather than living on past this
-        // function: the value's own glue character (`-Wa,<options>`'s
-        // comma) becomes the leading character of `value_name` itself.
-        if spec.value_name.is_none() {
-            let prefixed = spec.value_prefix.is_some();
-            spec.value_name = Some(match spec.value_prefix.take() {
-                Some(c) => format!("{c}{value_name}"),
-                None => value_name,
-            });
-            spec.value_kind = kind;
-            if kind == ValueKind::Optional {
-                spec.optional_join = Some(optional_join_of(after_spellings, rest));
-            } else if !prefixed {
-                spec.optional_join = required_join_of(after_spellings, rest);
-            }
-        } else if kind == ValueKind::Optional && spec.value_kind == ValueKind::Optional {
-            // The value is drawn after the last spelling, so that
-            // spelling's own joiner is the one that applies.
-            spec.optional_join = Some(optional_join_of(after_spellings, rest));
-        }
+        record_value(&mut spec, (value_name, kind), after_spellings, rest);
 
         // The alias list may continue past it via `,`/`|`, see
         // [`alias_continues`], or via the word `or` when the second
@@ -401,6 +365,60 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
 /// True when `c` separates the spellings of one flag rather than
 /// belonging to a value: `,` or `|`. Whitespace deliberately excluded —
 /// see [`skip_separators`] and docs/shapes.md S-083.
+/// First value wins: a repeated placeholder names one value once.
+/// `value_prefix` folds in here rather than living on past the spec parse:
+/// the value's own glue character (`-Wa,<options>`'s comma) becomes the
+/// leading character of `value_name` itself. The joiner is read from the
+/// text between the last spelling (`after_spellings`) and the value (`rest`);
+/// for a later optional value the last spelling's own joiner applies.
+fn record_value(
+    spec: &mut FlagSpec,
+    (value_name, kind): (String, ValueKind),
+    after_spellings: &str,
+    rest: &str,
+) {
+    if spec.value_name.is_none() {
+        let prefixed = spec.value_prefix.is_some();
+        spec.value_name = Some(match spec.value_prefix.take() {
+            Some(c) => format!("{c}{value_name}"),
+            None => value_name,
+        });
+        spec.value_kind = kind;
+        if kind == ValueKind::Optional {
+            spec.optional_join = Some(optional_join_of(after_spellings, rest));
+        } else if !prefixed {
+            spec.optional_join = required_join_of(after_spellings, rest);
+        }
+    } else if kind == ValueKind::Optional && spec.value_kind == ValueKind::Optional {
+        spec.optional_join = Some(optional_join_of(after_spellings, rest));
+    }
+}
+
+/// After two or more shorts, a lower-case word of three or more letters is
+/// the next alias (`-? -h -help`), never `-h` again. See docs/shapes.md
+/// S-258.
+fn word_alias_after_shorts<'a>(spec: &FlagSpec, rest: &'a str) -> Option<(Spelling, &'a str)> {
+    if spec.spellings.len() < 2 || !spec.spellings.iter().all(is_genuine_short) {
+        return None;
+    }
+    let (spelling, tail) = try_alias_position_single_dash_long(rest)?;
+    let word = spelling.name.as_str();
+    let fits = word.chars().count() >= 3 && word.chars().all(|c| c.is_ascii_lowercase());
+    (fits && !already_collected(spec, &spelling) && !trailing_token_is_a_value(tail))
+        .then_some((spelling, tail))
+}
+
+/// A `[!]` after the spellings (`--proto -p [!] proto`) says the same as
+/// one before them: every spelling takes the `!` negation. Returns the text
+/// after the marker. See docs/shapes.md S-254.
+fn take_bang_after_spellings<'a>(spec: &mut FlagSpec, rest: &'a str) -> Option<&'a str> {
+    let after = rest.strip_prefix("[!]").filter(|r| r.starts_with(' '))?;
+    for s in spec.spellings.iter_mut().filter(|s| s.negation.is_none()) {
+        s.negation = Some(Negation::Bang);
+    }
+    Some(after)
+}
+
 fn is_alias_separator(c: char) -> bool {
     c == ',' || c == '|'
 }

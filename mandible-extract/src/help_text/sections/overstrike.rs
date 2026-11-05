@@ -43,7 +43,10 @@ pub(super) fn resolve_labels(parsed: &mut ParsedHelp) {
 /// `-<` with the value `flag>`): it is no flag. See docs/shapes.md S-258.
 fn is_key_placeholder_row(flag: &mandible_core::Entity) -> bool {
     let key = matches!(flag.spellings.as_slice(), [s] if s.dashes == mandible_core::Dashes::Single && s.name == "<");
-    key && flag.group.as_deref().is_some_and(super::mentions_commands_word)
+    key && flag
+        .group
+        .as_deref()
+        .is_some_and(super::mentions_commands_word)
         && flag
             .value_name
             .as_deref()

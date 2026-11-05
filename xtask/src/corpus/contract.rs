@@ -346,6 +346,7 @@ pub(crate) fn check_contract(
     };
     let mut failures = check_contract_scalar_fields(contract, root);
     failures.extend(check_contract_collection_fields(contract, root));
+    failures.extend(super::draw_contract::failures(contract, Some(root)));
     failures
 }
 
@@ -435,6 +436,7 @@ fn check_contract_missing_root(contract: &ContractMeta) -> Vec<ContractFailure> 
     if !contract.must_flag_group.is_empty() {
         failures.push(ContractFailure("must_flag_group: no root produced".into()));
     }
+    failures.extend(super::draw_contract::failures(contract, None));
     if !contract.must_accept_modifiers.is_empty() {
         failures.push(ContractFailure(
             "must_accept_modifiers: no root produced".into(),
