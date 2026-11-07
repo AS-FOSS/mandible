@@ -19,7 +19,8 @@ must_not_contain_flags = ["-c", "-v", "-e", "-a", "-s", "-j", "--disable-"]
 must_describe_root = ["Arguments following the main class, source file, -jar <jarfile>, -m or --module <module>/<mainclass> are passed as the arguments to main class."]
 must_draw = [
   "-D<name>=<value>",
-  "-verbose:[class|module|gc|jni]",
+  "-verbose:[{…}]",
+  "values: class, module, gc, jni",
   "-splash:<imagepath>",
   "-agentlib:<libname>[=<options>]",
   "-agentpath:<pathname>[=<options>]",
@@ -36,7 +37,6 @@ must_draw = [
 
 [contract.must_value_name]
 "-D" = "<name>=<value>"
-"-verbose" = ":[class|module|gc|jni]"
 "-splash" = ":<imagepath>"
 "-agentlib" = ":<libname>[=<options>]"
 
@@ -52,3 +52,10 @@ must_draw = [
 "-?" = "print this help message to the error stream"
 "--disable-@files" = "prevent further argument file expansion"
 "@" = "one or more argument files containing options"
+
+[contract.must_attach_choices]
+"-verbose" = ["class", "module", "gc", "jni"]
+
+[xfail]
+broken = true
+reason = "[S-265] a bracketed plain-word alternation after a colon stays literal text; it is a {…} value with choices"

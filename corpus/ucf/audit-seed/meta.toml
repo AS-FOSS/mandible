@@ -1,0 +1,38 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ucf"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["ucf", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-d", "--debug", "-s", "--src-dir", "--state-dir", "-p", "--purge"]
+must_usage_forms_min = 2
+must_not_contain_flag_group_prefixes = ["Usage:"]
+must_draw = ["-d, --debug=[n] Set the Debug level to N.", "-s, --src-dir foo Set the src dir (historical md5sums live here)", "--state-dir bar Set the state directory to bar instead of", "-p, --purge Remove any reference to destination from records"]
+
+[contract.must_value_name]
+"--debug" = "n"
+
+[contract.must_not_value_name]
+"--debug" = ","
+"-s" = "Set the src"
+"--src-dir" = "Set the src"
+"--state-dir" = "default"
+
+[contract.must_describe]
+"--src-dir" = "Set the src dir (historical md5sums live here)"
+"--state-dir" = "Set the state directory to bar instead of the default '/var/lib/ucf'. Used mostly for testing."
+"-p" = "Remove any reference to destination from records"
+
+[xfail]
+broken = true
+reason = "[S-264] a glued short-and-long row, a spelling-then-value-then-gap row and a second Usage line are read as invented values and headings"

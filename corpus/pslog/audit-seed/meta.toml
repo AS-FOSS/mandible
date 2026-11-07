@@ -14,7 +14,15 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
+must_draw = ["-V, --version display version information"]
 must_contain_flags = ["-V", "--version"]
 
 [contract.must_not_value_name]
 "--version" = "display version information"
+
+[contract.must_describe]
+"--version" = "display version information"
+
+[xfail]
+broken = true
+reason = "[S-262] a one-space row keeps its first word as the value and drops the rest; the sentence after one space is the description"

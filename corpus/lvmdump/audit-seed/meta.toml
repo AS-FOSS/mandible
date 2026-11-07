@@ -14,7 +14,20 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
+must_draw = ["-h print this message", "-c if running clvmd, gather cluster data as well", "-d <directory> dump into a directory instead of tarball"]
 must_contain_flags = ["-h", "-a"]
 
 [contract.must_not_value_name]
 "-h" = "print this message"
+
+[contract.must_describe]
+"-h" = "print this message"
+"-a" = "advanced collection - warning: if lvm is already hung, then this script may hang as well if -a is used"
+"-c" = "if running clvmd, gather cluster data as well"
+
+[contract.must_value_name]
+"-d" = "<directory>"
+
+[xfail]
+broken = true
+reason = "[S-262] a one-space row keeps its first word as the value and drops the rest; the sentence after one space is the description"

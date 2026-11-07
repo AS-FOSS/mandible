@@ -1,0 +1,32 @@
+Debian GNU/Linux ucf Revision: 3.00 .
+           Copyright (C) 2002-2005 Manoj Srivastava.
+This is free software; see the GNU General Public Licence for copying
+conditions.  There is NO warranty.
+
+Usage: ucf  [options] new_file  destination
+Options:
+     -h,     --help          print this message
+     -s foo, --src-dir  foo  Set the src dir (historical md5sums live here)
+             --sum-file bar  Force the historical md5sums to be read from
+                             this file.  Overrides any setting of --src-dir.
+     -d[n], --debug=[n]      Set the Debug level to N. Please note there must
+                             be no spaces before the debug level
+     -n,     --no-action     Dry run. No action is actually taken.
+     -P foo, --package foo   Don't follow dpkg-divert diversions by package foo.
+     -v,     --verbose       Make the script verbose
+             --three-way     Register this file in the cache, and turn on the
+                             diff3 option allowing the merging of maintainer
+                             changes into a (potentially modified) local
+                             configuration file. )
+             --state-dir bar Set the state directory to bar instead of the
+                             default '/var/lib/ucf'. Used mostly for testing.
+             --debconf-ok    Indicate that it is ok for ucf to use an already
+                             running debconf instance for prompting.
+             --debconf-template bar
+                             Specify an alternate, caller-provided debconf
+                             template to use for prompting.
+Usage: ucf  -p  destination
+     -p,     --purge         Remove any reference to destination from records
+
+By default, the directory the new_file lives in is assumed to be the src-dir,
+which is where we look for any historical md5sums.
