@@ -8,8 +8,10 @@ use super::*;
 
 /// A line that opens a usage form of its own: a `usage:` or `or:` label, an
 /// `or  <tool>` line, or a parenthesised note directly under a form line
-/// (`prev` is the nearest non-blank line above).
-pub(super) fn is_form_marker(t: &str, tool_name: Option<&str>, prev: Option<&str>) -> bool {
+/// (the nearest non-blank line above `lines[i]`).
+pub(super) fn is_form_marker(lines: &[&str], i: usize, tool_name: Option<&str>) -> bool {
+    let t = lines[i].trim_start();
+    let prev = lines[..i].iter().rev().find(|l| !l.trim().is_empty());
     is_form_line(t, tool_name)
         || (is_form_note(t) && prev.is_some_and(|p| is_form_line(p.trim(), tool_name)))
 }
