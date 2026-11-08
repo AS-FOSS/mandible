@@ -294,6 +294,12 @@ fn text_field_level_section(t: &Transition) -> String {
         if !fd.join_changed.is_empty() {
             parts.push(format!("join changed: {}", fd.join_changed.join(", ")));
         }
+        if fd.root_description_changed {
+            parts.push(format!("root description changed: {}", fd.tool));
+        }
+        if fd.usage_changed {
+            parts.push(format!("usage changed: {}", fd.tool));
+        }
         if !fd.subcommands_added.is_empty() {
             parts.push(format!(
                 "subcommands added: {}",
