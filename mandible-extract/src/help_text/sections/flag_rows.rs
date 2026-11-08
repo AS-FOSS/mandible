@@ -221,28 +221,6 @@ pub(super) fn looks_like_bnf_continuation_row(trimmed: &str) -> bool {
         .is_some_and(|rest| looks_like_flag_start(rest.trim_start()))
 }
 
-/// A dash and three or more lower-case letters, nothing else.
-fn is_bare_word(candidate: &str) -> bool {
-    candidate
-        .strip_prefix('-')
-        .is_some_and(|w| w.chars().count() >= 3 && w.chars().all(|c| c.is_ascii_lowercase()))
-}
-
-/// `-l[oops] { count }`: a brace holding one word and no pipe names the
-/// value, so the braces go (S-280).
-fn unbrace_placeholder(segment: &str) -> String {
-    let unbraced = segment.find('{').and_then(|open| {
-        let inner = segment[open + 1..].strip_suffix('}')?.trim();
-        let head = segment[..open].trim_end();
-        let name = !inner.is_empty()
-            && inner
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_'));
-        (name && !head.is_empty()).then(|| format!("{head} {inner}"))
-    });
-    unbraced.unwrap_or_else(|| segment.to_string())
-}
-
 /// Read a flag-table row as a BNF alternation group listing several
 /// distinct flags on one physical line — iproute2's shared `OPTIONS := {
 /// ... }` production, once [`split_shared_heading_row`] has already
@@ -299,7 +277,7 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
     // the glued group closer is gone.
     let owned: Vec<String> = raw_segments
         .iter()
-        .map(|s| unbrace_placeholder(strip_trailing_stray_bracket(s)))
+        .map(|s| super::bnf_value_row::unbrace_placeholder(strip_trailing_stray_bracket(s)))
         .collect();
     let segments: Vec<&str> = owned.iter().map(String::as_str).collect();
 
@@ -347,7 +325,7 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
         }
         // A bare word (`-iec`) keeps the production's pipe, which marks it
         // as one spelling and not `-i` with a glued value (S-280).
-        let candidate = &if is_bare_word(candidate) {
+        let candidate = &if super::bnf_value_row::is_bare_word(candidate) {
             format!("{candidate} |")
         } else {
             candidate.clone()

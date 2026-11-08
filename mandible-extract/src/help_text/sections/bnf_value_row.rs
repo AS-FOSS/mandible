@@ -160,6 +160,28 @@ pub(super) fn alternatives(line: &str) -> Option<Vec<(String, String)>> {
     split_bnf_alternation_row(line)
 }
 
+/// A dash and three or more lower-case letters, nothing else.
+pub(super) fn is_bare_word(candidate: &str) -> bool {
+    candidate
+        .strip_prefix('-')
+        .is_some_and(|w| w.chars().count() >= 3 && w.chars().all(|c| c.is_ascii_lowercase()))
+}
+
+/// `-l[oops] { count }`: a brace holding one word and no pipe names the
+/// value, so the braces go (S-280).
+pub(super) fn unbrace_placeholder(segment: &str) -> String {
+    let unbraced = segment.find('{').and_then(|open| {
+        let inner = segment[open + 1..].strip_suffix('}')?.trim();
+        let head = segment[..open].trim_end();
+        let name = !inner.is_empty()
+            && inner
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_'));
+        (name && !head.is_empty()).then(|| format!("{head} {inner}"))
+    });
+    unbraced.unwrap_or_else(|| segment.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
