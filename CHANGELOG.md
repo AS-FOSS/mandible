@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-280] `ip` lists `-iec`, `-j[son]`, `-p[retty]` and `-br[ief]` as their own flags instead of text on `-h` and `-l[oops]`, and `-l[oops]` takes the value `maximum-addr-flush-attempts`.
+- [S-281] `git stash` no longer lists `diff-options` and `commit`: `git stash show` lists `diff-options` and `git stash store` lists `commit`, and `stash drop`, `pop`, `apply`, `git bundle verify` and `git remote prune` list the operand their usage form names.
 - [S-237] `mandible jfr configure` keeps the line breaks and indentation of the `option=value`, `event-setting=value` and `Options for default.jfc:` rows in its description.
 - [S-255] `chmod` lists `MODE[,MODE]...`, `OCTAL-MODE` and `FILE...`, `msgexec` its `COMMAND-OPTION` and `sotruss` its `EXECUTABLE-OPTION...` operand.
 - [S-259] A `STYLE is one of:` block (`nl -b`, `-f`, `-h`) or a `<color>: black blue ...` legend (`setterm`) gives its values to every flag whose value names the placeholder, and `setterm --ulcolor` and `--hbcolor` keep `[bright] <color>` as their value ([S-259]).

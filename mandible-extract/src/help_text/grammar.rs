@@ -890,6 +890,11 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
     {
         return Some((Spelling::single_dash(run), after_run));
     }
+    // A lower-case run of three or more letters then a closing ` |` is
+    // the spelling of a production row's alternative (`-iec |`), S-280.
+    if run.chars().count() >= 3 && run.chars().all(|c| c.is_ascii_lowercase()) && after_run == " |" {
+        return Some((Spelling::single_dash(run), ""));
+    }
     // A lower-case run of two or more letters followed by ` | ` and a
     // further single-dash word is one spelling of a `|` alias run
     // (`-nm | -nam[es]`), never a short flag plus a glued value. See
@@ -2899,6 +2904,16 @@ mod tests {
         assert_eq!(spec.short(), Some('2'));
         assert_eq!(spec.value_name.as_deref(), Some("CDlNuVv"));
         assert_eq!(spec.value_kind, ValueKind::Required);
+    }
+
+    /// A production alternative keeps its closing pipe: `-iec |` is the
+    /// spelling `iec`, while a bare `-hdf` stays `-h` with a glued value.
+    #[test]
+    fn a_bare_word_with_a_closing_pipe_is_one_spelling() {
+        let spec = parse_flag_spec("-iec |");
+        assert_eq!(spec.long(), Some("iec"));
+        assert!(spec.value_name.is_none() && spec.fully_consumed);
+        assert_eq!(parse_flag_spec("-hdf").short(), Some('h'));
     }
 
     /// `ip --help`'s own abbreviation convention: `-V[ersion]` names the

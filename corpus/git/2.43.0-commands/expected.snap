@@ -353,6 +353,12 @@ subcommands:
   - name: verify
     usage:
     - git bundle verify [-q | --quiet] <file>
+    positionals:
+    - name: file
+      required: true
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - -q
@@ -535,15 +541,6 @@ subcommands:
   - '   or: git stash clear'
   - '   or: git stash create [<message>]'
   - '   or: git stash store [(-m | --message) <message>] [-q | --quiet] <commit>'
-  positionals:
-  - name: diff-options
-    provenance:
-      sources:
-      - help-text
-  - name: commit
-    provenance:
-      sources:
-      - help-text
   group: Main Porcelain Commands
   provenance:
     sources:
@@ -569,6 +566,10 @@ subcommands:
     usage:
     - git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
     positionals:
+    - name: diff-options
+      provenance:
+        sources:
+        - help-text
     - name: stash
       provenance:
         sources:
@@ -597,6 +598,11 @@ subcommands:
   - name: drop
     usage:
     - git stash drop [-q | --quiet] [<stash>]
+    positionals:
+    - name: stash
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - -q
@@ -612,6 +618,11 @@ subcommands:
   - name: pop
     usage:
     - git stash pop [--index] [-q | --quiet] [<stash>]
+    positionals:
+    - name: stash
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - --index
@@ -632,6 +643,11 @@ subcommands:
   - name: apply
     usage:
     - git stash apply [--index] [-q | --quiet] [<stash>]
+    positionals:
+    - name: stash
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - --index
@@ -746,6 +762,11 @@ subcommands:
   - name: save
     usage:
     - git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet] [-u | --include-untracked] [-a | --all] [<message>]
+    positionals:
+    - name: message
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - -p
@@ -812,6 +833,12 @@ subcommands:
   - name: store
     usage:
     - git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+    positionals:
+    - name: commit
+      required: true
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - -m
@@ -1432,6 +1459,12 @@ subcommands:
   - name: prune
     usage:
     - git remote prune [-n | --dry-run] <name>
+    positionals:
+    - name: name
+      required: true
+      provenance:
+        sources:
+        - help-text
     flags:
     - spellings:
       - -n

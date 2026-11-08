@@ -28,10 +28,6 @@ argv = ["git", "stash", "-h"]
 stdout = "stash-h.txt"
 exit_code = 129
 
-[xfail]
-broken = true
-reason = "[S-281] git stash lists diff-options and commit as its own operands. Each appears only in one verb's usage form: diff-options in show, commit in store. They belong to those verb pages, and show also loses diff-options today."
-
 [contract]
 expected_framework = "generic"
 min_status = "ok"
