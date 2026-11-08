@@ -67,15 +67,15 @@ mod tests {
     fn a_note_needs_a_form_line_above_it() {
         let t = Some("java");
         assert!(is_form_marker(
-            "(to execute a class)",
-            t,
-            Some("  java [options] x")
+            &["  java [options] x", "  (to execute a class)"],
+            1,
+            t
         ));
         assert!(!is_form_marker(
-            "(def=512)",
-            t,
-            Some("bs must match sector size")
+            &["bs must match sector size", "  (def=512)"],
+            1,
+            t
         ));
-        assert!(!is_form_marker("(def=512)", t, None));
+        assert!(!is_form_marker(&["  (def=512)"], 0, t));
     }
 }
