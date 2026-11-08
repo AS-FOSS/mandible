@@ -6038,8 +6038,8 @@ entry's `tools` field and nothing else. It does not get a new entry.
                    -h[uman-readable] | -iec | -j[son] | -p[retty] |
                    -l[oops] { maximum-addr-flush-attempts } | -br[ief] |
 - tools: ip
-- handling: Fixed. Every `|`-separated alternative of a production row is its own flag. A lower-case word of three or more letters that is the whole spec (`-iec`) is the spelling, never `-i` with a value. A brace holding one lower-case word and no pipe after a flag is that flag's value, braces dropped (`-l[oops] maximum-addr-flush-attempts`). A brace holding several words stays out of the rule. Fixture: `corpus/ip/6.1.0-options`.
-- fleet: see the sweep-diff of the change that added it.
+- handling: Fixed. Every `|`-separated alternative of a production row is its own flag. A bare lower-case word of three or more letters keeps the row's pipe (`-iec |`), which makes it the spelling and not `-i` with a glued value; without the pipe the word stays a short flag (`[-hdf]`). A brace holding one lower-case word and no pipe after a flag is that flag's value, braces dropped (`-l[oops] maximum-addr-flush-attempts`). A brace holding several words stays out of the rule. Fixture: `corpus/ip/6.1.0-options`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-09, against the build before the change: zero losses, no status change; only ip changed (21 to 25 flags, -h and -l[oops] lost their glued text). tc, bridge and rtmon rows have no pipe-ended flag row.
 
 ### S-281: an operand after a closed flag alternation
 
@@ -6049,4 +6049,4 @@ entry's `tools` field and nothing else. It does not get a new entry.
       git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
 - tools: git
 - handling: Fixed. A flag that ends a bracketed alternation (`--quiet]`) takes no value from the word after it, so `<commit>` and `[<diff-options>]` are operands of the verb's page and drop off the parent, which lists only the placeholders its help explains. `git stash drop`, `pop`, `apply`, `save`, `git bundle verify` and `git remote prune` gain the operand their form names. Fixture: `corpus/git/2.43.0-stash`.
-- fleet: see the sweep-diff of the change that added it.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-09: no root flag, subcommand or positional count changed. The sweep reads roots only, so the verb pages are covered by `corpus/git/2.43.0-stash` and the git fixtures (bundle verify, remote prune, stash drop, pop, apply, save gained their operand).
