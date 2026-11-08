@@ -903,7 +903,12 @@ fn scan_usage_section(
             i += 1;
             continue;
         }
-        let is_marker = usage_or_form::is_form_marker(trimmed_start, tool_name);
+        let prev_line = lines[..i]
+            .iter()
+            .rev()
+            .find(|l| !l.trim().is_empty())
+            .copied();
+        let is_marker = usage_or_form::is_form_marker(trimmed_start, tool_name, prev_line);
         let is_own_name =
             tool_name.is_some_and(|name| {
                 starts_with_tool_name(trimmed_start, name)
