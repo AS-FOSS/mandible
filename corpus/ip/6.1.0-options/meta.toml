@@ -1,0 +1,30 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip"
+version = "6.1.0-options"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ip", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[xfail]
+broken = true
+reason = "[S-280] Rows of the OPTIONS production that end in a pipe glue several flags into the first flag's text: -h[uman-readable] carries | -iec | -j[son] | -p[retty] |, and -l[oops] carries { maximum-addr-flush-attempts } | -br[ief] |. Each alternative should be its own flag. A brace holding one word and no pipe is a placeholder name, so -l[oops] takes the value maximum-addr-flush-attempts."
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief", "family"]
+
+[contract.must_value_name]
+"loops" = "maximum-addr-flush-attempts"
+
+[contract.must_not_value_name]
+"human-readable" = "|"
+"loops" = "{"
