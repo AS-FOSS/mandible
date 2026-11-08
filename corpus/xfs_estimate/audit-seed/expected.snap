@@ -1,0 +1,51 @@
+name: xfs_estimate
+usage:
+- 'Usage: xfs_estimate [opts] directory [directory ...]'
+flags:
+- spellings:
+  - -b
+  value_name: blocksize
+  value_kind: Required
+  description: (fundamental filesystem blocksize)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  value_name: logsize
+  value_kind: Required
+  description: (internal log size)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  value_name: logsize
+  value_kind: Required
+  description: (external log size)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  description: prints more verbose messages
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  description: prints version and exits
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  description: prints this usage message
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.0
+children_filled: true

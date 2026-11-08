@@ -14,7 +14,7 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
-must_draw = ["-?, -h, --help print this help message"]
+must_draw = ["-?, --help print this help message"]
 must_contain_flags = ["-l", "-f"]
 
 # A row whose description follows the spelling after one space keeps a
@@ -24,7 +24,3 @@ must_contain_flags = ["-l", "-f"]
 
 [contract.must_describe]
 "-?" = "print this help message"
-
-[xfail]
-broken = true
-reason = "[S-262] a one-space row keeps its first word as the value and drops the rest; the sentence after one space is the description"

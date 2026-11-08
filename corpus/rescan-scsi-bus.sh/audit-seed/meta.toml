@@ -15,7 +15,7 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 must_contain_flags = ["-a", "-I", "--alltargets", "--hosts", "--ids", "--luns", "--channels", "--issue-lip-wait", "--sync", "--nosync"]
-must_draw = ["--alltargets same as -a", "--hosts=LIST Scan only host(s) in LIST", "--channels=LIST Scan only channel(s) in LIST", "--issue-lip-wait=SECS same as -I", "--sync, --nosync Issue a sync / no sync"]
+must_draw = ["--alltargets same as -a", "--hosts LIST Scan only host(s) in LIST", "--channels LIST Scan only channel(s) in LIST", "--issue-lip-wait SECS same as -I", "--sync Issue a sync / no sync"]
 must_not_describe_root = ["--alltargets: same as -a", "--alltargets same as -a"]
 
 [contract.must_not_value_name]
@@ -24,10 +24,7 @@ must_not_describe_root = ["--alltargets: same as -a", "--alltargets same as -a"]
 "--issue-lip-wait" = ":"
 
 [contract.must_describe]
+"-I" = "issue a FibreChannel LIP reset and wait for SECS seconds [default: disabled]"
 "--alltargets" = "same as -a"
 "--hosts" = "Scan only host(s) in LIST"
 "--sync" = "Issue a sync / no sync [default: sync if remove]"
-
-[xfail]
-broken = true
-reason = "[S-263] the colon after a row's spelling is read as a value, and the same rows are repeated in the description"

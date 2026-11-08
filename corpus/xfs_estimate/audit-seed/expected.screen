@@ -1,0 +1,12 @@
+=== xfs_estimate ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  xfs_estimate [opts] directory [directory ...]
+
+
+FLAGS (6) ──────────────────────────────────────────────────────────────────
+-b blocksize  (fundamental filesystem blocksize)
+-i logsize    (internal log size)
+-e logsize    (external log size)
+-v            prints more verbose messages
+-V            prints version and exits
+-h            prints this usage message

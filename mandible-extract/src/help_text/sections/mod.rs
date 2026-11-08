@@ -53,6 +53,7 @@ mod heading;
 mod invocation_block;
 mod key_value_text;
 mod labelled_values;
+mod later_usage_form;
 mod layout;
 pub(crate) mod leading_operands;
 pub(crate) mod legend_rows;
@@ -60,6 +61,7 @@ mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
 mod no_option_row;
+mod one_space_row;
 mod operand_group;
 mod operand_rows;
 mod or_choice_fold;
@@ -1071,6 +1073,7 @@ fn extract_description(
             && !in_usage_block(j)
             && !looks_like_bnf_production_line(t)
             && !root_prose::is_bare_heading_word(lines, j)
+            && !one_space_row::is_colon_flag_row(t)
     };
     // `Options:` and its kin at either edge of the description label the
     // block they sit beside; they are not the description. S-249.
@@ -2048,6 +2051,13 @@ fn scan_entries(
             i = end;
             continue;
         }
+        if let Some(form) = tool_name
+            .and_then(|tool| later_usage_form::later_usage_form(lines, i, tool, &st.result.usage))
+        {
+            st.result.usage.push(form);
+            i += 1;
+            continue;
+        }
         // A label that named no rows of its own, set one line ago by
         // either a flush heading's own rewind or a bare single-entry
         // swallow (S-146). Taken (cleared) here whether or not this row
@@ -2521,6 +2531,7 @@ fn parse_body(
     // an already-correct, already-described row rather than needing its
     // own exception. See docs/shapes.md S-176.
     recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
+    one_space_row::recover_one_space_descriptions(&mut result.flags, &lines);
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);

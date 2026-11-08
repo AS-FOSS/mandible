@@ -32,7 +32,3 @@ must_draw = ["-d, --debug=[n] Set the Debug level to N.", "-s, --src-dir foo Set
 "--src-dir" = "Set the src dir (historical md5sums live here)"
 "--state-dir" = "Set the state directory to bar instead of the default '/var/lib/ucf'. Used mostly for testing."
 "-p" = "Remove any reference to destination from records"
-
-[xfail]
-broken = true
-reason = "[S-264] a glued short-and-long row, a spelling-then-value-then-gap row and a second Usage line are read as invented values and headings"

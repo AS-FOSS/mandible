@@ -1,0 +1,64 @@
+name: lvmdump
+description: /usr/sbin/lvmdump [options]
+flags:
+- spellings:
+  - -h
+  description: print this message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  description: 'advanced collection - warning: if lvm is already hung, then this script may hang as well if -a is used'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  description: if running clvmd, gather cluster data as well
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  value_name: <directory>
+  value_kind: Required
+  description: dump into a directory instead of tarball
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  description: gather lvmetad state if running
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  description: gather lvmpolld state if running
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: gather LVM metadata from the PVs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  description: gather system info and context
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  description: gather udev info and context
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.11
+children_filled: true

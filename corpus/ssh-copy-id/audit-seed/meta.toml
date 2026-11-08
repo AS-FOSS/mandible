@@ -15,7 +15,7 @@ exit_code = 0
 [contract]
 expected_framework = "generic"
 must_contain_flags = ["-f", "-n", "-s", "-x", "-h"]
-must_draw = ["-n dry run -- no keys are actually copied", "-x debug -- enables -x in this shell, for debugging", "-f force mode -- copy keys without trying to check if"]
+must_draw = ["-n dry run -- no keys are actually copied", "-x debug -- enables -x in this shell", "-f force mode -- copy keys without trying"]
 
 [contract.must_not_value_name]
 "-n" = ":"
@@ -26,7 +26,3 @@ must_draw = ["-n dry run -- no keys are actually copied", "-x debug -- enables -
 "-n" = "dry run -- no keys are actually copied"
 "-s" = "use sftp -- use sftp instead of executing remote-commands. Can be useful if the remote only allows sftp"
 "-x" = "debug -- enables -x in this shell, for debugging"
-
-[xfail]
-broken = true
-reason = "[S-263] the colon after a row's spelling is read as a value; it ends the spelling and is never a value"

@@ -6029,3 +6029,49 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: java, dpkg-deb, nvim, less, ebtables, dpkg, dpkg-statoverride, as, git, lto-dump, rmiregistry, sginfo, wpa_cli, vim.basic, jpackage, javadoc
 - handling: Fixed, eight readings. (1) A required value that follows its last spelling with no space and opens with `<`, `#` or `:` is glued: `Entity::optional_join` is `Glued` and the page draws no space (`-Z<type>`, `-z#`, `+<cmd>`); the spelling it follows is drawn last (`-c, +<cmd>`). `<name>=<value>` is one value. `--buffers=[N]` records `EqualsThenBracket` and draws as written. (2) A lower-case word of three or more letters with a `:` straight after it is the spelling, and the `:` and what follows are its glued value (`-splash:<imagepath>`, `-verbose:[class|gc]`); a word of two or more letters with `[:` after it is the spelling with an optional glued value (`-ea[:<class>]`). (3) A lower-case run followed by a spaced `<value>` is the whole spelling, since a flag takes one value (`-cp <path>`). (4) After two shorts, a lower-case word of three or more letters is the next alias (`-? -h -help`). (5) An `@` between name characters is part of a long name (`--disable-@files`). (6) Spelling-only lines at one indent stacked above one deeper description are one alias run, as are `@argument files` over its description, read as the argfile row. (7) A prose line ending in a comma with a dash-led line at its indent after it is description, not a group label. (8) A `[!]` after the spellings is the `!` negation of S-254; the value words of a head wrapped onto two lines stay with the value when a ` : ` follows them, and a dash-and-angle placeholder row (`-<flag>`) under a commands heading is a key, not a flag. Those value words are never a sentence start: a continuation that opens with a capitalised word (`A : separated list`) is the description, and the ` : ` stays in it. A value of up to three extra words needs a description after it; a row with none keeps one extra word, since the words may be the description (`-h print this message`). A `:<name2>` or `:...` run glued to a `<value>` stays in it (`-noqualifier <name1>:<name2>:...`). Fixtures: `corpus/java/audit-seed`, `corpus/dpkg-deb/audit-seed`, `corpus/ebtables/1.8.10`, `corpus/nvim/0.9.5`, `corpus/less/590`, `corpus/jcmd/audit-seed`, `corpus/xfs_estimate/audit-seed`, `corpus/lvmdump/audit-seed`, `corpus/pslog/audit-seed`, `corpus/jpackage/audit-seed`, `corpus/javadoc/audit-seed`.
 - fleet: full-`PATH` sweep of 2271 tools, 2026-11-05, against the build before the change: no status change and no subcommand or positional change; 39 tools changed. Flag counts fell on 8 tools, each an alias fold or a removed key row: pygettext3 and pygettext3.12 (15 each, `-a` over `--extract-all` read as one flag), java (4), containerd-shim-runc-v2 (`-v`, `-version`), llvm-readtapi-18 (`-a` was cut from `-arch`), and less, pager and zstdless (`-<flag>`, the in-pager key). The other tools moved only in value names and joins, among them dpkg, git (`-c <name>=<value>`), clang (`-idirafter <dir>` and 12 more), gcc-family and javadoc rows, jmap and javac (`-clstats`, `-implicit` whole instead of `-c`, `-i`), and ebtables (the `[!]` rows). Re-swept 2026-11-05 with the value join recorded on both sides: the same 39 flag losses and no others; 87 tools moved in value name or join, each entity checked against its raw help (glued `-I<dir>`, `--x=[N]`, spaced `-idirafter <dir>` newly carrying its value); multi-word values appear only on ebtables and javadoc `-sourcetab <tab length>`; a description opening `A :` is kept whole.
+
+### S-262: a flag row whose description follows its spelling after one space
+
+- id: S-262
+- looks like: |
+      -h print this message
+      -c if running clvmd, gather cluster data as well
+      -I SECS issue a FibreChannel LIP reset
+      -b blocksize (fundamental filesystem blocksize)
+      -h long -- print more options
+- tools: lvmdump, xfs_estimate, jcmd, pslog, rescan-scsi-bus.sh, ffmpeg, tar, lsof
+- handling: Fixed. A row with no column gap and a plain lowercase word after the spelling, followed by two or more words, takes the words as the description and records no value. A capitalised sentence after a lowercase value keeps the value (`--state-dir bar Set the state directory`). An all-caps value keeps its value and takes a lowercase sentence as the description. A value followed by a parenthesised remark or by `--` keeps the value and takes the rest as the description. The usage line still decides first, where it names the value (S-176). Padding after the last word of a row is no column gap. Fixtures: `corpus/lvmdump/audit-seed`, `corpus/xfs_estimate/audit-seed`, `corpus/jcmd/audit-seed`, `corpus/pslog/audit-seed`.
+- fleet: sweep pending.
+
+### S-263: the colon after a row's spelling is not a value
+
+- id: S-263
+- looks like: |
+      -n: dry run    -- no keys are actually copied
+      --alltargets:    same as -a
+      --hosts=LIST:    Scan only host(s) in LIST
+      --sync/nosync:   Issue a sync / no sync
+- tools: ssh-copy-id, rescan-scsi-bus.sh, pngfix
+- handling: Fixed. A colon that ends the first token of a flag row, or the whole spelling run, ends the spelling and is never a value. `--sync/nosync` reads as `--sync, --nosync`. Flush-left `--name:` rows are flags, so they are not repeated in the root description. Fixtures: `corpus/ssh-copy-id/audit-seed`, `corpus/rescan-scsi-bus.sh/audit-seed`.
+- fleet: sweep pending.
+
+### S-264: a table of short, long and value cells with a repeated value and a later usage form
+
+- id: S-264
+- looks like: |
+      -s foo, --src-dir  foo  Set the src dir
+      -d[n], --debug=[n]      Set the Debug level to N.
+      Usage: ucf  -p  destination
+           -p,     --purge         Remove any reference
+- tools: ucf, lcf
+- handling: Fixed. A placeholder repeated after the long spelling is the value once, so the description does not open with it. A short's glued `[n]` that the long repeats as `=[n]` is the long's value, and the short is `-d`. `--x=[v]` in an aligned table is drawn `=[v]` as written. A short ending in a comma, a gap and a long spelling is one alias run. A `Usage: <tool>` line over flag rows after the first usage block is another usage form. Fixtures: `corpus/ucf/audit-seed`, `corpus/lcf/3.0043+nmu1`, `corpus/less/590`.
+- fleet: sweep pending.
+
+### S-265: a colon-glued bracket of plain words is a set of values
+
+- id: S-265
+- looks like: |
+      -verbose:[class|module|gc|jni]
+- tools: java
+- handling: Fixed. The bracket is the flag's choices and draws `:[{…}]`. A bracket holding placeholders (`-ea[:<packagename>...|:<classname>]`) is unchanged. Fixture: `corpus/java/audit-seed`.
+- fleet: sweep pending.

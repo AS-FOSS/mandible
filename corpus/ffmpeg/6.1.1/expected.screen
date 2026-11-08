@@ -11,9 +11,11 @@ USAGE ────────────────────────�
 FLAGS (91) ─────────────────────────────────────────────────────────────────
 Getting help
 -h                     -- print basic options
--h long
--h full
--h type=name
+-h long                print more options
+-h full                print all options (including all format and codec
+                       specific options, very long)
+-h type=name           print all options for the named
+                       decoder/encoder/demuxer/muxer/filter/bsf/protocol
 
 Print help / information / capabilities ────────────────────────────────────
 -L                     show license

@@ -1,0 +1,12 @@
+=== jcmd ===
+USAGE ──────────────────────────────────────────────────────────────────────
+  jcmd <pid | main class> <command ...|PerfCounter.print|-f file>
+  jcmd -l
+  jcmd -h
+
+
+FLAGS (3) ──────────────────────────────────────────────────────────────────
+-f          read and execute commands from the file
+-l          list JVM processes on the local machine
+-?, --help  print this help message
+ or -h

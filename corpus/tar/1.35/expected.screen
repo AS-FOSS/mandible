@@ -133,7 +133,7 @@ Overwrite control ────────────────────�
 -W, --verify                  attempt to verify the archive after writing it
 
 Select output stream ───────────────────────────────────────────────────────
-    --ignore-command-error ignore
+    --ignore-command-error    ignore exit codes of children
     --no-ignore-command-error treat non-zero exit codes of children as error
 -O, --to-stdout               extract files to standard output
     --to-command COMMAND      pipe extracted files to another program

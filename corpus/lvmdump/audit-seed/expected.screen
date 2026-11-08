@@ -1,0 +1,16 @@
+=== lvmdump ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+/usr/sbin/lvmdump [options]
+
+
+FLAGS (9) ──────────────────────────────────────────────────────────────────
+-h              print this message
+-a              advanced collection - warning: if lvm is already hung, then
+                this script may hang as well if -a is used
+-c              if running clvmd, gather cluster data as well
+-d <directory>  dump into a directory instead of tarball
+-l              gather lvmetad state if running
+-p              gather lvmpolld state if running
+-m              gather LVM metadata from the PVs
+-s              gather system info and context
+-u              gather udev info and context

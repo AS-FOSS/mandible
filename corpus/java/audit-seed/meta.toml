@@ -55,7 +55,3 @@ must_draw = [
 
 [contract.must_attach_choices]
 "-verbose" = ["class", "module", "gc", "jni"]
-
-[xfail]
-broken = true
-reason = "[S-265] a bracketed plain-word alternation after a colon stays literal text; it is a {…} value with choices"

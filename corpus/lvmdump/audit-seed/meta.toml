@@ -27,7 +27,3 @@ must_contain_flags = ["-h", "-a"]
 
 [contract.must_value_name]
 "-d" = "<directory>"
-
-[xfail]
-broken = true
-reason = "[S-262] a one-space row keeps its first word as the value and drops the rest; the sentence after one space is the description"
