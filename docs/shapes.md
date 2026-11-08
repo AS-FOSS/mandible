@@ -6039,9 +6039,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -I SECS issue a FibreChannel LIP reset
       -b blocksize (fundamental filesystem blocksize)
       -h long -- print more options
-- tools: lvmdump, xfs_estimate, jcmd, pslog, rescan-scsi-bus.sh, ffmpeg, tar, lsof
+- tools: lvmdump, xfs_estimate, jcmd, pslog, iscsi_discovery, getpcaps, arptables, arptables-nft, dpkg-source, nsenter, strace, rustdoc, ffmpeg, tar, lsof, python3, python3.11, python3.12, fail2ban-python, rescan-scsi-bus.sh
 - handling: Fixed. A row with no column gap and a plain lowercase word after the spelling, followed by two or more words, takes the words as the description and records no value. A capitalised sentence after a lowercase value keeps the value (`--state-dir bar Set the state directory`). An all-caps value keeps its value and takes a lowercase sentence as the description. A value followed by a parenthesised remark or by `--` keeps the value and takes the rest as the description. The usage line still decides first, where it names the value (S-176). Padding after the last word of a row is no column gap. Fixtures: `corpus/lvmdump/audit-seed`, `corpus/xfs_estimate/audit-seed`, `corpus/jcmd/audit-seed`, `corpus/pslog/audit-seed`.
-- fleet: sweep pending.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-09, against the build before the change: no flag, subcommand or positional count changed; lvmdump, pslog, xfs_estimate and iscsi_discovery moved from low-confidence to ok; 22 tools changed a description, value name or join, each entity read against its raw help. Dropped description text came back on arptables, arptables-nft, dpkg-source, getpcaps, nsenter, strace, rustdoc, ffmpeg (`-h long`), tar, lsof and the `-c`, `-m`, `-W`, `-X` rows of python3, python3.11, python3.12 and fail2ban-python.
 
 ### S-263: the colon after a row's spelling is not a value
 
@@ -6053,7 +6053,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
       --sync/nosync:   Issue a sync / no sync
 - tools: ssh-copy-id, rescan-scsi-bus.sh, pngfix
 - handling: Fixed. A colon that ends the first token of a flag row, or the whole spelling run, ends the spelling and is never a value. `--sync/nosync` reads as `--sync, --nosync`. Flush-left `--name:` rows are flags, so they are not repeated in the root description. Fixtures: `corpus/ssh-copy-id/audit-seed`, `corpus/rescan-scsi-bus.sh/audit-seed`.
-- fleet: sweep pending.
+- fleet: same sweep: ssh-copy-id and rescan-scsi-bus.sh lost the `:` value on every row (rescan gained `--sync, --nosync` for `--sync`), rescan-scsi-bus.sh no longer repeats its rows in the description, and pngfix `--strip` carries its seven choices.
 
 ### S-264: a table of short, long and value cells with a repeated value and a later usage form
 
@@ -6063,9 +6063,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -d[n], --debug=[n]      Set the Debug level to N.
       Usage: ucf  -p  destination
            -p,     --purge         Remove any reference
-- tools: ucf, lcf
+- tools: ucf, ucfr, lcf, less, pager, zstdless
 - handling: Fixed. A placeholder repeated after the long spelling is the value once, so the description does not open with it. A short's glued `[n]` that the long repeats as `=[n]` is the long's value, and the short is `-d`. `--x=[v]` in an aligned table is drawn `=[v]` as written. A short ending in a comma, a gap and a long spelling is one alias run. A `Usage: <tool>` line over flag rows after the first usage block is another usage form. Fixtures: `corpus/ucf/audit-seed`, `corpus/lcf/3.0043+nmu1`, `corpus/less/590`.
-- fleet: sweep pending.
+- fleet: same sweep: ucf and lcf changed (ucf gained `-d, --debug` for `-dn, --debug` and `-p, --purge` for `-p`), ucfr gained the `--state-dir` description, and less, pager and zstdless draw `--pattern=[pattern]` and `--prompt=[prompt]` as written.
 
 ### S-265: a colon-glued bracket of plain words is a set of values
 
@@ -6074,4 +6074,4 @@ entry's `tools` field and nothing else. It does not get a new entry.
       -verbose:[class|module|gc|jni]
 - tools: java
 - handling: Fixed. The bracket is the flag's choices and draws `:[{…}]`. A bracket holding placeholders (`-ea[:<packagename>...|:<classname>]`) is unchanged. Fixture: `corpus/java/audit-seed`.
-- fleet: sweep pending.
+- fleet: same sweep: only java changed (`-verbose` carries four choices).
