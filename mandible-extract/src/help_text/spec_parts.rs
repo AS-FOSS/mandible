@@ -27,7 +27,7 @@ pub(super) fn optional_join_of(after_spellings: &str, value: &str) -> OptionalJo
 pub(super) fn end_row_spelling(spec: &str) -> Cow<'_, str> {
     let spec = spec
         .strip_suffix(':')
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() && !s.contains(':'))
         .unwrap_or(spec);
     if let Some(bare) = short_with_repeated_value(spec) {
         return Cow::Owned(bare);

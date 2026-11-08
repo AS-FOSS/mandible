@@ -129,8 +129,12 @@ pub(super) fn recover_one_space_descriptions(flags: &mut [Entity], lines: &[&str
             .as_ref()
             .map_or("", |d| d.as_str())
             .to_string();
-        // `-h long -- print more options`: the value, then a `--` separator.
-        if let Some(after) = words.first().filter(|w| **w == "--").and(words.get(1..)) {
+        // `-h long -- print more options`, `-c cmd : run it`: the value, then a separator.
+        if let Some(after) = words
+            .first()
+            .filter(|w| matches!(**w, "--" | ":"))
+            .and(words.get(1..))
+        {
             if flag.description.is_none() && !after.is_empty() {
                 flag.description = non_empty_text(&after.join(" "));
             }
