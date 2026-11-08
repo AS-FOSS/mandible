@@ -135,8 +135,9 @@ pub(super) fn recover_one_space_descriptions(flags: &mut [Entity], lines: &[&str
             .filter(|w| matches!(**w, "--" | ":"))
             .and(words.get(1..))
         {
-            if flag.description.is_none() && !after.is_empty() {
-                flag.description = non_empty_text(&after.join(" "));
+            let text = after.join(" ");
+            if !text.is_empty() && (own.is_empty() || single_spaced && !own.contains(&text)) {
+                flag.description = non_empty_text(format!("{text} {own}").trim());
             }
             continue;
         }
