@@ -223,9 +223,9 @@ pub(super) fn looks_like_bnf_continuation_row(trimmed: &str) -> bool {
 
 /// A dash and three or more lower-case letters, nothing else.
 fn is_bare_word(candidate: &str) -> bool {
-    candidate.strip_prefix('-').is_some_and(|w| {
-        w.chars().count() >= 3 && w.chars().all(|c| c.is_ascii_lowercase())
-    })
+    candidate
+        .strip_prefix('-')
+        .is_some_and(|w| w.chars().count() >= 3 && w.chars().all(|c| c.is_ascii_lowercase()))
 }
 
 /// `-l[oops] { count }`: a brace holding one word and no pipe names the
