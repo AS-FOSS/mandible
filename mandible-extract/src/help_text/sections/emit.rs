@@ -890,7 +890,8 @@ pub(super) fn emit_choices(
     let mut seen = 0usize;
     let mut clean = 0usize;
     let mut candidates: Vec<(String, Option<String>)> = Vec::new();
-    let every_row_named = super::plural_owner::every_row_a_value(&entries);
+    let owner = find_owning_flag_index(heading, &out.flags);
+    let every_row_named = owner.is_some() && super::plural_owner::every_row_a_value(&entries);
     for (spec_text, desc_text) in &entries {
         if candidates.len() >= MAX_RECOVERED_ENTRIES {
             break;
@@ -926,7 +927,6 @@ pub(super) fn emit_choices(
     if candidates.is_empty() {
         return (seen, clean);
     }
-    let owner = find_owning_flag_index(heading, &out.flags);
     let before = candidates.len();
     let quoted_kept = candidates
         .iter()
