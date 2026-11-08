@@ -6053,7 +6053,7 @@ entry's `tools` field and nothing else. It does not get a new entry.
         KB   1000
         K    1024
 - tools: od
-- handling: Fixed. In a table whose heading names a flag's value placeholder, a row named by lowercase letters with an all-caps bracketed placeholder (`d[SIZE]`) or by one to three capitals (`KB`, `M`) is a value of that flag, as `pBRE` rows already are. Before, only the rows named by plain lowercase words were kept, so `TYPE` listed two of seven values and `BYTES` one of five. Fixture: `corpus/od/9.4`.
+- handling: Fixed. In a table whose heading names a flag's value placeholder, a row named by lowercase letters with an all-caps bracketed placeholder (`d[SIZE]`) or by one to three capitals (`KB`, `M`) is a value of that flag, as `pBRE` rows already are, when every row of the table is a value; a table with other rows (`K/N`, `DMA32`) keeps none of them. Before, only the rows named by plain lowercase words were kept, so `TYPE` listed two of seven values and `BYTES` one of five. Fixture: `corpus/od/9.4`.
 - fleet: see the changed tools in the sweep-diff of this change.
 
 ### S-272: usage forms opened by a bare `or`, and parenthesised notes

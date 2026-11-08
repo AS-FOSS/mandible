@@ -5,11 +5,11 @@
 
 use super::*;
 
-/// `or  <tool> ...`: the word `or`, then the tool's own name.
+/// `or  <tool> ...`: the lowercase word `or`, then the tool's own name.
 pub(super) fn is_or_word_form(t: &str, tool_name: Option<&str>) -> bool {
     let Some(name) = tool_name else { return false };
     let mut parts = t.splitn(2, char::is_whitespace);
-    parts.next().is_some_and(|w| w.eq_ignore_ascii_case("or"))
+    parts.next().is_some_and(|w| w == "or")
         && parts
             .next()
             .is_some_and(|rest| starts_with_tool_name(rest.trim_start(), name))
@@ -31,6 +31,7 @@ mod tests {
     fn or_word_then_tool_name_opens_a_form() {
         assert!(is_or_word_form("or  java [options] -jar x", Some("java")));
         assert!(!is_or_word_form("or the other", Some("java")));
+        assert!(!is_or_word_form("OR     java [options]", Some("java")));
         assert!(!is_or_word_form("or  java", None));
     }
 

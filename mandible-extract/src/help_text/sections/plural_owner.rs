@@ -116,8 +116,13 @@ pub(super) fn is_mixed_case_word(name: &str) -> bool {
     name.chars().all(|c| c.is_ascii_alphabetic())
         && name.starts_with(|c: char| c.is_ascii_lowercase())
         && name.chars().any(|c| c.is_ascii_uppercase())
-        || is_sized_word(name)
-        || is_unit_word(name)
+}
+
+/// A row name only a table whose every row is a value may use: `d[SIZE]`
+/// or `KB`. A table that mixes in other rows (`K/N`, `DMA32`) is not a
+/// value list, so these names stay out of it. S-271.
+pub(super) fn is_extended_word(name: &str) -> bool {
+    is_sized_word(name) || is_unit_word(name)
 }
 
 /// `KB`, `M`: one to three capitals, a unit suffix in a table that follows
