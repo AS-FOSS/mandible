@@ -1,0 +1,30 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "od"
+version = "9.4"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["od", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-A", "-j", "-N", "-S", "-t", "-v", "-w", "--traditional"]
+must_describe_root = [
+  "Write an unambiguous representation, octal bytes by default, of FILE to standard output. With more than one FILE argument, concatenate them in the listed order to form the input.",
+  "With no FILE, or when FILE is -, read standard input.",
+  "An OFFSET operand means -j OFFSET.",
+]
+must_not_describe_root = ["Mandatory arguments to long options"]
+
+[contract.must_attach_choices]
+"--format" = ["a", "c", "d[SIZE]", "f[SIZE]", "o[SIZE]", "u[SIZE]", "x[SIZE]"]
+
+[xfail]
+broken = true
+reason = "[S-270] The description is lost because a double space after a full stop reads as a column gap. [S-271] The -t TYPE table stops at d[SIZE] because a row name with a bracketed size is not a plain word, so only a and c are values."
