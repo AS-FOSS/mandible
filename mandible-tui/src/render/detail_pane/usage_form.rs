@@ -129,7 +129,7 @@ pub(super) fn usage_form_led_by(
         (text, 0)
     } else if text.starts_with('(') && text.ends_with(')') {
         // A parenthesised note under a form (`(to execute a jar file)`)
-        // is printed as written, with no program word. S-272.
+        // is printed as written, with no program word. S-264.
         (text, 0)
     } else {
         let path_len = name.len();

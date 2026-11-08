@@ -1,9 +1,18 @@
 //! Usage lines that open a form of their own without an `or:` marker: a bare
 //! `or` word followed by the tool's name (`   or  java [options] -jar ...`),
 //! and a line wholly in parentheses that notes the form above it
-//! (`(to execute a jar file)`). `docs/shapes.md` S-272.
+//! (`(to execute a jar file)`). `docs/shapes.md` S-264.
 
 use super::*;
+
+/// A line that opens a usage form of its own: a `usage:` or `or:` label, an
+/// `or  <tool>` line, or a parenthesised note.
+pub(super) fn is_form_marker(t: &str, tool_name: Option<&str>) -> bool {
+    starts_with_usage_prefix(t)
+        || starts_with_or_marker(t)
+        || is_or_word_form(t, tool_name)
+        || is_form_note(t)
+}
 
 /// `or  <tool> ...`: the lowercase word `or`, then the tool's own name.
 pub(super) fn is_or_word_form(t: &str, tool_name: Option<&str>) -> bool {

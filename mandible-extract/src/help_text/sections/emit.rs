@@ -890,16 +890,7 @@ pub(super) fn emit_choices(
     let mut seen = 0usize;
     let mut clean = 0usize;
     let mut candidates: Vec<(String, Option<String>)> = Vec::new();
-    let every_row_named = entries
-        .iter()
-        .flat_map(|(spec, _)| spec.split(','))
-        .map(str::trim)
-        .filter(|n| !n.is_empty())
-        .all(|n| {
-            is_command_name_shaped(n)
-                || super::plural_owner::is_owned_only_name(n)
-                || super::plural_owner::is_extended_word(n)
-        });
+    let every_row_named = super::plural_owner::every_row_a_value(&entries);
     for (spec_text, desc_text) in &entries {
         if candidates.len() >= MAX_RECOVERED_ENTRIES {
             break;

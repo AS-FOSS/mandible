@@ -903,18 +903,13 @@ fn scan_usage_section(
             i += 1;
             continue;
         }
-        let is_marker =
-            starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
+        let is_marker = usage_or_form::is_form_marker(trimmed_start, tool_name);
         let is_own_name =
             tool_name.is_some_and(|name| {
                 starts_with_tool_name(trimmed_start, name)
                     || starts_with_tool_name_spelled_differently(trimmed_start, name)
             }) || repeats_first_form_program_word(trimmed_start, usage_entries.first(), tool_name);
-        let starts_new_entry = is_marker
-            || is_own_name
-            || force_new_entry_after_separator
-            || usage_or_form::is_or_word_form(trimmed_start, tool_name)
-            || usage_or_form::is_form_note(trimmed_start);
+        let starts_new_entry = is_marker || is_own_name || force_new_entry_after_separator;
         force_new_entry_after_separator = false;
         if starts_new_entry {
             hang_col = tool_name.and_then(|n| hanging_column(l, n));
