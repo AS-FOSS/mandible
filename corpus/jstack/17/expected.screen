@@ -1,6 +1,7 @@
 === jstack ===
 USAGE ──────────────────────────────────────────────────────────────────────
-  jstack [-l][-e] <pid> (to connect to running process)
+  jstack [-l][-e] <pid>
+      (to connect to running process)
 
 
 POSITIONALS (1) ────────────────────────────────────────────────────────────

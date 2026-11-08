@@ -116,6 +116,29 @@ pub(super) fn is_mixed_case_word(name: &str) -> bool {
     name.chars().all(|c| c.is_ascii_alphabetic())
         && name.starts_with(|c: char| c.is_ascii_lowercase())
         && name.chars().any(|c| c.is_ascii_uppercase())
+        || is_sized_word(name)
+        || is_unit_word(name)
+}
+
+/// `KB`, `M`: one to three capitals, a unit suffix in a table that follows
+/// its flag's own value placeholder. S-271.
+fn is_unit_word(name: &str) -> bool {
+    (1..=3).contains(&name.len()) && name.chars().all(|c| c.is_ascii_uppercase())
+}
+
+/// `d[SIZE]`: lowercase letters, then an all-caps placeholder in brackets.
+/// The row names a value that takes an argument. S-271.
+fn is_sized_word(name: &str) -> bool {
+    let Some((word, rest)) = name.split_once('[') else {
+        return false;
+    };
+    let Some(arg) = rest.strip_suffix(']') else {
+        return false;
+    };
+    !word.is_empty()
+        && word.chars().all(|c| c.is_ascii_lowercase())
+        && !arg.is_empty()
+        && arg.chars().all(|c| c.is_ascii_uppercase())
 }
 
 /// A row name only a proven owner may take: `no-CATEGORY`, `'Autoconf'` or

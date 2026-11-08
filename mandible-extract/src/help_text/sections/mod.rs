@@ -91,6 +91,7 @@ mod usage_flag_alternation;
 mod usage_flag_forms;
 mod usage_form_prose;
 mod usage_numbered_caps;
+mod usage_or_form;
 mod usage_optional_word;
 mod usage_signs;
 mod usage_tab_table;
@@ -909,7 +910,11 @@ fn scan_usage_section(
                 starts_with_tool_name(trimmed_start, name)
                     || starts_with_tool_name_spelled_differently(trimmed_start, name)
             }) || repeats_first_form_program_word(trimmed_start, usage_entries.first(), tool_name);
-        let starts_new_entry = is_marker || is_own_name || force_new_entry_after_separator;
+        let starts_new_entry = is_marker
+            || is_own_name
+            || force_new_entry_after_separator
+            || usage_or_form::is_or_word_form(trimmed_start, tool_name)
+            || usage_or_form::is_form_note(trimmed_start);
         force_new_entry_after_separator = false;
         if starts_new_entry {
             hang_col = tool_name.and_then(|n| hanging_column(l, n));

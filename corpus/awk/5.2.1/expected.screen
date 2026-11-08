@@ -3,6 +3,16 @@ DESCRIPTION ──────────────────────�
 POSIX options: GNU long options: (standard) Short options: GNU long options:
 (extensions)
 
+To report bugs, use the `gawkbug' program. For full instructions, see the
+node `Bugs' in `gawk.info' which is section `Reporting Problems and Bugs' in
+the printed version. This same information may be found at
+https://www.gnu.org/software/gawk/manual/html_node/Bugs.html. PLEASE do NOT
+try to report bugs by posting in comp.lang.awk, or by using a web forum such
+as Stack Overflow.
+
+gawk is a pattern scanning and processing language. By default it reads
+standard input and writes standard output.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   awk [POSIX or GNU style options] -f progfile [--] file ...

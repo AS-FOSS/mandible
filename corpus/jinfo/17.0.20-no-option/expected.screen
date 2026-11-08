@@ -4,7 +4,8 @@ With no option: to print both VM flags and system properties
 
 
 USAGE ──────────────────────────────────────────────────────────────────────
-  jinfo <option> <pid> (to connect to a running process)
+  jinfo <option> <pid>
+     (to connect to a running process)
 
 
 POSITIONALS (1) ────────────────────────────────────────────────────────────

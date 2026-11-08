@@ -1,6 +1,7 @@
 name: jstack
 usage:
-- '    jstack [-l][-e] <pid> (to connect to running process)'
+- '    jstack [-l][-e] <pid>'
+- '        (to connect to running process)'
 positionals:
 - name: pid
   required: true
