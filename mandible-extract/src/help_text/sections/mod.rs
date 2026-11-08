@@ -1943,6 +1943,20 @@ struct BodyScan<'a> {
 }
 
 impl BodyScan<'_> {
+    /// True while `lines[i]` sits inside an obscured ignorable fence; the
+    /// fence closes where it reopens. See docs/shapes.md S-071.
+    fn line_is_fenced(&mut self, lines: &[&str], i: usize) -> bool {
+        let Some((marker_indent, prior_ignorable)) = self.obscured_ignorable_indent else {
+            return false;
+        };
+        if !obscured_fence_reopens(lines, i, marker_indent) {
+            return true;
+        }
+        self.obscured_ignorable_indent = None;
+        self.in_ignorable_section = prior_ignorable;
+        false
+    }
+
     /// The group a flag row resuming at its block's own indent keeps; lines
     /// nested deeper leave it pending. See docs/shapes.md S-188.
     fn take_resume_group(&mut self, line: &str) -> Option<String> {
@@ -2038,24 +2052,14 @@ fn scan_entries(
             i += 1;
             continue;
         }
-        if let Some((marker_indent, prior_ignorable)) = st.obscured_ignorable_indent {
-            if obscured_fence_reopens(lines, i, marker_indent) {
-                st.obscured_ignorable_indent = None;
-                st.in_ignorable_section = prior_ignorable;
-            } else {
-                i += 1;
-                continue;
-            }
-        }
-        if let Some(end) = take_no_option_row(lines, i, st.result, st.in_ignorable_section) {
-            i = end;
+        if st.line_is_fenced(lines, i) {
+            i += 1;
             continue;
         }
-        if let Some(form) = tool_name
-            .and_then(|tool| later_usage_form::later_usage_form(lines, i, tool, &st.result.usage))
+        if let Some(end) = take_no_option_row(lines, i, st.result, st.in_ignorable_section)
+            .or_else(|| later_usage_form::take(lines, i, tool_name, st.result))
         {
-            st.result.usage.push(form);
-            i += 1;
+            i = end;
             continue;
         }
         // A label that named no rows of its own, set one line ago by

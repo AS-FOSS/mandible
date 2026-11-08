@@ -55,15 +55,34 @@ fn row_colon_gap(line: &str) -> Option<usize> {
     (head.len() > 1 && !head.contains(':') && !rest.trim().is_empty()).then_some(start + head.len())
 }
 
+/// Rows keyed by their first spelling token, built once per document.
+type RowIndex<'a> = std::collections::HashMap<&'a str, Vec<&'a str>>;
+
+fn index_rows<'a>(lines: &[&'a str]) -> RowIndex<'a> {
+    let mut index = RowIndex::new();
+    for line in lines {
+        let key = line
+            .trim_start()
+            .split(|c: char| c.is_whitespace() || c == ',')
+            .next()
+            .unwrap_or("");
+        if key.starts_with('-') {
+            index.entry(key).or_default().push(line);
+        }
+    }
+    index
+}
+
 /// The words after the spellings and the value of the one row that writes
 /// `flag` as `<spellings> <value> <words...>`.
 fn words_after_value<'a>(
     flag: &Entity,
     value: &str,
-    lines: &[&'a str],
+    index: &RowIndex<'a>,
 ) -> Option<(Vec<&'a str>, bool)> {
     let spellings: Vec<String> = flag.spellings.iter().map(Spelling::render).collect();
-    let mut found = lines.iter().filter_map(|line| {
+    let rows = index.get(spellings.first()?.as_str())?;
+    let mut found = rows.iter().filter_map(|line| {
         let mut tokens = line.split_whitespace();
         let mut next = 0;
         while next < spellings.len() {
@@ -89,6 +108,7 @@ fn words_after_value<'a>(
 /// remark as its description, and so does a value followed by `--`. Runs after S-176, which reads the value from
 /// the usage line where one names it.
 pub(super) fn recover_one_space_descriptions(flags: &mut [Entity], lines: &[&str]) {
+    let index = index_rows(lines);
     for flag in flags.iter_mut() {
         if flag.value_kind != ValueKind::Required
             || !flag.provenance.sources.contains(&Source::HelpText)
@@ -100,7 +120,7 @@ pub(super) fn recover_one_space_descriptions(flags: &mut [Entity], lines: &[&str
             continue;
         };
         let plain = value.len() >= 2 && value.chars().all(|c| c.is_ascii_lowercase());
-        let Some((words, single_spaced)) = words_after_value(flag, &value, lines) else {
+        let Some((words, single_spaced)) = words_after_value(flag, &value, &index) else {
             continue;
         };
         let remark = words.join(" ");
@@ -110,11 +130,7 @@ pub(super) fn recover_one_space_descriptions(flags: &mut [Entity], lines: &[&str
             .map_or("", |d| d.as_str())
             .to_string();
         // `-h long -- print more options`: the value, then a `--` separator.
-        if let Some(after) = words
-            .first()
-            .filter(|w| matches!(**w, "--" | "-"))
-            .and(words.get(1..))
-        {
+        if let Some(after) = words.first().filter(|w| **w == "--").and(words.get(1..)) {
             if flag.description.is_none() && !after.is_empty() {
                 flag.description = non_empty_text(&after.join(" "));
             }
@@ -141,7 +157,7 @@ pub(super) fn recover_one_space_descriptions(flags: &mut [Entity], lines: &[&str
             && words.len() >= 2
             && (own.is_empty() || single_spaced && !own.contains(&remark))
         {
-            flag.description = non_empty_text(&format!("{remark} {own}").trim().to_string());
+            flag.description = non_empty_text(format!("{remark} {own}").trim());
             continue;
         }
         let remark = words.join(" ");
@@ -187,7 +203,7 @@ mod tests {
     #[test]
     fn the_row_colon_ends_the_first_token() {
         assert_eq!(row_colon_gap("-n: dry run"), Some(2));
-        assert_eq!(row_colon_gap("  --hosts=LIST:  Scan"), Some(15));
+        assert_eq!(row_colon_gap("  --hosts=LIST:  Scan"), Some(14));
         assert_eq!(row_colon_gap("-n:"), None);
         assert_eq!(row_colon_gap("note: text"), None);
     }

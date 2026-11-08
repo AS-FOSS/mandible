@@ -22,3 +22,15 @@ pub(super) fn later_usage_form(
     let next = lines.get(i + 1)?.trim_start();
     next.starts_with('-').then(|| t.to_string())
 }
+
+/// Records the form and returns the index past it.
+pub(super) fn take(
+    lines: &[&str],
+    i: usize,
+    tool: Option<&str>,
+    result: &mut ParsedHelp,
+) -> Option<usize> {
+    let form = later_usage_form(lines, i, tool?, &result.usage)?;
+    result.usage.push(form);
+    Some(i + 1)
+}

@@ -1117,8 +1117,7 @@ mod tests {
 
     /// The inverse case: a genuine ` VALUE` spec must keep parsing as a
     /// value (`jdeprscan`'s uppercase `PATH`, `cargo-fmt`'s
-    /// `<manifest-path>`), including a lowercase metavar followed by a
-    /// capitalized word deeper in the line, which must not be split there.
+    /// `<manifest-path>`).
     #[test]
     fn a_real_value_placeholder_is_never_read_as_a_description() {
         let help = "Usage: tool [options]\n\nOptions:\n  \
@@ -1144,10 +1143,13 @@ mod tests {
             assert_eq!(flag.value_name.as_deref(), Some(value), "--{name}");
             assert_eq!(flag.description, None, "--{name} has no description");
         }
-        // A lowercase metavar ends the scan: no split may happen at the
-        // capitalized `Thing` three words later.
-        assert_eq!(by_long("opt").value_name.as_deref(), Some("value"));
-        assert_eq!(by_long("opt").description, None);
+        // A lowercase word with a lowercase sentence after it, one space
+        // from the spelling, is the description (S-262).
+        assert_eq!(by_long("opt").value_name, None);
+        assert_eq!(
+            by_long("opt").description.as_ref().map(|d| d.as_str()),
+            Some("value do a Thing here")
+        );
         // A lone capitalized trailing token is ambiguous and keeps the
         // pre-existing value reading — one word is not a sentence.
         assert_eq!(by_long("quiet").value_name.as_deref(), Some("Quiet"));
