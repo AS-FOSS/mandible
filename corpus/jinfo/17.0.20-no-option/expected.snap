@@ -1,7 +1,8 @@
 name: jinfo
 description: 'With no option: to print both VM flags and system properties'
 usage:
-- '    jinfo <option> <pid> (to connect to a running process)'
+- '    jinfo <option> <pid>'
+- '       (to connect to a running process)'
 positionals:
 - name: pid
   required: true

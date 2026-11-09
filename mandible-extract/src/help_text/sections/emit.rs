@@ -898,6 +898,8 @@ pub(super) fn emit_choices(
     let mut seen = 0usize;
     let mut clean = 0usize;
     let mut candidates: Vec<(String, Option<String>)> = Vec::new();
+    let owner = find_owning_flag_index(heading, &out.flags);
+    let every_row_named = owner.is_some() && super::plural_owner::every_row_a_value(&entries);
     for (spec_text, desc_text) in &entries {
         if candidates.len() >= MAX_RECOVERED_ENTRIES {
             break;
@@ -916,7 +918,7 @@ pub(super) fn emit_choices(
                 continue;
             }
             seen += 1;
-            if super::plural_owner::is_owned_only_name(name) {
+            if super::plural_owner::is_owned_row_name(name, every_row_named) {
                 candidates.push((name.to_string(), desc.clone()));
                 continue;
             }
@@ -931,14 +933,11 @@ pub(super) fn emit_choices(
     if candidates.is_empty() {
         return (seen, clean);
     }
-    let owner = find_owning_flag_index(heading, &out.flags);
     let before = candidates.len();
     let quoted_kept = candidates
         .iter()
         .filter(|(n, _)| {
-            owner.is_some()
-                && (super::plural_owner::is_quoted_word(n)
-                    || super::plural_owner::is_mixed_case_word(n))
+            owner.is_some() && super::plural_owner::is_kept_owned_row(n, every_row_named)
         })
         .count();
     candidates = super::plural_owner::keep_owned_placeholders(candidates, owner, out);

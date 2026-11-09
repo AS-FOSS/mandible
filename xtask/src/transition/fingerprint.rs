@@ -30,6 +30,15 @@ pub struct ParsedFlagFingerprint {
 pub struct ParsedFingerprint {
     pub flags: BTreeMap<String, ParsedFlagFingerprint>,
     pub subcommands: std::collections::BTreeSet<String>,
+    /// Root description and usage hashes; `None` when the scoreboard predates them.
+    pub root: Option<ParsedRoot>,
+}
+
+/// The root node's description and usage hashes (`None` inside: the tool has none).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParsedRoot {
+    pub description_hash: Option<u64>,
+    pub usage_hash: Option<u64>,
 }
 
 /// The fingerprint [`diff`] substitutes for a matched tool's missing side
@@ -46,6 +55,7 @@ pub struct ParsedFingerprint {
 pub(super) static EMPTY_FINGERPRINT: ParsedFingerprint = ParsedFingerprint {
     flags: BTreeMap::new(),
     subcommands: std::collections::BTreeSet::new(),
+    root: None,
 };
 
 /// Parse one `#fp <tool>\t<subs>\t<flags>` line's content (the part after
@@ -54,12 +64,27 @@ pub(super) static EMPTY_FINGERPRINT: ParsedFingerprint = ParsedFingerprint {
 /// never panicked on, since a `#fp` line only ever exists on a scoreboard
 /// this binary itself wrote.
 pub(super) fn parse_fingerprint_line(rest: &str) -> Option<(String, ParsedFingerprint)> {
-    let mut top = rest.splitn(3, FP_FIELD_SEP);
+    let mut top = rest.splitn(4, FP_FIELD_SEP);
     let tool = fp_unescape(top.next()?);
     let subs_s = top.next().unwrap_or("");
     let flags_s = top.next().unwrap_or("");
+    let root_s = top.next();
 
-    let mut fp = ParsedFingerprint::default();
+    let root = root_s.and_then(|r| {
+        let (d, u) = r.split_once('/')?;
+        let hash = |h: &str| match h {
+            "-" => Some(None),
+            h => u64::from_str_radix(h, 16).ok().map(Some),
+        };
+        Some(ParsedRoot {
+            description_hash: hash(d)?,
+            usage_hash: hash(u)?,
+        })
+    });
+    let mut fp = ParsedFingerprint {
+        root,
+        ..Default::default()
+    };
     if !subs_s.is_empty() {
         for s in subs_s.split(',') {
             if !s.is_empty() {

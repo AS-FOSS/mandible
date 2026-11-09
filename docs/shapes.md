@@ -6075,3 +6075,40 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: java
 - handling: Fixed. The bracket is the flag's choices and draws `:[{…}]`. A bracket holding placeholders (`-ea[:<packagename>...|:<classname>]`) is unchanged. Fixture: `corpus/java/audit-seed`.
 - fleet: same sweep: only java changed (`-verbose` carries four choices).
+### S-266: sentence spacing in prose under the usage block
+
+- id: S-266
+- looks like: |
+      Write an unambiguous representation, octal bytes by default,
+      of FILE to standard output.  With more than one FILE argument,
+      concatenate them in the listed order to form the input.
+- tools: od, autom4te, nano, awk, dmstats, mysqld_multi
+- handling: Fixed. Two spaces after a full stop, `?` or `!` (optionally closed by `)` or a quote) and before a capital letter are sentence spacing, not a column gap, so the paragraph stays the root description. Any other run of two spaces still ends the prose. Fixtures: `corpus/od/9.4`, `corpus/autom4te/2.71`, `corpus/nano/7.2`.
+- fleet: see the changed tools in the sweep-diff of this change.
+
+### S-267: table rows named with a size placeholder or a unit
+
+- id: S-267
+- looks like: |
+      TYPE is made up of one or more of these specifications:
+        a          named character, ignoring high-order bit
+        d[SIZE]    signed decimal, SIZE bytes per integer
+      BYTES is hex with 0x or 0X prefix, and may have a multiplier suffix:
+        b    512
+        KB   1000
+        K    1024
+- tools: od
+- handling: Fixed. In a table whose heading names a flag's value placeholder, a row named by lowercase letters with an all-caps bracketed placeholder (`d[SIZE]`) or by one to three capitals (`KB`, `M`) is a value of that flag, as `pBRE` rows already are, when every row of the table is a value; a table with other rows (`K/N`, `DMA32`) keeps none of them. Before, only the rows named by plain lowercase words were kept, so `TYPE` listed two of seven values and `BYTES` one of five. Fixture: `corpus/od/9.4`.
+- fleet: see the changed tools in the sweep-diff of this change.
+
+### S-268: usage forms opened by a bare `or`, and parenthesised notes
+
+- id: S-268
+- looks like: |
+      Usage: java [options] <mainclass> [args...]
+                 (to execute a class)
+         or  java [options] -jar <jarfile> [args...]
+                 (to execute a jar file)
+- tools: java, jinfo, jstack
+- handling: Fixed. A line that opens with the word `or` and then the tool's own name starts a usage form of its own. A line wholly in parentheses is a note on the form above it: it is stored as its own entry and drawn as written, without the program word. Fixtures: `corpus/java/audit-seed`, `corpus/jinfo/17.0.20`, `corpus/jstack/17`.
+- fleet: see the changed tools in the sweep-diff of this change.

@@ -94,6 +94,7 @@ mod usage_flag_forms;
 mod usage_form_prose;
 mod usage_numbered_caps;
 mod usage_optional_word;
+mod usage_or_form;
 mod usage_signs;
 mod usage_tab_table;
 mod usage_two_letter_group;
@@ -904,8 +905,7 @@ fn scan_usage_section(
             i += 1;
             continue;
         }
-        let is_marker =
-            starts_with_usage_prefix(trimmed_start) || starts_with_or_marker(trimmed_start);
+        let is_marker = usage_or_form::is_form_marker(lines, i, tool_name);
         let is_own_name =
             tool_name.is_some_and(|name| {
                 starts_with_tool_name(trimmed_start, name)

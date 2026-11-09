@@ -118,10 +118,63 @@ pub(super) fn is_mixed_case_word(name: &str) -> bool {
         && name.chars().any(|c| c.is_ascii_uppercase())
 }
 
+/// True when every row name of a table is a command-shaped word or an
+/// owned-only or extended name, so the table is a value list. S-267.
+pub(super) fn every_row_a_value(entries: &[(&str, String)]) -> bool {
+    entries
+        .iter()
+        .flat_map(|(spec, _)| spec.split(','))
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .all(|n| {
+            mandible_core::is_command_name_shaped(n) || is_owned_only_name(n) || is_extended_word(n)
+        })
+}
+
+/// A row name only a table whose every row is a value may use: `d[SIZE]`
+/// or `KB`. A table that mixes in other rows (`K/N`, `DMA32`) is not a
+/// value list, so these names stay out of it. S-267.
+pub(super) fn is_extended_word(name: &str) -> bool {
+    is_sized_word(name) || is_unit_word(name)
+}
+
+/// `KB`, `M`: one to three capitals, a unit suffix in a table that follows
+/// its flag's own value placeholder. S-267.
+fn is_unit_word(name: &str) -> bool {
+    (1..=3).contains(&name.len()) && name.chars().all(|c| c.is_ascii_uppercase())
+}
+
+/// `d[SIZE]`: lowercase letters, then an all-caps placeholder in brackets.
+/// The row names a value that takes an argument. S-267.
+fn is_sized_word(name: &str) -> bool {
+    let Some((word, rest)) = name.split_once('[') else {
+        return false;
+    };
+    let Some(arg) = rest.strip_suffix(']') else {
+        return false;
+    };
+    !word.is_empty()
+        && word.chars().all(|c| c.is_ascii_lowercase())
+        && !arg.is_empty()
+        && arg.chars().all(|c| c.is_ascii_uppercase())
+}
+
 /// A row name only a proven owner may take: `no-CATEGORY`, `'Autoconf'` or
 /// `pBRE`.
 pub(super) fn is_owned_only_name(name: &str) -> bool {
     is_prefixed_placeholder(name) || is_quoted_word(name) || is_mixed_case_word(name)
+}
+
+/// [`is_owned_only_name`], or an extended name in a table whose every row is
+/// a value.
+pub(super) fn is_owned_row_name(name: &str, every_row_named: bool) -> bool {
+    is_owned_only_name(name) || (every_row_named && is_extended_word(name))
+}
+
+/// A row a proven owner keeps after placeholder filtering: a quoted or
+/// mixed-case word, or an extended name in a table whose every row is a value.
+pub(super) fn is_kept_owned_row(name: &str, every_row_named: bool) -> bool {
+    is_quoted_word(name) || is_mixed_case_word(name) || (every_row_named && is_extended_word(name))
 }
 
 /// Drops the `prefix-PLACEHOLDER` rows whose placeholder is not the proven

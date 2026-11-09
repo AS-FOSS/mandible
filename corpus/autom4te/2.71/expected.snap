@@ -1,4 +1,8 @@
 name: autom4te
+description: |-
+  Run GNU M4 on the FILES, avoiding useless runs. Output the traces if tracing, the frozen file if freezing, otherwise the expansion of the FILES.
+
+  If some of the FILES are named 'FILE.m4f' they are considered to be M4 frozen files of all the previous files (which are therefore not loaded). If 'FILE.m4f' is not found, then 'FILE.m4' will be used, together with all the previous files.
 usage:
 - 'Usage: /usr/bin/autom4te [OPTION]... [FILES]'
 positionals:

@@ -481,6 +481,7 @@ mod tests {
                 m
             },
             subcommands: Default::default(),
+            root: None,
         };
 
         let before = scoreboard_with_fp(vec![("pngfix", "ok", 3, 20)], vec![("pngfix", before_fp)]);
@@ -804,6 +805,25 @@ mod tests {
             diff::field_diff("t", &s, &g, None, None).join_changed,
             vec![id]
         );
+    }
+
+    /// The root description and usage hashes ride on a fourth field; a line
+    /// without it reads as unmeasured, and only two measured sides can differ.
+    #[test]
+    fn root_description_and_usage_are_compared_only_when_both_sides_have_them() {
+        let old = "t\t\t(root)::Flag::-z=1:aa:-:N";
+        let a = "t\t\t(root)::Flag::-z=1:aa:-:N\t1f/2e";
+        let b = "t\t\t(root)::Flag::-z=1:aa:-:N\t1f/3e";
+        let c = "t\t\t(root)::Flag::-z=1:aa:-:N\t-/2e";
+        let p = |l| parse_fingerprint_line(l).unwrap().1;
+        let (o, a, b, c) = (p(old), p(a), p(b), p(c));
+        assert!(o.root.is_none());
+        let none = diff::field_diff("t", &o, &a, None, None);
+        assert!(!none.root_description_changed && !none.usage_changed);
+        let u = diff::field_diff("t", &a, &b, None, None);
+        assert!(!u.root_description_changed && u.usage_changed);
+        let d = diff::field_diff("t", &a, &c, None, None);
+        assert!(d.root_description_changed && !d.usage_changed);
     }
 
     /// A tier or framework change on an otherwise field-identical tool is

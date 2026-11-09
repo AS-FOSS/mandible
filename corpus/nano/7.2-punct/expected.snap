@@ -1,4 +1,5 @@
 name: nano
+description: To place the cursor on a specific line of a file, put the line number with a '+' before the filename. The column number can be added after a comma. When a filename is '-', nano reads data from standard input.
 usage:
 - 'Usage: nano [OPTIONS] [[+LINE[,COLUMN]] FILE]...'
 positionals:

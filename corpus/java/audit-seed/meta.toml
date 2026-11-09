@@ -35,6 +35,17 @@ must_draw = [
   "@argument files",
 ]
 
+must_not_contain_usage_text = ["or java", "(to execute a class) or", "(to execute a jar file) or"]
+
+[contract.must_contain_usage_by_path]
+"" = [
+  "java [options] <mainclass> [args...]",
+  "java [options] -jar <jarfile> [args...]",
+  "java [options] -m <module>[/<mainclass>] [args...]",
+  "java [options] --module <module>[/<mainclass>] [args...]",
+  "java [options] <sourcefile> [args]",
+]
+
 [contract.must_value_name]
 "-D" = "<name>=<value>"
 "-splash" = ":<imagepath>"
