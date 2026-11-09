@@ -14,7 +14,18 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
+must_draw = ["-b blocksize (fundamental filesystem blocksize)", "-v prints more verbose messages"]
 must_contain_flags = ["-v", "-V", "-h"]
 
 [contract.must_not_value_name]
 "-v" = "prints more verbose messages"
+
+[contract.must_describe]
+"-b" = "(fundamental filesystem blocksize)"
+"-v" = "prints more verbose messages"
+"-h" = "prints this usage message"
+
+[contract.must_value_name]
+"-b" = "blocksize"
+"-i" = "logsize"
+"-e" = "logsize"

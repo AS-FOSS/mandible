@@ -206,7 +206,7 @@ flags:
   - --pattern
   value_name: pattern
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Start at pattern (from command line).
   provenance:
     sources:
@@ -216,7 +216,7 @@ flags:
   - --prompt
   value_name: prompt
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Define new prompt.
   provenance:
     sources:

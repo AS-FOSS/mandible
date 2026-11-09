@@ -13,4 +13,4 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (1) ──────────────────────────────────────────────────────────────────
--V, --version display
+-V, --version  display version information

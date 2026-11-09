@@ -4,6 +4,7 @@
 
 use super::grammar::FlagSpec;
 use mandible_core::{Dashes, Entity, OptionalJoin, Spelling, SpellingRange};
+use std::borrow::Cow;
 
 /// How an optional value spelled `value` joins the flag whose spelling
 /// ends where `after_spellings` begins: `[=V]` and `=[V]` are `=` inside
@@ -19,6 +20,68 @@ pub(super) fn optional_join_of(after_spellings: &str, value: &str) -> OptionalJo
     } else {
         OptionalJoin::Separate
     }
+}
+
+/// The spelling run of a row as its alias list: the row colon after it is
+/// dropped, and `--sync/nosync` reads as `--sync, --nosync`. S-263.
+pub(super) fn end_row_spelling(spec: &str) -> Cow<'_, str> {
+    let spec = spec
+        .strip_suffix(':')
+        .filter(|s| !s.is_empty() && !s.contains(':'))
+        .unwrap_or(spec);
+    if let Some(bare) = short_with_repeated_value(spec) {
+        return Cow::Owned(bare);
+    }
+    let Some(long) = spec.strip_prefix("--") else {
+        return Cow::Borrowed(spec);
+    };
+    let name_len = long
+        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-'))
+        .unwrap_or(long.len());
+    let after = &long[name_len..];
+    let word_len = after.strip_prefix('/').map(|w| {
+        w.find(|c: char| !c.is_ascii_alphanumeric())
+            .unwrap_or(w.len())
+    });
+    match word_len {
+        Some(n) if name_len > 0 && n > 0 && !after[1 + n..].starts_with(['-', '/']) => {
+            Cow::Owned(format!(
+                "--{}, --{}{}",
+                &long[..name_len],
+                &after[1..=n],
+                &after[1 + n..]
+            ))
+        }
+        _ => Cow::Borrowed(spec),
+    }
+}
+
+/// `-d[n], --debug=[n]` as `-d, --debug=[n]`: the short's glued optional
+/// value repeats the long's own `=[n]`, which carries it. S-264.
+fn short_with_repeated_value(spec: &str) -> Option<String> {
+    let rest = spec.strip_prefix('-').filter(|r| !r.starts_with('-'))?;
+    let mut chars = rest.chars();
+    let letter = chars.next().filter(char::is_ascii_alphanumeric)?;
+    let group = chars.as_str().strip_prefix('[')?;
+    let (word, after) = group.split_once(']')?;
+    let long = after.strip_prefix(',')?.trim_start();
+    let valid = !word.is_empty() && word.chars().all(|c| c.is_ascii_alphanumeric());
+    (valid && long.starts_with("--") && long.contains(&format!("=[{word}]")))
+        .then(|| format!("-{letter}, {long}"))
+}
+
+/// `:[class|module|gc|jni]`: a colon-glued bracket of plain words is the
+/// row's choices, drawn `:[{…}]`. Placeholders (`:<name>`) never match. S-265.
+pub(crate) fn colon_bracket_choices(value_name: &str) -> Option<Vec<String>> {
+    let inner = value_name.strip_prefix(":[")?.strip_suffix(']')?;
+    let members: Vec<&str> = inner.split('|').collect();
+    let plain = |m: &str| {
+        m.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+            && m.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    };
+    (members.len() >= 2 && members.iter().all(|m| plain(m)))
+        .then(|| members.into_iter().map(str::to_string).collect())
 }
 
 /// A required value written straight onto its flag (`-Z<type>`, `-z#`,

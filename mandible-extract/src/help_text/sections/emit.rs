@@ -292,6 +292,7 @@ pub(super) fn emit_flags_with(
         }
         let mut description = desc_text;
         super::multiword_value_row::repair_row_spec(&mut spec, &spec_text, &description);
+        super::one_space_row::strip_repeated_value(&spec, &spec_text, &mut description);
         if let Some(broken) = spec.value_name.clone() {
             // A paren-delimited alternation of literal values
             // (`--compression=(xz|none|auto)`, S-155) reads as `xz|none|auto`
@@ -386,7 +387,14 @@ fn push_flag_entity(
     // `[possible values: …]` outranks a bare reading of the
     // placeholder text.
     if flag.choices.is_empty() {
-        if let Some(value_name) = flag.value_name.as_deref() {
+        if let Some(members) = flag
+            .value_name
+            .as_deref()
+            .and_then(crate::help_text::spec_parts::colon_bracket_choices)
+        {
+            flag.choices = members.into_iter().map(Choice::bare).collect();
+            flag.value_name = Some(":[{…}]".to_string());
+        } else if let Some(value_name) = flag.value_name.as_deref() {
             if let Some(members) = alternation_choices(value_name, is_argparse) {
                 flag.choices = members.into_iter().map(Choice::bare).collect();
                 // S-130: the choices came from the placeholder text

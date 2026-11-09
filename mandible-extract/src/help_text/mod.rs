@@ -25,7 +25,7 @@ mod not_a_command;
 mod profile;
 mod raw_kept;
 mod sections;
-mod spec_parts;
+pub(crate) mod spec_parts;
 
 /// Re-exported for the coverage harness (spec §13.1, M-16): lets `xtask`
 /// ask whether a root's captured `--help` was a rendered man page without a

@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [S-262] A flag row whose description follows its spelling after one space (`lvmdump -h print this message`, `xfs_estimate -v prints more verbose messages`, `rescan-scsi-bus.sh -I SECS issue a ...`) shows the sentence as its description instead of taking its first word as a value; `ffmpeg -h long -- print more options` and `tar --ignore-command-error` keep their text.
+- [S-263] A colon after a row's spelling is no longer read as a value (`ssh-copy-id -n:`, `rescan-scsi-bus.sh --alltargets:`), `--sync/nosync` reads as `--sync, --nosync`, and the description of `rescan-scsi-bus.sh` no longer repeats its flag rows.
+- [S-264] `ucf` and `lcf` show `-d, --debug=[n]`, `-s, --src-dir foo` and `--state-dir bar` with their full descriptions, `ucf -p destination` as a second usage form, and `-p, --purge` as one flag; `less` draws `--pattern=[pattern]` as written.
+- [S-265] `java -verbose:[class|module|gc|jni]` lists class, module, gc and jni as its values.
 - [S-266] `od`, `nano` and `autom4te` show their description: two spaces after a full stop no longer read as a column gap that drops the paragraph.
 - [S-267] `od -t` lists all seven format specifications (`d[SIZE]`, `f[SIZE]` and the rest), and `-j`, `-N`, `-S` and `-w` list the whole `b`, `KB`, `K`, `MB`, `M` multiplier table instead of its first row.
 - [S-268] `java` shows its five usage forms, each `(to execute ...)` note on its own line under its form; `jinfo` and `jstack` draw their note the same way.

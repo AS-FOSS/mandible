@@ -6,6 +6,7 @@ flags:
   - -b
   value_name: blocksize
   value_kind: Required
+  description: (fundamental filesystem blocksize)
   provenance:
     sources:
     - help-text
@@ -13,6 +14,7 @@ flags:
   - -i
   value_name: logsize
   value_kind: Required
+  description: (internal log size)
   provenance:
     sources:
     - help-text
@@ -20,27 +22,25 @@ flags:
   - -e
   value_name: logsize
   value_kind: Required
+  description: (external log size)
   provenance:
     sources:
     - help-text
 - spellings:
   - -v
-  value_name: prints
-  value_kind: Required
+  description: prints more verbose messages
   provenance:
     sources:
     - help-text
 - spellings:
   - -V
-  value_name: prints
-  value_kind: Required
+  description: prints version and exits
   provenance:
     sources:
     - help-text
 - spellings:
   - -h
-  value_name: prints
-  value_kind: Required
+  description: prints this usage message
   provenance:
     sources:
     - help-text

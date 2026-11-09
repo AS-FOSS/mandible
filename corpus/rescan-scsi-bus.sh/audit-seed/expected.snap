@@ -1,0 +1,271 @@
+name: rescan-scsi-bus.sh
+description: 'Host numbers may thus be specified either directly on cmd line (deprecated) or with the --hosts=LIST parameter (recommended). LIST: A[-B][,C[-D]]... is a comma separated list of single values and ranges (No spaces allowed.)'
+usage:
+- 'Usage: rescan-scsi-bus.sh [options] [host [host ...]]'
+positionals:
+- name: host
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -a
+  description: 'scan all targets, not just currently existing [default: disabled]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  description: 'enables scanning of channels 0 1 [default: 0 / all detected ones]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  description: 'enable debug [default: 0]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  description: 'flush failed multipath devices [default: disabled]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  description: 'help: print this usage message then exit'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  description: 'issue a FibreChannel LIP reset [default: disabled]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  value_name: SECS
+  value_kind: Required
+  description: 'issue a FibreChannel LIP reset and wait for SECS seconds [default: disabled]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  description: 'activates scanning for LUNs 0--7 [default: 0]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  value_name: NUM
+  value_kind: Required
+  description: 'activates scanning for LUNs 0--NUM [default: 0]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  description: 'update multipath devices [default: disabled]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  description: 'enables removing of devices [default: disabled]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  description: look for resized disks and reload associated multipath devices, if applicable
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  description: look for existing disks that have been remapped
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  description: print version date then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  description: 'scan for target device IDs 0--15 [default: 0--7]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --alltargets
+  description: same as -a
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --attachpq3
+  description: Tell kernel to attach sg to LUN 0 that reports PQ=3
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --channels
+  value_name: LIST
+  value_kind: Required
+  description: Scan only channel(s) in LIST
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --color
+  description: use coloured prefixes OLD/NEW/DEL
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --flush
+  description: same as -f
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --forceremove
+  description: Remove stale devices (DANGEROUS)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --forcerescan
+  description: Remove and readd existing devices (DANGEROUS)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: print this usage message then exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --hosts
+  value_name: LIST
+  value_kind: Required
+  description: Scan only host(s) in LIST
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ids
+  value_name: LIST
+  value_kind: Required
+  description: Scan only target ID(s) in LIST
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ignore-rev
+  description: Ignore the revision change
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --issue-lip
+  description: same as -i
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --issue-lip-wait
+  value_name: SECS
+  value_kind: Required
+  description: same as -I
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --largelun
+  description: Tell kernel to support LUNs > 7 even on SCSI2 devs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --luns
+  value_name: LIST
+  value_kind: Required
+  description: Scan only lun(s) in LIST
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --multipath
+  description: same as -m
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --nooptscan
+  description: don't stop looking for LUNs if 0 is not found
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --remove
+  description: same as -r
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --reportlun2
+  description: Tell kernel to try REPORT_LUN even on SCSI2 devices
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --resize
+  description: same as -s
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sparselun
+  description: Tell kernel to support sparse LUN numbering
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sync
+  - --nosync
+  description: 'Issue a sync / no sync [default: sync if remove]'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --update
+  description: same as -u
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: same as -V
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --wide
+  description: same as -w
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

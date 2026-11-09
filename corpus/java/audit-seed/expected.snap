@@ -123,9 +123,14 @@ flags:
     - help-text
 - spellings:
   - -verbose
-  value_name: :[class|module|gc|jni]
+  value_name: :[{…}]
   value_kind: Required
   optional_join: glued
+  choices:
+  - class
+  - module
+  - gc
+  - jni
   group: 'where options include:'
   description: enable verbose output for the given subsystem
   provenance:

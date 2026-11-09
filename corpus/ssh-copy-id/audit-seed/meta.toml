@@ -1,0 +1,28 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ssh-copy-id"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["ssh-copy-id", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-f", "-n", "-s", "-x", "-h"]
+must_draw = ["-n dry run -- no keys are actually copied", "-x debug -- enables -x in this shell", "-f force mode -- copy keys without trying"]
+
+[contract.must_not_value_name]
+"-n" = ":"
+"-s" = ":"
+"-x" = ":"
+
+[contract.must_describe]
+"-n" = "dry run -- no keys are actually copied"
+"-s" = "use sftp -- use sftp instead of executing remote-commands. Can be useful if the remote only allows sftp"
+"-x" = "debug -- enables -x in this shell, for debugging"

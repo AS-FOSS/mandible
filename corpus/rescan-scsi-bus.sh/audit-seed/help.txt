@@ -1,0 +1,47 @@
+Usage: rescan-scsi-bus.sh [options] [host [host ...]]
+Options:
+ -a      scan all targets, not just currently existing [default: disabled]
+ -c      enables scanning of channels 0 1   [default: 0 / all detected ones]
+ -d      enable debug                       [default: 0]
+ -f      flush failed multipath devices     [default: disabled]
+ -h      help: print this usage message then exit
+ -i      issue a FibreChannel LIP reset     [default: disabled]
+ -I SECS issue a FibreChannel LIP reset and wait for SECS seconds [default: disabled]
+ -l      activates scanning for LUNs 0--7   [default: 0]
+ -L NUM  activates scanning for LUNs 0--NUM [default: 0]
+ -m      update multipath devices           [default: disabled]
+ -r      enables removing of devices        [default: disabled]
+ -s      look for resized disks and reload associated multipath devices, if applicable
+ -u      look for existing disks that have been remapped
+ -V      print version date then exit
+ -w      scan for target device IDs 0--15   [default: 0--7]
+--alltargets:    same as -a
+--attachpq3:     Tell kernel to attach sg to LUN 0 that reports PQ=3
+--channels=LIST: Scan only channel(s) in LIST
+--color:         use coloured prefixes OLD/NEW/DEL
+--flush:         same as -f
+--forceremove:   Remove stale devices (DANGEROUS)
+--forcerescan:   Remove and readd existing devices (DANGEROUS)
+--help:          print this usage message then exit
+--hosts=LIST:    Scan only host(s) in LIST
+--ids=LIST:      Scan only target ID(s) in LIST
+--ignore-rev:    Ignore the revision change
+--issue-lip:     same as -i
+--issue-lip-wait=SECS:     same as -I
+--largelun:      Tell kernel to support LUNs > 7 even on SCSI2 devs
+--luns=LIST:     Scan only lun(s) in LIST
+--multipath:     same as -m
+--nooptscan:     don't stop looking for LUNs if 0 is not found
+--remove:        same as -r
+--reportlun2:    Tell kernel to try REPORT_LUN even on SCSI2 devices
+--resize:        same as -s
+--sparselun:     Tell kernel to support sparse LUN numbering
+--sync/nosync:   Issue a sync / no sync [default: sync if remove]
+--update:        same as -u
+--version:       same as -V
+--wide:          same as -w
+
+Host numbers may thus be specified either directly on cmd line (deprecated)
+or with the --hosts=LIST parameter (recommended).
+LIST: A[-B][,C[-D]]... is a comma separated list of single values and ranges
+(No spaces allowed.)

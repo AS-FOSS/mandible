@@ -14,7 +14,11 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
+must_draw = ["-V, --version display version information"]
 must_contain_flags = ["-V", "--version"]
 
 [contract.must_not_value_name]
+"--version" = "display version information"
+
+[contract.must_describe]
 "--version" = "display version information"
