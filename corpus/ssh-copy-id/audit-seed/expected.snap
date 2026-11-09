@@ -1,0 +1,69 @@
+name: ssh-copy-id
+usage:
+- 'Usage: /usr/bin/ssh-copy-id [-h|-?|-f|-n|-s|-x] [-i [identity_file]] [-p port] [-F alternative ssh_config file] [-t target_path] [[-o <ssh -o options>] ...] [user@]hostname'
+flags:
+- spellings:
+  - -f
+  description: force mode -- copy keys without trying to check if they are already installed
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  description: dry run -- no keys are actually copied
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  description: use sftp -- use sftp instead of executing remote-commands. Can be useful if the remote only allows sftp
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  description: debug -- enables -x in this shell, for debugging
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - -?
+  description: print this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  value_name: identity_file
+  value_kind: Optional
+  optional_join: separate
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -p
+  value_name: port
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -F
+  value_name: alternative ssh_config file
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+- spellings:
+  - -t
+  value_name: target_path
+  value_kind: Required
+  provenance:
+    sources:
+    - help-text-synopsis
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

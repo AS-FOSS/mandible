@@ -53,6 +53,7 @@ mod heading;
 mod invocation_block;
 mod key_value_text;
 mod labelled_values;
+mod later_usage_form;
 mod layout;
 pub(crate) mod leading_operands;
 pub(crate) mod legend_rows;
@@ -60,6 +61,7 @@ mod multiword;
 mod multiword_value_row;
 mod nested_bracket_rows;
 mod no_option_row;
+mod one_space_row;
 mod operand_group;
 mod operand_rows;
 mod or_choice_fold;
@@ -1071,6 +1073,7 @@ fn extract_description(
             && !in_usage_block(j)
             && !looks_like_bnf_production_line(t)
             && !root_prose::is_bare_heading_word(lines, j)
+            && !one_space_row::is_colon_flag_row(t)
     };
     // `Options:` and its kin at either edge of the description label the
     // block they sit beside; they are not the description. S-249.
@@ -1940,6 +1943,20 @@ struct BodyScan<'a> {
 }
 
 impl BodyScan<'_> {
+    /// True while `lines[i]` sits inside an obscured ignorable fence; the
+    /// fence closes where it reopens. See docs/shapes.md S-071.
+    fn line_is_fenced(&mut self, lines: &[&str], i: usize) -> bool {
+        let Some((marker_indent, prior_ignorable)) = self.obscured_ignorable_indent else {
+            return false;
+        };
+        if !obscured_fence_reopens(lines, i, marker_indent) {
+            return true;
+        }
+        self.obscured_ignorable_indent = None;
+        self.in_ignorable_section = prior_ignorable;
+        false
+    }
+
     /// The group a flag row resuming at its block's own indent keeps; lines
     /// nested deeper leave it pending. See docs/shapes.md S-188.
     fn take_resume_group(&mut self, line: &str) -> Option<String> {
@@ -2035,16 +2052,13 @@ fn scan_entries(
             i += 1;
             continue;
         }
-        if let Some((marker_indent, prior_ignorable)) = st.obscured_ignorable_indent {
-            if obscured_fence_reopens(lines, i, marker_indent) {
-                st.obscured_ignorable_indent = None;
-                st.in_ignorable_section = prior_ignorable;
-            } else {
-                i += 1;
-                continue;
-            }
+        if st.line_is_fenced(lines, i) {
+            i += 1;
+            continue;
         }
-        if let Some(end) = take_no_option_row(lines, i, st.result, st.in_ignorable_section) {
+        if let Some(end) = take_no_option_row(lines, i, st.result, st.in_ignorable_section)
+            .or_else(|| later_usage_form::take(lines, i, tool_name, st.result))
+        {
             i = end;
             continue;
         }
@@ -2521,6 +2535,7 @@ fn parse_body(
     // an already-correct, already-described row rather than needing its
     // own exception. See docs/shapes.md S-176.
     recover_bare_word_first_description_word(&mut result.flags, &usage_lines, &lines);
+    one_space_row::recover_one_space_descriptions(&mut result.flags, &lines);
     // A `file - log file names` row describes the usage operand. See docs/shapes.md S-182.
     describe_positionals_from_name_rows(&mut result.positionals, &lines);
     fold_separator_row_into_operand(&mut result.flags, &mut result.positionals, &result.usage);

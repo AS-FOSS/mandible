@@ -1,0 +1,7 @@
+Illegal option --
+Usage: /usr/bin/ssh-copy-id [-h|-?|-f|-n|-s|-x] [-i [identity_file]] [-p port] [-F alternative ssh_config file] [-t target_path] [[-o <ssh -o options>] ...] [user@]hostname
+        -f: force mode -- copy keys without trying to check if they are already installed
+        -n: dry run    -- no keys are actually copied
+        -s: use sftp   -- use sftp instead of executing remote-commands. Can be useful if the remote only allows sftp
+        -x: debug      -- enables -x in this shell, for debugging
+        -h|-?: print this help

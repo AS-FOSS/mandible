@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [S-262] A flag row whose description follows its spelling after one space (`lvmdump -h print this message`, `xfs_estimate -v prints more verbose messages`, `rescan-scsi-bus.sh -I SECS issue a ...`) shows the sentence as its description instead of taking its first word as a value; `ffmpeg -h long -- print more options` and `tar --ignore-command-error` keep their text.
+- [S-263] A colon after a row's spelling is no longer read as a value (`ssh-copy-id -n:`, `rescan-scsi-bus.sh --alltargets:`), `--sync/nosync` reads as `--sync, --nosync`, and the description of `rescan-scsi-bus.sh` no longer repeats its flag rows.
+- [S-264] `ucf` and `lcf` show `-d, --debug=[n]`, `-s, --src-dir foo` and `--state-dir bar` with their full descriptions, `ucf -p destination` as a second usage form, and `-p, --purge` as one flag; `less` draws `--pattern=[pattern]` as written.
+- [S-265] `java -verbose:[class|module|gc|jni]` lists class, module, gc and jni as its values.
 - [S-258] `ip link help` and the pages like it: every form of a multi-form usage block belongs to its verb (including `add`, `delete`, `exec`, `route add`), wrapped form lines no longer become a command's description, and the page no longer lists the verbs' keyword placeholders as operands.
 - [S-258] `where NAME := text` legends describe their placeholder on `ip macsec` and `ip l2tp` (`:=` dropped, `{ none | default }` as values), `ip l2tp del tunnel` and `del session` are commands of `del`, `bridge fdb show` is a command of `bridge fdb`, a new dash word separates flags in `devlink`'s option production, `tc` reads `{ -cf | -conf } path` as one flag, and `genl` no longer lists `help` as an operand.
 - [S-253] A value written only as alternatives (`y|n`, `[none|zlib]`, `{auto|manual}`) shows as a muted `{…}` where its name would be, with the values listed once on the `values:` line, which sits on the flag's own row when it has no description, as in `vgchange --activate`, `ld --compress-debug-sections`, `sg_inq --block` and `apt-mark`'s first operand.

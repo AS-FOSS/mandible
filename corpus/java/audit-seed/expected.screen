@@ -60,8 +60,9 @@ Where options include ───────────────────�
     path.
 -D<name>=<value>
     set a system property
--verbose:[class|module|gc|jni]
+-verbose:[{…}]
     enable verbose output for the given subsystem
+      values: class, module, gc, jni
 -version
     print product version to the error stream and exit
 --version

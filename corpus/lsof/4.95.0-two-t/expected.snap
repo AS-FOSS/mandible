@@ -229,6 +229,7 @@ flags:
   value_name: f
   value_kind: Optional
   optional_join: separate
+  description: select fields; -F? for help
   provenance:
     sources:
     - help-text
