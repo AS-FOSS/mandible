@@ -6132,3 +6132,14 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: git
 - handling: Fixed. A flag that ends a bracketed alternation (`--quiet]`) takes no value from the word after it, so `<commit>` and `[<diff-options>]` are operands of the verb's page and drop off the parent, which lists only the placeholders its help explains. `git stash drop`, `pop`, `apply`, `save`, `git bundle verify` and `git remote prune` gain the operand their form names. Fixture: `corpus/git/2.43.0-stash`.
 - fleet: full-`PATH` sweep of 2271 tools, 2026-11-09: no root flag, subcommand or positional count changed. The sweep reads roots only, so the verb pages are covered by `corpus/git/2.43.0-stash` and the git fixtures (bundle verify, remote prune, stash drop, pop, apply, save gained their operand).
+
+### S-271: a verb named only in a usage form
+
+- id: S-271
+- looks like: |
+      usage: git stash list [<log-options>]
+         or: git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
+         or: git stash drop [-q | --quiet] [<stash>]
+- tools: git, ip, manifest
+- handling: Declined. A verb that appears only in a usage form is not heading-attested (design §6, the Tier B gate), so it is never probed; its page comes from the usage form alone, with the operands and flags that form names. Probing it was measured and refused. In mandible's scratch directory `git stash show --help` answers only `fatal: not a git repository`, so the page would still be empty. Verbs such a probe would reach act on `-h`: iproute2 reads it as an operand in `ip link set -h` and `ip link delete -h`, `ip mptcp monitor -h` runs until killed, `git bisect start` and `git bisect run` act on the repository, `manifest export -h` writes a file named `-h` and `manifest import -h` runs `sudo apt`.
+- fleet: not measured. The git answer was checked under containment on 2026-11-09.
