@@ -179,7 +179,7 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
 /// A run of two or more spaces inside the line that is not sentence
 /// spacing: two spaces after a full stop, `?` or `!` (optionally closed by
 /// `)` or a quote) before a capital letter are prose, not a column gap.
-/// `docs/shapes.md` S-262.
+/// `docs/shapes.md` S-266.
 fn has_column_gap(t: &str) -> bool {
     let b = t.trim().as_bytes();
     let mut i = 0;

@@ -2,7 +2,7 @@
 //! `or` word followed by the tool's name (`   or  java [options] -jar ...`),
 //! and a line wholly in parentheses that notes the form above it
 //! (`(to execute a jar file)`), only when the line above it is itself a form.
-//! `docs/shapes.md` S-264.
+//! `docs/shapes.md` S-268.
 
 use super::*;
 

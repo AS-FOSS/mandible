@@ -6030,9 +6030,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed, eight readings. (1) A required value that follows its last spelling with no space and opens with `<`, `#` or `:` is glued: `Entity::optional_join` is `Glued` and the page draws no space (`-Z<type>`, `-z#`, `+<cmd>`); the spelling it follows is drawn last (`-c, +<cmd>`). `<name>=<value>` is one value. `--buffers=[N]` records `EqualsThenBracket` and draws as written. (2) A lower-case word of three or more letters with a `:` straight after it is the spelling, and the `:` and what follows are its glued value (`-splash:<imagepath>`, `-verbose:[class|gc]`); a word of two or more letters with `[:` after it is the spelling with an optional glued value (`-ea[:<class>]`). (3) A lower-case run followed by a spaced `<value>` is the whole spelling, since a flag takes one value (`-cp <path>`). (4) After two shorts, a lower-case word of three or more letters is the next alias (`-? -h -help`). (5) An `@` between name characters is part of a long name (`--disable-@files`). (6) Spelling-only lines at one indent stacked above one deeper description are one alias run, as are `@argument files` over its description, read as the argfile row. (7) A prose line ending in a comma with a dash-led line at its indent after it is description, not a group label. (8) A `[!]` after the spellings is the `!` negation of S-254; the value words of a head wrapped onto two lines stay with the value when a ` : ` follows them, and a dash-and-angle placeholder row (`-<flag>`) under a commands heading is a key, not a flag. Those value words are never a sentence start: a continuation that opens with a capitalised word (`A : separated list`) is the description, and the ` : ` stays in it. A value of up to three extra words needs a description after it; a row with none keeps one extra word, since the words may be the description (`-h print this message`). A `:<name2>` or `:...` run glued to a `<value>` stays in it (`-noqualifier <name1>:<name2>:...`). Fixtures: `corpus/java/audit-seed`, `corpus/dpkg-deb/audit-seed`, `corpus/ebtables/1.8.10`, `corpus/nvim/0.9.5`, `corpus/less/590`, `corpus/jcmd/audit-seed`, `corpus/xfs_estimate/audit-seed`, `corpus/lvmdump/audit-seed`, `corpus/pslog/audit-seed`, `corpus/jpackage/audit-seed`, `corpus/javadoc/audit-seed`.
 - fleet: full-`PATH` sweep of 2271 tools, 2026-11-05, against the build before the change: no status change and no subcommand or positional change; 39 tools changed. Flag counts fell on 8 tools, each an alias fold or a removed key row: pygettext3 and pygettext3.12 (15 each, `-a` over `--extract-all` read as one flag), java (4), containerd-shim-runc-v2 (`-v`, `-version`), llvm-readtapi-18 (`-a` was cut from `-arch`), and less, pager and zstdless (`-<flag>`, the in-pager key). The other tools moved only in value names and joins, among them dpkg, git (`-c <name>=<value>`), clang (`-idirafter <dir>` and 12 more), gcc-family and javadoc rows, jmap and javac (`-clstats`, `-implicit` whole instead of `-c`, `-i`), and ebtables (the `[!]` rows). Re-swept 2026-11-05 with the value join recorded on both sides: the same 39 flag losses and no others; 87 tools moved in value name or join, each entity checked against its raw help (glued `-I<dir>`, `--x=[N]`, spaced `-idirafter <dir>` newly carrying its value); multi-word values appear only on ebtables and javadoc `-sourcetab <tab length>`; a description opening `A :` is kept whole.
 
-### S-262: sentence spacing in prose under the usage block
+### S-266: sentence spacing in prose under the usage block
 
-- id: S-262
+- id: S-266
 - looks like: |
       Write an unambiguous representation, octal bytes by default,
       of FILE to standard output.  With more than one FILE argument,
@@ -6041,9 +6041,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. Two spaces after a full stop, `?` or `!` (optionally closed by `)` or a quote) and before a capital letter are sentence spacing, not a column gap, so the paragraph stays the root description. Any other run of two spaces still ends the prose. Fixtures: `corpus/od/9.4`, `corpus/autom4te/2.71`, `corpus/nano/7.2`.
 - fleet: see the changed tools in the sweep-diff of this change.
 
-### S-263: table rows named with a size placeholder or a unit
+### S-267: table rows named with a size placeholder or a unit
 
-- id: S-263
+- id: S-267
 - looks like: |
       TYPE is made up of one or more of these specifications:
         a          named character, ignoring high-order bit
@@ -6056,9 +6056,9 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Fixed. In a table whose heading names a flag's value placeholder, a row named by lowercase letters with an all-caps bracketed placeholder (`d[SIZE]`) or by one to three capitals (`KB`, `M`) is a value of that flag, as `pBRE` rows already are, when every row of the table is a value; a table with other rows (`K/N`, `DMA32`) keeps none of them. Before, only the rows named by plain lowercase words were kept, so `TYPE` listed two of seven values and `BYTES` one of five. Fixture: `corpus/od/9.4`.
 - fleet: see the changed tools in the sweep-diff of this change.
 
-### S-264: usage forms opened by a bare `or`, and parenthesised notes
+### S-268: usage forms opened by a bare `or`, and parenthesised notes
 
-- id: S-264
+- id: S-268
 - looks like: |
       Usage: java [options] <mainclass> [args...]
                  (to execute a class)

@@ -119,7 +119,7 @@ pub(super) fn is_mixed_case_word(name: &str) -> bool {
 }
 
 /// True when every row name of a table is a command-shaped word or an
-/// owned-only or extended name, so the table is a value list. S-263.
+/// owned-only or extended name, so the table is a value list. S-267.
 pub(super) fn every_row_a_value(entries: &[(&str, String)]) -> bool {
     entries
         .iter()
@@ -133,19 +133,19 @@ pub(super) fn every_row_a_value(entries: &[(&str, String)]) -> bool {
 
 /// A row name only a table whose every row is a value may use: `d[SIZE]`
 /// or `KB`. A table that mixes in other rows (`K/N`, `DMA32`) is not a
-/// value list, so these names stay out of it. S-263.
+/// value list, so these names stay out of it. S-267.
 pub(super) fn is_extended_word(name: &str) -> bool {
     is_sized_word(name) || is_unit_word(name)
 }
 
 /// `KB`, `M`: one to three capitals, a unit suffix in a table that follows
-/// its flag's own value placeholder. S-263.
+/// its flag's own value placeholder. S-267.
 fn is_unit_word(name: &str) -> bool {
     (1..=3).contains(&name.len()) && name.chars().all(|c| c.is_ascii_uppercase())
 }
 
 /// `d[SIZE]`: lowercase letters, then an all-caps placeholder in brackets.
-/// The row names a value that takes an argument. S-263.
+/// The row names a value that takes an argument. S-267.
 fn is_sized_word(name: &str) -> bool {
     let Some((word, rest)) = name.split_once('[') else {
         return false;

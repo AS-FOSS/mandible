@@ -14,9 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- [S-262] `od`, `nano` and `autom4te` show their description: two spaces after a full stop no longer read as a column gap that drops the paragraph.
-- [S-263] `od -t` lists all seven format specifications (`d[SIZE]`, `f[SIZE]` and the rest), and `-j`, `-N`, `-S` and `-w` list the whole `b`, `KB`, `K`, `MB`, `M` multiplier table instead of its first row.
-- [S-264] `java` shows its five usage forms, each `(to execute ...)` note on its own line under its form; `jinfo` and `jstack` draw their note the same way.
+- [S-266] `od`, `nano` and `autom4te` show their description: two spaces after a full stop no longer read as a column gap that drops the paragraph.
+- [S-267] `od -t` lists all seven format specifications (`d[SIZE]`, `f[SIZE]` and the rest), and `-j`, `-N`, `-S` and `-w` list the whole `b`, `KB`, `K`, `MB`, `M` multiplier table instead of its first row.
+- [S-268] `java` shows its five usage forms, each `(to execute ...)` note on its own line under its form; `jinfo` and `jstack` draw their note the same way.
 - [S-258] `ip link help` and the pages like it: every form of a multi-form usage block belongs to its verb (including `add`, `delete`, `exec`, `route add`), wrapped form lines no longer become a command's description, and the page no longer lists the verbs' keyword placeholders as operands.
 - [S-258] `where NAME := text` legends describe their placeholder on `ip macsec` and `ip l2tp` (`:=` dropped, `{ none | default }` as values), `ip l2tp del tunnel` and `del session` are commands of `del`, `bridge fdb show` is a command of `bridge fdb`, a new dash word separates flags in `devlink`'s option production, `tc` reads `{ -cf | -conf } path` as one flag, and `genl` no longer lists `help` as an operand.
 - [S-253] A value written only as alternatives (`y|n`, `[none|zlib]`, `{auto|manual}`) shows as a muted `{…}` where its name would be, with the values listed once on the `values:` line, which sits on the flag's own row when it has no description, as in `vgchange --activate`, `ld --compress-debug-sections`, `sg_inq --block` and `apt-mark`'s first operand.
