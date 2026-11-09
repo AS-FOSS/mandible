@@ -29,8 +29,8 @@ FLAGS (57) ───────────────────────
  or -N, --LINE-NUMBERS
 -o, --log-file=[file]     Copy to log file (standard input only).
 -O, --LOG-FILE=[file]     Copy to log file (unconditionally overwrite).
--p, --pattern[=pattern]   Start at pattern (from command line).
--P, --prompt[=prompt]     Define new prompt.
+-p, --pattern=[pattern]   Start at pattern (from command line).
+-P, --prompt=[prompt]     Define new prompt.
 -q, --quiet               Quiet the terminal bell.
  or -Q, --QUIET, --silent
  or --SILENT

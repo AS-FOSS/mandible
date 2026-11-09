@@ -26,7 +26,7 @@ flags:
   - --src-dir
   value_name: foo
   value_kind: Required
-  description: foo Set the src dir (historical md5sums live here)
+  description: Set the src dir (historical md5sums live here)
   provenance:
     sources:
     - help-text

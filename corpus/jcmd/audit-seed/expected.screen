@@ -6,7 +6,7 @@ USAGE ────────────────────────�
 
 
 FLAGS (3) ──────────────────────────────────────────────────────────────────
--f                read and execute commands from the file
--l                list JVM processes on the local machine
--?, --help print
+-f          read and execute commands from the file
+-l          list JVM processes on the local machine
+-?, --help  print this help message
  or -h

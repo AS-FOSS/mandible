@@ -1148,6 +1148,8 @@ pub(super) fn scan_flags_block(
                         entries.push((s, d, Vec::new()));
                     }
                     None => {
+                        // Padding after a row's last word is no column gap.
+                        let line = line.trim_end();
                         let gap = multi_column
                             .then(|| find_column_block_value_gap(line))
                             .flatten();
@@ -1158,6 +1160,7 @@ pub(super) fn scan_flags_block(
                             }
                             None => desc_col
                                 .and_then(|c| split_at_block_column(line, c))
+                                .or_else(|| super::one_space_row::split_row(line))
                                 .unwrap_or_else(|| split_entry(line, long_first)),
                         };
                         entries.push((s, d, Vec::new()));

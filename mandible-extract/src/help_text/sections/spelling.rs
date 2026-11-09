@@ -140,6 +140,7 @@ pub(super) fn value_suffix(cell: &str) -> Option<String> {
     } else {
         attached
     };
+    let raw = raw.trim_end_matches(',').to_string();
     (!raw.is_empty()).then_some(raw)
 }
 
@@ -327,7 +328,9 @@ pub(super) fn split_aligned_spelling_entry(line: &str) -> (String, String) {
 fn drawn_join(cells: &[String]) -> Option<OptionalJoin> {
     let cell = cells.iter().rev().find(|c| value_suffix(c).is_some())?;
     let rest = cell.trim_start().get(bare_spelling(cell).len()..)?;
-    if rest.starts_with("[=") || rest.starts_with("=[") {
+    if rest.starts_with("=[") {
+        Some(OptionalJoin::EqualsThenBracket)
+    } else if rest.starts_with("[=") {
         Some(OptionalJoin::Equals)
     } else if rest.starts_with('[') {
         Some(OptionalJoin::Glued)
@@ -341,7 +344,14 @@ fn drawn_join(cells: &[String]) -> Option<OptionalJoin> {
 fn attach_value(spellings: &str, value: &str, join: Option<OptionalJoin>) -> String {
     let group = value.starts_with('[') && value.ends_with(']');
     match join {
-        Some(OptionalJoin::Equals) if group => format!("{spellings}[={}", &value[1..]),
+        Some(OptionalJoin::EqualsThenBracket)
+            if group && !value[1..value.len() - 1].contains(['[', ']']) =>
+        {
+            format!("{spellings}={value}")
+        }
+        Some(OptionalJoin::Equals | OptionalJoin::EqualsThenBracket) if group => {
+            format!("{spellings}[={}", &value[1..])
+        }
         Some(OptionalJoin::Glued) if group => format!("{spellings}{value}"),
         _ => format!("{spellings} {value}"),
     }

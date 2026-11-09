@@ -1,8 +1,15 @@
 name: java
 description: Arguments following the main class, source file, -jar <jarfile>, -m or --module <module>/<mainclass> are passed as the arguments to main class.
 usage:
-- 'Usage: java [options] <mainclass> [args...] (to execute a class) or  java [options] -jar <jarfile> [args...] (to execute a jar file) or  java [options] -m <module>[/<mainclass>] [args...]'
-- '       java [options] --module <module>[/<mainclass>] [args...] (to execute the main class in a module) or  java [options] <sourcefile> [args] (to execute a single source-file program)'
+- 'Usage: java [options] <mainclass> [args...]'
+- '           (to execute a class)'
+- '   or  java [options] -jar <jarfile> [args...]'
+- '           (to execute a jar file)'
+- '   or  java [options] -m <module>[/<mainclass>] [args...]'
+- '       java [options] --module <module>[/<mainclass>] [args...]'
+- '           (to execute the main class in a module)'
+- '   or  java [options] <sourcefile> [args]'
+- '           (to execute a single source-file program)'
 positionals:
 - name: mainclass
   provenance:
@@ -116,9 +123,14 @@ flags:
     - help-text
 - spellings:
   - -verbose
-  value_name: :[class|module|gc|jni]
+  value_name: :[{…}]
   value_kind: Required
   optional_join: glued
+  choices:
+  - class
+  - module
+  - gc
+  - jni
   group: 'where options include:'
   description: enable verbose output for the given subsystem
   provenance:

@@ -520,9 +520,8 @@ flags:
     - help-text
 - spellings:
   - --ignore-command-error
-  value_name: ignore
-  value_kind: Required
   group: 'Select output stream:'
+  description: ignore exit codes of children
   provenance:
     sources:
     - help-text

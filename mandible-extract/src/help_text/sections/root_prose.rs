@@ -146,7 +146,7 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
         let plain = leading_whitespace(l) == 0
             && !t.starts_with('-')
             && (lead_in || !t.ends_with(':'))
-            && !t.contains("  ")
+            && !has_column_gap(t)
             && !t.contains('\t')
             && (lead_in || !is_section_heading_line(t))
             && !starts_with_usage_prefix(t)
@@ -174,6 +174,37 @@ pub(super) fn prose_after_usage(lines: &[&str], from: usize) -> Option<String> {
         .collect::<Vec<_>>()
         .join("\n\n");
     (!text.trim().is_empty()).then_some(text)
+}
+
+/// A run of two or more spaces inside the line that is not sentence
+/// spacing: two spaces after a full stop, `?` or `!` (optionally closed by
+/// `)` or a quote) before a capital letter are prose, not a column gap.
+/// `docs/shapes.md` S-266.
+fn has_column_gap(t: &str) -> bool {
+    let b = t.trim().as_bytes();
+    let mut i = 0;
+    while i + 1 < b.len() {
+        if b[i] != b' ' || b[i + 1] != b' ' {
+            i += 1;
+            continue;
+        }
+        let mut end = i;
+        while b.get(end) == Some(&b' ') {
+            end += 1;
+        }
+        let before = b[..i]
+            .iter()
+            .rev()
+            .find(|c| !matches!(c, b')' | b'"' | b'\''));
+        let sentence_gap = end - i == 2
+            && before.is_some_and(|c| matches!(c, b'.' | b'?' | b'!'))
+            && b.get(end).is_some_and(|c| c.is_ascii_uppercase());
+        if !sentence_gap {
+            return true;
+        }
+        i = end;
+    }
+    false
 }
 
 /// A shell-prompt example line: `$ snap get snap-name username`.

@@ -1,0 +1,243 @@
+name: od
+description: |-
+  Write an unambiguous representation, octal bytes by default, of FILE to standard output. With more than one FILE argument, concatenate them in the listed order to form the input.
+
+  With no FILE, or when FILE is -, read standard input.
+
+  If first and second call formats both apply, the second format is assumed if the last operand begins with + or (if there are 2 operands) a digit. An OFFSET operand means -j OFFSET. LABEL is the pseudo-address at first byte printed, incremented when dump is progressing. For OFFSET and LABEL, a 0x or 0X prefix indicates hexadecimal; suffixes may be . for octal and b for multiply by 512.
+usage:
+- 'Usage: /usr/bin/od [OPTION]... [FILE]...'
+- '  or:  /usr/bin/od [-abcdfilosx]... [FILE] [[+]OFFSET[.][b]]'
+- '  or:  /usr/bin/od --traditional [OPTION]... [FILE] [[+]OFFSET[.][b] [+][LABEL][.][b]]'
+positionals:
+- name: FILE
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -A
+  - --address-radix
+  value_name: RADIX
+  value_kind: Required
+  description: output format for file offsets; RADIX is one of [doxn], for Decimal, Octal, Hex or None
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --endian
+  value_kind: Required
+  choices:
+  - big
+  - little
+  description: swap input bytes according the specified order
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j
+  - --skip-bytes
+  value_name: BYTES
+  value_kind: Required
+  choices:
+  - name: b
+    description: '512'
+  - name: KB
+    description: '1000'
+  - name: K
+    description: '1024'
+  - name: MB
+    description: 1000*1000
+  - name: M
+    description: 1024*1024
+  description: skip BYTES input bytes first
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -N
+  - --read-bytes
+  value_name: BYTES
+  value_kind: Required
+  choices:
+  - name: b
+    description: '512'
+  - name: KB
+    description: '1000'
+  - name: K
+    description: '1024'
+  - name: MB
+    description: 1000*1000
+  - name: M
+    description: 1024*1024
+  description: limit dump to BYTES input bytes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --strings
+  value_name: BYTES
+  value_kind: Required
+  choices:
+  - name: b
+    description: '512'
+  - name: KB
+    description: '1000'
+  - name: K
+    description: '1024'
+  - name: MB
+    description: 1000*1000
+  - name: M
+    description: 1024*1024
+  description: show only NUL terminated strings of at least BYTES (3) printable characters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --format
+  value_name: TYPE
+  value_kind: Required
+  choices:
+  - name: a
+    description: named character, ignoring high-order bit
+  - name: c
+    description: printable character or backslash escape
+  - name: d[SIZE]
+    description: signed decimal, SIZE bytes per integer
+  - name: f[SIZE]
+    description: floating point, SIZE bytes per float
+  - name: o[SIZE]
+    description: octal, SIZE bytes per integer
+  - name: u[SIZE]
+    description: unsigned decimal, SIZE bytes per integer
+  - name: x[SIZE]
+    description: hexadecimal, SIZE bytes per integer
+  description: select output format or formats
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --output-duplicates
+  description: do not use * to mark line suppression
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --width
+  value_name: BYTES
+  value_kind: Optional
+  optional_join: equals
+  choices:
+  - name: b
+    description: '512'
+  - name: KB
+    description: '1000'
+  - name: K
+    description: '1024'
+  - name: MB
+    description: 1000*1000
+  - name: M
+    description: 1024*1024
+  description: output BYTES bytes per output line; 32 is implied when BYTES is not specified
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --traditional
+  description: accept arguments in third form above
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help
+  description: display this help and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: output version information and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -a
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t a, select named characters, ignoring high-order bit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -b
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t o1, select octal bytes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t c, select printable characters or backslash escapes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t u2, select unsigned decimal 2-byte units
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -f
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t fF, select floats
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t dI, select decimal ints
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t dL, select decimal longs
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -o
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t o2, select octal 2-byte units
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t d2, select decimal 2-byte units
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  group: 'Traditional format specifications may be intermixed; they accumulate:'
+  description: same as -t x2, select hexadecimal 2-byte units
+  provenance:
+    sources:
+    - help-text
+detected_framework: GNU argp/getopt_long
+provenance:
+  sources:
+  - help-text
+  confidence: 1.0
+children_filled: true

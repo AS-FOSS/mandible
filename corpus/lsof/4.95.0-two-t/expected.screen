@@ -43,7 +43,7 @@ FLAGS (43) ───────────────────────
  or +f
 -f[gG]  flaGs
  or +f
--F [f]
+-F [f]  select fields; -F? for help
 -L [l]  list (+) suppress (-) link counts < l (0 = all; default = 0)
  or +L
 +m[m]   use|create mount supplement

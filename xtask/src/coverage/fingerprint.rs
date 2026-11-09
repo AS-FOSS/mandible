@@ -41,6 +41,10 @@ struct FlagFingerprint {
 pub(super) struct ToolFingerprint {
     flags: BTreeMap<String, FlagFingerprint>,
     subcommands: std::collections::BTreeSet<String>,
+    /// Hash of the root node's description text, `None` when it has none.
+    root_description_hash: Option<u64>,
+    /// Hash of the root node's usage lines, `None` when it has none.
+    usage_hash: Option<u64>,
 }
 
 /// An entity's identity for fingerprinting: every documented spelling's
@@ -155,6 +159,14 @@ pub(super) fn build_fingerprint(root: Option<&mandible_core::CommandNode>) -> To
         }
     }
     walk(root, "(root)", &mut fp);
+    fp.root_description_hash = root
+        .description
+        .as_ref()
+        .map(|t| fnv1a(t.as_str().as_bytes()));
+    if !root.usage.is_empty() {
+        let lines: Vec<&str> = root.usage.iter().map(|t| t.as_str()).collect();
+        fp.usage_hash = Some(fnv1a(lines.join("\u{1f}").as_bytes()));
+    }
     fp
 }
 
@@ -233,7 +245,7 @@ const FP_LINE_PREFIX_V2: &str = "#fp2 ";
 /// wipeout (entities on one side, none on the other) as "unmeasured"
 /// instead of "every entity removed."
 ///
-/// Line shape: `#fp2 <tool>\t<sub1>,<sub2>,...\t<entity1>|<entity2>|...`,
+/// Line shape: `#fp2 <tool>\t<sub1>,<sub2>,...\t<entity1>|<entity2>|...\t<root_desc_hash>/<usage_hash>`,
 /// each entity `<id>=<has_desc:0/1>/<join>:<desc_hash-or-->:<choices_hash-or-->:<value_name-or-->`
 /// (hex hashes, `id` carries its `EntityKind` tag). Every field individually
 /// run through [`fp_escape`] first. Format version 2 — see
@@ -272,8 +284,14 @@ pub(super) fn fingerprint_lines(rows: &[Row]) -> String {
             })
             .collect::<Vec<_>>()
             .join("|");
+        let hex = |h: Option<u64>| h.map_or_else(|| "-".to_string(), |h| format!("{h:x}"));
+        let root = format!(
+            "{}/{}",
+            hex(row.fingerprint.root_description_hash),
+            hex(row.fingerprint.usage_hash)
+        );
         out.push_str(&format!(
-            "{FP_LINE_PREFIX_V2}{}{FP_FIELD_SEP}{subs}{FP_FIELD_SEP}{flags}\n",
+            "{FP_LINE_PREFIX_V2}{}{FP_FIELD_SEP}{subs}{FP_FIELD_SEP}{flags}{FP_FIELD_SEP}{root}\n",
             fp_escape(&row.tool),
         ));
     }

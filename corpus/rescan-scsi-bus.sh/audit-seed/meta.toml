@@ -1,0 +1,30 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "rescan-scsi-bus.sh"
+version = "audit-seed"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["rescan-scsi-bus.sh", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-a", "-I", "--alltargets", "--hosts", "--ids", "--luns", "--channels", "--issue-lip-wait", "--sync", "--nosync"]
+must_draw = ["--alltargets same as -a", "--hosts LIST Scan only host(s) in LIST", "--channels LIST Scan only channel(s) in LIST", "--issue-lip-wait SECS same as -I", "--sync Issue a sync / no sync"]
+must_not_describe_root = ["--alltargets: same as -a", "--alltargets same as -a"]
+
+[contract.must_not_value_name]
+"--alltargets" = ":"
+"--hosts" = ":"
+"--issue-lip-wait" = ":"
+
+[contract.must_describe]
+"-I" = "issue a FibreChannel LIP reset and wait for SECS seconds [default: disabled]"
+"--alltargets" = "same as -a"
+"--hosts" = "Scan only host(s) in LIST"
+"--sync" = "Issue a sync / no sync [default: sync if remove]"

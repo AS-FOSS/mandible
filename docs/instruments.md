@@ -37,7 +37,9 @@ can be a real recovery or an invented row, and only a human reading the
 rendered screen can tell which. The positional column is read off each
 scoreboard's `#fp2` entity ids (S-154), so it cannot be derived from a V1
 `#fp` scoreboard or a pair missing a fingerprint footer entirely, reported
-honestly as unmeasured rather than as "no positional change". It answers
+honestly as unmeasured rather than as "no positional change". It also
+names the tools whose root description or usage lines changed, from a hash of
+each on the `#fp2` line; a scoreboard without the hashes is skipped. It answers
 "which specific tools did this
 change touch", the question the fleet-wide aggregate cannot answer
 because a four-tool regression moves it by hundredths of a percent. It

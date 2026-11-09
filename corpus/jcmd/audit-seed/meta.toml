@@ -14,9 +14,13 @@ exit_code = 0
 
 [contract]
 expected_framework = "generic"
+must_draw = ["-?, --help print this help message"]
 must_contain_flags = ["-l", "-f"]
 
 # A row whose description follows the spelling after one space keeps a
 # one-word value; the sentence is never the value name.
 [contract.must_not_value_name]
 "--help" = "print this help message"
+
+[contract.must_describe]
+"-?" = "print this help message"

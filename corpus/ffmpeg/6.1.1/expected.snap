@@ -15,6 +15,7 @@ flags:
   value_name: long
   value_kind: Required
   group: 'Getting help:'
+  description: print more options
   provenance:
     sources:
     - help-text
@@ -23,6 +24,7 @@ flags:
   value_name: full
   value_kind: Required
   group: 'Getting help:'
+  description: print all options (including all format and codec specific options, very long)
   provenance:
     sources:
     - help-text
@@ -31,6 +33,7 @@ flags:
   value_name: type=name
   value_kind: Required
   group: 'Getting help:'
+  description: print all options for the named decoder/encoder/demuxer/muxer/filter/bsf/protocol
   provenance:
     sources:
     - help-text

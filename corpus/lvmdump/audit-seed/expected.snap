@@ -3,23 +3,19 @@ description: /usr/sbin/lvmdump [options]
 flags:
 - spellings:
   - -h
-  value_name: print
-  value_kind: Required
+  description: print this message
   provenance:
     sources:
     - help-text
 - spellings:
   - -a
-  value_name: advanced
-  value_kind: Required
-  description: then this script may hang as well if -a is used
+  description: 'advanced collection - warning: if lvm is already hung, then this script may hang as well if -a is used'
   provenance:
     sources:
     - help-text
 - spellings:
   - -c
-  value_name: if
-  value_kind: Required
+  description: if running clvmd, gather cluster data as well
   provenance:
     sources:
     - help-text
@@ -33,36 +29,31 @@ flags:
     - help-text
 - spellings:
   - -l
-  value_name: gather
-  value_kind: Required
+  description: gather lvmetad state if running
   provenance:
     sources:
     - help-text
 - spellings:
   - -p
-  value_name: gather
-  value_kind: Required
+  description: gather lvmpolld state if running
   provenance:
     sources:
     - help-text
 - spellings:
   - -m
-  value_name: gather
-  value_kind: Required
+  description: gather LVM metadata from the PVs
   provenance:
     sources:
     - help-text
 - spellings:
   - -s
-  value_name: gather
-  value_kind: Required
+  description: gather system info and context
   provenance:
     sources:
     - help-text
 - spellings:
   - -u
-  value_name: gather
-  value_kind: Required
+  description: gather udev info and context
   provenance:
     sources:
     - help-text

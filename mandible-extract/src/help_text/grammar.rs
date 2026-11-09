@@ -122,7 +122,8 @@ fn parse_unmarked_flag_spec(input: &str) -> FlagSpec {
     // A tab between spellings separates them like a space does.
     let detabbed = input.replace('\t', " ");
     let normalized = unwrap_brace_alternation(detabbed.trim());
-    let mut rest = normalized.as_ref().trim();
+    let row_spelled = spec_parts::end_row_spelling(normalized.as_ref().trim());
+    let mut rest = row_spelled.as_ref().trim();
     if let Some(spec) = parse_range_head(rest) {
         return spec;
     }

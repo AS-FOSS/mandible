@@ -115,6 +115,10 @@ pub(super) struct FieldDiff<'a> {
     /// Flags present on both sides whose value join (space, `=`, glued) differs;
     /// skipped when either side predates the field.
     pub(super) join_changed: Vec<&'a str>,
+    /// The root description text differs; skipped when either side predates the field.
+    pub(super) root_description_changed: bool,
+    /// The root usage lines differ; skipped when either side predates the field.
+    pub(super) usage_changed: bool,
     pub(super) subcommands_added: Vec<&'a str>,
     pub(super) subcommands_removed: Vec<&'a str>,
     pub(super) tier_changed: Option<(&'a str, &'a str)>,
@@ -136,6 +140,8 @@ impl FieldDiff<'_> {
             && self.choices_changed.is_empty()
             && self.value_name_changed.is_empty()
             && self.join_changed.is_empty()
+            && !self.root_description_changed
+            && !self.usage_changed
             && self.subcommands_added.is_empty()
             && self.subcommands_removed.is_empty()
             && self.tier_changed.is_none()
@@ -267,6 +273,8 @@ fn per_tool_fingerprint_diff<'a>(
                     choices_changed: Vec::new(),
                     value_name_changed: Vec::new(),
                     join_changed: Vec::new(),
+                    root_description_changed: false,
+                    usage_changed: false,
                     subcommands_added: Vec::new(),
                     subcommands_removed: Vec::new(),
                     tier_changed,
@@ -539,6 +547,13 @@ pub(super) fn field_diff<'a>(
     choices_changed.sort_unstable();
     value_name_changed.sort_unstable();
     join_changed.sort_unstable();
+    let (root_description_changed, usage_changed) = match (before.root, after.root) {
+        (Some(b), Some(a)) => (
+            b.description_hash != a.description_hash,
+            b.usage_hash != a.usage_hash,
+        ),
+        _ => (false, false),
+    };
 
     FieldDiff {
         tool,
@@ -550,6 +565,8 @@ pub(super) fn field_diff<'a>(
         choices_changed,
         value_name_changed,
         join_changed,
+        root_description_changed,
+        usage_changed,
         subcommands_added,
         subcommands_removed,
         tier_changed,

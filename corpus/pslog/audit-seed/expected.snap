@@ -13,8 +13,7 @@ flags:
 - spellings:
   - -V
   - --version
-  value_name: display
-  value_kind: Required
+  description: display version information
   provenance:
     sources:
     - help-text

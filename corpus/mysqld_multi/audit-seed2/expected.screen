@@ -15,6 +15,8 @@ under group [mysqld_multi], but this is not mandatory. Please note that if
                                                ↓ full description at the end
 USAGE ──────────────────────────────────────────────────────────────────────
   mysqld_multi [OPTIONS] {start|reload|stop|report} [GNR,GNR,GNR...]
+  mysqld_multi [OPTIONS] {start|reload|stop|report}
+      [GNR-GNR,GNR,GNR-GNR,...]
 
 
 FLAGS (16) ─────────────────────────────────────────────────────────────────
@@ -83,3 +85,10 @@ group, but with those port, socket and any other options that are to be used
 with each separate mysqld process. The number in the group name has another
 function; it can be used for starting, reloading, stopping, or reporting any
 specific mysqld server.
+
+The GNR means the group number. You can start, reload, stop or report any
+GNR, or several of them at the same time. (See --example) The GNRs list can
+be comma separated or a dash combined. The latter means that all the GNRs
+between GNR1-GNR2 will be affected. Without GNR argument all the groups
+found will either be started, reloaded, stopped, or reported. Note that
+syntax for specifying GNRs must appear without spaces.

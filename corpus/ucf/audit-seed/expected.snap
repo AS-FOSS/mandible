@@ -1,0 +1,114 @@
+name: ucf
+description: 'Debian GNU/Linux ucf Revision: 3.00 . This is free software; see the GNU General Public Licence for copying conditions. There is NO warranty.'
+usage:
+- 'Usage: ucf  [options] new_file  destination'
+- 'Usage: ucf  -p  destination'
+positionals:
+- name: new_file
+  required: true
+  provenance:
+    sources:
+    - help-text
+- name: destination
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -h
+  - --help
+  description: print this message
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --src-dir
+  value_name: foo
+  value_kind: Required
+  description: Set the src dir (historical md5sums live here)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sum-file
+  value_name: bar
+  value_kind: Required
+  description: Force the historical md5sums to be read from this file. Overrides any setting of --src-dir.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --debug
+  value_name: n
+  value_kind: Optional
+  optional_join: equals-then-bracket
+  description: Set the Debug level to N. Please note there must be no spaces before the debug level
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --no-action
+  description: Dry run. No action is actually taken.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --package
+  value_name: foo
+  value_kind: Required
+  description: Don't follow dpkg-divert diversions by package foo.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Make the script verbose
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --three-way
+  description: Register this file in the cache, and turn on the diff3 option allowing the merging of maintainer changes into a (potentially modified) local configuration file. )
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --state-dir
+  value_name: bar
+  value_kind: Required
+  description: Set the state directory to bar instead of the default '/var/lib/ucf'. Used mostly for testing.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debconf-ok
+  description: Indicate that it is ok for ucf to use an already running debconf instance for prompting.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --debconf-template
+  value_name: bar
+  value_kind: Required
+  description: Specify an alternate, caller-provided debconf template to use for prompting.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --purge
+  description: Remove any reference to destination from records
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
