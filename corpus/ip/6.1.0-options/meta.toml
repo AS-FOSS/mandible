@@ -1,0 +1,26 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "ip"
+version = "6.1.0-options"
+platform = "ubuntu-24.04"
+captured_with = "mandible 0.9.0"
+
+[[capture]]
+argv = ["ip", "--help"]
+stdout = "help.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+min_status = "verbatim"
+must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief", "family"]
+
+[contract.must_value_name]
+"loops" = "maximum-addr-flush-attempts"
+
+[contract.must_not_value_name]
+"human-readable" = "|"
+"loops" = "{"

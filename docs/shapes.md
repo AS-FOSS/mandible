@@ -6112,3 +6112,23 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: java, jinfo, jstack
 - handling: Fixed. A line that opens with the word `or` and then the tool's own name starts a usage form of its own. A line wholly in parentheses is a note on the form above it: it is stored as its own entry and drawn as written, without the program word. Fixtures: `corpus/java/audit-seed`, `corpus/jinfo/17.0.20`, `corpus/jstack/17`.
 - fleet: see the changed tools in the sweep-diff of this change.
+### S-269: a production row ends in a pipe and lists several flags
+
+- id: S-269
+- looks like: |
+      OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |
+                   -h[uman-readable] | -iec | -j[son] | -p[retty] |
+                   -l[oops] { maximum-addr-flush-attempts } | -br[ief] |
+- tools: ip
+- handling: Fixed. Every `|`-separated alternative of a production row is its own flag. A bare lower-case word of three or more letters keeps the row's pipe (`-iec |`), which makes it the spelling and not `-i` with a glued value; without the pipe the word stays a short flag (`[-hdf]`). A brace holding one lower-case word and no pipe after a flag is that flag's value, braces dropped (`-l[oops] maximum-addr-flush-attempts`). A brace holding several words stays out of the rule. Fixture: `corpus/ip/6.1.0-options`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-09, against the build before the change: zero losses, no status change; only ip changed (21 to 25 flags, -h and -l[oops] lost their glued text). tc, bridge and rtmon rows have no pipe-ended flag row.
+
+### S-270: an operand after a closed flag alternation
+
+- id: S-270
+- looks like: |
+      git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+      git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
+- tools: git
+- handling: Fixed. A flag that ends a bracketed alternation (`--quiet]`) takes no value from the word after it, so `<commit>` and `[<diff-options>]` are operands of the verb's page and drop off the parent, which lists only the placeholders its help explains. `git stash drop`, `pop`, `apply`, `save`, `git bundle verify` and `git remote prune` gain the operand their form names. Fixture: `corpus/git/2.43.0-stash`.
+- fleet: full-`PATH` sweep of 2271 tools, 2026-11-09: no root flag, subcommand or positional count changed. The sweep reads roots only, so the verb pages are covered by `corpus/git/2.43.0-stash` and the git fixtures (bundle verify, remote prune, stash drop, pop, apply, save gained their operand).

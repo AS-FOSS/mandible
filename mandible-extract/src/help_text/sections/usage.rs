@@ -367,7 +367,10 @@ pub(super) fn extract_positionals_inner(
                 open_flag_value_depth = (open_flag_value_depth + opens - closes).max(0);
             }
             prev_cleaned = Some(cleaned);
-            prev_was_self_closed_group = token.starts_with('[') && token.ends_with(']');
+            // A flag that ends a bracket group (`[-q | --quiet]`) takes no
+            // value from the word after it (S-270).
+            prev_was_self_closed_group =
+                token.ends_with(']') && (token.starts_with('[') || closes > opens);
 
             if let Some(mode) = sign_run_operand(token) {
                 if !consumed_by_prior_flag && seen.insert(mode.to_string()) {
@@ -2195,6 +2198,19 @@ mod tests {
             .map(|p| p.primary_name())
             .collect();
         assert_eq!(names, vec!["target"], "{names:?}");
+    }
+
+    /// A flag that ends an alternation group (`--quiet]`) is closed, so
+    /// the operand after it is one. S-270.
+    #[test]
+    fn an_operand_after_a_closed_flag_alternation_is_a_positional() {
+        let parsed = parse("usage: git stash store [-q | --quiet] <commit>\n");
+        let names: Vec<&str> = parsed
+            .positionals
+            .iter()
+            .map(|p| p.primary_name())
+            .collect();
+        assert_eq!(names, vec!["commit"], "{names:?}");
     }
 
     /// sg_emc_trespass's self-closed `[-V]` leaves `DEVICE` as a real

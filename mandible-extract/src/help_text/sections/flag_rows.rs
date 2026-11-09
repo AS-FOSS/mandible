@@ -255,8 +255,8 @@ pub(super) fn looks_like_bnf_continuation_row(trimmed: &str) -> bool {
 /// 3. A recovered value must not itself start with `-` (`devlink`'s
 ///    un-piped `-v[erbose] -s[tatistics] -[he]x` tail would otherwise
 ///    fabricate a value onto `-v`), and must sit at a real whitespace
-///    boundary (`ip`'s glued multi-letter abbreviations like `-iec` have
-///    none).
+///    boundary. A one-word brace after a flag (`-l[oops] { count }`) is
+///    that value, braces dropped.
 /// 4. A segment that packs two flags with a bare space (`rdma`'s
 ///    `-p[retty] -r[aw]`, `devlink`'s `-v[erbose] -s[tatistics] -[he]x`) is
 ///    cut before each top-level dash word first; a piece may then carry
@@ -275,10 +275,11 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
     // Cleaned before the pairing decision below, not after: `dcb`'s last
     // pair (`-v`, `--verbose]`) only reads as a bare short/long pair once
     // the glued group closer is gone.
-    let segments: Vec<&str> = raw_segments
+    let owned: Vec<String> = raw_segments
         .iter()
-        .map(|s| strip_trailing_stray_bracket(s))
+        .map(|s| super::bnf_value_row::unbrace_placeholder(strip_trailing_stray_bracket(s)))
         .collect();
+    let segments: Vec<&str> = owned.iter().map(String::as_str).collect();
 
     // `(text, was_paired)` — `was_paired` marks a group joined from a bare
     // short and long below (legitimately two flag-shaped words); every
@@ -322,6 +323,13 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
         {
             return None;
         }
+        // A bare word (`-iec`) keeps the production's pipe, which marks it
+        // as one spelling and not `-i` with a glued value (S-269).
+        let candidate = &if super::bnf_value_row::is_bare_word(candidate) {
+            format!("{candidate} |")
+        } else {
+            candidate.clone()
+        };
         let spec = parse_flag_spec(candidate);
         if !spec.fully_consumed {
             return None;
@@ -1731,6 +1739,28 @@ Options:
             vec!["-V[ersion]", "-s[tatistics]", "-d[etails]", "-r[esolve]"]
         );
         assert!(entries.iter().all(|(_, desc)| desc.is_empty()));
+    }
+
+    /// A pipe-ended row of `ip`'s production: a bare `-iec` and a one-word
+    /// brace value. S-269.
+    #[test]
+    fn a_bnf_row_splits_a_bare_word_and_unbraces_a_one_word_value() {
+        let row = |l: &str| -> Vec<String> {
+            split_bnf_alternation_row(l)
+                .expect("row splits")
+                .into_iter()
+                .map(|(s, _)| s)
+                .collect()
+        };
+        assert_eq!(
+            row("-h[uman-readable] | -iec | -j[son] | -p[retty] |"),
+            ["-h[uman-readable]", "-iec |", "-j[son]", "-p[retty]"]
+        );
+        assert_eq!(
+            row("-l[oops] { maximum-addr-flush-attempts } | -br[ief] |"),
+            ["-l[oops] maximum-addr-flush-attempts", "-br[ief]"]
+        );
+        assert!(split_bnf_alternation_row("-a[ll] { ctrl etc } | -br[ief] |").is_none());
     }
 
     /// `dcb`'s own convention: short and long spelled as two adjacent

@@ -36,7 +36,24 @@ flags:
 - spellings:
   - -h[uman-readable]
   group: 'OPTIONS :'
-  description: '| -iec | -j[son] | -p[retty] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -iec
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -j[son]
+  group: 'OPTIONS :'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p[retty]
+  group: 'OPTIONS :'
   provenance:
     sources:
     - help-text
@@ -85,8 +102,15 @@ flags:
     - help-text
 - spellings:
   - -l[oops]
+  value_name: maximum-addr-flush-attempts
+  value_kind: Required
   group: 'OPTIONS :'
-  description: '{ maximum-addr-flush-attempts } | -br[ief] |'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -br[ief]
+  group: 'OPTIONS :'
   provenance:
     sources:
     - help-text

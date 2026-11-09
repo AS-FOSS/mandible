@@ -1,0 +1,16 @@
+usage: git stash list [<log-options>]
+   or: git stash show [-u | --include-untracked | --only-untracked] [<diff-options>] [<stash>]
+   or: git stash drop [-q | --quiet] [<stash>]
+   or: git stash pop [--index] [-q | --quiet] [<stash>]
+   or: git stash apply [--index] [-q | --quiet] [<stash>]
+   or: git stash branch <branchname> [<stash>]
+   or: git stash [push [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet]
+                 [-u | --include-untracked] [-a | --all] [(-m | --message) <message>]
+                 [--pathspec-from-file=<file> [--pathspec-file-nul]]
+                 [--] [<pathspec>...]]
+   or: git stash save [-p | --patch] [-S | --staged] [-k | --[no-]keep-index] [-q | --quiet]
+                 [-u | --include-untracked] [-a | --all] [<message>]
+   or: git stash clear
+   or: git stash create [<message>]
+   or: git stash store [(-m | --message) <message>] [-q | --quiet] <commit>
+
