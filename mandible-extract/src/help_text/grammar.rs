@@ -891,7 +891,7 @@ fn try_short(input: &str) -> Option<(Spelling, &str)> {
         return Some((Spelling::single_dash(run), after_run));
     }
     // A lower-case run of three or more letters then a closing ` |` is
-    // the spelling of a production row's alternative (`-iec |`), S-280.
+    // the spelling of a production row's alternative (`-iec |`), S-269.
     if run.chars().count() >= 3 && run.chars().all(|c| c.is_ascii_lowercase()) && after_run == " |"
     {
         return Some((Spelling::single_dash(run), ""));

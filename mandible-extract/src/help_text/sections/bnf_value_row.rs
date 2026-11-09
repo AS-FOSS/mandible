@@ -168,7 +168,7 @@ pub(super) fn is_bare_word(candidate: &str) -> bool {
 }
 
 /// `-l[oops] { count }`: a brace holding one word and no pipe names the
-/// value, so the braces go (S-280).
+/// value, so the braces go (S-269).
 pub(super) fn unbrace_placeholder(segment: &str) -> String {
     let unbraced = segment.find('{').and_then(|open| {
         let inner = segment[open + 1..].strip_suffix('}')?.trim();

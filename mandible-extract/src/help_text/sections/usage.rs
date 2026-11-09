@@ -368,7 +368,7 @@ pub(super) fn extract_positionals_inner(
             }
             prev_cleaned = Some(cleaned);
             // A flag that ends a bracket group (`[-q | --quiet]`) takes no
-            // value from the word after it (S-281).
+            // value from the word after it (S-270).
             prev_was_self_closed_group =
                 token.ends_with(']') && (token.starts_with('[') || closes > opens);
 
@@ -2201,7 +2201,7 @@ mod tests {
     }
 
     /// A flag that ends an alternation group (`--quiet]`) is closed, so
-    /// the operand after it is one. S-281.
+    /// the operand after it is one. S-270.
     #[test]
     fn an_operand_after_a_closed_flag_alternation_is_a_positional() {
         let parsed = parse("usage: git stash store [-q | --quiet] <commit>\n");

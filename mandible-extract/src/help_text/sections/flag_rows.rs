@@ -324,7 +324,7 @@ pub(super) fn split_bnf_alternation_row(line: &str) -> Option<Vec<(String, Strin
             return None;
         }
         // A bare word (`-iec`) keeps the production's pipe, which marks it
-        // as one spelling and not `-i` with a glued value (S-280).
+        // as one spelling and not `-i` with a glued value (S-269).
         let candidate = &if super::bnf_value_row::is_bare_word(candidate) {
             format!("{candidate} |")
         } else {
@@ -1739,7 +1739,7 @@ Options:
     }
 
     /// A pipe-ended row of `ip`'s production: a bare `-iec` and a one-word
-    /// brace value. S-280.
+    /// brace value. S-269.
     #[test]
     fn a_bnf_row_splits_a_bare_word_and_unbraces_a_one_word_value() {
         let row = |l: &str| -> Vec<String> {
