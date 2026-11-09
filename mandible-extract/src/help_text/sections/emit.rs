@@ -918,9 +918,7 @@ pub(super) fn emit_choices(
                 continue;
             }
             seen += 1;
-            if super::plural_owner::is_owned_only_name(name)
-                || (every_row_named && super::plural_owner::is_extended_word(name))
-            {
+            if super::plural_owner::is_owned_row_name(name, every_row_named) {
                 candidates.push((name.to_string(), desc.clone()));
                 continue;
             }
@@ -939,10 +937,7 @@ pub(super) fn emit_choices(
     let quoted_kept = candidates
         .iter()
         .filter(|(n, _)| {
-            owner.is_some()
-                && (super::plural_owner::is_quoted_word(n)
-                    || super::plural_owner::is_mixed_case_word(n)
-                    || (every_row_named && super::plural_owner::is_extended_word(n)))
+            owner.is_some() && super::plural_owner::is_kept_owned_row(n, every_row_named)
         })
         .count();
     candidates = super::plural_owner::keep_owned_placeholders(candidates, owner, out);

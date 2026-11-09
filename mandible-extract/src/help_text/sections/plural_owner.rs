@@ -165,6 +165,18 @@ pub(super) fn is_owned_only_name(name: &str) -> bool {
     is_prefixed_placeholder(name) || is_quoted_word(name) || is_mixed_case_word(name)
 }
 
+/// [`is_owned_only_name`], or an extended name in a table whose every row is
+/// a value.
+pub(super) fn is_owned_row_name(name: &str, every_row_named: bool) -> bool {
+    is_owned_only_name(name) || (every_row_named && is_extended_word(name))
+}
+
+/// A row a proven owner keeps after placeholder filtering: a quoted or
+/// mixed-case word, or an extended name in a table whose every row is a value.
+pub(super) fn is_kept_owned_row(name: &str, every_row_named: bool) -> bool {
+    is_quoted_word(name) || is_mixed_case_word(name) || (every_row_named && is_extended_word(name))
+}
+
 /// Drops the `prefix-PLACEHOLDER` rows whose placeholder is not the proven
 /// owner's own value name, and the quoted rows nobody owns, and strips the
 /// quotes off the rest; every other row stays, in order.
