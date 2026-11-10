@@ -27,10 +27,10 @@ FLAGS (18) ───────────────────────
     --no-pager
     --no-replace-objects
     --bare
-    --git-dir <path>
-    --work-tree <path>
-    --namespace <name>
-    --config-env <name>=<envvar>
+    --git-dir=<path>
+    --work-tree=<path>
+    --namespace=<name>
+    --config-env=<name>=<envvar>
 
 === git clone ===
 Clone a repository into a new directory
@@ -82,10 +82,10 @@ POSITIONALS (3) ─────────────────────�
 
 
 FLAGS (7) ──────────────────────────────────────────────────────────────────
-    --term-new <term>
-    --term-bad <term>
-    --term-old <term>
-    --term-good <term>
+    --term-new=<term>
+    --term-bad=<term>
+    --term-old=<term>
+    --term-good=<term>
     --no-checkout
     --first-parent
 --
@@ -282,7 +282,7 @@ FLAGS (4) ───────────────────────�
 -q
     --quiet
     --progress
-    --version <version>
+    --version=<version>
 
 === git bundle verify ===
 USAGE ──────────────────────────────────────────────────────────────────────
@@ -500,7 +500,7 @@ FLAGS (10) ───────────────────────
 -u, --include-untracked
 -a, --all
 -m, --message <message>
-    --pathspec-from-file <file>
+    --pathspec-from-file=<file>
     --pathspec-file-nul
 --
 
@@ -696,8 +696,8 @@ POSITIONALS (3) ─────────────────────�
 
 
 FLAGS (9) ──────────────────────────────────────────────────────────────────
-    --expire <time>
-    --expire-unreachable <time>
+    --expire=<time>
+    --expire-unreachable=<time>
     --rewrite
     --updateref
     --stale-fix
@@ -718,8 +718,8 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (9) ──────────────────────────────────────────────────────────────────
-    --expire <time>
-    --expire-unreachable <time>
+    --expire=<time>
+    --expire-unreachable=<time>
     --rewrite
     --updateref
     --stale-fix
@@ -792,7 +792,7 @@ FLAGS (17) ───────────────────────
 -f
     --tags
     --no-tags
-    --mirror <fetch|push>
+    --mirror=<fetch|push>
     --[no-]progress
 -a
     --auto
@@ -821,7 +821,7 @@ FLAGS (6) ───────────────────────�
 -f
     --tags
     --no-tags
-    --mirror <fetch|push>
+    --mirror=<fetch|push>
 
 === git remote rename ===
 USAGE ──────────────────────────────────────────────────────────────────────

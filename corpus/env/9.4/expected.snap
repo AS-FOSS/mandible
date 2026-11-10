@@ -35,6 +35,7 @@ flags:
   - --unset
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: remove variable from the environment
   provenance:
     sources:
@@ -44,6 +45,7 @@ flags:
   - --chdir
   value_name: DIR
   value_kind: Required
+  optional_join: equals
   description: change working directory to DIR
   provenance:
     sources:
@@ -53,6 +55,7 @@ flags:
   - --split-string
   value_name: S
   value_kind: Required
+  optional_join: equals
   description: process and split S into separate arguments; used to pass multiple arguments on shebang lines
   provenance:
     sources:

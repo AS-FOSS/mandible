@@ -34,9 +34,9 @@ FLAGS (6) ───────────────────────�
 -d                               Always return document, even with single
                                  key
 -l                               Always return list, even with single key
-    --default                    A strictly typed default value to be used
+    --default=                   A strictly typed default value to be used
                                  when none is found
-    --with <param>=<constraint>  Parameter constraints for filtering confdb
+    --with=<param>=<constraint>  Parameter constraints for filtering confdb
                                  queries
-    --wait-for                   Maximum duration to wait for confdb access
+    --wait-for=                  Maximum duration to wait for confdb access
                                  (e.g. 10s)

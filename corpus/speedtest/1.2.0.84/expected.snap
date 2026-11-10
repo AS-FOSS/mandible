@@ -32,6 +32,7 @@ flags:
   - --server-id
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   description: Specify a server from the server list using its id
   provenance:
     sources:
@@ -41,6 +42,7 @@ flags:
   - --interface
   value_name: ARG
   value_kind: Required
+  optional_join: equals
   description: Attempt to bind to the specified interface when connecting to servers
   provenance:
     sources:
@@ -50,6 +52,7 @@ flags:
   - --ip
   value_name: ARG
   value_kind: Required
+  optional_join: equals
   description: Attempt to bind to the specified IP address when connecting to servers
   provenance:
     sources:
@@ -59,6 +62,7 @@ flags:
   - --host
   value_name: ARG
   value_kind: Required
+  optional_join: equals
   description: Specify a server, from the server list, using its host's fully qualified domain name
   provenance:
     sources:
@@ -67,6 +71,7 @@ flags:
   - -p
   - --progress
   value_kind: Required
+  optional_join: equals
   choices:
   - yes
   - no
@@ -79,6 +84,7 @@ flags:
   - --precision
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   description: Number of decimals to use (0-8, default=2)
   provenance:
     sources:
@@ -88,6 +94,7 @@ flags:
   - --format
   value_name: ARG
   value_kind: Required
+  optional_join: equals
   choices:
   - name: human-readable
     description: (default)
@@ -104,6 +111,7 @@ flags:
   - --progress-update-interval
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   description: Progress update interval (100-1000 milliseconds)
   provenance:
     sources:
@@ -189,6 +197,7 @@ flags:
   - --ca-certificate
   value_name: ARG
   value_kind: Required
+  optional_join: equals
   description: CA Certificate bundle path
   provenance:
     sources:

@@ -83,9 +83,9 @@ Commands ───────────────────────�
 -x                         Alias for --no-lldbinit
 
 Repl ───────────────────────────────────────────────────────────────────────
--r <flags>                 Alias for --repl=<flags>
+-r=<flags>                 Alias for --repl=<flags>
     --repl-language <language> Chooses the language for the REPL.
-    --repl <flags>         Runs lldb in REPL mode with a stub process with
+    --repl=<flags>         Runs lldb in REPL mode with a stub process with
                            the given flags.
     --repl                 Runs lldb in REPL mode with a stub process.
 -R <value>                 Alias for --repl-language

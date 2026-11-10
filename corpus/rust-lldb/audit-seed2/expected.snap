@@ -322,6 +322,7 @@ flags:
   - -r
   value_name: <flags>
   value_kind: Required
+  optional_join: equals
   group: 'REPL:'
   description: Alias for --repl=<flags>
   provenance:
@@ -340,6 +341,7 @@ flags:
   - --repl
   value_name: <flags>
   value_kind: Required
+  optional_join: equals
   group: 'REPL:'
   description: Runs lldb in REPL mode with a stub process with the given flags.
   provenance:

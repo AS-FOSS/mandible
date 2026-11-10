@@ -152,6 +152,7 @@ flags:
   - --no-preserve
   value_name: ATTR_LIST
   value_kind: Required
+  optional_join: equals
   description: don't preserve the specified attributes
   provenance:
     sources:
@@ -189,6 +190,7 @@ flags:
   - --sparse
   value_name: WHEN
   value_kind: Required
+  optional_join: equals
   description: control creation of sparse files. See below
   provenance:
     sources:
@@ -211,6 +213,7 @@ flags:
   - --suffix
   value_name: SUFFIX
   value_kind: Required
+  optional_join: equals
   description: override the usual backup suffix
   provenance:
     sources:
@@ -220,6 +223,7 @@ flags:
   - --target-directory
   value_name: DIRECTORY
   value_kind: Required
+  optional_join: equals
   description: copy all SOURCE arguments into DIRECTORY
   provenance:
     sources:

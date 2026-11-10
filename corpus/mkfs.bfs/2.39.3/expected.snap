@@ -18,6 +18,7 @@ flags:
   - --inodes
   value_name: NUM
   value_kind: Required
+  optional_join: equals
   description: specify desired number of inodes
   provenance:
     sources:
@@ -27,6 +28,7 @@ flags:
   - --vname
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: specify volume name
   provenance:
     sources:
@@ -36,6 +38,7 @@ flags:
   - --fname
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: specify file system name
   provenance:
     sources:

@@ -14,6 +14,7 @@ flags:
 - spellings:
   - --strip
   value_kind: Required
+  optional_join: equals
   choices:
   - none
   - crc
@@ -54,6 +55,7 @@ flags:
   - --out
   value_name: <file>
   value_kind: Required
+  optional_join: equals
   description: Write the optimized/corrected version of the next PNG to <file>. This overrides the following two options
   provenance:
     sources:
@@ -62,6 +64,7 @@ flags:
   - --suffix
   value_name: <suffix>
   value_kind: Required
+  optional_join: equals
   description: Set --out=<name><suffix> for all following files unless overridden on a per-file basis by explicit --out.
   provenance:
     sources:
@@ -70,6 +73,7 @@ flags:
   - --prefix
   value_name: <prefix>
   value_kind: Required
+  optional_join: equals
   choices:
   - and
   - stdfast

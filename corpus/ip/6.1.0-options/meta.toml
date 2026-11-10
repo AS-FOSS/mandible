@@ -16,7 +16,7 @@ exit_code = 255
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief", "family"]
+must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief", "family", "force"]
 
 [contract.must_value_name]
 "loops" = "maximum-addr-flush-attempts"

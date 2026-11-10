@@ -26,6 +26,7 @@ flags:
   - -r
   value_name: AR
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: extra bytes to fetch during READ BUFFER
   provenance:
@@ -36,6 +37,7 @@ flags:
   - -w
   value_name: AW
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: extra bytes to send to WRITE BUFFER
   provenance:
@@ -62,6 +64,7 @@ flags:
   - -s
   value_name: SZ
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: size of buffer (in bytes) to write then read back
   provenance:
@@ -72,6 +75,7 @@ flags:
   - -t
   value_name: NUM
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: number of times to run test (default 1)
   provenance:

@@ -10,7 +10,7 @@ The following options are specific to just the language C ───────�
     -fgimple                   [available in C]
 
 The following options are specific to just the language C++ ────────────────
--W, --param lazy-modules=      [available in C++]
+-W, --param=lazy-modules=      [available in C++]
 -W placement-new
     -fcontract-assumption-mode {…} values: on, off
     -fcontract-build-level {…} values: off, default, audit
@@ -863,293 +863,293 @@ The following options are language-related ────────────�
 -w                             [available in C, C++, ObjC, ObjC++]
 
 The following options control parameters ───────────────────────────────────
--f, --param aarch64-double-recp-precision=<1,5> 2
--W, --param aarch64-float-recp-precision=<1,5> 1
-    --param aarch64-mops-memcpy-size-threshold= 256
--W, --param aarch64-mops-memmove-size-threshold= 0
-    --param aarch64-mops-memset-size-threshold= 256
-    --param aarch64-sve-compare-costs=<0,1> 1
-    --param aarch64-vect-unroll-limit= 4
-    --param align-loop-iterations= 4
-    --param align-threshold=<1,65536> 100
-    --param analyzer-bb-explosion-factor= 5
-    --param analyzer-max-constraints= 20
-    --param analyzer-max-enodes-for-full-dump= 200
-    --param analyzer-max-enodes-per-program-point= 8
-    --param analyzer-max-infeasible-edges= 10
-    --param analyzer-max-recursion-depth= 2
-    --param analyzer-max-svalue-depth= 12
-    --param analyzer-min-snodes-for-call-summary= 10
-    --param asan-globals=<0,1> 1
-    --param asan-instrument-allocas=<0,1> 1
-    --param asan-instrument-reads=<0,1> 1
-    --param asan-instrument-writes=<0,1> 1
-    --param asan-instrumentation-with-call-threshold= 7000
--W, --param asan-kernel-mem-intrinsic-prefix=<0,1> 0
-    --param asan-memintrin=<0,1> 1
-    --param asan-stack=<0,1>   1
-    --param asan-use-after-return=<0,1> 1
-    --param avg-loop-niter=<1,65536> 10
--W, --param avoid-fma-max-bits=<0,512> 0
-    --param builtin-expect-probability=<0,100> 90
-    --param builtin-string-cmp-inline-length=<0,100> 3
--f, --param case-values-threshold= 0
-    --param comdat-sharing-probability= 20
-    --param constructive-interference-size= 64
-    --param cxx-max-namespaces-for-diagnostic-help= 1000
-    --param destructive-interference-size= 256
-    --param dse-max-alias-queries-per-store= 256
-    --param dse-max-object-size= 256
--f, --param early-inlining-insns= 6
-    --param evrp-sparse-threshold= 800
-    --param evrp-switch-limit= 50
-    --param fsm-scale-path-stmts=<1,10> 2
-    --param gcse-after-reload-critical-fraction= 10
-    --param gcse-after-reload-partial-fraction= 3
-    --param gcse-cost-distance-ratio= 10
-    --param gcse-unrestricted-cost= 3
-    --param ggc-min-expand=    100
-    --param ggc-min-heapsize=  131072
--f, --param gimple-fe-computed-hot-bb-threshold= 0
-    --param graphite-allow-codegen-errors=<0,1> 0
-    --param graphite-max-arrays-per-scop= 100
-    --param graphite-max-nb-scop-params= 10
-    --param hash-table-verification-limit= 10
-    --param hot-bb-count-fraction= 10000
-    --param hot-bb-count-ws-permille=<0,1000> 990
-    --param hot-bb-frequency-fraction= 1000
-    --param hwasan-instrument-allocas=<0,1> 1
-    --param hwasan-instrument-mem-intrinsics=<0,1> 1
-    --param hwasan-instrument-reads=<0,1> 1
-    --param hwasan-instrument-stack=<0,1> 1
-    --param hwasan-instrument-writes=<0,1> 1
-    --param hwasan-random-frame-tag=<0,1> 1
-    --param inline-heuristics-hint-percent=<100,1000000> 200
-    --param inline-min-speedup=<0,100> 30
-    --param inline-unit-growth= 40
-    --param integer-share-limit=<2,65536> 251
-    --param ipa-cp-eval-threshold= 500
-    --param ipa-cp-large-unit-insns= 16000
-    --param ipa-cp-loop-hint-bonus= 64
-    --param ipa-cp-max-recursive-depth= 8
-    --param ipa-cp-min-recursive-probability= 2
-    --param ipa-cp-profile-count-base=<0,100> 10
-    --param ipa-cp-recursion-penalty=<0,100> 40
-    --param ipa-cp-recursive-freq-factor= 6
-    --param ipa-cp-single-call-penalty=<0,100> 15
-    --param ipa-cp-unit-growth= 10
-    --param ipa-cp-value-list-size= 8
-    --param ipa-jump-function-lookups= 8
-    --param ipa-max-aa-steps=  25000
-    --param ipa-max-agg-items= 16
-    --param ipa-max-loop-predicates= 16
-    --param ipa-max-param-expr-ops= 10
-    --param ipa-max-switch-predicate-bounds= 5
-    --param ipa-sra-deref-prob-threshold=<0,100> 50
-    --param ipa-sra-max-replacements=<0,16> 8
-    --param ipa-sra-ptr-growth-factor= 2
-    --param ipa-sra-ptrwrap-growth-factor=<1,8> 4
-    --param ira-consider-dup-in-all-alts=<0,1> 1
-    --param ira-loop-reserved-regs= 2
-    --param ira-max-conflict-table-size= 1000
-    --param ira-max-loops-num= 100
-    --param ira-simple-lra-insn-threshold= 1000
-    --param iv-always-prune-cand-set-bound= 10
-    --param iv-consider-all-candidates-bound= 40
-    --param iv-max-considered-uses= 250
-    --param jump-table-max-growth-ratio-for-size=<0,10000> 300
-    --param jump-table-max-growth-ratio-for-speed=<0,10000> 800
-    --param l1-cache-line-size= 32
-    --param l1-cache-size=     64
-    --param l2-cache-size=     512
-    --param large-function-growth= 100
-    --param large-function-insns= 2700
-    --param large-stack-frame-growth= 1000
-    --param large-stack-frame= 256
-    --param large-unit-insns=  10000
-    --param lim-expensive=     20
-    --param logical-op-non-short-circuit=<0,1>
-    --param loop-block-tile-size= 51
-    --param loop-interchange-max-num-stmts= 64
-    --param loop-interchange-stride-ratio= 2
-    --param loop-invariant-max-bbs-in-loop= 10000
-    --param loop-max-datarefs-for-datadeps= 1000
-    --param loop-versioning-max-inner-insns= 200
-    --param loop-versioning-max-outer-insns= 100
-    --param lra-inheritance-ebb-probability-cutoff=<0,100> 40
-    --param lra-max-considered-reload-pseudos= 500
-    --param lto-max-partition= 1000000
-    --param lto-max-streaming-parallelism=<1,65536> 32
-    --param lto-min-partition= 10000
-    --param lto-partitions=<1,65536> 128
-    --param max-average-unrolled-insns= 80
-    --param max-combine-insns=<2,4> 4
-    --param max-completely-peel-loop-nest-depth= 8
-    --param max-completely-peel-times= 16
-    --param max-completely-peeled-insns= 200
-    --param max-crossjump-edges= 100
-    --param max-cse-insns=     1000
-    --param max-cse-path-length=<1,65536> 10
-    --param max-cselib-memory-locations= 500
-    --param max-debug-marker-count= 100000
-    --param max-delay-slot-insn-search= 100
-    --param max-delay-slot-live-search= 333
-    --param max-dse-active-local-stores= 5000
-    --param max-early-inliner-iterations= 1
-    --param max-fields-for-field-sensitive= 0
-    --param max-find-base-term-values= 200
-    --param max-fsm-thread-path-insns=<1,999999> 100
-    --param max-gcse-insertion-ratio= 20
-    --param max-gcse-memory=   131072
-    --param max-goto-duplication-insns= 8
-    --param max-grow-copy-bb-insns= 8
-    --param max-hoist-depth=   30
-    --param max-inline-functions-called-once-insns= 4000
-    --param max-inline-functions-called-once-loop-depth= 6
-    --param max-inline-insns-auto= 15
-    --param max-inline-insns-recursive-auto= 450
-    --param max-inline-insns-recursive= 450
-    --param max-inline-insns-single= 70
-    --param max-inline-insns-size= 0
-    --param max-inline-insns-small= 0
-    --param max-inline-recursive-depth-auto= 8
-    --param max-inline-recursive-depth= 8
-    --param max-isl-operations= 350000
-    --param max-iterations-computation-cost= 10
-    --param max-iterations-to-track= 1000
-    --param max-jump-thread-duplication-stmts= 15
-    --param max-jump-thread-paths=<1,65536> 64
-    --param max-last-value-rtl= 10000
-    --param max-loop-header-insns= 20
-    --param max-modulo-backtrack-attempts= 40
-    --param max-partial-antic-length= 100
-    --param max-peel-branches= 32
-    --param max-peel-times=    16
-    --param max-peeled-insns=  100
-    --param max-pending-list-length= 32
-    --param max-pipeline-region-blocks= 15
-    --param max-pipeline-region-insns= 200
-    --param max-pow-sqrt-depth=<1,32> 5
-    --param max-predicted-iterations=<0,65536> 100
-    --param max-reload-search-insns= 100
-    --param max-rtl-if-conversion-insns=<0,99> 10
-    --param max-rtl-if-conversion-predictable-cost=<0,200> 20
-    --param max-rtl-if-conversion-unpredictable-cost=<0,200> 40
-    --param max-sched-extend-regions-iters= 0
-    --param max-sched-insn-conflict-delay=<1,10> 3
-    --param max-sched-ready-insns=<1,65536> 100
-    --param max-sched-region-blocks= 10
-    --param max-sched-region-insns= 100
-    --param max-slsr-cand-scan=<1,999999> 50
-    --param max-speculative-devirt-maydefs= 50
-    --param max-ssa-name-query-depth=<1,10> 3
-    --param max-store-chains-to-track=<1,65536> 64
-    --param max-stores-to-merge=<2,65536> 64
-    --param max-stores-to-sink= 2
-    --param max-stores-to-track=<2,1048576> 1024
-    --param max-tail-merge-comparisons= 10
-    --param max-tail-merge-iterations= 2
-    --param max-tracked-strlens= 10000
-    --param max-tree-if-conversion-phi-args=<2,65536> 4
-    --param max-unroll-times=  8
-    --param max-unrolled-insns= 200
-    --param max-unswitch-depth=<1,50> 50
-    --param max-unswitch-insns= 50
-    --param max-variable-expansions-in-unroller= 1
-    --param max-vartrack-expr-depth= 12
-    --param max-vartrack-reverse-op-size= 50
-    --param max-vartrack-size= 50000000
-    --param min-crossjump-insns=<1,65536> 5
-    --param min-inline-recursive-probability= 10
-    --param min-insn-to-prefetch-ratio= 9
-    --param min-loop-cond-split-prob=<0,100> 30
-    --param min-nondebug-insn-uid= 0
-    --param min-pagesize=      4096
-    --param min-size-for-stack-sharing= 32
-    --param min-spec-prob=     40
-    --param min-vect-loop-bound= 0
-    --param modref-max-accesses= 16
-    --param modref-max-adjustments=<0,254> 8
-    --param modref-max-bases=  32
-    --param modref-max-depth=<1,65536> 256
-    --param modref-max-escape-points= 256
-    --param modref-max-refs=   16
-    --param modref-max-tests=  64
-    --param openacc-kernels=[decompose|parloops] parloops
-    --param openacc-privatization=[quiet|noisy] quiet
-    --param parloops-chunk-size= 0
-    --param parloops-min-per-thread=<2,65536> 100
-    --param parloops-schedule=[static|dynamic|guided|auto|runtime] static
-    --param partial-inlining-entry-probability=<0,100> 70
-    --param predictable-branch-outcome=<0,50> 2
-    --param prefetch-dynamic-strides=<0,1> 1
-    --param prefetch-latency=  200
-    --param prefetch-min-insn-to-mem-ratio= 3
-    --param prefetch-minimum-stride=
-    --param profile-func-internal-id=<0,1> 0
--f, --param ranger-debug=      none
-    --param ranger-logical-depth=<1,999> 6
-    --param ranger-recompute-depth=<1,100> 5
-    --param relation-block-limit=<0,9999> 200
-    --param rpo-vn-max-loop-depth=<2,65536> 7
-    --param sccvn-max-alias-queries-per-access= 1000
-    --param scev-max-expr-complexity= 10
-    --param scev-max-expr-size= 100
-    --param sched-autopref-queue-depth= 0
-    --param sched-mem-true-dep-cost= 1
-    --param sched-pressure-algorithm=<1,2> 2
-    --param sched-spec-prob-cutoff=<0,100> 40
-    --param sched-state-edge-prob-cutoff=<0,100> 10
-    --param selsched-insns-to-rename= 2
-    --param selsched-max-lookahead= 50
-    --param selsched-max-sched-times=<1,65536> 2
-    --param simultaneous-prefetches= 3
-    --param sink-frequency-threshold=<0,100> 75
-    --param sms-dfa-history=<0,16> 0
-    --param sms-loop-average-count-threshold= 0
-    --param sms-max-ii-factor=<1,16> 2
-    --param sms-min-sc=<1,2>   2
-    --param sra-max-propagations= 32
-    --param sra-max-scalarization-size-Osize= 0
-    --param sra-max-scalarization-size-Ospeed= 0
-    --param ssa-name-def-chain-limit= 512
-    --param ssp-buffer-size=<1,65536> 8
-    --param stack-clash-protection-guard-size=<12,30> 16
-    --param stack-clash-protection-probe-interval=<10,16> 16
-    --param store-merging-allow-unaligned=<0,1> 1
-    --param store-merging-max-size=<1,65536> 65536
-    --param switch-conversion-max-branch-ratio=<1,65536> 8
--m, --param threader-debug=    none
-    --param tm-max-aggregate-size= 9
-    --param tracer-dynamic-coverage-feedback=<0,100> 95
-    --param tracer-dynamic-coverage=<0,100> 75
-    --param tracer-max-code-growth= 100
-    --param tracer-min-branch-probability-feedback=<0,100> 80
-    --param tracer-min-branch-probability=<0,100> 50
-    --param tracer-min-branch-ratio=<0,100> 10
-    --param tree-reassoc-width= 0
-    --param tsan-distinguish-volatile=<0,1> 0
-    --param tsan-instrument-func-entry-exit=<0,1> 1
-    --param uninit-control-dep-attempts=<1,65536> 1000
-    --param uninit-max-chain-len=<1,128> 8
-    --param uninit-max-num-chains=<1,128> 8
-    --param uninlined-function-insns=<0,1000000> 2
-    --param uninlined-function-time=<0,1000000> 0
-    --param uninlined-thunk-insns=<0,1000000> 2
-    --param uninlined-thunk-time=<0,1000000> 2
-    --param unlikely-bb-count-fraction= 20
-    --param unroll-jam-max-unroll= 4
-    --param unroll-jam-min-percent=<0,100> 1
-    --param use-after-scope-direct-emission-threshold= 256
-    --param use-canonical-types=<0,1> 1
-    --param vect-epilogues-nomask=<0,1> 1
-    --param vect-induction-float=<0,1> 1
-    --param vect-inner-loop-cost-factor=<1,10000> 50
-    --param vect-max-layout-candidates= 32
-    --param vect-max-peeling-for-alignment=<0,64>
-    --param vect-max-version-for-alias-checks= 10
-    --param vect-max-version-for-alignment-checks= 6
-    --param vect-partial-vector-usage=<0,2> 2
+-f, --param=aarch64-double-recp-precision=<1,5> 2
+-W, --param=aarch64-float-recp-precision=<1,5> 1
+    --param=aarch64-mops-memcpy-size-threshold= 256
+-W, --param=aarch64-mops-memmove-size-threshold= 0
+    --param=aarch64-mops-memset-size-threshold= 256
+    --param=aarch64-sve-compare-costs=<0,1> 1
+    --param=aarch64-vect-unroll-limit= 4
+    --param=align-loop-iterations= 4
+    --param=align-threshold=<1,65536> 100
+    --param=analyzer-bb-explosion-factor= 5
+    --param=analyzer-max-constraints= 20
+    --param=analyzer-max-enodes-for-full-dump= 200
+    --param=analyzer-max-enodes-per-program-point= 8
+    --param=analyzer-max-infeasible-edges= 10
+    --param=analyzer-max-recursion-depth= 2
+    --param=analyzer-max-svalue-depth= 12
+    --param=analyzer-min-snodes-for-call-summary= 10
+    --param=asan-globals=<0,1> 1
+    --param=asan-instrument-allocas=<0,1> 1
+    --param=asan-instrument-reads=<0,1> 1
+    --param=asan-instrument-writes=<0,1> 1
+    --param=asan-instrumentation-with-call-threshold= 7000
+-W, --param=asan-kernel-mem-intrinsic-prefix=<0,1> 0
+    --param=asan-memintrin=<0,1> 1
+    --param=asan-stack=<0,1>   1
+    --param=asan-use-after-return=<0,1> 1
+    --param=avg-loop-niter=<1,65536> 10
+-W, --param=avoid-fma-max-bits=<0,512> 0
+    --param=builtin-expect-probability=<0,100> 90
+    --param=builtin-string-cmp-inline-length=<0,100> 3
+-f, --param=case-values-threshold= 0
+    --param=comdat-sharing-probability= 20
+    --param=constructive-interference-size= 64
+    --param=cxx-max-namespaces-for-diagnostic-help= 1000
+    --param=destructive-interference-size= 256
+    --param=dse-max-alias-queries-per-store= 256
+    --param=dse-max-object-size= 256
+-f, --param=early-inlining-insns= 6
+    --param=evrp-sparse-threshold= 800
+    --param=evrp-switch-limit= 50
+    --param=fsm-scale-path-stmts=<1,10> 2
+    --param=gcse-after-reload-critical-fraction= 10
+    --param=gcse-after-reload-partial-fraction= 3
+    --param=gcse-cost-distance-ratio= 10
+    --param=gcse-unrestricted-cost= 3
+    --param=ggc-min-expand=    100
+    --param=ggc-min-heapsize=  131072
+-f, --param=gimple-fe-computed-hot-bb-threshold= 0
+    --param=graphite-allow-codegen-errors=<0,1> 0
+    --param=graphite-max-arrays-per-scop= 100
+    --param=graphite-max-nb-scop-params= 10
+    --param=hash-table-verification-limit= 10
+    --param=hot-bb-count-fraction= 10000
+    --param=hot-bb-count-ws-permille=<0,1000> 990
+    --param=hot-bb-frequency-fraction= 1000
+    --param=hwasan-instrument-allocas=<0,1> 1
+    --param=hwasan-instrument-mem-intrinsics=<0,1> 1
+    --param=hwasan-instrument-reads=<0,1> 1
+    --param=hwasan-instrument-stack=<0,1> 1
+    --param=hwasan-instrument-writes=<0,1> 1
+    --param=hwasan-random-frame-tag=<0,1> 1
+    --param=inline-heuristics-hint-percent=<100,1000000> 200
+    --param=inline-min-speedup=<0,100> 30
+    --param=inline-unit-growth= 40
+    --param=integer-share-limit=<2,65536> 251
+    --param=ipa-cp-eval-threshold= 500
+    --param=ipa-cp-large-unit-insns= 16000
+    --param=ipa-cp-loop-hint-bonus= 64
+    --param=ipa-cp-max-recursive-depth= 8
+    --param=ipa-cp-min-recursive-probability= 2
+    --param=ipa-cp-profile-count-base=<0,100> 10
+    --param=ipa-cp-recursion-penalty=<0,100> 40
+    --param=ipa-cp-recursive-freq-factor= 6
+    --param=ipa-cp-single-call-penalty=<0,100> 15
+    --param=ipa-cp-unit-growth= 10
+    --param=ipa-cp-value-list-size= 8
+    --param=ipa-jump-function-lookups= 8
+    --param=ipa-max-aa-steps=  25000
+    --param=ipa-max-agg-items= 16
+    --param=ipa-max-loop-predicates= 16
+    --param=ipa-max-param-expr-ops= 10
+    --param=ipa-max-switch-predicate-bounds= 5
+    --param=ipa-sra-deref-prob-threshold=<0,100> 50
+    --param=ipa-sra-max-replacements=<0,16> 8
+    --param=ipa-sra-ptr-growth-factor= 2
+    --param=ipa-sra-ptrwrap-growth-factor=<1,8> 4
+    --param=ira-consider-dup-in-all-alts=<0,1> 1
+    --param=ira-loop-reserved-regs= 2
+    --param=ira-max-conflict-table-size= 1000
+    --param=ira-max-loops-num= 100
+    --param=ira-simple-lra-insn-threshold= 1000
+    --param=iv-always-prune-cand-set-bound= 10
+    --param=iv-consider-all-candidates-bound= 40
+    --param=iv-max-considered-uses= 250
+    --param=jump-table-max-growth-ratio-for-size=<0,10000> 300
+    --param=jump-table-max-growth-ratio-for-speed=<0,10000> 800
+    --param=l1-cache-line-size= 32
+    --param=l1-cache-size=     64
+    --param=l2-cache-size=     512
+    --param=large-function-growth= 100
+    --param=large-function-insns= 2700
+    --param=large-stack-frame-growth= 1000
+    --param=large-stack-frame= 256
+    --param=large-unit-insns=  10000
+    --param=lim-expensive=     20
+    --param=logical-op-non-short-circuit=<0,1>
+    --param=loop-block-tile-size= 51
+    --param=loop-interchange-max-num-stmts= 64
+    --param=loop-interchange-stride-ratio= 2
+    --param=loop-invariant-max-bbs-in-loop= 10000
+    --param=loop-max-datarefs-for-datadeps= 1000
+    --param=loop-versioning-max-inner-insns= 200
+    --param=loop-versioning-max-outer-insns= 100
+    --param=lra-inheritance-ebb-probability-cutoff=<0,100> 40
+    --param=lra-max-considered-reload-pseudos= 500
+    --param=lto-max-partition= 1000000
+    --param=lto-max-streaming-parallelism=<1,65536> 32
+    --param=lto-min-partition= 10000
+    --param=lto-partitions=<1,65536> 128
+    --param=max-average-unrolled-insns= 80
+    --param=max-combine-insns=<2,4> 4
+    --param=max-completely-peel-loop-nest-depth= 8
+    --param=max-completely-peel-times= 16
+    --param=max-completely-peeled-insns= 200
+    --param=max-crossjump-edges= 100
+    --param=max-cse-insns=     1000
+    --param=max-cse-path-length=<1,65536> 10
+    --param=max-cselib-memory-locations= 500
+    --param=max-debug-marker-count= 100000
+    --param=max-delay-slot-insn-search= 100
+    --param=max-delay-slot-live-search= 333
+    --param=max-dse-active-local-stores= 5000
+    --param=max-early-inliner-iterations= 1
+    --param=max-fields-for-field-sensitive= 0
+    --param=max-find-base-term-values= 200
+    --param=max-fsm-thread-path-insns=<1,999999> 100
+    --param=max-gcse-insertion-ratio= 20
+    --param=max-gcse-memory=   131072
+    --param=max-goto-duplication-insns= 8
+    --param=max-grow-copy-bb-insns= 8
+    --param=max-hoist-depth=   30
+    --param=max-inline-functions-called-once-insns= 4000
+    --param=max-inline-functions-called-once-loop-depth= 6
+    --param=max-inline-insns-auto= 15
+    --param=max-inline-insns-recursive-auto= 450
+    --param=max-inline-insns-recursive= 450
+    --param=max-inline-insns-single= 70
+    --param=max-inline-insns-size= 0
+    --param=max-inline-insns-small= 0
+    --param=max-inline-recursive-depth-auto= 8
+    --param=max-inline-recursive-depth= 8
+    --param=max-isl-operations= 350000
+    --param=max-iterations-computation-cost= 10
+    --param=max-iterations-to-track= 1000
+    --param=max-jump-thread-duplication-stmts= 15
+    --param=max-jump-thread-paths=<1,65536> 64
+    --param=max-last-value-rtl= 10000
+    --param=max-loop-header-insns= 20
+    --param=max-modulo-backtrack-attempts= 40
+    --param=max-partial-antic-length= 100
+    --param=max-peel-branches= 32
+    --param=max-peel-times=    16
+    --param=max-peeled-insns=  100
+    --param=max-pending-list-length= 32
+    --param=max-pipeline-region-blocks= 15
+    --param=max-pipeline-region-insns= 200
+    --param=max-pow-sqrt-depth=<1,32> 5
+    --param=max-predicted-iterations=<0,65536> 100
+    --param=max-reload-search-insns= 100
+    --param=max-rtl-if-conversion-insns=<0,99> 10
+    --param=max-rtl-if-conversion-predictable-cost=<0,200> 20
+    --param=max-rtl-if-conversion-unpredictable-cost=<0,200> 40
+    --param=max-sched-extend-regions-iters= 0
+    --param=max-sched-insn-conflict-delay=<1,10> 3
+    --param=max-sched-ready-insns=<1,65536> 100
+    --param=max-sched-region-blocks= 10
+    --param=max-sched-region-insns= 100
+    --param=max-slsr-cand-scan=<1,999999> 50
+    --param=max-speculative-devirt-maydefs= 50
+    --param=max-ssa-name-query-depth=<1,10> 3
+    --param=max-store-chains-to-track=<1,65536> 64
+    --param=max-stores-to-merge=<2,65536> 64
+    --param=max-stores-to-sink= 2
+    --param=max-stores-to-track=<2,1048576> 1024
+    --param=max-tail-merge-comparisons= 10
+    --param=max-tail-merge-iterations= 2
+    --param=max-tracked-strlens= 10000
+    --param=max-tree-if-conversion-phi-args=<2,65536> 4
+    --param=max-unroll-times=  8
+    --param=max-unrolled-insns= 200
+    --param=max-unswitch-depth=<1,50> 50
+    --param=max-unswitch-insns= 50
+    --param=max-variable-expansions-in-unroller= 1
+    --param=max-vartrack-expr-depth= 12
+    --param=max-vartrack-reverse-op-size= 50
+    --param=max-vartrack-size= 50000000
+    --param=min-crossjump-insns=<1,65536> 5
+    --param=min-inline-recursive-probability= 10
+    --param=min-insn-to-prefetch-ratio= 9
+    --param=min-loop-cond-split-prob=<0,100> 30
+    --param=min-nondebug-insn-uid= 0
+    --param=min-pagesize=      4096
+    --param=min-size-for-stack-sharing= 32
+    --param=min-spec-prob=     40
+    --param=min-vect-loop-bound= 0
+    --param=modref-max-accesses= 16
+    --param=modref-max-adjustments=<0,254> 8
+    --param=modref-max-bases=  32
+    --param=modref-max-depth=<1,65536> 256
+    --param=modref-max-escape-points= 256
+    --param=modref-max-refs=   16
+    --param=modref-max-tests=  64
+    --param=openacc-kernels=[decompose|parloops] parloops
+    --param=openacc-privatization=[quiet|noisy] quiet
+    --param=parloops-chunk-size= 0
+    --param=parloops-min-per-thread=<2,65536> 100
+    --param=parloops-schedule=[static|dynamic|guided|auto|runtime] static
+    --param=partial-inlining-entry-probability=<0,100> 70
+    --param=predictable-branch-outcome=<0,50> 2
+    --param=prefetch-dynamic-strides=<0,1> 1
+    --param=prefetch-latency=  200
+    --param=prefetch-min-insn-to-mem-ratio= 3
+    --param=prefetch-minimum-stride=
+    --param=profile-func-internal-id=<0,1> 0
+-f, --param=ranger-debug=      none
+    --param=ranger-logical-depth=<1,999> 6
+    --param=ranger-recompute-depth=<1,100> 5
+    --param=relation-block-limit=<0,9999> 200
+    --param=rpo-vn-max-loop-depth=<2,65536> 7
+    --param=sccvn-max-alias-queries-per-access= 1000
+    --param=scev-max-expr-complexity= 10
+    --param=scev-max-expr-size= 100
+    --param=sched-autopref-queue-depth= 0
+    --param=sched-mem-true-dep-cost= 1
+    --param=sched-pressure-algorithm=<1,2> 2
+    --param=sched-spec-prob-cutoff=<0,100> 40
+    --param=sched-state-edge-prob-cutoff=<0,100> 10
+    --param=selsched-insns-to-rename= 2
+    --param=selsched-max-lookahead= 50
+    --param=selsched-max-sched-times=<1,65536> 2
+    --param=simultaneous-prefetches= 3
+    --param=sink-frequency-threshold=<0,100> 75
+    --param=sms-dfa-history=<0,16> 0
+    --param=sms-loop-average-count-threshold= 0
+    --param=sms-max-ii-factor=<1,16> 2
+    --param=sms-min-sc=<1,2>   2
+    --param=sra-max-propagations= 32
+    --param=sra-max-scalarization-size-Osize= 0
+    --param=sra-max-scalarization-size-Ospeed= 0
+    --param=ssa-name-def-chain-limit= 512
+    --param=ssp-buffer-size=<1,65536> 8
+    --param=stack-clash-protection-guard-size=<12,30> 16
+    --param=stack-clash-protection-probe-interval=<10,16> 16
+    --param=store-merging-allow-unaligned=<0,1> 1
+    --param=store-merging-max-size=<1,65536> 65536
+    --param=switch-conversion-max-branch-ratio=<1,65536> 8
+-m, --param=threader-debug=    none
+    --param=tm-max-aggregate-size= 9
+    --param=tracer-dynamic-coverage-feedback=<0,100> 95
+    --param=tracer-dynamic-coverage=<0,100> 75
+    --param=tracer-max-code-growth= 100
+    --param=tracer-min-branch-probability-feedback=<0,100> 80
+    --param=tracer-min-branch-probability=<0,100> 50
+    --param=tracer-min-branch-ratio=<0,100> 10
+    --param=tree-reassoc-width= 0
+    --param=tsan-distinguish-volatile=<0,1> 0
+    --param=tsan-instrument-func-entry-exit=<0,1> 1
+    --param=uninit-control-dep-attempts=<1,65536> 1000
+    --param=uninit-max-chain-len=<1,128> 8
+    --param=uninit-max-num-chains=<1,128> 8
+    --param=uninlined-function-insns=<0,1000000> 2
+    --param=uninlined-function-time=<0,1000000> 0
+    --param=uninlined-thunk-insns=<0,1000000> 2
+    --param=uninlined-thunk-time=<0,1000000> 2
+    --param=unlikely-bb-count-fraction= 20
+    --param=unroll-jam-max-unroll= 4
+    --param=unroll-jam-min-percent=<0,100> 1
+    --param=use-after-scope-direct-emission-threshold= 256
+    --param=use-canonical-types=<0,1> 1
+    --param=vect-epilogues-nomask=<0,1> 1
+    --param=vect-induction-float=<0,1> 1
+    --param=vect-inner-loop-cost-factor=<1,10000> 50
+    --param=vect-max-layout-candidates= 32
+    --param=vect-max-peeling-for-alignment=<0,64>
+    --param=vect-max-version-for-alias-checks= 10
+    --param=vect-max-version-for-alignment-checks= 6
+    --param=vect-partial-vector-usage=<0,2> 2
 
 The following options control compiler warning messages ────────────────────
 -W
@@ -1552,7 +1552,7 @@ The following options are target specific ────────────�
 
 The following options are language-independent ─────────────────────────────
     --help                     [enabled]
-    --help <class>
+    --help=<class>
     --target-help
 -W attributes=
 -W error=

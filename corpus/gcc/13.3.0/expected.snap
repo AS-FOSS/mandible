@@ -24,6 +24,7 @@ flags:
   - --help
   value_name: '{common|optimizers|params|target|warnings|[^]{joined|separate|undocumented}}[,...].'
   value_kind: Required
+  optional_join: equals
   description: Display specific types of command line options.
   provenance:
     sources:
@@ -224,6 +225,7 @@ flags:
   - --sysroot
   value_name: <directory>
   value_kind: Required
+  optional_join: equals
   description: Use <directory> as the root directory for headers and libraries.
   provenance:
     sources:

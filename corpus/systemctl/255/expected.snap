@@ -39,6 +39,7 @@ flags:
   - --host
   value_name: '[USER@]HOST'
   value_kind: Required
+  optional_join: equals
   description: Operate on remote host
   provenance:
     sources:
@@ -48,6 +49,7 @@ flags:
   - --machine
   value_name: CONTAINER
   value_kind: Required
+  optional_join: equals
   description: Operate on a local container
   provenance:
     sources:
@@ -57,6 +59,7 @@ flags:
   - --type
   value_name: TYPE
   value_kind: Required
+  optional_join: equals
   description: List units of a particular type
   provenance:
     sources:
@@ -65,6 +68,7 @@ flags:
   - --state
   value_name: STATE
   value_kind: Required
+  optional_join: equals
   description: List units with particular LOAD or SUB or ACTIVE state
   provenance:
     sources:
@@ -80,6 +84,7 @@ flags:
   - --property
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: Show only properties by this name
   provenance:
     sources:
@@ -129,6 +134,7 @@ flags:
   - --job-mode
   value_name: MODE
   value_kind: Required
+  optional_join: equals
   description: Specify how to deal with already queued jobs, when queueing a new job
   provenance:
     sources:
@@ -156,6 +162,7 @@ flags:
   - --check-inhibitors
   value_name: MODE
   value_kind: Required
+  optional_join: equals
   description: Whether to check inhibitors before shutting down, sleeping, or hibernating
   provenance:
     sources:
@@ -170,6 +177,7 @@ flags:
   - --kill-whom
   value_name: WHOM
   value_kind: Required
+  optional_join: equals
   description: Whom to send signal to
   provenance:
     sources:
@@ -178,6 +186,7 @@ flags:
   - --kill-value
   value_name: INT
   value_kind: Required
+  optional_join: equals
   description: Signal value to enqueue
   provenance:
     sources:
@@ -187,6 +196,7 @@ flags:
   - --signal
   value_name: SIGNAL
   value_kind: Required
+  optional_join: equals
   description: Which signal to send
   provenance:
     sources:
@@ -195,6 +205,7 @@ flags:
   - --what
   value_name: RESOURCES
   value_kind: Required
+  optional_join: equals
   description: Which types of resources to remove
   provenance:
     sources:
@@ -252,6 +263,7 @@ flags:
   - --legend
   value_name: BOOL
   value_kind: Required
+  optional_join: equals
   description: Enable/disable the legend (column headers and hints)
   provenance:
     sources:
@@ -291,6 +303,7 @@ flags:
   - --preset-mode
   value_name: ''
   value_kind: Required
+  optional_join: equals
   description: Apply only enable, only disable, or all presets
   provenance:
     sources:
@@ -299,6 +312,7 @@ flags:
   - --root
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Edit/enable/disable/mask unit files in the specified root directory
   provenance:
     sources:
@@ -307,6 +321,7 @@ flags:
   - --image
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Edit/enable/disable/mask unit files in the specified disk image
   provenance:
     sources:
@@ -315,6 +330,7 @@ flags:
   - --image-policy
   value_name: POLICY
   value_kind: Required
+  optional_join: equals
   description: Specify disk image dissection policy
   provenance:
     sources:
@@ -324,6 +340,7 @@ flags:
   - --lines
   value_name: INTEGER
   value_kind: Required
+  optional_join: equals
   description: Number of journal entries to show
   provenance:
     sources:
@@ -333,6 +350,7 @@ flags:
   - --output
   value_name: STRING
   value_kind: Required
+  optional_join: equals
   description: Change journal output mode (short, short-precise, short-iso, short-iso-precise, short-full, short-monotonic, short-unix, short-delta, verbose, export, json, json-pretty, json-sse, cat)
   provenance:
     sources:
@@ -347,6 +365,7 @@ flags:
   - --boot-loader-menu
   value_name: TIME
   value_kind: Required
+  optional_join: equals
   description: Boot into boot loader menu on next boot
   provenance:
     sources:
@@ -355,6 +374,7 @@ flags:
   - --boot-loader-entry
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: Boot into a specific boot loader entry on next boot
   provenance:
     sources:
@@ -369,6 +389,7 @@ flags:
   - --timestamp
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   description: Change format of printed timestamps (pretty, unix, us, utc, us+utc)
   provenance:
     sources:
@@ -395,6 +416,7 @@ flags:
   - --drop-in
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: Edit unit files using the specified drop-in file name
   provenance:
     sources:
@@ -403,6 +425,7 @@ flags:
   - --when
   value_name: TIME
   value_kind: Required
+  optional_join: equals
   description: Schedule halt/power-off/reboot/kexec action after a certain timestamp
   provenance:
     sources:

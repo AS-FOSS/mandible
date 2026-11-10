@@ -26,6 +26,7 @@ flags:
   - --scan
   value_name: SECS
   value_kind: Required
+  optional_join: equals
   description: sample every statistics every SECS
   provenance:
     sources:
@@ -70,6 +71,7 @@ flags:
   - --interval
   value_name: SECS
   value_kind: Required
+  optional_join: equals
   description: report average over the last SECS
   provenance:
     sources:

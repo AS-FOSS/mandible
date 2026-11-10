@@ -58,42 +58,93 @@ fn angle_value_after(usage_lines: &[String], word: &str) -> Option<String> {
     found
 }
 
+/// The single-dash word a synopsis-only short-plus-tail flag spells, when
+/// the document names the whole word on `min_lines` lines.
+fn word_of(flag: &Entity, raw: &str, min_lines: usize) -> Option<String> {
+    if !flag
+        .provenance
+        .sources
+        .iter()
+        .all(|s| matches!(s, Source::HelpTextSynopsis))
+    {
+        return None;
+    }
+    let short = flag.short()?;
+    if flag.long().is_some() || flag.value_kind != ValueKind::Required {
+        return None;
+    }
+    let tail = flag.value_name.as_deref()?;
+    if tail.chars().count() < MIN_TAIL_CHARS
+        || !tail.chars().all(|c| c.is_ascii_lowercase())
+        || !short.is_ascii_lowercase()
+    {
+        return None;
+    }
+    let name = format!("{short}{tail}");
+    let word = format!("-{name}");
+    (raw.lines().filter(|l| whole_word_on(l, &word)).count() >= min_lines).then_some(name)
+}
+
+/// True when `letter` is a short flag of `flags`, written `-f` or as the
+/// abbreviation `-f[amily]`.
+fn lists_short(flags: &[Entity], letter: char) -> bool {
+    flags.iter().flat_map(|f| f.spellings.iter()).any(|s| {
+        matches!(s.dashes, Dashes::Single)
+            && (s.name.chars().count() == 1 || s.abbrev == Some(1))
+            && s.name.starts_with(letter)
+    })
+}
+
+/// True when `flags` already spell `word` with one dash, whole or as the
+/// abbreviation `-b[atch]`.
+fn lists_word(flags: &[Entity], word: &str) -> bool {
+    flags
+        .iter()
+        .flat_map(|f| f.spellings.iter())
+        .any(|s| matches!(s.dashes, Dashes::Single) && s.name == word)
+}
+
+/// Make `flag` the single-dash word `name`, taking its value from the
+/// `<placeholder>` the usage lines put after it, if any.
+fn become_word(flag: &mut Entity, name: &str, usage_lines: &[String]) {
+    flag.spellings = vec![Spelling::single_dash(name)];
+    match angle_value_after(usage_lines, &format!("-{name}")) {
+        Some(value) => flag.value_name = Some(value),
+        None => {
+            flag.value_name = None;
+            flag.value_kind = ValueKind::None;
+        }
+    }
+}
+
+/// Add the usage-derived `dropped` flags that are single-dash words the
+/// finished `flags` do not list: the word is not a spelling there, and some
+/// letter of it is not a short flag there. A word whose letters are all
+/// listed shorts is a bundle. S-272.
+pub(super) fn add_unlisted(
+    dropped: Vec<Entity>,
+    usage_lines: &[String],
+    raw: &str,
+    flags: &mut Vec<Entity>,
+) {
+    let min_lines = if word_dialect(flags) { 1 } else { MIN_LINES };
+    for mut flag in dropped {
+        let Some(name) = word_of(&flag, raw, min_lines) else {
+            continue;
+        };
+        if lists_word(flags, &name) || name.chars().all(|c| lists_short(flags, c)) {
+            continue;
+        }
+        become_word(&mut flag, &name, usage_lines);
+        flags.push(flag);
+    }
+}
+
 pub(super) fn repair(usage_lines: &[String], raw: &str, flags: &mut [Entity]) {
     let min_lines = if word_dialect(flags) { 1 } else { MIN_LINES };
     for flag in flags.iter_mut() {
-        if !flag
-            .provenance
-            .sources
-            .iter()
-            .all(|s| matches!(s, Source::HelpTextSynopsis))
-        {
-            continue;
-        }
-        let Some(short) = flag.short() else { continue };
-        if flag.long().is_some() || flag.value_kind != ValueKind::Required {
-            continue;
-        }
-        let Some(tail) = flag.value_name.as_deref() else {
-            continue;
-        };
-        if tail.chars().count() < MIN_TAIL_CHARS
-            || !tail.chars().all(|c| c.is_ascii_lowercase())
-            || !short.is_ascii_lowercase()
-        {
-            continue;
-        }
-        let name = format!("{short}{tail}");
-        let word = format!("-{name}");
-        if raw.lines().filter(|l| whole_word_on(l, &word)).count() < min_lines {
-            continue;
-        }
-        flag.spellings = vec![Spelling::single_dash(&name)];
-        match angle_value_after(usage_lines, &word) {
-            Some(value) => flag.value_name = Some(value),
-            None => {
-                flag.value_name = None;
-                flag.value_kind = ValueKind::None;
-            }
+        if let Some(name) = word_of(flag, raw, min_lines) {
+            become_word(flag, &name, usage_lines);
         }
     }
 }

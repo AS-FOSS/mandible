@@ -24,7 +24,7 @@ FLAGS (10) ───────────────────────
                        darwin      darwin
                        bsd         bsd
                        bigarchive  big archive (AIX OS)
-    --plugin <string> ignored for compatibility
+    --plugin=<string> ignored for compatibility
 -h, --help         display this help and exit
     --output       the directory to extract archive members to
     --rsp-quoting  quoting style for response files

@@ -594,26 +594,20 @@ flags:
     sources:
     - help-text
 - spellings:
-  - --http0
-  value_name: '.9'
-  value_kind: Required
+  - --http0.9
   description: Allow HTTP 0.9 responses
   provenance:
     sources:
     - help-text
 - spellings:
   - '-0'
-  - --http1
-  value_name: '.0'
-  value_kind: Required
+  - --http1.0
   description: Use HTTP 1.0
   provenance:
     sources:
     - help-text
 - spellings:
-  - --http1
-  value_name: '.1'
-  value_kind: Required
+  - --http1.1
   description: Use HTTP 1.1
   provenance:
     sources:
@@ -1296,8 +1290,8 @@ flags:
     sources:
     - help-text
 - spellings:
-  - --proxy1
-  value_name: '.0'
+  - --proxy1.0
+  value_name: <host[:port]>
   value_kind: Required
   description: Use HTTP/1.0 proxy on given port
   provenance:
@@ -1735,33 +1729,25 @@ flags:
     sources:
     - help-text
 - spellings:
-  - --tlsv1
-  value_name: '.0'
-  value_kind: Required
+  - --tlsv1.0
   description: Use TLSv1.0 or greater
   provenance:
     sources:
     - help-text
 - spellings:
-  - --tlsv1
-  value_name: '.1'
-  value_kind: Required
+  - --tlsv1.1
   description: Use TLSv1.1 or greater
   provenance:
     sources:
     - help-text
 - spellings:
-  - --tlsv1
-  value_name: '.2'
-  value_kind: Required
+  - --tlsv1.2
   description: Use TLSv1.2 or greater
   provenance:
     sources:
     - help-text
 - spellings:
-  - --tlsv1
-  value_name: '.3'
-  value_kind: Required
+  - --tlsv1.3
   description: Use TLSv1.3 or greater
   provenance:
     sources:

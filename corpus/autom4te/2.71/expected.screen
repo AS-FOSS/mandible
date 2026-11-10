@@ -23,9 +23,9 @@ Operation modes
 -V, --version              print version number, then exit
 -v, --verbose              verbosely report processing
 -d, --debug                don't remove temporary files
--o, --output FILE          save output in FILE (defaults to '-', stdout)
+-o, --output=FILE          save output in FILE (defaults to '-', stdout)
 -f, --force                don't rely on cached values
--W, --warnings CATEGORY    report the warnings falling in CATEGORY
+-W, --warnings=CATEGORY    report the warnings falling in CATEGORY
                              values:
                                cross                  cross compilation
                                                       issues
@@ -59,24 +59,24 @@ Operation modes
                                                       warnings
                                error                  treat warnings as
                                                       errors
--l, --language LANG        specify the set of M4 macros to use
+-l, --language=LANG        specify the set of M4 macros to use
                              values:
                                Autoconf  create Autoconf configure scripts
                                Autotest  create Autotest test suites
                                M4sh      create M4sh shell scripts
                                M4sugar   create M4sugar output
--C, --cache DIRECTORY      preserve results for future runs in DIRECTORY
+-C, --cache=DIRECTORY      preserve results for future runs in DIRECTORY
     --no-cache             disable the cache
--m, --mode OCTAL           change the non trace output file mode (0666)
+-m, --mode=OCTAL           change the non trace output file mode (0666)
 -M, --melt                 don't use M4 frozen files
 
 Library directories ────────────────────────────────────────────────────────
--B, --prepend-include DIR  prepend directory DIR to search path
--I, --include DIR          append directory DIR to search path
+-B, --prepend-include=DIR  prepend directory DIR to search path
+-I, --include=DIR          append directory DIR to search path
 
 Tracing ────────────────────────────────────────────────────────────────────
--t, --trace MACRO[:FORMAT] report the MACRO invocations
--p, --preselect MACRO      prepare to trace MACRO in a future run
+-t, --trace=MACRO[:FORMAT] report the MACRO invocations
+-p, --preselect=MACRO      prepare to trace MACRO in a future run
 
 Freezing ───────────────────────────────────────────────────────────────────
 -F, --freeze               produce an M4 frozen state file for FILES

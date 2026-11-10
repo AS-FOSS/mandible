@@ -15,6 +15,7 @@ exit_code = 0
 [contract]
 expected_framework = "GNU argp/getopt_long"
 must_contain_flags = ["-A", "-j", "-N", "-S", "-t", "-v", "-w", "--traditional"]
+must_draw = ["-j, --skip-bytes=BYTES"]
 must_describe_root = [
   "Write an unambiguous representation, octal bytes by default, of FILE to standard output. With more than one FILE argument, concatenate them in the listed order to form the input.",
   "With no FILE, or when FILE is -, read standard input.",
@@ -24,4 +25,3 @@ must_describe_root = [
 
 [contract.must_attach_choices]
 "--format" = ["a", "c", "d[SIZE]", "f[SIZE]", "o[SIZE]", "u[SIZE]", "x[SIZE]"]
-

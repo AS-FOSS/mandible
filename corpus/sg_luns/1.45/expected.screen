@@ -27,19 +27,19 @@ Where
 -l, --linux      show Linux integer lun after T10 representation
 -L, --lu_cong    decode as if LU_CONG is set; used twice: decode as if
                  LU_CONG is clear
--m, --maxlen LEN max response length (allocation length in cdb) (def: 0 ->
+-m, --maxlen=LEN max response length (allocation length in cdb) (def: 0 ->
                  8192 bytes)
 -q, --quiet      output only ASCII hex lun values
 -r, --raw        output response in binary
 -R, --readonly   open DEVICE read-only (def: read-write)
--s, --select SR  select report SR (def: 0)
+-s, --select=SR  select report SR (def: 0)
                  0 -> luns apart from 'well known' lus
                  1 -> only 'well known' logical unit numbers
                  2 -> all luns
                  0x10 -> administrative luns
                  0x11 -> admin luns + non-conglomerate luns
                  0x12 -> admin lun + its subsidiary luns
--t, --test ALUN  decode ALUN and ignore most other options and DEVICE (apart
+-t, --test=ALUN  decode ALUN and ignore most other options and DEVICE (apart
                  from '-H')
 -v, --verbose    increase verbosity
 -V, --version    print version string and exit

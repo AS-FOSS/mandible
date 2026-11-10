@@ -24,6 +24,7 @@ flags:
   - --lang
   value_name: LANG
   value_kind: Required
+  optional_join: equals
   description: set LANG instead of current locale
   provenance:
     sources:

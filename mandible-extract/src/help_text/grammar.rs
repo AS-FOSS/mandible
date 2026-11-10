@@ -763,12 +763,26 @@ fn long_name<'s>(input: &mut &'s str) -> Res<&'s str> {
     // `--lu_cong`, bpfcc's `--extended_fields`); `sections/spelling.rs`
     // already accepts it in its own name grammar and this was the odd one
     // out. See docs/shapes.md S-106.
-    (
+    let start = *input;
+    let plain: &str = (
         take_while(1..=1, |c: char| c.is_alphanumeric() || c == '-'),
         take_while(0.., |c: char| c.is_alphanumeric() || c == '-' || c == '_'),
     )
         .take()
-        .parse_next(input)
+        .parse_next(input)?;
+    // A `.digits` run glued to the name is part of it (`--tlsv1.3`). S-274.
+    let mut len = plain.len();
+    while let Some(digits) = start[len..]
+        .strip_prefix('.')
+        .filter(|d| d.starts_with(|c: char| c.is_ascii_digit()))
+    {
+        let run = digits
+            .find(|c: char| !(c.is_alphanumeric() || c == '-' || c == '_'))
+            .unwrap_or(digits.len());
+        len += 1 + run;
+    }
+    *input = &start[len..];
+    Ok(&start[..len])
 }
 
 /// A single-dash word whose bracket opens it (`devlink`'s `-[he]x`, the
@@ -1390,6 +1404,17 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
 
     // `=VALUE`
     if equals_sign(&mut s).is_ok() {
+        // `--tabs=[N[,...]]`: a bracket group with a pair nested in it is
+        // one optional value, joined by the `=` outside it. S-273.
+        if let Some(inner) = s.strip_prefix('[') {
+            if nested_bracket_content(inner).is_some()
+                || nested_bracket_content_general(inner).is_some()
+            {
+                if let Some((name, ValueKind::Optional, tail)) = try_value(s) {
+                    return Some((name, ValueKind::Optional, tail));
+                }
+            }
+        }
         let (name, tail) = take_rest_value_token(s);
         // `--log-file=[PATH]`: one bracketed word after the `=` is the
         // optional value `PATH`, not a value named `[PATH]`.

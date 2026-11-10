@@ -51,6 +51,7 @@ flags:
   - --skip-fields
   value_name: N
   value_kind: Required
+  optional_join: equals
   description: avoid comparing the first N fields
   provenance:
     sources:
@@ -76,6 +77,7 @@ flags:
   - --skip-chars
   value_name: N
   value_kind: Required
+  optional_join: equals
   description: avoid comparing the first N characters
   provenance:
     sources:
@@ -99,6 +101,7 @@ flags:
   - --check-chars
   value_name: N
   value_kind: Required
+  optional_join: equals
   description: compare no more than N characters in lines
   provenance:
     sources:

@@ -19,6 +19,7 @@ flags:
   - --pages
   value_name: FIRST_PAGE[:LAST_PAGE]
   value_kind: Required
+  optional_join: equals
   description: begin [stop] printing with page FIRST_[LAST_]PAGE
   provenance:
     sources:
@@ -28,6 +29,7 @@ flags:
   - --columns
   value_name: COLUMN
   value_kind: Required
+  optional_join: equals
   description: output COLUMN columns and print columns down, unless -a is used. Balance number of lines in the columns on each page
   provenance:
     sources:
@@ -58,6 +60,7 @@ flags:
   - --date-format
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   description: use FORMAT for the header date
   provenance:
     sources:
@@ -85,6 +88,7 @@ flags:
   - --header
   value_name: HEADER
   value_kind: Required
+  optional_join: equals
   description: use a centered HEADER instead of filename in page header, -h "" prints a blank line, don't use -h""
   provenance:
     sources:
@@ -111,6 +115,7 @@ flags:
   - --length
   value_name: PAGE_LENGTH
   value_kind: Required
+  optional_join: equals
   description: set the page length to PAGE_LENGTH (66) lines (default number of lines of text 56, and with -F 63). implies -t if PAGE_LENGTH <= 10
   provenance:
     sources:
@@ -137,6 +142,7 @@ flags:
   - --first-line-number
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   description: start counting with NUMBER at 1st line of first page printed (see +FIRST_PAGE)
   provenance:
     sources:
@@ -146,6 +152,7 @@ flags:
   - --indent
   value_name: MARGIN
   value_kind: Required
+  optional_join: equals
   description: offset each line with MARGIN (zero) spaces, do not affect -w or -W, MARGIN will be added to PAGE_WIDTH
   provenance:
     sources:
@@ -203,6 +210,7 @@ flags:
   - --width
   value_name: PAGE_WIDTH
   value_kind: Required
+  optional_join: equals
   description: set page width to PAGE_WIDTH (72) characters for multiple text-column output only, -s[char] turns off (72)
   provenance:
     sources:
@@ -212,6 +220,7 @@ flags:
   - --page-width
   value_name: PAGE_WIDTH
   value_kind: Required
+  optional_join: equals
   description: set page width to PAGE_WIDTH (72) characters always, truncate lines, except -J option is set, no interference with -S or -s
   provenance:
     sources:

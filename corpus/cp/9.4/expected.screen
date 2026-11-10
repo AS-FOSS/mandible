@@ -52,19 +52,19 @@ FLAGS (35) ───────────────────────
 -P, --no-dereference        never follow symbolic links in SOURCE
 -p                          same as --preserve=mode,ownership,timestamps
     --preserve[=ATTR_LIST]  preserve the specified attributes
-    --no-preserve ATTR_LIST don't preserve the specified attributes
+    --no-preserve=ATTR_LIST don't preserve the specified attributes
     --parents               use full source file name under DIRECTORY
 -R, --recursive             copy directories recursively
  or -r
     --reflink[=WHEN]        control clone/CoW copies. See below
     --remove-destination    remove each existing destination file before
                             attempting to open it (contrast with --force)
-    --sparse WHEN           control creation of sparse files. See below
+    --sparse=WHEN           control creation of sparse files. See below
     --strip-trailing-slashes remove any trailing slashes from each SOURCE
                             argument
 -s, --symbolic-link         make symbolic links instead of copying
--S, --suffix SUFFIX         override the usual backup suffix
--t, --target-directory DIRECTORY copy all SOURCE arguments into DIRECTORY
+-S, --suffix=SUFFIX         override the usual backup suffix
+-t, --target-directory=DIRECTORY copy all SOURCE arguments into DIRECTORY
 -T, --no-target-directory   treat DEST as a normal file
     --update[=UPDATE]       control which existing files are updated;
                             UPDATE={all,none,older(default)}. See below

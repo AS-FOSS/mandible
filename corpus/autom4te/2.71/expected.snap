@@ -48,6 +48,7 @@ flags:
   - --output
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Operation modes:'
   description: save output in FILE (defaults to '-', stdout)
   provenance:
@@ -66,6 +67,7 @@ flags:
   - --warnings
   value_name: CATEGORY
   value_kind: Required
+  optional_join: equals
   choices:
   - name: cross
     description: cross compilation issues
@@ -103,6 +105,7 @@ flags:
   - --language
   value_name: LANG
   value_kind: Required
+  optional_join: equals
   choices:
   - name: Autoconf
     description: create Autoconf configure scripts
@@ -122,6 +125,7 @@ flags:
   - --cache
   value_name: DIRECTORY
   value_kind: Required
+  optional_join: equals
   group: 'Operation modes:'
   description: preserve results for future runs in DIRECTORY
   provenance:
@@ -139,6 +143,7 @@ flags:
   - --mode
   value_name: OCTAL
   value_kind: Required
+  optional_join: equals
   group: 'Operation modes:'
   description: change the non trace output file mode (0666)
   provenance:
@@ -157,6 +162,7 @@ flags:
   - --prepend-include
   value_name: DIR
   value_kind: Required
+  optional_join: equals
   group: 'Library directories:'
   description: prepend directory DIR to search path
   provenance:
@@ -167,6 +173,7 @@ flags:
   - --include
   value_name: DIR
   value_kind: Required
+  optional_join: equals
   group: 'Library directories:'
   description: append directory DIR to search path
   provenance:
@@ -177,6 +184,7 @@ flags:
   - --trace
   value_name: MACRO[:FORMAT]
   value_kind: Required
+  optional_join: equals
   group: 'Tracing:'
   description: report the MACRO invocations
   provenance:
@@ -187,6 +195,7 @@ flags:
   - --preselect
   value_name: MACRO
   value_kind: Required
+  optional_join: equals
   group: 'Tracing:'
   description: prepare to trace MACRO in a future run
   provenance:

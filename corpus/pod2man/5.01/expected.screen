@@ -66,7 +66,7 @@ FLAGS (23) ───────────────────────
                          encoding and may be successful if it's Latin-1 or
                          UTF-8, but it will produce warnings. See perlpod(1)
                          for more information.
-    --errors style       [2.5.0] Set the error handling style. "die" says to
+    --errors=style       [2.5.0] Set the error handling style. "die" says to
                          throw an exception on any POD formatting error.
                          "stderr" says to report errors on standard error,
                          but not to throw an exception. "pod" says to
@@ -74,22 +74,22 @@ FLAGS (23) ───────────────────────
                          documentation summarizing the errors. "none"
                          ignores POD errors entirely, as much as possible.
                          The default is "die".
-    --fixed font         [1.0] The fixed-width font to use for verbatim text
+    --fixed=font         [1.0] The fixed-width font to use for verbatim text
                          and code. Defaults to "CW". Some systems may want
                          "CR" instead. Only matters for troff output.
-    --fixedbold font     [1.0] Bold version of the fixed-width font.
+    --fixedbold=font     [1.0] Bold version of the fixed-width font.
                          Defaults to "CB". Only matters for troff output.
-    --fixeditalic font   [1.0] Italic version of the fixed-width font
+    --fixeditalic=font   [1.0] Italic version of the fixed-width font
                          (something of a misnomer, since most fixed-width
                          fonts only have an oblique version, not an italic
                          version). Defaults to "CI". Only matters for troff
                          output.
-    --fixedbolditalic font [1.0] Bold italic (in theory, probably oblique in
+    --fixedbolditalic=font [1.0] Bold italic (in theory, probably oblique in
                          practice) version of the fixed-width font. Pod::Man
                          doesn't assume you have this, and defaults to "CB".
                          Some systems (such as Solaris) have this font
                          available as "CX". Only matters for troff output.
-    --guesswork rule[,rule...] [5.00] By default, pod2man applies some
+    --guesswork=rule[,rule...] [5.00] By default, pod2man applies some
                          default formatting rules based on guesswork and
                          regular expressions that are intended to make
                          writing Perl documentation easier and require less
@@ -130,7 +130,7 @@ FLAGS (23) ───────────────────────
                          should now be done by podchecker(1) instead.
                          Accepted for backward compatibility; this option no
                          longer does anything.
-    --language language  [5.00] Add commands telling groff that the input
+    --language=language  [5.00] Add commands telling groff that the input
                          file is in the given language. The value of this
                          setting must be a language abbreviation for which
                          groff provides supplemental configuration, such as
@@ -149,8 +149,8 @@ FLAGS (23) ───────────────────────
                          the commands added with this option are specific to
                          groff and will not work with other troff and nroff
                          implementations.
-    --lquote quote
-    --rquote quote       [4.08] Sets the quote marks used to surround C<>
+    --lquote=quote
+    --rquote=quote       [4.08] Sets the quote marks used to surround C<>
                          text. --lquote sets the left quote mark and
                          --rquote sets the right quote mark. Either may also
                          be set to the special value "none", in which case

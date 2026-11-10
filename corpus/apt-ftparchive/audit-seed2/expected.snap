@@ -26,6 +26,7 @@ flags:
   - -s
   value_name: '?'
   value_kind: Required
+  optional_join: equals
   description: Source override file
   provenance:
     sources:
@@ -40,6 +41,7 @@ flags:
   - -d
   value_name: '?'
   value_kind: Required
+  optional_join: equals
   description: Select the optional caching database
   provenance:
     sources:
@@ -60,6 +62,7 @@ flags:
   - -c
   value_name: '?'
   value_kind: Required
+  optional_join: equals
   description: Read this configuration file
   provenance:
     sources:
@@ -68,6 +71,7 @@ flags:
   - -o
   value_name: '?'
   value_kind: Required
+  optional_join: equals
   description: Set an arbitrary configuration option
   provenance:
     sources:

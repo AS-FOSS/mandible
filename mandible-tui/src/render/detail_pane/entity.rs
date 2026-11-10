@@ -215,7 +215,17 @@ fn entity_lines(
         // into the description's.
         let budget = width.saturating_sub(head_column).max(1);
         let indent = leading.to_string();
-        for (i, chunk) in wrap_words(&name_spec, budget).into_iter().enumerate() {
+        // A joiner `=` stays on the spelling's last line (S-276).
+        let eq_value = value_text
+            .as_deref()
+            .and_then(|v| v.strip_prefix('='))
+            .filter(|_| value_gap(flag).is_empty());
+        let head_name = if eq_value.is_some() {
+            format!("{name_spec}=")
+        } else {
+            name_spec.clone()
+        };
+        for (i, chunk) in wrap_words(&head_name, budget).into_iter().enumerate() {
             let text = if i == 0 {
                 format!("{leading}{chunk}")
             } else {
@@ -223,7 +233,7 @@ fn entity_lines(
             };
             head.push(Line::from(Span::styled(text, spelling_style)));
         }
-        if let Some(v) = &value_text {
+        if let Some(v) = eq_value.or(value_text.as_deref()) {
             for chunk in wrap_words(v, budget) {
                 head.push(Line::from(Span::styled(
                     format!("{indent}{chunk}"),

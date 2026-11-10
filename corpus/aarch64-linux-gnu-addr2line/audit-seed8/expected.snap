@@ -33,6 +33,7 @@ flags:
   - --target
   value_name: <bfdname>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Set the binary file format
   provenance:
@@ -43,6 +44,7 @@ flags:
   - --exe
   value_name: <executable>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Set the input file name (default is a.out)
   provenance:
@@ -61,6 +63,7 @@ flags:
   - --section
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Read section-relative offsets instead of addresses
   provenance:

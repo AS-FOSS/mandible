@@ -17,6 +17,7 @@ flags:
   - --input-target
   value_name: <bfdname>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Assume input file is in format <bfdname>
   provenance:
@@ -27,6 +28,7 @@ flags:
   - --output-target
   value_name: <bfdname>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Create an output file in format <bfdname>
   provenance:
@@ -37,6 +39,7 @@ flags:
   - --target
   value_name: <bfdname>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Set both input and output format to <bfdname>
   provenance:
@@ -71,6 +74,7 @@ flags:
   - --remove-section
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Also remove section <name> from the output
   provenance:
@@ -151,6 +155,7 @@ flags:
   - --strip-symbol
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Do not copy symbol <name>
   provenance:
@@ -160,6 +165,7 @@ flags:
   - --keep-section
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Do not strip section <name>
   provenance:
@@ -170,6 +176,7 @@ flags:
   - --keep-symbol
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Do not strip symbol <name>
   provenance:

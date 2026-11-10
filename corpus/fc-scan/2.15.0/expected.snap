@@ -22,6 +22,7 @@ flags:
   - --format
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   description: use the given output format
   provenance:
     sources:
@@ -31,6 +32,7 @@ flags:
   - --sysroot
   value_name: SYSROOT
   value_kind: Required
+  optional_join: equals
   description: prepend SYSROOT to all paths for scanning
   provenance:
     sources:

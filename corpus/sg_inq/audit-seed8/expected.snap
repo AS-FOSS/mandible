@@ -12,6 +12,7 @@ flags:
 - spellings:
   - --block
   value_kind: Required
+  optional_join: equals
   choices:
   - '0'
   - '1'
@@ -101,6 +102,7 @@ flags:
   - -I
   value_name: FN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: read ASCII hex from file FN instead of DEVICE; if used with --raw then read binary from FN
   provenance:
@@ -111,6 +113,7 @@ flags:
   - -l
   value_name: LEN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'requested response length (def: 0 -> fetch 36 bytes first, then fetch again as indicated)'
   provenance:
@@ -129,6 +132,7 @@ flags:
   - -m
   value_name: LEN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: same as '--len='
   provenance:
@@ -155,6 +159,7 @@ flags:
   - -p
   value_name: PG
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: Vital Product Data (VPD) page number or abbreviation (opcode number if '--cmddt' given)
   provenance:

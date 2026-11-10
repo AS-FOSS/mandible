@@ -344,12 +344,8 @@ fn drawn_join(cells: &[String]) -> Option<OptionalJoin> {
 fn attach_value(spellings: &str, value: &str, join: Option<OptionalJoin>) -> String {
     let group = value.starts_with('[') && value.ends_with(']');
     match join {
-        Some(OptionalJoin::EqualsThenBracket)
-            if group && !value[1..value.len() - 1].contains(['[', ']']) =>
-        {
-            format!("{spellings}={value}")
-        }
-        Some(OptionalJoin::Equals | OptionalJoin::EqualsThenBracket) if group => {
+        Some(OptionalJoin::EqualsThenBracket) if group => format!("{spellings}={value}"),
+        Some(OptionalJoin::Equals) if group => {
             format!("{spellings}[={}", &value[1..])
         }
         Some(OptionalJoin::Glued) if group => format!("{spellings}{value}"),

@@ -157,6 +157,7 @@ flags:
   - --showformat
   value_name: <format>
   value_kind: Required
+  optional_join: equals
   description: Use alternative format for --show.
   provenance:
     sources:
@@ -165,6 +166,7 @@ flags:
   - --deb-format
   value_name: <format>
   value_kind: Required
+  optional_join: equals
   description: 'Select archive format. Allowed values: 0.939000, 2.0 (default).'
   provenance:
     sources:
@@ -185,6 +187,7 @@ flags:
   - --threads-max
   value_name: <threads>
   value_kind: Required
+  optional_join: equals
   description: Use at most <threads> with compressor.
   provenance:
     sources:

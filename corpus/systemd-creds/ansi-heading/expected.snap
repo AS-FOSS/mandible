@@ -37,6 +37,7 @@ flags:
 - spellings:
   - --json
   value_kind: Required
+  optional_join: equals
   choices:
   - pretty
   - short
@@ -54,6 +55,7 @@ flags:
 - spellings:
   - --transcode
   value_kind: Required
+  optional_join: equals
   choices:
   - base64
   - unbase64
@@ -66,6 +68,7 @@ flags:
 - spellings:
   - --newline
   value_kind: Required
+  optional_join: equals
   choices:
   - auto
   - yes
@@ -85,6 +88,7 @@ flags:
   - --name
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   description: Override filename included in encrypted credential
   provenance:
     sources:
@@ -93,6 +97,7 @@ flags:
   - --timestamp
   value_name: TIME
   value_kind: Required
+  optional_join: equals
   description: Include specified timestamp in encrypted credential
   provenance:
     sources:
@@ -101,6 +106,7 @@ flags:
   - --not-after
   value_name: TIME
   value_kind: Required
+  optional_join: equals
   description: Include specified invalidation time in encrypted credential
   provenance:
     sources:
@@ -109,6 +115,7 @@ flags:
   - --with-key
   value_name: host|tpm2|host+tpm2|tpm2-absent|auto|auto-initrd
   value_kind: Required
+  optional_join: equals
   description: Which keys to encrypt with
   provenance:
     sources:
@@ -129,6 +136,7 @@ flags:
   - --tpm2-device
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Pick TPM2 device
   provenance:
     sources:
@@ -137,6 +145,7 @@ flags:
   - --tpm2-pcrs
   value_name: PCR1+PCR2+PCR3+…
   value_kind: Required
+  optional_join: equals
   description: Specify TPM2 PCRs to seal against (fixed hash)
   provenance:
     sources:
@@ -145,6 +154,7 @@ flags:
   - --tpm2-public-key
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Specify PEM certificate to seal against
   provenance:
     sources:
@@ -153,6 +163,7 @@ flags:
   - --tpm2-public-key-pcrs
   value_name: PCR1+PCR2+PCR3+…
   value_kind: Required
+  optional_join: equals
   description: Specify TPM2 PCRs to seal against (public key)
   provenance:
     sources:
@@ -161,6 +172,7 @@ flags:
   - --tpm2-signature
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Specify signature for public key PCR policy
   provenance:
     sources:

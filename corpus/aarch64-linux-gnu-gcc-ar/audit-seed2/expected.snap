@@ -25,6 +25,7 @@ flags:
   - --target
   value_name: BFDNAME
   value_kind: Required
+  optional_join: equals
   group: 'generic modifiers:'
   description: specify the target object format as BFDNAME
   provenance:
@@ -34,6 +35,7 @@ flags:
   - --output
   value_name: DIRNAME
   value_kind: Required
+  optional_join: equals
   group: 'generic modifiers:'
   description: specify the output directory for extraction operations
   provenance:
@@ -43,6 +45,7 @@ flags:
   - --record-libdeps
   value_name: <text>
   value_kind: Required
+  optional_join: equals
   group: 'generic modifiers:'
   description: specify the dependencies of this library
   provenance:

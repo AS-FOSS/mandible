@@ -27,10 +27,10 @@ FLAGS (18) ───────────────────────
     --no-pager
     --no-replace-objects
     --bare
-    --git-dir <path>
-    --work-tree <path>
-    --namespace <name>
-    --config-env <name>=<envvar>
+    --git-dir=<path>
+    --work-tree=<path>
+    --namespace=<name>
+    --config-env=<name>=<envvar>
 
 === git clone ===
 Clone a repository into a new directory

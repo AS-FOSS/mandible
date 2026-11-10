@@ -4,6 +4,7 @@ usage:
 positionals:
 - name: OBJECT
   required: true
+  description: '{ ctrl etc }'
   provenance:
     sources:
     - help-text

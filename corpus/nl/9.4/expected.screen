@@ -16,7 +16,7 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (13) ─────────────────────────────────────────────────────────────────
--b, --body-numbering STYLE     use STYLE for numbering body lines
+-b, --body-numbering=STYLE     use STYLE for numbering body lines
                                  values:
                                    a     number all lines
                                    t     number only nonempty lines
@@ -24,8 +24,8 @@ FLAGS (13) ───────────────────────
                                    pBRE  number only lines that contain a
                                          match for the basic regular
                                          expression, BRE
--d, --section-delimiter CC     use CC for logical page delimiters
--f, --footer-numbering STYLE   use STYLE for numbering footer lines
+-d, --section-delimiter=CC     use CC for logical page delimiters
+-f, --footer-numbering=STYLE   use STYLE for numbering footer lines
                                  values:
                                    a     number all lines
                                    t     number only nonempty lines
@@ -33,7 +33,7 @@ FLAGS (13) ───────────────────────
                                    pBRE  number only lines that contain a
                                          match for the basic regular
                                          expression, BRE
--h, --header-numbering STYLE   use STYLE for numbering header lines
+-h, --header-numbering=STYLE   use STYLE for numbering header lines
                                  values:
                                    a     number all lines
                                    t     number only nonempty lines
@@ -41,16 +41,16 @@ FLAGS (13) ───────────────────────
                                    pBRE  number only lines that contain a
                                          match for the basic regular
                                          expression, BRE
--i, --line-increment NUMBER    line number increment at each line
--l, --join-blank-lines NUMBER  group of NUMBER empty lines counted as one
--n, --number-format FORMAT     insert line numbers according to FORMAT
+-i, --line-increment=NUMBER    line number increment at each line
+-l, --join-blank-lines=NUMBER  group of NUMBER empty lines counted as one
+-n, --number-format=FORMAT     insert line numbers according to FORMAT
                                  values:
                                    ln  left justified, no leading zeros
                                    rn  right justified, no leading zeros
                                    rz  right justified, leading zeros
 -p, --no-renumber              do not reset line numbers for each section
--s, --number-separator STRING  add STRING after (possible) line number
--v, --starting-line-number NUMBER first line number for each section
--w, --number-width NUMBER      use NUMBER columns for line numbers
+-s, --number-separator=STRING  add STRING after (possible) line number
+-v, --starting-line-number=NUMBER first line number for each section
+-w, --number-width=NUMBER      use NUMBER columns for line numbers
     --help                     display this help and exit
     --version                  output version information and exit

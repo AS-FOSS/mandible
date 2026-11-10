@@ -16,9 +16,9 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (26) ─────────────────────────────────────────────────────────────────
-    --pages FIRST_PAGE[:LAST_PAGE] begin [stop] printing with page
+    --pages=FIRST_PAGE[:LAST_PAGE] begin [stop] printing with page
  or +FIRST_PAGE[:LAST_PAGE]      FIRST_[LAST_]PAGE
-    --columns COLUMN             output COLUMN columns and print columns
+    --columns=COLUMN             output COLUMN columns and print columns
  or -COLUMN                      down, unless -a is used. Balance number of
                                  lines in the columns on each page
 -a, --across                     print columns across rather than down, used
@@ -26,13 +26,13 @@ FLAGS (26) ───────────────────────
 -c, --show-control-chars         use hat notation (^G) and octal backslash
                                  notation
 -d, --double-space               double space the output
--D, --date-format FORMAT         use FORMAT for the header date
+-D, --date-format=FORMAT         use FORMAT for the header date
 -e, --expand-tabs[=CHAR[WIDTH]]  expand input CHARs (TABs) to tab WIDTH (8)
 -F, --form-feed                  use form feeds instead of newlines to
  or -f                           separate pages (by a 3-line page header
                                  with -F or a 5-line header and trailer
                                  without -F)
--h, --header HEADER              use a centered HEADER instead of filename
+-h, --header=HEADER              use a centered HEADER instead of filename
                                  in page header, -h "" prints a blank line,
                                  don't use -h""
 -i, --output-tabs[=CHAR[WIDTH]]  replace spaces with CHARs (TABs) to tab
@@ -40,7 +40,7 @@ FLAGS (26) ───────────────────────
 -J, --join-lines                 merge full lines, turns off -W line
                                  truncation, no column alignment,
                                  --sep-string[=STRING] sets separators
--l, --length PAGE_LENGTH         set the page length to PAGE_LENGTH (66)
+-l, --length=PAGE_LENGTH         set the page length to PAGE_LENGTH (66)
                                  lines (default number of lines of text 56,
                                  and with -F 63). implies -t if PAGE_LENGTH
                                  <= 10
@@ -50,9 +50,9 @@ FLAGS (26) ───────────────────────
 -n, --number-lines[=SEP[DIGITS]] number lines, use DIGITS (5) digits, then
                                  SEP (TAB), default counting starts with 1st
                                  line of input file
--N, --first-line-number NUMBER   start counting with NUMBER at 1st line of
+-N, --first-line-number=NUMBER   start counting with NUMBER at 1st line of
                                  first page printed (see +FIRST_PAGE)
--o, --indent MARGIN              offset each line with MARGIN (zero) spaces,
+-o, --indent=MARGIN              offset each line with MARGIN (zero) spaces,
                                  do not affect -w or -W, MARGIN will be
                                  added to PAGE_WIDTH
 -r, --no-file-warnings           omit warning when a file cannot be opened
@@ -72,10 +72,10 @@ FLAGS (26) ───────────────────────
                                  any pagination by form feeds set in input
                                  files
 -v, --show-nonprinting           use octal backslash notation
--w, --width PAGE_WIDTH           set page width to PAGE_WIDTH (72)
+-w, --width=PAGE_WIDTH           set page width to PAGE_WIDTH (72)
                                  characters for multiple text-column output
                                  only, -s[char] turns off (72)
--W, --page-width PAGE_WIDTH      set page width to PAGE_WIDTH (72)
+-W, --page-width=PAGE_WIDTH      set page width to PAGE_WIDTH (72)
                                  characters always, truncate lines, except
                                  -J option is set, no interference with -S
                                  or -s

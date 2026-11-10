@@ -94,6 +94,7 @@ flags:
   - --listed-incremental
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Operation modifiers:'
   description: handle new GNU-format incremental backup
   provenance:
@@ -111,6 +112,7 @@ flags:
   - --hole-detection
   value_name: TYPE
   value_kind: Required
+  optional_join: equals
   group: 'Operation modifiers:'
   description: technique to detect holes
   provenance:
@@ -127,6 +129,7 @@ flags:
   - --level
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   group: 'Operation modifiers:'
   description: dump level for created listed-incremental archive
   provenance:
@@ -168,6 +171,7 @@ flags:
   - --sparse-version
   value_name: MAJOR[.MINOR]
   value_kind: Required
+  optional_join: equals
   group: 'Operation modifiers:'
   description: set version of the sparse format to use (implies --sparse)
   provenance:
@@ -185,6 +189,7 @@ flags:
   - --add-file
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: add given FILE to the archive (useful if its name starts with a dash)
   provenance:
@@ -195,6 +200,7 @@ flags:
   - --directory
   value_name: DIR
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: change to directory DIR
   provenance:
@@ -204,6 +210,7 @@ flags:
   - --exclude
   value_name: PATTERN
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: exclude files, given as a PATTERN
   provenance:
@@ -241,6 +248,7 @@ flags:
   - --exclude-ignore
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: read exclude patterns for each directory from FILE, if it exists
   provenance:
@@ -250,6 +258,7 @@ flags:
   - --exclude-ignore-recursive
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: read exclude patterns for each directory and its subdirectories from FILE, if it exists
   provenance:
@@ -259,6 +268,7 @@ flags:
   - --exclude-tag
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: exclude contents of directories containing FILE, except for FILE itself
   provenance:
@@ -268,6 +278,7 @@ flags:
   - --exclude-tag-all
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: exclude directories containing FILE
   provenance:
@@ -277,6 +288,7 @@ flags:
   - --exclude-tag-under
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: exclude everything under directories containing FILE
   provenance:
@@ -343,6 +355,7 @@ flags:
   - --files-from
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: get names to extract or create from FILE
   provenance:
@@ -367,6 +380,7 @@ flags:
   - --exclude-from
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file name selection:'
   description: exclude patterns listed in FILE
   provenance:
@@ -544,6 +558,7 @@ flags:
   - --to-command
   value_name: COMMAND
   value_kind: Required
+  optional_join: equals
   group: 'Select output stream:'
   description: pipe extracted files to another program
   provenance:
@@ -577,6 +592,7 @@ flags:
   - --group
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: force NAME as group for added files
   provenance:
@@ -586,6 +602,7 @@ flags:
   - --group-map
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: use FILE to map file owner GIDs and names
   provenance:
@@ -595,6 +612,7 @@ flags:
   - --mode
   value_name: CHANGES
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: force (symbolic) mode CHANGES for added files
   provenance:
@@ -604,6 +622,7 @@ flags:
   - --mtime
   value_name: DATE-OR-FILE
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: set mtime for added files from DATE-OR-FILE
   provenance:
@@ -649,6 +668,7 @@ flags:
   - --owner
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: force NAME as owner for added files
   provenance:
@@ -658,6 +678,7 @@ flags:
   - --owner-map
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: use FILE to map file owner UIDs and names
   provenance:
@@ -683,6 +704,7 @@ flags:
   - --sort
   value_name: ORDER
   value_kind: Required
+  optional_join: equals
   group: 'Handling of file attributes:'
   description: 'directory sorting order: none (default), name or inode'
   provenance:
@@ -743,6 +765,7 @@ flags:
   - --xattrs-exclude
   value_name: MASK
   value_kind: Required
+  optional_join: equals
   group: 'Handling of extended file attributes:'
   description: specify the exclude pattern for xattr keys
   provenance:
@@ -752,6 +775,7 @@ flags:
   - --xattrs-include
   value_name: MASK
   value_kind: Required
+  optional_join: equals
   group: 'Handling of extended file attributes:'
   description: specify the include pattern for xattr keys
   provenance:
@@ -769,6 +793,7 @@ flags:
   - --file
   value_name: ARCHIVE
   value_kind: Required
+  optional_join: equals
   group: 'Device selection and switching:'
   description: use archive file or device ARCHIVE
   provenance:
@@ -780,6 +805,7 @@ flags:
   - --new-volume-script
   value_name: NAME
   value_kind: Required
+  optional_join: equals
   group: 'Device selection and switching:'
   description: run script at end of each tape (implies -M)
   provenance:
@@ -790,6 +816,7 @@ flags:
   - --tape-length
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   group: 'Device selection and switching:'
   description: change tape after writing NUMBER x 1024 bytes
   provenance:
@@ -807,6 +834,7 @@ flags:
   - --rmt-command
   value_name: COMMAND
   value_kind: Required
+  optional_join: equals
   group: 'Device selection and switching:'
   description: use given rmt COMMAND instead of rmt
   provenance:
@@ -816,6 +844,7 @@ flags:
   - --rsh-command
   value_name: COMMAND
   value_kind: Required
+  optional_join: equals
   group: 'Device selection and switching:'
   description: use remote COMMAND instead of rsh
   provenance:
@@ -825,6 +854,7 @@ flags:
   - --volno-file
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Device selection and switching:'
   description: use/update the volume number in FILE
   provenance:
@@ -835,6 +865,7 @@ flags:
   - --blocking-factor
   value_name: BLOCKS
   value_kind: Required
+  optional_join: equals
   group: 'Device blocking:'
   description: BLOCKS x 512 bytes per record
   provenance:
@@ -860,6 +891,7 @@ flags:
   - --record-size
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   group: 'Device blocking:'
   description: NUMBER of bytes per record, multiple of 512
   provenance:
@@ -870,6 +902,7 @@ flags:
   - --format
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   choices:
   - name: gnu
     description: GNU tar 1.13.x format
@@ -899,6 +932,7 @@ flags:
   - --pax-option
   value_name: keyword[[:]=value][,keyword[[:]=value]]...
   value_kind: Required
+  optional_join: equals
   description: control pax keywords
   provenance:
     sources:
@@ -914,6 +948,7 @@ flags:
   - --label
   value_name: TEXT
   value_kind: Required
+  optional_join: equals
   description: create archive with volume name TEXT; at list/extract time, use TEXT as a globbing pattern for volume name
   provenance:
     sources:
@@ -931,6 +966,7 @@ flags:
   - --use-compress-program
   value_name: PROG
   value_kind: Required
+  optional_join: equals
   group: 'Compression options:'
   description: filter through PROG (must accept -d)
   provenance:
@@ -1053,6 +1089,7 @@ flags:
   - --starting-file
   value_name: MEMBER-NAME
   value_kind: Required
+  optional_join: equals
   group: 'Local file selection:'
   description: begin at member MEMBER-NAME when reading the archive
   provenance:
@@ -1062,6 +1099,7 @@ flags:
   - --newer-mtime
   value_name: DATE
   value_kind: Required
+  optional_join: equals
   group: 'Local file selection:'
   description: compare date and time when data changed only
   provenance:
@@ -1073,6 +1111,7 @@ flags:
   - --after-date
   value_name: DATE-OR-FILE
   value_kind: Required
+  optional_join: equals
   group: 'Local file selection:'
   description: only store files newer than DATE-OR-FILE
   provenance:
@@ -1097,6 +1136,7 @@ flags:
   - --suffix
   value_name: STRING
   value_kind: Required
+  optional_join: equals
   group: 'Local file selection:'
   description: backup before removal, override usual suffix ('~' unless overridden by environment variable SIMPLE_BACKUP_SUFFIX)
   provenance:
@@ -1106,6 +1146,7 @@ flags:
   - --strip-components
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   group: 'File name transformations:'
   description: strip NUMBER leading components from file names on extraction
   provenance:
@@ -1116,6 +1157,7 @@ flags:
   - --xform
   value_name: EXPRESSION
   value_kind: Required
+  optional_join: equals
   group: 'File name transformations:'
   description: use sed replace EXPRESSION to transform file names
   provenance:
@@ -1135,6 +1177,7 @@ flags:
   - --checkpoint-action
   value_name: ACTION
   value_kind: Required
+  optional_join: equals
   group: 'Informative output:'
   description: execute ACTION on each checkpoint
   provenance:
@@ -1151,6 +1194,7 @@ flags:
   - --index-file
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: 'Informative output:'
   description: send verbose output to FILE
   provenance:
@@ -1168,6 +1212,7 @@ flags:
   - --no-quote-chars
   value_name: STRING
   value_kind: Required
+  optional_join: equals
   group: 'Informative output:'
   description: disable quoting for characters from STRING
   provenance:
@@ -1177,6 +1222,7 @@ flags:
   - --quote-chars
   value_name: STRING
   value_kind: Required
+  optional_join: equals
   group: 'Informative output:'
   description: additionally quote characters from STRING
   provenance:
@@ -1186,6 +1232,7 @@ flags:
   - --quoting-style
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   choices:
   - literal
   - shell
@@ -1268,6 +1315,7 @@ flags:
   - --warning
   value_name: KEYWORD
   value_kind: Required
+  optional_join: equals
   group: 'Informative output:'
   description: warning control
   provenance:
@@ -1322,6 +1370,7 @@ flags:
   - --format
   value_name: gnu
   value_kind: Required
+  optional_join: equals
   provenance:
     sources:
     - help-text
@@ -1329,6 +1378,7 @@ flags:
   - --rsh-command
   value_name: /usr/bin/rsh
   value_kind: Required
+  optional_join: equals
   provenance:
     sources:
     - help-text

@@ -6144,6 +6144,56 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - handling: Declined. A verb that appears only in a usage form is not heading-attested (design §6, the Tier B gate), so it is never probed; its page comes from the usage form alone, with the operands and flags that form names. Probing it was measured and refused. In mandible's scratch directory `git stash show --help` answers only `fatal: not a git repository`, so the page would still be empty. Verbs such a probe would reach act on `-h`: iproute2 reads it as an operand in `ip link set -h` and `ip link delete -h`, `ip mptcp monitor -h` runs until killed, `git bisect start` and `git bisect run` act on the repository, `manifest export -h` writes a file named `-h` and `manifest import -h` runs `sudo apt`.
 - fleet: not measured. The git answer was checked under containment on 2026-11-09.
 
+### S-272: a bracketed single-dash word that only the usage form shows
+
+- id: S-272
+- looks like: |
+      Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }
+             ip [ -force ] -batch filename
+- tools: ip, tc
+- handling: Fixed. A usage-only single-dash word of four or more letters, named as a whole word on two lines of the document (one line when the page abbreviates three single-dash words), is a flag when the finished flags neither spell it nor list every one of its letters as a short flag. `-force` reads as `-f` with the value `orce` first, and `-f[amily]` made it a duplicate. `rpcbind [-adhilswfr]` and `blkmapd [-hdf]` stay bundles. The flag has no description. Fixture: `corpus/ip/6.1.0-options`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10, against the build before the change: only ip gained a flag (25 to 26); tc already listed `-force`.
+
+### S-273: an optional value whose bracket nests, after an equals sign
+
+- id: S-273
+- looks like: |
+      -x [N[,...]]  --tabs=[N[,...]]
+      -" [c[c]]     --quotes=[c[c]]
+- tools: less, zstdless, pager, strace
+- handling: Fixed. A bracket that nests another pair, directly after `=`, is one optional value joined by the `=` outside it, as for `--buffers=[N]`. It is drawn `--tabs=[N[,...]]`. Fixture: `corpus/less/590`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10, against the build before the change: less, zstdless and pager changed `--tabs` and `--quotes`; strace `--absolute-timestamps=[[format:]FORMAT[,...]]` changed from a required value to an optional one drawn as written. No flag count changed.
+
+### S-274: a dotted run glued to a long name
+
+- id: S-274
+- looks like: |
+      --http0.9     Allow HTTP 0.9 responses
+      --tlsv1.2     Use TLSv1.2 or greater
+- tools: curl, node, nodejs, linux32, linux64, setarch
+- handling: Fixed. A `.digits` run glued to a long name is part of the name; a value starts only after `=` or a space. Fixture: `corpus/curl/8.5.0-all`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10, against the build before the change: curl, node, nodejs, linux32, linux64 and setarch changed; the names `--http0`, `--tlsv1`, `--tls-min-v1` and `--uname-2` with a value `.N` became the dotted names, and no flag was lost.
+
+### S-275: a braced operand legend that is not a list of bars
+
+- id: S-275
+- looks like: |
+      Usage: genl [ OPTIONS ] OBJECT [help] }
+      where  OBJECT := { ctrl etc }
+- tools: genl
+- handling: Fixed. On a root page, a `NAME := { ... }` line that is not a `|` list of command words is the text of the operand NAME, as written. The operand must already exist. `ctrl` is not made a command and `etc` is not made anything. Fixture: `corpus/genl/audit-seed-text`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10, against the build before the change: only genl has such a line; no operand or flag count changed.
+
+### S-276: a required value written after an equals sign
+
+- id: S-276
+- looks like: |
+      -S, --suffix=SUFFIX          override the usual backup suffix
+      -j, --skip-bytes=BYTES      skip BYTES input bytes first
+- tools: cp, od, rescan-scsi-bus.sh, grep, du, ld, gcc
+- handling: Fixed. A required value written after `=` records the `Equals` joiner and is drawn after `=`, as written. A value written after a space is unchanged. A head too wide for the pane keeps the `=` on the spelling's last line. Fixtures: `corpus/cp/9.4`, `corpus/od/9.4`, `corpus/rescan-scsi-bus.sh/audit-seed`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10, against the build before the change: 587 tools changed the join of 4953 flags from none or separate to equals, and no other field of those flags changed. Families: binutils and gcc (ar, as, ld, nm, size, strip, gprof, gcc), autotools (autoconf, autom4te, aclocal), coreutils and util-linux (cp, du, env, expand, nl, od, pr, uniq, xargs, grep), MariaDB and aria tools, llvm tools, node, sg3_utils, systemd and git. Rows that differed only by `=` against a space (`-e=<file>` and `-e <file>` of llvm-addr2line-18 and llvm-symbolizer-18) no longer fold into one, so each gained a flag.
+
 ### S-277: a full-stop sentence that heads a block
 
 - id: S-277

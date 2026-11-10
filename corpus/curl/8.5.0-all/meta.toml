@@ -35,24 +35,24 @@ exit_code = 0
 expected_framework = "generic"
 min_status = "ok"
 min_subcommands = 0
-# A spread of flags from across the expanded document — early, middle, and
-# late in the file — so a regression that only recovers part of the
-# 258-flag table (e.g. a column-detection bug that silently truncates)
-# still fails this contract rather than passing on the strength of the
-# first few lines alone. Deliberately not `--tlsv1.3`: curl's own dotted
-# suffix family (`--tlsv1.0`/`.1`/`.2`/`.3` alongside bare `--tlsv1`) hits
-# a pre-existing, unrelated grammar quirk — the generic long-flag
-# tokenizer reads the trailing `.3` as a bolted-on value rather than part
-# of the name (`long: tlsv1`, `value_name: '.3'`) — orthogonal to this
-# fixture's own subject (the confession follow-up and the single-space
-# description-gap fix) and out of this batch's scope to fix.
+# A spread of flags from across the expanded document: early, middle and
+# late in the file, so a regression that recovers only part of the 258-flag
+# table (a column-detection bug that truncates) still fails this contract.
+# The dotted names belong to the long name: `--http0.9`, `--tlsv1.3`.
 must_contain_flags = [
     "--abstract-unix-socket",
     "--anyauth",
     "--capath",
     "--data",
+    "--http0.9",
+    "--http1.0",
+    "--http1.1",
     "--fail",
+    "--tlsv1",
+    "--tlsv1.0",
+    "--tlsv1.3",
     "--trace",
     "--variable",
     "--xattr",
 ]
+must_draw = ["--http0.9 Allow HTTP 0.9 responses", "-0, --http1.0 Use HTTP 1.0", "-1, --tlsv1 Use TLSv1.0 or greater", "--tlsv1.3 Use TLSv1.3 or greater"]

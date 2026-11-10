@@ -8,15 +8,15 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (61) ─────────────────────────────────────────────────────────────────
-    --admindir <directory>    Use <directory> instead of /var/lib/dpkg.
-    --root <directory>        Install on a different root directory.
-    --instdir <directory>     Change installation dir without changing admin
+    --admindir=<directory>    Use <directory> instead of /var/lib/dpkg.
+    --root=<directory>        Install on a different root directory.
+    --instdir=<directory>     Change installation dir without changing admin
                               dir.
-    --pre-invoke <command>    Set a pre-invoke hook.
-    --post-invoke <command>   Set a post-invoke hook.
-    --path-exclude <pattern>  Do not install paths which match a shell
+    --pre-invoke=<command>    Set a pre-invoke hook.
+    --post-invoke=<command>   Set a post-invoke hook.
+    --path-exclude=<pattern>  Do not install paths which match a shell
                               pattern.
-    --path-include <pattern>  Re-include a pattern after a previous
+    --path-include=<pattern>  Re-include a pattern after a previous
                               exclusion.
 -O, --selected-only           Skip packages not selected for
                               install/upgrade.
@@ -28,18 +28,18 @@ FLAGS (61) ───────────────────────
                               package.
     --[no-]triggers           Skip or force consequential trigger
                               processing.
-    --verify-format <format>  Verify output format (supported: 'rpm').
+    --verify-format=<format>  Verify output format (supported: 'rpm').
     --no-pager                Disables the use of any pager.
     --no-debsig               Do not try to verify package signatures.
     --no-act                  Just say what we would do - don't do it.
  or --dry-run, --simulate
--D, --debug <octal>           Enable debugging (see -Dhelp or --debug=help).
+-D, --debug=<octal>           Enable debugging (see -Dhelp or --debug=help).
     --status-fd <n>           Send status change updates to file descriptor
                               <n>.
-    --status-logger <command> Send status change updates to <command>'s
+    --status-logger=<command> Send status change updates to <command>'s
                               stdin.
-    --log <filename>          Log status changes and actions to <filename>.
-    --ignore-depends <package>[,...] Ignore dependencies involving
+    --log=<filename>          Log status changes and actions to <filename>.
+    --ignore-depends=<package>[,...] Ignore dependencies involving
                               <package>.
     --force-<thing>[,...]     Override problems (see --force-help).
     --no-force-<thing>[,...]  Stop when problems encountered.

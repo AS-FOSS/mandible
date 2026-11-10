@@ -21,13 +21,13 @@ POSITIONALS (1) ─────────────────────�
 FLAGS (24) ─────────────────────────────────────────────────────────────────
 -v, --verbose                  Enable verbose output.
 -D, --debug                    Enable debugging output.
-    --showformat <format>      Use alternative format for --show.
-    --deb-format <format>      Select archive format. Allowed values:
+    --showformat=<format>      Use alternative format for --show.
+    --deb-format=<format>      Select archive format. Allowed values:
                                0.939000, 2.0 (default).
     --nocheck                  Suppress control file check (build bad
                                packages).
     --root-owner-group         Forces the owner and groups to root.
-    --threads-max <threads>    Use at most <threads> with compressor.
+    --threads-max=<threads>    Use at most <threads> with compressor.
     --[no-]uniform-compression Use the compression params on all members.
 -z#                            Set the compression level when building.
 -Z<type>                       Set the compression type used when building.

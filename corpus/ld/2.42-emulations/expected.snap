@@ -34,6 +34,7 @@ flags:
 - spellings:
   - --compress-debug-sections
   value_kind: Required
+  optional_join: equals
   choices:
   - none
   - zlib
@@ -256,6 +257,7 @@ flags:
   - --audit
   value_name: AUDITLIB
   value_kind: Required
+  optional_join: equals
   group: 'ELF emulations:'
   description: Specify a library to use for auditing
   provenance:
@@ -302,6 +304,7 @@ flags:
   - --exclude-libs
   value_name: LIBS
   value_kind: Required
+  optional_join: equals
   group: 'ELF emulations:'
   description: Make all symbols in LIBS hidden
   provenance:
@@ -311,6 +314,7 @@ flags:
   - --hash-style
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   group: 'ELF emulations:'
   description: 'Set hash style to sysv/gnu/both. Default: both'
   provenance:
@@ -576,6 +580,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64linux:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -651,6 +656,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64elf:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -726,6 +732,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64elf32:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:

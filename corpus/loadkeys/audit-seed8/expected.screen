@@ -8,7 +8,7 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (13) ─────────────────────────────────────────────────────────────────
--C, --console DEV   the console device to be used.
+-C, --console=DEV   the console device to be used.
 -a, --ascii         force conversion to ASCII.
 -b, --bkeymap       output a binary keymap to stdout.
 -c, --clearcompose  clear kernel compose table.
