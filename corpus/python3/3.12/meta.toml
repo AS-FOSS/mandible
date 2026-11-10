@@ -19,7 +19,3 @@ must_not_describe_root = ["Options (and corresponding", "issue warnings about co
 
 [contract.must_flag_group]
 "-b" = "Options (and corresponding environment variables):"
-
-[xfail]
-broken = true
-reason = "[S-282] The flag block under 'Options (and corresponding environment variables):' is read a second time as the root description; python prints no description."

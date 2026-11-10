@@ -74,6 +74,36 @@ pub(super) fn edge_label_lines(
         .collect()
 }
 
+/// Where a headingless flag table starts inside the leading paragraph
+/// `from..bound`, and the line its colon label sits on (the start itself
+/// when there is no label). `corpus/python3/3.12`, `docs/shapes.md` S-282.
+pub(super) fn flag_table_start(
+    lines: &[&str],
+    from: usize,
+    bound: usize,
+) -> Option<(usize, usize)> {
+    let start = (from..bound.min(lines.len()))
+        .find(|&j| starts_attested_headingless_flag_block(lines, j))?;
+    let label = start
+        .checked_sub(1)
+        .filter(|&j| j >= from)
+        .filter(|&j| leading_whitespace(lines[j]) == 0 && lines[j].trim_end().ends_with(':'));
+    Some((start, label.unwrap_or(start)))
+}
+
+/// True when `lines[idx]` is the colon label of a flag table or one of its
+/// own column-0 rows: those render as flags and a group, not as prose.
+pub(super) fn is_flag_table_line(
+    lines: &[&str],
+    table: Option<(usize, usize)>,
+    idx: usize,
+) -> bool {
+    table.is_some_and(|(start, label)| {
+        idx == label && label != start
+            || idx >= start && looks_like_flag_start(lines[idx].trim_start())
+    })
+}
+
 /// The indented paragraph that opens a document (`   xdg-open - opens a
 /// file or URL ...`), dedented, when a bare heading word follows it.
 pub(super) fn indented_lead(lines: &[&str]) -> Option<String> {

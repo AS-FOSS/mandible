@@ -1052,6 +1052,7 @@ fn extract_description(
     description_bound: usize,
     usage_start: Option<usize>,
     i: usize,
+    table: Option<(usize, usize)>,
 ) -> Option<String> {
     // A column-0 line inside the recovered usage block's own line range is
     // never description prose, whichever of the three entry shapes found
@@ -1074,6 +1075,7 @@ fn extract_description(
             && !looks_like_bnf_production_line(t)
             && !root_prose::is_bare_heading_word(lines, j)
             && !one_space_row::is_colon_flag_row(t)
+            && !root_prose::is_flag_table_line(lines, table, j)
     };
     // `Options:` and its kin at either edge of the description label the
     // block they sit beside; they are not the description. S-249.
@@ -2479,7 +2481,8 @@ fn parse_body(
     if let Some(start) = flag_start {
         description_bound = description_bound.min(start);
     }
-    let mut description = extract_description(&lines, description_bound, usage_start, i);
+    let table = root_prose::flag_table_start(&lines, i, prose_bound);
+    let mut description = extract_description(&lines, description_bound, usage_start, i, table);
     if let Some(start) = flag_start {
         if let Some(tail) = trailing_prose_after_flags_block(&lines, start) {
             description = Some(match description {
