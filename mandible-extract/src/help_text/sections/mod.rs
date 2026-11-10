@@ -2571,6 +2571,7 @@ fn parse_body(
             }
             if !flag_spelling_already_present(&flag, &result.flags)
                 || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
+                || usage_word_flags::is_unlisted_word(&flag, &result.flags, raw)
             {
                 result.flags.push(flag);
             }
