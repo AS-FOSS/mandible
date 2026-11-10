@@ -25,7 +25,3 @@ must_contain_positionals = ["OBJECT"]
 
 [contract.must_describe_positional]
 "OBJECT" = "{ ctrl etc }"
-
-[xfail]
-broken = true
-reason = "[S-275] `OBJECT := { ctrl etc }` is a list with no `|`, so it is read as neither commands nor text and appears nowhere on the page."
