@@ -2,6 +2,8 @@
 DESCRIPTION ────────────────────────────────────────────────────────────────
 Set each NAME to VALUE in the environment and run COMMAND.
 
+Mandatory arguments to long options are mandatory for short options too.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   env [OPTION]... [-] [NAME=VALUE]... [COMMAND [ARG]...]

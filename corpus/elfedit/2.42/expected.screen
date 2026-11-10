@@ -1,0 +1,51 @@
+=== elfedit ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Update the ELF header of ELF files
+
+Report bugs to <https://sourceware.org/bugzilla/>
+
+
+USAGE ──────────────────────────────────────────────────────────────────────
+  elfedit <option(s)> elffile(s)
+
+
+POSITIONALS (1) ────────────────────────────────────────────────────────────
+  elffile(s)
+
+
+FLAGS (12) ─────────────────────────────────────────────────────────────────
+The options are
+--input-mach [{…}]
+    Set input machine type
+      values: none, i386, iamcu, l1om, k1om, x86_64
+--output-mach [{…}]
+    Set output machine type
+      values: none, i386, iamcu, l1om, k1om, x86_64
+--input-type [{…}]
+    Set input file type
+      values: none, rel, exec, dyn
+--output-type [{…}]
+    Set output file type
+      values: none, rel, exec, dyn
+--input-osabi
+  [none|HPUX|NetBSD|GNU|Linux|Solaris|AIX|Irix|FreeBSD|TRU64|Modesto|OpenBSD
+  |OpenVMS|NSK|AROS|FenixOS]
+    Set input OSABI
+--output-osabi
+  [none|HPUX|NetBSD|GNU|Linux|Solaris|AIX|Irix|FreeBSD|TRU64|Modesto|OpenBSD
+  |OpenVMS|NSK|AROS|FenixOS]
+    Set output OSABI
+--input-abiversion [0-255]
+    Set input ABIVERSION
+--output-abiversion [0-255]
+    Set output ABIVERSION
+--enable-x86-feature [{…}]
+    Enable x86 feature
+      values: ibt, shstk, lam_u48, lam_u57
+--disable-x86-feature [{…}]
+    Disable x86 feature
+      values: ibt, shstk, lam_u48, lam_u57
+-h, --help
+    Display this information
+-v, --version
+    Display the version number of elfedit

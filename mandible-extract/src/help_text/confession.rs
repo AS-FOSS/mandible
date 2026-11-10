@@ -192,17 +192,25 @@ fn match_flag_value_row(trimmed: &str) -> Option<Directive> {
     None
 }
 
-/// Closed vocabulary of words this tier will actually re-probe with. A
-/// directive whose word isn't here is still detected (spec §6 rule 2b's
-/// `incomplete` status) but not followed.
-const FOLLOWABLE_WORDS: &[&str] = &["all"];
+/// Closed vocabulary of words this tier will actually re-probe with, least
+/// complete first. A directive whose word isn't here is still detected (spec
+/// §6 rule 2b's `incomplete` status) but not followed.
+const FOLLOWABLE_WORDS: &[&str] = &["all", "full"];
 
-/// The first followable directive, in detection order, from a set
+/// The followable directive with the most complete word (the last in
+/// [`FOLLOWABLE_WORDS`]; the first of equals), from a set
 /// [`detect_directives`] already found. `None` when nothing qualifies.
+/// docs/shapes.md S-278.
 pub fn expandable(directives: &[Directive]) -> Option<&Directive> {
+    let rank = |d: &Directive| {
+        FOLLOWABLE_WORDS
+            .iter()
+            .position(|w| *w == d.word.to_ascii_lowercase())
+    };
     directives
         .iter()
-        .find(|d| FOLLOWABLE_WORDS.contains(&d.word.to_ascii_lowercase().as_str()))
+        .filter(|d| rank(d).is_some())
+        .reduce(|best, d| if rank(d) > rank(best) { d } else { best })
 }
 
 #[cfg(test)]
@@ -310,14 +318,13 @@ mod tests {
         );
     }
 
-    /// Neither `long` nor `full` is followable: detected (`incomplete`
-    /// status) but not followed — following needs a new argv shape,
-    /// deferred (spec §6 rule 2b, WS5b).
+    /// Of `long` and `full`, only the more complete `full` is followed, with
+    /// the flag the tool wrote.
     #[test]
-    fn ffmpeg_directives_are_detected_but_not_expandable() {
+    fn ffmpeg_follows_only_the_most_complete_directive() {
         let directives = detect_directives(FFMPEG_GETTING_HELP);
-        assert!(!directives.is_empty());
-        assert!(expandable(&directives).is_none());
+        let chosen = expandable(&directives).expect("`full` must be followable");
+        assert_eq!((chosen.flag, chosen.word.as_str()), ("-h", "full"));
     }
 
     /// Real ffmpeg rows next to the confession that must not be misread

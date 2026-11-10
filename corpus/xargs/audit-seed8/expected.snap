@@ -1,5 +1,8 @@
 name: xargs
-description: Run COMMAND with arguments INITIAL-ARGS and more arguments read from input.
+description: |-
+  Run COMMAND with arguments INITIAL-ARGS and more arguments read from input.
+
+  Mandatory and optional arguments to long options are also mandatory or optional for the corresponding short option.
 usage:
 - 'Usage: /usr/bin/xargs [OPTION]... COMMAND [INITIAL-ARGS]...'
 positionals:

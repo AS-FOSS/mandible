@@ -1089,7 +1089,7 @@ allowlist below.
    `__complete <words...>`, `completion <shell>`, `--help`, `-h`,
    `help [<words...>]`, `help <option>` (rule 2d),
    `<words...> --help`/`-h` (a subcommand path's own
-   probe), `<words...> --help <word>` (rule 2b), a hint the tool's own
+   probe), `<words...> --help <word>` or `<words...> -h <word>` (rule 2b), a hint the tool's own
    answer quotes (rule 2e), `<words...> help` for a command a grammar
    production listed (rule 2f), or `-- <partial>` under
    `COMPLETE=` (currently unused — no tier constructs it since Tier E's
@@ -1110,10 +1110,13 @@ allowlist below.
    full document and name the word that gets the rest. See `docs/shapes.md`
    S-080. `word` is copied verbatim from a closed, content-keyed grammar
    matched against the tool's own output, never guessed and never keyed on
-   the tool's name; `--help` always precedes `word` in the rendered argv,
-   so a getopt that stops at the first non-option still reaches `--help`
-   first; and expansion is followed at most once, structurally, with no
-   recursive call back into detection. Rule 0's list still wins
+   the tool's name; the flag the tool wrote (`--help` or `-h`) always
+   precedes `word` in the rendered argv, so a getopt that stops at the first
+   non-option still reaches it first; and expansion is followed at most
+   once, structurally, with no recursive call back into detection. When
+   several fuller invocations are listed, only the most complete one is
+   probed (`all`, then `full`; S-278), as written; a templated form such as
+   `-h type=name` is never built. Rule 0's list still wins
    unconditionally, since `HelpExpand`'s argv is never exactly `["--help"]`.
    A confession's `word` needs no separate attestation, since it is copied
    from a probe that was itself already attested. Scope is deliberately

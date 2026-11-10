@@ -1,0 +1,34 @@
+kernel-install [OPTIONS...] COMMAND ...
+
+Add and remove kernel and initrd images to and from /boot/
+
+Usage:
+  kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]
+  kernel-install [OPTIONS...] add-all
+  kernel-install [OPTIONS...] remove KERNEL-VERSION
+  kernel-install [OPTIONS...] inspect [[[KERNEL-VERSION] KERNEL-IMAGE]
+                                      [INITRD ...]]
+  kernel-install [OPTIONS...] list
+
+Options:
+  -h --help                    Show this help
+     --version                 Show package version
+  -v --verbose                 Increase verbosity
+     --esp-path=PATH           Path to the EFI System Partition (ESP)
+     --boot-path=PATH          Path to the $BOOT partition
+     --make-entry-directory=yes|no|auto
+                               Create $BOOT/ENTRY-TOKEN/ directory
+     --entry-token=machine-id|os-id|os-image-id|auto|literal:…
+                               Entry token to use for this installation
+     --no-pager                Do not pipe inspect output into a pager
+     --json=pretty|short|off   Generate JSON output
+     --no-legend               Do not show the headers and footers
+     --root=PATH               Operate on an alternate filesystem root
+     --image=PATH              Operate on disk image as filesystem root
+     --image-policy=POLICY     Specify disk image dissection policy
+
+This program may also be invoked as 'installkernel':
+  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]
+(The optional arguments are passed by kernel build system, but ignored.)
+
+See the kernel-install(8) man page for details.

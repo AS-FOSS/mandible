@@ -20,8 +20,8 @@ must_describe_root = [
   "Write an unambiguous representation, octal bytes by default, of FILE to standard output. With more than one FILE argument, concatenate them in the listed order to form the input.",
   "With no FILE, or when FILE is -, read standard input.",
   "An OFFSET operand means -j OFFSET.",
+  "Mandatory arguments to long options are mandatory for short options too.",
 ]
-must_not_describe_root = ["Mandatory arguments to long options"]
 
 [contract.must_attach_choices]
 "--format" = ["a", "c", "d[SIZE]", "f[SIZE]", "o[SIZE]", "u[SIZE]", "x[SIZE]"]

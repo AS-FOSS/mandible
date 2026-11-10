@@ -2,6 +2,8 @@
 DESCRIPTION ────────────────────────────────────────────────────────────────
 Summarize device usage of the set of FILEs, recursively for directories.
 
+Mandatory arguments to long options are mandatory for short options too.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   du [OPTION]... [FILE]...

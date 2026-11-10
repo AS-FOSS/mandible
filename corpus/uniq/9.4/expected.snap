@@ -3,6 +3,8 @@ description: |-
   Filter adjacent matching lines from INPUT (or standard input), writing to OUTPUT (or standard output).
 
   With no options, matching lines are merged to the first occurrence.
+
+  Mandatory arguments to long options are mandatory for short options too.
 usage:
 - 'Usage: uniq [OPTION]... [INPUT [OUTPUT]]'
 positionals:

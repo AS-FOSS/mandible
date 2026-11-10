@@ -24,3 +24,4 @@ expected_framework = "GNU argp/getopt_long"
 must_contain_positionals = ["INPUT", "OUTPUT"]
 must_not_contain_positionals = ["INPUT OUTPUT"]
 must_contain_flags = ["-c", "-w", "--all-repeated", "--group"]
+must_describe_root = ["Mandatory arguments to long options are mandatory for short options too."]

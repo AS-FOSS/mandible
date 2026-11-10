@@ -57,10 +57,11 @@ pub enum InertArgv {
         /// The subcommand path words already typed.
         words: Vec<String>,
     },
-    /// `<words...> --help <word>` — the truncation-confession follow-up:
+    /// `<words...> <flag> <word>` — the truncation-confession follow-up:
     /// re-probes with the argv a tool's own printed text recommended when
-    /// it confesses `--help` is not the complete document. `--help` always
-    /// precedes `word` so this can never degrade into a bare positional.
+    /// it confesses `--help` is not the complete document. `flag` (`--help`
+    /// or `-h`, as the tool wrote it) always precedes `word` so this can
+    /// never degrade into a bare positional.
     /// `word` must come from the tool's own printed directive, never
     /// fabricated. Spec §6 rule 2b; docs/shapes.md S-080;
     /// corpus/curl/8.5.0/help.txt.
@@ -68,6 +69,9 @@ pub enum InertArgv {
         /// The subcommand path words already typed, if any (empty for the
         /// root — the only case shipped so far).
         words: Vec<String>,
+        /// The help flag the tool's own text printed before the word: one of
+        /// `"--help"` and `"-h"`.
+        flag: &'static str,
         /// The word the tool's own text recommended, verbatim.
         word: String,
     },
@@ -133,9 +137,9 @@ impl InertArgv {
                 a.push("-h".to_string());
                 a
             }
-            InertArgv::HelpExpand { words, word } => {
+            InertArgv::HelpExpand { words, flag, word } => {
                 let mut a = words.clone();
-                a.push("--help".to_string());
+                a.push((*flag).to_string());
                 a.push(word.clone());
                 a
             }
@@ -231,6 +235,7 @@ mod tests {
             InertArgv::HelpShortForPath { words: vec![] },
             InertArgv::HelpExpand {
                 words: vec![],
+                flag: "--help",
                 word: "all".to_string(),
             },
             InertArgv::HelpHint {
@@ -289,12 +294,21 @@ mod tests {
     fn help_expand_args_put_help_immediately_before_the_word() {
         let root = InertArgv::HelpExpand {
             words: vec![],
+            flag: "--help",
             word: "all".to_string(),
         };
         assert_eq!(root.args(), vec!["--help".to_string(), "all".to_string()]);
 
+        let short = InertArgv::HelpExpand {
+            words: vec![],
+            flag: "-h",
+            word: "full".to_string(),
+        };
+        assert_eq!(short.args(), vec!["-h".to_string(), "full".to_string()]);
+
         let sub = InertArgv::HelpExpand {
             words: vec!["sub".to_string()],
+            flag: "--help",
             word: "all".to_string(),
         };
         assert_eq!(

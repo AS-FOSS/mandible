@@ -1,5 +1,7 @@
 === sg_emc_trespass ===
 DESCRIPTION ────────────────────────────────────────────────────────────────
+Change ownership of a LUN from another SP to this one.
+
 Unrecognized switch: --help
 
 

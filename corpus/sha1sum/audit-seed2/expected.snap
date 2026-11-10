@@ -1,5 +1,8 @@
 name: sha1sum
-description: Print or check SHA1 (160-bit) checksums.
+description: |-
+  Print or check SHA1 (160-bit) checksums.
+
+  With no FILE, or when FILE is -, read standard input.
 usage:
 - 'Usage: /usr/bin/sha1sum [OPTION]... [FILE]...'
 positionals:

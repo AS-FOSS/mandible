@@ -13,6 +13,8 @@ printed, incremented when dump is progressing. For OFFSET and LABEL, a 0x or
 0X prefix indicates hexadecimal; suffixes may be . for octal and b for
 multiply by 512.
 
+Mandatory arguments to long options are mandatory for short options too.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   od [OPTION]... [FILE]...

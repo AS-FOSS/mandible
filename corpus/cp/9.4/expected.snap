@@ -1,5 +1,8 @@
 name: cp
-description: Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.
+description: |-
+  Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.
+
+  Mandatory arguments to long options are mandatory for short options too.
 usage:
 - 'Usage: /usr/bin/cp [OPTION]... [-T] SOURCE DEST'
 - '  or:  /usr/bin/cp [OPTION]... SOURCE... DIRECTORY'

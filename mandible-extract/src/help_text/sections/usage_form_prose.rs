@@ -130,12 +130,13 @@ pub(super) fn repeats_first_form_program_word(
 /// True when `line` (raw) is a hanging-indent plain-English description of
 /// the usage form above it (`/usr/bin/ranlib [options] archive` / ` Generate
 /// an index to speed access to archives`): five or more words of letters,
-/// digits and hyphens, opening with a capital, no flag, no ALL-CAPS
-/// placeholder, no column gap. With `punctuated`, sentence punctuation
-/// (`. , ' /`) is allowed too, and so is a lowercase opening (`pigz`'s
-/// prose runs on from its usage line: `will compress files in place`). A real wrapped synopsis continuation carries
+/// digits and hyphens, opening with a capital, no flag, no column gap. With
+/// `punctuated`, sentence punctuation (`. , ' /`) is allowed too, and so is a
+/// lowercase opening (`pigz`'s prose runs on from its usage line: `will
+/// compress files in place`). A real wrapped synopsis continuation carries
 /// brackets, operands or closing punctuation (`unzip`'s `... to exdir;`).
-/// See docs/shapes.md S-195.
+/// Fewer than half the words may be ALL-CAPS (`Update the ELF header of ELF
+/// files`). See docs/shapes.md S-195 and S-281.
 pub(super) fn is_form_description_line(line: &str, base_indent: usize, punctuated: bool) -> bool {
     let trimmed = line.trim();
     let words: Vec<&str> = trimmed.split_whitespace().collect();
@@ -148,10 +149,14 @@ pub(super) fn is_form_description_line(line: &str, base_indent: usize, punctuate
                 || (punctuated && matches!(c, '.' | ',' | '\'' | '/'))
         })
         && !words.iter().any(|w| w.starts_with('-'))
-        && !words
-            .iter()
-            .any(|w| w.len() > 1 && w.chars().all(|c| c.is_ascii_uppercase()))
+        && 2 * words.iter().filter(|w| is_placeholder_word(w)).count() < words.len()
         && find_multi_space_gap(line).is_none()
+}
+
+/// An ALL-CAPS word of two or more letters: an operand placeholder, or an
+/// acronym inside a sentence (`ELF`).
+fn is_placeholder_word(word: &str) -> bool {
+    word.len() > 1 && word.chars().all(|c| c.is_ascii_uppercase())
 }
 
 /// Whether `lines[i]` is a form description the usage scan leaves out of

@@ -1,0 +1,163 @@
+name: elfedit
+description: |-
+  Update the ELF header of ELF files
+
+  Report bugs to <https://sourceware.org/bugzilla/>
+usage:
+- 'Usage: elfedit <option(s)> elffile(s)'
+positionals:
+- name: elffile(s)
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - --input-mach
+  value_kind: Optional
+  optional_join: separate
+  choices:
+  - none
+  - i386
+  - iamcu
+  - l1om
+  - k1om
+  - x86_64
+  group: 'The options are:'
+  description: Set input machine type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-mach
+  value_kind: Optional
+  optional_join: separate
+  choices:
+  - none
+  - i386
+  - iamcu
+  - l1om
+  - k1om
+  - x86_64
+  group: 'The options are:'
+  description: Set output machine type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --input-type
+  value_kind: Optional
+  optional_join: separate
+  choices:
+  - none
+  - rel
+  - exec
+  - dyn
+  group: 'The options are:'
+  description: Set input file type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-type
+  value_kind: Optional
+  optional_join: separate
+  choices:
+  - none
+  - rel
+  - exec
+  - dyn
+  group: 'The options are:'
+  description: Set output file type
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --input-osabi
+  value_name: none|HPUX|NetBSD|GNU|Linux|Solaris|AIX|Irix|FreeBSD|TRU64|Modesto|OpenBSD|OpenVMS|NSK|AROS|FenixOS
+  value_kind: Optional
+  optional_join: separate
+  group: 'The options are:'
+  description: Set input OSABI
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-osabi
+  value_name: none|HPUX|NetBSD|GNU|Linux|Solaris|AIX|Irix|FreeBSD|TRU64|Modesto|OpenBSD|OpenVMS|NSK|AROS|FenixOS
+  value_kind: Optional
+  optional_join: separate
+  group: 'The options are:'
+  description: Set output OSABI
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --input-abiversion
+  value_name: 0-255
+  value_kind: Optional
+  optional_join: separate
+  group: 'The options are:'
+  description: Set input ABIVERSION
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --output-abiversion
+  value_name: 0-255
+  value_kind: Optional
+  optional_join: separate
+  group: 'The options are:'
+  description: Set output ABIVERSION
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --enable-x86-feature
+  value_kind: Optional
+  optional_join: separate
+  choices:
+  - ibt
+  - shstk
+  - lam_u48
+  - lam_u57
+  group: 'The options are:'
+  description: Enable x86 feature
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --disable-x86-feature
+  value_kind: Optional
+  optional_join: separate
+  choices:
+  - ibt
+  - shstk
+  - lam_u48
+  - lam_u57
+  group: 'The options are:'
+  description: Disable x86 feature
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --help
+  group: 'The options are:'
+  description: Display this information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  group: 'The options are:'
+  description: Display the version number of elfedit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

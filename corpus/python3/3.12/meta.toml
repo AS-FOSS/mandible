@@ -1,0 +1,21 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "python3"
+version = "3.12"
+platform = "ubuntu-24.04 (aarch64)"
+captured_with = "mandible 0.9.0 --report"
+
+[[capture]]
+argv = ["python3", "--help"]
+stdout = "help.txt"
+exit_code = 0
+
+[contract]
+expected_framework = "generic"
+must_contain_flags = ["-b", "-B", "-c", "-m"]
+must_not_describe_root = ["Options (and corresponding", "issue warnings about converting"]
+
+[contract.must_flag_group]
+"-b" = "Options (and corresponding environment variables):"

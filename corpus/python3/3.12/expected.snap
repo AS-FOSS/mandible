@@ -1,0 +1,203 @@
+name: python3
+usage:
+- 'usage: /usr/bin/python3 [option] ... [-c cmd | -m mod | file | -] [arg] ...'
+positionals:
+- name: arg
+  variadic: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -b
+  group: 'Options (and corresponding environment variables):'
+  description: 'issue warnings about converting bytes/bytearray to str and comparing bytes/bytearray with str or bytes with int. (-bb: issue errors)'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -B
+  group: 'Options (and corresponding environment variables):'
+  description: don't write .pyc files on import; also PYTHONDONTWRITEBYTECODE=x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  value_name: cmd
+  value_kind: Required
+  group: 'Options (and corresponding environment variables):'
+  description: program passed in as string (terminates option list)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  group: 'Options (and corresponding environment variables):'
+  description: turn on parser debugging output (for experts only, only works on debug builds); also PYTHONDEBUG=x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -E
+  group: 'Options (and corresponding environment variables):'
+  description: ignore PYTHON* environment variables (such as PYTHONPATH)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  group: 'Options (and corresponding environment variables):'
+  description: print this help message and exit (also -? or --help)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -i
+  group: 'Options (and corresponding environment variables):'
+  description: inspect interactively after running script; forces a prompt even if stdin does not appear to be a terminal; also PYTHONINSPECT=x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  group: 'Options (and corresponding environment variables):'
+  description: isolate Python from the user's environment (implies -E and -s)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -m
+  value_name: mod
+  value_kind: Required
+  group: 'Options (and corresponding environment variables):'
+  description: run library module as a script (terminates option list)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -O
+  group: 'Options (and corresponding environment variables):'
+  description: remove assert and __debug__-dependent statements; add .opt-1 before .pyc extension; also PYTHONOPTIMIZE=x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -OO
+  group: 'Options (and corresponding environment variables):'
+  description: do -O changes and also discard docstrings; add .opt-2 before .pyc extension
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  group: 'Options (and corresponding environment variables):'
+  description: don't prepend a potentially unsafe path to sys.path; also PYTHONSAFEPATH
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -q
+  group: 'Options (and corresponding environment variables):'
+  description: don't print version and copyright messages on interactive startup
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  group: 'Options (and corresponding environment variables):'
+  description: don't add user site directory to sys.path; also PYTHONNOUSERSITE=x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  group: 'Options (and corresponding environment variables):'
+  description: don't imply 'import site' on initialization
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  group: 'Options (and corresponding environment variables):'
+  description: force the stdout and stderr streams to be unbuffered; this option has no effect on stdin; also PYTHONUNBUFFERED=x
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  group: 'Options (and corresponding environment variables):'
+  description: verbose (trace import statements); also PYTHONVERBOSE=x can be supplied multiple times to increase verbosity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  group: 'Options (and corresponding environment variables):'
+  description: print the Python version number and exit (also --version) when given twice, print more information about the build
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  value_name: arg
+  value_kind: Required
+  group: 'Options (and corresponding environment variables):'
+  description: warning control; arg is action:message:category:module:lineno also PYTHONWARNINGS=arg
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  group: 'Options (and corresponding environment variables):'
+  description: 'skip first line of source, allowing use of non-Unix forms of #!cmd'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  value_name: opt
+  value_kind: Required
+  group: 'Options (and corresponding environment variables):'
+  description: set implementation-specific option
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --check-hash-based-pycs
+  value_kind: Required
+  choices:
+  - always
+  - default
+  - never
+  group: 'Options (and corresponding environment variables):'
+  description: control how Python invalidates hash-based .pyc files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-env
+  group: 'Options (and corresponding environment variables):'
+  description: print help about Python environment variables and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-xoptions
+  group: 'Options (and corresponding environment variables):'
+  description: print help about implementation-specific -X options and exit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --help-all
+  group: 'Options (and corresponding environment variables):'
+  description: print complete help information and exit
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true

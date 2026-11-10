@@ -55,6 +55,7 @@ mod key_value_text;
 mod labelled_values;
 mod later_usage_form;
 mod layout;
+mod lead_synopsis;
 pub(crate) mod leading_operands;
 pub(crate) mod legend_rows;
 mod multiword;
@@ -1052,6 +1053,7 @@ fn extract_description(
     description_bound: usize,
     usage_start: Option<usize>,
     i: usize,
+    (table, lead): (Option<(usize, usize)>, Option<usize>),
 ) -> Option<String> {
     // A column-0 line inside the recovered usage block's own line range is
     // never description prose, whichever of the three entry shapes found
@@ -1074,6 +1076,8 @@ fn extract_description(
             && !looks_like_bnf_production_line(t)
             && !root_prose::is_bare_heading_word(lines, j)
             && !one_space_row::is_colon_flag_row(t)
+            && !root_prose::is_flag_table_line(lines, table, j)
+            && lead != Some(j)
     };
     // `Options:` and its kin at either edge of the description label the
     // block they sit beside; they are not the description. S-249.
@@ -2210,6 +2214,9 @@ fn scan_entries(
             i = emit_flush_heading(lines, profile, &h, i, &mut st);
             continue;
         }
+        if !st.in_ignorable_section {
+            root_prose::relocate_heading_sentence(lines, h.heading_idx, st.result);
+        }
         i = emit_heading_block(inp, tool_name, &h, i, &mut st);
     }
     (st.total_entries, st.clean_entries)
@@ -2332,6 +2339,35 @@ fn locate_usage_start(
     (labelled_usage_start, unlabelled_synopsis_start, usage_start)
 }
 
+/// Adds each usage-derived flag the block scan did not already recover and
+/// returns the ones it left out, for [`usage_word_flags::add_unlisted`].
+fn admit_usage_flags(usage_lines: &[String], result: &mut ParsedHelp) -> Vec<Entity> {
+    let mut dropped = Vec::new();
+    let cut_forms = usage_tab_table::flag_lines(usage_lines);
+    for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(usage_lines)) {
+        if result.flags.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        if !flag_spelling_already_present(&flag, &result.flags)
+            || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
+        {
+            result.flags.push(flag);
+        } else {
+            dropped.push(flag);
+        }
+        // else: this spelling already names a flag the block scan
+        // recovered, so the usage-derived, always-undescribed
+        // duplicate is not added. "Let the described version win"
+        // taken literally: the existing entry is never touched.
+        // `usage_flag_names_a_new_literal_value` is the one exception
+        // (S-147): a real, distinct literal value still gets added
+        // for `merge_entity_bucket` to union later, rather than
+        // silently replaced by whichever entity happened to land
+        // first.
+    }
+    dropped
+}
+
 fn parse_body(
     raw: &str,
     profile: Option<&FrameworkProfile>,
@@ -2389,6 +2425,7 @@ fn parse_body(
     // so it never gets a chance to fold these rows into `result.usage`
     // instead. See docs/shapes.md S-167.
     let mut form_description: Vec<String> = Vec::new();
+    let mut lead = None;
     let optional_word_table = labelled_usage_start.and_then(|start| {
         tool_name.and_then(|name| scan_usage_optional_word_table(&lines, start, name))
     });
@@ -2406,6 +2443,7 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        lead = lead_synopsis::prepend(&mut result.usage, &lines, labelled_usage_start, tool_name);
         form_description = form_description_lines(&lines, labelled_usage_start, start, i);
         // An extended usage label (`Example usage:`) whose rows are all
         // `<tool> <word> ...` also names subcommands; the rows stay usage
@@ -2479,7 +2517,9 @@ fn parse_body(
     if let Some(start) = flag_start {
         description_bound = description_bound.min(start);
     }
-    let mut description = extract_description(&lines, description_bound, usage_start, i);
+    let table = root_prose::flag_table_start(&lines, i, prose_bound);
+    let mut description =
+        extract_description(&lines, description_bound, usage_start, i, (table, lead));
     if let Some(start) = flag_start {
         if let Some(tail) = trailing_prose_after_flags_block(&lines, start) {
             description = Some(match description {
@@ -2565,28 +2605,7 @@ fn parse_body(
     // this recovers.
     let mut dropped_usage_flags: Vec<Entity> = Vec::new();
     if !usage_lines.is_empty() {
-        let cut_forms = usage_tab_table::flag_lines(&usage_lines);
-        for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(&usage_lines)) {
-            if result.flags.len() >= MAX_RECOVERED_ENTRIES {
-                break;
-            }
-            if !flag_spelling_already_present(&flag, &result.flags)
-                || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
-            {
-                result.flags.push(flag);
-            } else {
-                dropped_usage_flags.push(flag);
-            }
-            // else: this spelling already names a flag the block scan
-            // recovered, so the usage-derived, always-undescribed
-            // duplicate is not added. "Let the described version win"
-            // taken literally: the existing entry is never touched.
-            // `usage_flag_names_a_new_literal_value` is the one exception
-            // (S-147): a real, distinct literal value still gets added
-            // for `merge_entity_bucket` to union later, rather than
-            // silently replaced by whichever entity happened to land
-            // first.
-        }
+        dropped_usage_flags = admit_usage_flags(&usage_lines, &mut result);
         usage_word_flags::repair(&usage_lines, raw, &mut result.flags);
         per_form::apply(&usage_lines, &mut result.flags, &mut result.positionals);
         usage_tab_table::attach_descriptions(&usage_lines, &mut result.flags);

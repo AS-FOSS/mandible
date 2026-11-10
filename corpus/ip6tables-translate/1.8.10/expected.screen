@@ -2,6 +2,8 @@
 DESCRIPTION ────────────────────────────────────────────────────────────────
 ip6tables-translate v1.8.10 (nf_tables)
 
+Either long or short options are allowed.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   ip6tables-translate -[ACD] chain rule-specification [options]

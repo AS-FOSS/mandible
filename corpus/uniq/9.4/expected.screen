@@ -5,6 +5,8 @@ OUTPUT (or standard output).
 
 With no options, matching lines are merged to the first occurrence.
 
+Mandatory arguments to long options are mandatory for short options too.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   uniq [OPTION]... [INPUT [OUTPUT]]

@@ -1,5 +1,8 @@
 name: ip6tables-translate
-description: ip6tables-translate v1.8.10 (nf_tables)
+description: |-
+  ip6tables-translate v1.8.10 (nf_tables)
+
+  Either long or short options are allowed.
 usage:
 - 'Usage: ip6tables-translate -[ACD] chain rule-specification [options]'
 - '       ip6tables-translate -I chain [rulenum] rule-specification [options]'

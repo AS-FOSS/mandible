@@ -5,6 +5,8 @@ description: |-
   With no FILE, or when FILE is -, read standard input.
 
   If first and second call formats both apply, the second format is assumed if the last operand begins with + or (if there are 2 operands) a digit. An OFFSET operand means -j OFFSET. LABEL is the pseudo-address at first byte printed, incremented when dump is progressing. For OFFSET and LABEL, a 0x or 0X prefix indicates hexadecimal; suffixes may be . for octal and b for multiply by 512.
+
+  Mandatory arguments to long options are mandatory for short options too.
 usage:
 - 'Usage: /usr/bin/od [OPTION]... [FILE]...'
 - '  or:  /usr/bin/od [-abcdfilosx]... [FILE] [[+]OFFSET[.][b]]'

@@ -697,6 +697,7 @@ mod tests {
             // argv, even with the word the tier would actually follow.
             InertArgv::HelpExpand {
                 words: vec![],
+                flag: "--help",
                 word: "all".to_string(),
             },
         ] {

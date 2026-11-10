@@ -16,6 +16,7 @@ argv = ["cp", "--help"]
 stdout = "help.txt"
 
 [contract]
+must_describe_root = ["Mandatory arguments to long options are mandatory for short options too."]
 must_draw = ["-S, --suffix=SUFFIX"]
 
 [contract.must_attach_choices]
