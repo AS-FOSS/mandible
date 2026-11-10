@@ -190,7 +190,7 @@ pub fn root_help_text_from(recordings: &HashMap<Vec<String>, ExecOutput>) -> Opt
 /// [`RecordingProbe::find_root_expansion`]'s doc comment for why this is
 /// unambiguous against every other `InertArgv` shape.
 fn is_root_help_expansion_argv(argv: &[String]) -> bool {
-    argv.len() == 2 && argv.first().map(String::as_str) == Some("--help")
+    argv.len() == 2 && matches!(argv.first().map(String::as_str), Some("--help" | "-h"))
 }
 
 impl Default for RecordingProbe {
@@ -1053,6 +1053,7 @@ mod tests {
         probe.recordings.lock().unwrap().insert(
             InertArgv::HelpExpand {
                 words: vec![],
+                flag: "--help",
                 word: "all".to_string(),
             }
             .args(),

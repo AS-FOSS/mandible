@@ -645,6 +645,7 @@ fn probe_help_text_confession_aware(
 
     let expand_argv = InertArgv::HelpExpand {
         words: words.to_vec(),
+        flag: chosen.flag,
         word: chosen.word.clone(),
     };
     match crate::exec::run_probe(probe, tool_path, &expand_argv) {
@@ -990,6 +991,7 @@ fn raw_probe_streams_confession_aware(
 
     let expand_argv = InertArgv::HelpExpand {
         words: words.to_vec(),
+        flag: chosen.flag,
         word: chosen.word.clone(),
     };
     match crate::exec::run_probe(probe, tool_path, &expand_argv) {
