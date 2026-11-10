@@ -136,7 +136,7 @@ pub(super) fn repeats_first_form_program_word(
 /// compress files in place`). A real wrapped synopsis continuation carries
 /// brackets, operands or closing punctuation (`unzip`'s `... to exdir;`).
 /// Fewer than half the words may be ALL-CAPS (`Update the ELF header of ELF
-/// files`). See docs/shapes.md S-195 and S-284.
+/// files`). See docs/shapes.md S-195 and S-281.
 pub(super) fn is_form_description_line(line: &str, base_indent: usize, punctuated: bool) -> bool {
     let trimmed = line.trim();
     let words: Vec<&str> = trimmed.split_whitespace().collect();

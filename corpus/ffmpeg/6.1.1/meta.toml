@@ -20,7 +20,7 @@ captured_with = "mandible 0.2.2"
 #       See man ffmpeg for detailed description of the options.
 #
 # The most complete listed invocation, `-h full`, is probed once, literally
-# as written, and the tree is built from that document (S-281). `-h long`
+# as written, and the tree is built from that document (S-278). `-h long`
 # is never probed when `-h full` is listed, and `-h type=name` is a template
 # that is never built. `help-full.txt` is 329 KiB, over corpus/README.md's
 # 256 KiB threshold; the full document is the point of this fixture, as

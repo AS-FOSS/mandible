@@ -76,7 +76,7 @@ pub(super) fn edge_label_lines(
 
 /// Where a headingless flag table starts inside the leading paragraph
 /// `from..bound`, and the line its colon label sits on (the start itself
-/// when there is no label). `corpus/python3/3.12`, `docs/shapes.md` S-282.
+/// when there is no label). `corpus/python3/3.12`, `docs/shapes.md` S-279.
 pub(super) fn flag_table_start(
     lines: &[&str],
     from: usize,
@@ -108,7 +108,7 @@ pub(super) fn is_flag_table_line(
 /// ([`heading_can_name_a_group`]); its paragraph ends the node description
 /// unless the description holds it already. A line under a differently
 /// indented line is a table row, not a paragraph, and stays out.
-/// `corpus/cp/9.4`, `docs/shapes.md` S-280.
+/// `corpus/cp/9.4`, `docs/shapes.md` S-277.
 pub(super) fn relocate_heading_sentence(lines: &[&str], at: usize, result: &mut ParsedHelp) {
     if !is_prose_sentence(lines[at].trim()) {
         return;

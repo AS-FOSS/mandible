@@ -1,6 +1,6 @@
 //! A program-name line that opens the document and names a command slot,
 //! ahead of a bare `Usage:` label, is the first usage form, not prose
-//! (`kernel-install [OPTIONS...] COMMAND ...`). `docs/shapes.md` S-283.
+//! (`kernel-install [OPTIONS...] COMMAND ...`). `docs/shapes.md` S-280.
 
 use super::*;
 

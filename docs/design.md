@@ -1114,7 +1114,7 @@ allowlist below.
    non-option still reaches it first; and expansion is followed at most
    once, structurally, with no recursive call back into detection. When
    several fuller invocations are listed, only the most complete one is
-   probed (`all`, then `full`; S-281), as written; a templated form such as
+   probed (`all`, then `full`; S-278), as written; a templated form such as
    `-h type=name` is never built. Rule 0's list still wins
    unconditionally, since `HelpExpand`'s argv is never exactly `["--help"]`.
    A confession's `word` needs no separate attestation, since it is copied

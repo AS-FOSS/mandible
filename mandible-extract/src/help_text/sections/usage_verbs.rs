@@ -68,7 +68,7 @@ fn is_options_placeholder(t: &str) -> bool {
 }
 
 /// True when a form puts the word `COMMAND` in the verb slot, which makes a
-/// lower-case word in that slot of a sibling form a command (S-283).
+/// lower-case word in that slot of a sibling form a command (S-280).
 fn names_command_slot(usage: &[String]) -> bool {
     usage.iter().any(|e| {
         tokens(without_label(e))
@@ -82,7 +82,7 @@ struct Form {
     toks: Vec<String>,
     /// Flag groups printed between the program and the command path.
     lead: Vec<String>,
-    /// Options placeholders (`[OPTIONS...]`) printed there, S-283.
+    /// Options placeholders (`[OPTIONS...]`) printed there, S-280.
     placeholders: Vec<String>,
     text: String,
 }

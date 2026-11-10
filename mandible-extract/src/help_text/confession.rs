@@ -200,7 +200,7 @@ const FOLLOWABLE_WORDS: &[&str] = &["all", "full"];
 /// The followable directive with the most complete word (the last in
 /// [`FOLLOWABLE_WORDS`]; the first of equals), from a set
 /// [`detect_directives`] already found. `None` when nothing qualifies.
-/// docs/shapes.md S-281.
+/// docs/shapes.md S-278.
 pub fn expandable(directives: &[Directive]) -> Option<&Directive> {
     let rank = |d: &Directive| {
         FOLLOWABLE_WORDS
