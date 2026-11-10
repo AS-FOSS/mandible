@@ -2777,9 +2777,19 @@ mod tests {
         let mut e = Entity::flag_long("max-count", Provenance::single(Source::HelpText));
         e.value_name = Some("NUM".to_string());
         e.value_kind = ValueKind::Required;
-        e.optional_join = Some(OptionalJoin::Equals);
         assert_eq!(value_gap(&e), " ");
         assert_eq!(entity_value_text(&e).unwrap(), "NUM");
+    }
+
+    /// A required value the row writes after `=` is drawn after it.
+    #[test]
+    fn a_required_value_after_an_equals_sign_is_drawn_after_it() {
+        let mut e = Entity::flag_long("suffix", Provenance::single(Source::HelpText));
+        e.value_name = Some("SUFFIX".to_string());
+        e.value_kind = ValueKind::Required;
+        e.optional_join = Some(OptionalJoin::Equals);
+        assert_eq!(value_gap(&e), "");
+        assert_eq!(entity_value_text(&e).unwrap(), "=SUFFIX");
     }
 
     // --- spec §16: enumerator continuation breaks (item 6, sg_luns) ---
