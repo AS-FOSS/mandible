@@ -1,4 +1,5 @@
 name: sg_sanitize
+description: Performs a SCSI SANITIZE command.
 usage:
 - 'Usage: sg_sanitize [--ause] [--block] [--count=OC] [--crypto] [--dry-run] [--early] [--fail] [--help] [--invert] [--ipl=LEN] [--overwrite] [--pattern=PF] [--quick] [--test=TE] [--timeout=SECS] [--verbose] [--version] [--wait] [--zero] [--znr] DEVICE'
 positionals:

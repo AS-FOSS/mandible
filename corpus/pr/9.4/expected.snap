@@ -3,6 +3,8 @@ description: |-
   Paginate or columnate FILE(s) for printing.
 
   With no FILE, or when FILE is -, read standard input.
+
+  Mandatory arguments to long options are mandatory for short options too.
 usage:
 - 'Usage: pr [OPTION]... [FILE]...'
 positionals:

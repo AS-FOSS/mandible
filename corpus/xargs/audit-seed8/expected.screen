@@ -2,6 +2,9 @@
 DESCRIPTION ────────────────────────────────────────────────────────────────
 Run COMMAND with arguments INITIAL-ARGS and more arguments read from input.
 
+Mandatory and optional arguments to long options are also mandatory or
+optional for the corresponding short option.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   xargs [OPTION]... COMMAND [INITIAL-ARGS]...

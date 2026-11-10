@@ -2212,6 +2212,9 @@ fn scan_entries(
             i = emit_flush_heading(lines, profile, &h, i, &mut st);
             continue;
         }
+        if !st.in_ignorable_section {
+            root_prose::relocate_heading_sentence(lines, h.heading_idx, st.result);
+        }
         i = emit_heading_block(inp, tool_name, &h, i, &mut st);
     }
     (st.total_entries, st.clean_entries)

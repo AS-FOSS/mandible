@@ -3,6 +3,8 @@ description: |-
   Write each FILE to standard output, with line numbers added.
 
   With no FILE, or when FILE is -, read standard input.
+
+  Mandatory arguments to long options are mandatory for short options too.
 usage:
 - 'Usage: /usr/bin/nl [OPTION]... [FILE]...'
 positionals:

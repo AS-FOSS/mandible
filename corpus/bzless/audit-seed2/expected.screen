@@ -2,6 +2,8 @@
 DESCRIPTION ────────────────────────────────────────────────────────────────
 bzip2, a block-sorting file compressor. Version 1.0.8, 13-Jul-2019.
 
+If invoked as `bzip2', default action is to compress.
+
 
 USAGE ──────────────────────────────────────────────────────────────────────
   bzip2 [flags and input files in any order]

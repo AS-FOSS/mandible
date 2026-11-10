@@ -1,4 +1,8 @@
 === sg_sanitize ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Performs a SCSI SANITIZE command.
+
+
 USAGE ──────────────────────────────────────────────────────────────────────
   sg_sanitize [--ause] [--block] [--count=OC] [--crypto] [--dry-run]
       [--early] [--fail] [--help] [--invert] [--ipl=LEN] [--overwrite]
