@@ -6143,3 +6143,63 @@ entry's `tools` field and nothing else. It does not get a new entry.
 - tools: git, ip, manifest
 - handling: Declined. A verb that appears only in a usage form is not heading-attested (design §6, the Tier B gate), so it is never probed; its page comes from the usage form alone, with the operands and flags that form names. Probing it was measured and refused. In mandible's scratch directory `git stash show --help` answers only `fatal: not a git repository`, so the page would still be empty. Verbs such a probe would reach act on `-h`: iproute2 reads it as an operand in `ip link set -h` and `ip link delete -h`, `ip mptcp monitor -h` runs until killed, `git bisect start` and `git bisect run` act on the repository, `manifest export -h` writes a file named `-h` and `manifest import -h` runs `sudo apt`.
 - fleet: not measured. The git answer was checked under containment on 2026-11-09.
+
+### S-280: a full-stop sentence that heads a block
+
+- id: S-280
+- looks like: |
+      Copy SOURCE to DEST, or multiple SOURCE(s) to DIRECTORY.
+
+      Mandatory arguments to long options are mandatory for short options too.
+        -a, --archive                same as -dR --preserve=all
+- tools: cp, uniq, du, env, expand, nl, od, pr, bzless, ip6tables-translate, sha1sum, xargs, sg_sanitize, pngfix
+- handling: Fixed. A sentence ending in a full stop that heads an indented block is no group label (S-011). It is added to the end of the node description as its own paragraph, with the unbroken lines of its paragraph above it, unless the description holds it already. A paragraph with a usage line, a line under a differently indented line (a table row) and a colon label above it are left out; a block under an ignorable heading is skipped. Colon headings stay group labels. Fixtures: `corpus/cp/9.4`, `corpus/uniq/9.4`, `corpus/od/9.4`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10, against the build before the change: 94 root descriptions gained the sentence (GNU coreutils with `Mandatory arguments ...`, apt, iptables family, bzip2 family, sha*sum, skill, snice, wc, ntfsclone), no flag, subcommand or positional lost.
+
+### S-281: the most complete fuller help a tool lists
+
+- id: S-281
+- looks like: |
+      -h      -- print basic options
+      -h long -- print more options
+      -h full -- print all options (including all format and codec specific options, very long)
+      -h type=name -- print all options for the named decoder/encoder/demuxer/muxer/filter/bsf/protocol
+- tools: ffmpeg, curl
+- handling: Fixed. When a help lists several fuller help invocations, the one with the most complete word (`all`, then `full`) is probed once, with the flag the tool wrote (`-h full`, `--help all`). `-h long` is never probed when `-h full` is listed, and a templated form such as `-h type=name` is never built. `InertArgv::HelpExpand` carries the flag (`--help` or `-h`) and stays a closed shape. Fixture: `corpus/ffmpeg/6.1.1`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10: only ffmpeg changed, from 91 flags (`incomplete`) to 5808 (`ok`) in one extra probe, 9.5 s in total. The other 21 tools near the 10 s cap have identical fingerprints on both builds.
+
+### S-282: a flag table inside the leading paragraph
+
+- id: S-282
+- looks like: |
+      usage: /usr/bin/python3 [option] ... [-c cmd | -m mod | file | -] [arg] ...
+      Options (and corresponding environment variables):
+      -b     : issue warnings about converting bytes/bytearray to str and comparing
+      -B     : don't write .pyc files on import; also PYTHONDONTWRITEBYTECODE=x
+- tools: python3
+- handling: Fixed. When the first paragraph holds a headingless flag table (S-165's test, now also applied when a blank line comes later), the table's column-0 rows and the colon label above it are not description. The label stays the flags' group. The tail recovery of S-165 still applies only when the table runs to the end of the document. Fixture: `corpus/python3/3.12`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10: 8 roots stopped repeating their table as description (python3, python3.11, python3.12, fail2ban-python, containerd-shim-runc-v2, docker-proxy, sar, sar.sysstat); the label stays as the flags' group. No flag lost.
+
+### S-283: usage-form verbs after an options placeholder
+
+- id: S-283
+- looks like: |
+      kernel-install [OPTIONS...] COMMAND ...
+
+      Usage:
+        kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]
+        kernel-install [OPTIONS...] remove KERNEL-VERSION
+- tools: kernel-install
+- handling: Fixed. A program-name line that opens the document, names `COMMAND` and sits above a bare `Usage:` label is the first usage form, not description. When a form names the `COMMAND` slot, a lower-case word in that slot of a sibling form is a command, also after an `[OPTIONS...]` placeholder (S-215, S-271). Each verb's page comes from its usage form only and is never probed. A dispatch form may carry dots (`COMMAND ...`). Fixture: `corpus/kernel-install/255`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10: only kernel-install changed, from 0 to 5 commands and from 3 to 7 positionals counted across the verb pages. No other tool gained or lost a command.
+
+### S-284: a sentence line under a usage line
+
+- id: S-284
+- looks like: |
+      Usage: elfedit <option(s)> elffile(s)
+       Update the ELF header of ELF files
+       The options are:
+- tools: elfedit, readelf, pngfix, sg_emc_trespass
+- handling: Fixed. A hanging-indent line under a usage line that does not start with the program name and is not a usage form is description when fewer than half its words are ALL-CAPS (`ELF` in a sentence); before, any ALL-CAPS word kept it in the usage form, where it invented a positional. Fixtures: `corpus/elfedit/2.42`, `corpus/readelf/2.42`, `corpus/pngfix/1.6.43`.
+- fleet: full-`PATH` sweep of 2310 tools, 2026-11-10: elfedit and readelf lose the invented `ELF` operand and gain their description; pngfix, sg_emc_trespass and sg_sanitize gain theirs. No flag lost.

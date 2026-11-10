@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- [S-280] A sentence that heads an option table (`Mandatory arguments to long options are mandatory for short options too.` on `cp`, `uniq`, `du`, `od` and others) ends the description instead of being dropped.
+- [S-281] `ffmpeg` is read from `ffmpeg -h full`, the most complete help it lists, instead of the basic `ffmpeg -h`.
+- [S-282] `python3` no longer repeats its option table as description text.
+- [S-283] `kernel-install` lists `add`, `add-all`, `remove`, `inspect` and `list` as commands, each with the operands of its own usage form, and shows its `COMMAND` line as the first usage form.
+- [S-284] `elfedit` and `readelf` show the sentence under their usage line as description and no longer invent an `ELF` operand; `pngfix` shows its description.
 - [S-269] `ip` lists `-iec`, `-j[son]`, `-p[retty]` and `-br[ief]` as their own flags instead of text on `-h` and `-l[oops]`, and `-l[oops]` takes the value `maximum-addr-flush-attempts`.
 - [S-270] `git stash` no longer lists `diff-options` and `commit`: `git stash show` lists `diff-options` and `git stash store` lists `commit`, and `stash drop`, `pop`, `apply`, `git bundle verify` and `git remote prune` list the operand their usage form names.
 - [S-237] `mandible jfr configure` keeps the line breaks and indentation of the `option=value`, `event-setting=value` and `Options for default.jfc:` rows in its description.
