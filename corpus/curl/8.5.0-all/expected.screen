@@ -97,9 +97,9 @@ FLAGS (258) ──────────────────────�
     --hostpubmd5 <md5>         Acceptable MD5 hash of the host public key
     --hostpubsha256 <sha256>   Acceptable SHA256 hash of the host public key
     --hsts <file name>         Enable HSTS with this cache file
-    --http0 .9                 Allow HTTP 0.9 responses
--0, --http1 .0                 Use HTTP 1.0
-    --http1 .1                 Use HTTP 1.1
+    --http0.9                  Allow HTTP 0.9 responses
+-0, --http1.0                  Use HTTP 1.0
+    --http1.1                  Use HTTP 1.1
     --http2                    Use HTTP/2
     --http2-prior-knowledge    Use HTTP 2 without HTTP/1.1 Upgrade
     --http3                    Use HTTP v3
@@ -206,7 +206,7 @@ FLAGS (258) ──────────────────────�
     --proxy-tlsuser <name>     TLS username for HTTPS proxy
     --proxy-tlsv1              Use TLSv1 for HTTPS proxy
 -U, --proxy-user <user:password> Proxy user and password
-    --proxy1 .0                Use HTTP/1.0 proxy on given port
+    --proxy1.0 <host[:port]>   Use HTTP/1.0 proxy on given port
 -p, --proxytunnel              Operate through an HTTP proxy tunnel (using
                                CONNECT)
     --pubkey <key>             SSH Public key file name
@@ -274,10 +274,10 @@ FLAGS (258) ──────────────────────�
     --tlspassword <string>     TLS password
     --tlsuser <name>           TLS user name
 -1, --tlsv1                    Use TLSv1.0 or greater
-    --tlsv1 .0                 Use TLSv1.0 or greater
-    --tlsv1 .1                 Use TLSv1.1 or greater
-    --tlsv1 .2                 Use TLSv1.2 or greater
-    --tlsv1 .3                 Use TLSv1.3 or greater
+    --tlsv1.0                  Use TLSv1.0 or greater
+    --tlsv1.1                  Use TLSv1.1 or greater
+    --tlsv1.2                  Use TLSv1.2 or greater
+    --tlsv1.3                  Use TLSv1.3 or greater
     --tr-encoding              Request compressed transfer encoding
     --trace <file>             Write a debug trace to FILE
     --trace-ascii <file>       Like --trace, but without hex output

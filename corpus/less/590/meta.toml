@@ -17,7 +17,7 @@ expected_framework = "generic"
 must_contain_flags = ["--search-skip-screen", "--clear-screen", "--quit-at-eof", "--buffers", "--file-size", "--wheel-lines"]
 
 must_not_contain_flags = ["-_", "--_", "-<"]
-must_draw = ["-b, --buffers=[N]"]
+must_draw = ["-b, --buffers=[N]", "-x, --tabs=[N[,...]]"]
 
 [contract.must_value_name]
 "-b" = "N"

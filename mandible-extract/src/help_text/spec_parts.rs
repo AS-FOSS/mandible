@@ -87,10 +87,19 @@ pub(crate) fn colon_bracket_choices(value_name: &str) -> Option<Vec<String>> {
 /// A required value written straight onto its flag (`-Z<type>`, `-z#`,
 /// `+<cmd>`, `-splash:<path>`) is glued: the text after the last spelling
 /// is the value itself, opening with a placeholder mark (`<`, `#`, `:`),
-/// never a word that may be the rest of the flag's name.
+/// never a word that may be the rest of the flag's name. One written after
+/// an `=` (`--suffix=SUFFIX`) joins by `=`. S-276.
 pub(super) fn required_join_of(after_spellings: &str, value: &str) -> Option<OptionalJoin> {
-    let glued = after_spellings.len() == value.len() && value.starts_with(['<', '#', ':']);
-    glued.then_some(OptionalJoin::Glued)
+    if after_spellings.len() != value.len() {
+        return None;
+    }
+    if value.starts_with(['<', '#', ':']) {
+        Some(OptionalJoin::Glued)
+    } else if value.starts_with('=') {
+        Some(OptionalJoin::Equals)
+    } else {
+        None
+    }
 }
 
 /// A bracketed value followed, after one space, by an angle placeholder that

@@ -309,7 +309,7 @@ flags:
   - --tabs
   value_name: '[N[,...]]'
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Set tab stops.
   provenance:
     sources:
@@ -346,7 +346,7 @@ flags:
   - --quotes
   value_name: '[c[c]]'
   value_kind: Optional
-  optional_join: separate
+  optional_join: equals-then-bracket
   description: Set shell quote characters.
   provenance:
     sources:
@@ -390,6 +390,7 @@ flags:
   - --line-num-width
   value_name: N
   value_kind: Required
+  optional_join: equals
   description: Set the width of the -N line number field to N characters.
   provenance:
     sources:
@@ -416,6 +417,7 @@ flags:
   - --rscroll
   value_name: C
   value_kind: Required
+  optional_join: equals
   description: Set the character used to mark truncated lines.
   provenance:
     sources:
@@ -430,6 +432,7 @@ flags:
   - --status-col-width
   value_name: N
   value_kind: Required
+  optional_join: equals
   description: Set the width of the -J status column to N characters.
   provenance:
     sources:
@@ -450,6 +453,7 @@ flags:
   - --wheel-lines
   value_name: N
   value_kind: Required
+  optional_join: equals
   description: Each click of the mouse wheel moves N lines.
   provenance:
     sources:

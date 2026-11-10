@@ -61,6 +61,7 @@ flags:
   - --reference
   value_name: RFILE
   value_kind: Required
+  optional_join: equals
   description: use RFILE's mode instead of specifying MODE values. RFILE is always dereferenced if a symbolic link.
   provenance:
     sources:

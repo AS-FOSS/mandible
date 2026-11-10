@@ -15,9 +15,9 @@ POSITIONALS (2) ─────────────────────�
 FLAGS (12) ─────────────────────────────────────────────────────────────────
 -i, --ignore-environment    start with an empty environment
 -0, --null                  end each output line with NUL, not newline
--u, --unset NAME            remove variable from the environment
--C, --chdir DIR             change working directory to DIR
--S, --split-string S        process and split S into separate arguments;
+-u, --unset=NAME            remove variable from the environment
+-C, --chdir=DIR             change working directory to DIR
+-S, --split-string=S        process and split S into separate arguments;
                             used to pass multiple arguments on shebang lines
     --block-signal[=SIG]    block delivery of SIG signal(s) to COMMAND
     --default-signal[=SIG]  reset handling of SIG signal(s) to the default

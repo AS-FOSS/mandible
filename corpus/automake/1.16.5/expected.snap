@@ -37,6 +37,7 @@ flags:
   - --warnings
   value_name: CATEGORY
   value_kind: Required
+  optional_join: equals
   choices:
   - name: cross
     description: cross compilation issues
@@ -117,6 +118,7 @@ flags:
   - --libdir
   value_name: DIR
   value_kind: Required
+  optional_join: equals
   group: 'Library files:'
   description: set directory storing library files
   provenance:

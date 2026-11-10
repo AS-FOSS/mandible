@@ -52,7 +52,7 @@ FLAGS (395) ──────────────────────�
                               interpreter header
 -l, --library LIBNAME         Search for library LIBNAME
 -L, --library-path DIRECTORY  Add DIRECTORY to library search path
-    --sysroot <DIRECTORY>     Override the default sysroot location
+    --sysroot=<DIRECTORY>     Override the default sysroot location
 -m EMULATION                  Set emulation
 -M, --print-map               Print map file on standard output
 -n, --nmagic                  Do not page align data
@@ -137,7 +137,7 @@ FLAGS (395) ──────────────────────�
     --no-print-gc-sections    Do not list removed unused sections
     --gc-keep-exported        Keep exported symbols when removing unused
                               sections
-    --hash-size <NUMBER>      Set default hash table size close to <NUMBER>
+    --hash-size=<NUMBER>      Set default hash table size close to <NUMBER>
     --help                    Print option help
     -init SYMBOL              Call SYMBOL at load-time
     -Map FILE/DIR             Write a linker map to FILE or
@@ -172,7 +172,7 @@ FLAGS (395) ──────────────────────�
     -qmagic                   Ignored for Linux compatibility
     --reduce-memory-overheads Reduce memory overheads, possibly taking much
                               longer
-    --max-cache-size SIZE     Set the maximum cache size to SIZE bytes
+    --max-cache-size=SIZE     Set the maximum cache size to SIZE bytes
     --relax                   Reduce code size by using target specific
                               optimizations
     --no-relax                Do not use relaxation techniques to reduce
@@ -204,7 +204,7 @@ FLAGS (395) ──────────────────────�
     -Ttext-segment ADDRESS    Set address of text segment
     -Trodata-segment ADDRESS  Set address of rodata segment
     -Tldata-segment ADDRESS   Set address of ldata segment
-    --unresolved-symbols <method> How to handle unresolved symbols. <method>
+    --unresolved-symbols=<method> How to handle unresolved symbols. <method>
                               is: ignore-all, report-all,
                               ignore-in-object-files, ignore-in-shared-libs
     --verbose[=NUMBER]        Output lots of information during link
@@ -250,7 +250,7 @@ FLAGS (395) ──────────────────────�
                               CTF
     --no-ctf-variables        Do not emit names and types of static
                               variables in CTF
-    --ctf-share-types <method> How to share CTF types between translation
+    --ctf-share-types=<method> How to share CTF types between translation
                               units. <method> is: share-unconflicted
                               (default), share-duplicated
 @FILE                         Read options from FILE
@@ -258,7 +258,7 @@ FLAGS (395) ──────────────────────�
 ELF emulations ─────────────────────────────────────────────────────────────
     --build-id[=STYLE]        Generate build ID note
     --package-metadata[=JSON] Generate package metadata note
-    --compress-debug-sections {…} Compress DWARF debug sections Default:
+    --compress-debug-sections={…} Compress DWARF debug sections Default:
                               none
                                 values: none, zlib, zlib-gnu, zlib-gabi,
                                 zstd
@@ -299,14 +299,14 @@ ELF emulations ─────────────────────�
                               INTERNAL
 -z sectionheader              Generate section header (default)
 -z nosectionheader            Do not generate section header
-    --audit AUDITLIB          Specify a library to use for auditing
+    --audit=AUDITLIB          Specify a library to use for auditing
     -Bgroup                   Selects group name lookup rules for DSO
     --disable-new-dtags       Disable new dynamic tags
     --enable-new-dtags        Enable new dynamic tags
     --eh-frame-hdr            Create .eh_frame_hdr section
     --no-eh-frame-hdr         Do not create .eh_frame_hdr section
-    --exclude-libs LIBS       Make all symbols in LIBS hidden
-    --hash-style STYLE        Set hash style to sysv/gnu/both. Default: both
+    --exclude-libs=LIBS       Make all symbols in LIBS hidden
+    --hash-style=STYLE        Set hash style to sysv/gnu/both. Default: both
 -P, --depaudit AUDITLIB       Specify a library to use for auditing
                               dependencies
 -z combreloc                  Merge dynamic relocs into one section and sort
@@ -348,7 +348,7 @@ Aarch64linux ──────────────────────�
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -373,7 +373,7 @@ Aarch64elf ───────────────────────
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -398,7 +398,7 @@ Aarch64elf32 ──────────────────────�
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -423,7 +423,7 @@ Aarch64elf32b ──────────────────────
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -448,7 +448,7 @@ Aarch64elfb ──────────────────────�
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -468,11 +468,11 @@ Aarch64elfb ──────────────────────�
 -z pac-plt                    Protect PLTs with Pointer Authentication.
 
 Armelf ─────────────────────────────────────────────────────────────────────
-    --thumb-entry <sym>       Set the entry point to be Thumb symbol <sym>
+    --thumb-entry=<sym>       Set the entry point to be Thumb symbol <sym>
     --be8                     Output BE8 format image
     --target1-rel             Interpret R_ARM_TARGET1 as R_ARM_REL32
     --target1-abs             Interpret R_ARM_TARGET1 as R_ARM_ABS32
-    --target2 <type>          Specify definition of R_ARM_TARGET2
+    --target2=<type>          Specify definition of R_ARM_TARGET2
     --fix-v4bx                Rewrite BX rn as MOV pc, rn for ARMv4
     --fix-v4bx-interworking   Rewrite BX rn branch to ARMv4 interworking
                               veneer
@@ -491,7 +491,7 @@ Armelf ────────────────────────�
                               Extensions
     --in-implib               Import library whose symbols address must
                               remain stable
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -506,11 +506,11 @@ Armelf ────────────────────────�
                               fix
 
 Armelfb ────────────────────────────────────────────────────────────────────
-    --thumb-entry <sym>       Set the entry point to be Thumb symbol <sym>
+    --thumb-entry=<sym>       Set the entry point to be Thumb symbol <sym>
     --be8                     Output BE8 format image
     --target1-rel             Interpret R_ARM_TARGET1 as R_ARM_REL32
     --target1-abs             Interpret R_ARM_TARGET1 as R_ARM_ABS32
-    --target2 <type>          Specify definition of R_ARM_TARGET2
+    --target2=<type>          Specify definition of R_ARM_TARGET2
     --fix-v4bx                Rewrite BX rn as MOV pc, rn for ARMv4
     --fix-v4bx-interworking   Rewrite BX rn branch to ARMv4 interworking
                               veneer
@@ -529,7 +529,7 @@ Armelfb ────────────────────────
                               Extensions
     --in-implib               Import library whose symbols address must
                               remain stable
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -549,7 +549,7 @@ Aarch64linuxb ──────────────────────
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -574,7 +574,7 @@ Aarch64linux32 ─────────────────────�
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -599,7 +599,7 @@ Aarch64linux32b ─────────────────────�
     --no-wchar-size-warning   Don't warn about objects with incompatible
                               wchar_t sizes
     --pic-veneer              Always generate PIC interworking veneers
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -619,11 +619,11 @@ Aarch64linux32b ─────────────────────�
 -z pac-plt                    Protect PLTs with Pointer Authentication.
 
 Armelfb_linux_eabi ─────────────────────────────────────────────────────────
-    --thumb-entry <sym>       Set the entry point to be Thumb symbol <sym>
+    --thumb-entry=<sym>       Set the entry point to be Thumb symbol <sym>
     --be8                     Output BE8 format image
     --target1-rel             Interpret R_ARM_TARGET1 as R_ARM_REL32
     --target1-abs             Interpret R_ARM_TARGET1 as R_ARM_ABS32
-    --target2 <type>          Specify definition of R_ARM_TARGET2
+    --target2=<type>          Specify definition of R_ARM_TARGET2
     --fix-v4bx                Rewrite BX rn as MOV pc, rn for ARMv4
     --fix-v4bx-interworking   Rewrite BX rn branch to ARMv4 interworking
                               veneer
@@ -642,7 +642,7 @@ Armelfb_linux_eabi ────────────────────�
                               Extensions
     --in-implib               Import library whose symbols address must
                               remain stable
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive
@@ -657,11 +657,11 @@ Armelfb_linux_eabi ────────────────────�
                               fix
 
 Armelf_linux_eabi ──────────────────────────────────────────────────────────
-    --thumb-entry <sym>       Set the entry point to be Thumb symbol <sym>
+    --thumb-entry=<sym>       Set the entry point to be Thumb symbol <sym>
     --be8                     Output BE8 format image
     --target1-rel             Interpret R_ARM_TARGET1 as R_ARM_REL32
     --target1-abs             Interpret R_ARM_TARGET1 as R_ARM_ABS32
-    --target2 <type>          Specify definition of R_ARM_TARGET2
+    --target2=<type>          Specify definition of R_ARM_TARGET2
     --fix-v4bx                Rewrite BX rn as MOV pc, rn for ARMv4
     --fix-v4bx-interworking   Rewrite BX rn branch to ARMv4 interworking
                               veneer
@@ -680,7 +680,7 @@ Armelf_linux_eabi ────────────────────�
                               Extensions
     --in-implib               Import library whose symbols address must
                               remain stable
-    --stub-group-size N       Maximum size of a group of input sections that
+    --stub-group-size=N       Maximum size of a group of input sections that
                               can be handled by one stub section. A negative
                               value locates all stubs after their branches
                               (with a group size of -N), while a positive

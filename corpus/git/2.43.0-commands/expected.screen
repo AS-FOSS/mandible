@@ -27,10 +27,10 @@ FLAGS (18) ───────────────────────
     --no-pager
     --no-replace-objects
     --bare
-    --git-dir <path>
-    --work-tree <path>
-    --namespace <name>
-    --config-env <name>=<envvar>
+    --git-dir=<path>
+    --work-tree=<path>
+    --namespace=<name>
+    --config-env=<name>=<envvar>
 
 === git clone ===
 Clone a repository into a new directory
@@ -130,7 +130,7 @@ FLAGS (4) ───────────────────────�
 -q
     --quiet
     --progress
-    --version <version>
+    --version=<version>
 
 === git bundle verify ===
 USAGE ──────────────────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@ FLAGS (10) ───────────────────────
 -u, --include-untracked
 -a, --all
 -m, --message <message>
-    --pathspec-from-file <file>
+    --pathspec-from-file=<file>
     --pathspec-file-nul
 --
 
@@ -545,7 +545,7 @@ FLAGS (17) ───────────────────────
 -f
     --tags
     --no-tags
-    --mirror <fetch|push>
+    --mirror=<fetch|push>
     --[no-]progress
 -a
     --auto
@@ -574,7 +574,7 @@ FLAGS (6) ───────────────────────�
 -f
     --tags
     --no-tags
-    --mirror <fetch|push>
+    --mirror=<fetch|push>
 
 === git remote rename ===
 USAGE ──────────────────────────────────────────────────────────────────────

@@ -14,8 +14,8 @@ POSITIONALS (1) ─────────────────────�
 
 FLAGS (6) ──────────────────────────────────────────────────────────────────
 -b, --brief            display font pattern briefly
--f, --format FORMAT    use the given output format
--y, --sysroot SYSROOT  prepend SYSROOT to all paths for scanning
+-f, --format=FORMAT    use the given output format
+-y, --sysroot=SYSROOT  prepend SYSROOT to all paths for scanning
 -V, --version          display font config version and exit
 -h, --help             display this help and exit
 -c

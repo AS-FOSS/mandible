@@ -25,18 +25,18 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (21) ─────────────────────────────────────────────────────────────────
--A, --address-radix RADIX output format for file offsets; RADIX is one of
+-A, --address-radix=RADIX output format for file offsets; RADIX is one of
                         [doxn], for Decimal, Octal, Hex or None
-    --endian {…}        swap input bytes according the specified order
+    --endian={…}        swap input bytes according the specified order
                           values: big, little
--j, --skip-bytes BYTES  skip BYTES input bytes first
+-j, --skip-bytes=BYTES  skip BYTES input bytes first
                           values:
                             b   512
                             KB  1000
                             K   1024
                             MB  1000*1000
                             M   1024*1024
--N, --read-bytes BYTES  limit dump to BYTES input bytes
+-N, --read-bytes=BYTES  limit dump to BYTES input bytes
                           values:
                             b   512
                             KB  1000
@@ -51,7 +51,7 @@ FLAGS (21) ───────────────────────
                             K   1024
                             MB  1000*1000
                             M   1024*1024
--t, --format TYPE       select output format or formats
+-t, --format=TYPE       select output format or formats
                           values:
                             a        named character, ignoring high-order
                                      bit

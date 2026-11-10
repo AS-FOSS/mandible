@@ -19,6 +19,7 @@ flags:
   - --param
   value_name: lazy-modules=
   value_kind: Required
+  optional_join: equals
   group: 'The following options are specific to just the language C++:'
   description: '[available in C++]'
   provenance:
@@ -6102,6 +6103,7 @@ flags:
   - --param
   value_name: aarch64-double-recp-precision=<1,5>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -6112,6 +6114,7 @@ flags:
   - --param
   value_name: aarch64-float-recp-precision=<1,5>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6121,6 +6124,7 @@ flags:
   - --param
   value_name: aarch64-mops-memcpy-size-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -6131,6 +6135,7 @@ flags:
   - --param
   value_name: aarch64-mops-memmove-size-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -6140,6 +6145,7 @@ flags:
   - --param
   value_name: aarch64-mops-memset-size-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -6149,6 +6155,7 @@ flags:
   - --param
   value_name: aarch64-sve-compare-costs=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6158,6 +6165,7 @@ flags:
   - --param
   value_name: aarch64-vect-unroll-limit=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4'
   provenance:
@@ -6167,6 +6175,7 @@ flags:
   - --param
   value_name: align-loop-iterations=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4'
   provenance:
@@ -6176,6 +6185,7 @@ flags:
   - --param
   value_name: align-threshold=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -6185,6 +6195,7 @@ flags:
   - --param
   value_name: analyzer-bb-explosion-factor=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '5'
   provenance:
@@ -6194,6 +6205,7 @@ flags:
   - --param
   value_name: analyzer-max-constraints=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -6203,6 +6215,7 @@ flags:
   - --param
   value_name: analyzer-max-enodes-for-full-dump=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -6212,6 +6225,7 @@ flags:
   - --param
   value_name: analyzer-max-enodes-per-program-point=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -6221,6 +6235,7 @@ flags:
   - --param
   value_name: analyzer-max-infeasible-edges=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6230,6 +6245,7 @@ flags:
   - --param
   value_name: analyzer-max-recursion-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -6239,6 +6255,7 @@ flags:
   - --param
   value_name: analyzer-max-svalue-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '12'
   provenance:
@@ -6248,6 +6265,7 @@ flags:
   - --param
   value_name: analyzer-min-snodes-for-call-summary=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6257,6 +6275,7 @@ flags:
   - --param
   value_name: asan-globals=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6266,6 +6285,7 @@ flags:
   - --param
   value_name: asan-instrument-allocas=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6275,6 +6295,7 @@ flags:
   - --param
   value_name: asan-instrument-reads=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6284,6 +6305,7 @@ flags:
   - --param
   value_name: asan-instrument-writes=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6293,6 +6315,7 @@ flags:
   - --param
   value_name: asan-instrumentation-with-call-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '7000'
   provenance:
@@ -6303,6 +6326,7 @@ flags:
   - --param
   value_name: asan-kernel-mem-intrinsic-prefix=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -6312,6 +6336,7 @@ flags:
   - --param
   value_name: asan-memintrin=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6321,6 +6346,7 @@ flags:
   - --param
   value_name: asan-stack=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6330,6 +6356,7 @@ flags:
   - --param
   value_name: asan-use-after-return=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6339,6 +6366,7 @@ flags:
   - --param
   value_name: avg-loop-niter=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6349,6 +6377,7 @@ flags:
   - --param
   value_name: avoid-fma-max-bits=<0,512>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -6358,6 +6387,7 @@ flags:
   - --param
   value_name: builtin-expect-probability=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '90'
   provenance:
@@ -6367,6 +6397,7 @@ flags:
   - --param
   value_name: builtin-string-cmp-inline-length=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -6377,6 +6408,7 @@ flags:
   - --param
   value_name: case-values-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -6386,6 +6418,7 @@ flags:
   - --param
   value_name: comdat-sharing-probability=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -6395,6 +6428,7 @@ flags:
   - --param
   value_name: constructive-interference-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -6404,6 +6438,7 @@ flags:
   - --param
   value_name: cxx-max-namespaces-for-diagnostic-help=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -6413,6 +6448,7 @@ flags:
   - --param
   value_name: destructive-interference-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -6422,6 +6458,7 @@ flags:
   - --param
   value_name: dse-max-alias-queries-per-store=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -6431,6 +6468,7 @@ flags:
   - --param
   value_name: dse-max-object-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -6441,6 +6479,7 @@ flags:
   - --param
   value_name: early-inlining-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '6'
   provenance:
@@ -6450,6 +6489,7 @@ flags:
   - --param
   value_name: evrp-sparse-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '800'
   provenance:
@@ -6459,6 +6499,7 @@ flags:
   - --param
   value_name: evrp-switch-limit=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -6468,6 +6509,7 @@ flags:
   - --param
   value_name: fsm-scale-path-stmts=<1,10>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -6477,6 +6519,7 @@ flags:
   - --param
   value_name: gcse-after-reload-critical-fraction=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6486,6 +6529,7 @@ flags:
   - --param
   value_name: gcse-after-reload-partial-fraction=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -6495,6 +6539,7 @@ flags:
   - --param
   value_name: gcse-cost-distance-ratio=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6504,6 +6549,7 @@ flags:
   - --param
   value_name: gcse-unrestricted-cost=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -6513,6 +6559,7 @@ flags:
   - --param
   value_name: ggc-min-expand=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -6522,6 +6569,7 @@ flags:
   - --param
   value_name: ggc-min-heapsize=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '131072'
   provenance:
@@ -6532,6 +6580,7 @@ flags:
   - --param
   value_name: gimple-fe-computed-hot-bb-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -6541,6 +6590,7 @@ flags:
   - --param
   value_name: graphite-allow-codegen-errors=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -6550,6 +6600,7 @@ flags:
   - --param
   value_name: graphite-max-arrays-per-scop=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -6559,6 +6610,7 @@ flags:
   - --param
   value_name: graphite-max-nb-scop-params=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6568,6 +6620,7 @@ flags:
   - --param
   value_name: hash-table-verification-limit=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6577,6 +6630,7 @@ flags:
   - --param
   value_name: hot-bb-count-fraction=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10000'
   provenance:
@@ -6586,6 +6640,7 @@ flags:
   - --param
   value_name: hot-bb-count-ws-permille=<0,1000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '990'
   provenance:
@@ -6595,6 +6650,7 @@ flags:
   - --param
   value_name: hot-bb-frequency-fraction=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -6604,6 +6660,7 @@ flags:
   - --param
   value_name: hwasan-instrument-allocas=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6613,6 +6670,7 @@ flags:
   - --param
   value_name: hwasan-instrument-mem-intrinsics=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6622,6 +6680,7 @@ flags:
   - --param
   value_name: hwasan-instrument-reads=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6631,6 +6690,7 @@ flags:
   - --param
   value_name: hwasan-instrument-stack=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6640,6 +6700,7 @@ flags:
   - --param
   value_name: hwasan-instrument-writes=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6649,6 +6710,7 @@ flags:
   - --param
   value_name: hwasan-random-frame-tag=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6658,6 +6720,7 @@ flags:
   - --param
   value_name: inline-heuristics-hint-percent=<100,1000000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -6667,6 +6730,7 @@ flags:
   - --param
   value_name: inline-min-speedup=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '30'
   provenance:
@@ -6676,6 +6740,7 @@ flags:
   - --param
   value_name: inline-unit-growth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -6685,6 +6750,7 @@ flags:
   - --param
   value_name: integer-share-limit=<2,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '251'
   provenance:
@@ -6694,6 +6760,7 @@ flags:
   - --param
   value_name: ipa-cp-eval-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '500'
   provenance:
@@ -6703,6 +6770,7 @@ flags:
   - --param
   value_name: ipa-cp-large-unit-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16000'
   provenance:
@@ -6712,6 +6780,7 @@ flags:
   - --param
   value_name: ipa-cp-loop-hint-bonus=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -6721,6 +6790,7 @@ flags:
   - --param
   value_name: ipa-cp-max-recursive-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -6730,6 +6800,7 @@ flags:
   - --param
   value_name: ipa-cp-min-recursive-probability=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -6739,6 +6810,7 @@ flags:
   - --param
   value_name: ipa-cp-profile-count-base=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6748,6 +6820,7 @@ flags:
   - --param
   value_name: ipa-cp-recursion-penalty=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -6757,6 +6830,7 @@ flags:
   - --param
   value_name: ipa-cp-recursive-freq-factor=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '6'
   provenance:
@@ -6766,6 +6840,7 @@ flags:
   - --param
   value_name: ipa-cp-single-call-penalty=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '15'
   provenance:
@@ -6775,6 +6850,7 @@ flags:
   - --param
   value_name: ipa-cp-unit-growth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6784,6 +6860,7 @@ flags:
   - --param
   value_name: ipa-cp-value-list-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -6793,6 +6870,7 @@ flags:
   - --param
   value_name: ipa-jump-function-lookups=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -6802,6 +6880,7 @@ flags:
   - --param
   value_name: ipa-max-aa-steps=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '25000'
   provenance:
@@ -6811,6 +6890,7 @@ flags:
   - --param
   value_name: ipa-max-agg-items=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -6820,6 +6900,7 @@ flags:
   - --param
   value_name: ipa-max-loop-predicates=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -6829,6 +6910,7 @@ flags:
   - --param
   value_name: ipa-max-param-expr-ops=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6838,6 +6920,7 @@ flags:
   - --param
   value_name: ipa-max-switch-predicate-bounds=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '5'
   provenance:
@@ -6847,6 +6930,7 @@ flags:
   - --param
   value_name: ipa-sra-deref-prob-threshold=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -6856,6 +6940,7 @@ flags:
   - --param
   value_name: ipa-sra-max-replacements=<0,16>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -6865,6 +6950,7 @@ flags:
   - --param
   value_name: ipa-sra-ptr-growth-factor=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -6874,6 +6960,7 @@ flags:
   - --param
   value_name: ipa-sra-ptrwrap-growth-factor=<1,8>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4'
   provenance:
@@ -6883,6 +6970,7 @@ flags:
   - --param
   value_name: ira-consider-dup-in-all-alts=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -6892,6 +6980,7 @@ flags:
   - --param
   value_name: ira-loop-reserved-regs=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -6901,6 +6990,7 @@ flags:
   - --param
   value_name: ira-max-conflict-table-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -6910,6 +7000,7 @@ flags:
   - --param
   value_name: ira-max-loops-num=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -6919,6 +7010,7 @@ flags:
   - --param
   value_name: ira-simple-lra-insn-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -6928,6 +7020,7 @@ flags:
   - --param
   value_name: iv-always-prune-cand-set-bound=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -6937,6 +7030,7 @@ flags:
   - --param
   value_name: iv-consider-all-candidates-bound=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -6946,6 +7040,7 @@ flags:
   - --param
   value_name: iv-max-considered-uses=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '250'
   provenance:
@@ -6955,6 +7050,7 @@ flags:
   - --param
   value_name: jump-table-max-growth-ratio-for-size=<0,10000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '300'
   provenance:
@@ -6964,6 +7060,7 @@ flags:
   - --param
   value_name: jump-table-max-growth-ratio-for-speed=<0,10000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '800'
   provenance:
@@ -6973,6 +7070,7 @@ flags:
   - --param
   value_name: l1-cache-line-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -6982,6 +7080,7 @@ flags:
   - --param
   value_name: l1-cache-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -6991,6 +7090,7 @@ flags:
   - --param
   value_name: l2-cache-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '512'
   provenance:
@@ -7000,6 +7100,7 @@ flags:
   - --param
   value_name: large-function-growth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7009,6 +7110,7 @@ flags:
   - --param
   value_name: large-function-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2700'
   provenance:
@@ -7018,6 +7120,7 @@ flags:
   - --param
   value_name: large-stack-frame-growth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -7027,6 +7130,7 @@ flags:
   - --param
   value_name: large-stack-frame=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -7036,6 +7140,7 @@ flags:
   - --param
   value_name: large-unit-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10000'
   provenance:
@@ -7045,6 +7150,7 @@ flags:
   - --param
   value_name: lim-expensive=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -7054,6 +7160,7 @@ flags:
   - --param
   value_name: logical-op-non-short-circuit=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   provenance:
     sources:
@@ -7062,6 +7169,7 @@ flags:
   - --param
   value_name: loop-block-tile-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '51'
   provenance:
@@ -7071,6 +7179,7 @@ flags:
   - --param
   value_name: loop-interchange-max-num-stmts=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -7080,6 +7189,7 @@ flags:
   - --param
   value_name: loop-interchange-stride-ratio=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -7089,6 +7199,7 @@ flags:
   - --param
   value_name: loop-invariant-max-bbs-in-loop=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10000'
   provenance:
@@ -7098,6 +7209,7 @@ flags:
   - --param
   value_name: loop-max-datarefs-for-datadeps=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -7107,6 +7219,7 @@ flags:
   - --param
   value_name: loop-versioning-max-inner-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -7116,6 +7229,7 @@ flags:
   - --param
   value_name: loop-versioning-max-outer-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7125,6 +7239,7 @@ flags:
   - --param
   value_name: lra-inheritance-ebb-probability-cutoff=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -7134,6 +7249,7 @@ flags:
   - --param
   value_name: lra-max-considered-reload-pseudos=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '500'
   provenance:
@@ -7143,6 +7259,7 @@ flags:
   - --param
   value_name: lto-max-partition=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000000'
   provenance:
@@ -7152,6 +7269,7 @@ flags:
   - --param
   value_name: lto-max-streaming-parallelism=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -7161,6 +7279,7 @@ flags:
   - --param
   value_name: lto-min-partition=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10000'
   provenance:
@@ -7170,6 +7289,7 @@ flags:
   - --param
   value_name: lto-partitions=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '128'
   provenance:
@@ -7179,6 +7299,7 @@ flags:
   - --param
   value_name: max-average-unrolled-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '80'
   provenance:
@@ -7188,6 +7309,7 @@ flags:
   - --param
   value_name: max-combine-insns=<2,4>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4'
   provenance:
@@ -7197,6 +7319,7 @@ flags:
   - --param
   value_name: max-completely-peel-loop-nest-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7206,6 +7329,7 @@ flags:
   - --param
   value_name: max-completely-peel-times=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -7215,6 +7339,7 @@ flags:
   - --param
   value_name: max-completely-peeled-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -7224,6 +7349,7 @@ flags:
   - --param
   value_name: max-crossjump-edges=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7233,6 +7359,7 @@ flags:
   - --param
   value_name: max-cse-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -7242,6 +7369,7 @@ flags:
   - --param
   value_name: max-cse-path-length=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -7251,6 +7379,7 @@ flags:
   - --param
   value_name: max-cselib-memory-locations=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '500'
   provenance:
@@ -7260,6 +7389,7 @@ flags:
   - --param
   value_name: max-debug-marker-count=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100000'
   provenance:
@@ -7269,6 +7399,7 @@ flags:
   - --param
   value_name: max-delay-slot-insn-search=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7278,6 +7409,7 @@ flags:
   - --param
   value_name: max-delay-slot-live-search=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '333'
   provenance:
@@ -7287,6 +7419,7 @@ flags:
   - --param
   value_name: max-dse-active-local-stores=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '5000'
   provenance:
@@ -7296,6 +7429,7 @@ flags:
   - --param
   value_name: max-early-inliner-iterations=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -7305,6 +7439,7 @@ flags:
   - --param
   value_name: max-fields-for-field-sensitive=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -7314,6 +7449,7 @@ flags:
   - --param
   value_name: max-find-base-term-values=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -7323,6 +7459,7 @@ flags:
   - --param
   value_name: max-fsm-thread-path-insns=<1,999999>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7332,6 +7469,7 @@ flags:
   - --param
   value_name: max-gcse-insertion-ratio=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -7341,6 +7479,7 @@ flags:
   - --param
   value_name: max-gcse-memory=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '131072'
   provenance:
@@ -7350,6 +7489,7 @@ flags:
   - --param
   value_name: max-goto-duplication-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7359,6 +7499,7 @@ flags:
   - --param
   value_name: max-grow-copy-bb-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7368,6 +7509,7 @@ flags:
   - --param
   value_name: max-hoist-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '30'
   provenance:
@@ -7377,6 +7519,7 @@ flags:
   - --param
   value_name: max-inline-functions-called-once-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4000'
   provenance:
@@ -7386,6 +7529,7 @@ flags:
   - --param
   value_name: max-inline-functions-called-once-loop-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '6'
   provenance:
@@ -7395,6 +7539,7 @@ flags:
   - --param
   value_name: max-inline-insns-auto=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '15'
   provenance:
@@ -7404,6 +7549,7 @@ flags:
   - --param
   value_name: max-inline-insns-recursive-auto=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '450'
   provenance:
@@ -7413,6 +7559,7 @@ flags:
   - --param
   value_name: max-inline-insns-recursive=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '450'
   provenance:
@@ -7422,6 +7569,7 @@ flags:
   - --param
   value_name: max-inline-insns-single=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '70'
   provenance:
@@ -7431,6 +7579,7 @@ flags:
   - --param
   value_name: max-inline-insns-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -7440,6 +7589,7 @@ flags:
   - --param
   value_name: max-inline-insns-small=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -7449,6 +7599,7 @@ flags:
   - --param
   value_name: max-inline-recursive-depth-auto=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7458,6 +7609,7 @@ flags:
   - --param
   value_name: max-inline-recursive-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7467,6 +7619,7 @@ flags:
   - --param
   value_name: max-isl-operations=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '350000'
   provenance:
@@ -7476,6 +7629,7 @@ flags:
   - --param
   value_name: max-iterations-computation-cost=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -7485,6 +7639,7 @@ flags:
   - --param
   value_name: max-iterations-to-track=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -7494,6 +7649,7 @@ flags:
   - --param
   value_name: max-jump-thread-duplication-stmts=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '15'
   provenance:
@@ -7503,6 +7659,7 @@ flags:
   - --param
   value_name: max-jump-thread-paths=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -7512,6 +7669,7 @@ flags:
   - --param
   value_name: max-last-value-rtl=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10000'
   provenance:
@@ -7521,6 +7679,7 @@ flags:
   - --param
   value_name: max-loop-header-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -7530,6 +7689,7 @@ flags:
   - --param
   value_name: max-modulo-backtrack-attempts=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -7539,6 +7699,7 @@ flags:
   - --param
   value_name: max-partial-antic-length=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7548,6 +7709,7 @@ flags:
   - --param
   value_name: max-peel-branches=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -7557,6 +7719,7 @@ flags:
   - --param
   value_name: max-peel-times=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -7566,6 +7729,7 @@ flags:
   - --param
   value_name: max-peeled-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7575,6 +7739,7 @@ flags:
   - --param
   value_name: max-pending-list-length=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -7584,6 +7749,7 @@ flags:
   - --param
   value_name: max-pipeline-region-blocks=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '15'
   provenance:
@@ -7593,6 +7759,7 @@ flags:
   - --param
   value_name: max-pipeline-region-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -7602,6 +7769,7 @@ flags:
   - --param
   value_name: max-pow-sqrt-depth=<1,32>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '5'
   provenance:
@@ -7611,6 +7779,7 @@ flags:
   - --param
   value_name: max-predicted-iterations=<0,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7620,6 +7789,7 @@ flags:
   - --param
   value_name: max-reload-search-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7629,6 +7799,7 @@ flags:
   - --param
   value_name: max-rtl-if-conversion-insns=<0,99>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -7638,6 +7809,7 @@ flags:
   - --param
   value_name: max-rtl-if-conversion-predictable-cost=<0,200>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -7647,6 +7819,7 @@ flags:
   - --param
   value_name: max-rtl-if-conversion-unpredictable-cost=<0,200>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -7656,6 +7829,7 @@ flags:
   - --param
   value_name: max-sched-extend-regions-iters=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -7665,6 +7839,7 @@ flags:
   - --param
   value_name: max-sched-insn-conflict-delay=<1,10>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -7674,6 +7849,7 @@ flags:
   - --param
   value_name: max-sched-ready-insns=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7683,6 +7859,7 @@ flags:
   - --param
   value_name: max-sched-region-blocks=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -7692,6 +7869,7 @@ flags:
   - --param
   value_name: max-sched-region-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -7701,6 +7879,7 @@ flags:
   - --param
   value_name: max-slsr-cand-scan=<1,999999>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -7710,6 +7889,7 @@ flags:
   - --param
   value_name: max-speculative-devirt-maydefs=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -7719,6 +7899,7 @@ flags:
   - --param
   value_name: max-ssa-name-query-depth=<1,10>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -7728,6 +7909,7 @@ flags:
   - --param
   value_name: max-store-chains-to-track=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -7737,6 +7919,7 @@ flags:
   - --param
   value_name: max-stores-to-merge=<2,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -7746,6 +7929,7 @@ flags:
   - --param
   value_name: max-stores-to-sink=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -7755,6 +7939,7 @@ flags:
   - --param
   value_name: max-stores-to-track=<2,1048576>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1024'
   provenance:
@@ -7764,6 +7949,7 @@ flags:
   - --param
   value_name: max-tail-merge-comparisons=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -7773,6 +7959,7 @@ flags:
   - --param
   value_name: max-tail-merge-iterations=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -7782,6 +7969,7 @@ flags:
   - --param
   value_name: max-tracked-strlens=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10000'
   provenance:
@@ -7791,6 +7979,7 @@ flags:
   - --param
   value_name: max-tree-if-conversion-phi-args=<2,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4'
   provenance:
@@ -7800,6 +7989,7 @@ flags:
   - --param
   value_name: max-unroll-times=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7809,6 +7999,7 @@ flags:
   - --param
   value_name: max-unrolled-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -7818,6 +8009,7 @@ flags:
   - --param
   value_name: max-unswitch-depth=<1,50>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -7827,6 +8019,7 @@ flags:
   - --param
   value_name: max-unswitch-insns=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -7836,6 +8029,7 @@ flags:
   - --param
   value_name: max-variable-expansions-in-unroller=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -7845,6 +8039,7 @@ flags:
   - --param
   value_name: max-vartrack-expr-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '12'
   provenance:
@@ -7854,6 +8049,7 @@ flags:
   - --param
   value_name: max-vartrack-reverse-op-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -7863,6 +8059,7 @@ flags:
   - --param
   value_name: max-vartrack-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50000000'
   provenance:
@@ -7872,6 +8069,7 @@ flags:
   - --param
   value_name: min-crossjump-insns=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '5'
   provenance:
@@ -7881,6 +8079,7 @@ flags:
   - --param
   value_name: min-inline-recursive-probability=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -7890,6 +8089,7 @@ flags:
   - --param
   value_name: min-insn-to-prefetch-ratio=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '9'
   provenance:
@@ -7899,6 +8099,7 @@ flags:
   - --param
   value_name: min-loop-cond-split-prob=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '30'
   provenance:
@@ -7908,6 +8109,7 @@ flags:
   - --param
   value_name: min-nondebug-insn-uid=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -7917,6 +8119,7 @@ flags:
   - --param
   value_name: min-pagesize=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4096'
   provenance:
@@ -7926,6 +8129,7 @@ flags:
   - --param
   value_name: min-size-for-stack-sharing=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -7935,6 +8139,7 @@ flags:
   - --param
   value_name: min-spec-prob=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -7944,6 +8149,7 @@ flags:
   - --param
   value_name: min-vect-loop-bound=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -7953,6 +8159,7 @@ flags:
   - --param
   value_name: modref-max-accesses=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -7962,6 +8169,7 @@ flags:
   - --param
   value_name: modref-max-adjustments=<0,254>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -7971,6 +8179,7 @@ flags:
   - --param
   value_name: modref-max-bases=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -7980,6 +8189,7 @@ flags:
   - --param
   value_name: modref-max-depth=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -7989,6 +8199,7 @@ flags:
   - --param
   value_name: modref-max-escape-points=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -7998,6 +8209,7 @@ flags:
   - --param
   value_name: modref-max-refs=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -8007,6 +8219,7 @@ flags:
   - --param
   value_name: modref-max-tests=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '64'
   provenance:
@@ -8016,6 +8229,7 @@ flags:
   - --param
   value_name: openacc-kernels=[decompose|parloops]
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: parloops
   provenance:
@@ -8025,6 +8239,7 @@ flags:
   - --param
   value_name: openacc-privatization=[quiet|noisy]
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: quiet
   provenance:
@@ -8034,6 +8249,7 @@ flags:
   - --param
   value_name: parloops-chunk-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8043,6 +8259,7 @@ flags:
   - --param
   value_name: parloops-min-per-thread=<2,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -8052,6 +8269,7 @@ flags:
   - --param
   value_name: parloops-schedule=[static|dynamic|guided|auto|runtime]
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: static
   provenance:
@@ -8061,6 +8279,7 @@ flags:
   - --param
   value_name: partial-inlining-entry-probability=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '70'
   provenance:
@@ -8070,6 +8289,7 @@ flags:
   - --param
   value_name: predictable-branch-outcome=<0,50>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8079,6 +8299,7 @@ flags:
   - --param
   value_name: prefetch-dynamic-strides=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8088,6 +8309,7 @@ flags:
   - --param
   value_name: prefetch-latency=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -8097,6 +8319,7 @@ flags:
   - --param
   value_name: prefetch-min-insn-to-mem-ratio=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -8106,6 +8329,7 @@ flags:
   - --param
   value_name: prefetch-minimum-stride=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   provenance:
     sources:
@@ -8114,6 +8338,7 @@ flags:
   - --param
   value_name: profile-func-internal-id=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8124,6 +8349,7 @@ flags:
   - --param
   value_name: ranger-debug=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: none
   provenance:
@@ -8133,6 +8359,7 @@ flags:
   - --param
   value_name: ranger-logical-depth=<1,999>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '6'
   provenance:
@@ -8142,6 +8369,7 @@ flags:
   - --param
   value_name: ranger-recompute-depth=<1,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '5'
   provenance:
@@ -8151,6 +8379,7 @@ flags:
   - --param
   value_name: relation-block-limit=<0,9999>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '200'
   provenance:
@@ -8160,6 +8389,7 @@ flags:
   - --param
   value_name: rpo-vn-max-loop-depth=<2,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '7'
   provenance:
@@ -8169,6 +8399,7 @@ flags:
   - --param
   value_name: sccvn-max-alias-queries-per-access=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -8178,6 +8409,7 @@ flags:
   - --param
   value_name: scev-max-expr-complexity=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -8187,6 +8419,7 @@ flags:
   - --param
   value_name: scev-max-expr-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -8196,6 +8429,7 @@ flags:
   - --param
   value_name: sched-autopref-queue-depth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8205,6 +8439,7 @@ flags:
   - --param
   value_name: sched-mem-true-dep-cost=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8214,6 +8449,7 @@ flags:
   - --param
   value_name: sched-pressure-algorithm=<1,2>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8223,6 +8459,7 @@ flags:
   - --param
   value_name: sched-spec-prob-cutoff=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '40'
   provenance:
@@ -8232,6 +8469,7 @@ flags:
   - --param
   value_name: sched-state-edge-prob-cutoff=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -8241,6 +8479,7 @@ flags:
   - --param
   value_name: selsched-insns-to-rename=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8250,6 +8489,7 @@ flags:
   - --param
   value_name: selsched-max-lookahead=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -8259,6 +8499,7 @@ flags:
   - --param
   value_name: selsched-max-sched-times=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8268,6 +8509,7 @@ flags:
   - --param
   value_name: simultaneous-prefetches=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '3'
   provenance:
@@ -8277,6 +8519,7 @@ flags:
   - --param
   value_name: sink-frequency-threshold=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '75'
   provenance:
@@ -8286,6 +8529,7 @@ flags:
   - --param
   value_name: sms-dfa-history=<0,16>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8295,6 +8539,7 @@ flags:
   - --param
   value_name: sms-loop-average-count-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8304,6 +8549,7 @@ flags:
   - --param
   value_name: sms-max-ii-factor=<1,16>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8313,6 +8559,7 @@ flags:
   - --param
   value_name: sms-min-sc=<1,2>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8322,6 +8569,7 @@ flags:
   - --param
   value_name: sra-max-propagations=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -8331,6 +8579,7 @@ flags:
   - --param
   value_name: sra-max-scalarization-size-Osize=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8340,6 +8589,7 @@ flags:
   - --param
   value_name: sra-max-scalarization-size-Ospeed=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8349,6 +8599,7 @@ flags:
   - --param
   value_name: ssa-name-def-chain-limit=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '512'
   provenance:
@@ -8358,6 +8609,7 @@ flags:
   - --param
   value_name: ssp-buffer-size=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -8367,6 +8619,7 @@ flags:
   - --param
   value_name: stack-clash-protection-guard-size=<12,30>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -8376,6 +8629,7 @@ flags:
   - --param
   value_name: stack-clash-protection-probe-interval=<10,16>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '16'
   provenance:
@@ -8385,6 +8639,7 @@ flags:
   - --param
   value_name: store-merging-allow-unaligned=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8394,6 +8649,7 @@ flags:
   - --param
   value_name: store-merging-max-size=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '65536'
   provenance:
@@ -8403,6 +8659,7 @@ flags:
   - --param
   value_name: switch-conversion-max-branch-ratio=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -8413,6 +8670,7 @@ flags:
   - --param
   value_name: threader-debug=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: none
   provenance:
@@ -8422,6 +8680,7 @@ flags:
   - --param
   value_name: tm-max-aggregate-size=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '9'
   provenance:
@@ -8431,6 +8690,7 @@ flags:
   - --param
   value_name: tracer-dynamic-coverage-feedback=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '95'
   provenance:
@@ -8440,6 +8700,7 @@ flags:
   - --param
   value_name: tracer-dynamic-coverage=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '75'
   provenance:
@@ -8449,6 +8710,7 @@ flags:
   - --param
   value_name: tracer-max-code-growth=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '100'
   provenance:
@@ -8458,6 +8720,7 @@ flags:
   - --param
   value_name: tracer-min-branch-probability-feedback=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '80'
   provenance:
@@ -8467,6 +8730,7 @@ flags:
   - --param
   value_name: tracer-min-branch-probability=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -8476,6 +8740,7 @@ flags:
   - --param
   value_name: tracer-min-branch-ratio=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -8485,6 +8750,7 @@ flags:
   - --param
   value_name: tree-reassoc-width=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8494,6 +8760,7 @@ flags:
   - --param
   value_name: tsan-distinguish-volatile=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8503,6 +8770,7 @@ flags:
   - --param
   value_name: tsan-instrument-func-entry-exit=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8512,6 +8780,7 @@ flags:
   - --param
   value_name: uninit-control-dep-attempts=<1,65536>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1000'
   provenance:
@@ -8521,6 +8790,7 @@ flags:
   - --param
   value_name: uninit-max-chain-len=<1,128>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -8530,6 +8800,7 @@ flags:
   - --param
   value_name: uninit-max-num-chains=<1,128>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '8'
   provenance:
@@ -8539,6 +8810,7 @@ flags:
   - --param
   value_name: uninlined-function-insns=<0,1000000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8548,6 +8820,7 @@ flags:
   - --param
   value_name: uninlined-function-time=<0,1000000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '0'
   provenance:
@@ -8557,6 +8830,7 @@ flags:
   - --param
   value_name: uninlined-thunk-insns=<0,1000000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8566,6 +8840,7 @@ flags:
   - --param
   value_name: uninlined-thunk-time=<0,1000000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -8575,6 +8850,7 @@ flags:
   - --param
   value_name: unlikely-bb-count-fraction=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '20'
   provenance:
@@ -8584,6 +8860,7 @@ flags:
   - --param
   value_name: unroll-jam-max-unroll=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '4'
   provenance:
@@ -8593,6 +8870,7 @@ flags:
   - --param
   value_name: unroll-jam-min-percent=<0,100>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8602,6 +8880,7 @@ flags:
   - --param
   value_name: use-after-scope-direct-emission-threshold=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '256'
   provenance:
@@ -8611,6 +8890,7 @@ flags:
   - --param
   value_name: use-canonical-types=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8620,6 +8900,7 @@ flags:
   - --param
   value_name: vect-epilogues-nomask=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8629,6 +8910,7 @@ flags:
   - --param
   value_name: vect-induction-float=<0,1>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '1'
   provenance:
@@ -8638,6 +8920,7 @@ flags:
   - --param
   value_name: vect-inner-loop-cost-factor=<1,10000>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '50'
   provenance:
@@ -8647,6 +8930,7 @@ flags:
   - --param
   value_name: vect-max-layout-candidates=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '32'
   provenance:
@@ -8656,6 +8940,7 @@ flags:
   - --param
   value_name: vect-max-peeling-for-alignment=<0,64>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   provenance:
     sources:
@@ -8664,6 +8949,7 @@ flags:
   - --param
   value_name: vect-max-version-for-alias-checks=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '10'
   provenance:
@@ -8673,6 +8959,7 @@ flags:
   - --param
   value_name: vect-max-version-for-alignment-checks=
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '6'
   provenance:
@@ -8682,6 +8969,7 @@ flags:
   - --param
   value_name: vect-partial-vector-usage=<0,2>
   value_kind: Required
+  optional_join: equals
   group: 'The following options control parameters:'
   description: '2'
   provenance:
@@ -11480,6 +11768,7 @@ flags:
   - --help
   value_name: <class>
   value_kind: Required
+  optional_join: equals
   group: 'The following options are language-independent:'
   provenance:
     sources:

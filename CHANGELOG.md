@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- [S-276] A required value written after `=` is drawn as written: `cp -S, --suffix=SUFFIX`, `od -j, --skip-bytes=BYTES`, `rescan-scsi-bus.sh --hosts=LIST`. A value written after a space is unchanged.
+- [S-273] `less`, `zstdless` and `pager` draw `--tabs=[N[,...]]` and `--quotes=[c[c]]` with the `=` outside the bracket, as the tool writes them.
+- [S-274] `curl --http0.9`, `--http1.0`, `--tlsv1.3` and the other names with a dotted number are whole flag names, not a name plus a value, and so are `node --tls-min-v1.2` and `setarch --uname-2.6`.
+- [S-275] `genl` shows `{ ctrl etc }` as the text of its `OBJECT` operand.
+- [S-272] `ip` lists `-force`, a flag only its second usage form shows.
 - [S-262] A flag row whose description follows its spelling after one space (`lvmdump -h print this message`, `xfs_estimate -v prints more verbose messages`, `rescan-scsi-bus.sh -I SECS issue a ...`) shows the sentence as its description instead of taking its first word as a value; `ffmpeg -h long -- print more options` and `tar --ignore-command-error` keep their text.
 - [S-263] A colon after a row's spelling is no longer read as a value (`ssh-copy-id -n:`, `rescan-scsi-bus.sh --alltargets:`), `--sync/nosync` reads as `--sync, --nosync`, and the description of `rescan-scsi-bus.sh` no longer repeats its flag rows.
 - [S-264] `ucf` and `lcf` show `-d, --debug=[n]`, `-s, --src-dir foo` and `--state-dir bar` with their full descriptions, `ucf -p destination` as a second usage form, and `-p, --purge` as one flag; `less` draws `--pattern=[pattern]` as written.

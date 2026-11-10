@@ -119,6 +119,7 @@ flags:
   - --channels
   value_name: LIST
   value_kind: Required
+  optional_join: equals
   description: Scan only channel(s) in LIST
   provenance:
     sources:
@@ -157,6 +158,7 @@ flags:
   - --hosts
   value_name: LIST
   value_kind: Required
+  optional_join: equals
   description: Scan only host(s) in LIST
   provenance:
     sources:
@@ -165,6 +167,7 @@ flags:
   - --ids
   value_name: LIST
   value_kind: Required
+  optional_join: equals
   description: Scan only target ID(s) in LIST
   provenance:
     sources:
@@ -185,6 +188,7 @@ flags:
   - --issue-lip-wait
   value_name: SECS
   value_kind: Required
+  optional_join: equals
   description: same as -I
   provenance:
     sources:
@@ -199,6 +203,7 @@ flags:
   - --luns
   value_name: LIST
   value_kind: Required
+  optional_join: equals
   description: Scan only lun(s) in LIST
   provenance:
     sources:

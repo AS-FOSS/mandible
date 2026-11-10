@@ -23,19 +23,19 @@ Basic options
     --simulate             simulate walking the calculated dependency graph
     --no-cache             do not cache already seen packages when walking
                            the dependency graph
-    --log-file filename    write an audit log to a specified file
-    --with-path path       adds a directory to the search path
+    --log-file=filename    write an audit log to a specified file
+    --with-path=path       adds a directory to the search path
     --define-prefix        override the prefix variable with one that is
                            guessed based on the location of the .pc file
     --dont-define-prefix   do not override the prefix variable under any
                            circumstances
-    --prefix-variable varname sets the name of the variable that pkgconf
+    --prefix-variable=varname sets the name of the variable that pkgconf
                            considers to be the package prefix
-    --relocate path        relocates a path and exits (mostly for testsuite)
+    --relocate=path        relocates a path and exits (mostly for testsuite)
     --dont-relocate-paths  disables path relocation support
 
 Cross-compilation personality support ──────────────────────────────────────
-    --personality {…}      sets the personality to 'triplet' or a file named
+    --personality={…}      sets the personality to 'triplet' or a file named
                            'filename'
                              values: triplet, filename
     --dump-personality     dumps details concerning selected personality
@@ -63,8 +63,8 @@ Checking specific pkg-config database entries ───────────�
     --validate             validate specific .pc files for correctness
 
 Querying specific pkg-config database fields ───────────────────────────────
-    --define-variable varname=value define variable 'varname' as 'value'
-    --variable varname     print specified variable entry to stdout
+    --define-variable=varname=value define variable 'varname' as 'value'
+    --variable=varname     print specified variable entry to stdout
     --cflags               print required CFLAGS to stdout
     --cflags-only-I        print required include-dir CFLAGS to stdout
     --cflags-only-other    print required non-include-dir CFLAGS to stdout
@@ -91,4 +91,4 @@ Querying specific pkg-config database fields ───────────�
 
 Filtering output ───────────────────────────────────────────────────────────
     --msvc-syntax          print translatable fragments in MSVC syntax
-    --fragment-filter types filter output fragments to the specified types
+    --fragment-filter=types filter output fragments to the specified types

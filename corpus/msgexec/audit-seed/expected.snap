@@ -23,6 +23,7 @@ flags:
   - --input
   value_name: INPUTFILE
   value_kind: Required
+  optional_join: equals
   group: 'Input file location:'
   description: input PO file
   provenance:
@@ -33,6 +34,7 @@ flags:
   - --directory
   value_name: DIRECTORY
   value_kind: Required
+  optional_join: equals
   group: 'Input file location:'
   description: add DIRECTORY to list for input files search
   provenance:

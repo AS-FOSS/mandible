@@ -21,6 +21,7 @@ flags:
   - --address-radix
   value_name: RADIX
   value_kind: Required
+  optional_join: equals
   description: output format for file offsets; RADIX is one of [doxn], for Decimal, Octal, Hex or None
   provenance:
     sources:
@@ -28,6 +29,7 @@ flags:
 - spellings:
   - --endian
   value_kind: Required
+  optional_join: equals
   choices:
   - big
   - little
@@ -40,6 +42,7 @@ flags:
   - --skip-bytes
   value_name: BYTES
   value_kind: Required
+  optional_join: equals
   choices:
   - name: b
     description: '512'
@@ -60,6 +63,7 @@ flags:
   - --read-bytes
   value_name: BYTES
   value_kind: Required
+  optional_join: equals
   choices:
   - name: b
     description: '512'
@@ -100,6 +104,7 @@ flags:
   - --format
   value_name: TYPE
   value_kind: Required
+  optional_join: equals
   choices:
   - name: a
     description: named character, ignoring high-order bit

@@ -23,13 +23,13 @@ FLAGS (16) ───────────────────────
     --example            Give an example of a config file with extra
                          information.
     --help               Print this help and exit.
-    --log ...            Log file. Full path to and the name for the log
+    --log=...            Log file. Full path to and the name for the log
                          file. NOTE: If the file exists, everything will be
                          appended. Using:
-    --mysqladmin ...     mysqladmin binary to be used for a server shutdown.
+    --mysqladmin=...     mysqladmin binary to be used for a server shutdown.
                          Since version 2.10 this can be given within groups
                          [mysqld#] Using:
-    --mysqld ...         mariadbd binary to be used. Note that you can give
+    --mysqld=...         mariadbd binary to be used. Note that you can give
                          mariadbd-safe to this option also. The options are
                          passed to mysqld. Just make sure you have mariadbd
                          in your PATH or fix mariadbd-safe. Using: Please
@@ -42,7 +42,7 @@ FLAGS (16) ───────────────────────
                          mysqld versions with mysqld_multi.
     --no-log             Print to stdout instead of the log file. By default
                          the log file is turned on.
-    --password ...       Password for mysqladmin user.
+    --password=...       Password for mysqladmin user.
     --silent             Disable warnings.
     --tcp-ip             Connect to the MariaDB server(s) via the TCP/IP
                          port instead of the UNIX socket. This affects
@@ -50,16 +50,16 @@ FLAGS (16) ───────────────────────
                          missing, the server may still be running, but can
                          be accessed only via the TCP/IP port. By default
                          connecting is done via the UNIX socket.
-    --user ...           mysqladmin user. Using: root
+    --user=...           mysqladmin user. Using: root
     --verbose            Be more verbose.
     --version            Print the version number and exit.
     --wsrep-new-cluster  Bootstrap a cluster.
 
 These options must be given before any others ──────────────────────────────
     --no-defaults        Do not read any defaults file
-    --defaults-file ...  Read only this configuration file, do not read the
+    --defaults-file=...  Read only this configuration file, do not read the
                          standard system-wide and user-specific files
-    --defaults-extra-file ... Read this configuration file in addition to
+    --defaults-extra-file=... Read this configuration file in addition to
                          the standard system-wide and user-specific files
 
 

@@ -312,6 +312,7 @@ flags:
   - --admindir
   value_name: <directory>
   value_kind: Required
+  optional_join: equals
   description: Use <directory> instead of /var/lib/dpkg.
   provenance:
     sources:
@@ -320,6 +321,7 @@ flags:
   - --root
   value_name: <directory>
   value_kind: Required
+  optional_join: equals
   description: Install on a different root directory.
   provenance:
     sources:
@@ -328,6 +330,7 @@ flags:
   - --instdir
   value_name: <directory>
   value_kind: Required
+  optional_join: equals
   description: Change installation dir without changing admin dir.
   provenance:
     sources:
@@ -336,6 +339,7 @@ flags:
   - --pre-invoke
   value_name: <command>
   value_kind: Required
+  optional_join: equals
   description: Set a pre-invoke hook.
   provenance:
     sources:
@@ -344,6 +348,7 @@ flags:
   - --post-invoke
   value_name: <command>
   value_kind: Required
+  optional_join: equals
   description: Set a post-invoke hook.
   provenance:
     sources:
@@ -352,6 +357,7 @@ flags:
   - --path-exclude
   value_name: <pattern>
   value_kind: Required
+  optional_join: equals
   description: Do not install paths which match a shell pattern.
   provenance:
     sources:
@@ -360,6 +366,7 @@ flags:
   - --path-include
   value_name: <pattern>
   value_kind: Required
+  optional_join: equals
   description: Re-include a pattern after a previous exclusion.
   provenance:
     sources:
@@ -402,6 +409,7 @@ flags:
   - --verify-format
   value_name: <format>
   value_kind: Required
+  optional_join: equals
   description: 'Verify output format (supported: ''rpm'').'
   provenance:
     sources:
@@ -431,6 +439,7 @@ flags:
   - --debug
   value_name: <octal>
   value_kind: Required
+  optional_join: equals
   description: Enable debugging (see -Dhelp or --debug=help).
   provenance:
     sources:
@@ -447,6 +456,7 @@ flags:
   - --status-logger
   value_name: <command>
   value_kind: Required
+  optional_join: equals
   description: Send status change updates to <command>'s stdin.
   provenance:
     sources:
@@ -455,6 +465,7 @@ flags:
   - --log
   value_name: <filename>
   value_kind: Required
+  optional_join: equals
   description: Log status changes and actions to <filename>.
   provenance:
     sources:
@@ -463,6 +474,7 @@ flags:
   - --ignore-depends
   value_name: <package>[,...]
   value_kind: Required
+  optional_join: equals
   description: Ignore dependencies involving <package>.
   provenance:
     sources:

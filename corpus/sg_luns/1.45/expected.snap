@@ -54,6 +54,7 @@ flags:
   - -m
   value_name: LEN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'max response length (allocation length in cdb) (def: 0 -> 8192 bytes)'
   provenance:
@@ -88,6 +89,7 @@ flags:
   - -s
   value_name: SR
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'select report SR (def: 0) 0 -> luns apart from ''well known'' lus 1 -> only ''well known'' logical unit numbers 2 -> all luns 0x10 -> administrative luns 0x11 -> admin luns + non-conglomerate luns 0x12 -> admin lun + its subsidiary luns'
   provenance:
@@ -98,6 +100,7 @@ flags:
   - -t
   value_name: ALUN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: decode ALUN and ignore most other options and DEVICE (apart from '-H')
   provenance:

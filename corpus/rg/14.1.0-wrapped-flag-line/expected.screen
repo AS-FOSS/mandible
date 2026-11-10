@@ -52,7 +52,7 @@ Input options
                           -f/--file or -e/--regexp is used, then ripgrep
                           treats all positional arguments as files or
                           directories to search.
-    --pre COMMAND         For each input PATH, this flag causes ripgrep to
+    --pre=COMMAND         For each input PATH, this flag causes ripgrep to
                           search the standard output of COMMAND PATH instead
                           of the contents of PATH. This option expects the
                           COMMAND program to either be a path or to be
@@ -85,7 +85,7 @@ Input options
                           in the Zstandard format, then pzstd is used to
                           decompress the contents to stdout. This overrides
                           the -z/--search-zip flag.
-    --pre-glob GLOB       This flag works in conjunction with the --pre
+    --pre-glob=GLOB       This flag works in conjunction with the --pre
                           flag. Namely, when one or more --pre-glob flags
                           are given, then only files that match the given
                           set of globs will be handed to the command
@@ -141,7 +141,7 @@ Search options ─────────────────────�
                           or LF, but never between CR and LF. This flag
                           overrides --null-data. This flag can be disabled
                           with --no-crlf.
-    --dfa-size-limit NUM+SUFFIX? The upper size limit of the regex DFA. The
+    --dfa-size-limit=NUM+SUFFIX? The upper size limit of the regex DFA. The
                           default limit is something generous for any single
                           pattern or for many smallish patterns. This should
                           only be changed on very large regex inputs where
@@ -170,7 +170,7 @@ Search options ─────────────────────�
                           with it, see GUIDE.md. The encoding detection that
                           ripgrep uses can be reverted to its automatic mode
                           via the --no-encoding flag.
-    --engine ENGINE       Specify which regular expression engine to use.
+    --engine=ENGINE       Specify which regular expression engine to use.
                           When you choose a regex engine, it applies that
                           choice for every regex provided to ripgrep (e.g.,
                           via multiple -e/--regexp or -f/--file flags).
@@ -361,7 +361,7 @@ Search options ─────────────────────�
                           instead of reporting an error immediately (like it
                           does with the default regex engine). This flag can
                           be disabled with --no-pcre2.
-    --regex-size-limit NUM+SUFFIX? The size limit of the compiled regex,
+    --regex-size-limit=NUM+SUFFIX? The size limit of the compiled regex,
                           where the compiled regex generally corresponds to
                           a single object in memory that can match all of
                           the patterns provided to ripgrep. The default
@@ -537,7 +537,7 @@ Filter options ─────────────────────�
                           like Windows, files with this attribute are also
                           considered hidden. This flag can be disabled with
                           --no-hidden.
-    --iglob GLOB          Include or exclude files and directories for
+    --iglob=GLOB          Include or exclude files and directories for
                           searching that match the given glob. This always
                           overrides any other ignore logic. Multiple glob
                           flags may be used. Globbing rules match .gitignore
@@ -546,7 +546,7 @@ Filter options ─────────────────────�
                           given later in the command line takes precedence.
                           Globs used via this flag are matched case
                           insensitively.
-    --ignore-file PATH    Specifies a path to one or more gitignore
+    --ignore-file=PATH    Specifies a path to one or more gitignore
                           formatted rules files. These patterns are applied
                           after the patterns found in .gitignore, .rgignore
                           and .ignore are applied and are matched relative
@@ -571,7 +571,7 @@ Filter options ─────────────────────�
                           rg --max-depth 1 dir/ will search only the direct
                           children of dir. An alternative spelling for this
                           flag is --maxdepth.
-    --max-filesize NUM+SUFFIX? Ignore files larger than NUM in size. This
+    --max-filesize=NUM+SUFFIX? Ignore files larger than NUM in size. This
                           does not apply to directories. The input format
                           accepts suffixes of K, M or G which correspond to
                           kilobytes, megabytes and gigabytes, respectively.
@@ -676,7 +676,7 @@ Filter options ─────────────────────�
                           that are unrecognized by its type definitions. To
                           see the list of available file types, use the
                           --type-list flag.
-    --type-add TYPESPEC   This flag adds a new glob for a particular file
+    --type-add=TYPESPEC   This flag adds a new glob for a particular file
                           type. Only one glob can be added at a time.
                           Multiple --type-add flags can be provided. Unless
                           --type-clear is used, globs are added to any
@@ -699,7 +699,7 @@ Filter options ─────────────────────�
                           --type-add 'src:*.foo' Note that type names must
                           consist only of Unicode letters or numbers.
                           Punctuation characters are not allowed.
-    --type-clear TYPE     Clear the file type globs previously defined for
+    --type-clear=TYPE     Clear the file type globs previously defined for
                           TYPE. This clears any previously defined globs for
                           the TYPE, but globs can be added after this flag.
                           Note that this must be passed to every invocation
@@ -750,7 +750,7 @@ Output options ─────────────────────�
                           transformations on the data, such as decompression
                           or a --pre filter. This flag can be disabled with
                           --no-byte-offset.
-    --color WHEN          This flag controls when to use colors. The default
+    --color=WHEN          This flag controls when to use colors. The default
                           setting is auto, which means ripgrep will try to
                           guess when to use colors. For example, if ripgrep
                           is printing to a tty, then it will use colors, but
@@ -777,7 +777,7 @@ Output options ─────────────────────�
                           to none: --colors 'path:none' \ --colors
                           'line:none' \ --colors 'column:none' \ --colors
                           'match:none'
-    --colors COLOR_SPEC   This flag specifies color settings for use in the
+    --colors=COLOR_SPEC   This flag specifies color settings for use in the
                           output. This flag may be provided multiple times.
                           Settings are applied iteratively. Pre-existing
                           color labels are limited to one of eight choices:
@@ -823,7 +823,7 @@ Output options ─────────────────────�
                           -B/--before-context flags both partially override
                           this flag, regardless of the order. For example,
                           -A2 -C1 is equivalent to -A2 -B1.
-    --context-separator SEPARATOR The string used to separate non-contiguous
+    --context-separator=SEPARATOR The string used to separate non-contiguous
                           context lines in the output. This is only used
                           when one of the context flags is used (that is,
                           -A/--after-context, -B/--before-context or
@@ -833,7 +833,7 @@ Output options ─────────────────────�
                           a line break is still inserted. To completely
                           disable context separators, use the
                           --no-context-separator flag.
-    --field-context-separator SEPARATOR Set the field context separator.
+    --field-context-separator=SEPARATOR Set the field context separator.
                           This separator is only used when printing
                           contextual lines. It is used to delimit file
                           paths, line numbers, columns and the contextual
@@ -841,7 +841,7 @@ Output options ─────────────────────�
                           bytes, including zero. Escape sequences like \x7F
                           or \t may be used. The - character is the default
                           value.
-    --field-match-separator SEPARATOR Set the field match separator. This
+    --field-match-separator=SEPARATOR Set the field match separator. This
                           separator is only used when printing matching
                           lines. It is used to delimit file paths, line
                           numbers, columns and the matching line itself. The
@@ -865,7 +865,7 @@ Output options ─────────────────────�
                           output. The verbose help output has complete
                           documentation, where as the condensed help output
                           will show only a single line for every flag.
-    --hostname-bin COMMAND This flag controls how ripgrep determines this
+    --hostname-bin=COMMAND This flag controls how ripgrep determines this
                           system's hostname. The flag's value should
                           correspond to an executable (either a path or
                           something that can be found via your system's PATH
@@ -880,7 +880,7 @@ Output options ─────────────────────�
                           calling GetComputerNameExW to fetch the system's
                           "physical DNS hostname." ripgrep uses your
                           system's hostname for producing hyperlinks.
-    --hyperlink-format FORMAT Set the format of hyperlinks to use when
+    --hyperlink-format=FORMAT Set the format of hyperlinks to use when
                           printing results. Hyperlinks make certain elements
                           of ripgrep's output, such as file paths,
                           clickable. This generally only works in terminal
@@ -1010,7 +1010,7 @@ Output options ─────────────────────�
 -o, --only-matching       Print only the matched (non-empty) parts of a
                           matching line, with each such part on a separate
                           output line.
-    --path-separator SEPARATOR Set the path separator to use when printing
+    --path-separator=SEPARATOR Set the path separator to use when printing
                           file paths. This defaults to your platform's path
                           separator, which is / on Unix and \ on Windows.
                           This flag is intended for overriding the default
@@ -1073,7 +1073,7 @@ Output options ─────────────────────�
                           not the entire line. To replace the entire line,
                           you should match the entire line. This flag can be
                           used with the -o/--only-matching flag.
-    --sort SORTBY         This flag enables sorting of results in ascending
+    --sort=SORTBY         This flag enables sorting of results in ascending
                           order. The possible values for this flag are:
                           none: (Default) Do not sort results. Fastest. Can
                           be multi-threaded. path: Sort by file path. Always
@@ -1096,7 +1096,7 @@ Output options ─────────────────────�
                           flag overrides --sortr. Note that sorting results
                           currently always forces ripgrep to abandon
                           parallelism and run in a single thread.
-    --sortr SORTBY        This flag enables sorting of results in descending
+    --sortr=SORTBY        This flag enables sorting of results in descending
                           order. The possible values for this flag are:
                           none: (Default) Do not sort results. Fastest. Can
                           be multi-threaded. path: Sort by file path. Always
@@ -1288,7 +1288,7 @@ Other behaviors ─────────────────────�
                           actually performing the search. This is useful to
                           determine whether a particular file is being
                           searched or not. This overrides --type-list.
-    --generate KIND       This flag instructs ripgrep to generate some
+    --generate=KIND       This flag instructs ripgrep to generate some
                           special kind of output identified by KIND and then
                           quit without searching. KIND can be one of the
                           following values: man: Generates a manual page for

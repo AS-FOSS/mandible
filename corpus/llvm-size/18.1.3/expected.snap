@@ -37,6 +37,7 @@ flags:
   - --format
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   description: Specify output format
   provenance:
     sources:
@@ -69,6 +70,7 @@ flags:
   - --radix
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   description: Print size in radix
   provenance:
     sources:
@@ -101,6 +103,7 @@ flags:
   - --arch
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   group: 'OPTIONS (Mach-O specific):'
   description: architecture(s) from a Mach-O file to dump
   provenance:

@@ -6,7 +6,7 @@ USAGE ────────────────────────�
 FLAGS (8) ──────────────────────────────────────────────────────────────────
     --optimize -o      Find the smallest deflate window size for the
                        compressed data.
-    --strip {…}        none (default): Retain all chunks. crc: Remove chunks
+    --strip={…}        none (default): Retain all chunks. crc: Remove chunks
                        with a bad CRC. unsafe: Remove chunks that may be
                        unsafe to retain if the image data is modified. This
                        is set automatically if --max is given but may be
@@ -43,12 +43,12 @@ FLAGS (8) ───────────────────────�
     --errors -e        Output errors from libpng and the program (except
                        too-far-back).
     --warnings -w      Output warnings from libpng.
-    --out <file>       Write the optimized/corrected version of the next PNG
+    --out=<file>       Write the optimized/corrected version of the next PNG
                        to <file>. This overrides the following two options
-    --suffix <suffix>  Set --out=<name><suffix> for all following files
+    --suffix=<suffix>  Set --out=<name><suffix> for all following files
                        unless overridden on a per-file basis by explicit
                        --out.
-    --prefix <prefix>  Set --out=<prefix><name> for all the following files
+    --prefix=<prefix>  Set --out=<prefix><name> for all the following files
                        unless overridden on a per-file basis by explicit
                        --out. These two options can be used together to
                        produce a suffix and prefix.

@@ -31,11 +31,11 @@ The options are ─────────────────────�
     --no-recurse-limit  Disable a demangling recursion limit.
 -D, --dynamic           Display dynamic symbols instead of normal symbols
 -e                      (ignored)
--f, --format FORMAT     Use the output format FORMAT. FORMAT can be `bsd',
+-f, --format=FORMAT     Use the output format FORMAT. FORMAT can be `bsd',
                         `sysv', `posix' or 'just-symbols'. The default is
                         `bsd'
 -g, --extern-only       Display only external symbols
-    --ifunc-chars CHARS Characters to use when displaying ifunc symbols
+    --ifunc-chars=CHARS Characters to use when displaying ifunc symbols
 -j, --just-symbols      Same as --format=just-symbols
 -l, --line-numbers      Use debugging information to find a filename and
                         line number for each symbol
@@ -51,11 +51,11 @@ The options are ─────────────────────�
     --size-sort         Sort symbols by size
     --special-syms      Include special symbols in the output
     --synthetic         Display synthetic symbols as well
--t, --radix RADIX       Use RADIX for printing symbol values
-    --target BFDNAME    Specify the target object format as BFDNAME
+-t, --radix=RADIX       Use RADIX for printing symbol values
+    --target=BFDNAME    Specify the target object format as BFDNAME
 -u, --undefined-only    Display only undefined symbols
 -U, --defined-only      Display only defined symbols
-    --unicode {…}       Specify how to treat UTF-8 encoded unicode
+    --unicode={…}       Specify how to treat UTF-8 encoded unicode
                         characters
                           values: default, show, invalid, hex, escape,
                           highlight

@@ -7,6 +7,7 @@ flags:
   - --listen-address
   value_name: <ipaddr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify local address(es) to listen on.
   provenance:
@@ -17,6 +18,7 @@ flags:
   - --address
   value_name: /<domain>/<ipaddr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Return ipaddr for all hosts in specified domains.
   provenance:
@@ -35,6 +37,7 @@ flags:
   - --bogus-nxdomain
   value_name: <ipaddr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Treat ipaddr as NXDOMAIN (defeats Verisign wildcard).
   provenance:
@@ -45,6 +48,7 @@ flags:
   - --cache-size
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify the size of the cache in entries (defaults to 150).
   provenance:
@@ -55,6 +59,7 @@ flags:
   - --conf-file
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify configuration file (defaults to /etc/dnsmasq.conf).
   provenance:
@@ -118,6 +123,7 @@ flags:
   - --filter-rr
   value_name: <RR-type>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Don't include resource records of the given type in DNS answers.
   provenance:
@@ -128,6 +134,7 @@ flags:
   - --dhcp-range
   value_name: <ipaddr>,...
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Enable DHCP in the range given with lease duration.
   provenance:
@@ -138,6 +145,7 @@ flags:
   - --group
   value_name: <groupname>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Change to this group after startup (defaults to dip).
   provenance:
@@ -148,6 +156,7 @@ flags:
   - --dhcp-host
   value_name: <hostspec>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set address or hostname for a specified machine.
   provenance:
@@ -157,6 +166,7 @@ flags:
   - --dhcp-hostsfile
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Read DHCP host specs from file.
   provenance:
@@ -166,6 +176,7 @@ flags:
   - --dhcp-optsfile
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Read DHCP option specs from file.
   provenance:
@@ -175,6 +186,7 @@ flags:
   - --dhcp-hostsdir
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Read DHCP host specs from a directory.
   provenance:
@@ -184,6 +196,7 @@ flags:
   - --dhcp-optsdir
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Read DHCP options from a directory.
   provenance:
@@ -193,6 +206,7 @@ flags:
   - --tag-if
   value_name: tag-expression
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Evaluate conditional tag expression.
   provenance:
@@ -211,6 +225,7 @@ flags:
   - --addn-hosts
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify a hosts file to be read in addition to /etc/hosts.
   provenance:
@@ -220,6 +235,7 @@ flags:
   - --hostsdir
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Read hosts files from a directory.
   provenance:
@@ -230,6 +246,7 @@ flags:
   - --interface
   value_name: <interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify interface(s) to listen on.
   provenance:
@@ -240,6 +257,7 @@ flags:
   - --except-interface
   value_name: <interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify interface(s) NOT to listen on.
   provenance:
@@ -250,6 +268,7 @@ flags:
   - --dhcp-userclass
   value_name: set:<tag>,<class>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Map DHCP user class to tag.
   provenance:
@@ -259,6 +278,7 @@ flags:
   - --dhcp-circuitid
   value_name: set:<tag>,<circuit>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Map RFC3046 circuit-id to tag.
   provenance:
@@ -268,6 +288,7 @@ flags:
   - --dhcp-remoteid
   value_name: set:<tag>,<remote>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Map RFC3046 remote-id to tag.
   provenance:
@@ -277,6 +298,7 @@ flags:
   - --dhcp-subscrid
   value_name: set:<tag>,<remote>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Map RFC3993 subscriber-id to tag.
   provenance:
@@ -286,6 +308,7 @@ flags:
   - --dhcp-pxe-vendor
   value_name: <vendor>[,...]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify vendor class to match for PXE requests.
   provenance:
@@ -296,6 +319,7 @@ flags:
   - --dhcp-ignore
   value_name: tag:<tag>...
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Don't do DHCP for hosts with tag set.
   provenance:
@@ -332,6 +356,7 @@ flags:
   - --dhcp-leasefile
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify where to store DHCP leases (defaults to /var/lib/misc/dnsmasq.leases).
   provenance:
@@ -350,6 +375,7 @@ flags:
   - --mx-host
   value_name: <host_name>,<target>,<pref>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify an MX record.
   provenance:
@@ -360,6 +386,7 @@ flags:
   - --dhcp-boot
   value_name: <bootp opts>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify BOOTP options to DHCP server.
   provenance:
@@ -404,6 +431,7 @@ flags:
   - --dhcp-option
   value_name: <optspec>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify options to be sent to DHCP clients.
   provenance:
@@ -413,6 +441,7 @@ flags:
   - --dhcp-option-force
   value_name: <optspec>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: DHCP option sent even if the client does not request it.
   provenance:
@@ -422,6 +451,7 @@ flags:
   - --dhcp-option-pxe
   value_name: <optspec>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: DHCP option sent only to PXE clients.
   provenance:
@@ -432,6 +462,7 @@ flags:
   - --port
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify port to listen for DNS requests on (defaults to 53).
   provenance:
@@ -442,6 +473,7 @@ flags:
   - --edns-packet-max
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Maximum supported UDP packet size for EDNS.0 (defaults to 1232).
   provenance:
@@ -460,6 +492,7 @@ flags:
   - --query-port
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Force the originating port for upstream DNS queries.
   provenance:
@@ -469,6 +502,7 @@ flags:
   - --port-limit
   value_name: '#ports'
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set maximum number of random originating ports for a query.
   provenance:
@@ -487,6 +521,7 @@ flags:
   - --resolv-file
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify path to resolv.conf (defaults to /etc/resolv.conf).
   provenance:
@@ -496,6 +531,7 @@ flags:
   - --servers-file
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify path to file with server= options
   provenance:
@@ -506,6 +542,7 @@ flags:
   - --server
   value_name: /<domain>/<ipaddr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify address(es) of upstream servers with optional domains.
   provenance:
@@ -515,6 +552,7 @@ flags:
   - --rev-server
   value_name: <addr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify address of upstream servers for reverse address queries
   provenance:
@@ -524,6 +562,7 @@ flags:
   - --local
   value_name: /<domain>/
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Never forward queries to specified domains.
   provenance:
@@ -534,6 +573,7 @@ flags:
   - --domain
   value_name: <domain>[,<range>]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify the domain to be assigned in DHCP leases.
   provenance:
@@ -544,6 +584,7 @@ flags:
   - --mx-target
   value_name: <host_name>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify default target in an MX record.
   provenance:
@@ -554,6 +595,7 @@ flags:
   - --local-ttl
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify time-to-live in seconds for replies from /etc/hosts.
   provenance:
@@ -563,6 +605,7 @@ flags:
   - --neg-ttl
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify time-to-live in seconds for negative caching.
   provenance:
@@ -572,6 +615,7 @@ flags:
   - --max-ttl
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify time-to-live in seconds for maximum TTL to send to clients.
   provenance:
@@ -581,6 +625,7 @@ flags:
   - --max-cache-ttl
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify time-to-live ceiling for cache.
   provenance:
@@ -590,6 +635,7 @@ flags:
   - --min-cache-ttl
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify time-to-live floor for cache.
   provenance:
@@ -599,6 +645,7 @@ flags:
   - --fast-dns-retry
   value_name: <milliseconds>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Retry DNS queries after this many milliseconds.
   provenance:
@@ -609,6 +656,7 @@ flags:
   - --user
   value_name: <username>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Change to this user after startup. (defaults to nobody).
   provenance:
@@ -619,6 +667,7 @@ flags:
   - --dhcp-vendorclass
   value_name: set:<tag>,<class>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Map DHCP vendor class to tag.
   provenance:
@@ -637,6 +686,7 @@ flags:
   - --alias
   value_name: <ipaddr>,<ipaddr>,<netmask>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Translate IPv4 addresses from upstream servers.
   provenance:
@@ -647,6 +697,7 @@ flags:
   - --srv-host
   value_name: <name>,<target>,...
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify a SRV record.
   provenance:
@@ -665,6 +716,7 @@ flags:
   - --pid-file
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify path of PID file (defaults to /var/run/dnsmasq.pid).
   provenance:
@@ -675,6 +727,7 @@ flags:
   - --dhcp-lease-max
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify maximum number of DHCP leases (defaults to 1000).
   provenance:
@@ -693,6 +746,7 @@ flags:
   - --txt-record
   value_name: <name>,<txt>[,<txt]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify TXT DNS record.
   provenance:
@@ -702,6 +756,7 @@ flags:
   - --ptr-record
   value_name: <name>,<target>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify PTR DNS record.
   provenance:
@@ -711,6 +766,7 @@ flags:
   - --interface-name
   value_name: <name>,<interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Give DNS name to IPv4 address of interface.
   provenance:
@@ -758,6 +814,7 @@ flags:
   - --no-dhcp-interface
   value_name: <interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Do not provide DHCP on this interface, only provide DNS.
   provenance:
@@ -767,6 +824,7 @@ flags:
   - --no-dhcpv6-interface
   value_name: <interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Do not provide DHCPv6 on this interface.
   provenance:
@@ -776,6 +834,7 @@ flags:
   - --no-dhcpv4-interface
   value_name: <interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Do not provide DHCPv4 on this interface.
   provenance:
@@ -797,6 +856,7 @@ flags:
   - --dhcp-mac
   value_name: set:<tag>,<mac address>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Map MAC address (with wildcards) to option set.
   provenance:
@@ -806,6 +866,7 @@ flags:
   - --bridge-interface
   value_name: <iface>,<alias>..
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Treat DHCP requests on aliases as arriving from interface.
   provenance:
@@ -815,6 +876,7 @@ flags:
   - --shared-network
   value_name: <iface>|<addr>,<addr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify extra networks sharing a broadcast domain for DHCP
   provenance:
@@ -833,6 +895,7 @@ flags:
   - --dhcp-script
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Shell script to run on DHCP lease creation and destruction.
   provenance:
@@ -842,6 +905,7 @@ flags:
   - --dhcp-luascript
   value_name: path
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Lua script to run on DHCP lease creation and destruction.
   provenance:
@@ -851,6 +915,7 @@ flags:
   - --dhcp-scriptuser
   value_name: <username>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Run lease-change scripts as this user.
   provenance:
@@ -868,6 +933,7 @@ flags:
   - --conf-dir
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Read configuration from all the files in this directory.
   provenance:
@@ -877,6 +943,7 @@ flags:
   - --conf-script
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Execute file and read configuration from stdin.
   provenance:
@@ -887,6 +954,7 @@ flags:
   - --log-facility
   value_name: <facility>|<file>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Log to this syslog facility or file. (defaults to DAEMON)
   provenance:
@@ -905,6 +973,7 @@ flags:
   - --dns-forward-max
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Maximum number of concurrent DNS queries. (defaults to 150)
   provenance:
@@ -948,6 +1017,7 @@ flags:
   - --tftp-root
   value_name: <dir>[,<iface>]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Export files by TFTP only from the specified subtree.
   provenance:
@@ -983,6 +1053,7 @@ flags:
   - --tftp-max
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Maximum number of concurrent TFTP transfers (defaults to 50).
   provenance:
@@ -992,6 +1063,7 @@ flags:
   - --tftp-mtu
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Maximum MTU to use for TFTP transfers.
   provenance:
@@ -1015,6 +1087,7 @@ flags:
   - --tftp-port-range
   value_name: <start>,<end>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Ephemeral port range for use by TFTP transfers.
   provenance:
@@ -1062,6 +1135,7 @@ flags:
   - --rebind-domain-ok
   value_name: /<domain>/
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Inhibit DNS-rebind protection on this domain.
   provenance:
@@ -1078,6 +1152,7 @@ flags:
   - --dhcp-match
   value_name: set:<tag>,<optspec>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set tag if client includes matching option in request.
   provenance:
@@ -1087,6 +1162,7 @@ flags:
   - --dhcp-name-match
   value_name: set:<tag>,<string>[*]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set tag if client provides given name.
   provenance:
@@ -1106,6 +1182,7 @@ flags:
   - --naptr-record
   value_name: <name>,<naptr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify NAPTR DNS record.
   provenance:
@@ -1115,6 +1192,7 @@ flags:
   - --min-port
   value_name: <port>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify lowest port available for DNS query transmission.
   provenance:
@@ -1124,6 +1202,7 @@ flags:
   - --max-port
   value_name: <port>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify highest port available for DNS query transmission.
   provenance:
@@ -1160,6 +1239,7 @@ flags:
   - --dhcp-relay
   value_name: <local-addr>,<server>[,<iface>]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Relay DHCP requests to a remote server
   provenance:
@@ -1169,6 +1249,7 @@ flags:
   - --cname
   value_name: <alias>,<target>[,<ttl>]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify alias name for LOCAL DNS name.
   provenance:
@@ -1178,6 +1259,7 @@ flags:
   - --pxe-prompt
   value_name: <prompt>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Prompt to send to PXE clients.
   provenance:
@@ -1187,6 +1269,7 @@ flags:
   - --pxe-service
   value_name: <service>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Boot service for PXE menu.
   provenance:
@@ -1222,6 +1305,7 @@ flags:
   - --add-subnet
   value_name: <v4 pref>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Add specified IP subnet to forwarded DNS queries.
   provenance:
@@ -1238,6 +1322,7 @@ flags:
   - --add-cpe-id
   value_name: <text>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Add client identification to forwarded DNS queries.
   provenance:
@@ -1289,6 +1374,7 @@ flags:
   - --dhcp-duid
   value_name: <enterprise>,<duid>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify DUID_EN-type DHCPv6 server DUID
   provenance:
@@ -1298,6 +1384,7 @@ flags:
   - --host-record
   value_name: <name>,<address>[,<ttl>]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify host (A/AAAA and PTR) records
   provenance:
@@ -1307,6 +1394,7 @@ flags:
   - --dynamic-host
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   provenance:
     sources:
@@ -1315,6 +1403,7 @@ flags:
   - --caa-record
   value_name: <name>,<flags>,<tag>,<value>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify certification authority authorization record
   provenance:
@@ -1324,6 +1413,7 @@ flags:
   - --dns-rr
   value_name: <name>,<RR-number>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify arbitrary DNS resource record
   provenance:
@@ -1340,6 +1430,7 @@ flags:
   - --auth-server
   value_name: <NS>,<interface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Export local names to global DNS
   provenance:
@@ -1349,6 +1440,7 @@ flags:
   - --auth-zone
   value_name: <domain>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Domain to export to global DNS
   provenance:
@@ -1358,6 +1450,7 @@ flags:
   - --auth-ttl
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set TTL for authoritative replies
   provenance:
@@ -1367,6 +1460,7 @@ flags:
   - --auth-soa
   value_name: <serial>[,...]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set authoritative zone information
   provenance:
@@ -1376,6 +1470,7 @@ flags:
   - --auth-sec-servers
   value_name: <NS>[,<NS>...]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Secondary authoritative nameservers for forward domains
   provenance:
@@ -1385,6 +1480,7 @@ flags:
   - --auth-peer
   value_name: <ipaddr>[,<ipaddr>...]
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Peers which are allowed to do zone transfer
   provenance:
@@ -1394,6 +1490,7 @@ flags:
   - --ipset
   value_name: /<domain>[/<domain>...]/<ipset>...
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify ipsets to which matching domains should be added
   provenance:
@@ -1403,6 +1500,7 @@ flags:
   - --nftset
   value_name: /<domain>[/<domain>...]/<nftset>...
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify nftables sets to which matching domains should be added
   provenance:
@@ -1422,6 +1520,7 @@ flags:
   - --connmark-allowlist
   value_name: <connmark>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   provenance:
     sources:
@@ -1430,6 +1529,7 @@ flags:
   - --synth-domain
   value_name: <domain>,<range>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify a domain and address range for synthesised names
   provenance:
@@ -1446,6 +1546,7 @@ flags:
   - --trust-anchor
   value_name: <domain>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Specify trust anchor key digest.
   provenance:
@@ -1476,6 +1577,7 @@ flags:
   - --dnssec-timestamp
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Timestamp file to verify system clock for DNSSEC
   provenance:
@@ -1485,6 +1587,7 @@ flags:
   - --dnssec-limits
   value_name: <limit>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set resource limits for DNSSEC validation
   provenance:
@@ -1494,6 +1597,7 @@ flags:
   - --ra-param
   value_name: <iface>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   provenance:
     sources:
@@ -1544,6 +1648,7 @@ flags:
   - --ignore-address
   value_name: <ipaddr>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Ignore DNS responses containing ipaddr.
   provenance:
@@ -1553,6 +1658,7 @@ flags:
   - --dhcp-ttl
   value_name: <ttl>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Set TTL in DNS responses with DHCP-derived addresses.
   provenance:
@@ -1562,6 +1668,7 @@ flags:
   - --dhcp-reply-delay
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Delay DHCP replies for at least number of seconds.
   provenance:
@@ -1578,6 +1685,7 @@ flags:
   - --dumpfile
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Path to debug packet dump file.
   provenance:
@@ -1587,6 +1695,7 @@ flags:
   - --dumpmask
   value_name: <hex>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Mask which packets to dump.
   provenance:
@@ -1648,6 +1757,7 @@ flags:
   - --cache-rr
   value_name: <RR-type>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Cache this DNS resource record type.
   provenance:
@@ -1657,6 +1767,7 @@ flags:
   - --max-tcp-connections
   value_name: <integer>
   value_kind: Required
+  optional_join: equals
   group: 'Valid options are:'
   description: Maximum number of concurrent tcp connections.
   provenance:

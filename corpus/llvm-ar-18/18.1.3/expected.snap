@@ -42,6 +42,7 @@ flags:
   - --plugin
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   description: ignored for compatibility
   provenance:
     sources:

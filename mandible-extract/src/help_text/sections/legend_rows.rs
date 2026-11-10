@@ -116,6 +116,23 @@ pub(crate) fn apply(raw: &str, usage: &[String], positionals: &mut Vec<Entity>) 
     positionals.extend(described);
 }
 
+/// On a root page, a braced legend that is not a `|` list of words
+/// (`OBJECT := { ctrl etc }`) is the text of the operand it names, as
+/// written. The operand must already exist; nothing is added. S-275.
+pub(crate) fn describe_braced(raw: &str, positionals: &mut [Entity]) {
+    for legend in legends(raw) {
+        if !legend.body.starts_with('{') || values(&legend.body).is_some() {
+            continue;
+        }
+        let described = positionals
+            .iter_mut()
+            .find(|p| p.primary_name() == legend.name && p.description.is_none());
+        if let Some(positional) = described {
+            positional.description = non_empty_text(&legend.body);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -159,5 +176,25 @@ mod tests {
         assert_eq!(mode.choices.len(), 2);
         assert!(mode.description.is_none());
         assert!(legends("OPTIONS := { -V | -s }").is_empty());
+    }
+
+    #[test]
+    fn a_braced_list_without_bars_is_the_text_of_an_existing_operand() {
+        let page = "where  OBJECT := { ctrl etc }\n       MODE := { none | default }\n";
+        let mut found: Vec<Entity> = ["OBJECT", "MODE"]
+            .iter()
+            .map(|n| Entity::positional(*n, Provenance::single(Source::HelpText)))
+            .collect();
+        describe_braced(page, &mut found);
+        let text = |n: usize| {
+            found[n]
+                .description
+                .as_ref()
+                .map(|t| t.as_str().to_string())
+        };
+        assert_eq!(text(0).as_deref(), Some("{ ctrl etc }"));
+        assert_eq!(text(1), None);
+        describe_braced("OTHER := { a b }\n", &mut found);
+        assert_eq!(found.len(), 2);
     }
 }

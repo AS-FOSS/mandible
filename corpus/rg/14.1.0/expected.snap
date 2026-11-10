@@ -47,6 +47,7 @@ flags:
   - --pre
   value_name: COMMAND
   value_kind: Required
+  optional_join: equals
   group: 'INPUT OPTIONS:'
   description: 'For each input PATH, this flag causes ripgrep to search the standard output of COMMAND PATH instead of the contents of PATH. This option expects the COMMAND program to either be a path or to be available in your PATH. Either an empty string COMMAND or the --no-pre flag will disable this behavior. WARNING: When this flag is set, ripgrep will unconditionally spawn a process for every file that is searched. Therefore, this can incur an unnecessarily large performance penalty if you don''t otherwise need the flexibility offered by this flag. One possible mitigation to this is to use the --pre-glob flag to limit which files a preprocessor is run with. A preprocessor is not run when ripgrep is searching stdin. When searching over sets of files that may require one of several preprocessors, COMMAND should be a wrapper program which first classifies PATH based on magic numbers/content or based on the PATH name and then dispatches to an appropriate preprocessor. Each COMMAND also has its standard input connected to PATH for convenience. For example, a shell script for COMMAND might look like: case "$1" in *.pdf) exec pdftotext "$1" - ;; *) case $(file "$1") in *Zstandard*) exec pzstd -cdq ;; *) exec cat ;; esac ;; esac The above script uses pdftotext to convert a PDF file to plain text. For all other files, the script uses the file utility to sniff the type of the file based on its contents. If it is a compressed file in the Zstandard format, then pzstd is used to decompress the contents to stdout. This overrides the -z/--search-zip flag.'
   provenance:
@@ -56,6 +57,7 @@ flags:
   - --pre-glob
   value_name: GLOB
   value_kind: Required
+  optional_join: equals
   group: 'INPUT OPTIONS:'
   description: 'This flag works in conjunction with the --pre flag. Namely, when one or more --pre-glob flags are given, then only files that match the given set of globs will be handed to the command specified by the --pre flag. Any non-matching files will be searched without using the preprocessor command. This flag is useful when searching many files with the --pre flag. Namely, it provides the ability to avoid process overhead for files that don''t need preprocessing. For example, given the following shell script, pre-pdftotext: #!/bin/sh pdftotext "$1" - then it is possible to use --pre pre-pdftotext --pre-glob ''*.pdf'' to make it so ripgrep only executes the pre-pdftotext command on files with a .pdf extension. Multiple --pre-glob flags may be used. Globbing rules match gitignore globs. Precede a glob with a ! to exclude it. This flag has no effect if the --pre flag is not used.'
   provenance:
@@ -88,6 +90,7 @@ flags:
   - --dfa-size-limit
   value_name: NUM+SUFFIX?
   value_kind: Required
+  optional_join: equals
   group: 'SEARCH OPTIONS:'
   description: The upper size limit of the regex DFA. The default limit is something generous for any single pattern or for many smallish patterns. This should only be changed on very large regex inputs where the (slower) fallback regex engine may otherwise be used if the limit is reached. The input format accepts suffixes of K, M or G which correspond to kilobytes, megabytes and gigabytes, respectively. If no suffix is provided the input is treated as bytes.
   provenance:
@@ -107,6 +110,7 @@ flags:
   - --engine
   value_name: ENGINE
   value_kind: Required
+  optional_join: equals
   group: 'SEARCH OPTIONS:'
   description: Specify which regular expression engine to use. When you choose a regex engine, it applies that choice for every regex provided to ripgrep (e.g., via multiple -e/--regexp or -f/--file flags). Accepted values are default, pcre2, or auto. The default value is default, which is usually the fastest and should be good for most use cases. The pcre2 engine is generally useful when you want to use features such as look-around or backreferences. auto will dynamically choose between supported regex engines depending on the features used in a pattern on a best effort basis. Note that the pcre2 engine is an optional ripgrep feature. If PCRE2 wasn't included in your build of ripgrep, then using this flag will result in ripgrep printing an error message and exiting. This overrides previous uses of the -P/--pcre2 and --auto-hybrid-regex flags.
   provenance:
@@ -202,6 +206,7 @@ flags:
   - --regex-size-limit
   value_name: NUM+SUFFIX?
   value_kind: Required
+  optional_join: equals
   group: 'SEARCH OPTIONS:'
   description: The size limit of the compiled regex, where the compiled regex generally corresponds to a single object in memory that can match all of the patterns provided to ripgrep. The default limit is generous enough that most reasonable patterns (or even a small number of them) should fit. This useful to change when you explicitly want to let ripgrep spend potentially much more time and/or memory building a regex matcher. The input format accepts suffixes of K, M or G which correspond to kilobytes, megabytes and gigabytes, respectively. If no suffix is provided the input is treated as bytes.
   provenance:
@@ -306,6 +311,7 @@ flags:
   - --iglob
   value_name: GLOB
   value_kind: Required
+  optional_join: equals
   group: 'FILTER OPTIONS:'
   description: Include or exclude files and directories for searching that match the given glob. This always overrides any other ignore logic. Multiple glob flags may be used. Globbing rules match .gitignore globs. Precede a glob with a ! to exclude it. If multiple globs match a file or directory, the glob given later in the command line takes precedence. Globs used via this flag are matched case insensitively.
   provenance:
@@ -315,6 +321,7 @@ flags:
   - --ignore-file
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   group: 'FILTER OPTIONS:'
   description: Specifies a path to one or more gitignore formatted rules files. These patterns are applied after the patterns found in .gitignore, .rgignore and .ignore are applied and are matched relative to the current working directory. Multiple additional ignore files can be specified by using this flag repeatedly. When specifying multiple ignore files, earlier files have lower precedence than later files. If you are looking for a way to include or exclude files and directories directly on the command line, then use -g/--glob instead.
   provenance:
@@ -341,6 +348,7 @@ flags:
   - --max-filesize
   value_name: NUM+SUFFIX?
   value_kind: Required
+  optional_join: equals
   group: 'FILTER OPTIONS:'
   description: 'Ignore files larger than NUM in size. This does not apply to directories. The input format accepts suffixes of K, M or G which correspond to kilobytes, megabytes and gigabytes, respectively. If no suffix is provided the input is treated as bytes. Examples: --max-filesize 50K or --max-filesize 80M.'
   provenance:
@@ -433,6 +441,7 @@ flags:
   - --type-add
   value_name: TYPESPEC
   value_kind: Required
+  optional_join: equals
   group: 'FILTER OPTIONS:'
   description: 'This flag adds a new glob for a particular file type. Only one glob can be added at a time. Multiple --type-add flags can be provided. Unless --type-clear is used, globs are added to any existing globs defined inside of ripgrep. Note that this must be passed to every invocation of ripgrep. Type settings are not persisted. See CONFIGURATION FILES for a workaround. Example: rg --type-add ''foo:*.foo'' -tfoo PATTERN This flag can also be used to include rules from other types with the special include directive. The include directive permits specifying one or more other type names (separated by a comma) that have been defined and its rules will automatically be imported into the type specified. For example, to create a type called src that matches C++, Python and Markdown files, one can use: --type-add ''src:include:cpp,py,md'' Additional glob rules can still be added to the src type by using this flag again: --type-add ''src:include:cpp,py,md'' --type-add ''src:*.foo'' Note that type names must consist only of Unicode letters or numbers. Punctuation characters are not allowed.'
   provenance:
@@ -442,6 +451,7 @@ flags:
   - --type-clear
   value_name: TYPE
   value_kind: Required
+  optional_join: equals
   group: 'FILTER OPTIONS:'
   description: Clear the file type globs previously defined for TYPE. This clears any previously defined globs for the TYPE, but globs can be added after this flag. Note that this must be passed to every invocation of ripgrep. Type settings are not persisted. See CONFIGURATION FILES for a workaround.
   provenance:
@@ -494,6 +504,7 @@ flags:
   - --color
   value_name: WHEN
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: 'This flag controls when to use colors. The default setting is auto, which means ripgrep will try to guess when to use colors. For example, if ripgrep is printing to a tty, then it will use colors, but if it is redirected to a file or a pipe, then it will suppress color output. ripgrep will suppress color output by default in some other circumstances as well. These include, but are not limited to: • When the TERM environment variable is not set or set to dumb. • When the NO_COLOR environment variable is set (regardless of value). • When flags that imply no use for colors are given. For example, --vimgrep and --json. The possible values for this flag are: never: Colors will never be used. auto: The default. ripgrep tries to be smart. always: Colors will always be used regardless of where output is sent. ansi: Like ''always'', but emits ANSI escapes (even in a Windows console). This flag also controls whether hyperlinks are emitted. For example, when a hyperlink format is specified, hyperlinks won''t be used when color is suppressed. If one wants to emit hyperlinks but no colors, then one must use the --colors flag to manually set all color styles to none: --colors ''path:none'' \ --colors ''line:none'' \ --colors ''column:none'' \ --colors ''match:none'''
   provenance:
@@ -503,6 +514,7 @@ flags:
   - --colors
   value_name: COLOR_SPEC
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: 'This flag specifies color settings for use in the output. This flag may be provided multiple times. Settings are applied iteratively. Pre-existing color labels are limited to one of eight choices: red, blue, green, cyan, magenta, yellow, white and black. Styles are limited to nobold, bold, nointense, intense, nounderline or underline. The format of the flag is {type}:{attribute}:{value}. type should be one of path, line, column or match. attribute can be fg, bg or style. value is either a color (for fg and bg) or a text style. A special format, {type}:none, will clear all color settings for type. For example, the following command will change the match color to magenta and the background color for line numbers to yellow: rg --colors ''match:fg:magenta'' --colors ''line:bg:yellow'' Extended colors can be used for value when the tty supports ANSI color sequences. These are specified as either x (256-color) or x,x,x (24-bit truecolor) where x is a number between 0 and 255 inclusive. x may be given as a normal decimal number or a hexadecimal number, which is prefixed by 0x. For example, the following command will change the match background color to that represented by the rgb value (0,128,255): rg --colors ''match:bg:0,128,255'' or, equivalently, rg --colors ''match:bg:0x0,0x80,0xFF'' Note that the intense and nointense styles will have no effect when used alongside these extended color codes.'
   provenance:
@@ -529,6 +541,7 @@ flags:
   - --context-separator
   value_name: SEPARATOR
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: The string used to separate non-contiguous context lines in the output. This is only used when one of the context flags is used (that is, -A/--after-context, -B/--before-context or -C/--context). Escape sequences like \x7F or \t may be used. The default value is --. When the context separator is set to an empty string, then a line break is still inserted. To completely disable context separators, use the --no-context-separator flag.
   provenance:
@@ -538,6 +551,7 @@ flags:
   - --field-context-separator
   value_name: SEPARATOR
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: Set the field context separator. This separator is only used when printing contextual lines. It is used to delimit file paths, line numbers, columns and the contextual line itself. The separator may be any number of bytes, including zero. Escape sequences like \x7F or \t may be used. The - character is the default value.
   provenance:
@@ -547,6 +561,7 @@ flags:
   - --field-match-separator
   value_name: SEPARATOR
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: 'Set the field match separator. This separator is only used when printing matching lines. It is used to delimit file paths, line numbers, columns and the matching line itself. The separator may be any number of bytes, including zero. Escape sequences like \x7F or \t may be used. The : character is the default value.'
   provenance:
@@ -571,6 +586,7 @@ flags:
   - --hostname-bin
   value_name: COMMAND
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: This flag controls how ripgrep determines this system's hostname. The flag's value should correspond to an executable (either a path or something that can be found via your system's PATH environment variable). When set, ripgrep will run this executable, with no arguments, and treat its output (with leading and trailing whitespace stripped) as your system's hostname. When not set (the default, or the empty string), ripgrep will try to automatically detect your system's hostname. On Unix, this corresponds to calling gethostname. On Windows, this corresponds to calling GetComputerNameExW to fetch the system's "physical DNS hostname." ripgrep uses your system's hostname for producing hyperlinks.
   provenance:
@@ -580,6 +596,7 @@ flags:
   - --hyperlink-format
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: 'Set the format of hyperlinks to use when printing results. Hyperlinks make certain elements of ripgrep''s output, such as file paths, clickable. This generally only works in terminal emulators that support OSC-8 hyperlinks. For example, the format file://{host}{path} will emit an RFC 8089 hyperlink. To see the format that ripgrep is using, pass the --debug flag. Alternatively, a format string may correspond to one of the following aliases: default, none, file, grep+, kitty, macvim, textmate, vscode, vscode-insiders, vscodium. The alias will be replaced with a format string that is intended to work for the corresponding application. The following variables are available in the format string: {path}: Required. This is replaced with a path to a matching file. The path is guaranteed to be absolute and percent encoded such that it is valid to put into a URI. Note that a path is guaranteed to start with a /. {host}: Optional. This is replaced with your system''s hostname. On Unix, this corresponds to calling gethostname. On Windows, this corresponds to calling GetComputerNameExW to fetch the system''s "physical DNS hostname." Alternatively, if --hostname-bin was provided, then the hostname returned from the output of that program will be returned. If no hostname could be found, then this variable is replaced with the empty string. {line}: Optional. If appropriate, this is replaced with the line number of a match. If no line number is available (for example, if --no-line-number was given), then it is automatically replaced with the value 1. {column}: Optional, but requires the presence of {line}. If appropriate, this is replaced with the column number of a match. If no column number is available (for example, if --no-column was given), then it is automatically replaced with the value 1. {wslprefix}: Optional. This is a special value that is set to wsl$/WSL_DISTRO_NAME, where WSL_DISTRO_NAME corresponds to the value of the equivalent environment variable. If the system is not Unix or if the WSL_DISTRO_NAME environment variable is not set, then this is replaced with the empty string. A format string may be empty. An empty format string is equivalent to the none alias. In this case, hyperlinks will be disabled. At present, ripgrep does not enable hyperlinks by default. Users must opt into them. If you aren''t sure what format to use, try default. Like colors, when ripgrep detects that stdout is not connected to a tty, then hyperlinks are automatically disabled, regardless of the value of this flag. Users can pass --color=always to forcefully emit hyperlinks. Note that hyperlinks are only written when a path is also in the output and colors are enabled. To write hyperlinks without colors, you''ll need to configure ripgrep to not colorize anything without actually disabling all ANSI escape codes completely: --colors ''path:none'' \ --colors ''line:none'' \ --colors ''column:none'' \ --colors ''match:none'' ripgrep works this way because it treats the --color flag as a proxy for whether ANSI escape codes should be used at all. This means that environment variables like NO_COLOR=1 and TERM=dumb not only disable colors, but hyperlinks as well. Similarly, colors and hyperlinks are disabled when ripgrep is not writing to a tty. (Unless one forces the issue by setting --color=always.) If you''re searching a file directly, for example: rg foo path/to/file then hyperlinks will not be emitted since the path given does not appear in the output. To make the path appear, and thus also a hyperlink, use the -H/--with-filename flag. For more information on hyperlinks in terminal emulators, see: https://gist.github.com/egmontkob/eb114294efbcd5adb1944c9f3cb5feda'
   provenance:
@@ -652,6 +669,7 @@ flags:
   - --path-separator
   value_name: SEPARATOR
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: Set the path separator to use when printing file paths. This defaults to your platform's path separator, which is / on Unix and \ on Windows. This flag is intended for overriding the default when the environment demands it (e.g., cygwin). A path separator is limited to a single byte. Setting this flag to an empty string reverts it to its default behavior. That is, the path separator is automatically chosen based on the environment.
   provenance:
@@ -694,6 +712,7 @@ flags:
   - --sort
   value_name: SORTBY
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: 'This flag enables sorting of results in ascending order. The possible values for this flag are: none: (Default) Do not sort results. Fastest. Can be multi-threaded. path: Sort by file path. Always single-threaded. The order is determined by sorting files in each directory entry during traversal. This means that given the files a/b and a+, the latter will sort after the former even though + would normally sort before /. modified: Sort by the last modified time on a file. Always single-threaded. accessed: Sort by the last accessed time on a file. Always single-threaded. created: Sort by the creation time on a file. Always single-threaded. If the chosen (manually or by-default) sorting criteria isn''t available on your system (for example, creation time is not available on ext4 file systems), then ripgrep will attempt to detect this, print an error and exit without searching. To sort results in reverse or descending order, use the --sortr flag. Also, this flag overrides --sortr. Note that sorting results currently always forces ripgrep to abandon parallelism and run in a single thread.'
   provenance:
@@ -703,6 +722,7 @@ flags:
   - --sortr
   value_name: SORTBY
   value_kind: Required
+  optional_join: equals
   group: 'OUTPUT OPTIONS:'
   description: 'This flag enables sorting of results in descending order. The possible values for this flag are: none: (Default) Do not sort results. Fastest. Can be multi-threaded. path: Sort by file path. Always single-threaded. The order is determined by sorting files in each directory entry during traversal. This means that given the files a/b and a+, the latter will sort before the former even though + would normally sort after / when doing a reverse lexicographic sort. modified: Sort by the last modified time on a file. Always single-threaded. accessed: Sort by the last accessed time on a file. Always single-threaded. created: Sort by the creation time on a file. Always single-threaded. If the chosen (manually or by-default) sorting criteria isn''t available on your system (for example, creation time is not available on ext4 file systems), then ripgrep will attempt to detect this, print an error and exit without searching. To sort results in ascending order, use the --sort flag. Also, this flag overrides --sort. Note that sorting results currently always forces ripgrep to abandon parallelism and run in a single thread.'
   provenance:
@@ -828,6 +848,7 @@ flags:
   - --generate
   value_name: KIND
   value_kind: Required
+  optional_join: equals
   group: 'OTHER BEHAVIORS:'
   description: 'This flag instructs ripgrep to generate some special kind of output identified by KIND and then quit without searching. KIND can be one of the following values: man: Generates a manual page for ripgrep in the roff format. complete-bash: Generates a completion script for the bash shell. complete-zsh: Generates a completion script for the zsh shell. complete-fish: Generates a completion script for the fish shell. complete-powershell: Generates a completion script for PowerShell. The output is written to stdout. The list above may expand over time.'
   provenance:

@@ -13,8 +13,8 @@ Command input
     --newline              add newline at the end of input
 
 Input file location ────────────────────────────────────────────────────────
--i, --input INPUTFILE      input PO file
--D, --directory DIRECTORY  add DIRECTORY to list for input files search
+-i, --input=INPUTFILE      input PO file
+-D, --directory=DIRECTORY  add DIRECTORY to list for input files search
 
 Input file syntax ──────────────────────────────────────────────────────────
 -P, --properties-input     input file is in Java .properties syntax

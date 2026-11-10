@@ -55,6 +55,7 @@ flags:
   - --default
   value_name: ''
   value_kind: Required
+  optional_join: equals
   group: '[get command options]'
   description: A strictly typed default value to be used when none is found
   provenance:
@@ -64,6 +65,7 @@ flags:
   - --with
   value_name: <param>=<constraint>
   value_kind: Required
+  optional_join: equals
   group: '[get command options]'
   description: Parameter constraints for filtering confdb queries
   provenance:
@@ -73,6 +75,7 @@ flags:
   - --wait-for
   value_name: ''
   value_kind: Required
+  optional_join: equals
   group: '[get command options]'
   description: Maximum duration to wait for confdb access (e.g. 10s)
   provenance:

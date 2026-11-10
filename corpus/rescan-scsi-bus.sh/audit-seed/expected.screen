@@ -35,19 +35,19 @@ FLAGS (40) ───────────────────────
 -w                scan for target device IDs 0--15 [default: 0--7]
     --alltargets  same as -a
     --attachpq3   Tell kernel to attach sg to LUN 0 that reports PQ=3
-    --channels LIST Scan only channel(s) in LIST
+    --channels=LIST Scan only channel(s) in LIST
     --color       use coloured prefixes OLD/NEW/DEL
     --flush       same as -f
     --forceremove Remove stale devices (DANGEROUS)
     --forcerescan Remove and readd existing devices (DANGEROUS)
     --help        print this usage message then exit
-    --hosts LIST  Scan only host(s) in LIST
-    --ids LIST    Scan only target ID(s) in LIST
+    --hosts=LIST  Scan only host(s) in LIST
+    --ids=LIST    Scan only target ID(s) in LIST
     --ignore-rev  Ignore the revision change
     --issue-lip   same as -i
-    --issue-lip-wait SECS same as -I
+    --issue-lip-wait=SECS same as -I
     --largelun    Tell kernel to support LUNs > 7 even on SCSI2 devs
-    --luns LIST   Scan only lun(s) in LIST
+    --luns=LIST   Scan only lun(s) in LIST
     --multipath   same as -m
     --nooptscan   don't stop looking for LUNs if 0 is not found
     --remove      same as -r

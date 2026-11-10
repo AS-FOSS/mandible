@@ -15,6 +15,7 @@ flags:
   - --action-id
   value_name: ACTION
   value_kind: Required
+  optional_join: equals
   group: 'Application Options:'
   description: Check authorization to perform ACTION
   provenance:
@@ -33,6 +34,7 @@ flags:
   - --details
   value_name: KEY VALUE
   value_kind: Required
+  optional_join: equals
   group: 'Application Options:'
   description: Add (KEY, VALUE) to information about the action
   provenance:
@@ -57,6 +59,7 @@ flags:
   - --process
   value_name: PID[,START_TIME,UID]
   value_kind: Required
+  optional_join: equals
   group: 'Application Options:'
   description: Check authorization of specified process
   provenance:
@@ -74,6 +77,7 @@ flags:
   - --system-bus-name
   value_name: BUS_NAME
   value_kind: Required
+  optional_join: equals
   group: 'Application Options:'
   description: Check authorization of owner of BUS_NAME
   provenance:

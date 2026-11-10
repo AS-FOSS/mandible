@@ -100,6 +100,7 @@ flags:
       - "--git-dir"
     value_name: "<path>"
     value_kind: Required
+    optional_join: equals
     provenance:
       sources:
         - help-text-synopsis
@@ -107,6 +108,7 @@ flags:
       - "--work-tree"
     value_name: "<path>"
     value_kind: Required
+    optional_join: equals
     provenance:
       sources:
         - help-text-synopsis
@@ -114,6 +116,7 @@ flags:
       - "--namespace"
     value_name: "<name>"
     value_kind: Required
+    optional_join: equals
     provenance:
       sources:
         - help-text-synopsis
@@ -121,6 +124,7 @@ flags:
       - "--config-env"
     value_name: "<name>=<envvar>"
     value_kind: Required
+    optional_join: equals
     provenance:
       sources:
         - help-text-synopsis

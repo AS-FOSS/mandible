@@ -200,6 +200,7 @@ flags:
   - --sysroot
   value_name: <DIRECTORY>
   value_kind: Required
+  optional_join: equals
   description: Override the default sysroot location
   provenance:
     sources:
@@ -695,6 +696,7 @@ flags:
   - --hash-size
   value_name: <NUMBER>
   value_kind: Required
+  optional_join: equals
   description: Set default hash table size close to <NUMBER>
   provenance:
     sources:
@@ -868,6 +870,7 @@ flags:
   - --max-cache-size
   value_name: SIZE
   value_kind: Required
+  optional_join: equals
   description: Set the maximum cache size to SIZE bytes
   provenance:
     sources:
@@ -1063,6 +1066,7 @@ flags:
   - --unresolved-symbols
   value_name: <method>
   value_kind: Required
+  optional_join: equals
   description: 'How to handle unresolved symbols. <method> is: ignore-all, report-all, ignore-in-object-files, ignore-in-shared-libs'
   provenance:
     sources:
@@ -1276,6 +1280,7 @@ flags:
   - --ctf-share-types
   value_name: <method>
   value_kind: Required
+  optional_join: equals
   description: 'How to share CTF types between translation units. <method> is: share-unconflicted (default), share-duplicated'
   provenance:
     sources:
@@ -1311,6 +1316,7 @@ flags:
 - spellings:
   - --compress-debug-sections
   value_kind: Required
+  optional_join: equals
   choices:
   - none
   - zlib
@@ -1533,6 +1539,7 @@ flags:
   - --audit
   value_name: AUDITLIB
   value_kind: Required
+  optional_join: equals
   group: 'ELF emulations:'
   description: Specify a library to use for auditing
   provenance:
@@ -1577,6 +1584,7 @@ flags:
   - --exclude-libs
   value_name: LIBS
   value_kind: Required
+  optional_join: equals
   group: 'ELF emulations:'
   description: Make all symbols in LIBS hidden
   provenance:
@@ -1586,6 +1594,7 @@ flags:
   - --hash-style
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   group: 'ELF emulations:'
   description: 'Set hash style to sysv/gnu/both. Default: both'
   provenance:
@@ -1851,6 +1860,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64linux:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -1926,6 +1936,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64elf:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2001,6 +2012,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64elf32:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2076,6 +2088,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64elf32b:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2151,6 +2164,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64elfb:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2205,6 +2219,7 @@ flags:
   - --thumb-entry
   value_name: <sym>
   value_kind: Required
+  optional_join: equals
   group: 'armelf:'
   description: Set the entry point to be Thumb symbol <sym>
   provenance:
@@ -2235,6 +2250,7 @@ flags:
   - --target2
   value_name: <type>
   value_kind: Required
+  optional_join: equals
   group: 'armelf:'
   description: Specify definition of R_ARM_TARGET2
   provenance:
@@ -2321,6 +2337,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'armelf:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2351,6 +2368,7 @@ flags:
   - --thumb-entry
   value_name: <sym>
   value_kind: Required
+  optional_join: equals
   group: 'armelfb:'
   description: Set the entry point to be Thumb symbol <sym>
   provenance:
@@ -2381,6 +2399,7 @@ flags:
   - --target2
   value_name: <type>
   value_kind: Required
+  optional_join: equals
   group: 'armelfb:'
   description: Specify definition of R_ARM_TARGET2
   provenance:
@@ -2467,6 +2486,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'armelfb:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2518,6 +2538,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64linuxb:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2593,6 +2614,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64linux32:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2668,6 +2690,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'aarch64linux32b:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2722,6 +2745,7 @@ flags:
   - --thumb-entry
   value_name: <sym>
   value_kind: Required
+  optional_join: equals
   group: 'armelfb_linux_eabi:'
   description: Set the entry point to be Thumb symbol <sym>
   provenance:
@@ -2752,6 +2776,7 @@ flags:
   - --target2
   value_name: <type>
   value_kind: Required
+  optional_join: equals
   group: 'armelfb_linux_eabi:'
   description: Specify definition of R_ARM_TARGET2
   provenance:
@@ -2838,6 +2863,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'armelfb_linux_eabi:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:
@@ -2868,6 +2894,7 @@ flags:
   - --thumb-entry
   value_name: <sym>
   value_kind: Required
+  optional_join: equals
   group: 'armelf_linux_eabi:'
   description: Set the entry point to be Thumb symbol <sym>
   provenance:
@@ -2898,6 +2925,7 @@ flags:
   - --target2
   value_name: <type>
   value_kind: Required
+  optional_join: equals
   group: 'armelf_linux_eabi:'
   description: Specify definition of R_ARM_TARGET2
   provenance:
@@ -2984,6 +3012,7 @@ flags:
   - --stub-group-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'armelf_linux_eabi:'
   description: Maximum size of a group of input sections that can be handled by one stub section. A negative value locates all stubs after their branches (with a group size of -N), while a positive value allows two groups of input sections, one before, and one after each stub section. Values of +/-1 indicate the linker should choose suitable defaults.
   provenance:

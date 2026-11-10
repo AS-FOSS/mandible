@@ -12,18 +12,18 @@ POSITIONALS (1) ─────────────────────�
 
 
 FLAGS (16) ─────────────────────────────────────────────────────────────────
--c, --config FILE      embed FILE as an early config
--C, --compression {…}  choose the compression to use for core image
+-c, --config=FILE      embed FILE as an early config
+-C, --compression={…}  choose the compression to use for core image
                          values: xz, none, auto
     --disable-shim-lock disable shim_lock verifier
--d, --directory DIR    use images and modules under DIR
+-d, --directory=DIR    use images and modules under DIR
                        [default=/usr/lib/grub/<platform>]
--D, --dtb FILE         embed FILE as a device tree (DTB)
--k, --pubkey FILE      embed FILE as public key for signature checking
+-D, --dtb=FILE         embed FILE as a device tree (DTB)
+-k, --pubkey=FILE      embed FILE as public key for signature checking
 -m                     --memdisk=FILE embed FILE as a memdisk image
 -n, --note             add NOTE segment for CHRP IEEE1275
--o, --output FILE      output a generated image to FILE [default=stdout]
--O, --format FORMAT    generate an image in FORMAT
+-o, --output=FILE      output a generated image to FILE [default=stdout]
+-O, --format=FORMAT    generate an image in FORMAT
                          values: i386-coreboot, i386-multiboot, i386-pc,
                          i386-xen_pvh, i386-pc-pxe, i386-pc-eltorito,
                          i386-efi, i386-ieee1275, i386-qemu, x86_64-efi,
@@ -37,8 +37,8 @@ FLAGS (16) ───────────────────────
                          arm-uboot, arm-coreboot-vexpress,
                          arm-coreboot-veyron, arm-efi, arm64-efi,
                          loongarch64-efi, riscv32-efi, riscv64-efi
--p, --prefix DIR       set prefix directory
--s, --sbat FILE        SBAT metadata
+-p, --prefix=DIR       set prefix directory
+-s, --sbat=FILE        SBAT metadata
 -v, --verbose          print verbose messages.
 -?, --help             give this help list
     --usage            give a short usage message
