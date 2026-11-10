@@ -16,6 +16,11 @@ argv = ["cp", "--help"]
 stdout = "help.txt"
 
 [contract]
+must_draw = ["-S, --suffix=SUFFIX"]
 
 [contract.must_attach_choices]
 "--backup" = ["none", "numbered", "existing", "simple"]
+
+[xfail]
+broken = true
+reason = "[S-276] a required value written after `=` is drawn after a space: `--suffix=SUFFIX` as `--suffix SUFFIX`."
