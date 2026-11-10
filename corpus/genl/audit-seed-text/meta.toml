@@ -1,0 +1,31 @@
+[bless]
+provenance = "agent"
+
+[tool]
+name = "genl"
+version = "audit-seed-text"
+platform = "ubuntu-24.04"
+captured_with = "probe environment, setsid, null stdin"
+
+[[capture]]
+argv = ["genl", "--help"]
+stdout = "help.stdout.txt"
+stderr = "help.stderr.txt"
+exit_code = 255
+
+[[capture]]
+argv = ["genl", "-help"]
+stdout = "hint.stdout.txt"
+stderr = "hint.stderr.txt"
+exit_code = 255
+
+[contract]
+expected_framework = "generic"
+must_contain_positionals = ["OBJECT"]
+
+[contract.must_describe_positional]
+"OBJECT" = "{ ctrl etc }"
+
+[xfail]
+broken = true
+reason = "[S-275] `OBJECT := { ctrl etc }` is a list with no `|`, so it is read as neither commands nor text and appears nowhere on the page."
