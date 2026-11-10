@@ -16,7 +16,7 @@ exit_code = 255
 [contract]
 expected_framework = "generic"
 min_status = "verbatim"
-must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief", "family"]
+must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief", "family", "force"]
 
 [contract.must_value_name]
 "loops" = "maximum-addr-flush-attempts"
@@ -24,3 +24,7 @@ must_contain_flags = ["human-readable", "iec", "json", "pretty", "loops", "brief
 [contract.must_not_value_name]
 "human-readable" = "|"
 "loops" = "{"
+
+[xfail]
+broken = true
+reason = "[S-272] `ip [ -force ] -batch filename` names a flag only the usage form shows; `-force` is read as `-f` plus the value `orce` and dropped as a duplicate of `-f[amily]`."
