@@ -20,14 +20,10 @@ must_not_contain_positionals = ["KERNEL-VERSION", "KERNEL-IMAGE", "INITRD"]
 must_not_contain_usage_text = ["Add and remove kernel"]
 
 [contract.must_contain_positionals_by_path]
-add = ["KERNEL-VERSION", "KERNEL-IMAGE", "INITRD..."]
-inspect = ["KERNEL-VERSION", "KERNEL-IMAGE", "INITRD..."]
+add = ["KERNEL-VERSION", "KERNEL-IMAGE", "INITRD"]
+inspect = ["KERNEL-VERSION", "KERNEL-IMAGE", "INITRD"]
 remove = ["KERNEL-VERSION"]
 
 [contract.must_not_contain_positionals_by_path]
 add-all = ["KERNEL-VERSION"]
 list = ["KERNEL-VERSION"]
-
-[xfail]
-broken = true
-reason = "[S-283] Verbs named after [OPTIONS...] in the usage forms (add, add-all, remove, inspect, list) are not read as commands; the description sentence is read as usage and the verbs' operands land on the root."

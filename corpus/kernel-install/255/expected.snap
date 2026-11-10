@@ -1,0 +1,194 @@
+name: kernel-install
+description: Add and remove kernel and initrd images to and from /boot/
+usage:
+- kernel-install [OPTIONS...] COMMAND ...
+- kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]
+- kernel-install [OPTIONS...] add-all
+- kernel-install [OPTIONS...] remove KERNEL-VERSION
+- kernel-install [OPTIONS...] inspect [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]
+- kernel-install [OPTIONS...] list
+flags:
+- spellings:
+  - -h
+  - --help
+  description: Show this help
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --version
+  description: Show package version
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --verbose
+  description: Increase verbosity
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --esp-path
+  value_name: PATH
+  value_kind: Required
+  description: Path to the EFI System Partition (ESP)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --boot-path
+  value_name: PATH
+  value_kind: Required
+  description: Path to the $BOOT partition
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --make-entry-directory
+  value_kind: Required
+  choices:
+  - yes
+  - no
+  - auto
+  description: Create $BOOT/ENTRY-TOKEN/ directory
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --entry-token
+  value_name: machine-id|os-id|os-image-id|auto|literal:…
+  value_kind: Required
+  description: Entry token to use for this installation
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-pager
+  description: Do not pipe inspect output into a pager
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --json
+  value_kind: Required
+  choices:
+  - pretty
+  - short
+  - off
+  description: Generate JSON output
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-legend
+  description: Do not show the headers and footers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --root
+  value_name: PATH
+  value_kind: Required
+  description: Operate on an alternate filesystem root
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --image
+  value_name: PATH
+  value_kind: Required
+  description: Operate on disk image as filesystem root
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --image-policy
+  value_name: POLICY
+  value_kind: Required
+  choices:
+  - installkernel
+  description: Specify disk image dissection policy
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
+subcommands:
+- name: add
+  usage:
+  - kernel-install [OPTIONS...] add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]
+  positionals:
+  - name: KERNEL-VERSION
+    provenance:
+      sources:
+      - help-text
+  - name: KERNEL-IMAGE
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: INITRD
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: add-all
+  usage:
+  - kernel-install [OPTIONS...] add-all
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: remove
+  usage:
+  - kernel-install [OPTIONS...] remove KERNEL-VERSION
+  positionals:
+  - name: KERNEL-VERSION
+    required: true
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: inspect
+  usage:
+  - kernel-install [OPTIONS...] inspect [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD ...]]
+  positionals:
+  - name: KERNEL-VERSION
+    provenance:
+      sources:
+      - help-text
+  - name: KERNEL-IMAGE
+    required: true
+    provenance:
+      sources:
+      - help-text
+  - name: INITRD
+    provenance:
+      sources:
+      - help-text
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true
+- name: list
+  usage:
+  - kernel-install [OPTIONS...] list
+  provenance:
+    sources:
+    - help-text
+  children_filled: true
+  invocation_attested: true

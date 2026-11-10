@@ -55,6 +55,7 @@ mod key_value_text;
 mod labelled_values;
 mod later_usage_form;
 mod layout;
+mod lead_synopsis;
 pub(crate) mod leading_operands;
 pub(crate) mod legend_rows;
 mod multiword;
@@ -1052,7 +1053,7 @@ fn extract_description(
     description_bound: usize,
     usage_start: Option<usize>,
     i: usize,
-    table: Option<(usize, usize)>,
+    (table, lead): (Option<(usize, usize)>, Option<usize>),
 ) -> Option<String> {
     // A column-0 line inside the recovered usage block's own line range is
     // never description prose, whichever of the three entry shapes found
@@ -1076,6 +1077,7 @@ fn extract_description(
             && !root_prose::is_bare_heading_word(lines, j)
             && !one_space_row::is_colon_flag_row(t)
             && !root_prose::is_flag_table_line(lines, table, j)
+            && lead != Some(j)
     };
     // `Options:` and its kin at either edge of the description label the
     // block they sit beside; they are not the description. S-249.
@@ -2394,6 +2396,7 @@ fn parse_body(
     // so it never gets a chance to fold these rows into `result.usage`
     // instead. See docs/shapes.md S-167.
     let mut form_description: Vec<String> = Vec::new();
+    let mut lead = None;
     let optional_word_table = labelled_usage_start.and_then(|start| {
         tool_name.and_then(|name| scan_usage_optional_word_table(&lines, start, name))
     });
@@ -2411,6 +2414,14 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
+        lead = lead_synopsis::line(&lines, labelled_usage_start, tool_name);
+        if let Some(at) = lead {
+            result
+                .usage
+                .iter_mut()
+                .for_each(|e| *e = e.trim_start().to_string());
+            result.usage.insert(0, lines[at].trim().to_string());
+        }
         form_description = form_description_lines(&lines, labelled_usage_start, start, i);
         // An extended usage label (`Example usage:`) whose rows are all
         // `<tool> <word> ...` also names subcommands; the rows stay usage
@@ -2485,7 +2496,8 @@ fn parse_body(
         description_bound = description_bound.min(start);
     }
     let table = root_prose::flag_table_start(&lines, i, prose_bound);
-    let mut description = extract_description(&lines, description_bound, usage_start, i, table);
+    let mut description =
+        extract_description(&lines, description_bound, usage_start, i, (table, lead));
     if let Some(start) = flag_start {
         if let Some(tail) = trailing_prose_after_flags_block(&lines, start) {
             description = Some(match description {

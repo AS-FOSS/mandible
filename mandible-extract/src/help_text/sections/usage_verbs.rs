@@ -57,10 +57,33 @@ fn is_flag_group(t: &str) -> bool {
     words.peek().is_some() && words.all(|w| w.starts_with('-'))
 }
 
+/// `[OPTIONS...]`, `[OPTION]...`: the generic options placeholder.
+fn is_options_placeholder(t: &str) -> bool {
+    let t = t.trim_end_matches('.');
+    let Some(inner) = t.strip_prefix('[').and_then(|r| r.strip_suffix(']')) else {
+        return false;
+    };
+    let inner = inner.trim_end_matches('.');
+    inner.len() >= 2 && inner.chars().all(|c| c.is_ascii_uppercase())
+}
+
+/// True when a form puts the word `COMMAND` in the verb slot, which makes a
+/// lower-case word in that slot of a sibling form a command (S-283).
+fn names_command_slot(usage: &[String]) -> bool {
+    usage.iter().any(|e| {
+        tokens(without_label(e))
+            .iter()
+            .skip(1)
+            .any(|t| t == "COMMAND")
+    })
+}
+
 struct Form {
     toks: Vec<String>,
     /// Flag groups printed between the program and the command path.
     lead: Vec<String>,
+    /// Options placeholders (`[OPTIONS...]`) printed there, S-283.
+    placeholders: Vec<String>,
     text: String,
 }
 
@@ -85,6 +108,7 @@ fn without_label(entry: &str) -> &str {
 
 /// The usage entries as forms: label removed, program name stripped.
 fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
+    let slot = names_command_slot(usage);
     let mut prog = tool.map(str::to_string);
     let mut out = Vec::new();
     for entry in usage {
@@ -98,10 +122,22 @@ fn forms(usage: &[String], tool: Option<&str>) -> Vec<Form> {
         }
         let toks = tokens(t);
         let rest = &toks[1..];
-        let lead = rest.iter().take_while(|t| is_flag_group(t)).count();
+        let skip = rest
+            .iter()
+            .take_while(|t| is_flag_group(t) || (slot && is_options_placeholder(t)))
+            .count();
         out.push(Form {
-            toks: rest[lead..].to_vec(),
-            lead: rest[..lead].to_vec(),
+            toks: rest[skip..].to_vec(),
+            lead: rest[..skip]
+                .iter()
+                .filter(|t| is_flag_group(t))
+                .cloned()
+                .collect(),
+            placeholders: rest[..skip]
+                .iter()
+                .filter(|t| !is_flag_group(t))
+                .cloned()
+                .collect(),
             text: t.to_string(),
         });
     }
@@ -194,6 +230,7 @@ fn verb_node(verb: &str, forms: &[Form], found: &[Hit], at: usize) -> CommandNod
         line.extend(f.toks[*j + 1..].iter().cloned());
         line.extend(f.toks[at..*j].iter().cloned());
         line.extend(f.lead.iter().cloned());
+        line.extend(f.placeholders.iter().cloned());
         own.push(line.join(" "));
     }
     let mut flags: Vec<Entity> = Vec::new();
@@ -208,6 +245,7 @@ fn verb_node(verb: &str, forms: &[Form], found: &[Hit], at: usize) -> CommandNod
     } else {
         extract_positionals(&own, primary)
     };
+    positionals.retain(|p| !matches!(p.primary_name(), "OPTIONS" | "OPTION"));
     super::usage_numbered_caps::add_numbered_operands(&own, &mut positionals);
     node.entities.extend(flags);
     node.entities.extend(positionals);
@@ -263,6 +301,7 @@ pub(crate) fn recover(
     if !usage
         .first()
         .is_some_and(|u| starts_with_usage_prefix(u.trim()))
+        && !names_command_slot(usage)
     {
         return None;
     }
@@ -362,8 +401,9 @@ fn is_dispatch_form(form: &str) -> bool {
     let mut rest = form.split_whitespace().skip(1).skip_while(|t| is_word(t));
     rest.all(|t| {
         t == "help"
-            || t.chars()
-                .all(|c| c.is_ascii_uppercase() || matches!(c, '{' | '}' | '|' | '[' | ']' | '_'))
+            || t.chars().all(|c| {
+                c.is_ascii_uppercase() || matches!(c, '{' | '}' | '|' | '[' | ']' | '_' | '.')
+            })
     })
 }
 
