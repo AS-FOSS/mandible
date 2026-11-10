@@ -1,4 +1,5 @@
 name: pngfix
+description: Tests, optimizes and optionally fixes the zlib header in PNG files. Optionally, when fixing, strips ancillary chunks from the file.
 usage:
 - 'Usage: pngfix {[options] png-file}'
 flags:

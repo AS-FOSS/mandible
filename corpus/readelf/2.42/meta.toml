@@ -17,7 +17,4 @@ expected_framework = "generic"
 must_describe_root = ["Display information about the contents of ELF format files"]
 must_not_contain_usage_text = ["Display information about"]
 must_not_contain_positionals = ["ELF"]
-
-[xfail]
-broken = true
-reason = "[S-284] The sentence line under the usage line folds into the usage form and invents a positional; it is the description."
+must_contain_positionals = ["elf-file(s)"]

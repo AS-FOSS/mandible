@@ -1,5 +1,8 @@
 name: sg_emc_trespass
-description: 'Unrecognized switch: --help'
+description: |-
+  Change ownership of a LUN from another SP to this one.
+
+  Unrecognized switch: --help
 usage:
 - 'Usage:  sg_emc_trespass [-d] [-hr] [-s] [-V] DEVICE'
 positionals:

@@ -1,4 +1,9 @@
 === pngfix ===
+DESCRIPTION ────────────────────────────────────────────────────────────────
+Tests, optimizes and optionally fixes the zlib header in PNG files.
+Optionally, when fixing, strips ancillary chunks from the file.
+
+
 USAGE ──────────────────────────────────────────────────────────────────────
   pngfix {[options] png-file}
 

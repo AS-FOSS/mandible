@@ -1,0 +1,446 @@
+name: readelf
+description: |-
+  Display information about the contents of ELF format files
+
+  Report bugs to <https://sourceware.org/bugzilla/>
+usage:
+- 'Usage: readelf <option(s)> elf-file(s)'
+positionals:
+- name: elf-file(s)
+  required: true
+  provenance:
+    sources:
+    - help-text
+flags:
+- spellings:
+  - -a
+  - --all
+  group: 'Options are:'
+  description: 'Equivalent to: -h -l -S -s -r -d -V -A -I'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -h
+  - --file-header
+  group: 'Options are:'
+  description: Display the ELF file header
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -l
+  - --program-headers
+  group: 'Options are:'
+  description: Display the program headers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --segments
+  group: 'Options are:'
+  description: An alias for --program-headers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -S
+  - --section-headers
+  group: 'Options are:'
+  description: Display the sections' header
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sections
+  group: 'Options are:'
+  description: An alias for --section-headers
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -g
+  - --section-groups
+  group: 'Options are:'
+  description: Display the section groups
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -t
+  - --section-details
+  group: 'Options are:'
+  description: Display the section details
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -e
+  - --headers
+  group: 'Options are:'
+  description: 'Equivalent to: -h -l -S'
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -s
+  - --syms
+  group: 'Options are:'
+  description: Display the symbol table
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --symbols
+  group: 'Options are:'
+  description: An alias for --syms
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dyn-syms
+  group: 'Options are:'
+  description: Display the dynamic symbol table
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --lto-syms
+  group: 'Options are:'
+  description: Display LTO symbol tables
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sym-base
+  value_kind: Required
+  choices:
+  - '0'
+  - '8'
+  - '10'
+  - '16'
+  group: 'Options are:'
+  description: Force base for symbol sizes. The options are mixed (the default), octal, decimal, hexadecimal.
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -C
+  - --demangle
+  value_name: STYLE
+  value_kind: Optional
+  optional_join: equals
+  group: 'Options are:'
+  description: Decode mangled/processed symbol names STYLE can be "none", "auto", "gnu-v3", "java", "gnat", "dlang", "rust"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-demangle
+  group: 'Options are:'
+  description: Do not demangle low-level symbol names. (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --recurse-limit
+  group: 'Options are:'
+  description: Enable a demangling recursion limit. (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-recurse-limit
+  group: 'Options are:'
+  description: Disable a demangling recursion limit
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -U[dlexhi]
+  group: 'Options are:'
+  description: Display unicode characters as determined by the current locale (default), escape sequences, "<hex sequences>", highlighted escape sequences, or treat them as invalid and display as "{hex sequences}"
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -X
+  - --extra-sym-info
+  group: 'Options are:'
+  description: Display extra information when showing symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --no-extra-sym-info
+  group: 'Options are:'
+  description: Do not display extra information when showing symbols (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -n
+  - --notes
+  group: 'Options are:'
+  description: Display the contents of note sections (if present)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -r
+  - --relocs
+  group: 'Options are:'
+  description: Display the relocations (if present)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -u
+  - --unwind
+  group: 'Options are:'
+  description: Display the unwind info (if present)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -d
+  - --dynamic
+  group: 'Options are:'
+  description: Display the dynamic section (if present)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -V
+  - --version-info
+  group: 'Options are:'
+  description: Display the version sections (if present)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -A
+  - --arch-specific
+  group: 'Options are:'
+  description: Display architecture specific information (if any)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -c
+  - --archive-index
+  group: 'Options are:'
+  description: Display the symbol/file index in an archive
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -D
+  - --use-dynamic
+  group: 'Options are:'
+  description: Use the dynamic section info when displaying symbols
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -L
+  - --lint
+  - --enable-checks
+  group: 'Options are:'
+  description: Display warning messages for possible problems
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -x
+  - --hex-dump
+  value_name: <number|name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Dump the contents of section <number|name> as bytes
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -p
+  - --string-dump
+  value_name: <number|name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Dump the contents of section <number|name> as strings
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -R
+  - --relocated-dump
+  value_name: <number|name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Dump the relocated contents of section <number|name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -z
+  - --decompress
+  group: 'Options are:'
+  description: Decompress section before dumping it
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -w
+  - --debug-dump
+  group: 'Options are:'
+  description: f/=frames, F/=frames-interp, g/=gdb_index, i/=info, o/=loc, m/=macro, p/=pubnames, t/=pubtypes, R/=Ranges, l/=rawline, s/=str, O/=str-offsets, u/=trace_abbrev, T/=trace_aranges, U/=trace_info] Display the contents of DWARF debug sections
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -wk
+  group: 'Options are:'
+  description: Display the contents of sections that link to separate debuginfo files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -P
+  - --process-links
+  group: 'Options are:'
+  description: Display the contents of non-debug sections in separate debuginfo files. (Implies -wK)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -wK
+  group: 'Options are:'
+  description: Follow links to separate debug info files (default)
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -wN
+  group: 'Options are:'
+  description: Do not follow links to separate debug info files
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dwarf-depth
+  value_name: N
+  value_kind: Required
+  group: 'Options are:'
+  description: Do not display DIEs at depth N or greater
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --dwarf-start
+  value_name: N
+  value_kind: Required
+  group: 'Options are:'
+  description: Display DIEs starting at offset N
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ctf
+  value_name: <number|name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Display CTF info from section <number|name>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ctf-parent
+  value_name: <name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Use CTF archive member <name> as the CTF parent
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ctf-symbols
+  value_name: <number|name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Use section <number|name> as the CTF external symtab
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --ctf-strings
+  value_name: <number|name>
+  value_kind: Required
+  group: 'Options are:'
+  description: Use section <number|name> as the CTF external strtab
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - --sframe
+  value_name: NAME
+  value_kind: Optional
+  optional_join: equals
+  group: 'Options are:'
+  description: Display SFrame info from section NAME, (default '.sframe')
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -I
+  - --histogram
+  group: 'Options are:'
+  description: Display histogram of bucket list lengths
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -W
+  - --wide
+  group: 'Options are:'
+  description: Allow output width to exceed 80 characters
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -T
+  - --silent-truncation
+  value_name: If
+  value_kind: Required
+  group: 'Options are:'
+  description: suffix
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - '@'
+  value_name: <file>
+  value_kind: Required
+  group: 'Options are:'
+  description: Read options from <file>
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -H
+  - --help
+  description: Display this information
+  provenance:
+    sources:
+    - help-text
+- spellings:
+  - -v
+  - --version
+  description: Display the version number of readelf
+  provenance:
+    sources:
+    - help-text
+provenance:
+  sources:
+  - help-text
+  confidence: 0.5
+children_filled: true
