@@ -56,7 +56,3 @@ must_contain_flags = [
     "--xattr",
 ]
 must_draw = ["--http0.9 Allow HTTP 0.9 responses", "-0, --http1.0 Use HTTP 1.0", "-1, --tlsv1 Use TLSv1.0 or greater", "--tlsv1.3 Use TLSv1.3 or greater"]
-
-[xfail]
-broken = true
-reason = "[S-274] a `.digits` run glued to a long name is read as the flag's value: `--http0.9` is `--http0` valued `.9`."
