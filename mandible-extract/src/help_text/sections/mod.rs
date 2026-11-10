@@ -2414,14 +2414,7 @@ fn parse_body(
         i = scan.next_index;
         result.positionals = scan.positionals;
         result.usage = scan.entries;
-        lead = lead_synopsis::line(&lines, labelled_usage_start, tool_name);
-        if let Some(at) = lead {
-            result
-                .usage
-                .iter_mut()
-                .for_each(|e| *e = e.trim_start().to_string());
-            result.usage.insert(0, lines[at].trim().to_string());
-        }
+        lead = lead_synopsis::prepend(&mut result.usage, &lines, labelled_usage_start, tool_name);
         form_description = form_description_lines(&lines, labelled_usage_start, start, i);
         // An extended usage label (`Example usage:`) whose rows are all
         // `<tool> <word> ...` also names subcommands; the rows stay usage

@@ -24,3 +24,19 @@ pub(super) fn line(
         && t.split_whitespace().any(|w| w == "COMMAND"))
     .then_some(first)
 }
+
+/// Puts the opening synopsis line ahead of `usage`, the forms trimmed to
+/// match, and returns its index.
+pub(super) fn prepend(
+    usage: &mut Vec<String>,
+    lines: &[&str],
+    labelled_usage_start: Option<usize>,
+    tool_name: Option<&str>,
+) -> Option<usize> {
+    let at = line(lines, labelled_usage_start, tool_name)?;
+    usage
+        .iter_mut()
+        .for_each(|e| *e = e.trim_start().to_string());
+    usage.insert(0, lines[at].trim().to_string());
+    Some(at)
+}
