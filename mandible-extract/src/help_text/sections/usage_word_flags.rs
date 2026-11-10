@@ -104,36 +104,47 @@ fn lists_word(flags: &[Entity], word: &str) -> bool {
         .any(|s| matches!(s.dashes, Dashes::Single) && s.name == word)
 }
 
-/// True when a usage-derived `flag` is a single-dash word the page does not
-/// already list: the word is not a spelling of `existing`, and some letter
-/// of it is not a short flag there. A word whose letters are all listed
-/// shorts is a bundle. S-272.
-pub(super) fn is_unlisted_word(flag: &Entity, existing: &[Entity], raw: &str) -> bool {
-    let min_lines = if word_dialect(existing) { 1 } else { MIN_LINES };
-    word_of(flag, raw, min_lines).is_some_and(|name| {
-        let same_reading = existing
-            .iter()
-            .any(|f| f.short() == flag.short() && f.value_name == flag.value_name);
-        !lists_word(existing, &name)
-            && !same_reading
-            && !name.chars().all(|c| lists_short(existing, c))
-    })
+/// Make `flag` the single-dash word `name`, taking its value from the
+/// `<placeholder>` the usage lines put after it, if any.
+fn become_word(flag: &mut Entity, name: &str, usage_lines: &[String]) {
+    flag.spellings = vec![Spelling::single_dash(name)];
+    match angle_value_after(usage_lines, &format!("-{name}")) {
+        Some(value) => flag.value_name = Some(value),
+        None => {
+            flag.value_name = None;
+            flag.value_kind = ValueKind::None;
+        }
+    }
+}
+
+/// Add the usage-derived `dropped` flags that are single-dash words the
+/// finished `flags` do not list: the word is not a spelling there, and some
+/// letter of it is not a short flag there. A word whose letters are all
+/// listed shorts is a bundle. S-272.
+pub(super) fn add_unlisted(
+    dropped: Vec<Entity>,
+    usage_lines: &[String],
+    raw: &str,
+    flags: &mut Vec<Entity>,
+) {
+    let min_lines = if word_dialect(flags) { 1 } else { MIN_LINES };
+    for mut flag in dropped {
+        let Some(name) = word_of(&flag, raw, min_lines) else {
+            continue;
+        };
+        if lists_word(flags, &name) || name.chars().all(|c| lists_short(flags, c)) {
+            continue;
+        }
+        become_word(&mut flag, &name, usage_lines);
+        flags.push(flag);
+    }
 }
 
 pub(super) fn repair(usage_lines: &[String], raw: &str, flags: &mut [Entity]) {
     let min_lines = if word_dialect(flags) { 1 } else { MIN_LINES };
     for flag in flags.iter_mut() {
-        let Some(name) = word_of(flag, raw, min_lines) else {
-            continue;
-        };
-        let word = format!("-{name}");
-        flag.spellings = vec![Spelling::single_dash(&name)];
-        match angle_value_after(usage_lines, &word) {
-            Some(value) => flag.value_name = Some(value),
-            None => {
-                flag.value_name = None;
-                flag.value_kind = ValueKind::None;
-            }
+        if let Some(name) = word_of(flag, raw, min_lines) {
+            become_word(flag, &name, usage_lines);
         }
     }
 }

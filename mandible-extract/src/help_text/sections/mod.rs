@@ -2563,6 +2563,7 @@ fn parse_body(
     // Reads `usage_lines` (physical, pre-join), not `result.usage` (the
     // joined display form), deliberately, so the join cannot change what
     // this recovers.
+    let mut dropped_usage_flags: Vec<Entity> = Vec::new();
     if !usage_lines.is_empty() {
         let cut_forms = usage_tab_table::flag_lines(&usage_lines);
         for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(&usage_lines)) {
@@ -2571,9 +2572,10 @@ fn parse_body(
             }
             if !flag_spelling_already_present(&flag, &result.flags)
                 || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
-                || usage_word_flags::is_unlisted_word(&flag, &result.flags, raw)
             {
                 result.flags.push(flag);
+            } else {
+                dropped_usage_flags.push(flag);
             }
             // else: this spelling already names a flag the block scan
             // recovered, so the usage-derived, always-undescribed
@@ -2646,6 +2648,8 @@ fn parse_body(
     // duplicates or overwrites a spelling an ordinary row already
     // documents (Xvfb's own `-render`). See docs/shapes.md S-163.
     result.flags = resolve_alternation_spelling_collisions(std::mem::take(&mut result.flags), raw);
+
+    usage_word_flags::add_unlisted(dropped_usage_flags, &usage_lines, raw, &mut result.flags);
 
     // `NAME := { a | b }` behind a usage form's command position (S-258).
     production_commands::apply(&mut result, &lines);
