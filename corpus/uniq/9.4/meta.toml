@@ -24,3 +24,8 @@ expected_framework = "GNU argp/getopt_long"
 must_contain_positionals = ["INPUT", "OUTPUT"]
 must_not_contain_positionals = ["INPUT OUTPUT"]
 must_contain_flags = ["-c", "-w", "--all-repeated", "--group"]
+must_describe_root = ["Mandatory arguments to long options are mandatory for short options too."]
+
+[xfail]
+broken = true
+reason = "[S-280] The sentence 'Mandatory arguments to long options are mandatory for short options too.' heads the option table and is dropped as a group label; it belongs at the end of the root description."
