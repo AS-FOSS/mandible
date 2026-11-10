@@ -1390,6 +1390,17 @@ fn try_value(input: &str) -> Option<(String, ValueKind, &str)> {
 
     // `=VALUE`
     if equals_sign(&mut s).is_ok() {
+        // `--tabs=[N[,...]]`: a bracket group with a pair nested in it is
+        // one optional value, joined by the `=` outside it. S-273.
+        if let Some(inner) = s.strip_prefix('[') {
+            if nested_bracket_content(inner).is_some()
+                || nested_bracket_content_general(inner).is_some()
+            {
+                if let Some((name, ValueKind::Optional, tail)) = try_value(s) {
+                    return Some((name, ValueKind::Optional, tail));
+                }
+            }
+        }
         let (name, tail) = take_rest_value_token(s);
         // `--log-file=[PATH]`: one bracketed word after the `=` is the
         // optional value `PATH`, not a value named `[PATH]`.

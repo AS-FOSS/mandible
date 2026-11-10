@@ -27,7 +27,3 @@ must_draw = ["-b, --buffers=[N]", "-x, --tabs=[N[,...]]"]
 [contract.must_describe]
 "--wheel-lines" = "Each click of the mouse wheel moves N lines."
 "--search-skip-screen" = "Search skips current screen."
-
-[xfail]
-broken = true
-reason = "[S-273] `--tabs=[N[,...]]` is drawn `--tabs[=N[,...]]`: the `=` moves inside the bracket when the bracket nests."

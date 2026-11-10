@@ -48,11 +48,11 @@ FLAGS (57) ───────────────────────
 -w, --hilite-unread       Highlight first new line after forward-screen.
 -W, --HILITE-UNREAD       Highlight first new line after any forward
                           movement.
--x, --tabs[=N[,...]]      Set tab stops.
+-x, --tabs=[N[,...]]      Set tab stops.
 -X, --no-init             Don't use termcap init/deinit strings.
 -y, --max-forw-scroll=[N] Forward scroll limit.
 -z, --window=[N]          Set size of window.
--", --quotes [c[c]]       Set shell quote characters.
+-", --quotes=[c[c]]       Set shell quote characters.
 -~, --tilde               Don't display tildes after end of file.
 -#, --shift=[N]           Set horizontal scroll amount (0 = one half screen
                           width).

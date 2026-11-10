@@ -309,7 +309,7 @@ flags:
   - --tabs
   value_name: '[N[,...]]'
   value_kind: Optional
-  optional_join: equals
+  optional_join: equals-then-bracket
   description: Set tab stops.
   provenance:
     sources:
@@ -346,7 +346,7 @@ flags:
   - --quotes
   value_name: '[c[c]]'
   value_kind: Optional
-  optional_join: separate
+  optional_join: equals-then-bracket
   description: Set shell quote characters.
   provenance:
     sources:
