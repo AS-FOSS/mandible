@@ -31,7 +31,7 @@ Options are ──────────────────────�
     --symbols            An alias for --syms
     --dyn-syms           Display the dynamic symbol table
     --lto-syms           Display LTO symbol tables
-    --sym-base {…}       Force base for symbol sizes. The options are mixed
+    --sym-base={…}       Force base for symbol sizes. The options are mixed
                          (the default), octal, decimal, hexadecimal.
                            values: 0, 8, 10, 16
 -C, --demangle[=STYLE]   Decode mangled/processed symbol names STYLE can be
@@ -58,11 +58,11 @@ Options are ──────────────────────�
                          symbols
 -L, --lint               Display warning messages for possible problems
  or --enable-checks
--x, --hex-dump <number|name> Dump the contents of section <number|name> as
+-x, --hex-dump=<number|name> Dump the contents of section <number|name> as
                          bytes
--p, --string-dump <number|name> Dump the contents of section <number|name>
+-p, --string-dump=<number|name> Dump the contents of section <number|name>
                          as strings
--R, --relocated-dump <number|name> Dump the relocated contents of section
+-R, --relocated-dump=<number|name> Dump the relocated contents of section
                          <number|name>
 -z, --decompress         Decompress section before dumping it
 -w, --debug-dump         f/=frames, F/=frames-interp, g/=gdb_index, i/=info,
@@ -76,13 +76,13 @@ Options are ──────────────────────�
                          separate debuginfo files. (Implies -wK)
     -wK                  Follow links to separate debug info files (default)
     -wN                  Do not follow links to separate debug info files
-    --dwarf-depth N      Do not display DIEs at depth N or greater
-    --dwarf-start N      Display DIEs starting at offset N
-    --ctf <number|name>  Display CTF info from section <number|name>
-    --ctf-parent <name>  Use CTF archive member <name> as the CTF parent
-    --ctf-symbols <number|name> Use section <number|name> as the CTF
+    --dwarf-depth=N      Do not display DIEs at depth N or greater
+    --dwarf-start=N      Display DIEs starting at offset N
+    --ctf=<number|name>  Display CTF info from section <number|name>
+    --ctf-parent=<name>  Use CTF archive member <name> as the CTF parent
+    --ctf-symbols=<number|name> Use section <number|name> as the CTF
                          external symtab
-    --ctf-strings <number|name> Use section <number|name> as the CTF
+    --ctf-strings=<number|name> Use section <number|name> as the CTF
                          external strtab
     --sframe[=NAME]      Display SFrame info from section NAME, (default
                          '.sframe')

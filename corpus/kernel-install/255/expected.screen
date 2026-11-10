@@ -18,19 +18,19 @@ FLAGS (13) ───────────────────────
 -h, --help                 Show this help
     --version              Show package version
 -v, --verbose              Increase verbosity
-    --esp-path PATH        Path to the EFI System Partition (ESP)
-    --boot-path PATH       Path to the $BOOT partition
-    --make-entry-directory {…} Create $BOOT/ENTRY-TOKEN/ directory
+    --esp-path=PATH        Path to the EFI System Partition (ESP)
+    --boot-path=PATH       Path to the $BOOT partition
+    --make-entry-directory={…} Create $BOOT/ENTRY-TOKEN/ directory
                              values: yes, no, auto
-    --entry-token machine-id|os-id|os-image-id|auto|literal:… Entry token to
+    --entry-token=machine-id|os-id|os-image-id|auto|literal:… Entry token to
                            use for this installation
     --no-pager             Do not pipe inspect output into a pager
-    --json {…}             Generate JSON output
+    --json={…}             Generate JSON output
                              values: pretty, short, off
     --no-legend            Do not show the headers and footers
-    --root PATH            Operate on an alternate filesystem root
-    --image PATH           Operate on disk image as filesystem root
-    --image-policy POLICY  Specify disk image dissection policy
+    --root=PATH            Operate on an alternate filesystem root
+    --image=PATH           Operate on disk image as filesystem root
+    --image-policy=POLICY  Specify disk image dissection policy
                              values: installkernel
 
 === kernel-install add ===

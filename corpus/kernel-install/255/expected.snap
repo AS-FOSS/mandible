@@ -32,6 +32,7 @@ flags:
   - --esp-path
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Path to the EFI System Partition (ESP)
   provenance:
     sources:
@@ -40,6 +41,7 @@ flags:
   - --boot-path
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Path to the $BOOT partition
   provenance:
     sources:
@@ -47,6 +49,7 @@ flags:
 - spellings:
   - --make-entry-directory
   value_kind: Required
+  optional_join: equals
   choices:
   - yes
   - no
@@ -59,6 +62,7 @@ flags:
   - --entry-token
   value_name: machine-id|os-id|os-image-id|auto|literal:…
   value_kind: Required
+  optional_join: equals
   description: Entry token to use for this installation
   provenance:
     sources:
@@ -72,6 +76,7 @@ flags:
 - spellings:
   - --json
   value_kind: Required
+  optional_join: equals
   choices:
   - pretty
   - short
@@ -90,6 +95,7 @@ flags:
   - --root
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Operate on an alternate filesystem root
   provenance:
     sources:
@@ -98,6 +104,7 @@ flags:
   - --image
   value_name: PATH
   value_kind: Required
+  optional_join: equals
   description: Operate on disk image as filesystem root
   provenance:
     sources:
@@ -106,6 +113,7 @@ flags:
   - --image-policy
   value_name: POLICY
   value_kind: Required
+  optional_join: equals
   choices:
   - installkernel
   description: Specify disk image dissection policy

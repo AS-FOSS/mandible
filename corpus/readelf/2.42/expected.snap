@@ -114,6 +114,7 @@ flags:
 - spellings:
   - --sym-base
   value_kind: Required
+  optional_join: equals
   choices:
   - '0'
   - '8'
@@ -256,6 +257,7 @@ flags:
   - --hex-dump
   value_name: <number|name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Dump the contents of section <number|name> as bytes
   provenance:
@@ -266,6 +268,7 @@ flags:
   - --string-dump
   value_name: <number|name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Dump the contents of section <number|name> as strings
   provenance:
@@ -276,6 +279,7 @@ flags:
   - --relocated-dump
   value_name: <number|name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Dump the relocated contents of section <number|name>
   provenance:
@@ -330,6 +334,7 @@ flags:
   - --dwarf-depth
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Do not display DIEs at depth N or greater
   provenance:
@@ -339,6 +344,7 @@ flags:
   - --dwarf-start
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Display DIEs starting at offset N
   provenance:
@@ -348,6 +354,7 @@ flags:
   - --ctf
   value_name: <number|name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Display CTF info from section <number|name>
   provenance:
@@ -357,6 +364,7 @@ flags:
   - --ctf-parent
   value_name: <name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Use CTF archive member <name> as the CTF parent
   provenance:
@@ -366,6 +374,7 @@ flags:
   - --ctf-symbols
   value_name: <number|name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Use section <number|name> as the CTF external symtab
   provenance:
@@ -375,6 +384,7 @@ flags:
   - --ctf-strings
   value_name: <number|name>
   value_kind: Required
+  optional_join: equals
   group: 'Options are:'
   description: Use section <number|name> as the CTF external strtab
   provenance:
