@@ -406,8 +406,9 @@ pub struct Entity {
     pub value_kind: ValueKind,
     /// How an optional value joins its flag, as the flag's own row writes
     /// it: `Equals` (`--color[=WHEN]`, also written `--color=[WHEN]`),
-    /// `Glued` (`-O[N]`) or `Separate` (argparse's `--foo [FOO]`).
-    /// `None` when there is no optional value or the source does not say.
+    /// `Glued` (`-O[N]`) or `Separate` (argparse's `--foo [FOO]`). A
+    /// required value records `Glued` (`-Z<type>`) or `Equals`
+    /// (`--suffix=SUFFIX`). `None` when the source does not say.
     pub optional_join: Option<OptionalJoin>,
     /// The two ends of a range row, `-0 ... -9`. Private: set through
     /// `set_range`, which refuses a start that is not one of `spellings`.
@@ -2004,8 +2005,8 @@ pane's flag list.
 1. The detail pane's flag list is a two-column table: spelling,
    description. A value placeholder belongs to the spelling it follows,
    measured with it, never given its own aligned column. A required value
-   sits one space behind (`--env list`); an optional one joins as §9.3
-   rule 6 says.
+   sits one space behind (`--env list`), or after the `=` its row writes
+   (`--suffix=SUFFIX`); an optional one joins as §9.3 rule 6 says.
 2. The description column is one number for the whole list, not a target
    some rows are allowed to miss.
 3. A row too wide for the column starts its own first description line one
@@ -2204,7 +2205,9 @@ sections.
    (`-v -v -v`), never by an ellipsis on its spelling.
 6. The value placeholder is part of the spelling and measured with it
    (§9.1a), never its own aligned column. A required value sits one space
-   behind the spelling and has no brackets (`--max-count NUM`). An optional
+   behind the spelling and has no brackets (`--max-count NUM`), unless the
+   tool writes it after an `=` (`--suffix=SUFFIX`), which is drawn as
+   written. An optional
    value draws its brackets around exactly what may be left out, joiner
    included: `--color[=WHEN]`, `-O[N]`, `--foo [FOO]`. In mandible's own
    notation, square brackets always mean may be left out; text quoted from
@@ -3800,6 +3803,12 @@ spelling is drawn last of the row's spellings, the value on it
 word may be the rest of the flag's name. `--color=[WHEN]` records
 `EqualsThenBracket` and draws as written, where `--color[=WHEN]` stays `Equals`.
 A required value after `=` or a space is unchanged.
+
+**A required value draws with the joiner its row writes (2026-11-10).** The
+maintainer ruled that a required value written after `=` draws after `=`:
+`Entity::optional_join` is `Equals` for it, and §9.3 rule 6 draws
+`--suffix=SUFFIX`. This supersedes the last sentence of the ruling above. A
+value written after a space is unchanged.
 
 **A mixed bracket-and-angle glued value spec ships below the five-tool bar
 (2026-09-12).** `glued-bracket-angle-run` (docs/shapes.md S-158) has a

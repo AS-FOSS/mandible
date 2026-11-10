@@ -43,6 +43,7 @@ flags:
   - --errors
   value_name: style
   value_kind: Required
+  optional_join: equals
   description: '[2.5.0] Set the error handling style. "die" says to throw an exception on any POD formatting error. "stderr" says to report errors on standard error, but not to throw an exception. "pod" says to include a POD ERRORS section in the resulting documentation summarizing the errors. "none" ignores POD errors entirely, as much as possible. The default is "die".'
   provenance:
     sources:
@@ -51,6 +52,7 @@ flags:
   - --fixed
   value_name: font
   value_kind: Required
+  optional_join: equals
   description: '[1.0] The fixed-width font to use for verbatim text and code. Defaults to "CW". Some systems may want "CR" instead. Only matters for troff output.'
   provenance:
     sources:
@@ -59,6 +61,7 @@ flags:
   - --fixedbold
   value_name: font
   value_kind: Required
+  optional_join: equals
   description: '[1.0] Bold version of the fixed-width font. Defaults to "CB". Only matters for troff output.'
   provenance:
     sources:
@@ -67,6 +70,7 @@ flags:
   - --fixeditalic
   value_name: font
   value_kind: Required
+  optional_join: equals
   description: '[1.0] Italic version of the fixed-width font (something of a misnomer, since most fixed-width fonts only have an oblique version, not an italic version). Defaults to "CI". Only matters for troff output.'
   provenance:
     sources:
@@ -75,6 +79,7 @@ flags:
   - --fixedbolditalic
   value_name: font
   value_kind: Required
+  optional_join: equals
   description: '[1.0] Bold italic (in theory, probably oblique in practice) version of the fixed-width font. Pod::Man doesn''t assume you have this, and defaults to "CB". Some systems (such as Solaris) have this font available as "CX". Only matters for troff output.'
   provenance:
     sources:
@@ -83,6 +88,7 @@ flags:
   - --guesswork
   value_name: rule[,rule...]
   value_kind: Required
+  optional_join: equals
   description: '[5.00] By default, pod2man applies some default formatting rules based on guesswork and regular expressions that are intended to make writing Perl documentation easier and require less explicit markup. These rules may not always be appropriate, particularly for documentation that isn''t about Perl. This option allows turning all or some of it off. The special rule "all" enables all guesswork. This is also the default for backward compatibility reasons. The special rule "none" disables all guesswork. Otherwise, the value of this option should be a comma-separated list of one or more of the following keywords: functions Convert function references like foo() to bold even if they have no markup. The function name accepts valid Perl characters for function names (including ":"), and the trailing parentheses must be present and empty. manref Make the first part (before the parentheses) of man page references like foo(1) bold even if they have no markup. The section must be a single number optionally followed by lowercase letters. quoting If no guesswork is enabled, any text enclosed in C<> is surrounded by double quotes in nroff (terminal) output unless the contents are already quoted. When this guesswork is enabled, quote marks will also be suppressed for Perl variables, function names, function calls, numbers, and hex constants. variables Convert Perl variable names to a fixed-width font even if they have no markup. This transformation will only be apparent in troff output, or some other output format (unlike nroff terminal output) that supports fixed-width fonts. Any unknown guesswork name is silently ignored (for potential future compatibility), so be careful about spelling.'
   provenance:
     sources:
@@ -105,6 +111,7 @@ flags:
   - --language
   value_name: language
   value_kind: Required
+  optional_join: equals
   description: '[5.00] Add commands telling groff that the input file is in the given language. The value of this setting must be a language abbreviation for which groff provides supplemental configuration, such as "ja" (for Japanese) or "zh" (for Chinese). This adds: .mso <language>.tmac .hla <language> to the start of the file, which configure correct line breaking for the specified language. Without these commands, groff may not know how to add proper line breaks for Chinese and Japanese text if the man page is installed into the normal man page directory, such as /usr/share/man. On many systems, this will be done automatically if the man page is installed into a language-specific man page directory, such as /usr/share/man/zh_CN. In that case, this option is not required. Unfortunately, the commands added with this option are specific to groff and will not work with other troff and nroff implementations.'
   provenance:
     sources:
@@ -113,6 +120,7 @@ flags:
   - --lquote
   value_name: quote
   value_kind: Required
+  optional_join: equals
   provenance:
     sources:
     - help-text
@@ -120,6 +128,7 @@ flags:
   - --rquote
   value_name: quote
   value_kind: Required
+  optional_join: equals
   description: '[4.08] Sets the quote marks used to surround C<> text. --lquote sets the left quote mark and --rquote sets the right quote mark. Either may also be set to the special value "none", in which case no quote mark is added on that side of C<> text (but the font is still changed for troff output). Also see the --quotes option, which can be used to set both quotes at once. If both --quotes and one of the other options is set, --lquote or --rquote overrides --quotes.'
   provenance:
     sources:

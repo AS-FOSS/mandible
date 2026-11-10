@@ -14,6 +14,7 @@ flags:
   - --aarch64-neon-syntax
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: generic
     description: Emit generic NEON assembly
@@ -49,6 +50,7 @@ flags:
   - --amdgpu-atomic-optimizer-strategy
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: DPP
     description: Use DPP operations for scan
@@ -107,6 +109,7 @@ flags:
   - --amdgpu-kernarg-preload-count
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: How many kernel arguments to preload onto SGPRs
   provenance:
@@ -116,6 +119,7 @@ flags:
   - --amdgpu-promote-alloca-to-vector-limit
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum byte size to consider promote alloca to vector
   provenance:
@@ -159,6 +163,7 @@ flags:
   - --arm-implicit-it
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: always
     description: Accept in both ISAs, emit implicit ITs in Thumb
@@ -212,6 +217,7 @@ flags:
   - --bpf-stack-size
   value_name: <int>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Specify the BPF stack size limit
   provenance:
@@ -221,6 +227,7 @@ flags:
   - --cfg-hide-cold-paths
   value_name: <number>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Hide blocks with relative frequency below the given value
   provenance:
@@ -242,6 +249,7 @@ flags:
   - --cost-kind
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: throughput
     description: Reciprocal throughput
@@ -267,6 +275,7 @@ flags:
   - --cs-profile-path
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Context sensitive profile file path
   provenance:
@@ -283,6 +292,7 @@ flags:
   - --debugify-func-limit
   value_name: <ulong>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Set max number of processed functions per pass.
   provenance:
@@ -292,6 +302,7 @@ flags:
   - --debugify-level
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: locations
     description: Locations only
@@ -348,6 +359,7 @@ flags:
   - --dot-cfg-mssa
   value_name: <file name for generated dot file>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: file name for generated dot file
   provenance:
@@ -357,6 +369,7 @@ flags:
   - --dwarf-version
   value_name: <int>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Dwarf version
   provenance:
@@ -380,6 +393,7 @@ flags:
   - --emit-dwarf-unwind
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: always
     description: Always emit EH frame entries
@@ -396,6 +410,7 @@ flags:
   - --emscripten-cxx-exceptions-allowed
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: The list of function names in which Emscripten-style exception handling is enabled (see emscripten EMSCRIPTEN_CATCHING_ALLOWED options)
   provenance:
@@ -512,6 +527,7 @@ flags:
   - --force-tail-folding-style
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: none
     description: Disable tail folding
@@ -532,6 +548,7 @@ flags:
   - --fs-profile-debug-bw-threshold
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Only show debug message if the source branch weight is greater than this value.
   provenance:
@@ -541,6 +558,7 @@ flags:
   - --fs-profile-debug-prob-diff-threshold
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Only show debug message if the branch probility is greater than this value (in percentage).
   provenance:
@@ -557,6 +575,7 @@ flags:
   - --gpsize
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Global Pointer Addressing Size. The default size is 8.
   provenance:
@@ -573,6 +592,7 @@ flags:
   - --hexagon-rdf-limit
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   provenance:
     sources:
@@ -609,6 +629,7 @@ flags:
   - --instcombine-guard-widening-window
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: How wide an instruction window to bypass looking for another guard
   provenance:
@@ -618,6 +639,7 @@ flags:
   - --instcombine-max-num-phis
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum number phis to handle in intptr/ptrint folding
   provenance:
@@ -627,6 +649,7 @@ flags:
   - --instcombine-max-sink-users
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum number of undroppable users for instruction sinking
   provenance:
@@ -636,6 +659,7 @@ flags:
   - --instcombine-maxarray-size
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum array size considered when doing a combine
   provenance:
@@ -652,6 +676,7 @@ flags:
   - --instcombine-negator-max-depth
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: What is the maximal lookup depth when trying to check for viability of negation sinking.
   provenance:
@@ -668,6 +693,7 @@ flags:
   - --internalize-public-api-file
   value_name: <filename>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: A file containing list of symbol names to preserve
   provenance:
@@ -677,6 +703,7 @@ flags:
   - --internalize-public-api-list
   value_name: <list>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: A list of symbol names to preserve
   provenance:
@@ -693,6 +720,7 @@ flags:
   - --lto-aix-system-assembler
   value_name: <path>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Path to a system assembler, picked up on AIX only
   provenance:
@@ -702,6 +730,7 @@ flags:
   - --lto-embed-bitcode
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: none
     description: Do not embed
@@ -718,6 +747,7 @@ flags:
   - --lto-pass-remarks-filter
   value_name: <regex>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Only record optimization remarks from passes whose names match the given regular expression
   provenance:
@@ -727,6 +757,7 @@ flags:
   - --lto-pass-remarks-format
   value_name: <format>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: 'The format used for serializing remarks (default: YAML)'
   provenance:
@@ -736,6 +767,7 @@ flags:
   - --lto-pass-remarks-output
   value_name: <filename>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Output filename for pass remarks
   provenance:
@@ -745,6 +777,7 @@ flags:
   - --matrix-default-layout
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: column-major
     description: Use column-major layout
@@ -765,6 +798,7 @@ flags:
   - --max-counter-promotions
   value_name: <int>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Max number of allowed counter promotions
   provenance:
@@ -774,6 +808,7 @@ flags:
   - --max-counter-promotions-per-loop
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Max number counter promotions per loop to avoid increasing register pressure too much
   provenance:
@@ -818,6 +853,7 @@ flags:
   - --mhvx
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: v60
     description: Build for HVX v60
@@ -846,6 +882,7 @@ flags:
   - --mips-compact-branches
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: never
     description: Do not use compact branches if possible.
@@ -883,6 +920,7 @@ flags:
   - --misexpect-tolerance
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Prevents emiting diagnostics when profile counts are within N% of the threshold..
   provenance:
@@ -976,6 +1014,7 @@ flags:
   - --object-size-offset-visitor-max-visit-instructions
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum number of instructions for ObjectSizeOffsetVisitor to look at
   provenance:
@@ -1020,6 +1059,7 @@ flags:
   - --profile-correlate
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: <empty>
     description: No profile correlation
@@ -1069,6 +1109,7 @@ flags:
   - --sample-profile-check-record-coverage
   value_name: <N>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Emit a warning if less than N% of records in the input profile are matched to the IR.
   provenance:
@@ -1078,6 +1119,7 @@ flags:
   - --sample-profile-check-sample-coverage
   value_name: <N>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Emit a warning if less than N% of samples in the input profile are matched to the IR.
   provenance:
@@ -1087,6 +1129,7 @@ flags:
   - --sample-profile-max-propagate-iterations
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum number of iterations to go through when propagating sample block/edge weights through the CFG.
   provenance:
@@ -1103,6 +1146,7 @@ flags:
   - --speculative-counter-promotion-max-exiting
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: The max number of exiting blocks of a loop to allow speculative counter promotion
   provenance:
@@ -1119,6 +1163,7 @@ flags:
   - --summary-file
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: The summary file to use for function importing.
   provenance:
@@ -1128,6 +1173,7 @@ flags:
   - --sve-tail-folding
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: disabled
     description: (Initial) No loop types will vectorize using tail-folding
@@ -1156,6 +1202,7 @@ flags:
   - --tail-predication
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: disabled
     description: Don't tail-predicate loops
@@ -1183,6 +1230,7 @@ flags:
   - --threads
   value_name: <int>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   provenance:
     sources:
@@ -1205,6 +1253,7 @@ flags:
   - --vp-counters-per-site
   value_name: <number>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: The average number of profile counters allocated per value profiling site.
   provenance:
@@ -1235,6 +1284,7 @@ flags:
   - --x86-align-branch
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: jcc
     description: indicates conditional jumps
@@ -1255,6 +1305,7 @@ flags:
   - --x86-align-branch-boundary
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Control how the assembler should align branches with NOP. If the boundary's size is not 0, it should be a power of 2 and no less than 32. Branches will be aligned to prevent from being across or against the boundary of specified size. The default value 0 does not align branches.
   provenance:
@@ -1271,6 +1322,7 @@ flags:
   - --x86-pad-max-prefix-size
   value_name: <uint>
   value_kind: Required
+  optional_join: equals
   group: 'General options:'
   description: Maximum number of prefixes to use for padding
   provenance:
@@ -1322,6 +1374,7 @@ flags:
   - --polly-context
   value_name: <isl parameter set>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Provide additional constraints on the context parameters
   provenance:
@@ -1331,6 +1384,7 @@ flags:
   - --polly-dce-precise-steps
   value_name: <int>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: The number of precise steps between two approximating iterations. (A value of -1 schedules another approximation stage before the actual dead code elimination.
   provenance:
@@ -1340,6 +1394,7 @@ flags:
   - --polly-delicm-max-ops
   value_name: <int>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Maximum number of isl operations to invest for lifetime analysis; 0=no limit
   provenance:
@@ -1363,6 +1418,7 @@ flags:
   - --polly-dump-after-file
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Dump module after Polly transformations to the given file
   provenance:
@@ -1379,6 +1435,7 @@ flags:
   - --polly-dump-before-file
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Dump module before Polly transformations to the given file
   provenance:
@@ -1395,6 +1452,7 @@ flags:
   - --polly-ignore-func
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Ignore functions that match a regex. Multiple regexes can be comma separated. Scop detection will ignore all functions that match ANY of the regexes provided.
   provenance:
@@ -1404,6 +1462,7 @@ flags:
   - --polly-isl-arg
   value_name: <argument>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Option passed to ISL
   provenance:
@@ -1427,6 +1486,7 @@ flags:
   - --polly-only-func
   value_name: <string>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Only run on functions that match a regex. Multiple regexes can be comma separated. Scop detection will run on all functions that match ANY of the regexes provided.
   provenance:
@@ -1436,6 +1496,7 @@ flags:
   - --polly-only-region
   value_name: <identifier>
   value_kind: Required
+  optional_join: equals
   group: Configure the polly loop optimizer
   description: Only run on certain regions (The provided identifier must appear in the name of the region's entry block
   provenance:
@@ -1543,6 +1604,7 @@ flags:
   - --polly-stmt-granularity
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: bb
     description: One statement per basic block
@@ -1573,6 +1635,7 @@ flags:
   - --polly-vectorizer
   value_name: <value>
   value_kind: Required
+  optional_join: equals
   choices:
   - name: none
     description: No Vectorization

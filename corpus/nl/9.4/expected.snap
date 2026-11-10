@@ -17,6 +17,7 @@ flags:
   - --body-numbering
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   choices:
   - name: a
     description: number all lines
@@ -35,6 +36,7 @@ flags:
   - --section-delimiter
   value_name: CC
   value_kind: Required
+  optional_join: equals
   description: use CC for logical page delimiters
   provenance:
     sources:
@@ -44,6 +46,7 @@ flags:
   - --footer-numbering
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   choices:
   - name: a
     description: number all lines
@@ -62,6 +65,7 @@ flags:
   - --header-numbering
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   choices:
   - name: a
     description: number all lines
@@ -80,6 +84,7 @@ flags:
   - --line-increment
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   description: line number increment at each line
   provenance:
     sources:
@@ -89,6 +94,7 @@ flags:
   - --join-blank-lines
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   description: group of NUMBER empty lines counted as one
   provenance:
     sources:
@@ -98,6 +104,7 @@ flags:
   - --number-format
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   choices:
   - name: ln
     description: left justified, no leading zeros
@@ -121,6 +128,7 @@ flags:
   - --number-separator
   value_name: STRING
   value_kind: Required
+  optional_join: equals
   description: add STRING after (possible) line number
   provenance:
     sources:
@@ -130,6 +138,7 @@ flags:
   - --starting-line-number
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   description: first line number for each section
   provenance:
     sources:
@@ -139,6 +148,7 @@ flags:
   - --number-width
   value_name: NUMBER
   value_kind: Required
+  optional_join: equals
   description: use NUMBER columns for line numbers
   provenance:
     sources:

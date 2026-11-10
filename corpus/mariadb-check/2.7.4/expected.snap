@@ -36,6 +36,7 @@ flags:
   - --defaults-file
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: 'Only read default options from the given file #.'
   provenance:
@@ -45,6 +46,7 @@ flags:
   - --defaults-extra-file
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Read this file after the global files are read.
   provenance:
@@ -54,6 +56,7 @@ flags:
   - --defaults-group-suffix
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: 'Additionally read default groups with # appended as a suffix.'
   provenance:
@@ -94,6 +97,7 @@ flags:
   - --character-sets-dir
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Directory for character set files.
   provenance:
@@ -167,6 +171,7 @@ flags:
   - --default-character-set
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Set the default character set.
   provenance:
@@ -176,6 +181,7 @@ flags:
   - --default-auth
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Default authentication client-side plugin to use.
   provenance:
@@ -239,6 +245,7 @@ flags:
   - --host
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Connect to host.
   provenance:
@@ -290,6 +297,7 @@ flags:
   - --plugin-dir
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Directory for client-side plugins.
   provenance:
@@ -300,6 +308,7 @@ flags:
   - --port
   value_name: '#'
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Port number to use for connection or 0 for default to, in order of preference, my.cnf, $MYSQL_TCP_PORT, /etc/services, built-in default (3306).
   provenance:
@@ -309,6 +318,7 @@ flags:
   - --protocol
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: The protocol to use for connection (tcp, socket, pipe).
   provenance:
@@ -342,6 +352,7 @@ flags:
   - --skip-database
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Don't process the database specified as argument
   provenance:
@@ -352,6 +363,7 @@ flags:
   - --socket
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: The socket file to use for connection.
   provenance:
@@ -368,6 +380,7 @@ flags:
   - --ssl-ca
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: CA file in PEM format (check OpenSSL docs, implies --ssl).
   provenance:
@@ -377,6 +390,7 @@ flags:
   - --ssl-capath
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: CA directory (check OpenSSL docs, implies --ssl).
   provenance:
@@ -386,6 +400,7 @@ flags:
   - --ssl-cert
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: X509 cert in PEM format (implies --ssl).
   provenance:
@@ -395,6 +410,7 @@ flags:
   - --ssl-cipher
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: SSL cipher to use (implies --ssl).
   provenance:
@@ -404,6 +420,7 @@ flags:
   - --ssl-key
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: X509 key in PEM format (implies --ssl).
   provenance:
@@ -413,6 +430,7 @@ flags:
   - --ssl-crl
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Certificate revocation list (implies --ssl).
   provenance:
@@ -422,6 +440,7 @@ flags:
   - --ssl-crlpath
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: Certificate revocation list path (implies --ssl).
   provenance:
@@ -431,6 +450,7 @@ flags:
   - --tls-version
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: TLS protocol version for secure connection.
   provenance:
@@ -462,6 +482,7 @@ flags:
   - --user
   value_name: name
   value_kind: Required
+  optional_join: equals
   group: 'The following specify which files/extra groups are read (specified before remaining options):'
   description: User for login if not current user.
   provenance:

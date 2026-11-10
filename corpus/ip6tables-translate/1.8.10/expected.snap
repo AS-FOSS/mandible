@@ -292,6 +292,7 @@ flags:
   - --modprobe
   value_name: <command>
   value_kind: Required
+  optional_join: equals
   description: try to insert modules using this command
   provenance:
     sources:

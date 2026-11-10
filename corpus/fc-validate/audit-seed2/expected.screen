@@ -14,7 +14,7 @@ POSITIONALS (1) ─────────────────────�
 
 FLAGS (5) ──────────────────────────────────────────────────────────────────
 -i, --index INDEX  display the INDEX face of each font file only
--l, --lang LANG    set LANG instead of current locale
+-l, --lang=LANG    set LANG instead of current locale
 -v, --verbose      show more detailed information
 -V, --version      display font config version and exit
 -h, --help         display this help and exit

@@ -36,14 +36,14 @@ FLAGS (61) ───────────────────────
     --defsym SYM=VAL      define symbol SYM to given value
     --execstack           require executable stack for this object
     --noexecstack         don't require executable stack for this object
-    --size-check {…}      ELF .size directive check (default
+    --size-check={…}      ELF .size directive check (default
                           --size-check=error)
                             values: error, warning
-    --elf-stt-common {…}  no) generate ELF common symbols with STT_COMMON
+    --elf-stt-common={…}  no) generate ELF common symbols with STT_COMMON
                           type
                             values: no, yes
     --sectname-subst      enable section name substitution sequences
-    --generate-missing-build-notes {…} no) generate GNU Build notes if none
+    --generate-missing-build-notes={…} no) generate GNU Build notes if none
                           are present in the input
                             values: no, yes
     --gsframe             generate SFrame stack trace information
@@ -53,10 +53,10 @@ FLAGS (61) ───────────────────────
     --gstabs +            generate STABS debug info with GNU extensions
     --gdwarf-<N>          generate DWARF<N> debugging information. 2 <= <N>
                           <= 5
-    --gdwarf-cie-version <N> generate version 1, 3 or 4 DWARF CIEs
+    --gdwarf-cie-version=<N> generate version 1, 3 or 4 DWARF CIEs
     --gdwarf-sections     generate per-function section names for DWARF line
                           information
-    --hash-size <N>       ignored
+    --hash-size=<N>       ignored
     --help                show all assembler options
     --target-help         show target specific options
 -I DIR                    add DIR to search list for .include directives
@@ -67,7 +67,7 @@ FLAGS (61) ───────────────────────
 -M, --mri                 assemble in MRI compatibility mode
     --MD FILE             write dependency information in FILE (default
                           none)
-    --multibyte-handling <method> what to do with multibyte characters
+    --multibyte-handling=<method> what to do with multibyte characters
                           encountered in the input
     -nocpp                ignored
     -no-pad-sections      do not pad the end of sections to alignment

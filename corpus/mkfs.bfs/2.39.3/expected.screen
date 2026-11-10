@@ -13,9 +13,9 @@ POSITIONALS (2) ─────────────────────�
 
 
 FLAGS (9) ──────────────────────────────────────────────────────────────────
--N, --inodes NUM     specify desired number of inodes
--V, --vname NAME     specify volume name
--F, --fname NAME     specify file system name
+-N, --inodes=NUM     specify desired number of inodes
+-V, --vname=NAME     specify volume name
+-F, --fname=NAME     specify file system name
 -v, --verbose        explain what is being done
 -c                   this option is silently ignored
 -l                   this option is silently ignored

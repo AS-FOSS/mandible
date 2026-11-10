@@ -23,7 +23,7 @@ FLAGS (9) ───────────────────────�
 -v, --verbose           output a diagnostic for every file processed
     --no-preserve-root  do not treat '/' specially (the default)
     --preserve-root     fail to operate recursively on '/'
-    --reference RFILE   use RFILE's mode instead of specifying MODE values.
+    --reference=RFILE   use RFILE's mode instead of specifying MODE values.
                         RFILE is always dereferenced if a symbolic link.
 -R, --recursive         change files and directories recursively
     --help              display this help and exit

@@ -13,7 +13,7 @@ FLAGS (13) ───────────────────────
     -fini SYMBOL       Call SYMBOL at unload-time
     -init SYMBOL       Call SYMBOL at load-time
     -Map FILE/DIR      Write a linker map to FILE or DIR/<outputname>.map
-    --compress-debug-sections {…} values: none, zlib, zlib-gnu, zlib-gabi,
+    --compress-debug-sections={…} values: none, zlib, zlib-gnu, zlib-gabi,
                        zstd
 -z common-page-size=SIZE Set common page size to SIZE
 -z max-page-size=SIZE  Set maximum page size to SIZE

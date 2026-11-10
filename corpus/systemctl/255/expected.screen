@@ -16,13 +16,13 @@ FLAGS (56) ───────────────────────
     --version            Show package version
     --system             Connect to system manager
     --user               Connect to user service manager
--H, --host [USER@]HOST   Operate on remote host
--M, --machine CONTAINER  Operate on a local container
--t, --type TYPE          List units of a particular type
-    --state STATE        List units with particular LOAD or SUB or ACTIVE
+-H, --host=[USER@]HOST   Operate on remote host
+-M, --machine=CONTAINER  Operate on a local container
+-t, --type=TYPE          List units of a particular type
+    --state=STATE        List units with particular LOAD or SUB or ACTIVE
                          state
     --failed             Shortcut for --state=failed
--p, --property NAME      Show only properties by this name
+-p, --property=NAME      Show only properties by this name
 -P NAME                  Equivalent to --value --property=NAME
 -a, --all                Show all properties/all units currently in memory,
                          including dead/empty ones. To list all units
@@ -33,18 +33,18 @@ FLAGS (56) ───────────────────────
     --reverse            Show reverse dependencies with 'list-dependencies'
     --with-dependencies  Show unit dependencies with 'status', 'cat',
                          'list-units', and 'list-unit-files'.
-    --job-mode MODE      Specify how to deal with already queued jobs, when
+    --job-mode=MODE      Specify how to deal with already queued jobs, when
                          queueing a new job
 -T, --show-transaction   When enqueuing a unit job, show full transaction
     --show-types         When showing sockets, explicitly show their type
     --value              When showing properties, only print the value
-    --check-inhibitors MODE Whether to check inhibitors before shutting
+    --check-inhibitors=MODE Whether to check inhibitors before shutting
                          down, sleeping, or hibernating
 -i                       Shortcut for --check-inhibitors=no
-    --kill-whom WHOM     Whom to send signal to
-    --kill-value INT     Signal value to enqueue
--s, --signal SIGNAL      Which signal to send
-    --what RESOURCES     Which types of resources to remove
+    --kill-whom=WHOM     Whom to send signal to
+    --kill-value=INT     Signal value to enqueue
+-s, --signal=SIGNAL      Which signal to send
+    --what=RESOURCES     Which types of resources to remove
     --now                Start or stop unit after enabling or disabling it
     --dry-run            Only print what would be done Currently supported
                          by verbs: halt, poweroff, reboot, kexec,
@@ -59,7 +59,7 @@ FLAGS (56) ───────────────────────
     --no-wall            Don't send wall message before
                          halt/power-off/reboot
     --no-reload          Don't reload daemon after en-/dis-abling unit files
-    --legend BOOL        Enable/disable the legend (column headers and
+    --legend=BOOL        Enable/disable the legend (column headers and
                          hints)
     --no-pager           Do not pipe output into a pager
     --no-ask-password    Do not ask for system passwords
@@ -70,31 +70,31 @@ FLAGS (56) ───────────────────────
 -f, --force              When enabling unit files, override existing
                          symlinks When shutting down, execute action
                          immediately
-    --preset-mode        Apply only enable, only disable, or all presets
-    --root PATH          Edit/enable/disable/mask unit files in the
+    --preset-mode=       Apply only enable, only disable, or all presets
+    --root=PATH          Edit/enable/disable/mask unit files in the
                          specified root directory
-    --image PATH         Edit/enable/disable/mask unit files in the
+    --image=PATH         Edit/enable/disable/mask unit files in the
                          specified disk image
-    --image-policy POLICY Specify disk image dissection policy
--n, --lines INTEGER      Number of journal entries to show
--o, --output STRING      Change journal output mode (short, short-precise,
+    --image-policy=POLICY Specify disk image dissection policy
+-n, --lines=INTEGER      Number of journal entries to show
+-o, --output=STRING      Change journal output mode (short, short-precise,
                          short-iso, short-iso-precise, short-full,
                          short-monotonic, short-unix, short-delta, verbose,
                          export, json, json-pretty, json-sse, cat)
     --firmware-setup     Tell the firmware to show the setup menu on next
                          boot
-    --boot-loader-menu TIME Boot into boot loader menu on next boot
-    --boot-loader-entry NAME Boot into a specific boot loader entry on next
+    --boot-loader-menu=TIME Boot into boot loader menu on next boot
+    --boot-loader-entry=NAME Boot into a specific boot loader entry on next
                          boot
     --plain              Print unit dependencies as a list instead of a tree
-    --timestamp FORMAT   Change format of printed timestamps (pretty, unix,
+    --timestamp=FORMAT   Change format of printed timestamps (pretty, unix,
                          us, utc, us+utc)
     --read-only          Create read-only bind mount
     --mkdir              Create directory before mounting, if missing
     --marked             Restart/reload previously marked units
-    --drop-in NAME       Edit unit files using the specified drop-in file
+    --drop-in=NAME       Edit unit files using the specified drop-in file
                          name
-    --when TIME          Schedule halt/power-off/reboot/kexec action after a
+    --when=TIME          Schedule halt/power-off/reboot/kexec action after a
                          certain timestamp
 
 === systemctl list-units ===

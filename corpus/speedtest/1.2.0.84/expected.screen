@@ -14,19 +14,19 @@ FLAGS (20) ───────────────────────
 -h, --help               Print usage information
 -V, --version            Print version number
 -L, --servers            List nearest servers
--s, --server-id #        Specify a server from the server list using its id
--I, --interface ARG      Attempt to bind to the specified interface when
+-s, --server-id=#        Specify a server from the server list using its id
+-I, --interface=ARG      Attempt to bind to the specified interface when
                          connecting to servers
--i, --ip ARG             Attempt to bind to the specified IP address when
+-i, --ip=ARG             Attempt to bind to the specified IP address when
                          connecting to servers
--o, --host ARG           Specify a server, from the server list, using its
+-o, --host=ARG           Specify a server, from the server list, using its
                          host's fully qualified domain name
--p, --progress {…}       Enable or disable progress bar (Note: only
+-p, --progress={…}       Enable or disable progress bar (Note: only
                          available for 'human-readable' or 'json' and
                          defaults to yes when interactive)
                            values: yes, no
--P, --precision #        Number of decimals to use (0-8, default=2)
--f, --format ARG         Output format (see below for valid formats) Machine
+-P, --precision=#        Number of decimals to use (0-8, default=2)
+-f, --format=ARG         Output format (see below for valid formats) Machine
                          readable formats (csv, tsv, json, jsonl,
                          json-pretty) use bytes as the unit of measure with
                          max precision
@@ -37,7 +37,7 @@ FLAGS (20) ───────────────────────
                              json
                              jsonl
                              json-pretty
-    --progress-update-interval # Progress update interval (100-1000
+    --progress-update-interval=# Progress update interval (100-1000
                          milliseconds)
 -u, --unit[=ARG]         Output unit for displaying speeds (Note: this is
                          only applicable for ‘human-readable’ output format
@@ -80,7 +80,7 @@ FLAGS (20) ───────────────────────
 -b                       Shortcut for [-u auto-binary-bits]
 -B                       Shortcut for [-u auto-binary-bytes]
     --selection-details  Show server selection details
-    --ca-certificate ARG CA Certificate bundle path
+    --ca-certificate=ARG CA Certificate bundle path
 -v                       Logging verbosity. Specify multiple times for
                          higher verbosity
     --output-header      Show output header for CSV and TSV formats

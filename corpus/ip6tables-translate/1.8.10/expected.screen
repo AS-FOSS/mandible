@@ -57,7 +57,7 @@ FLAGS (34) ───────────────────────
                               give up
     --line-numbers            print line numbers when listing
 -x, --exact                   expand numbers (display exact values)
-    --modprobe <command>      try to insert modules using this command
+    --modprobe=<command>      try to insert modules using this command
 -c, --set-counters PKTS BYTES set the counter during insert/append
 [!] -V, --version             print package version.
 -h

@@ -25,10 +25,10 @@ FLAGS (7) ───────────────────────�
 
 Generic modifiers ──────────────────────────────────────────────────────────
 @<file>                      read options from <file>
-    --target BFDNAME         specify the target object format as BFDNAME
-    --output DIRNAME         specify the output directory for extraction
+    --target=BFDNAME         specify the target object format as BFDNAME
+    --output=DIRNAME         specify the output directory for extraction
                              operations
-    --record-libdeps <text>  specify the dependencies of this library
+    --record-libdeps=<text>  specify the dependencies of this library
     --thin                   make a thin archive
 
 Optional ───────────────────────────────────────────────────────────────────

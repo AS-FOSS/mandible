@@ -22,13 +22,13 @@ USAGE ────────────────────────�
 FLAGS (9) ──────────────────────────────────────────────────────────────────
 -h               This help text
     --md5        Control MD5 generation
--s ?             Source override file
+-s=?             Source override file
 -q               Quiet
--d ?             Select the optional caching database
+-d=?             Select the optional caching database
     --no-delink  Enable delinking debug mode
     --contents   Control contents file generation
--c ?             Read this configuration file
--o ?             Set an arbitrary configuration option
+-c=?             Read this configuration file
+-o=?             Set an arbitrary configuration option
 
 === apt-ftparchive packages ===
 

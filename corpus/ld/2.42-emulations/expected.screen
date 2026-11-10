@@ -13,7 +13,7 @@ FLAGS (90) ───────────────────────
 ELF emulations ─────────────────────────────────────────────────────────────
     --build-id[=STYLE]       Generate build ID note
     --package-metadata[=JSON] Generate package metadata note
-    --compress-debug-sections {…} Compress DWARF debug sections Default:
+    --compress-debug-sections={…} Compress DWARF debug sections Default:
                              none
                                values: none, zlib, zlib-gnu, zlib-gabi, zstd
 -z common-page-size=SIZE     Set common page size to SIZE
@@ -53,14 +53,14 @@ ELF emulations ─────────────────────�
                              INTERNAL
 -z sectionheader             Generate section header (default)
 -z nosectionheader           Do not generate section header
-    --audit AUDITLIB         Specify a library to use for auditing
+    --audit=AUDITLIB         Specify a library to use for auditing
 -B group                     Selects group name lookup rules for DSO
     --disable-new-dtags      Disable new dynamic tags
     --enable-new-dtags       Enable new dynamic tags
     --eh-frame-hdr           Create .eh_frame_hdr section
     --no-eh-frame-hdr        Do not create .eh_frame_hdr section
-    --exclude-libs LIBS      Make all symbols in LIBS hidden
-    --hash-style STYLE       Set hash style to sysv/gnu/both. Default: both
+    --exclude-libs=LIBS      Make all symbols in LIBS hidden
+    --hash-style=STYLE       Set hash style to sysv/gnu/both. Default: both
 -P, --depaudit AUDITLIB      Specify a library to use for auditing
                              dependencies
 -z combreloc                 Merge dynamic relocs into one section and sort
@@ -102,7 +102,7 @@ Aarch64linux ──────────────────────�
     --no-wchar-size-warning  Don't warn about objects with incompatible
                              wchar_t sizes
     --pic-veneer             Always generate PIC interworking veneers
-    --stub-group-size N      Maximum size of a group of input sections that
+    --stub-group-size=N      Maximum size of a group of input sections that
                              can be handled by one stub section. A negative
                              value locates all stubs after their branches
                              (with a group size of -N), while a positive
@@ -127,7 +127,7 @@ Aarch64elf ───────────────────────
     --no-wchar-size-warning  Don't warn about objects with incompatible
                              wchar_t sizes
     --pic-veneer             Always generate PIC interworking veneers
-    --stub-group-size N      Maximum size of a group of input sections that
+    --stub-group-size=N      Maximum size of a group of input sections that
                              can be handled by one stub section. A negative
                              value locates all stubs after their branches
                              (with a group size of -N), while a positive
@@ -152,7 +152,7 @@ Aarch64elf32 ──────────────────────�
     --no-wchar-size-warning  Don't warn about objects with incompatible
                              wchar_t sizes
     --pic-veneer             Always generate PIC interworking veneers
-    --stub-group-size N      Maximum size of a group of input sections that
+    --stub-group-size=N      Maximum size of a group of input sections that
                              can be handled by one stub section. A negative
                              value locates all stubs after their branches
                              (with a group size of -N), while a positive

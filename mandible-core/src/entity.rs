@@ -276,8 +276,9 @@ impl Choice {
 /// For an optional value it decides where the brackets go when the value
 /// is drawn: they enclose exactly what may be left out, joiner included
 /// (`--color[=WHEN]`, `-O[N]`, `--foo [FOO]`). For a required value only
-/// [`OptionalJoin::Glued`] is recorded, so a value written straight onto
-/// its flag draws that way (`-Z<type>`, `+<cmd>`).
+/// [`OptionalJoin::Glued`] and [`OptionalJoin::Equals`] are recorded, so a
+/// value written straight onto its flag, or after an `=`, draws that way
+/// (`-Z<type>`, `+<cmd>`, `--suffix=SUFFIX`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OptionalJoin {
     /// Joined by `=` inside the brackets: `--color[=WHEN]`.
@@ -698,6 +699,9 @@ impl Entity {
             None => return None,
         };
         match self.value_kind {
+            ValueKind::Required if self.optional_join == Some(OptionalJoin::Equals) => {
+                Some(format!("={name}"))
+            }
             ValueKind::Required => Some(name),
             // A glued run of optional bracketed groups (docs/shapes.md
             // S-097) keeps its source spelling, brackets included, so
@@ -727,7 +731,10 @@ impl Entity {
                 self.optional_join,
                 Some(OptionalJoin::Equals | OptionalJoin::EqualsThenBracket | OptionalJoin::Glued)
             ),
-            ValueKind::Required => self.optional_join == Some(OptionalJoin::Glued),
+            ValueKind::Required => matches!(
+                self.optional_join,
+                Some(OptionalJoin::Glued | OptionalJoin::Equals)
+            ),
             ValueKind::None => false,
         };
         if self.spelling_is_sigil() || self.value_glues_by_prefix() || glued {

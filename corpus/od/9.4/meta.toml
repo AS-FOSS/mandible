@@ -25,7 +25,3 @@ must_not_describe_root = ["Mandatory arguments to long options"]
 
 [contract.must_attach_choices]
 "--format" = ["a", "c", "d[SIZE]", "f[SIZE]", "o[SIZE]", "u[SIZE]", "x[SIZE]"]
-
-[xfail]
-broken = true
-reason = "[S-276] a required value written after `=` is drawn after a space: `--skip-bytes=BYTES` as `--skip-bytes BYTES`."

@@ -22,7 +22,7 @@ Operation modes
     --version        print version number, then exit
 -v, --verbose        verbosely list files processed
     --no-force       only update Makefile.in's that are out of date
--W, --warnings CATEGORY report the warnings falling in CATEGORY
+-W, --warnings=CATEGORY report the warnings falling in CATEGORY
                        values:
                          cross                  cross compilation issues
                          gnu                    GNU coding standards
@@ -59,7 +59,7 @@ Flavors ────────────────────────
 
 Library files ──────────────────────────────────────────────────────────────
 -a, --add-missing    add missing standard files to package
-    --libdir DIR     set directory storing library files
+    --libdir=DIR     set directory storing library files
     --print-libdir   print directory storing library files
 -c, --copy           with -a, copy missing files (default is symlink)
 -f, --force-missing  force update of standard files

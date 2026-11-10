@@ -33,6 +33,7 @@ flags:
   - --suffix
   value_name: SUFFIX
   value_kind: Required
+  optional_join: equals
   description: suffix to append to output file name
   provenance:
     sources:
@@ -42,6 +43,7 @@ flags:
   - --to-code
   value_name: CODE
   value_kind: Required
+  optional_join: equals
   description: encoding for output
   provenance:
     sources:

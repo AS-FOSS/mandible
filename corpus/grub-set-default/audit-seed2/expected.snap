@@ -27,6 +27,7 @@ flags:
   - --boot-directory
   value_name: DIR
   value_kind: Required
+  optional_join: equals
   description: expect GRUB images under the directory DIR/grub instead of the /boot/grub directory
   provenance:
     sources:

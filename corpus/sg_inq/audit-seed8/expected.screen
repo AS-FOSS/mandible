@@ -19,7 +19,7 @@ POSITIONALS (1) ─────────────────────�
 
 FLAGS (22) ─────────────────────────────────────────────────────────────────
 Where
-    --block {…}  0-> open(non-blocking); 1-> open(blocking)
+    --block={…}  0-> open(non-blocking); 1-> open(blocking)
                    values: 0, 1
 -B {…}           (def: depends on OS; Linux pt: 0)
                    values: 0, 1
@@ -35,16 +35,16 @@ Where
 -h, --help       print usage message then exit
 -H, --hex        output response in hex
 -i, --id         decode device identification VPD page (0x83)
--I, --inhex FN   read ASCII hex from file FN instead of DEVICE; if used with
+-I, --inhex=FN   read ASCII hex from file FN instead of DEVICE; if used with
                  --raw then read binary from FN
--l, --len LEN    requested response length (def: 0 -> fetch 36 bytes first,
+-l, --len=LEN    requested response length (def: 0 -> fetch 36 bytes first,
                  then fetch again as indicated)
 -L, --long       supply extra information on NVMe devices
--m, --maxlen LEN same as '--len='
+-m, --maxlen=LEN same as '--len='
 -O, --old        use old interface (use as first option)
 -o, --only       for std inquiry do not fetch serial number vpd page; for
                  NVMe device only do Identify controller
--p, --page PG    Vital Product Data (VPD) page number or abbreviation
+-p, --page=PG    Vital Product Data (VPD) page number or abbreviation
                  (opcode number if '--cmddt' given)
 -r, --raw        output response in binary (to stdout)
 -s, --vendor     show vendor specific fields in std inquiry

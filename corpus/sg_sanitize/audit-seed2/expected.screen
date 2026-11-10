@@ -14,7 +14,7 @@ FLAGS (21) ───────────────────────
 Where
 -A, --ause       set AUSE bit in cdb
 -B, --block      do BLOCK ERASE sanitize
--c, --count OC   OC is overwrite count field (from 1 (def) to 31)
+-c, --count=OC   OC is overwrite count field (from 1 (def) to 31)
 -C, --crypto     do CRYPTOGRAPHIC ERASE sanitize
 -d, --desc       polling request sense sets 'desc' field (def: clear 'desc'
                  field)
@@ -24,14 +24,14 @@ Where
 -F, --fail       do EXIT FAILURE MODE sanitize
 -h, --help       print out usage message
 -I, --invert     set INVERT bit in OVERWRITE parameter list
--i, --ipl LEN    initialization pattern length (in bytes)
+-i, --ipl=LEN    initialization pattern length (in bytes)
 -O, --overwrite  do OVERWRITE sanitize
--p, --pattern PF PF is file containing initialization pattern for OVERWRITE
+-p, --pattern=PF PF is file containing initialization pattern for OVERWRITE
 -Q, --quick      start sanitize without pause for user intervention (i.e. no
                  time to reconsider)
--T, --test TE    TE is placed in TEST field of OVERWRITE parameter list
+-T, --test=TE    TE is placed in TEST field of OVERWRITE parameter list
                  (def: 0)
--t, --timeout SECS SANITIZE command timeout in seconds
+-t, --timeout=SECS SANITIZE command timeout in seconds
 -v, --verbose    increase verbosity
 -V, --version    print version string then exit
 -w, --wait       wait for command to finish (could take hours)

@@ -28,7 +28,3 @@ must_not_describe_root = ["--alltargets: same as -a", "--alltargets same as -a"]
 "--alltargets" = "same as -a"
 "--hosts" = "Scan only host(s) in LIST"
 "--sync" = "Issue a sync / no sync [default: sync if remove]"
-
-[xfail]
-broken = true
-reason = "[S-276] a required value written after `=` is drawn after a space: `--hosts=LIST` as `--hosts LIST`."

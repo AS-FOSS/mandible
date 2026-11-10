@@ -36,6 +36,7 @@ flags:
   - --scheme
   value_name: SCHEME
   value_kind: Required
+  optional_join: equals
   group: Search
   description: Scoring scheme [default|path|history]
   provenance:
@@ -53,6 +54,7 @@ flags:
   - --nth
   value_name: N[,..]
   value_kind: Required
+  optional_join: equals
   group: Search
   description: Comma-separated list of field index expressions for limiting search scope. Each can be a non-zero integer or a range expression ([BEGIN]..[END]).
   provenance:
@@ -62,6 +64,7 @@ flags:
   - --with-nth
   value_name: N[,..]
   value_kind: Required
+  optional_join: equals
   group: Search
   description: Transform the presentation of each line using field index expressions
   provenance:
@@ -72,6 +75,7 @@ flags:
   - --delimiter
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Search
   description: 'Field delimiter regex (default: AWK-style)'
   provenance:
@@ -110,6 +114,7 @@ flags:
   - --tiebreak
   value_name: CRI[,..]
   value_kind: Required
+  optional_join: equals
   group: Search
   description: 'Comma-separated list of sort criteria to apply when the scores are tied [length|chunk|begin|end|index] (default: length)'
   provenance:
@@ -137,6 +142,7 @@ flags:
   - --bind
   value_name: KEYBINDS
   value_kind: Required
+  optional_join: equals
   group: Interface
   description: Custom key bindings. Refer to the man page.
   provenance:
@@ -160,6 +166,7 @@ flags:
   - --scroll-off
   value_name: LINES
   value_kind: Required
+  optional_join: equals
   group: Interface
   description: 'Number of screen lines to keep above or below when scrolling to the top or to the bottom (default: 0)'
   provenance:
@@ -176,6 +183,7 @@ flags:
   - --hscroll-off
   value_name: COLS
   value_kind: Required
+  optional_join: equals
   group: Interface
   description: 'Number of screen columns to keep to the right of the highlighted substring (default: 10)'
   provenance:
@@ -192,6 +200,7 @@ flags:
   - --jump-labels
   value_name: CHARS
   value_kind: Required
+  optional_join: equals
   group: Interface
   description: Label characters for jump and jump-accept
   provenance:
@@ -201,6 +210,7 @@ flags:
   - --height
   value_name: '[~]HEIGHT[%]'
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: Display fzf window below the cursor with the given height instead of using fullscreen. If prefixed with '~', fzf will determine the height according to the input size.
   provenance:
@@ -210,6 +220,7 @@ flags:
   - --min-height
   value_name: HEIGHT
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Minimum height when --height is given in percent (default: 10)'
   provenance:
@@ -219,6 +230,7 @@ flags:
   - --layout
   value_name: LAYOUT
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Choose layout: [default|reverse|reverse-list]'
   provenance:
@@ -238,6 +250,7 @@ flags:
   - --border-label
   value_name: LABEL
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: Label to print on the border
   provenance:
@@ -247,6 +260,7 @@ flags:
   - --border-label-pos
   value_name: COL
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Position of the border label [POSITIVE_INTEGER: columns from left| NEGATIVE_INTEGER: columns from right][:bottom] (default: 0 or center)'
   provenance:
@@ -256,6 +270,7 @@ flags:
   - --margin
   value_name: MARGIN
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: Screen margin (TRBL | TB,RL | T,RL,B | T,R,B,L)
   provenance:
@@ -265,6 +280,7 @@ flags:
   - --padding
   value_name: PADDING
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: Padding inside border (TRBL | TB,RL | T,RL,B | T,R,B,L)
   provenance:
@@ -274,6 +290,7 @@ flags:
   - --info
   value_name: STYLE
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: Finder info style [default|right|hidden|inline[:SEPARATOR]|inline-right]
   provenance:
@@ -283,6 +300,7 @@ flags:
   - --separator
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: String to form horizontal separator on info line
   provenance:
@@ -316,6 +334,7 @@ flags:
   - --prompt
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Input prompt (default: ''> '')'
   provenance:
@@ -325,6 +344,7 @@ flags:
   - --pointer
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Pointer to the current line (default: ''>'')'
   provenance:
@@ -334,6 +354,7 @@ flags:
   - --marker
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Multi-select marker (default: ''>'')'
   provenance:
@@ -343,6 +364,7 @@ flags:
   - --header
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: String to print as header
   provenance:
@@ -352,6 +374,7 @@ flags:
   - --header-lines
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: The first N lines of the input are treated as header
   provenance:
@@ -368,6 +391,7 @@ flags:
   - --ellipsis
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Layout
   description: 'Ellipsis to show when line is truncated (default: ''..'')'
   provenance:
@@ -384,6 +408,7 @@ flags:
   - --tabstop
   value_name: SPACES
   value_kind: Required
+  optional_join: equals
   group: Display
   description: 'Number of spaces for a tab character (default: 8)'
   provenance:
@@ -393,6 +418,7 @@ flags:
   - --color
   value_name: COLSPEC
   value_kind: Required
+  optional_join: equals
   group: Display
   description: Base scheme (dark|light|16|bw) and/or custom colors
   provenance:
@@ -409,6 +435,7 @@ flags:
   - --history
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   group: History
   description: History file
   provenance:
@@ -418,6 +445,7 @@ flags:
   - --history-size
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: History
   description: 'Maximum number of history entries (default: 1000)'
   provenance:
@@ -427,6 +455,7 @@ flags:
   - --preview
   value_name: COMMAND
   value_kind: Required
+  optional_join: equals
   group: Preview
   description: Command to preview highlighted line ({})
   provenance:
@@ -436,6 +465,7 @@ flags:
   - --preview-window
   value_name: OPT
   value_kind: Required
+  optional_join: equals
   group: Preview
   description: 'Preview window layout (default: right:50%) [up|down|left|right][,SIZE[%]] [,[no]wrap][,[no]cycle][,[no]follow][,[no]hidden] [,border-BORDER_OPT] [,+SCROLL[OFFSETS][/DENOM]][,~HEADER_LINES] [,default][,<SIZE_THRESHOLD(ALTERNATIVE_LAYOUT)]'
   provenance:
@@ -445,6 +475,7 @@ flags:
   - --preview-label
   value_name: LABEL
   value_kind: Required
+  optional_join: equals
   group: Preview
   provenance:
     sources:
@@ -453,6 +484,7 @@ flags:
   - --preview-label-pos
   value_name: N
   value_kind: Required
+  optional_join: equals
   group: Preview
   description: Same as --border-label and --border-label-pos, but for preview window
   provenance:
@@ -463,6 +495,7 @@ flags:
   - --query
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Scripting
   description: Start the finder with the given query
   provenance:
@@ -489,6 +522,7 @@ flags:
   - --filter
   value_name: STR
   value_kind: Required
+  optional_join: equals
   group: Scripting
   description: Filter mode. Do not start interactive finder.
   provenance:
@@ -505,6 +539,7 @@ flags:
   - --expect
   value_name: KEYS
   value_kind: Required
+  optional_join: equals
   group: Scripting
   description: Comma-separated list of keys to complete fzf
   provenance:

@@ -15,5 +15,5 @@ POSITIONALS (1) ─────────────────────�
 FLAGS (3) ──────────────────────────────────────────────────────────────────
 -h, --help                print this message and exit
 -V, --version             print the version information and exit
-    --boot-directory DIR  expect GRUB images under the directory DIR/grub
+    --boot-directory=DIR  expect GRUB images under the directory DIR/grub
                           instead of the /boot/grub directory

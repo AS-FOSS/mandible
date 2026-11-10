@@ -13,6 +13,7 @@ flags:
   - --console
   value_name: DEV
   value_kind: Required
+  optional_join: equals
   description: the console device to be used.
   provenance:
     sources:

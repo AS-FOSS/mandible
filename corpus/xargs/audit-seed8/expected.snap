@@ -26,6 +26,7 @@ flags:
   - --arg-file
   value_name: FILE
   value_kind: Required
+  optional_join: equals
   description: read arguments from FILE, not standard input
   provenance:
     sources:
@@ -35,6 +36,7 @@ flags:
   - --delimiter
   value_name: CHARACTER
   value_kind: Required
+  optional_join: equals
   description: items in input stream are separated by CHARACTER, not by whitespace; disables quote and backslash processing and logical EOF processing
   provenance:
     sources:
@@ -80,6 +82,7 @@ flags:
   - --max-lines
   value_name: MAX-LINES
   value_kind: Required
+  optional_join: equals
   description: use at most MAX-LINES non-blank input lines per command line
   provenance:
     sources:
@@ -98,6 +101,7 @@ flags:
   - --max-args
   value_name: MAX-ARGS
   value_kind: Required
+  optional_join: equals
   description: use at most MAX-ARGS arguments per command line
   provenance:
     sources:
@@ -114,6 +118,7 @@ flags:
   - --max-procs
   value_name: MAX-PROCS
   value_kind: Required
+  optional_join: equals
   description: run at most MAX-PROCS processes at a time
   provenance:
     sources:
@@ -129,6 +134,7 @@ flags:
   - --process-slot-var
   value_name: VAR
   value_kind: Required
+  optional_join: equals
   description: set environment variable VAR in child processes
   provenance:
     sources:
@@ -145,6 +151,7 @@ flags:
   - --max-chars
   value_name: MAX-CHARS
   value_kind: Required
+  optional_join: equals
   description: limit length of command line to MAX-CHARS
   provenance:
     sources:

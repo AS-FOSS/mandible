@@ -83,6 +83,7 @@ flags:
   - --format
   value_name: FORMAT
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Use the output format FORMAT. FORMAT can be `bsd', `sysv', `posix' or 'just-symbols'. The default is `bsd'
   provenance:
@@ -100,6 +101,7 @@ flags:
   - --ifunc-chars
   value_name: CHARS
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Characters to use when displaying ifunc symbols
   provenance:
@@ -218,6 +220,7 @@ flags:
   - --radix
   value_name: RADIX
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Use RADIX for printing symbol values
   provenance:
@@ -227,6 +230,7 @@ flags:
   - --target
   value_name: BFDNAME
   value_kind: Required
+  optional_join: equals
   group: 'The options are:'
   description: Specify the target object format as BFDNAME
   provenance:
@@ -251,6 +255,7 @@ flags:
 - spellings:
   - --unicode
   value_kind: Required
+  optional_join: equals
   choices:
   - default
   - show

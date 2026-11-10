@@ -38,6 +38,7 @@ flags:
   - -g
   value_name: GN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'GN is GROUP NUMBER to set in cdb (def: 0)'
   provenance:
@@ -56,6 +57,7 @@ flags:
   - -i
   value_name: IF
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: IF is a file containing a compare buffer and optionally a write buffer (when --inw=WF is not given)
   provenance:
@@ -66,6 +68,7 @@ flags:
   - -C
   value_name: IF
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: The same as the --in option
   provenance:
@@ -76,6 +79,7 @@ flags:
   - -D
   value_name: WF
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: WF is a file containing a write buffer
   provenance:
@@ -86,6 +90,7 @@ flags:
   - -l
   value_name: LBA
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: LBA of the first block to compare and write
   provenance:
@@ -96,6 +101,7 @@ flags:
   - -n
   value_name: NUM
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'number of blocks to compare/write (def: 1)'
   provenance:
@@ -114,6 +120,7 @@ flags:
   - -t
   value_name: TO
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'timeout for the command (def: 60 secs)'
   provenance:
@@ -140,6 +147,7 @@ flags:
   - -w
   value_name: WP
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: 'write protect information (def: 0)'
   provenance:
@@ -150,6 +158,7 @@ flags:
   - -x
   value_name: LEN
   value_kind: Required
+  optional_join: equals
   group: 'where:'
   description: number of bytes to transfer. Default is (2 * NUM * 512) or 1024 when NUM is 1
   provenance:
