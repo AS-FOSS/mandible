@@ -2339,6 +2339,35 @@ fn locate_usage_start(
     (labelled_usage_start, unlabelled_synopsis_start, usage_start)
 }
 
+/// Adds each usage-derived flag the block scan did not already recover and
+/// returns the ones it left out, for [`usage_word_flags::add_unlisted`].
+fn admit_usage_flags(usage_lines: &[String], result: &mut ParsedHelp) -> Vec<Entity> {
+    let mut dropped = Vec::new();
+    let cut_forms = usage_tab_table::flag_lines(usage_lines);
+    for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(usage_lines)) {
+        if result.flags.len() >= MAX_RECOVERED_ENTRIES {
+            break;
+        }
+        if !flag_spelling_already_present(&flag, &result.flags)
+            || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
+        {
+            result.flags.push(flag);
+        } else {
+            dropped.push(flag);
+        }
+        // else: this spelling already names a flag the block scan
+        // recovered, so the usage-derived, always-undescribed
+        // duplicate is not added. "Let the described version win"
+        // taken literally: the existing entry is never touched.
+        // `usage_flag_names_a_new_literal_value` is the one exception
+        // (S-147): a real, distinct literal value still gets added
+        // for `merge_entity_bucket` to union later, rather than
+        // silently replaced by whichever entity happened to land
+        // first.
+    }
+    dropped
+}
+
 fn parse_body(
     raw: &str,
     profile: Option<&FrameworkProfile>,
@@ -2576,28 +2605,7 @@ fn parse_body(
     // this recovers.
     let mut dropped_usage_flags: Vec<Entity> = Vec::new();
     if !usage_lines.is_empty() {
-        let cut_forms = usage_tab_table::flag_lines(&usage_lines);
-        for flag in extract_usage_flags(cut_forms.as_deref().unwrap_or(&usage_lines)) {
-            if result.flags.len() >= MAX_RECOVERED_ENTRIES {
-                break;
-            }
-            if !flag_spelling_already_present(&flag, &result.flags)
-                || usage_flag_names_a_new_literal_value(&flag, &result.leading_value_recoveries)
-            {
-                result.flags.push(flag);
-            } else {
-                dropped_usage_flags.push(flag);
-            }
-            // else: this spelling already names a flag the block scan
-            // recovered, so the usage-derived, always-undescribed
-            // duplicate is not added. "Let the described version win"
-            // taken literally: the existing entry is never touched.
-            // `usage_flag_names_a_new_literal_value` is the one exception
-            // (S-147): a real, distinct literal value still gets added
-            // for `merge_entity_bucket` to union later, rather than
-            // silently replaced by whichever entity happened to land
-            // first.
-        }
+        dropped_usage_flags = admit_usage_flags(&usage_lines, &mut result);
         usage_word_flags::repair(&usage_lines, raw, &mut result.flags);
         per_form::apply(&usage_lines, &mut result.flags, &mut result.positionals);
         usage_tab_table::attach_descriptions(&usage_lines, &mut result.flags);
