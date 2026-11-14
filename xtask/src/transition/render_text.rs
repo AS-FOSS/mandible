@@ -30,6 +30,7 @@ pub fn render_text(t: &Transition) -> String {
     out.push_str(&text_preamble(t));
     out.push_str(&text_status_transitions_section(t));
     out.push_str(&text_flag_losses_section(t));
+    out.push_str(&text_flag_merges_section(t));
     out.push_str(&text_flag_gains_section(t));
     out.push_str(&text_subcommand_losses_section(t));
     out.push_str(&text_subcommand_gains_section(t));
@@ -115,6 +116,20 @@ fn text_flag_losses_section(t: &Transition) -> String {
             d.after,
             d.delta()
         ));
+    }
+    out.push('\n');
+    out
+}
+
+/// The `# flag rows merged` section: row-count drops where every spelling
+/// is still carried, so no flag was lost.
+fn text_flag_merges_section(t: &Transition) -> String {
+    let mut out = format!(
+        "# flag rows merged, no spelling lost: {} tool(s) (the regroups are under field-level changes)\n",
+        t.flag_merges.len()
+    );
+    for d in &t.flag_merges {
+        out.push_str(&format!("  {}: {} -> {} rows\n", d.tool, d.before, d.after));
     }
     out.push('\n');
     out
@@ -260,6 +275,10 @@ fn text_field_level_section(t: &Transition) -> String {
         }
         if !fd.flags_removed.is_empty() {
             parts.push(format!("flags removed: {}", fd.flags_removed.join(", ")));
+        }
+        if !fd.regrouped.is_empty() {
+            let lines: Vec<String> = fd.regrouped.iter().map(super::regroup::describe).collect();
+            parts.push(format!("regrouped: {}", lines.join(", ")));
         }
         if !fd.positionals_added.is_empty() {
             parts.push(format!(

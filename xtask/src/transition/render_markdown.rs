@@ -24,6 +24,7 @@ pub fn render_markdown(t: &Transition) -> String {
     out.push_str(&md_preamble(t));
     out.push_str(&md_status_transitions_section(t));
     out.push_str(&md_flag_losses_section(t));
+    out.push_str(&md_flag_merges_section(t));
     out.push_str(&md_flag_gains_section(t));
     out.push_str(&md_subcommand_losses_section(t));
     out.push_str(&md_subcommand_gains_section(t));
@@ -154,6 +155,35 @@ fn md_flag_losses_section(t: &Transition) -> String {
         }
         out.push('\n');
     }
+    out
+}
+
+/// The "### Flag rows merged" section: row-count drops where every
+/// spelling is still carried, so no flag was lost.
+fn md_flag_merges_section(t: &Transition) -> String {
+    if t.flag_merges.is_empty() {
+        return String::new();
+    }
+    let mut out = format!(
+        "### Flag rows merged, no spelling lost\n\n**{} tool(s).** The regroups are listed \
+         under field-level changes.\n\n| tool | rows before | rows after |\n|---|---|---|\n",
+        t.flag_merges.len()
+    );
+    for d in t.flag_merges.iter().take(TABLE_ROW_LIMIT) {
+        out.push_str(&format!(
+            "| {} | {} | {} |\n",
+            escape_md(d.tool),
+            d.before,
+            d.after
+        ));
+    }
+    if t.flag_merges.len() > TABLE_ROW_LIMIT {
+        out.push_str(&format!(
+            "\n_{} more not shown._\n",
+            t.flag_merges.len() - TABLE_ROW_LIMIT
+        ));
+    }
+    out.push('\n');
     out
 }
 
@@ -372,6 +402,12 @@ fn md_field_level_section(t: &Transition) -> String {
             }
             if !fd.flags_removed.is_empty() {
                 parts.push(format!("flags removed: {}", capped_join(&fd.flags_removed)));
+            }
+            if !fd.regrouped.is_empty() {
+                let lines: Vec<String> =
+                    fd.regrouped.iter().map(super::regroup::describe).collect();
+                let refs: Vec<&str> = lines.iter().map(String::as_str).collect();
+                parts.push(format!("regrouped: {}", capped_join(&refs)));
             }
             if !fd.positionals_added.is_empty() {
                 parts.push(format!(

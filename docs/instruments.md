@@ -39,7 +39,13 @@ scoreboard's `#fp2` entity ids (S-154), so it cannot be derived from a V1
 `#fp` scoreboard or a pair missing a fingerprint footer entirely, reported
 honestly as unmeasured rather than as "no positional change". It also
 names the tools whose root description or usage lines changed, from a hash of
-each on the `#fp2` line; a scoreboard without the hashes is skipped. It answers
+each on the `#fp2` line; a scoreboard without the hashes is skipped.
+An entity's key holds all its spellings, so folding `-a` and `--all` into
+one row, or splitting one, changes every key it touches. Removed and added
+rows that share a spelling are therefore reported together as one regroup,
+which names any spelling, description, values list or value name that no
+new row carries. A tool whose flag rows dropped while every spelling
+survived is listed as rows merged, not as a flag loss. It answers
 "which specific tools did this
 change touch", the question the fleet-wide aggregate cannot answer
 because a four-tool regression moves it by hundredths of a percent. It

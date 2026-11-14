@@ -24,6 +24,7 @@
 mod diff;
 mod fingerprint;
 mod parse;
+mod regroup;
 mod render_markdown;
 mod render_text;
 

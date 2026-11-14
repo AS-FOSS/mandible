@@ -4,6 +4,7 @@
 //! [`super::render_markdown`], never disagreeing about what changed.
 
 use super::fingerprint::{is_positional_id, ParsedFingerprint, EMPTY_FINGERPRINT};
+use super::regroup::{self, Regroup};
 use super::{FingerprintFormat, ParsedScoreboard};
 
 /// One matched tool's flag-count comparison. Kept as a signed delta
@@ -98,6 +99,9 @@ pub(super) struct FieldDiff<'a> {
     ///
     /// [`flags_added`]: FieldDiff::flags_added
     pub(super) flags_removed: Vec<&'a str>,
+    /// Removed and added rows that share spellings (a fold or a split),
+    /// taken out of the add/remove lists above; each names what it lost.
+    pub(super) regrouped: Vec<Regroup<'a>>,
     /// A positional entity id present on only the "after" side.
     pub(super) positionals_added: Vec<&'a str>,
     /// A positional entity id present on only the "before" side.
@@ -134,6 +138,7 @@ impl FieldDiff<'_> {
     fn is_empty(&self) -> bool {
         self.flags_added.is_empty()
             && self.flags_removed.is_empty()
+            && self.regrouped.is_empty()
             && self.positionals_added.is_empty()
             && self.positionals_removed.is_empty()
             && self.description_changed.is_empty()
@@ -162,6 +167,11 @@ pub struct Transition<'a> {
     pub(super) status_transitions: Vec<StatusTransition<'a>>,
     pub(super) flag_gains: Vec<FlagDelta<'a>>,
     pub(super) flag_losses: Vec<FlagDelta<'a>>,
+    /// Row-count drops where both fingerprints show every spelling still
+    /// present: rows merged, nothing lost. Kept apart from
+    /// [`Transition::flag_losses`]; the regroups themselves are on the
+    /// tool's [`FieldDiff`].
+    pub(super) flag_merges: Vec<FlagDelta<'a>>,
     /// Subcommand-count gains and losses, reported the same way flags are:
     /// two separate totals, never netted (spec §13.4 rule 2). See
     /// [`SubcommandDelta`]'s doc comment for why this column needed no
@@ -217,6 +227,7 @@ impl Transition<'_> {
             && self.status_transitions.is_empty()
             && self.flag_gains.is_empty()
             && self.flag_losses.is_empty()
+            && self.flag_merges.is_empty()
             && self.subcommand_gains.is_empty()
             && self.subcommand_losses.is_empty()
             && self.positional_gains.is_empty()
@@ -267,6 +278,7 @@ fn per_tool_fingerprint_diff<'a>(
                     tool,
                     flags_added: Vec::new(),
                     flags_removed: Vec::new(),
+                    regrouped: Vec::new(),
                     positionals_added: Vec::new(),
                     positionals_removed: Vec::new(),
                     description_changed: Vec::new(),
@@ -331,6 +343,7 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     let mut status_transitions = Vec::new();
     let mut flag_gains = Vec::new();
     let mut flag_losses = Vec::new();
+    let mut flag_merges = Vec::new();
     let mut subcommand_gains = Vec::new();
     let mut subcommand_losses = Vec::new();
     let mut positional_gains = Vec::new();
@@ -370,6 +383,8 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
             };
             if d.delta() > 0 {
                 flag_gains.push(d);
+            } else if every_spelling_kept(before, after, tool) {
+                flag_merges.push(d);
             } else {
                 flag_losses.push(d);
             }
@@ -433,6 +448,7 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
     // "the bar is losses, not net" extends to ranking: the tool that lost
     // the most is the one worth looking at first.
     flag_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
+    flag_merges.sort_by_key(|d| (d.delta(), d.tool.to_string()));
     flag_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
     subcommand_losses.sort_by_key(|d| (d.delta(), d.tool.to_string()));
     subcommand_gains.sort_by_key(|d| (std::cmp::Reverse(d.delta()), d.tool.to_string()));
@@ -450,6 +466,7 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         status_transitions,
         flag_gains,
         flag_losses,
+        flag_merges,
         subcommand_gains,
         subcommand_losses,
         positional_gains,
@@ -457,6 +474,16 @@ pub fn diff<'a>(before: &'a ParsedScoreboard, after: &'a ParsedScoreboard) -> Tr
         positional_diff_unmeasured,
         field_diffs,
         field_diff_unmeasured,
+    }
+}
+
+/// True when both scoreboards fingerprint `tool` and every flag spelling
+/// the before side carries is still carried after, under the same
+/// `path::kind`. A row-count drop is then rows merging, not flags lost.
+fn every_spelling_kept(before: &ParsedScoreboard, after: &ParsedScoreboard, tool: &str) -> bool {
+    match (before.fingerprints.get(tool), after.fingerprints.get(tool)) {
+        (Some(b), Some(a)) => regroup::flag_spellings(b).is_subset(&regroup::flag_spellings(a)),
+        _ => false,
     }
 }
 
@@ -526,6 +553,14 @@ pub(super) fn field_diff<'a>(
         }
     }
 
+    let mut regrouped = regroup::extract(before, after, &mut flags_removed, &mut flags_added);
+    regrouped.extend(regroup::extract(
+        before,
+        after,
+        &mut positionals_removed,
+        &mut positionals_added,
+    ));
+
     let subcommands_added = after
         .subcommands
         .iter()
@@ -559,6 +594,7 @@ pub(super) fn field_diff<'a>(
         tool,
         flags_added,
         flags_removed,
+        regrouped,
         positionals_added,
         positionals_removed,
         description_changed,
