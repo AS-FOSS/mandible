@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-14
+
 ### Added
 
 - [S-256] When a tool's `--help` answer gives nothing and quotes the invocation that prints help (`try "tc -help"`), mandible runs that invocation, at most twice, if every word in it is `--help`, `-help`, `-h`, `help`, `all` after `--help`, or a command the text lists; `tc`, `genl` and `rtmon` show their pages.
